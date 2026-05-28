@@ -31,7 +31,12 @@
     "maatwebsite/excel": "^3.1",
     "mpdf/mpdf": "^8.2",
     "razorpay/razorpay": "^2.9",
-    "laravel/pulse": "^1.7"
+    "laravel/pulse": "^1.7",
+    "laravel/sanctum": "^4.3",
+    "spatie/laravel-permission": "^6.25",
+    "laravel/horizon": "^5.47",
+    "spatie/laravel-query-builder": "^6.4",
+    "spatie/laravel-activitylog": "^4.12"
   },
   "require-dev": {
     "laravel/boost": "^1.1",

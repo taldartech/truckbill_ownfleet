@@ -8,44 +8,14 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('truck-owners:reset-declarations --apply --no-interaction')
-    ->yearlyOn(4, 1, '00:00')
-    ->timezone('Asia/Kolkata')
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Reset all truck owner declarations to "not given" and recalculate TDS at the start of financial year');
-
-Schedule::command('backup:email-daily-database --no-interaction')
-    ->dailyAt('01:00')
-    ->timezone((string) config('database_backup.schedule_timezone'))
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Email the latest daily database backup to configured recipients');
-
-Schedule::command('invoice:send-due-reminders --days=3,1 --due-days=7 --no-interaction')
+Schedule::command('compliance:check-document-expiry --no-interaction')
     ->dailyAt('08:00')
-    ->timezone('Asia/Kolkata')
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Send invoice due reminders (3d, 1d before due date) to customers');
+    ->timezone('Asia/Kolkata');
 
-Schedule::command('eway:send-expiry-reminders --days=1 --no-interaction')
+Schedule::command('compliance:check-emi-due --no-interaction')
+    ->dailyAt('08:05')
+    ->timezone('Asia/Kolkata');
+
+Schedule::command('compliance:check-challan-pending --no-interaction')
     ->dailyAt('08:10')
-    ->timezone('Asia/Kolkata')
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Send E-Way expiry reminders to office roles');
-
-Schedule::command('company:send-plan-lifecycle-reminders --expiring-days=30,15,10 --no-interaction')
-    ->dailyAt('08:20')
-    ->timezone('Asia/Kolkata')
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Send company plan expiring/expired lifecycle reminders');
-
-Schedule::command('company:send-credit-low-reminders --thresholds=100,50,25 --no-interaction')
-    ->dailyAt('08:30')
-    ->timezone('Asia/Kolkata')
-    ->withoutOverlapping()
-    ->onOneServer()
-    ->description('Send low LR credit reminders to company owners and admins');
+    ->timezone('Asia/Kolkata');

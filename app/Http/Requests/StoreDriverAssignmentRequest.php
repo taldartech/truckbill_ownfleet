@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreDriverAssignmentRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
+            'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
+            'assigned_from' => ['required', 'date'],
+            'assigned_to' => ['nullable', 'date', 'after_or_equal:assigned_from'],
+            'is_primary' => ['nullable', 'boolean'],
+        ];
+    }
+}
