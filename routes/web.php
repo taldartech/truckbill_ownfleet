@@ -19,6 +19,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\PumpController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SimpleUiController;
 use App\Http\Controllers\TransporterBankAccountController;
 use App\Http\Controllers\TransporterController;
 use App\Http\Controllers\TransporterDashboardController;
@@ -128,6 +129,14 @@ Route::middleware(['auth.blocked'])->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])
         ->middleware(['auth.blocked', 'verified'])
         ->name('dashboard');
+
+    Route::middleware(['role:admin,moderator,super_admin', 'company.context'])->prefix('simple')->name('simple.')->group(function () {
+        Route::get('/dashboard', [SimpleUiController::class, 'dashboard'])->name('dashboard');
+        Route::get('/operations/receipts', [SimpleUiController::class, 'receiptsIndex'])->name('operations.receipts.index');
+        Route::get('/operations/receipts/create', [SimpleUiController::class, 'receiptsCreate'])->name('operations.receipts.create');
+        Route::get('/billing', [SimpleUiController::class, 'billingIndex'])->name('billing.index');
+        Route::get('/reports', [SimpleUiController::class, 'reportsIndex'])->name('reports.index');
+    });
 
     // Consignee Management
     Route::middleware(['role:admin,moderator,super_admin', 'company.context'])->group(function () {
