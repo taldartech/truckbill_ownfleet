@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Driver;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDriverRequest extends FormRequest
@@ -11,7 +12,7 @@ class StoreDriverRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Driver::class) ?? false;
     }
 
     /**

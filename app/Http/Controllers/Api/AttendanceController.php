@@ -3,31 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Attendance;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\MarkAttendanceRequest;
 use App\Http\Resources\AttendanceResource;
+use App\Modules\DriverManagement\Services\AttendanceService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-class AttendanceController
+class AttendanceController extends Controller
 {
+    public function __construct(private readonly AttendanceService $attendanceService)
+    {
+    }
+
     public function index(): AnonymousResourceCollection
     {
-        return AttendanceResource::collection(Attendance::query()->latest('attendance_date')->paginate());
+        $this->authorize('viewAny', Attendance::class);
+
+        return AttendanceResource::collection($this->attendanceService->paginate());
     }
 
     public function store(MarkAttendanceRequest $request): AttendanceResource
     {
         $payload = $request->validated();
-        $payload['wage_owner_driver_id'] = $payload['primary_driver_id'];
         $payload['created_by'] = $request->user()?->id;
         $payload['updated_by'] = $request->user()?->id;
 
-        $attendance = Attendance::query()->updateOrCreate(
-            [
-                'vehicle_id' => $payload['vehicle_id'],
-                'attendance_date' => $payload['attendance_date'],
-            ],
-            $payload
-        );
+        $attendance = $this->attendanceService->mark($payload);
 
         return new AttendanceResource($attendance);
     }
@@ -37,7 +38,9 @@ class AttendanceController
      */
     public function show(Attendance $attendance): AttendanceResource
     {
-        return new AttendanceResource($attendance);
+        $this->authorize('view', $attendance);
+
+        return new AttendanceResource($attendance->load(['primaryDriver', 'temporaryDriver', 'wageOwnerDriver']));
     }
 
     /**
@@ -46,11 +49,10 @@ class AttendanceController
     public function update(MarkAttendanceRequest $request, Attendance $attendance): AttendanceResource
     {
         $payload = $request->validated();
-        $payload['wage_owner_driver_id'] = $payload['primary_driver_id'];
         $payload['updated_by'] = $request->user()?->id;
-        $attendance->update($payload);
+        $attendance = $this->attendanceService->update($attendance, $payload);
 
-        return new AttendanceResource($attendance->fresh());
+        return new AttendanceResource($attendance);
     }
 
     /**
@@ -58,7 +60,8 @@ class AttendanceController
      */
     public function destroy(Attendance $attendance): \Illuminate\Http\Response
     {
-        $attendance->delete();
+        $this->authorize('delete', $attendance);
+        $this->attendanceService->delete($attendance);
 
         return response()->noContent();
     }

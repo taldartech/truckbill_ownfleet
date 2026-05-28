@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Attendance;
 use Illuminate\Foundation\Http\FormRequest;
 
 class MarkAttendanceRequest extends FormRequest
@@ -11,7 +12,14 @@ class MarkAttendanceRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        /** @var Attendance|null $attendance */
+        $attendance = $this->route('attendance');
+
+        if ($attendance !== null) {
+            return $this->user()?->can('update', $attendance) ?? false;
+        }
+
+        return $this->user()?->can('create', Attendance::class) ?? false;
     }
 
     /**

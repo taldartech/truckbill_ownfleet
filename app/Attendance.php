@@ -37,4 +37,19 @@ class Attendance extends Model
     {
         return $this->belongsTo(Vehicle::class);
     }
+
+    public function primaryDriver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class, 'primary_driver_id');
+    }
+
+    public function temporaryDriver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class, 'temporary_driver_id');
+    }
+
+    public function wageOwnerDriver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class, 'wage_owner_driver_id');
+    }
 }

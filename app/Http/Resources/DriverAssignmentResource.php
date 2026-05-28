@@ -14,6 +14,17 @@ class DriverAssignmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->id,
+            'tenant_id' => $this->tenant_id,
+            'driver_id' => $this->driver_id,
+            'vehicle_id' => $this->vehicle_id,
+            'assigned_from' => $this->assigned_from?->toDateString(),
+            'assigned_to' => $this->assigned_to?->toDateString(),
+            'is_primary' => (bool) $this->is_primary,
+            'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
+            'driver' => new DriverResource($this->whenLoaded('driver')),
+        ];
     }
 }

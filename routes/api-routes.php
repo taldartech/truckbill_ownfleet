@@ -19,7 +19,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::apiResource('vehicles', VehicleController::class);
-    Route::apiResource('drivers', DriverController::class);
+                Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
+                Route::apiResource('drivers', DriverController::class);
     Route::apiResource('driver-assignments', DriverAssignmentController::class);
     Route::apiResource('attendances', AttendanceController::class);
     Route::apiResource('trips', TripController::class);

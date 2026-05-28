@@ -43,4 +43,9 @@ class Driver extends Model
     {
         return $this->hasMany(DriverAssignment::class);
     }
+
+    public function primaryAttendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'primary_driver_id');
+    }
 }

@@ -43,4 +43,21 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Tenant::class);
     }
+
+    public function hasRole(string $role): bool
+    {
+        return strtoupper((string) $this->role) === strtoupper($role);
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        $normalized = array_map(static fn (string $role): string => strtoupper($role), $roles);
+
+        return in_array(strtoupper((string) $this->role), $normalized, true);
+    }
+
+    public function canActAsAdmin(): bool
+    {
+        return $this->hasAnyRole(['ADMIN', 'SUPER_ADMIN', 'FLEET_MANAGER']);
+    }
 }

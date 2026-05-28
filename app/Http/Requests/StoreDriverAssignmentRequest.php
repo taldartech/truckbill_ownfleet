@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\DriverAssignment;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDriverAssignmentRequest extends FormRequest
@@ -11,7 +12,14 @@ class StoreDriverAssignmentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        /** @var DriverAssignment|null $driverAssignment */
+        $driverAssignment = $this->route('driverAssignment');
+
+        if ($driverAssignment !== null) {
+            return $this->user()?->can('update', $driverAssignment) ?? false;
+        }
+
+        return $this->user()?->can('create', DriverAssignment::class) ?? false;
     }
 
     /**

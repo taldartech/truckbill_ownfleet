@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Driver;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDriverRequest extends FormRequest
@@ -11,7 +12,14 @@ class UpdateDriverRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        /** @var Driver|null $driver */
+        $driver = $this->route('driver');
+
+        if ($driver === null) {
+            return false;
+        }
+
+        return $this->user()?->can('update', $driver) ?? false;
     }
 
     /**
