@@ -52,7 +52,10 @@ Route::get('/ui/{view?}', function (?string $view = null) use ($previewData) {
 
     foreach ($viewsToTry as $viewName) {
         if (view()->exists($viewName)) {
-            return view($viewName, $previewData($viewName));
+            return view('ui.preview', [
+                'previewView' => $viewName,
+                'previewData' => $previewData($viewName),
+            ]);
         }
     }
 
@@ -71,7 +74,10 @@ Route::get('/{path?}', function (?string $path = null) use ($previewData) {
 
     foreach ($viewsToTry as $name) {
         if (view()->exists($name)) {
-            return view($name, $previewData($name));
+            return view('ui.preview', [
+                'previewView' => $name,
+                'previewData' => $previewData($name),
+            ]);
         }
     }
 
