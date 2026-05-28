@@ -31,6 +31,25 @@ $previewData = static function (string $viewName): array {
         ];
     }
 
+    if (str_starts_with($viewName, 'invoices.')) {
+        return [
+            'totalInvoices' => 0,
+            'paidCount' => 0,
+            'unpaidCount' => 0,
+            'totalAmount' => 0,
+        ];
+    }
+
+    if (str_starts_with($viewName, 'freight_bookings.')) {
+        return [
+            'startDate' => '',
+            'endDate' => '',
+            'paymentTypes' => collect(),
+            'paymentModes' => collect(),
+            'pumps' => collect(),
+        ];
+    }
+
     return [];
 };
 
@@ -98,6 +117,131 @@ Route::get('/trucks/create', function () {
 
     return redirect('/ui/trucks/index');
 })->name('trucks.create');
+
+Route::get('/drivers/data', function () {
+    return response()->json([
+        'draw' => (int) request('draw', 1),
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+    ]);
+})->name('drivers.data');
+
+Route::get('/drivers', function () {
+    if (request()->expectsJson() || request()->ajax()) {
+        return response()->json([
+            'draw' => (int) request('draw', 1),
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => [],
+        ]);
+    }
+
+    return redirect('/ui/drivers/index');
+})->name('drivers.index');
+
+Route::get('/drivers/create', function () {
+    if (view()->exists('drivers.create')) {
+        return view('ui.preview', [
+            'previewView' => 'drivers.create',
+            'previewData' => [],
+        ]);
+    }
+
+    return redirect('/ui/drivers/index');
+})->name('drivers.create');
+
+Route::post('/drivers', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Preview mode only.',
+    ]);
+})->name('drivers.store');
+
+Route::get('/freight_bookings', function () {
+    if (request()->expectsJson() || request()->ajax()) {
+        return response()->json([
+            'draw' => (int) request('draw', 1),
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => [],
+        ]);
+    }
+
+    return redirect('/ui/freight_bookings/index');
+})->name('freight_bookings.index');
+
+Route::get('/freight_bookings/data', function () {
+    return response()->json([
+        'draw' => (int) request('draw', 1),
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+    ]);
+})->name('freight_bookings.datatable');
+
+Route::post('/freight_bookings/voucher-payment', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Preview mode only.',
+    ]);
+})->name('freight_bookings.voucher_payment');
+
+Route::post('/freight_bookings/store_combined_payment', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Preview mode only.',
+    ]);
+})->name('freight_bookings.store_combined_payment');
+
+Route::post('/freight_bookings/bulk-memo-id', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Preview mode only.',
+    ]);
+})->name('freight_bookings.bulk_memo_id');
+
+Route::post('/freight_bookings/payment-history', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [],
+    ]);
+})->name('freight_bookings.payment_history');
+
+Route::post('/voucher_payments', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Preview mode only.',
+    ]);
+})->name('voucher_payments.store');
+
+Route::get('/invoices', function () {
+    if (request()->expectsJson() || request()->ajax()) {
+        return response()->json([
+            'draw' => (int) request('draw', 1),
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => [],
+        ]);
+    }
+
+    return redirect('/ui/invoices/index');
+})->name('invoices.index');
+
+Route::get('/invoices/create', function () {
+    if (view()->exists('invoices.create')) {
+        return view('ui.preview', [
+            'previewView' => 'invoices.create',
+            'previewData' => [],
+        ]);
+    }
+
+    return redirect('/ui/invoices/index');
+})->name('invoices.create');
+
+Route::get('/custom-invoices/create', function () {
+    return redirect('/ui/invoices/index');
+})->name('custom-invoices.create');
 
 Route::post('/assign-owner', function () {
     return response()->json([
