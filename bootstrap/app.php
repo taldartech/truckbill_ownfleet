@@ -10,26 +10,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->appendToGroup('web', \App\Http\Middleware\PreventSearchIndexing::class);
-
-        $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'auth.blocked' => \App\Http\Middleware\CheckBlockMiddleware::class,
-            'company.context' => \App\Http\Middleware\EnsureCompanyContextMiddleware::class,
-            'customer.consignee' => \App\Http\Middleware\EnsureCustomerConsigneeContext::class,
-        ]);
-
-        $middleware->validateCsrfTokens(except: [
-            'api/public/leads',
-            'api/onboarding/send-otp',
-            'api/onboarding/verify-otp',
-            'api/onboard',
-        ]);
-
-        // Note: Single device login check is now included in CheckBlockMiddleware
-        // No need to apply CheckSingleDeviceLogin globally anymore
-    })
+    ->withMiddleware(function (Middleware $middleware): void {})
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
