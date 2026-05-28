@@ -74,7 +74,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    @if (Auth::user()->canActAsAdmin())
+                    @if (auth()->check() && Auth::user()->canActAsAdmin())
                         <button type="button" class="btn btn-edit" id="editTransporterBtn" style="display: none;">
                             <i class="bi bi-pencil"></i> Edit Transporter
                         </button>
