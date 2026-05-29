@@ -18,8 +18,12 @@ class ResolveTenant
     {
         $tenantId = $request->header('X-Tenant-Id');
 
-        if ($tenantId === null && $request->user() !== null) {
-            $tenantId = $request->user()->tenant_id;
+        if ($request->user() !== null) {
+            $request->user()->loadMissing('userRole');
+
+            if ($tenantId === null) {
+                $tenantId = $request->user()->tenant_id;
+            }
         }
 
         TenantContext::setTenantId($tenantId);

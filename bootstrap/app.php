@@ -12,9 +12,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->statefulApi();
+
+        $middleware->validateCsrfTokens(except: [
+            'app/api/*',
+            'logout',
+        ]);
+
         $middleware->alias([
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
         ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\ResolveTenant::class,
+        ]);
+
+        $middleware->redirectGuestsTo('/app/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

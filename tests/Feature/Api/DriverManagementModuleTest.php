@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Driver;
 use App\Tenant;
 use App\User;
+use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -13,6 +14,36 @@ use Tests\TestCase;
 class DriverManagementModuleTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_web_session_can_create_driver_via_stateful_api(): void
+    {
+        $this->seed(\Database\Seeders\UserRoleSeeder::class);
+
+        [$tenant, $user] = $this->createTenantUser('admin');
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect();
+
+        $response = $this
+            ->withHeader('Referer', 'http://127.0.0.1:8001/app/dashboard')
+            ->postJson('/app/api/drivers', [
+                'name' => 'Session Driver',
+                'phone' => '9888888888',
+                'license_number' => 'DL-SESSION',
+                'daily_wage' => 900,
+                'is_active' => true,
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.name', 'Session Driver');
+
+        $this->assertDatabaseHas('drivers', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Session Driver',
+        ]);
+    }
 
     public function test_fleet_manager_can_create_driver_with_uuid_and_tenant_scope(): void
     {
@@ -109,6 +140,19 @@ class DriverManagementModuleTest extends TestCase
         $response->assertJsonMissing(['name' => 'Far Expiring']);
     }
 
+    public function test_driver_update_accepts_numeric_phone_from_json_clients(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $driver = $this->createDriver($tenant, 'Driver Mobile', 500);
+
+        $this->actingAs($user)
+            ->putJson("/app/api/drivers/{$driver->id}", [
+                'phone' => 9766554433,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.phone', '9766554433');
+    }
+
     public function test_driver_role_cannot_create_or_update_driver_records(): void
     {
         [$tenant, $driverUser] = $this->createTenantUser('DRIVER');
@@ -148,7 +192,7 @@ class DriverManagementModuleTest extends TestCase
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
-            'role' => $role,
+            'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
 
         return [$tenant, $user];

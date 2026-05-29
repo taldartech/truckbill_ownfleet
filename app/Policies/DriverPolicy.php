@@ -9,24 +9,35 @@ class DriverPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['ADMIN', 'SUPER_ADMIN', 'FLEET_MANAGER', 'ACCOUNTANT']);
+        return $user->hasAnyRole([
+            'admin',
+            'super_admin',
+            'master_admin',
+            'fleet_manager',
+            'accountant',
+        ]);
     }
 
     public function view(User $user, Driver $driver): bool
     {
         return $user->tenant_id === $driver->tenant_id
-            && $user->hasAnyRole(['ADMIN', 'SUPER_ADMIN', 'FLEET_MANAGER', 'ACCOUNTANT']);
+            && $this->viewAny($user);
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['ADMIN', 'SUPER_ADMIN', 'FLEET_MANAGER']);
+        return $user->hasAnyRole([
+            'admin',
+            'super_admin',
+            'master_admin',
+            'fleet_manager',
+        ]);
     }
 
     public function update(User $user, Driver $driver): bool
     {
         return $user->tenant_id === $driver->tenant_id
-            && $user->hasAnyRole(['ADMIN', 'SUPER_ADMIN', 'FLEET_MANAGER']);
+            && $this->create($user);
     }
 
     public function delete(User $user, Driver $driver): bool

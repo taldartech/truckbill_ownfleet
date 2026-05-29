@@ -51,7 +51,7 @@
     <div class="content">
         <div class="container-fluid">
             @php
-                $userRole = auth()->user()->userRole->name;
+                $userRole = auth()->user()->userRole?->name ?? 'admin';
             @endphp
 
             {{-- MASTER ADMIN DASHBOARD --}}
@@ -67,7 +67,7 @@
                 @include('dashboard.roles.admin')
 
             {{-- MODERATOR DASHBOARD --}}
-            @elseif($userRole === 'moderator' && isset($operationalStats))
+            @elseif($userRole === 'moderator' && isset($operationalStats, $moderatorStats))
                 @include('dashboard.roles.moderator')
 
             {{-- ACCOUNTANT DASHBOARD --}}

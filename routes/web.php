@@ -1,28 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Resources\UserResource;
+use App\Support\DashboardPreviewData;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Route;
 
 $previewData = static function (string $viewName): array {
     if (str_starts_with($viewName, 'dashboard.roles.')) {
-        return [
-            'monthlyStats' => [
-                'total_bookings' => 0,
-                'active_trips' => 0,
-                'pending_lrs' => 0,
-                'delivered_today' => 0,
-                'lrs_pending_invoice' => 0,
-                'eway_bills_expiring_today' => 0,
-                'expired_eway_bills' => 0,
-                'outstanding_amount' => 0,
-            ],
-            'expiredEwayBills' => collect(),
-            'pendingInvoices' => collect(),
-            'invoicePaymentStatuses' => [
-                'pending' => 0,
-                'partial' => 0,
-                'paid' => 0,
-            ],
-        ];
+        return DashboardPreviewData::defaults();
     }
 
     if (str_starts_with($viewName, 'trucks.')) {
@@ -53,24 +41,90 @@ $previewData = static function (string $viewName): array {
     return [];
 };
 
-Route::redirect('/', '/login');
-Route::view('/login', 'auth.login')->name('login');
-Route::post('/login', function () {
-    return redirect('/ui/dashboard/roles/admin');
-});
-Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
-Route::redirect('/dashboard', '/ui/dashboard/roles/admin')->name('dashboard');
-Route::post('/logout', function () {
-    return redirect('/login');
-})->name('logout');
-Route::get('/password/change', function () {
-    return redirect('/ui/auth/forgot-password');
-})->name('password.change');
-Route::post('/password/change', function () {
-    return redirect('/ui/auth/forgot-password');
-})->name('password.change.submit');
+$resolveView = static function (string $viewName) use ($previewData): ?View {
+    if (! view()->exists($viewName)) {
+        return null;
+    }
 
-Route::get('/transporters', function () {
+    $data = $previewData($viewName);
+
+    if (str_starts_with($viewName, 'dashboard.roles.')) {
+        return view('dashboard', $data);
+    }
+
+    return view($viewName, $data);
+};
+
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('app.dashboard')
+        : redirect()->route('app.login');
+});
+
+Route::view('/app/login', 'vue-app')->name('app.login');
+
+Route::get('/app/csrf-token', function (): JsonResponse {
+    return response()->json([
+        'token' => csrf_token(),
+    ]);
+})->name('app.csrf-token');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'create'])->name('login');
+    Route::post('/login', [LoginController::class, 'store']);
+    Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
+});
+
+Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
+    Route::get('/user', function () {
+        $user = auth()->user()?->loadMissing('userRole');
+
+        return response()->json([
+            'user' => $user !== null ? new UserResource($user) : null,
+        ]);
+    })->name('user');
+
+    Route::get('/dashboard/stats', function (): JsonResponse {
+        return response()->json(DashboardPreviewData::defaults());
+    })->name('dashboard.stats');
+
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
+            ->name('drivers.license-expiring');
+        Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
+        Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
+        Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
+        Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
+        Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
+    });
+
+    Route::view('/dashboard', 'vue-app')->name('dashboard');
+    Route::view('/{any}', 'vue-app')->where('any', '.*')->name('spa');
+});
+
+Route::get('/robots.txt', function () {
+    return response("User-agent: *\nDisallow:\n", 200)
+        ->header('Content-Type', 'text/plain; charset=UTF-8');
+});
+
+Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
+    Route::get('/dashboard', function () {
+        return redirect(auth()->user()->dashboardUrl());
+    })->name('dashboard');
+
+    Route::match(['get', 'post'], '/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::get('/password/change', function () {
+        return redirect('/ui/auth/forgot-password');
+    })->name('password.change');
+
+    Route::post('/password/change', function () {
+        return redirect('/ui/auth/forgot-password');
+    })->name('password.change.submit');
+
+    (require __DIR__.'/legacy-stubs.php')();
+
+    Route::get('/transporters', function () {
     if (request()->expectsJson() || request()->ajax()) {
         return response()->json([
             'draw' => (int) request('draw', 1),
@@ -83,16 +137,15 @@ Route::get('/transporters', function () {
     return redirect('/ui/transporters/index');
 })->name('transporters.index');
 
-Route::get('/transporters/create', function () {
-    if (view()->exists('transporters.create')) {
-        return view('ui.preview', [
-            'previewView' => 'transporters.create',
-            'previewData' => [],
-        ]);
-    }
+    Route::get('/transporters/create', function () use ($resolveView) {
+        $view = $resolveView('transporters.create');
 
-    return redirect('/ui/transporters/index');
-})->name('transporters.create');
+        if ($view !== null) {
+            return $view;
+        }
+
+        return redirect('/ui/transporters/index');
+    })->name('transporters.create');
 
 Route::get('/trucks', function () {
     if (request()->expectsJson() || request()->ajax()) {
@@ -107,16 +160,15 @@ Route::get('/trucks', function () {
     return redirect('/ui/trucks/index');
 })->name('trucks.index');
 
-Route::get('/trucks/create', function () {
-    if (view()->exists('trucks.create')) {
-        return view('ui.preview', [
-            'previewView' => 'trucks.create',
-            'previewData' => ['owners' => collect()],
-        ]);
-    }
+    Route::get('/trucks/create', function () use ($resolveView) {
+        $view = $resolveView('trucks.create');
 
-    return redirect('/ui/trucks/index');
-})->name('trucks.create');
+        if ($view !== null) {
+            return $view;
+        }
+
+        return redirect('/ui/trucks/index');
+    })->name('trucks.create');
 
 Route::get('/drivers/data', function () {
     return response()->json([
@@ -228,16 +280,15 @@ Route::get('/invoices', function () {
     return redirect('/ui/invoices/index');
 })->name('invoices.index');
 
-Route::get('/invoices/create', function () {
-    if (view()->exists('invoices.create')) {
-        return view('ui.preview', [
-            'previewView' => 'invoices.create',
-            'previewData' => [],
-        ]);
-    }
+    Route::get('/invoices/create', function () use ($resolveView) {
+        $view = $resolveView('invoices.create');
 
-    return redirect('/ui/invoices/index');
-})->name('invoices.create');
+        if ($view !== null) {
+            return $view;
+        }
+
+        return redirect('/ui/invoices/index');
+    })->name('invoices.create');
 
 Route::get('/custom-invoices/create', function () {
     return redirect('/ui/invoices/index');
@@ -267,50 +318,44 @@ Route::get('/reports/transporter-master-export', function () {
     return redirect('/ui/transporters/index');
 })->name('reports.transporter-master-export');
 
-Route::get('/robots.txt', function () {
-    return response("User-agent: *\nDisallow:\n", 200)
-        ->header('Content-Type', 'text/plain; charset=UTF-8');
+    Route::get('/ui/{view?}', function (?string $view = null) use ($resolveView) {
+        $candidate = trim((string) $view, '/');
+        $normalized = str_replace('/', '.', $candidate);
+        $viewsToTry = array_filter([
+            $normalized,
+            $normalized !== '' ? $normalized.'.index' : null,
+            $normalized !== '' ? $normalized.'.create' : null,
+        ]);
+
+        foreach ($viewsToTry as $viewName) {
+            $resolved = $resolveView($viewName);
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        abort(404);
+    })->where('view', '.*')->name('ui.preview');
+
+    Route::get('/{path?}', function (?string $path = null) use ($resolveView) {
+        $candidate = trim((string) $path, '/');
+
+        if ($candidate === '') {
+            return redirect()->route('dashboard');
+        }
+
+        $viewName = str_replace('/', '.', $candidate);
+        $viewsToTry = [$viewName, $viewName.'.index', $viewName.'.create'];
+
+        foreach ($viewsToTry as $name) {
+            $resolved = $resolveView($name);
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        abort(404);
+    })->where('path', '.*');
 });
-
-Route::get('/ui/{view?}', function (?string $view = null) use ($previewData) {
-    $candidate = trim((string) $view, '/');
-    $normalized = str_replace('/', '.', $candidate);
-    $viewsToTry = array_filter([
-        $normalized,
-        $normalized !== '' ? $normalized.'.index' : null,
-        $normalized !== '' ? $normalized.'.create' : null,
-    ]);
-
-    foreach ($viewsToTry as $viewName) {
-        if (view()->exists($viewName)) {
-            return view('ui.preview', [
-                'previewView' => $viewName,
-                'previewData' => $previewData($viewName),
-            ]);
-        }
-    }
-
-    abort(404);
-})->where('view', '.*')->name('ui.preview');
-
-Route::get('/{path?}', function (?string $path = null) use ($previewData) {
-    $candidate = trim((string) $path, '/');
-
-    if ($candidate === '') {
-        return redirect('/login');
-    }
-
-    $viewName = str_replace('/', '.', $candidate);
-    $viewsToTry = [$viewName, $viewName.'.index', $viewName.'.create'];
-
-    foreach ($viewsToTry as $name) {
-        if (view()->exists($name)) {
-            return view('ui.preview', [
-                'previewView' => $name,
-                'previewData' => $previewData($name),
-            ]);
-        }
-    }
-
-    abort(404);
-})->where('path', '.*');

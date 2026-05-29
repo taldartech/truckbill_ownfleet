@@ -35,6 +35,78 @@
 
     <!-- Include jQuery (required for Select2) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        window.TruckbillCsrf = {
+            xsrfFromCookie() {
+                const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+
+                return match ? decodeURIComponent(match[1]) : null;
+            },
+            metaToken() {
+                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+            },
+            stripTokenFromPayload(data) {
+                if (typeof data === 'string') {
+                    return data
+                        .replace(/&_token=[^&]*/g, '')
+                        .replace(/^_token=[^&]*&?/g, '')
+                        .replace(/&&/g, '&')
+                        .replace(/^[?&]/, '');
+                }
+
+                if (data instanceof FormData) {
+                    data.delete('_token');
+                }
+
+                return data;
+            },
+            applyToRequest(xhr, settings) {
+                const method = (settings.type || 'GET').toUpperCase();
+
+                if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+                    return;
+                }
+
+                const xsrf = this.xsrfFromCookie();
+
+                if (xsrf) {
+                    xhr.setRequestHeader('X-XSRF-TOKEN', xsrf);
+                } else {
+                    const meta = this.metaToken();
+
+                    if (meta) {
+                        xhr.setRequestHeader('X-CSRF-TOKEN', meta);
+                    }
+                }
+
+                settings.data = this.stripTokenFromPayload(settings.data);
+            },
+            syncFormTokens() {
+                const xsrf = this.xsrfFromCookie();
+                const token = xsrf ? null : this.metaToken();
+
+                if (! token) {
+                    return;
+                }
+
+                document.querySelectorAll('input[name="_token"]').forEach((input) => {
+                    input.value = token;
+                });
+            },
+        };
+
+        $.ajaxSetup({
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            xhrFields: {
+                withCredentials: true,
+            },
+            beforeSend(xhr, settings) {
+                window.TruckbillCsrf.applyToRequest(xhr, settings);
+            },
+        });
+    </script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
@@ -415,10 +487,8 @@
                             <!--end::User Image-->
                             <!--begin::Menu Footer-->
                             <div class="user-footer d-flex justify-content-center p-3">
-                                <form action="{{ route('logout') }}" method="POST" class="me-2">
-                                    @csrf
-                                    <button type="submit" class="btn btn-danger text-white btn-sm rounded-3">Sign out</button>
-                                </form>
+                                <a href="{{ route('logout') }}"
+                                    class="btn btn-danger text-white btn-sm rounded-3 me-2">Sign out</a>
                                 <a href="{{ route('password.change') }}"
                                     class="btn btn-primary text-white  btn-sm rounded-3">Change Password</a>
 

@@ -1,0 +1,52 @@
+{
+  "_index-DcNlVx-A.js": {
+    "file": "assets/index-DcNlVx-A.js",
+    "name": "index"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-k90CFT6u.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/vue-app-shell.css": {
+    "file": "assets/vue-app-shell-CEqbvFUJ.css",
+    "src": "resources/css/vue-app-shell.css",
+    "isEntry": true
+  },
+  "resources/css/vue-auth.css": {
+    "file": "assets/vue-auth-BbZP59_4.css",
+    "src": "resources/css/vue-auth.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-CIzbZzsr.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "_index-DcNlVx-A.js"
+    ]
+  },
+  "resources/js/vue-app/main.js": {
+    "file": "assets/main-CEsExb7W.js",
+    "name": "main",
+    "src": "resources/js/vue-app/main.js",
+    "isEntry": true,
+    "imports": [
+      "_index-DcNlVx-A.js"
+    ],
+    "dynamicImports": [
+      "resources/js/vue-app/pages/drivers/DriversIndexPage.vue"
+    ]
+  },
+  "resources/js/vue-app/pages/drivers/DriversIndexPage.vue": {
+    "file": "assets/DriversIndexPage-CL874jC6.js",
+    "name": "DriversIndexPage",
+    "src": "resources/js/vue-app/pages/drivers/DriversIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_index-DcNlVx-A.js"
+    ]
+  }
+}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Resources\UserResource;
 use App\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,11 @@ class AuthController
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::query()->where('email', $credentials['email'])->first();
+        $user = User::query()
+            ->withoutGlobalScope('tenant')
+            ->with('userRole')
+            ->where('email', $credentials['email'])
+            ->first();
         if ($user === null || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
@@ -28,7 +33,7 @@ class AuthController
 
         return response()->json([
             'token' => $token,
-            'user' => $user,
+            'user' => new UserResource($user),
         ]);
     }
 
@@ -37,7 +42,11 @@ class AuthController
      */
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->user());
+        $user = $request->user()?->loadMissing('userRole');
+
+        return response()->json([
+            'user' => $user !== null ? new UserResource($user) : null,
+        ]);
     }
 
     /**

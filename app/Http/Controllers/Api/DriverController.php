@@ -18,11 +18,13 @@ class DriverController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Driver::class);
 
-        return DriverResource::collection($this->driverService->paginate());
+        $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+
+        return DriverResource::collection($this->driverService->paginate($perPage));
     }
 
     public function store(StoreDriverRequest $request): DriverResource

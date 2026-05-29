@@ -56,10 +56,7 @@
                 </div>
                 <div class="d-flex gap-2">
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('dashboard') }}">Full Portal</a>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-sm btn-danger">Sign out</button>
-                    </form>
+                    <a href="{{ route('logout') }}" class="btn btn-sm btn-danger">Sign out</a>
                 </div>
             </div>
             <div class="container-fluid px-4 mt-3">
