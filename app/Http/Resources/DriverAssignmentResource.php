@@ -25,6 +25,7 @@ class DriverAssignmentResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'driver' => new DriverResource($this->whenLoaded('driver')),
+            'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),
         ];
     }
 }

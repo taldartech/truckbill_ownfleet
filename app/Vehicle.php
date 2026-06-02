@@ -7,6 +7,7 @@ use App\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Vehicle extends Model
 {
@@ -33,5 +34,18 @@ class Vehicle extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(DriverAssignment::class);
+    }
+
+    public function currentPrimaryAssignment(): HasOne
+    {
+        return $this->hasOne(DriverAssignment::class)
+            ->where('is_primary', true)
+            ->whereNull('assigned_to')
+            ->latest('assigned_from');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(VehicleDocument::class);
     }
 }

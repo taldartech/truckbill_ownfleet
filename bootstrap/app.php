@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
+            'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
         ]);
 
         $middleware->web(append: [

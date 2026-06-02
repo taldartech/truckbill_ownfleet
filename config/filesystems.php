@@ -60,6 +60,35 @@ return [
             'report' => false,
         ],
 
+        /*
+        | Local fleet documents (default). Root = storage/app/fleet-documents
+        */
+        'fleet_documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/fleet-documents'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        /*
+        | S3 fleet documents — enable with FLEET_DOCUMENTS_DISK=s3_fleet_documents
+        | Objects use prefix fleet-documents/ + same paths stored in DB.
+        */
+        's3_fleet_documents' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => env('FLEET_DOCUMENTS_S3_PREFIX', 'fleet-documents'),
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

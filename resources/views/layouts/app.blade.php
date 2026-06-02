@@ -427,7 +427,7 @@
                         </a>
                     </li>
                     @auth
-                        @if (Auth::user()->userRole->name === 'super_admin' && session('super_admin_company_id'))
+                        @if (auth()->user()?->userRole?->name === 'super_admin' && auth()->user()?->effectiveTenantId())
                             <li class="nav-item">
                                 <a href="{{ route('company.exit') }}" class="nav-link text-warning" title="Exit company context">
                                     <i class="bi bi-box-arrow-left me-1"></i>Exit Company
@@ -447,13 +447,13 @@
                                     <div class="credit-pill" title="Plan Expiry">
                                         <i class="bi bi-calendar-event"></i>
                                         <span class="label">Expiry:</span>
-                                        <span class="value">{{ Auth::user()->company ? \Carbon\Carbon::parse(Auth::user()->company->plan_end_date)->format('d M, Y') : 'N/A' }}</span>
+                                        <span class="value">{{ auth()->user()?->resolvedCompany()?->plan_end_date ? \Carbon\Carbon::parse(auth()->user()->resolvedCompany()->plan_end_date)->format('d M, Y') : 'N/A' }}</span>
                                     </div>
                                     <div class="credit-divider"></div>
                                     <div class="credit-pill" title="LR Credits Remaining">
                                         <i class="bi bi-coin"></i>
                                         <span class="label">Credits:</span>
-                                        <span class="value">{{ Auth::user()->company ? Auth::user()->company->lr_credits : 'N/A' }}</span>
+                                        <span class="value">{{ auth()->user()?->resolvedCompany()?->lr_credits ?? 'N/A' }}</span>
                                     </div>
                                 </div>
                             </li>
@@ -600,8 +600,8 @@
                                 </a>
                                 <ul class="nav nav-treeview">
                                     <li class="nav-item">
-                                        <a href="/company"
-                                            class="nav-link{{ Request::is('company') ? ' active' : '' }}">
+                                        <a href="/ui/company"
+                                            class="nav-link{{ Request::is('ui/company') || Request::is('company') ? ' active' : '' }}">
                                             <i class="fas fa-list"></i>
                                             <p>Company List</p>
                                         </a>
@@ -655,7 +655,7 @@
                             </li>
                         @endif
 
-                        @if (auth()->check() && auth()->user()->userRole->name === 'super_admin' && !session('super_admin_company_id'))
+                        @if (auth()->check() && auth()->user()->userRole->name === 'super_admin' && ! auth()->user()->effectiveTenantId())
                             <li class="nav-item">
                                 <a href="{{ route('audit-logs.index') }}"
                                     class="nav-link{{ Request::is('audit-logs') ? ' active' : '' }}">
@@ -674,15 +674,15 @@
                                 </a>
                                 <ul class="nav nav-treeview">
                                     <li class="nav-item">
-                                        <a href="/company"
-                                            class="nav-link{{ Request::is('company') ? ' active' : '' }}">
+                                        <a href="/ui/company"
+                                            class="nav-link{{ Request::is('ui/company') || Request::is('company') ? ' active' : '' }}">
                                             <i class="fas fa-list"></i>
                                             <p>Company List</p>
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a href="/company/create"
-                                            class="nav-link{{ Request::is('company/create') ? ' active' : '' }}">
+                                        <a href="/ui/company/create"
+                                            class="nav-link{{ Request::is('ui/company/create') || Request::is('company/create') ? ' active' : '' }}">
                                             <i class="fas fa-plus"></i>
                                             <p>Register Company</p>
                                         </a>

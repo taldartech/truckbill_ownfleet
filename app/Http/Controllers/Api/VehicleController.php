@@ -2,18 +2,29 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
 use App\Vehicle;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
-class VehicleController
+class VehicleController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return VehicleResource::collection(Vehicle::query()->latest()->paginate());
+        $this->authorize('viewAny', Vehicle::class);
+
+        $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+
+        return VehicleResource::collection(
+            Vehicle::query()
+                ->with(['currentPrimaryAssignment.driver'])
+                ->latest()
+                ->paginate($perPage)
+        );
     }
 
     public function store(StoreVehicleRequest $request): VehicleResource
@@ -29,7 +40,9 @@ class VehicleController
 
     public function show(Vehicle $vehicle): VehicleResource
     {
-        return new VehicleResource($vehicle);
+        $this->authorize('view', $vehicle);
+
+        return new VehicleResource($vehicle->load('documents'));
     }
 
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): VehicleResource
@@ -44,6 +57,7 @@ class VehicleController
 
     public function destroy(Vehicle $vehicle): Response
     {
+        $this->authorize('delete', $vehicle);
         $vehicle->delete();
 
         return response()->noContent();

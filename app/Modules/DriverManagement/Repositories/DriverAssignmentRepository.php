@@ -7,9 +7,13 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class DriverAssignmentRepository
 {
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $vehicleId = null): LengthAwarePaginator
     {
-        return DriverAssignment::query()->latest()->paginate($perPage);
+        return DriverAssignment::query()
+            ->with(['driver', 'vehicle'])
+            ->when($vehicleId !== null, fn ($query) => $query->where('vehicle_id', $vehicleId))
+            ->orderByDesc('assigned_from')
+            ->paginate($perPage);
     }
 
     public function create(array $data): DriverAssignment

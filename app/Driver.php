@@ -19,6 +19,12 @@ class Driver extends Model
         'phone',
         'license_number',
         'license_expiry_date',
+        'address',
+        'aadhaar_number',
+        'pan_number',
+        'joining_date',
+        'emergency_contact_name',
+        'emergency_contact_phone',
         'daily_wage',
         'is_active',
         'created_by',
@@ -29,6 +35,7 @@ class Driver extends Model
     {
         return [
             'license_expiry_date' => 'date',
+            'joining_date' => 'date',
             'daily_wage' => 'decimal:2',
             'is_active' => 'boolean',
         ];

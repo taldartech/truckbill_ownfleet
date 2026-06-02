@@ -79,6 +79,74 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label :for="`${modalId}_license_expiry`" class="form-label">License Expiry</label>
+                                <input
+                                    :id="`${modalId}_license_expiry`"
+                                    v-model="form.license_expiry_date"
+                                    type="date"
+                                    class="form-control"
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_joining_date`" class="form-label">Joining Date</label>
+                                <input
+                                    :id="`${modalId}_joining_date`"
+                                    v-model="form.joining_date"
+                                    type="date"
+                                    class="form-control"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_aadhaar`" class="form-label">Aadhaar Number</label>
+                                <input
+                                    :id="`${modalId}_aadhaar`"
+                                    v-model="form.aadhaar_number"
+                                    type="text"
+                                    maxlength="12"
+                                    class="form-control"
+                                    placeholder="12 digits"
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_pan`" class="form-label">PAN Number</label>
+                                <input
+                                    :id="`${modalId}_pan`"
+                                    v-model="form.pan_number"
+                                    type="text"
+                                    maxlength="10"
+                                    class="form-control"
+                                    placeholder="ABCDE1234F"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_emergency_name`" class="form-label">Emergency Contact Name</label>
+                                <input
+                                    :id="`${modalId}_emergency_name`"
+                                    v-model="form.emergency_contact_name"
+                                    type="text"
+                                    class="form-control"
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_emergency_phone`" class="form-label">Emergency Contact Mobile</label>
+                                <input
+                                    :id="`${modalId}_emergency_phone`"
+                                    v-model="form.emergency_contact_phone"
+                                    type="text"
+                                    maxlength="10"
+                                    class="form-control"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label :for="`${modalId}_daily_wage`" class="form-label">Daily Wage</label>
                                 <input
                                     :id="`${modalId}_daily_wage`"
@@ -166,7 +234,13 @@ function emptyForm() {
         name: '',
         mobile: '',
         license_number: '',
+        license_expiry_date: '',
         address: '',
+        aadhaar_number: '',
+        pan_number: '',
+        joining_date: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
         daily_wage: '0.00',
         is_active: true,
     };
@@ -181,7 +255,13 @@ function fillForm(driver) {
         name: driver?.name ?? '',
         mobile: normalizeMobile(driver?.mobile ?? driver?.phone ?? ''),
         license_number: driver?.license_number ?? '',
+        license_expiry_date: driver?.license_expiry_date ?? '',
         address: driver?.address ?? '',
+        aadhaar_number: driver?.aadhaar_number ?? '',
+        pan_number: driver?.pan_number ?? '',
+        joining_date: driver?.joining_date ?? '',
+        emergency_contact_name: driver?.emergency_contact_name ?? '',
+        emergency_contact_phone: normalizeMobile(driver?.emergency_contact_phone ?? ''),
         daily_wage: wage !== null && wage !== undefined && wage !== '' ? String(wage) : '0.00',
         is_active: driver?.is_active !== undefined ? Boolean(driver.is_active) : true,
     };
@@ -237,6 +317,13 @@ function submit() {
         name: form.value.name.trim(),
         phone: mobile,
         license_number: form.value.license_number || null,
+        license_expiry_date: form.value.license_expiry_date || null,
+        address: form.value.address?.trim() || null,
+        aadhaar_number: form.value.aadhaar_number || null,
+        pan_number: form.value.pan_number?.toUpperCase() || null,
+        joining_date: form.value.joining_date || null,
+        emergency_contact_name: form.value.emergency_contact_name?.trim() || null,
+        emergency_contact_phone: form.value.emergency_contact_phone || null,
         daily_wage: Number.isNaN(wage) ? 0 : wage,
         is_active: Boolean(form.value.is_active),
     });

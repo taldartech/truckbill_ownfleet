@@ -7,20 +7,24 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDriverAssignmentRequest;
 use App\Http\Resources\DriverAssignmentResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
 class DriverAssignmentController extends Controller
 {
-    public function __construct(private readonly DriverAssignmentService $driverAssignmentService)
-    {
-    }
+    public function __construct(private readonly DriverAssignmentService $driverAssignmentService) {}
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', DriverAssignment::class);
 
-        return DriverAssignmentResource::collection($this->driverAssignmentService->paginate());
+        $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+        $vehicleId = $request->filled('vehicle_id') ? $request->string('vehicle_id')->toString() : null;
+
+        return DriverAssignmentResource::collection(
+            $this->driverAssignmentService->paginate($perPage, $vehicleId),
+        );
     }
 
     public function store(StoreDriverAssignmentRequest $request): DriverAssignmentResource

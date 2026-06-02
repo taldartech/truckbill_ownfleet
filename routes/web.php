@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\CompanyController as ApiCompanyController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Resources\UserResource;
 use App\Support\DashboardPreviewData;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
 $previewData = static function (string $viewName): array {
@@ -77,25 +79,59 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
     Route::get('/user', function () {
-        $user = auth()->user()?->loadMissing('userRole');
+        $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant']);
 
         return response()->json([
             'user' => $user !== null ? new UserResource($user) : null,
         ]);
     })->name('user');
 
-    Route::get('/dashboard/stats', function (): JsonResponse {
-        return response()->json(DashboardPreviewData::defaults());
-    })->name('dashboard.stats');
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\FleetDashboardController::class, 'stats'])
+        ->name('dashboard.stats');
 
     Route::prefix('api')->name('api.')->group(function () {
-        Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
-            ->name('drivers.license-expiring');
-        Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
-        Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
-        Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
-        Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
-        Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
+        Route::get('/companies', [ApiCompanyController::class, 'index'])->name('companies.index');
+        Route::post('/companies', [ApiCompanyController::class, 'store'])->name('companies.store');
+        Route::get('/companies/{company}', [ApiCompanyController::class, 'show'])->name('companies.show');
+        Route::put('/companies/{company}', [ApiCompanyController::class, 'update'])->name('companies.update');
+        Route::post('/companies/{company}/enter', [ApiCompanyController::class, 'enter'])->name('companies.enter');
+        Route::post('/companies/exit', [ApiCompanyController::class, 'exit'])->name('companies.exit');
+
+        Route::middleware('tenant.context')->group(function () {
+            Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
+                ->name('drivers.license-expiring');
+            Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
+            Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
+            Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
+            Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
+            Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
+
+            Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
+            Route::post('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'store'])->name('vehicles.store');
+            Route::get('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'show'])->name('vehicles.show');
+            Route::put('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'update'])->name('vehicles.update');
+            Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
+
+            Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
+            Route::post('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'store'])->name('vehicle-documents.store');
+            Route::get('/vehicle-documents/{vehicle_document}/download', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'download'])
+                ->name('vehicle-documents.download');
+            Route::put('/vehicle-documents/{vehicle_document}', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'update'])->name('vehicle-documents.update');
+            Route::delete('/vehicle-documents/{vehicle_document}', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'destroy'])->name('vehicle-documents.destroy');
+
+            Route::apiResource('driver-assignments', \App\Http\Controllers\Api\DriverAssignmentController::class);
+
+            Route::get('/reports/attendance', [\App\Http\Controllers\Api\AttendanceReportController::class, 'index'])
+                ->name('reports.attendance.index');
+            Route::get('/reports/attendance/export', [\App\Http\Controllers\Api\AttendanceReportController::class, 'export'])
+                ->name('reports.attendance.export');
+
+            Route::get('/attendances/month-overview', [\App\Http\Controllers\Api\AttendanceController::class, 'monthOverview'])
+                ->name('attendances.month-overview');
+            Route::post('/attendances/{attendance}/mark-wage-paid', [\App\Http\Controllers\Api\AttendanceController::class, 'markWagePaid'])
+                ->name('attendances.mark-wage-paid');
+            Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+        });
     });
 
     Route::view('/dashboard', 'vue-app')->name('dashboard');
@@ -124,18 +160,35 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
 
     (require __DIR__.'/legacy-stubs.php')();
 
-    Route::get('/transporters', function () {
-    if (request()->expectsJson() || request()->ajax()) {
-        return response()->json([
-            'draw' => (int) request('draw', 1),
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
-            'data' => [],
-        ]);
-    }
+    Route::get('/ui/company', [CompanyController::class, 'index'])->name('company.index');
+    Route::get('/company', static fn () => redirect('/ui/company'));
+    Route::get('/ui/company/create', [CompanyController::class, 'create'])->name('company.create');
+    Route::get('/company/create', static fn () => redirect('/ui/company/create'));
+    Route::post('/company', [CompanyController::class, 'store'])->name('company.store');
+    Route::get('/company/{company}/edit', [CompanyController::class, 'edit'])->name('company.edit');
+    Route::put('/company/{company}', [CompanyController::class, 'update'])->name('company.update');
+    Route::patch('/company/{company}/subscription', [CompanyController::class, 'subscription'])->name('company.subscription');
+    Route::get('/company/{company}/enter', [CompanyController::class, 'enter'])->name('company.enter');
+    Route::delete('/company/{company}', [CompanyController::class, 'destroy'])->name('company.destroy');
+    Route::get('/company/{company}/invoice-template-preview/{template}', [CompanyController::class, 'invoiceTemplatePreview'])
+        ->name('company.invoice-template-preview');
+    Route::get('/company/{company}/lr-copy-template-preview/{template}', [CompanyController::class, 'lrCopyTemplatePreview'])
+        ->name('company.lr-copy-template-preview');
+    Route::get('/company/{company}/freight-challan-template-preview/{template}', [CompanyController::class, 'freightChallanTemplatePreview'])
+        ->name('company.freight-challan-template-preview');
 
-    return redirect('/ui/transporters/index');
-})->name('transporters.index');
+    Route::get('/transporters', function () {
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'draw' => (int) request('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
+
+        return redirect('/ui/transporters/index');
+    })->name('transporters.index');
 
     Route::get('/transporters/create', function () use ($resolveView) {
         $view = $resolveView('transporters.create');
@@ -147,18 +200,18 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
         return redirect('/ui/transporters/index');
     })->name('transporters.create');
 
-Route::get('/trucks', function () {
-    if (request()->expectsJson() || request()->ajax()) {
-        return response()->json([
-            'draw' => (int) request('draw', 1),
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
-            'data' => [],
-        ]);
-    }
+    Route::get('/trucks', function () {
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'draw' => (int) request('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
 
-    return redirect('/ui/trucks/index');
-})->name('trucks.index');
+        return redirect('/ui/trucks/index');
+    })->name('trucks.index');
 
     Route::get('/trucks/create', function () use ($resolveView) {
         $view = $resolveView('trucks.create');
@@ -170,115 +223,115 @@ Route::get('/trucks', function () {
         return redirect('/ui/trucks/index');
     })->name('trucks.create');
 
-Route::get('/drivers/data', function () {
-    return response()->json([
-        'draw' => (int) request('draw', 1),
-        'recordsTotal' => 0,
-        'recordsFiltered' => 0,
-        'data' => [],
-    ]);
-})->name('drivers.data');
-
-Route::get('/drivers', function () {
-    if (request()->expectsJson() || request()->ajax()) {
+    Route::get('/drivers/data', function () {
         return response()->json([
             'draw' => (int) request('draw', 1),
             'recordsTotal' => 0,
             'recordsFiltered' => 0,
             'data' => [],
         ]);
-    }
+    })->name('drivers.data');
 
-    return redirect('/ui/drivers/index');
-})->name('drivers.index');
+    Route::get('/drivers', function () {
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'draw' => (int) request('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
 
-Route::get('/drivers/create', function () {
-    if (view()->exists('drivers.create')) {
-        return view('ui.preview', [
-            'previewView' => 'drivers.create',
-            'previewData' => [],
+        return redirect('/ui/drivers/index');
+    })->name('drivers.index');
+
+    Route::get('/drivers/create', function () {
+        if (view()->exists('drivers.create')) {
+            return view('ui.preview', [
+                'previewView' => 'drivers.create',
+                'previewData' => [],
+            ]);
+        }
+
+        return redirect('/ui/drivers/index');
+    })->name('drivers.create');
+
+    Route::post('/drivers', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
         ]);
-    }
+    })->name('drivers.store');
 
-    return redirect('/ui/drivers/index');
-})->name('drivers.create');
+    Route::get('/freight_bookings', function () {
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'draw' => (int) request('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
 
-Route::post('/drivers', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('drivers.store');
+        return redirect('/ui/freight_bookings/index');
+    })->name('freight_bookings.index');
 
-Route::get('/freight_bookings', function () {
-    if (request()->expectsJson() || request()->ajax()) {
+    Route::get('/freight_bookings/data', function () {
         return response()->json([
             'draw' => (int) request('draw', 1),
             'recordsTotal' => 0,
             'recordsFiltered' => 0,
             'data' => [],
         ]);
-    }
+    })->name('freight_bookings.datatable');
 
-    return redirect('/ui/freight_bookings/index');
-})->name('freight_bookings.index');
-
-Route::get('/freight_bookings/data', function () {
-    return response()->json([
-        'draw' => (int) request('draw', 1),
-        'recordsTotal' => 0,
-        'recordsFiltered' => 0,
-        'data' => [],
-    ]);
-})->name('freight_bookings.datatable');
-
-Route::post('/freight_bookings/voucher-payment', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('freight_bookings.voucher_payment');
-
-Route::post('/freight_bookings/store_combined_payment', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('freight_bookings.store_combined_payment');
-
-Route::post('/freight_bookings/bulk-memo-id', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('freight_bookings.bulk_memo_id');
-
-Route::post('/freight_bookings/payment-history', function () {
-    return response()->json([
-        'success' => true,
-        'data' => [],
-    ]);
-})->name('freight_bookings.payment_history');
-
-Route::post('/voucher_payments', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('voucher_payments.store');
-
-Route::get('/invoices', function () {
-    if (request()->expectsJson() || request()->ajax()) {
+    Route::post('/freight_bookings/voucher-payment', function () {
         return response()->json([
-            'draw' => (int) request('draw', 1),
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('freight_bookings.voucher_payment');
+
+    Route::post('/freight_bookings/store_combined_payment', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('freight_bookings.store_combined_payment');
+
+    Route::post('/freight_bookings/bulk-memo-id', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('freight_bookings.bulk_memo_id');
+
+    Route::post('/freight_bookings/payment-history', function () {
+        return response()->json([
+            'success' => true,
             'data' => [],
         ]);
-    }
+    })->name('freight_bookings.payment_history');
 
-    return redirect('/ui/invoices/index');
-})->name('invoices.index');
+    Route::post('/voucher_payments', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('voucher_payments.store');
+
+    Route::get('/invoices', function () {
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json([
+                'draw' => (int) request('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
+
+        return redirect('/ui/invoices/index');
+    })->name('invoices.index');
 
     Route::get('/invoices/create', function () use ($resolveView) {
         $view = $resolveView('invoices.create');
@@ -290,33 +343,33 @@ Route::get('/invoices', function () {
         return redirect('/ui/invoices/index');
     })->name('invoices.create');
 
-Route::get('/custom-invoices/create', function () {
-    return redirect('/ui/invoices/index');
-})->name('custom-invoices.create');
+    Route::get('/custom-invoices/create', function () {
+        return redirect('/ui/invoices/index');
+    })->name('custom-invoices.create');
 
-Route::post('/assign-owner', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('trucks.assign-owner');
+    Route::post('/assign-owner', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('trucks.assign-owner');
 
-Route::put('/trucks/{truck}/assign-driver', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Preview mode only.',
-    ]);
-})->name('trucks.assign-driver');
+    Route::put('/trucks/{truck}/assign-driver', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('trucks.assign-driver');
 
-Route::post('/advance-payments', function () {
-    return response()->json([
-        'message' => 'Preview mode only.',
-    ]);
-})->name('advance-payments.store');
+    Route::post('/advance-payments', function () {
+        return response()->json([
+            'message' => 'Preview mode only.',
+        ]);
+    })->name('advance-payments.store');
 
-Route::get('/reports/transporter-master-export', function () {
-    return redirect('/ui/transporters/index');
-})->name('reports.transporter-master-export');
+    Route::get('/reports/transporter-master-export', function () {
+        return redirect('/ui/transporters/index');
+    })->name('reports.transporter-master-export');
 
     Route::get('/ui/{view?}', function (?string $view = null) use ($resolveView) {
         $candidate = trim((string) $view, '/');

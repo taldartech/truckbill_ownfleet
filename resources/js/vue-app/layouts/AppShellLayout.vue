@@ -1,8 +1,8 @@
 <template>
     <div class="vue-app-shell layout-fixed sidebar-expand-lg bg-body-tertiary">
         <div class="app-wrapper">
-            <AppHeader :user="user" />
-            <AppSidebar :items="adminNavigation" />
+            <AppHeader :user="user" @user-updated="onUserUpdated" />
+            <AppSidebar :items="navigationItems" />
             <main class="app-main">
                 <div class="app-content-header">
                     <div class="container-fluid">
@@ -23,11 +23,17 @@ import AppFooter from '../components/AppFooter.vue';
 import AppHeader from '../components/AppHeader.vue';
 import AppSidebar from '../components/AppSidebar.vue';
 import { adminNavigation } from '../config/adminNavigation';
+import { useFilteredNavigation } from '../composables/useFilteredNavigation';
 
 const router = useRouter();
 const user = ref(window.__AUTH_USER__ ?? null);
+const navigationItems = useFilteredNavigation(adminNavigation);
 
 provide('currentUser', user);
+
+function onUserUpdated(updatedUser) {
+    user.value = updatedUser;
+}
 
 onMounted(async () => {
     if (user.value) {

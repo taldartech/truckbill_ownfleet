@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Support\SelectedCompanySession;
 use App\Support\TenantContext;
 use App\User;
 use Illuminate\Http\JsonResponse;
@@ -44,8 +45,8 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        $user->loadMissing('userRole');
-        TenantContext::setTenantId($user->tenant_id);
+        $user->loadMissing(['userRole.permissions', 'tenant']);
+        TenantContext::setTenantId($user->effectiveTenantId());
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -60,6 +61,7 @@ class LoginController extends Controller
     public function destroy(Request $request): RedirectResponse|JsonResponse
     {
         Auth::logout();
+        SelectedCompanySession::forget();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

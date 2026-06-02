@@ -8,9 +8,7 @@
         <div v-if="flash.error" class="alert alert-danger mt-3">{{ flash.error }}</div>
 
         <div v-if="canManage" class="d-flex justify-content-end gap-2 mb-3">
-            <button type="button" class="btn btn-brand-primary" @click="openCreate">
-                <i class="bi bi-plus"></i> Create
-            </button>
+            <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
         </div>
 
         <div class="card mb-4">
@@ -58,12 +56,15 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { createDriver, deleteDriver, listAllDrivers, updateDriver } from '../../api/drivers';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
+import AppButton from '../../components/ui/AppButton.vue';
+import { usePermissions } from '../../composables/usePermissions';
 import { initDriversDataTable, reloadDriversDataTable } from '../../composables/useDriversDataTable';
 
-const currentUser = inject('currentUser', ref(null));
+const { canInCompany } = usePermissions();
+const canManage = computed(() => canInCompany('drivers.manage'));
 
 const drivers = ref([]);
 const loading = ref(true);
@@ -75,9 +76,6 @@ const fieldErrors = ref({});
 const flash = reactive({ success: '', error: '' });
 
 let dataTable = null;
-
-const manageRoles = ['admin', 'super_admin', 'master_admin', 'fleet_manager'];
-const canManage = computed(() => manageRoles.includes(currentUser.value?.role ?? ''));
 
 function showToast(message, type = 'success') {
     if (type === 'success') {

@@ -14,19 +14,20 @@ class StoreDriverRequest extends FormRequest
                 'phone' => (string) $this->input('phone'),
             ]);
         }
+
+        if ($this->has('emergency_contact_phone') && $this->input('emergency_contact_phone') !== null) {
+            $this->merge([
+                'emergency_contact_phone' => (string) $this->input('emergency_contact_phone'),
+            ]);
+        }
     }
 
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return $this->user()?->can('create', Driver::class) ?? false;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
@@ -36,6 +37,12 @@ class StoreDriverRequest extends FormRequest
             'phone' => ['required', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],
             'license_number' => ['nullable', 'string', 'max:100'],
             'license_expiry_date' => ['nullable', 'date'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'aadhaar_number' => ['nullable', 'string', 'regex:/^[0-9]{12}$/'],
+            'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
+            'joining_date' => ['nullable', 'date'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:150'],
+            'emergency_contact_phone' => ['nullable', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],
             'daily_wage' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ];
@@ -48,6 +55,9 @@ class StoreDriverRequest extends FormRequest
     {
         return [
             'phone.regex' => 'Please enter a valid 10-digit mobile number.',
+            'emergency_contact_phone.regex' => 'Please enter a valid 10-digit emergency contact number.',
+            'aadhaar_number.regex' => 'Aadhaar number must be 12 digits.',
+            'pan_number.regex' => 'Please enter a valid PAN number.',
         ];
     }
 }

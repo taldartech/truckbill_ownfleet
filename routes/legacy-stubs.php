@@ -12,9 +12,9 @@ return function (): void {
     };
 
     Route::get('/company/exit', function () {
-        session()->forget('super_admin_company_id');
+        \App\Support\SelectedCompanySession::forget();
 
-        return redirect()->route('dashboard');
+        return redirect('/app/companies');
     })->name('company.exit');
 
     $routes = [

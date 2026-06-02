@@ -44,6 +44,12 @@ return new class extends Migration
             }
 
             if ($this->indexExists('users', 'users_tenant_id_role_index')) {
+                if ($this->foreignKeyExists('users', 'users_tenant_id_foreign')) {
+                    Schema::table('users', function (Blueprint $table) {
+                        $table->dropForeign(['tenant_id']);
+                    });
+                }
+
                 Schema::table('users', function (Blueprint $table) {
                     $table->dropIndex(['tenant_id', 'role']);
                 });
@@ -67,11 +73,26 @@ return new class extends Migration
                 $table->index(['tenant_id', 'user_role_id']);
             });
         }
+
+        if (
+            Schema::hasColumn('users', 'tenant_id')
+            && ! $this->foreignKeyExists('users', 'users_tenant_id_foreign')
+        ) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
         if ($this->indexExists('users', 'users_tenant_id_user_role_id_index')) {
+            if ($this->foreignKeyExists('users', 'users_tenant_id_foreign')) {
+                Schema::table('users', function (Blueprint $table) {
+                    $table->dropForeign(['tenant_id']);
+                });
+            }
+
             Schema::table('users', function (Blueprint $table) {
                 $table->dropIndex(['tenant_id', 'user_role_id']);
             });
@@ -103,6 +124,37 @@ return new class extends Migration
                 $table->index(['tenant_id', 'role']);
             });
         }
+
+        if (
+            Schema::hasColumn('users', 'tenant_id')
+            && ! $this->foreignKeyExists('users', 'users_tenant_id_foreign')
+        ) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            });
+        }
+    }
+
+    private function foreignKeyExists(string $table, string $foreignKeyName): bool
+    {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            $foreignKeys = Schema::getConnection()
+                ->getSchemaBuilder()
+                ->getForeignKeys($table);
+
+            return collect($foreignKeys)
+                ->contains(static fn (array $foreignKey): bool => ($foreignKey['name'] ?? '') === $foreignKeyName);
+        }
+
+        $database = Schema::getConnection()->getDatabaseName();
+
+        $constraints = DB::select(
+            'SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = ?',
+            [$database, $table, $foreignKeyName, 'FOREIGN KEY']
+        );
+
+        return $constraints !== [];
     }
 
     private function indexExists(string $table, string $indexName): bool

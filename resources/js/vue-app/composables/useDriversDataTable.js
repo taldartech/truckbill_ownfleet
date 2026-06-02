@@ -1,38 +1,37 @@
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+import { crudActionButtonHtml, crudActionsRowHtml } from '../utils/crudActionButtonHtml';
 
 function mapDriverRow(driver, canManage) {
     const mobile = driver.phone ?? '';
     const license = driver.license_number ?? '-';
-    const address = '-';
+    const address = driver.address?.trim() ? driver.address : '-';
 
     let actions = '';
 
     if (canManage) {
-        actions = `
-            <div class="d-flex gap-1 justify-content-center">
-                <button type="button" class="btn btn-edit btn-sm edit-driver-btn"
-                    data-driver-id="${escapeHtml(driver.id)}"
-                    data-driver-name="${escapeHtml(driver.name)}"
-                    data-driver-mobile="${escapeHtml(mobile)}"
-                    data-driver-license="${escapeHtml(driver.license_number ?? '')}"
-                    data-driver-address=""
-                    data-driver-daily-wage="${escapeHtml(driver.daily_wage ?? '0')}"
-                    data-driver-is-active="${driver.is_active ? '1' : '0'}">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="btn btn-danger btn-sm delete-driver-btn"
-                    data-driver-id="${escapeHtml(driver.id)}"
-                    data-driver-name="${escapeHtml(driver.name)}">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
+        const editButton = crudActionButtonHtml({
+            action: 'edit',
+            className: 'edit-driver-btn',
+            data: {
+                'driver-id': driver.id,
+                'driver-name': driver.name ?? '',
+                'driver-mobile': mobile,
+                'driver-license': driver.license_number ?? '',
+                'driver-address': driver.address ?? '',
+                'driver-daily-wage': String(driver.daily_wage ?? '0'),
+                'driver-is-active': driver.is_active ? '1' : '0',
+            },
+        });
+
+        const deleteButton = crudActionButtonHtml({
+            action: 'delete',
+            className: 'delete-driver-btn',
+            data: {
+                'driver-id': driver.id,
+                'driver-name': driver.name ?? '',
+            },
+        });
+
+        actions = crudActionsRowHtml(`${editButton}${deleteButton}`);
     }
 
     return {

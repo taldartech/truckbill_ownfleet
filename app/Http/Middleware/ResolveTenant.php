@@ -10,8 +10,6 @@ use Symfony\Component\HttpFoundation\Response;
 class ResolveTenant
 {
     /**
-     * Handle an incoming request.
-     *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
@@ -19,10 +17,10 @@ class ResolveTenant
         $tenantId = $request->header('X-Tenant-Id');
 
         if ($request->user() !== null) {
-            $request->user()->loadMissing('userRole');
+            $request->user()->loadMissing('userRole.permissions');
 
             if ($tenantId === null) {
-                $tenantId = $request->user()->tenant_id;
+                $tenantId = $request->user()->effectiveTenantId();
             }
         }
 

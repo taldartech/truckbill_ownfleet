@@ -15,10 +15,15 @@ class DriverManagementModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seedRolesAndPermissions();
+    }
+
     public function test_web_session_can_create_driver_via_stateful_api(): void
     {
-        $this->seed(\Database\Seeders\UserRoleSeeder::class);
-
         [$tenant, $user] = $this->createTenantUser('admin');
 
         $this->post('/login', [
@@ -90,7 +95,7 @@ class DriverManagementModuleTest extends TestCase
         $response = $this->withHeader('X-Tenant-Id', $tenantA->id)
             ->getJson("/api/drivers/{$driverB->id}");
 
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
     public function test_attendance_marking_sets_wage_owner_driver_and_wage_amount(): void

@@ -7,12 +7,22 @@
                         <i class="fa-solid fa-bars"></i>
                     </a>
                 </li>
-                <li v-if="companyName" class="nav-item d-none d-md-block">
+                <li v-if="needsCompanySelection" class="nav-item d-none d-md-block">
+                    <RouterLink class="nav-link text-warning fw-semibold" :to="{ name: 'companies.index' }">
+                        <i class="fas fa-building me-1"></i>Select company
+                    </RouterLink>
+                </li>
+                <li v-else-if="companyName" class="nav-item d-none d-md-block">
                     <span class="nav-link">
                         <span class="align-middle ms-3 me-2 border-start ps-3 small text-muted" style="font-size: 1em">
                             <i class="fas fa-building me-1"></i>{{ companyName }}
                         </span>
                     </span>
+                </li>
+                <li v-if="showExitCompany" class="nav-item d-none d-md-block">
+                    <button type="button" class="nav-link btn btn-link text-warning p-0 border-0" @click="handleExitCompany">
+                        <i class="fas fa-sign-out-alt me-1"></i>Exit company
+                    </button>
                 </li>
             </ul>
 
@@ -72,6 +82,9 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
+import { fetchCurrentUser } from '../api';
+import { exitCompany } from '../api/companies';
 
 const props = defineProps({
     user: {
@@ -80,10 +93,18 @@ const props = defineProps({
     },
 });
 
+const emit = defineEmits(['user-updated']);
+
+const router = useRouter();
+
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 
+const needsCompanySelection = computed(() => Boolean(props.user?.requires_company_selection));
 const companyName = computed(() => props.user?.tenant_name ?? props.user?.company?.name ?? '');
+const showExitCompany = computed(
+    () => props.user?.role === 'super_admin' && (props.user?.effective_company_id ?? props.user?.company_id),
+);
 const showPlanBadges = computed(() => props.user?.show_plan_badges === true);
 const planExpiryLabel = computed(() => props.user?.company?.plan_end_date_formatted ?? 'N/A');
 const lrCreditsLabel = computed(() => {
@@ -122,6 +143,18 @@ onMounted(() => {
 onBeforeUnmount(() => {
     document.removeEventListener('click', onDocumentClick);
 });
+
+async function handleExitCompany() {
+    try {
+        const data = await exitCompany();
+        const user = data?.user ?? (await fetchCurrentUser());
+        window.__AUTH_USER__ = user;
+        emit('user-updated', user);
+        await router.push({ name: 'companies.index' });
+    } catch {
+        window.location.href = '/company/exit';
+    }
+}
 
 function signOut() {
     userMenuOpen.value = false;
