@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Attendance;
 use App\AttendanceMonthLock;
+use App\Exports\SettlementSheetExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CloseMonthlyWagesRequest;
 use App\Http\Requests\LockAttendanceMonthRequest;
@@ -23,6 +24,8 @@ use App\MonthlyDriverWage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AttendanceController extends Controller
 {
@@ -80,6 +83,20 @@ class AttendanceController extends Controller
         return response()->json([
             'data' => $this->monthlySettlementService->sheet($validated['month']),
         ]);
+    }
+
+    public function exportSettlementSheet(Request $request): BinaryFileResponse
+    {
+        $this->authorize('viewAny', Attendance::class);
+
+        $validated = $request->validate([
+            'month' => ['required', 'date_format:Y-m'],
+        ]);
+
+        $sheet = $this->monthlySettlementService->sheet($validated['month']);
+        $filename = 'monthly-settlement-'.$validated['month'].'.xlsx';
+
+        return Excel::download(new SettlementSheetExport($sheet), $filename);
     }
 
     public function updateSettlementLine(

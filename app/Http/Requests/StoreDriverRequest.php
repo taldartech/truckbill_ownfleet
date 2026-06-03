@@ -34,22 +34,18 @@ class StoreDriverRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
-            'employee_code' => ['nullable', 'string', 'max:50'],
-            'father_name' => ['nullable', 'string', 'max:150'],
             'phone' => ['required', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],
             'license_number' => ['nullable', 'string', 'max:100'],
             'license_expiry_date' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:500'],
             'aadhaar_number' => ['nullable', 'string', 'regex:/^[0-9]{12}$/'],
             'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
-            'uan_number' => ['nullable', 'string', 'max:30'],
-            'esic_number' => ['nullable', 'string', 'max:30'],
             'bank_account_number' => ['nullable', 'string', 'max:40'],
             'bank_ifsc' => ['nullable', 'string', 'max:20'],
-            'joining_date' => ['nullable', 'date'],
+            'joining_date' => ['required', 'date'],
             'emergency_contact_name' => ['nullable', 'string', 'max:150'],
             'emergency_contact_phone' => ['nullable', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],
-            'daily_wage' => ['nullable', 'numeric', 'min:0'],
+            'daily_wage' => ['required', 'numeric', 'gt:0'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }
@@ -64,6 +60,9 @@ class StoreDriverRequest extends FormRequest
             'emergency_contact_phone.regex' => 'Please enter a valid 10-digit emergency contact number.',
             'aadhaar_number.regex' => 'Aadhaar number must be 12 digits.',
             'pan_number.regex' => 'Please enter a valid PAN number.',
+            'joining_date.required' => 'Joining date is required.',
+            'daily_wage.required' => 'Monthly payment base is required.',
+            'daily_wage.gt' => 'Monthly payment base must be greater than 0.',
         ];
     }
 }

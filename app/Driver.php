@@ -16,16 +16,12 @@ class Driver extends Model
     protected $fillable = [
         'tenant_id',
         'name',
-        'employee_code',
-        'father_name',
         'phone',
         'license_number',
         'license_expiry_date',
         'address',
         'aadhaar_number',
         'pan_number',
-        'uan_number',
-        'esic_number',
         'bank_account_number',
         'bank_ifsc',
         'joining_date',
@@ -60,5 +56,10 @@ class Driver extends Model
     public function primaryAttendances(): HasMany
     {
         return $this->hasMany(Attendance::class, 'primary_driver_id');
+    }
+
+    public function advanceEntries(): HasMany
+    {
+        return $this->hasMany(DriverAdvanceEntry::class);
     }
 }

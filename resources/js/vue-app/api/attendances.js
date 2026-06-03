@@ -22,6 +22,12 @@ export async function fetchSettlementSheet(month) {
     return data.data ?? {};
 }
 
+export function settlementSheetExportUrl(month) {
+    const search = new URLSearchParams({ month });
+
+    return `${attendancesBase}/settlement-sheet/export?${search.toString()}`;
+}
+
 export async function updateSettlementLine(monthlyWageId, payload) {
     const { data } = await api.patch(`/app/api/monthly-driver-wages/${monthlyWageId}/settlement`, payload);
 

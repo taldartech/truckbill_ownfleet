@@ -53,6 +53,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Scoped Driver',
                 'phone' => '9888888881',
                 'license_number' => 'DL-SCOPE',
+                'joining_date' => '2024-01-15',
                 'daily_wage' => 500,
                 'is_active' => true,
             ])
@@ -95,6 +96,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Blocked Driver',
                 'phone' => '9888888882',
                 'license_number' => 'DL-BLOCK',
+                'joining_date' => '2024-01-15',
                 'daily_wage' => 500,
                 'is_active' => true,
             ])

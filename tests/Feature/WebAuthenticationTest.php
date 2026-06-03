@@ -6,6 +6,7 @@ use App\Tenant;
 use App\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class WebAuthenticationTest extends TestCase
@@ -39,6 +40,31 @@ class WebAuthenticationTest extends TestCase
             ->assertRedirect('/app/login?logged_out=1');
 
         $this->assertGuest();
+    }
+
+    public function test_login_invalidates_other_sessions_for_same_user(): void
+    {
+        $user = $this->createUser('admin');
+
+        DB::table('sessions')->insert([
+            [
+                'id' => 'old-device-session',
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'Other device',
+                'payload' => base64_encode(''),
+                'last_activity' => time(),
+            ],
+        ]);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect('/app/dashboard');
+
+        $this->assertDatabaseMissing('sessions', [
+            'id' => 'old-device-session',
+        ]);
     }
 
     public function test_invalid_login_shows_error(): void

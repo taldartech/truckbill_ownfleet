@@ -13,9 +13,9 @@ class DriverService
 {
     public function __construct(private readonly DriverRepository $driverRepository) {}
 
-    public function paginate(int $perPage = 15, bool $activeOnly = false): LengthAwarePaginator
+    public function paginate(int $perPage = 15, bool $activeOnly = false, ?string $search = null): LengthAwarePaginator
     {
-        return $this->driverRepository->paginate($perPage, $activeOnly);
+        return $this->driverRepository->paginate($perPage, $activeOnly, $search);
     }
 
     public function create(array $data): Driver

@@ -26,6 +26,7 @@ class AttendanceService
         private readonly AttendanceCalendarService $attendanceCalendar,
         private readonly AttendanceMonthLockService $monthLockService,
         private readonly MonthlySettlementService $monthlySettlementService,
+        private readonly SubstituteDriverAvailability $substituteDriverAvailability,
     ) {}
 
     /**
@@ -341,6 +342,14 @@ class AttendanceService
 
         $temporaryDriverId = $payload['temporary_driver_id'] ?? null;
         $temporaryRemarks = $payload['temporary_assignment_remarks'] ?? null;
+
+        if ($status === AttendanceStatus::Absent && $temporaryDriverId) {
+            $this->substituteDriverAvailability->assertAvailable(
+                (string) $payload['attendance_date'],
+                (string) $temporaryDriverId,
+                $existing?->id,
+            );
+        }
 
         $wageOwnerDriver = $this->resolveWageOwnerDriver($status, $primaryDriver, [
             ...$payload,

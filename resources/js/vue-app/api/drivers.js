@@ -6,10 +6,19 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function listDrivers(page = 1) {
-    const { data } = await api.get(driversBase, { params: { page } });
+export async function listDrivers({ page = 1, perPage = 25, search = '' } = {}) {
+    const { data } = await api.get(driversBase, {
+        params: {
+            page,
+            per_page: perPage,
+            ...(search ? { search } : {}),
+        },
+    });
 
-    return data;
+    return {
+        data: data.data ?? [],
+        meta: data.meta ?? {},
+    };
 }
 
 export async function listAllDrivers({ activeOnly = false } = {}) {

@@ -5,14 +5,19 @@ namespace App\Providers;
 use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
+use App\Permission;
 use App\Policies\AttendancePolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
+use App\Policies\ManagedUserPolicy;
+use App\Policies\PermissionPolicy;
 use App\Policies\TenantPolicy;
+use App\Policies\UserRolePolicy;
 use App\Policies\VehicleDocumentPolicy;
 use App\Policies\VehiclePolicy;
 use App\Tenant;
 use App\User;
+use App\UserRole;
 use App\Vehicle;
 use App\VehicleDocument;
 use Illuminate\Pagination\Paginator;
@@ -55,6 +60,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(Vehicle::class, VehiclePolicy::class);
         Gate::policy(VehicleDocument::class, VehicleDocumentPolicy::class);
+        Gate::policy(UserRole::class, UserRolePolicy::class);
+        Gate::policy(Permission::class, PermissionPolicy::class);
+        Gate::policy(User::class, ManagedUserPolicy::class);
 
         Route::bind('company', static fn (string $value): Tenant => Tenant::query()->findOrFail($value));
     }

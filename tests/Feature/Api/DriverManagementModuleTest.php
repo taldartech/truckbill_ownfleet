@@ -38,6 +38,7 @@ class DriverManagementModuleTest extends TestCase
                 'name' => 'Session Driver',
                 'phone' => '9888888888',
                 'license_number' => 'DL-SESSION',
+                'joining_date' => '2024-01-15',
                 'daily_wage' => 900,
                 'is_active' => true,
             ]);
@@ -62,6 +63,7 @@ class DriverManagementModuleTest extends TestCase
                 'phone' => '9999999999',
                 'license_number' => 'DL-12345',
                 'license_expiry_date' => now()->addMonths(5)->toDateString(),
+                'joining_date' => '2024-01-15',
                 'daily_wage' => 1250.75,
                 'is_active' => true,
             ]);
@@ -76,6 +78,32 @@ class DriverManagementModuleTest extends TestCase
             'tenant_id' => $tenant->id,
             'name' => 'Ravi Kumar',
         ]);
+    }
+
+    public function test_driver_index_supports_pagination_and_search(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        Sanctum::actingAs($user);
+
+        $this->createDriver($tenant, 'Alpha Driver', 800);
+        $this->createDriver($tenant, 'Beta Driver', 850, null);
+        Driver::query()->where('tenant_id', $tenant->id)->where('name', 'Beta Driver')->update([
+            'phone' => '9111222333',
+        ]);
+
+        $paginated = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/drivers?per_page=1&page=1');
+
+        $paginated->assertOk();
+        $paginated->assertJsonPath('meta.per_page', 1);
+        $paginated->assertJsonPath('meta.total', 2);
+
+        $search = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/drivers?search=9111222333');
+
+        $search->assertOk();
+        $search->assertJsonCount(1, 'data');
+        $search->assertJsonPath('data.0.name', 'Beta Driver');
     }
 
     public function test_tenant_isolation_blocks_cross_tenant_driver_access(): void

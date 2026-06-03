@@ -8,6 +8,7 @@ use App\DriverAssignment;
 use App\Enums\AttendanceStatus;
 use App\Support\CurrentTenant;
 use App\Support\MonthlyWageAccrual;
+use App\Tenant;
 use App\Vehicle;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -287,6 +288,10 @@ class AttendanceCalendarService
 
             $status = (string) ($cell['status'] ?? '');
 
+            if ($status === '') {
+                continue;
+            }
+
             if ($status === AttendanceStatus::Present->value) {
                 $stats[$driverId]['present']++;
             } elseif ($status === AttendanceStatus::NoWorkDay->value) {
@@ -392,7 +397,46 @@ class AttendanceCalendarService
             return null;
         }
 
+        if ($this->isFutureDate($date)) {
+            return $this->cellFromFutureAssignableDay($assignment);
+        }
+
         return $this->cellFromImplicitPresent($assignment, $date, $paidDriverIds);
+    }
+
+    private function isFutureDate(string $date): bool
+    {
+        return $date > $this->todayInTenantTimezone();
+    }
+
+    private function todayInTenantTimezone(): string
+    {
+        $tenant = Tenant::query()->find(CurrentTenant::requireId());
+        $timezone = $tenant?->timezone ?? config('app.timezone', 'UTC');
+
+        return Carbon::now($timezone)->toDateString();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cellFromFutureAssignableDay(DriverAssignment $assignment): array
+    {
+        $driver = $assignment->driver;
+
+        return [
+            'id' => null,
+            'status' => null,
+            'is_implicit' => false,
+            'is_future' => true,
+            'primary_driver_id' => $driver->id,
+            'primary_driver_name' => $driver->name,
+            'temporary_driver_id' => null,
+            'temporary_driver_name' => null,
+            'wage_owner_driver_id' => null,
+            'wage_amount' => 0,
+            'wage_payment_status' => null,
+        ];
     }
 
     /**
@@ -507,6 +551,10 @@ class AttendanceCalendarService
     private function incrementSummary(array &$summary, array $cell): void
     {
         $status = (string) ($cell['status'] ?? '');
+
+        if ($status === '') {
+            return;
+        }
 
         if ($status === AttendanceStatus::Present->value) {
             $summary['present']++;
