@@ -106,4 +106,20 @@ class FleetDocumentStorage
             $document->original_filename ?? basename($document->file_path),
         );
     }
+
+    public static function previewResponse(VehicleDocument $document): StreamedResponse
+    {
+        if ($document->file_path === null || ! self::disk()->exists($document->file_path)) {
+            abort(404, 'Document file not found.');
+        }
+
+        $filename = $document->original_filename ?? basename($document->file_path);
+        $safeFilename = str_replace('"', '', $filename);
+        $headers = [
+            'Content-Type' => $document->mime_type ?: 'application/octet-stream',
+            'Content-Disposition' => sprintf('inline; filename="%s"', $safeFilename),
+        ];
+
+        return self::disk()->response($document->file_path, $filename, $headers);
+    }
 }

@@ -44,4 +44,15 @@ class AttendancePolicy
             && $user->hasPermission('wages.manage')
             && $user->canAccessCompanyPanel();
     }
+
+    public function closeMonth(User $user): bool
+    {
+        return $user->hasPermission('wages.manage')
+            && $user->canAccessCompanyPanel();
+    }
+
+    public function markMonthlyWagePaid(User $user): bool
+    {
+        return $this->closeMonth($user);
+    }
 }

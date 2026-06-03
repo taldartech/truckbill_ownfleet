@@ -53,6 +53,12 @@ const router = createRouter({
                     meta: { requiresTenant: true },
                 },
                 {
+                    path: 'attendance/settlement',
+                    name: 'attendance.settlement',
+                    component: () => import('./pages/attendance/MonthlySettlementPage.vue'),
+                    meta: { requiresTenant: true },
+                },
+                {
                     path: 'reports/attendance',
                     name: 'reports.attendance',
                     component: () => import('./pages/reports/AttendanceReportsPage.vue'),

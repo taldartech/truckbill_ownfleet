@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
+use App\MonthlyDriverWage;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -30,24 +31,50 @@ class AttendancePhaseOneTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Primary Driver', 950.00);
 
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-06-01',
+            'is_primary' => true,
+        ]);
+
         Sanctum::actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/attendances', [
-                'vehicle_id' => $vehicle->id,
-                'primary_driver_id' => $driver->id,
-                'attendance_date' => now()->toDateString(),
-                'status' => 'PRESENT',
-            ]);
+            ->getJson('/api/attendances/month-overview?from_date=2026-06-01&to_date=2026-06-30');
 
-        $response->assertCreated();
-        $response->assertJsonPath('data.wage_owner_driver_id', $driver->id);
-        $response->assertJsonPath('data.wage_amount', '950.00');
-        $response->assertJsonPath('data.wage_payment_status', 'unpaid');
-        $response->assertJsonPath('data.marked_via', 'admin_panel');
+        $response->assertOk();
+        $response->assertJsonPath('data.rows.0.days.2026-06-15.status', 'PRESENT');
+        $response->assertJsonPath('data.rows.0.days.2026-06-15.is_implicit', true);
+        $response->assertJsonPath('data.rows.0.days.2026-06-15.wage_amount', 31.67);
     }
 
-    public function test_absent_with_alternate_driver_keeps_wage_on_primary(): void
+    public function test_attendance_uses_primary_driver_from_active_assignment_when_not_sent(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Assigned Driver', 980.00);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => now()->subDay()->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/month-overview?from_date='.now()->startOfMonth()->toDateString().'&to_date='.now()->endOfMonth()->toDateString());
+
+        $response->assertOk();
+        $response->assertJsonPath('data.rows.0.driver_name', 'Assigned Driver');
+        $response->assertJsonPath('data.rows.0.days.'.now()->toDateString().'.is_implicit', true);
+    }
+
+    public function test_absent_with_alternate_driver_moves_wage_to_alternate(): void
     {
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
         $vehicle = $this->createVehicle($tenant);
@@ -61,14 +88,14 @@ class AttendancePhaseOneTest extends TestCase
                 'vehicle_id' => $vehicle->id,
                 'primary_driver_id' => $primary->id,
                 'temporary_driver_id' => $alternate->id,
-                'attendance_date' => now()->toDateString(),
+                'attendance_date' => '2026-06-15',
                 'status' => 'ABSENT',
                 'temporary_assignment_remarks' => 'Primary on leave',
             ]);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.wage_owner_driver_id', $primary->id);
-        $response->assertJsonPath('data.wage_amount', '800.00');
+        $response->assertJsonPath('data.wage_owner_driver_id', $alternate->id);
+        $response->assertJsonPath('data.wage_amount', '23.33');
         $response->assertJsonPath('data.temporary_driver.id', $alternate->id);
     }
 
@@ -199,6 +226,103 @@ class AttendancePhaseOneTest extends TestCase
         $this->assertNotNull($first->assigned_to);
     }
 
+    public function test_driver_cannot_be_primary_on_two_trucks_for_same_period(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicleA = $this->createVehicle($tenant);
+        $vehicleB = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Single Shift Driver', 700);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleA->id,
+                'assigned_from' => '2026-06-01',
+                'assigned_to' => '2026-06-30',
+                'is_primary' => true,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleB->id,
+                'assigned_from' => '2026-06-15',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_id']);
+    }
+
+    public function test_truck_cannot_have_two_primary_drivers_for_same_period(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driverA = $this->createDriver($tenant, 'Driver One', 650);
+        $driverB = $this->createDriver($tenant, 'Driver Two', 700);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driverA->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-06-01',
+                'assigned_to' => '2026-06-30',
+                'is_primary' => true,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driverB->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-06-10',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['vehicle_id']);
+    }
+
+    public function test_alternate_driver_is_only_for_that_day_and_primary_continues_next_day(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $primary = $this->createDriver($tenant, 'Primary Driver', 900);
+        $alternate = $this->createDriver($tenant, 'Alternate Driver', 800);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $primary->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-01',
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances', [
+                'vehicle_id' => $vehicle->id,
+                'attendance_date' => '2026-06-10',
+                'status' => 'ABSENT',
+                'temporary_driver_id' => $alternate->id,
+                'temporary_assignment_remarks' => 'Primary on leave',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.primary_driver_id', $primary->id)
+            ->assertJsonPath('data.wage_owner_driver_id', $alternate->id);
+
+        $overview = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/month-overview?from_date=2026-06-01&to_date=2026-06-30');
+
+        $overview->assertOk();
+        $overview->assertJsonPath('data.rows.0.days.2026-06-11.status', 'PRESENT');
+        $overview->assertJsonPath('data.rows.0.days.2026-06-11.is_implicit', true);
+    }
+
     public function test_month_overview_returns_grouped_lightweight_payload(): void
     {
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
@@ -252,6 +376,160 @@ class AttendancePhaseOneTest extends TestCase
             ->getJson('/app/api/attendances/month-overview?from_date=2026-05-01&to_date=2026-05-31')
             ->assertOk()
             ->assertJsonPath('data.summary.marked', 1);
+    }
+
+    public function test_close_month_creates_monthly_wage_summary_from_attendance(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Monthly Driver', 1000.00);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driver->id,
+            'wage_owner_driver_id' => $driver->id,
+            'attendance_date' => '2026-06-01',
+            'status' => 'PRESENT',
+            'wage_amount' => 33.33,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driver->id,
+            'wage_owner_driver_id' => $driver->id,
+            'attendance_date' => '2026-06-02',
+            'status' => 'PRESENT',
+            'wage_amount' => 33.33,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', [
+                'month' => '2026-06',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.driver_id', $driver->id)
+            ->assertJsonPath('data.0.payable_days', 2)
+            ->assertJsonPath('data.0.total_wage', '66.66');
+
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'month' => '2026-06-01 00:00:00',
+            'payable_days' => 2,
+            'payment_status' => 'unpaid',
+        ]);
+    }
+
+    public function test_close_month_splits_wages_by_actual_wage_owner_driver(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        $vehicle = $this->createVehicle($tenant);
+        $primary = $this->createDriver($tenant, 'Primary For Month', 1000);
+        $alternate = $this->createDriver($tenant, 'Alternate For Month', 900);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $primary->id,
+            'wage_owner_driver_id' => $alternate->id,
+            'temporary_driver_id' => $alternate->id,
+            'attendance_date' => '2026-06-05',
+            'status' => 'ABSENT',
+            'wage_amount' => 30.00,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $primary->id,
+            'wage_owner_driver_id' => $primary->id,
+            'attendance_date' => '2026-06-06',
+            'status' => 'PRESENT',
+            'wage_amount' => 33.33,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', [
+                'month' => '2026-06',
+            ])
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'tenant_id' => $tenant->id,
+            'driver_id' => $primary->id,
+            'payable_days' => 1,
+            'total_wage' => 33.33,
+        ]);
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'tenant_id' => $tenant->id,
+            'driver_id' => $alternate->id,
+            'payable_days' => 1,
+            'total_wage' => 30.00,
+        ]);
+    }
+
+    public function test_mark_monthly_wage_paid_updates_monthly_and_daily_status(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Pay Monthly', 900.00);
+
+        $attendance = Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driver->id,
+            'wage_owner_driver_id' => $driver->id,
+            'attendance_date' => '2026-06-10',
+            'status' => 'PRESENT',
+            'wage_amount' => 900,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        $monthly = MonthlyDriverWage::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'month' => '2026-06-01',
+            'total_days' => 1,
+            'payable_days' => 1,
+            'total_wage' => 900,
+            'payment_status' => 'unpaid',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/monthly-driver-wages/{$monthly->id}/mark-paid", [
+                'payment_notes' => 'June settlement paid',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.payment_status', 'paid');
+
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'id' => $monthly->id,
+            'payment_status' => 'paid',
+        ]);
+
+        $this->assertDatabaseHas('attendances', [
+            'id' => $attendance->id,
+            'wage_payment_status' => 'paid',
+            'wage_transfer_notes' => 'June settlement paid',
+        ]);
     }
 
     public function test_attendance_index_supports_pagination_and_filters(): void

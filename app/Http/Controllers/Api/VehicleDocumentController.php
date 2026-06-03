@@ -76,6 +76,13 @@ class VehicleDocumentController extends Controller
         return FleetDocumentStorage::downloadResponse($vehicleDocument);
     }
 
+    public function preview(VehicleDocument $vehicleDocument): StreamedResponse
+    {
+        $this->authorize('view', $vehicleDocument);
+
+        return FleetDocumentStorage::previewResponse($vehicleDocument);
+    }
+
     public function destroy(VehicleDocument $vehicleDocument): Response
     {
         $this->authorize('delete', $vehicleDocument);

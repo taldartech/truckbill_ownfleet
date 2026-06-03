@@ -10,7 +10,7 @@
         <div v-if="flash.error" class="alert alert-danger mt-3">{{ flash.error }}</div>
 
         <div v-if="canCreate" class="d-flex justify-content-end gap-2 mb-3 mt-3">
-            <AppButton icon="bi bi-plus" label="Create" @click="showCreate = true" />
+            <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
         </div>
 
         <div class="card mb-4">
@@ -86,7 +86,8 @@
             :show="showCreate"
             :saving="saving"
             :field-errors="fieldErrors"
-            @close="showCreate = false"
+            :form-error="companyFormError"
+            @close="closeCreate"
             @submit="handleCreate"
         />
     </div>
@@ -116,6 +117,7 @@ const loading = ref(true);
 const saving = ref(false);
 const showCreate = ref(false);
 const fieldErrors = ref({});
+const companyFormError = ref('');
 const flash = reactive({ success: '', error: '' });
 
 const canCreate = computed(() => can('companies.create'));
@@ -151,21 +153,38 @@ async function loadCompanies() {
     }
 }
 
+function openCreate() {
+    fieldErrors.value = {};
+    companyFormError.value = '';
+    showCreate.value = true;
+}
+
+function closeCreate() {
+    showCreate.value = false;
+    fieldErrors.value = {};
+    companyFormError.value = '';
+}
+
 async function handleCreate(payload) {
     saving.value = true;
     fieldErrors.value = {};
-    flash.error = '';
+    companyFormError.value = '';
 
     try {
         await createCompany(payload);
-        showCreate.value = false;
+        closeCreate();
         flash.success = 'Company created successfully.';
         await loadCompanies();
     } catch (error) {
         if (error.response?.status === 422) {
             fieldErrors.value = error.response.data.errors ?? {};
+            companyFormError.value =
+                error.response.data.message ?? 'Please check the highlighted fields.';
+
+            return;
         }
-        flash.error = error.response?.data?.message ?? 'Could not create company.';
+
+        companyFormError.value = error.response?.data?.message ?? 'Could not create company.';
     } finally {
         saving.value = false;
     }

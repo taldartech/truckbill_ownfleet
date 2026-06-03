@@ -38,6 +38,7 @@
             mode="create"
             :saving="saving"
             :field-errors="fieldErrors"
+            :form-error="driverFormError"
             @close="closeCreate"
             @submit="handleCreate"
         />
@@ -49,6 +50,7 @@
             :driver="editingDriver"
             :saving="saving"
             :field-errors="fieldErrors"
+            :form-error="driverFormError"
             @close="closeEdit"
             @submit="handleUpdate"
         />
@@ -61,7 +63,10 @@ import { createDriver, deleteDriver, listAllDrivers, updateDriver } from '../../
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { usePermissions } from '../../composables/usePermissions';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { initDriversDataTable, reloadDriversDataTable } from '../../composables/useDriversDataTable';
+
+const { fieldErrors, formError: driverFormError, clearErrors, applyApiError } = useApiFormErrors();
 
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('drivers.manage'));
@@ -72,7 +77,6 @@ const saving = ref(false);
 const showCreate = ref(false);
 const showEdit = ref(false);
 const editingDriver = ref(null);
-const fieldErrors = ref({});
 const flash = reactive({ success: '', error: '' });
 
 let dataTable = null;
@@ -168,7 +172,7 @@ function unbindTableActions() {
 }
 
 function clearFormState() {
-    fieldErrors.value = {};
+    clearErrors();
 }
 
 function openCreate() {
@@ -188,8 +192,7 @@ function closeEdit() {
 }
 
 function applyValidationError(error) {
-    if (error.response?.status === 422) {
-        fieldErrors.value = error.response.data.errors ?? {};
+    if (applyApiError(error)) {
         return;
     }
 

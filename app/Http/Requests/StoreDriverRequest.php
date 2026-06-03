@@ -34,12 +34,18 @@ class StoreDriverRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
+            'employee_code' => ['nullable', 'string', 'max:50'],
+            'father_name' => ['nullable', 'string', 'max:150'],
             'phone' => ['required', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],
             'license_number' => ['nullable', 'string', 'max:100'],
             'license_expiry_date' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:500'],
             'aadhaar_number' => ['nullable', 'string', 'regex:/^[0-9]{12}$/'],
             'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
+            'uan_number' => ['nullable', 'string', 'max:30'],
+            'esic_number' => ['nullable', 'string', 'max:30'],
+            'bank_account_number' => ['nullable', 'string', 'max:40'],
+            'bank_ifsc' => ['nullable', 'string', 'max:20'],
             'joining_date' => ['nullable', 'date'],
             'emergency_contact_name' => ['nullable', 'string', 'max:150'],
             'emergency_contact_phone' => ['nullable', 'string', 'regex:/^[0-9]{10}$/', 'max:20'],

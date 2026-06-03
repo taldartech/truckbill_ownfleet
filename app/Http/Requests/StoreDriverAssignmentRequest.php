@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\DriverAssignment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreDriverAssignmentRequest extends FormRequest
 {
@@ -30,7 +31,7 @@ class StoreDriverAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
+            'driver_id' => ['required', 'uuid', Rule::exists('drivers', 'id')->where('is_active', true)],
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'assigned_from' => ['required', 'date'],
             'assigned_to' => ['nullable', 'date', 'after_or_equal:assigned_from'],

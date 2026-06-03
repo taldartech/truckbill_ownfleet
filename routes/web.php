@@ -116,6 +116,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
             Route::post('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'store'])->name('vehicle-documents.store');
             Route::get('/vehicle-documents/{vehicle_document}/download', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'download'])
                 ->name('vehicle-documents.download');
+            Route::get('/vehicle-documents/{vehicle_document}/preview', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'preview'])
+                ->name('vehicle-documents.preview');
             Route::put('/vehicle-documents/{vehicle_document}', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'update'])->name('vehicle-documents.update');
             Route::delete('/vehicle-documents/{vehicle_document}', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'destroy'])->name('vehicle-documents.destroy');
 
@@ -128,6 +130,26 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
 
             Route::get('/attendances/month-overview', [\App\Http\Controllers\Api\AttendanceController::class, 'monthOverview'])
                 ->name('attendances.month-overview');
+            Route::get('/attendances/monthly-wages', [\App\Http\Controllers\Api\AttendanceController::class, 'monthlyWages'])
+                ->name('attendances.monthly-wages');
+            Route::get('/attendances/settlement-sheet', [\App\Http\Controllers\Api\AttendanceController::class, 'settlementSheet'])
+                ->name('attendances.settlement-sheet');
+            Route::patch('/monthly-driver-wages/{monthlyDriverWage}/settlement', [\App\Http\Controllers\Api\AttendanceController::class, 'updateSettlementLine'])
+                ->name('monthly-driver-wages.update-settlement');
+            Route::patch('/attendances/vehicle-settlement-line', [\App\Http\Controllers\Api\AttendanceController::class, 'updateVehicleSettlementLine'])
+                ->name('attendances.vehicle-settlement-line');
+            Route::post('/attendances/close-month', [\App\Http\Controllers\Api\AttendanceController::class, 'closeMonth'])
+                ->name('attendances.close-month');
+            Route::post('/attendances/lock-month', [\App\Http\Controllers\Api\AttendanceController::class, 'lockMonth'])
+                ->name('attendances.lock-month');
+            Route::post('/attendances/reopen-month', [\App\Http\Controllers\Api\AttendanceController::class, 'reopenMonth'])
+                ->name('attendances.reopen-month');
+            Route::post('/attendances/unlock-month', [\App\Http\Controllers\Api\AttendanceController::class, 'unlockMonth'])
+                ->name('attendances.unlock-month');
+            Route::post('/attendances/mark-all-monthly-paid', [\App\Http\Controllers\Api\AttendanceController::class, 'markAllMonthlyWagesPaid'])
+                ->name('attendances.mark-all-monthly-paid');
+            Route::post('/monthly-driver-wages/{monthlyDriverWage}/mark-paid', [\App\Http\Controllers\Api\AttendanceController::class, 'markMonthlyWagePaid'])
+                ->name('monthly-driver-wages.mark-paid');
             Route::post('/attendances/{attendance}/mark-wage-paid', [\App\Http\Controllers\Api\AttendanceController::class, 'markWagePaid'])
                 ->name('attendances.mark-wage-paid');
             Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);

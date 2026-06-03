@@ -12,8 +12,10 @@ export async function listDrivers(page = 1) {
     return data;
 }
 
-export async function listAllDrivers() {
-    const { data } = await api.get(driversBase, { params: { per_page: 500 } });
+export async function listAllDrivers({ activeOnly = false } = {}) {
+    const { data } = await api.get(driversBase, {
+        params: { per_page: 500, ...(activeOnly ? { active_only: 1 } : {}) },
+    });
 
     return data.data ?? [];
 }

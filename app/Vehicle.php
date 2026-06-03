@@ -38,9 +38,15 @@ class Vehicle extends Model
 
     public function currentPrimaryAssignment(): HasOne
     {
+        $today = now()->toDateString();
+
         return $this->hasOne(DriverAssignment::class)
             ->where('is_primary', true)
-            ->whereNull('assigned_to')
+            ->whereDate('assigned_from', '<=', $today)
+            ->where(function ($query) use ($today) {
+                $query->whereNull('assigned_to')
+                    ->orWhereDate('assigned_to', '>=', $today);
+            })
             ->latest('assigned_from');
     }
 

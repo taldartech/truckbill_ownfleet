@@ -20,10 +20,16 @@
                     <div v-if="canManage" class="card mb-3">
                         <div class="card-header">{{ editingDocument ? 'Edit Document' : 'Add Document' }}</div>
                         <div class="card-body">
+                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                             <form class="row g-3" @submit.prevent="saveDocument">
                                 <div class="col-md-4">
                                     <label class="form-label">Document Type *</label>
-                                    <select v-model="docForm.document_type" class="form-select" required>
+                                    <select
+                                        v-model="docForm.document_type"
+                                        class="form-select"
+                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'document_type') }"
+                                        required
+                                    >
                                         <option value="">Select</option>
                                         <option
                                             v-for="type in documentTypes"
@@ -33,27 +39,60 @@
                                             {{ type.label }}
                                         </option>
                                     </select>
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'document_type')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'document_type') }}
+                                    </div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Issue Date</label>
-                                    <input v-model="docForm.issue_date" type="date" class="form-control" />
+                                    <input
+                                        v-model="docForm.issue_date"
+                                        type="date"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'issue_date') }"
+                                    />
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'issue_date')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'issue_date') }}
+                                    </div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Expiry Date</label>
-                                    <input v-model="docForm.expiry_date" type="date" class="form-control" />
+                                    <input
+                                        v-model="docForm.expiry_date"
+                                        type="date"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'expiry_date') }"
+                                    />
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'expiry_date')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'expiry_date') }}
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Upload File</label>
                                     <input
                                         type="file"
                                         class="form-control"
+                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'file') }"
                                         accept=".pdf,.jpg,.jpeg,.png,.webp"
                                         @change="onFileSelected"
                                     />
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'file')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'file') }}
+                                    </div>
                                     <small class="text-muted d-block mt-1">
-                                        Stored under
-                                        <code>storage/app/fleet-documents/{tenant}/vehicles/…</code>
-                                        — same paths on S3 later.
+                                        Allowed: PDF/JPG/PNG/WEBP. Max size: 10 MB.
                                     </small>
                                     <p v-if="editingDocument?.original_filename" class="small mb-0 mt-1">
                                         Current:
@@ -127,15 +166,25 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <a
-                                            v-if="doc.download_url"
-                                            :href="doc.download_url"
-                                            target="_blank"
-                                            rel="noopener"
-                                            class="btn btn-sm btn-link p-0"
-                                        >
-                                            {{ doc.original_filename ?? 'Download' }}
-                                        </a>
+                                        <div v-if="doc.download_url" class="d-flex align-items-center gap-2 flex-wrap">
+                                            <span class="small text-muted">{{ doc.original_filename ?? 'Document file' }}</span>
+                                            <a
+                                                v-if="doc.preview_url"
+                                                :href="doc.preview_url"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="btn btn-sm btn-outline-primary"
+                                            >
+                                                View
+                                            </a>
+                                            <a
+                                                :href="doc.download_url"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                download
+                                            >
+                                                Download
+                                            </a>
+                                        </div>
                                         <span v-else class="text-muted">—</span>
                                     </td>
                                     <td v-if="canManage">
@@ -166,8 +215,12 @@ import {
     updateVehicleDocument,
     vehicleDocumentTypes,
 } from '../../api/vehicleDocuments';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
+
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -190,6 +243,7 @@ const vehicleLabel = ref('');
 
 const docForm = ref(emptyDocForm());
 const selectedFile = ref(null);
+const maxFileBytes = 10 * 1024 * 1024;
 
 function emptyDocForm() {
     return {
@@ -203,11 +257,22 @@ function emptyDocForm() {
 function resetDocForm() {
     editingDocument.value = null;
     selectedFile.value = null;
+    clearErrors();
     docForm.value = emptyDocForm();
 }
 
 function onFileSelected(event) {
     const [file] = event.target.files ?? [];
+
+    if (file && file.size > maxFileBytes) {
+        formError.value = 'File size is too large. Please select a file up to 10 MB.';
+        event.target.value = '';
+        selectedFile.value = null;
+
+        return;
+    }
+
+    formError.value = '';
 
     selectedFile.value = file ?? null;
 }
@@ -221,8 +286,9 @@ async function loadDocuments() {
 
     try {
         documents.value = await listVehicleDocuments(props.vehicle.id);
-    } catch {
+    } catch (error) {
         documents.value = [];
+        showRequestError(error, 'Unable to load documents right now.');
     } finally {
         loading.value = false;
     }
@@ -257,6 +323,7 @@ function close() {
 function editDocument(doc) {
     editingDocument.value = doc;
     selectedFile.value = null;
+    clearErrors();
     docForm.value = {
         document_type: doc.document_type,
         issue_date: doc.issue_date ?? '',
@@ -271,6 +338,7 @@ async function saveDocument() {
     }
 
     saving.value = true;
+    clearErrors();
 
     const payload = {
         vehicle_id: props.vehicle.id,
@@ -285,7 +353,8 @@ async function saveDocument() {
             await updateVehicleDocument(editingDocument.value.id, payload, selectedFile.value);
         } else {
             if (!selectedFile.value) {
-                window.alert('Please choose a file to upload.');
+                formError.value = 'Please choose a file to upload.';
+                saving.value = false;
 
                 return;
             }
@@ -295,6 +364,10 @@ async function saveDocument() {
 
         resetDocForm();
         await loadDocuments();
+    } catch (error) {
+        if (!applyApiError(error)) {
+            formError.value = 'Unable to save the document. Please try again.';
+        }
     } finally {
         saving.value = false;
     }
@@ -305,7 +378,28 @@ async function removeDocument(doc) {
         return;
     }
 
-    await deleteVehicleDocument(doc.id);
-    await loadDocuments();
+    try {
+        await deleteVehicleDocument(doc.id);
+        await loadDocuments();
+    } catch (error) {
+        showRequestError(error, 'Unable to delete the document.');
+    }
+}
+
+function showRequestError(error, fallbackMessage) {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message;
+    const validationErrors = error?.response?.data?.errors;
+    const firstValidationMessage = validationErrors
+        ? Object.values(validationErrors).flat().find(Boolean)
+        : null;
+
+    if (status === 413) {
+        window.alert('File is too large for upload. Please choose a smaller file (max 10 MB).');
+
+        return;
+    }
+
+    window.alert(firstValidationMessage || message || fallbackMessage);
 }
 </script>

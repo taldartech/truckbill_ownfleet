@@ -12,6 +12,17 @@ export async function listAllVehicles() {
     return data.data ?? [];
 }
 
+export async function listVehicles({ page = 1, perPage = 10 } = {}) {
+    const { data } = await api.get(vehiclesBase, {
+        params: { page, per_page: perPage },
+    });
+
+    return {
+        data: data.data ?? [],
+        meta: data.meta ?? {},
+    };
+}
+
 export async function createVehicle(payload) {
     const { data } = await api.post(vehiclesBase, payload);
 

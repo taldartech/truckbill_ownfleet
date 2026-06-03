@@ -34,6 +34,10 @@ class VehicleDocumentResource extends JsonResource
                 $this->hasStoredFile(),
                 fn () => route('app.api.vehicle-documents.download', $this->id),
             ),
+            'preview_url' => $this->when(
+                $this->hasStoredFile(),
+                fn () => route('app.api.vehicle-documents.preview', $this->id),
+            ),
             'reminder_days_before' => $this->reminder_days_before,
             'is_expired' => $this->expiry_date !== null && $this->expiry_date->isPast(),
             'created_at' => $this->created_at?->toISOString(),

@@ -23,9 +23,20 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::apiResource('drivers', DriverController::class);
     Route::apiResource('driver-assignments', DriverAssignmentController::class);
     Route::get('attendances/month-overview', [AttendanceController::class, 'monthOverview']);
+    Route::get('attendances/monthly-wages', [AttendanceController::class, 'monthlyWages']);
+    Route::get('attendances/settlement-sheet', [AttendanceController::class, 'settlementSheet']);
+    Route::patch('monthly-driver-wages/{monthlyDriverWage}/settlement', [AttendanceController::class, 'updateSettlementLine']);
+    Route::patch('attendances/vehicle-settlement-line', [AttendanceController::class, 'updateVehicleSettlementLine']);
+    Route::post('attendances/close-month', [AttendanceController::class, 'closeMonth']);
+    Route::post('attendances/lock-month', [AttendanceController::class, 'lockMonth']);
+    Route::post('attendances/reopen-month', [AttendanceController::class, 'reopenMonth']);
+    Route::post('attendances/unlock-month', [AttendanceController::class, 'unlockMonth']);
+    Route::post('attendances/mark-all-monthly-paid', [AttendanceController::class, 'markAllMonthlyWagesPaid']);
     Route::post('attendances/{attendance}/mark-wage-paid', [AttendanceController::class, 'markWagePaid']);
+    Route::post('monthly-driver-wages/{monthlyDriverWage}/mark-paid', [AttendanceController::class, 'markMonthlyWagePaid']);
     Route::apiResource('attendances', AttendanceController::class);
     Route::apiResource('trips', TripController::class);
+    Route::get('vehicle-documents/{vehicle_document}/preview', [VehicleDocumentController::class, 'preview']);
     Route::get('vehicle-documents/{vehicle_document}/download', [VehicleDocumentController::class, 'download']);
     Route::apiResource('vehicle-documents', VehicleDocumentController::class);
 

@@ -76,6 +76,32 @@
                     </tbody>
                 </table>
             </div>
+            <div v-if="pagination.lastPage > 1" class="card-footer d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} trucks
+                </small>
+                <div class="btn-group btn-group-sm">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        :disabled="loading || pagination.currentPage <= 1"
+                        @click="goToPage(pagination.currentPage - 1)"
+                    >
+                        Previous
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled>
+                        Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        :disabled="loading || pagination.currentPage >= pagination.lastPage"
+                        @click="goToPage(pagination.currentPage + 1)"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
         </div>
 
         <VehicleFormModal
@@ -84,6 +110,8 @@
             :mode="formMode"
             :vehicle="editingVehicle"
             :saving="saving"
+            :field-errors="fieldErrors"
+            :form-error="vehicleFormError"
             @close="closeForm"
             @submit="handleSubmit"
         />
@@ -110,7 +138,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { createVehicle, deleteVehicle, listAllVehicles, updateVehicle } from '../../api/vehicles';
+import { createVehicle, deleteVehicle, listVehicles, updateVehicle } from '../../api/vehicles';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
@@ -136,11 +164,21 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingVehicle = ref(null);
+const fieldErrors = ref({});
+const vehicleFormError = ref('');
 const showDocuments = ref(false);
 const documentsVehicle = ref(null);
 const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
 const flash = reactive({ success: '', error: '' });
+const pagination = reactive({
+    currentPage: 1,
+    perPage: 10,
+    lastPage: 1,
+    total: 0,
+    from: 0,
+    to: 0,
+});
 
 function formatMakeModel(vehicle) {
     const parts = [vehicle.make, vehicle.model].filter(Boolean);
@@ -153,10 +191,15 @@ function showToast(message, type = 'success') {
     flash.error = type === 'error' ? message : '';
 }
 
-async function loadVehicles() {
+async function loadVehicles(page = pagination.currentPage) {
     if (needsCompanySelection()) {
         vehicles.value = [];
         loading.value = false;
+        pagination.currentPage = 1;
+        pagination.lastPage = 1;
+        pagination.total = 0;
+        pagination.from = 0;
+        pagination.to = 0;
 
         return;
     }
@@ -165,33 +208,58 @@ async function loadVehicles() {
     flash.error = '';
 
     try {
-        vehicles.value = await listAllVehicles();
+        const response = await listVehicles({ page, perPage: pagination.perPage });
+        vehicles.value = response.data;
+        pagination.currentPage = response.meta.current_page ?? page;
+        pagination.lastPage = response.meta.last_page ?? 1;
+        pagination.total = response.meta.total ?? vehicles.value.length;
+        pagination.from = response.meta.from ?? (vehicles.value.length > 0 ? 1 : 0);
+        pagination.to = response.meta.to ?? vehicles.value.length;
     } catch (error) {
         if (!handleCompanyContextError(error, 'Could not load trucks.')) {
             showToast('Could not load trucks.', 'error');
         }
 
         vehicles.value = [];
+        pagination.currentPage = 1;
+        pagination.lastPage = 1;
+        pagination.total = 0;
+        pagination.from = 0;
+        pagination.to = 0;
     } finally {
         loading.value = false;
     }
 }
 
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
+
+    loadVehicles(page);
+}
+
 function openCreate() {
     formMode.value = 'create';
     editingVehicle.value = null;
+    fieldErrors.value = {};
+    vehicleFormError.value = '';
     showForm.value = true;
 }
 
 function openEdit(vehicle) {
     formMode.value = 'edit';
     editingVehicle.value = { ...vehicle };
+    fieldErrors.value = {};
+    vehicleFormError.value = '';
     showForm.value = true;
 }
 
 function closeForm() {
     showForm.value = false;
     editingVehicle.value = null;
+    fieldErrors.value = {};
+    vehicleFormError.value = '';
 }
 
 function openDocuments(vehicle) {
@@ -205,6 +273,8 @@ function closeDocuments() {
 }
 
 function openAssignment(vehicle) {
+    flash.success = '';
+    flash.error = '';
     assignmentVehicle.value = { ...vehicle };
     showAssignment.value = true;
 }
@@ -221,6 +291,8 @@ async function onAssignmentSaved() {
 
 async function handleSubmit(payload) {
     saving.value = true;
+    fieldErrors.value = {};
+    vehicleFormError.value = '';
 
     try {
         if (formMode.value === 'edit' && editingVehicle.value?.id) {
@@ -234,6 +306,12 @@ async function handleSubmit(payload) {
         closeForm();
         await loadVehicles();
     } catch (error) {
+        if (error.response?.status === 422) {
+            fieldErrors.value = error.response.data.errors ?? {};
+            vehicleFormError.value = error.response.data.message ?? 'Please check the highlighted fields.';
+            return;
+        }
+
         if (!handleCompanyContextError(error, 'Select a company before saving a truck.')) {
             showToast('Unable to save truck.', 'error');
         }

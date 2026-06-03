@@ -30,21 +30,76 @@
                     <div v-if="canManage" class="card mb-3">
                         <div class="card-header">Assign Primary Driver</div>
                         <div class="card-body">
+                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                             <form class="row g-3" @submit.prevent="assignDriver">
                                 <div class="col-md-6">
                                     <label class="form-label" for="assign_driver_id">Driver *</label>
-                                    <select
-                                        id="assign_driver_id"
-                                        v-model="assignForm.driver_id"
-                                        class="form-select"
-                                        required
+                                    <div
+                                        ref="driverPickerRef"
+                                        class="driver-picker"
+                                        :class="{ 'is-invalid-picker': hasFieldError(fieldErrors, 'driver_id') }"
                                     >
-                                        <option value="">Select driver</option>
-                                        <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                                            {{ driver.name }}
-                                            <template v-if="driver.phone"> — {{ driver.phone }}</template>
-                                        </option>
-                                    </select>
+                                        <div class="driver-trigger-wrap">
+                                            <button
+                                                id="assign_driver_id"
+                                                type="button"
+                                                class="form-select text-start driver-trigger"
+                                                @click="toggleDriverDropdown"
+                                            >
+                                                {{ selectedDriverLabel }}
+                                            </button>
+                                            <button
+                                                v-if="assignForm.driver_id"
+                                                type="button"
+                                                class="btn btn-link driver-clear-btn"
+                                                title="Clear selected driver"
+                                                @click="clearSelectedDriver"
+                                            >
+                                                <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        </div>
+                                        <div v-if="isDriverDropdownOpen" class="driver-dropdown-menu shadow-sm">
+                                            <div class="driver-search-wrap">
+                                                <input
+                                                    v-model.trim="driverSearch"
+                                                    type="text"
+                                                    class="form-control form-control-sm driver-search-input"
+                                                    placeholder="Search driver by name or mobile"
+                                                />
+                                            </div>
+                                            <div class="driver-list-scroll">
+                                                <button
+                                                    v-for="driver in filteredDrivers"
+                                                    :key="driver.id"
+                                                    type="button"
+                                                    class="dropdown-item driver-option"
+                                                    :class="{ 'text-danger fw-semibold': isDriverPrimaryElsewhere(driver.id) }"
+                                                    @click="selectDriver(driver)"
+                                                >
+                                                    {{ driver.name }}
+                                                    <template v-if="driver.phone"> — {{ driver.phone }}</template>
+                                                    <template v-if="isDriverPrimaryElsewhere(driver.id)">
+                                                        [Primary on {{ activePrimaryByDriver[driver.id].vehicleLabel }}]
+                                                    </template>
+                                                </button>
+                                                <div v-if="filteredDrivers.length === 0" class="px-3 py-2 text-muted small">
+                                                    No driver found.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input v-model="assignForm.driver_id" type="hidden" required />
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'driver_id')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'driver_id') }}
+                                    </div>
+                                    <div v-if="selectedDriverConflict" class="text-danger small mt-2">
+                                        This driver is currently primary on
+                                        <strong>{{ selectedDriverConflict.vehicleLabel }}</strong>.
+                                        Continue only if you want to move this driver.
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="assign_from">Effective From *</label>
@@ -53,8 +108,25 @@
                                         v-model="assignForm.assigned_from"
                                         type="date"
                                         class="form-control"
+                                        :class="{
+                                            'is-invalid':
+                                                hasFieldError(fieldErrors, 'assigned_from') ||
+                                                hasFieldError(fieldErrors, 'vehicle_id'),
+                                        }"
                                         required
                                     />
+                                    <div
+                                        v-if="
+                                            fieldErrorMessage(fieldErrors, 'assigned_from') ||
+                                            fieldErrorMessage(fieldErrors, 'vehicle_id')
+                                        "
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{
+                                            fieldErrorMessage(fieldErrors, 'assigned_from') ||
+                                            fieldErrorMessage(fieldErrors, 'vehicle_id')
+                                        }}
+                                    </div>
                                 </div>
                                 <div class="col-12">
                                     <p class="small text-muted mb-0">
@@ -110,10 +182,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { listAllDrivers } from '../../api/drivers';
 import { createDriverAssignment, listDriverAssignments } from '../../api/driverAssignments';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppButton from '../ui/AppButton.vue';
+
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 const props = defineProps({
     modalId: { type: String, default: 'vehicleDriverAssignmentModal' },
@@ -132,6 +208,10 @@ const saving = ref(false);
 const assignments = ref([]);
 const drivers = ref([]);
 const vehicleLabel = ref('');
+const driverSearch = ref('');
+const activePrimaryByDriver = ref({});
+const isDriverDropdownOpen = ref(false);
+const driverPickerRef = ref(null);
 
 const assignForm = ref({
     driver_id: '',
@@ -145,6 +225,40 @@ const currentDriverName = computed(
 const currentAssignedFrom = computed(
     () => props.vehicle?.current_primary_assignment?.assigned_from ?? null,
 );
+
+const filteredDrivers = computed(() => {
+    const query = driverSearch.value.toLowerCase();
+
+    if (!query) {
+        return drivers.value;
+    }
+
+    return drivers.value.filter((driver) => {
+        const name = String(driver.name ?? '').toLowerCase();
+        const phone = String(driver.phone ?? '').toLowerCase();
+
+        return name.includes(query) || phone.includes(query);
+    });
+});
+
+const selectedDriverConflict = computed(() => activePrimaryByDriver.value[assignForm.value.driver_id] ?? null);
+const selectedDriverLabel = computed(() => {
+    if (!assignForm.value.driver_id) {
+        return 'Select driver';
+    }
+
+    const selected = drivers.value.find((driver) => driver.id === assignForm.value.driver_id);
+
+    if (!selected) {
+        return 'Select driver';
+    }
+
+    const vehicleInfo = activePrimaryByDriver.value[selected.id]?.vehicleLabel;
+
+    return vehicleInfo
+        ? `${selected.name} (${selected.phone ?? ''}) - Primary on ${vehicleInfo}`
+        : `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
+});
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -169,9 +283,64 @@ async function loadHistory() {
 
 async function loadDrivers() {
     try {
-        drivers.value = await listAllDrivers();
+        drivers.value = await listAllDrivers({ activeOnly: true });
     } catch {
         drivers.value = [];
+    }
+}
+
+async function loadActivePrimaryAssignments() {
+    try {
+        const response = await listDriverAssignments({ perPage: 500 });
+        const rows = response.data ?? [];
+        const currentVehicleId = props.vehicle?.id ?? null;
+        const today = todayIso();
+        const primaryAssignments = rows.filter(
+            (row) =>
+                row.is_primary === true &&
+                row.assigned_from <= today &&
+                (row.assigned_to === null || row.assigned_to >= today),
+        );
+
+        activePrimaryByDriver.value = primaryAssignments.reduce((accumulator, row) => {
+            if (!row.driver_id || row.vehicle_id === currentVehicleId) {
+                return accumulator;
+            }
+
+            accumulator[row.driver_id] = {
+                vehicleId: row.vehicle_id,
+                vehicleLabel: row.vehicle?.registration_number ?? 'another truck',
+                driverName: row.driver?.name ?? 'Driver',
+            };
+
+            return accumulator;
+        }, {});
+    } catch {
+        activePrimaryByDriver.value = {};
+    }
+}
+
+function isDriverPrimaryElsewhere(driverId) {
+    return Boolean(activePrimaryByDriver.value[driverId]);
+}
+
+function toggleDriverDropdown() {
+    isDriverDropdownOpen.value = !isDriverDropdownOpen.value;
+}
+
+function selectDriver(driver) {
+    assignForm.value.driver_id = driver.id;
+    isDriverDropdownOpen.value = false;
+}
+
+function clearSelectedDriver() {
+    assignForm.value.driver_id = '';
+    driverSearch.value = '';
+}
+
+function handleClickOutside(event) {
+    if (driverPickerRef.value && !driverPickerRef.value.contains(event.target)) {
+        isDriverDropdownOpen.value = false;
     }
 }
 
@@ -187,18 +356,29 @@ watch(
         }
 
         if (visible) {
+            clearErrors();
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
+            driverSearch.value = '';
+            isDriverDropdownOpen.value = false;
             assignForm.value = {
                 driver_id: '',
                 assigned_from: todayIso(),
             };
-            await Promise.all([loadHistory(), loadDrivers()]);
+            await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
             bootstrapModal.show();
         } else {
             bootstrapModal.hide();
         }
     },
 );
+
+onMounted(() => {
+    document.addEventListener('click', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', handleClickOutside);
+});
 
 function close() {
     emit('close');
@@ -209,7 +389,18 @@ async function assignDriver() {
         return;
     }
 
+    if (selectedDriverConflict.value) {
+        const shouldContinue = window.confirm(
+            `This driver is currently primary on ${selectedDriverConflict.value.vehicleLabel}. Do you want to reassign anyway?`,
+        );
+
+        if (!shouldContinue) {
+            return;
+        }
+    }
+
     saving.value = true;
+    clearErrors();
 
     try {
         await createDriverAssignment({
@@ -219,12 +410,85 @@ async function assignDriver() {
             is_primary: true,
         });
         assignForm.value.driver_id = '';
-        await loadHistory();
+        driverSearch.value = '';
+        clearErrors();
+        await Promise.all([loadHistory(), loadActivePrimaryAssignments()]);
         emit('assigned');
-    } catch {
-        window.alert('Could not save driver assignment.');
+    } catch (error) {
+        if (!applyApiError(error)) {
+            formError.value = 'Could not save driver assignment. Please try again.';
+        }
     } finally {
         saving.value = false;
     }
 }
 </script>
+
+<style scoped>
+.driver-picker {
+    position: relative;
+}
+
+.is-invalid-picker .driver-trigger {
+    border-color: #dc3545;
+}
+
+.driver-trigger {
+    padding-right: 2.4rem;
+}
+
+.driver-trigger-wrap {
+    position: relative;
+}
+
+.driver-clear-btn {
+    position: absolute;
+    right: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    text-decoration: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.driver-clear-btn:hover {
+    color: #dc3545;
+}
+
+.driver-dropdown-menu {
+    position: absolute;
+    z-index: 1060;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    margin-top: 0.45rem;
+}
+
+.driver-search-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+    padding: 0.55rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.driver-search-input {
+    height: 2rem;
+}
+
+.driver-list-scroll {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 0.2rem 0;
+}
+
+.driver-option {
+    white-space: normal;
+    line-height: 1.25;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+</style>

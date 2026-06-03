@@ -8,23 +8,22 @@ use App\Http\Requests\StoreDriverRequest;
 use App\Http\Requests\UpdateDriverRequest;
 use App\Http\Resources\DriverResource;
 use App\Modules\DriverManagement\Services\DriverService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Http\Request;
 
 class DriverController extends Controller
 {
-    public function __construct(private readonly DriverService $driverService)
-    {
-    }
+    public function __construct(private readonly DriverService $driverService) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Driver::class);
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+        $activeOnly = $request->boolean('active_only', false);
 
-        return DriverResource::collection($this->driverService->paginate($perPage));
+        return DriverResource::collection($this->driverService->paginate($perPage, $activeOnly));
     }
 
     public function store(StoreDriverRequest $request): DriverResource

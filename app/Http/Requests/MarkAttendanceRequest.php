@@ -29,15 +29,19 @@ class MarkAttendanceRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
-            'primary_driver_id' => ['required', 'uuid', 'exists:drivers,id'],
+            'primary_driver_id' => ['nullable', 'uuid', Rule::exists('drivers', 'id')->where('is_active', true)],
             'temporary_driver_id' => [
                 'nullable',
                 'uuid',
-                'exists:drivers,id',
+                Rule::exists('drivers', 'id')->where('is_active', true),
                 'different:primary_driver_id',
             ],
             'attendance_date' => ['required', 'date'],
-            'status' => ['required', Rule::enum(AttendanceStatus::class)],
+            'status' => [
+                'required',
+                Rule::enum(AttendanceStatus::class),
+                Rule::notIn([AttendanceStatus::Present->value]),
+            ],
             'marked_via' => ['nullable', Rule::enum(AttendanceMarkedVia::class)],
             'wage_amount' => ['nullable', 'numeric', 'min:0'],
             'temporary_assignment_remarks' => ['nullable', 'string', 'max:2000'],

@@ -21,6 +21,10 @@ class VehicleResource extends JsonResource
             'model' => $this->model,
             'manufacture_year' => $this->manufacture_year,
             'odometer_km' => $this->odometer_km,
+            'primary_driver_id' => $this->when(
+                $this->relationLoaded('currentPrimaryAssignment') && $this->currentPrimaryAssignment !== null,
+                fn () => $this->currentPrimaryAssignment->driver_id,
+            ),
             'current_primary_assignment' => $this->when(
                 $this->relationLoaded('currentPrimaryAssignment') && $this->currentPrimaryAssignment !== null,
                 fn (): array => [

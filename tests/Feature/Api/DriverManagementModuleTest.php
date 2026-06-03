@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Driver;
+use App\DriverAssignment;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -102,30 +103,31 @@ class DriverManagementModuleTest extends TestCase
     {
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
         $vehicle = $this->createVehicle($tenant);
-        $driver = $this->createDriver($tenant, 'Primary Driver', 950.00);
+        $primary = $this->createDriver($tenant, 'Primary Driver', 950.00);
+        $substitute = $this->createDriver($tenant, 'Substitute Driver', 900.00);
 
         Sanctum::actingAs($user);
 
         $payload = [
             'vehicle_id' => $vehicle->id,
-            'primary_driver_id' => $driver->id,
-            'attendance_date' => now()->toDateString(),
-            'status' => 'PRESENT',
-            'wage_amount' => 950,
+            'primary_driver_id' => $primary->id,
+            'temporary_driver_id' => $substitute->id,
+            'attendance_date' => '2026-06-15',
+            'status' => 'ABSENT',
         ];
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances', $payload);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.wage_owner_driver_id', $driver->id);
-        $response->assertJsonPath('data.wage_amount', '950.00');
+        $response->assertJsonPath('data.wage_owner_driver_id', $substitute->id);
+        $response->assertJsonPath('data.wage_amount', '30.00');
 
         $this->assertDatabaseHas('attendances', [
             'tenant_id' => $tenant->id,
             'vehicle_id' => $vehicle->id,
-            'primary_driver_id' => $driver->id,
-            'wage_owner_driver_id' => $driver->id,
+            'primary_driver_id' => $primary->id,
+            'wage_owner_driver_id' => $substitute->id,
         ]);
     }
 
@@ -156,6 +158,35 @@ class DriverManagementModuleTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.phone', '9766554433');
+    }
+
+    public function test_driver_deactivation_closes_open_primary_assignments(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $driver = $this->createDriver($tenant, 'Driver Leaving', 900);
+        $vehicle = $this->createVehicle($tenant);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => now()->subDays(10)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/drivers/{$driver->id}", [
+                'is_active' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_active', false);
+
+        $this->assertDatabaseHas('driver_assignments', [
+            'driver_id' => $driver->id,
+            'assigned_to' => now()->toDateString(),
+        ]);
     }
 
     public function test_driver_role_cannot_create_or_update_driver_records(): void

@@ -18,6 +18,7 @@
                 </div>
                 <form novalidate @submit.prevent="submit">
                     <div class="modal-body">
+                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_registration`" class="form-label">Registration Number *</label>
@@ -26,28 +27,59 @@
                                     v-model="form.registration_number"
                                     type="text"
                                     class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.registration_number }"
                                     required
                                 />
+                                <div v-if="props.fieldErrors.registration_number" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.registration_number[0] }}
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_type`" class="form-label">Vehicle Type *</label>
-                                <select :id="`${modalId}_type`" v-model="form.vehicle_type" class="form-select" required>
+                                <select
+                                    :id="`${modalId}_type`"
+                                    v-model="form.vehicle_type"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': props.fieldErrors.vehicle_type }"
+                                    required
+                                >
                                     <option value="">Select type</option>
                                     <option value="TRUCK">Truck</option>
                                     <option value="TRAILER">Trailer</option>
                                     <option value="TANKER">Tanker</option>
                                     <option value="CONTAINER">Container</option>
                                 </select>
+                                <div v-if="props.fieldErrors.vehicle_type" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.vehicle_type[0] }}
+                                </div>
                             </div>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label :for="`${modalId}_make`" class="form-label">Make</label>
-                                <input :id="`${modalId}_make`" v-model="form.make" type="text" class="form-control" />
+                                <input
+                                    :id="`${modalId}_make`"
+                                    v-model="form.make"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.make }"
+                                />
+                                <div v-if="props.fieldErrors.make" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.make[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label :for="`${modalId}_model`" class="form-label">Model</label>
-                                <input :id="`${modalId}_model`" v-model="form.model" type="text" class="form-control" />
+                                <input
+                                    :id="`${modalId}_model`"
+                                    v-model="form.model"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.model }"
+                                />
+                                <div v-if="props.fieldErrors.model" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.model[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label :for="`${modalId}_year`" class="form-label">Year</label>
@@ -57,7 +89,11 @@
                                     type="number"
                                     min="1980"
                                     class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.manufacture_year }"
                                 />
+                                <div v-if="props.fieldErrors.manufacture_year" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.manufacture_year[0] }}
+                                </div>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -69,7 +105,11 @@
                                 min="0"
                                 step="0.01"
                                 class="form-control"
+                                :class="{ 'is-invalid': props.fieldErrors.odometer_km }"
                             />
+                            <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
+                                {{ props.fieldErrors.odometer_km[0] }}
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -92,6 +132,8 @@ const props = defineProps({
     mode: { type: String, default: 'create' },
     vehicle: { type: Object, default: null },
     saving: { type: Boolean, default: false },
+    fieldErrors: { type: Object, default: () => ({}) },
+    formError: { type: String, default: '' },
     modalId: { type: String, required: true },
 });
 

@@ -4,20 +4,24 @@
             <span class="text-muted small fw-semibold">{{ monthLabel }}</span>
             <div class="d-flex flex-wrap gap-3 small">
                 <span class="legend-item">
-                    <span class="cell cell-present">P</span>
-                    Present
+                    <span class="cell cell-present cell-implicit">P</span>
+                    Auto present
                 </span>
                 <span class="legend-item">
                     <span class="cell cell-absent-pure">A</span>
-                    Absent — no work
+                    Absent
                 </span>
                 <span class="legend-item">
                     <span class="cell cell-absent-substitute">A</span>
                     Absent + substitute
                 </span>
                 <span class="legend-item">
+                    <span class="cell cell-no-work">N</span>
+                    No working day
+                </span>
+                <span class="legend-item">
                     <span class="cell cell-none">·</span>
-                    Not marked
+                    No assignment
                 </span>
                 <span class="legend-item">
                     <span class="pay-tag pay-paid">✓</span>
@@ -28,14 +32,14 @@
                     Unpaid
                 </span>
             </div>
-            <span v-if="summary.marked > 0" class="ms-auto text-muted small">
-                {{ summary.present }} present · {{ summary.absent }} absent ·
-                {{ summary.paid }} paid · {{ summary.unpaid }} unpaid
+            <span v-if="summary.present > 0 || summary.exceptions > 0" class="ms-auto text-muted small">
+                {{ summary.present }} auto present · {{ summary.exceptions ?? summary.marked ?? 0 }} exceptions ·
+                {{ summary.no_work ?? 0 }} no-work
             </span>
         </div>
 
         <div v-if="rows.length === 0" class="text-center text-muted py-3 small">
-            No attendance marked for this month yet.
+            No driver assignments for this month. Assign primary drivers to trucks first.
         </div>
 
         <div v-else class="table-responsive">
@@ -43,7 +47,7 @@
                 <thead>
                     <tr>
                         <th class="sticky-col vehicle-col">Vehicle</th>
-                        <th class="sticky-col driver-col">Driver</th>
+                        <th class="sticky-col driver-col">Drivers</th>
                         <th
                             v-for="day in days"
                             :key="day"
@@ -55,9 +59,13 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in rows" :key="row.vehicle_id">
-                        <td class="sticky-col vehicle-col fw-semibold">{{ row.vehicle_label }}</td>
-                        <td class="sticky-col driver-col text-muted small">{{ row.driver_name }}</td>
+                    <tr v-for="row in rows" :key="row.row_id ?? `${row.vehicle_id}-${row.driver_name}`">
+                        <td class="sticky-col vehicle-col fw-semibold">
+                            {{ row.show_vehicle_label ? row.vehicle_label : '' }}
+                        </td>
+                        <td class="sticky-col driver-col text-muted small">
+                            <span class="driver-name">{{ row.driver_name }}</span>
+                        </td>
                         <td
                             v-for="day in days"
                             :key="`${row.vehicle_id}-${day}`"
@@ -71,7 +79,7 @@
                                 :class="cellClass(row, day)"
                                 :title="cellTitle(row, day)"
                                 :disabled="!canEdit"
-                                @click="emit('select', cellRecord(row, day))"
+                                @click="handleCellSelect(row, day)"
                             >
                                 <span class="cell-letter">{{ cellLetter(row, day) }}</span>
                                 <span
@@ -80,6 +88,9 @@
                                     :class="paymentTagClass(row, day)"
                                 >
                                     {{ paymentTagLabel(row, day) }}
+                                </span>
+                                <span v-if="alternateDriverLabel(row, day)" class="alt-tag">
+                                    {{ alternateDriverLabel(row, day) }}
                                 </span>
                             </button>
                             <span v-else class="cell cell-none" :title="`${dateKey(day)} — not marked`">·</span>
@@ -115,7 +126,7 @@ const props = defineProps({
 const emit = defineEmits(['select']);
 
 const summary = computed(() => props.overview.summary ?? {});
-const rows = computed(() => props.overview.rows ?? []);
+const rows = computed(() => buildIndividualDriverRows(props.overview.rows ?? []));
 
 const monthLabel = computed(() => {
     if (!props.month) {
@@ -175,10 +186,16 @@ function cellClass(row, day) {
         return 'cell-none';
     }
 
+    if (record.status === 'NO_WORK_DAY') {
+        return ['cell-no-work', isPaid(record) ? 'is-paid' : 'is-unpaid'];
+    }
+
     let statusClass = 'cell-present';
 
     if (record.status !== 'PRESENT') {
         statusClass = hasSubstitute(record) ? 'cell-absent-substitute' : 'cell-absent-pure';
+    } else if (record.is_implicit) {
+        statusClass = 'cell-present cell-implicit';
     }
 
     return [statusClass, isPaid(record) ? 'is-paid' : 'is-unpaid'];
@@ -199,6 +216,10 @@ function cellLetter(row, day) {
         return '·';
     }
 
+    if (record.status === 'NO_WORK_DAY') {
+        return 'N';
+    }
+
     return record.status === 'PRESENT' ? 'P' : 'A';
 }
 
@@ -213,11 +234,19 @@ function cellTitle(row, day) {
     const wage = Number(record.wage_amount ?? 0).toFixed(2);
     let statusLabel = 'Present';
 
-    if (record.status !== 'PRESENT') {
+    if (record.status === 'NO_WORK_DAY') {
+        statusLabel = 'No working day (truck idle)';
+    } else if (record.status !== 'PRESENT') {
         statusLabel = alternate ? 'Absent (substitute on duty)' : 'Absent (no work, wage ₹0)';
+    } else if (record.is_implicit) {
+        statusLabel = 'Auto present (from assignment)';
     }
 
     const parts = [`${dateKey(day)}: ${statusLabel}`, `Driver: ${record.primary_driver_name ?? '—'}`];
+
+    if (record.originated_as_alternate === true) {
+        parts.push('Marked from alternate assignment');
+    }
 
     if (alternate) {
         parts.push(`Alternate: ${alternate}`);
@@ -232,6 +261,118 @@ function cellTitle(row, day) {
     }
 
     return parts.join(' · ');
+}
+
+function handleCellSelect(row, day) {
+    const record = cellRecord(row, day);
+
+    if (!record) {
+        return;
+    }
+
+    emit('select', {
+        ...record,
+        vehicle_id: row.vehicle_id,
+        attendance_date: dateKey(day),
+    });
+}
+
+function alternateDriverLabel(row, day) {
+    const record = cellRecord(row, day);
+
+    if (!record?.temporary_driver_name || record.originated_as_alternate === true) {
+        return '';
+    }
+
+    const fullName = String(record.temporary_driver_name).trim();
+
+    if (!fullName) {
+        return '';
+    }
+
+    const compact = fullName.split(/\s+/).slice(0, 2).join(' ');
+
+    return `Alt: ${compact}`;
+}
+
+function buildIndividualDriverRows(sourceRows) {
+    const expanded = [];
+
+    for (const sourceRow of sourceRows) {
+        const perDriver = new Map();
+
+        const ensureRow = (driverName) => {
+            const normalizedName = String(driverName ?? '').trim();
+
+            if (!normalizedName) {
+                return null;
+            }
+
+            if (!perDriver.has(normalizedName)) {
+                perDriver.set(normalizedName, {
+                    row_id: `${sourceRow.vehicle_id}-${normalizedName}`,
+                    vehicle_id: sourceRow.vehicle_id,
+                    vehicle_label: sourceRow.vehicle_label,
+                    driver_name: normalizedName,
+                    is_primary_for_vehicle: normalizedName === String(sourceRow.driver_name ?? '').trim(),
+                    days: {},
+                });
+            }
+
+            return perDriver.get(normalizedName);
+        };
+
+        ensureRow(sourceRow.driver_name);
+
+        for (const [day, record] of Object.entries(sourceRow.days ?? {})) {
+            const primaryName = record?.primary_driver_name ?? sourceRow.driver_name;
+            const primaryRow = ensureRow(primaryName);
+
+            if (primaryRow) {
+                primaryRow.days[day] = { ...record };
+            }
+
+            if (record?.temporary_driver_name) {
+                const alternateRow = ensureRow(record.temporary_driver_name);
+
+                if (alternateRow) {
+                    alternateRow.days[day] = {
+                        ...record,
+                        status: 'PRESENT',
+                        primary_driver_name: record.temporary_driver_name,
+                        temporary_driver_id: null,
+                        temporary_driver_name: null,
+                        originated_as_alternate: true,
+                    };
+                }
+            }
+        }
+
+        expanded.push(...Array.from(perDriver.values()));
+    }
+
+    const sorted = expanded.sort((left, right) => {
+        const byVehicle = String(left.vehicle_label).localeCompare(String(right.vehicle_label));
+
+        if (byVehicle !== 0) {
+            return byVehicle;
+        }
+
+        if (left.is_primary_for_vehicle !== right.is_primary_for_vehicle) {
+            return left.is_primary_for_vehicle ? -1 : 1;
+        }
+
+        return String(left.driver_name).localeCompare(String(right.driver_name));
+    });
+
+    let previousVehicleId = null;
+
+    for (const row of sorted) {
+        row.show_vehicle_label = row.vehicle_id !== previousVehicleId;
+        previousVehicleId = row.vehicle_id;
+    }
+
+    return sorted;
 }
 </script>
 
@@ -274,6 +415,16 @@ function cellTitle(row, day) {
     color: #adb5bd;
 }
 
+.cell-no-work {
+    background: #6c757d;
+    color: #fff;
+}
+
+.cell-implicit {
+    opacity: 0.92;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
 .grid-table {
     font-size: 0.8rem;
 }
@@ -299,8 +450,8 @@ function cellTitle(row, day) {
 }
 
 .driver-col {
-    min-width: 6rem;
-    max-width: 8rem;
+    min-width: 9rem;
+    max-width: 11rem;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -337,10 +488,10 @@ function cellTitle(row, day) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.05rem;
-    width: 1.85rem;
-    height: 2rem;
-    padding: 0.1rem 0;
+    gap: 0.1rem;
+    width: 2.35rem;
+    height: 2.2rem;
+    padding: 0.15rem 0.05rem;
     border: none;
     border-radius: 0.25rem;
     cursor: pointer;
@@ -359,6 +510,14 @@ function cellTitle(row, day) {
 
 .cell-btn.cell-present {
     background: #198754;
+}
+
+.cell-btn.cell-implicit {
+    background: #75b798;
+}
+
+.cell-btn.cell-no-work {
+    background: #6c757d;
 }
 
 .cell-btn.cell-absent-pure {
@@ -380,5 +539,26 @@ function cellTitle(row, day) {
 .cell-btn:not(:disabled):hover {
     filter: brightness(0.92);
     box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35);
+}
+
+.alt-tag {
+    max-width: 100%;
+    font-size: 0.47rem;
+    line-height: 1;
+    font-weight: 700;
+    color: #fff;
+    opacity: 0.95;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.driver-name {
+    display: block;
+    color: #212529;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>

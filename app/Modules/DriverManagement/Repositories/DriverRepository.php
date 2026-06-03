@@ -8,9 +8,12 @@ use Illuminate\Database\Eloquent\Collection;
 
 class DriverRepository
 {
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 15, bool $activeOnly = false): LengthAwarePaginator
     {
-        return Driver::query()->latest()->paginate($perPage);
+        return Driver::query()
+            ->when($activeOnly, fn ($query) => $query->where('is_active', true))
+            ->latest()
+            ->paginate($perPage);
     }
 
     public function create(array $data): Driver

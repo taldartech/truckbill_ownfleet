@@ -26,6 +26,11 @@ class AttendanceMonthOverviewResource extends JsonResource
         return [
             'summary' => $payload['summary'],
             'rows' => $payload['rows'],
+            'month_lock' => $payload['month_lock'] ?? [
+                'status' => 'open',
+                'closed_at' => null,
+                'locked_at' => null,
+            ],
         ];
     }
 }

@@ -15,7 +15,7 @@
                         <button type="button" class="btn-close" aria-label="Close" @click="$emit('close')" />
                     </div>
                     <div class="modal-body">
-                        <div v-if="fieldErrors.name" class="text-danger small mb-2">{{ fieldErrors.name[0] }}</div>
+                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                         <div class="mb-3">
                             <label class="form-label" for="company_name">Company Name *</label>
                             <input
@@ -23,17 +23,39 @@
                                 v-model="form.name"
                                 type="text"
                                 class="form-control"
+                                :class="{ 'is-invalid': fieldErrors.name }"
                                 required
                             />
+                            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                                {{ fieldErrors.name[0] }}
+                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="gst_number">GST Number</label>
-                                <input id="gst_number" v-model="form.gst_number" type="text" class="form-control" />
+                                <input
+                                    id="gst_number"
+                                    v-model="form.gst_number"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.gst_number }"
+                                />
+                                <div v-if="fieldErrors.gst_number" class="invalid-feedback d-block">
+                                    {{ fieldErrors.gst_number[0] }}
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="pan_number">PAN Number</label>
-                                <input id="pan_number" v-model="form.pan_number" type="text" class="form-control" />
+                                <input
+                                    id="pan_number"
+                                    v-model="form.pan_number"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.pan_number }"
+                                />
+                                <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
+                                    {{ fieldErrors.pan_number[0] }}
+                                </div>
                             </div>
                         </div>
                         <div class="row">
@@ -92,6 +114,7 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     saving: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
+    formError: { type: String, default: '' },
 });
 
 defineEmits(['close', 'submit']);

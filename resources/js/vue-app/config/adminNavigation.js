@@ -48,6 +48,13 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Monthly Settlement',
+                icon: 'bi bi-table',
+                to: '/attendance/settlement',
+                permission: 'attendances.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'Attendance Reports',
                 icon: 'bi bi-file-earmark-bar-graph',
                 to: '/reports/attendance',
