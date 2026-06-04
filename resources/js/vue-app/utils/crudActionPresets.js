@@ -32,6 +32,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-money-bill-wave',
         title: 'Mark paid',
     },
+    advance: {
+        btnClass: 'btn-warning',
+        icon: 'fas fa-wallet',
+        title: 'Advance wallet',
+    },
 };
 
 export function crudActionButtonClasses(action) {

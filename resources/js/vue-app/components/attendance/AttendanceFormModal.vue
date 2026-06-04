@@ -119,14 +119,34 @@
                                     required
                                 >
                                     <option value="">Select substitute</option>
-                                    <option
-                                        v-for="driver in substituteDriverOptions"
-                                        :key="driver.id"
-                                        :value="driver.id"
+                                    <optgroup v-if="availableSubstituteDrivers.length" label="Available">
+                                        <option
+                                            v-for="driver in availableSubstituteDrivers"
+                                            :key="driver.id"
+                                            :value="driver.id"
+                                        >
+                                            {{ driverLabel(driver) }}
+                                        </option>
+                                    </optgroup>
+                                    <optgroup
+                                        v-if="busySubstituteDrivers.length"
+                                        label="Already assigned on this date"
                                     >
-                                        {{ driverLabel(driver) }}
-                                    </option>
+                                        <option
+                                            v-for="entry in busySubstituteDrivers"
+                                            :key="entry.driver.id"
+                                            :value="entry.driver.id"
+                                            disabled
+                                            class="substitute-option-busy"
+                                        >
+                                            {{ driverLabel(entry.driver) }} — {{ entry.busyLabel }}
+                                        </option>
+                                    </optgroup>
                                 </select>
+                                <p class="form-text text-muted mb-0">
+                                    Only drivers not assigned to any truck on this date can substitute. Names in red
+                                    are already on another vehicle.
+                                </p>
                                 <div
                                     v-if="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
                                     class="invalid-feedback d-block"
@@ -226,6 +246,11 @@
 import { computed, ref, watch } from 'vue';
 import { monthlyDayAccrual } from '../../utils/monthlyWage';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
+import {
+    buildBusySubstituteDriversByDate,
+    isSubstituteDriverBusy,
+    substituteBusyLabel,
+} from '../../utils/substituteDriverAvailability';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -233,6 +258,7 @@ const props = defineProps({
     attendance: { type: Object, default: null },
     vehicles: { type: Array, default: () => [] },
     drivers: { type: Array, default: () => [] },
+    monthOverview: { type: Object, default: () => ({ rows: [] }) },
     saving: { type: Boolean, default: false },
     modalId: { type: String, required: true },
     prefilledDate: { type: String, default: '' },
@@ -254,21 +280,50 @@ const alternateDrivers = computed(() =>
     props.drivers.filter((driver) => driver.id !== form.value.primary_driver_id),
 );
 
-const substituteDriverOptions = computed(() => {
-    const activeAlternates = alternateDrivers.value.filter((driver) => driver.is_active !== false);
+const busySubstituteDriversByDate = computed(() =>
+    buildBusySubstituteDriversByDate({
+        date: form.value.attendance_date,
+        monthOverview: props.monthOverview,
+        vehicles: props.vehicles,
+        excludeAttendanceId: props.attendance?.id ?? null,
+    }),
+);
+
+const activeAlternateDrivers = computed(() =>
+    alternateDrivers.value.filter((driver) => driver.is_active !== false),
+);
+
+const availableSubstituteDrivers = computed(() => {
+    const available = activeAlternateDrivers.value.filter(
+        (driver) => !isSubstituteDriverBusy(busySubstituteDriversByDate.value, driver.id),
+    );
 
     if (!form.value.temporary_driver_id) {
-        return activeAlternates;
+        return available;
     }
 
     const selected = props.drivers.find((driver) => driver.id === form.value.temporary_driver_id);
 
-    if (selected && !activeAlternates.some((driver) => driver.id === selected.id)) {
-        return [selected, ...activeAlternates];
+    if (
+        selected &&
+        !available.some((driver) => driver.id === selected.id) &&
+        !isSubstituteDriverBusy(busySubstituteDriversByDate.value, selected.id)
+    ) {
+        return [selected, ...available];
     }
 
-    return activeAlternates;
+    return available;
 });
+
+const busySubstituteDrivers = computed(() =>
+    activeAlternateDrivers.value
+        .filter((driver) => isSubstituteDriverBusy(busySubstituteDriversByDate.value, driver.id))
+        .map((driver) => ({
+            driver,
+            busyLabel: substituteBusyLabel(busySubstituteDriversByDate.value.get(String(driver.id))),
+        }))
+        .sort((left, right) => left.driver.name.localeCompare(right.driver.name)),
+);
 
 function driverLabel(driver) {
     const name = driver?.name ?? '—';
@@ -403,6 +458,18 @@ watch(
     },
 );
 
+watch(
+    () => [form.value.attendance_date, busySubstituteDriversByDate.value],
+    () => {
+        if (
+            form.value.temporary_driver_id &&
+            isSubstituteDriverBusy(busySubstituteDriversByDate.value, form.value.temporary_driver_id)
+        ) {
+            form.value.temporary_driver_id = '';
+        }
+    },
+);
+
 function close() {
     emit('close');
 }
@@ -425,6 +492,14 @@ function buildStatusPayload() {
 function submit() {
     const statusPayload = buildStatusPayload();
 
+    if (
+        form.value.exception_type === 'ABSENT_SUBSTITUTE' &&
+        form.value.temporary_driver_id &&
+        isSubstituteDriverBusy(busySubstituteDriversByDate.value, form.value.temporary_driver_id)
+    ) {
+        return;
+    }
+
     emit('submit', {
         attendance_date: form.value.attendance_date,
         vehicle_id: form.value.vehicle_id,
@@ -441,3 +516,9 @@ function removeException() {
     emit('delete', props.attendance);
 }
 </script>
+
+<style scoped>
+.substitute-option-busy {
+    color: #dc3545;
+}
+</style>

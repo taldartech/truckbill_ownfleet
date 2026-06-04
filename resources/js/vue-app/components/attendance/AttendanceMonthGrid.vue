@@ -20,6 +20,10 @@
                     No working day
                 </span>
                 <span class="legend-item">
+                    <span class="cell cell-future">·</span>
+                    Future / not marked yet
+                </span>
+                <span class="legend-item">
                     <span class="cell cell-none">·</span>
                     No assignment
                 </span>
@@ -88,9 +92,6 @@
                                     :class="paymentTagClass(row, day)"
                                 >
                                     {{ paymentTagLabel(row, day) }}
-                                </span>
-                                <span v-if="alternateDriverLabel(row, day)" class="alt-tag">
-                                    {{ alternateDriverLabel(row, day) }}
                                 </span>
                             </button>
                             <span v-else class="cell cell-none" :title="`${dateKey(day)} — not marked`">·</span>
@@ -186,6 +187,10 @@ function cellClass(row, day) {
         return 'cell-none';
     }
 
+    if (!record.status) {
+        return record.is_future ? 'cell-future' : 'cell-none';
+    }
+
     if (record.status === 'NO_WORK_DAY') {
         return ['cell-no-work', isPaid(record) ? 'is-paid' : 'is-unpaid'];
     }
@@ -216,6 +221,10 @@ function cellLetter(row, day) {
         return '·';
     }
 
+    if (!record.status) {
+        return '·';
+    }
+
     if (record.status === 'NO_WORK_DAY') {
         return 'N';
     }
@@ -234,7 +243,11 @@ function cellTitle(row, day) {
     const wage = Number(record.wage_amount ?? 0).toFixed(2);
     let statusLabel = 'Present';
 
-    if (record.status === 'NO_WORK_DAY') {
+    if (!record.status && record.is_future) {
+        statusLabel = 'Future date (not marked yet)';
+    } else if (!record.status) {
+        statusLabel = 'Not marked';
+    } else if (record.status === 'NO_WORK_DAY') {
         statusLabel = 'No working day (truck idle)';
     } else if (record.status !== 'PRESENT') {
         statusLabel = alternate ? 'Absent (substitute on duty)' : 'Absent (no work, wage ₹0)';
@@ -275,24 +288,6 @@ function handleCellSelect(row, day) {
         vehicle_id: row.vehicle_id,
         attendance_date: dateKey(day),
     });
-}
-
-function alternateDriverLabel(row, day) {
-    const record = cellRecord(row, day);
-
-    if (!record?.temporary_driver_name || record.originated_as_alternate === true) {
-        return '';
-    }
-
-    const fullName = String(record.temporary_driver_name).trim();
-
-    if (!fullName) {
-        return '';
-    }
-
-    const compact = fullName.split(/\s+/).slice(0, 2).join(' ');
-
-    return `Alt: ${compact}`;
 }
 
 function buildIndividualDriverRows(sourceRows) {
@@ -415,6 +410,12 @@ function buildIndividualDriverRows(sourceRows) {
     color: #adb5bd;
 }
 
+.cell-future {
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 1px dashed #ced4da;
+}
+
 .cell-no-work {
     background: #6c757d;
     color: #fff;
@@ -528,6 +529,15 @@ function buildIndividualDriverRows(sourceRows) {
     background: #fd7e14;
 }
 
+.cell-btn.cell-future {
+    background: #f8f9fa;
+    border: 1px dashed #ced4da;
+}
+
+.cell-btn.cell-future .cell-letter {
+    color: #6c757d;
+}
+
 .cell-btn.is-unpaid {
     box-shadow: inset 0 0 0 2px #ffc107;
 }
@@ -539,18 +549,6 @@ function buildIndividualDriverRows(sourceRows) {
 .cell-btn:not(:disabled):hover {
     filter: brightness(0.92);
     box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35);
-}
-
-.alt-tag {
-    max-width: 100%;
-    font-size: 0.47rem;
-    line-height: 1;
-    font-weight: 700;
-    color: #fff;
-    opacity: 0.95;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .driver-name {

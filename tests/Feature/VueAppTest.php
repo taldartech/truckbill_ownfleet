@@ -79,6 +79,7 @@ class VueAppTest extends TestCase
             ->postJson('/app/api/drivers', [
                 'name' => 'CSRF Test Driver',
                 'phone' => '9876543210',
+                'joining_date' => '2024-01-15',
                 'daily_wage' => 500,
                 'is_active' => true,
             ])
@@ -145,6 +146,21 @@ class VueAppTest extends TestCase
         $this->getJson('/app/user')
             ->assertOk()
             ->assertJsonPath('user.email', $user->email);
+    }
+
+    public function test_form_login_without_remember_can_load_vue_dashboard(): void
+    {
+        $user = $this->createUser('admin');
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect('/app/dashboard');
+
+        $this->get('/app/dashboard')
+            ->assertOk()
+            ->assertSee('id="app"', false)
+            ->assertDontSee('Welcome back! Please sign in', false);
     }
 
     private function createUser(string $roleName): User

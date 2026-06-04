@@ -15,7 +15,9 @@
                 {{ error }}
             </div>
 
-            <form novalidate @submit.prevent="handleLogin">
+            <form method="POST" action="/login" @submit.prevent="handleLogin">
+                <input type="hidden" name="_token" :value="csrfToken" />
+
                 <div class="form-group">
                     <label for="email" class="form-label">Email Address</label>
                     <div class="input-group">
@@ -29,7 +31,6 @@
                             autofocus
                             autocomplete="email"
                             placeholder="name@company.com"
-                            :disabled="loading"
                         />
                     </div>
                 </div>
@@ -46,13 +47,11 @@
                             required
                             autocomplete="current-password"
                             placeholder="Enter your password"
-                            :disabled="loading"
                         />
                         <button
                             type="button"
                             class="password-toggle"
                             tabindex="-1"
-                            :disabled="loading"
                             @click="showPassword = !showPassword"
                         >
                             <i :class="showPassword ? 'fas fa-eye-slash' : 'far fa-eye'"></i>
@@ -64,19 +63,21 @@
                     <div class="form-check">
                         <input
                             id="remember"
-                            v-model="remember"
+                            name="remember"
                             class="form-check-input"
                             type="checkbox"
-                            :disabled="loading"
+                            value="1"
+                            :checked="remember"
+                            @change="remember = $event.target.checked"
                         />
                         <label class="form-check-label" for="remember">Remember me</label>
                     </div>
                     <a href="/forgot-password" class="link-primary">Forgot password?</a>
                 </div>
 
-                <button type="submit" class="btn-auth" :disabled="loading">
-                    {{ loading ? 'Signing in…' : 'Sign In' }}
-                    <i v-if="!loading" class="fas fa-arrow-right" style="margin-left: 8px"></i>
+                <button type="submit" class="btn-auth" :disabled="submitting">
+                    {{ submitting ? 'Signing in…' : 'Sign In' }}
+                    <i v-if="!submitting" class="fas fa-arrow-right" style="margin-left: 8px"></i>
                 </button>
             </form>
         </div>
@@ -86,7 +87,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { clearClientAuthState, login } from '../api';
+import { clearClientAuthState, currentCsrfToken, refreshCsrfToken } from '../api';
 
 const logoUrl = window.__LOGO_URL__ ?? '/logo.png';
 const email = ref('');
@@ -95,7 +96,8 @@ const error = ref('');
 const status = ref('');
 const remember = ref(false);
 const showPassword = ref(false);
-const loading = ref(false);
+const submitting = ref(false);
+const csrfToken = ref(currentCsrfToken());
 
 const route = useRoute();
 
@@ -122,29 +124,31 @@ onMounted(async () => {
     if (flash.remember) {
         remember.value = true;
     }
+
+    const token = await refreshCsrfToken();
+
+    if (token) {
+        csrfToken.value = token;
+    }
 });
 
-async function handleLogin() {
+async function handleLogin(event) {
     error.value = '';
-    loading.value = true;
 
     try {
-        const data = await login(email.value.trim(), password.value, remember.value);
+        const token = (await refreshCsrfToken()) || currentCsrfToken();
 
-        window.location.assign(data.redirect ?? '/app/dashboard');
-    } catch (loginError) {
-        if (loginError.response?.status === 422) {
-            error.value =
-                loginError.response.data?.errors?.email?.[0] ??
-                loginError.response.data?.message ??
-                'These credentials do not match our records.';
-        } else if (loginError.response?.status === 419) {
+        if (!token) {
             error.value = 'Your session expired. Please refresh the page and sign in again.';
-        } else {
-            error.value = 'Unable to sign in. Please try again.';
+
+            return;
         }
-    } finally {
-        loading.value = false;
+
+        event.target.querySelector('input[name="_token"]').value = token;
+        submitting.value = true;
+        event.target.submit();
+    } catch {
+        error.value = 'Unable to sign in. Please refresh the page and try again.';
     }
 }
 </script>

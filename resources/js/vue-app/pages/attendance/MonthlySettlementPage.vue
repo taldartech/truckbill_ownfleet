@@ -23,9 +23,18 @@
                         {{ monthLockLabel }}
                     </span>
                 </div>
-                <div v-if="canManageWages" class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2">
                     <button
-                        v-if="monthLock.status === 'open'"
+                        type="button"
+                        class="btn btn-outline-success btn-sm"
+                        :disabled="loading"
+                        @click="downloadExcel"
+                    >
+                        <i class="bi bi-file-earmark-excel"></i>
+                        Download Excel
+                    </button>
+                    <button
+                        v-if="canManageWages && monthLock.status === 'open'"
                         type="button"
                         class="btn btn-outline-primary btn-sm"
                         :disabled="closing"
@@ -34,7 +43,7 @@
                         {{ closing ? 'Closing…' : 'Close Month' }}
                     </button>
                     <button
-                        v-if="monthLock.status === 'closed' && unpaidCount > 0"
+                        v-if="canManageWages && monthLock.status === 'closed' && unpaidCount > 0"
                         type="button"
                         class="btn btn-outline-success btn-sm"
                         :disabled="markingAll"
@@ -43,7 +52,7 @@
                         Mark All Paid
                     </button>
                     <button
-                        v-if="monthLock.status === 'closed'"
+                        v-if="canManageWages && monthLock.status === 'closed'"
                         type="button"
                         class="btn btn-dark btn-sm"
                         :disabled="locking"
@@ -52,7 +61,7 @@
                         Lock Month
                     </button>
                     <button
-                        v-if="monthLock.status === 'paid'"
+                        v-if="canManageWages && monthLock.status === 'paid'"
                         type="button"
                         class="btn btn-outline-warning btn-sm"
                         :disabled="unlocking"
@@ -61,7 +70,7 @@
                         Unlock Month
                     </button>
                     <button
-                        v-if="monthLock.status === 'closed'"
+                        v-if="canManageWages && monthLock.status === 'closed'"
                         type="button"
                         class="btn btn-outline-secondary btn-sm"
                         :disabled="reopening"
@@ -109,7 +118,7 @@
                         <strong>Primary</strong> = P × daily rate ·
                         <strong>Substitute</strong> = extra days on other trucks (Sub.P / Sub.Pay) ·
                         <strong>Gross</strong> = Primary + Sub.Pay ·
-                        <strong>Net</strong> = Gross − Extra Ded. − Advance.
+                        <strong>Net</strong> = Gross − Extra Ded.
                     </p>
                     <div class="table-responsive settlement-table-wrap">
                         <table class="table table-bordered table-sm settlement-table mb-0">
@@ -130,8 +139,6 @@
                                     <th>Absent Ded.</th>
                                     <th>Base</th>
                                     <th>Extra Ded.</th>
-                                    <th>Advance</th>
-                                    <th>Total Adv.</th>
                                     <th>Net</th>
                                     <th>Rnd</th>
                                     <th>Remarks</th>
@@ -140,7 +147,7 @@
                             </thead>
                             <tbody>
                                 <tr v-if="payrollLines.length === 0">
-                                    <td colspan="21" class="text-center text-muted py-4">
+                                    <td colspan="19" class="text-center text-muted py-4">
                                         Close the month to generate payroll lines.
                                     </td>
                                 </tr>
@@ -197,26 +204,6 @@
                                             class="form-control form-control-sm settlement-input"
                                             :disabled="!canEditSheet || !line.monthly_wage_id"
                                             title="PF + ESI + other deductions"
-                                            @change="savePayrollLine(line)"
-                                        />
-                                    </td>
-                                    <td>
-                                        <input
-                                            v-model.number="line.advance_deducted"
-                                            type="number"
-                                            step="0.01"
-                                            class="form-control form-control-sm settlement-input"
-                                            :disabled="!canEditSheet || !line.monthly_wage_id"
-                                            @change="savePayrollLine(line)"
-                                        />
-                                    </td>
-                                    <td>
-                                        <input
-                                            v-model.number="line.total_advance"
-                                            type="number"
-                                            step="0.01"
-                                            class="form-control form-control-sm settlement-input"
-                                            :disabled="!canEditSheet || !line.monthly_wage_id"
                                             @change="savePayrollLine(line)"
                                         />
                                     </td>
@@ -350,6 +337,7 @@ import {
     lockMonthWages,
     markAllMonthlyWagesPaid,
     reopenMonthWages,
+    settlementSheetExportUrl,
     unlockMonthWages,
     updateSettlementLine,
     updateVehicleSettlementLine,
@@ -431,6 +419,14 @@ function showToast(message, type = 'success') {
     flash.error = type === 'error' ? message : '';
 }
 
+function downloadExcel() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    window.location.href = settlementSheetExportUrl(selectedMonth.value);
+}
+
 async function loadSheet() {
     loading.value = true;
     flash.error = '';
@@ -459,8 +455,6 @@ async function savePayrollLine(line) {
             absent_deduction: line.absent_deduction,
             base_salary: line.base_salary,
             extra_deductions: line.extra_deductions,
-            advance_deducted: line.advance_deducted,
-            total_advance: line.total_advance,
             round_net: line.round_net,
             remarks: line.remarks,
         });

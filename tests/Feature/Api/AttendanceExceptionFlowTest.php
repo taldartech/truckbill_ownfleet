@@ -10,6 +10,7 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -22,6 +23,15 @@ class AttendanceExceptionFlowTest extends TestCase
         parent::setUp();
 
         $this->seedRolesAndPermissions();
+
+        Carbon::setTestNow('2026-06-30 12:00:00', 'Asia/Kolkata');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_month_overview_includes_implicit_present_from_primary_assignment(): void
@@ -72,6 +82,30 @@ class AttendanceExceptionFlowTest extends TestCase
             'tenant_id' => $tenant->id,
             'status' => AttendanceMonthStatus::Closed->value,
         ]);
+    }
+
+    public function test_future_month_days_are_not_auto_present(): void
+    {
+        Carbon::setTestNow('2026-06-03 12:00:00', 'Asia/Kolkata');
+
+        [$tenant, $user] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/month-overview?from_date=2026-07-01&to_date=2026-07-31');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.summary.present', 0);
+        $response->assertJsonPath('data.rows.0.days.2026-07-01.status', null);
+        $response->assertJsonPath('data.rows.0.days.2026-07-01.is_future', true);
+
+        $june = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/month-overview?from_date=2026-06-01&to_date=2026-06-30');
+
+        $june->assertJsonPath('data.summary.present', 3);
+        $june->assertJsonPath('data.rows.0.days.2026-06-03.is_implicit', true);
+        $june->assertJsonPath('data.rows.0.days.2026-06-04.is_future', true);
     }
 
     public function test_present_status_cannot_be_posted_manually(): void
@@ -134,6 +168,23 @@ class AttendanceExceptionFlowTest extends TestCase
         $sheet->assertJsonPath('data.vehicle_matrix.0.salary', 30000);
     }
 
+    public function test_settlement_sheet_can_be_exported_as_excel(): void
+    {
+        [$tenant, $user] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get('/app/api/attendances/settlement-sheet/export?month=2026-06');
+
+        $response->assertOk();
+        $response->assertDownload('monthly-settlement-2026-06.xlsx');
+    }
+
     public function test_substitute_earnings_are_included_in_payroll_gross(): void
     {
         [$tenant, $user, $vehicleOne, $primaryDriver] = $this->seedAssignedDriver(30000.00);
@@ -162,6 +213,15 @@ class AttendanceExceptionFlowTest extends TestCase
             'is_primary' => true,
         ]);
 
+        $freeSubstitute = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Bench Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => 'DL-BENCH',
+            'daily_wage' => 30000.00,
+            'is_active' => true,
+        ]);
+
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -170,7 +230,7 @@ class AttendanceExceptionFlowTest extends TestCase
                 'primary_driver_id' => $assignedDriver->id,
                 'attendance_date' => '2026-06-05',
                 'status' => 'ABSENT',
-                'temporary_driver_id' => $primaryDriver->id,
+                'temporary_driver_id' => $freeSubstitute->id,
             ])
             ->assertCreated();
 
@@ -183,20 +243,130 @@ class AttendanceExceptionFlowTest extends TestCase
 
         $sheet->assertOk();
 
-        $primaryLine = collect($sheet->json('data.payroll_lines'))
-            ->firstWhere('driver_id', $primaryDriver->id);
+        $substituteLine = collect($sheet->json('data.payroll_lines'))
+            ->firstWhere('driver_id', $freeSubstitute->id);
 
-        $this->assertNotNull($primaryLine);
-        $this->assertSame(30, $primaryLine['present_days']);
-        $this->assertSame(1, $primaryLine['substitute_days']);
-        $this->assertSame('1000.00', number_format((float) $primaryLine['substitute_pay'], 2, '.', ''));
-        $this->assertSame('31000.00', number_format((float) $primaryLine['gross_earning'], 2, '.', ''));
-        $this->assertSame('31000.00', number_format((float) $primaryLine['net_salary'], 2, '.', ''));
+        $this->assertNotNull($substituteLine);
+        $this->assertSame(1, $substituteLine['substitute_days']);
+        $this->assertSame('1000.00', number_format((float) $substituteLine['substitute_pay'], 2, '.', ''));
+        $this->assertSame('1000.00', number_format((float) $substituteLine['gross_earning'], 2, '.', ''));
+    }
+
+    public function test_cannot_assign_primary_driver_from_another_truck_as_substitute(): void
+    {
+        [$tenant, $user, $vehicleOne, $primaryDriver] = $this->seedAssignedDriver(30000.00);
+
+        $vehicleTwo = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'registration_number' => 'MH12AB8888',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 0,
+        ]);
+
+        $primaryTwo = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Truck Two Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => 'DL-TWO',
+            'daily_wage' => 30000.00,
+            'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicleTwo->id,
+            'driver_id' => $primaryTwo->id,
+            'assigned_from' => '2026-06-01',
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances', [
+                'vehicle_id' => $vehicleTwo->id,
+                'primary_driver_id' => $primaryTwo->id,
+                'attendance_date' => '2026-06-05',
+                'status' => 'ABSENT',
+                'temporary_driver_id' => $primaryDriver->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['temporary_driver_id']);
+    }
+
+    public function test_cannot_assign_driver_already_substituting_on_another_truck(): void
+    {
+        [$tenant, $user, $vehicleOne, $primaryOne] = $this->seedAssignedDriver(30000.00);
+
+        $vehicleTwo = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'registration_number' => 'MH12AB7777',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 0,
+        ]);
+
+        $primaryTwo = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Primary Two',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => 'DL-TWO',
+            'daily_wage' => 30000.00,
+            'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicleTwo->id,
+            'driver_id' => $primaryTwo->id,
+            'assigned_from' => '2026-06-01',
+            'is_primary' => true,
+        ]);
+
+        $freeSubstitute = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Bench Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => 'DL-BENCH',
+            'daily_wage' => 25000.00,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances', [
+                'vehicle_id' => $vehicleOne->id,
+                'primary_driver_id' => $primaryOne->id,
+                'attendance_date' => '2026-06-08',
+                'status' => 'ABSENT',
+                'temporary_driver_id' => $freeSubstitute->id,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances', [
+                'vehicle_id' => $vehicleTwo->id,
+                'primary_driver_id' => $primaryTwo->id,
+                'attendance_date' => '2026-06-08',
+                'status' => 'ABSENT',
+                'temporary_driver_id' => $freeSubstitute->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['temporary_driver_id']);
     }
 
     public function test_all_substitute_marked_days_count_even_when_wage_owner_missing(): void
     {
-        [$tenant, $user, $vehicleOne, $substitute] = $this->seedAssignedDriver(50000.00);
+        [$tenant, $user, $vehicleOne] = $this->seedAssignedDriver(50000.00);
+
+        $substitute = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Bench Substitute',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => 'DL-BENCH',
+            'daily_wage' => 50000.00,
+            'is_active' => true,
+        ]);
 
         $vehicleTwo = Vehicle::query()->create([
             'tenant_id' => $tenant->id,

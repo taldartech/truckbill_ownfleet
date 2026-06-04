@@ -22,8 +22,9 @@ class DriverController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
         $activeOnly = $request->boolean('active_only', false);
+        $search = $request->filled('search') ? $request->string('search')->toString() : null;
 
-        return DriverResource::collection($this->driverService->paginate($perPage, $activeOnly));
+        return DriverResource::collection($this->driverService->paginate($perPage, $activeOnly, $search));
     }
 
     public function store(StoreDriverRequest $request): DriverResource

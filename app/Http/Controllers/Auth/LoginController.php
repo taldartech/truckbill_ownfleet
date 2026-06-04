@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Support\SelectedCompanySession;
 use App\Support\TenantContext;
+use App\Support\UserSessionManager;
 use App\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -41,9 +42,14 @@ class LoginController extends Controller
             return $this->failedLoginResponse($request);
         }
 
+        UserSessionManager::invalidateOtherSessions($user, $request->session()->getId());
+        UserSessionManager::rotateRememberToken($user);
+
         Auth::login($user, $remember);
 
         $request->session()->regenerate();
+
+        UserSessionManager::invalidateOtherSessions($user, $request->session()->getId());
 
         $user->loadMissing(['userRole.permissions', 'tenant']);
         TenantContext::setTenantId($user->effectiveTenantId());

@@ -43,6 +43,14 @@ class PermissionSeeder extends Seeder
         'tyres.view' => ['name' => 'View tyres', 'group' => 'tyres'],
         'tyres.manage' => ['name' => 'Manage tyres', 'group' => 'tyres'],
         'tyre_reports.view' => ['name' => 'View tyre reports', 'group' => 'tyres'],
+        'roles.view' => ['name' => 'View roles', 'group' => 'access'],
+        'roles.manage' => ['name' => 'Manage role permissions', 'group' => 'access'],
+        'permissions.view' => ['name' => 'View permissions', 'group' => 'access'],
+        'permissions.manage' => ['name' => 'Manage permissions', 'group' => 'access'],
+        'users.view' => ['name' => 'View company users', 'group' => 'access'],
+        'users.manage' => ['name' => 'Manage company users', 'group' => 'access'],
+        'super_admins.view' => ['name' => 'View super admins', 'group' => 'access'],
+        'super_admins.manage' => ['name' => 'Manage super admins', 'group' => 'access'],
     ];
 
     /**
@@ -54,6 +62,12 @@ class PermissionSeeder extends Seeder
             'companies.update',
             'companies.block',
             'drivers.view',
+            'roles.view',
+            'roles.manage',
+            'permissions.view',
+            'permissions.manage',
+            'super_admins.view',
+            'super_admins.manage',
         ],
         UserRole::SUPER_ADMIN => [
             'dashboard.view',
@@ -85,6 +99,8 @@ class PermissionSeeder extends Seeder
             'tyres.view',
             'tyres.manage',
             'tyre_reports.view',
+            'users.view',
+            'users.manage',
         ],
         UserRole::ADMIN => [
             'dashboard.view',

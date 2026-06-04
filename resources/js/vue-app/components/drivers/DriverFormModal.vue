@@ -55,28 +55,6 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_employee_code`" class="form-label">Employee Code</label>
-                                <input
-                                    :id="`${modalId}_employee_code`"
-                                    v-model="form.employee_code"
-                                    type="text"
-                                    class="form-control"
-                                    placeholder="EMP-0001"
-                                />
-                            </div>
-                            <div class="col-md-8">
-                                <label :for="`${modalId}_father_name`" class="form-label">Father Name</label>
-                                <input
-                                    :id="`${modalId}_father_name`"
-                                    v-model="form.father_name"
-                                    type="text"
-                                    class="form-control"
-                                />
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_license_number`" class="form-label">License Number</label>
                                 <input
@@ -124,16 +102,17 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label :for="`${modalId}_joining_date`" class="form-label">Joining Date</label>
+                                <label :for="`${modalId}_joining_date`" class="form-label">Joining Date *</label>
                                 <input
                                     :id="`${modalId}_joining_date`"
                                     v-model="form.joining_date"
                                     type="date"
                                     class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.joining_date }"
+                                    :class="{ 'is-invalid': joiningDateError }"
+                                    required
                                 />
-                                <div v-if="fieldErrors.joining_date" class="invalid-feedback d-block">
-                                    {{ fieldErrors.joining_date[0] }}
+                                <div v-if="joiningDateError" class="invalid-feedback d-block">
+                                    {{ joiningDateError }}
                                 </div>
                             </div>
                         </div>
@@ -171,16 +150,6 @@
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_uan`" class="form-label">UAN Number</label>
-                                <input :id="`${modalId}_uan`" v-model="form.uan_number" type="text" class="form-control" />
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_esic`" class="form-label">ESIC Number</label>
-                                <input :id="`${modalId}_esic`" v-model="form.esic_number" type="text" class="form-control" />
-                            </div>
-                        </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_bank_account`" class="form-label">Bank Account No.</label>
@@ -235,23 +204,24 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_daily_wage`" class="form-label">
-                                    Monthly Payment Base
+                                    Monthly Payment Base *
                                 </label>
                                 <input
                                     :id="`${modalId}_daily_wage`"
                                     v-model="form.daily_wage"
                                     type="number"
-                                    min="0"
+                                    min="0.01"
                                     step="0.01"
                                     class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.daily_wage }"
-                                    placeholder="0.00"
+                                    :class="{ 'is-invalid': monthlyPaymentError }"
+                                    placeholder="e.g. 30000"
+                                    required
                                 />
                                 <small class="form-text text-muted">
                                     Monthly payment appears in Monthly Wage Settlement.
                                 </small>
-                                <div v-if="fieldErrors.daily_wage" class="invalid-feedback d-block">
-                                    {{ fieldErrors.daily_wage[0] }}
+                                <div v-if="monthlyPaymentError" class="invalid-feedback d-block">
+                                    {{ monthlyPaymentError }}
                                 </div>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
@@ -301,11 +271,21 @@ let bootstrapModal = null;
 const isEdit = computed(() => props.mode === 'edit');
 
 const mobileClientError = ref('');
+const joiningDateClientError = ref('');
+const monthlyPaymentClientError = ref('');
 
 const mobileError = computed(() => {
     const serverMessage = props.fieldErrors.phone?.[0];
 
     return serverMessage ?? mobileClientError.value;
+});
+
+const joiningDateError = computed(() => {
+    return props.fieldErrors.joining_date?.[0] ?? joiningDateClientError.value;
+});
+
+const monthlyPaymentError = computed(() => {
+    return props.fieldErrors.daily_wage?.[0] ?? monthlyPaymentClientError.value;
 });
 
 const form = ref(emptyForm());
@@ -324,49 +304,43 @@ function onMobileInput(event) {
 function emptyForm() {
     return {
         name: '',
-        employee_code: '',
-        father_name: '',
         mobile: '',
         license_number: '',
         license_expiry_date: '',
         address: '',
         aadhaar_number: '',
         pan_number: '',
-        uan_number: '',
-        esic_number: '',
         bank_account_number: '',
         bank_ifsc: '',
         joining_date: '',
         emergency_contact_name: '',
         emergency_contact_phone: '',
-        daily_wage: '0.00',
+        daily_wage: '',
         is_active: true,
     };
 }
 
 function fillForm(driver) {
     mobileClientError.value = '';
+    joiningDateClientError.value = '';
+    monthlyPaymentClientError.value = '';
 
     const wage = driver?.daily_wage;
 
     form.value = {
         name: driver?.name ?? '',
-        employee_code: driver?.employee_code ?? '',
-        father_name: driver?.father_name ?? '',
         mobile: normalizeMobile(driver?.mobile ?? driver?.phone ?? ''),
         license_number: driver?.license_number ?? '',
         license_expiry_date: driver?.license_expiry_date ?? '',
         address: driver?.address ?? '',
         aadhaar_number: driver?.aadhaar_number ?? '',
         pan_number: driver?.pan_number ?? '',
-        uan_number: driver?.uan_number ?? '',
-        esic_number: driver?.esic_number ?? '',
         bank_account_number: driver?.bank_account_number ?? '',
         bank_ifsc: driver?.bank_ifsc ?? '',
         joining_date: driver?.joining_date ?? '',
         emergency_contact_name: driver?.emergency_contact_name ?? '',
         emergency_contact_phone: normalizeMobile(driver?.emergency_contact_phone ?? ''),
-        daily_wage: wage !== null && wage !== undefined && wage !== '' ? String(wage) : '0.00',
+        daily_wage: wage !== null && wage !== undefined && wage !== '' ? String(wage) : '',
         is_active: driver?.is_active !== undefined ? Boolean(driver.is_active) : true,
     };
 }
@@ -414,27 +388,37 @@ function submit() {
     }
 
     mobileClientError.value = '';
+    joiningDateClientError.value = '';
+    monthlyPaymentClientError.value = '';
 
-    const wage = form.value.daily_wage === '' ? 0 : Number(form.value.daily_wage);
+    if (!form.value.joining_date) {
+        joiningDateClientError.value = 'Joining date is required.';
+
+        return;
+    }
+
+    const wage = form.value.daily_wage === '' ? Number.NaN : Number(form.value.daily_wage);
+
+    if (Number.isNaN(wage) || wage <= 0) {
+        monthlyPaymentClientError.value = 'Monthly payment base must be greater than 0.';
+
+        return;
+    }
 
     emit('submit', {
         name: form.value.name.trim(),
-        employee_code: form.value.employee_code?.trim() || null,
-        father_name: form.value.father_name?.trim() || null,
         phone: mobile,
         license_number: form.value.license_number || null,
         license_expiry_date: form.value.license_expiry_date || null,
         address: form.value.address?.trim() || null,
         aadhaar_number: form.value.aadhaar_number || null,
         pan_number: form.value.pan_number?.toUpperCase() || null,
-        uan_number: form.value.uan_number?.trim() || null,
-        esic_number: form.value.esic_number?.trim() || null,
         bank_account_number: form.value.bank_account_number?.trim() || null,
         bank_ifsc: form.value.bank_ifsc?.trim()?.toUpperCase() || null,
-        joining_date: form.value.joining_date || null,
+        joining_date: form.value.joining_date,
         emergency_contact_name: form.value.emergency_contact_name?.trim() || null,
         emergency_contact_phone: form.value.emergency_contact_phone || null,
-        daily_wage: Number.isNaN(wage) ? 0 : wage,
+        daily_wage: wage,
         is_active: Boolean(form.value.is_active),
     });
 }

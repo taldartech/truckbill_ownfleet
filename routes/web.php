@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\CompanyController as ApiCompanyController;
+use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\ManagedUserController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\UserRoleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Resources\UserResource;
@@ -97,11 +101,60 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
         Route::post('/companies/{company}/enter', [ApiCompanyController::class, 'enter'])->name('companies.enter');
         Route::post('/companies/exit', [ApiCompanyController::class, 'exit'])->name('companies.exit');
 
+        Route::get('/user-roles', [UserRoleController::class, 'index'])
+            ->middleware('permission:roles.view')
+            ->name('user-roles.index');
+        Route::get('/user-roles/{user_role}', [UserRoleController::class, 'show'])
+            ->middleware('permission:roles.view')
+            ->name('user-roles.show');
+        Route::put('/user-roles/{user_role}/permissions', [UserRoleController::class, 'syncPermissions'])
+            ->middleware('permission:roles.manage')
+            ->name('user-roles.sync-permissions');
+
+        Route::get('/permissions', [PermissionController::class, 'index'])
+            ->middleware('permission:permissions.view')
+            ->name('permissions.index');
+        Route::post('/permissions', [PermissionController::class, 'store'])
+            ->middleware('permission:permissions.manage')
+            ->name('permissions.store');
+        Route::get('/permissions/{permission}', [PermissionController::class, 'show'])
+            ->middleware('permission:permissions.view')
+            ->name('permissions.show');
+        Route::put('/permissions/{permission}', [PermissionController::class, 'update'])
+            ->middleware('permission:permissions.manage')
+            ->name('permissions.update');
+        Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy'])
+            ->middleware('permission:permissions.manage')
+            ->name('permissions.destroy');
+
+        Route::get('/managed-users/assignable-roles', [ManagedUserController::class, 'assignableRoles'])
+            ->middleware('permission:users.view,super_admins.view')
+            ->name('managed-users.assignable-roles');
+        Route::get('/managed-users', [ManagedUserController::class, 'index'])
+            ->middleware('permission:users.view,super_admins.view')
+            ->name('managed-users.index');
+        Route::post('/managed-users', [ManagedUserController::class, 'store'])
+            ->middleware('permission:users.manage,super_admins.manage')
+            ->name('managed-users.store');
+        Route::get('/managed-users/{managed_user}', [ManagedUserController::class, 'show'])
+            ->middleware('permission:users.view,super_admins.view')
+            ->name('managed-users.show');
+        Route::put('/managed-users/{managed_user}', [ManagedUserController::class, 'update'])
+            ->middleware('permission:users.manage,super_admins.manage')
+            ->name('managed-users.update');
+        Route::delete('/managed-users/{managed_user}', [ManagedUserController::class, 'destroy'])
+            ->middleware('permission:users.manage,super_admins.manage')
+            ->name('managed-users.destroy');
+
         Route::middleware('tenant.context')->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
             Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
+            Route::get('/drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger'])
+                ->name('drivers.advance-ledger');
+            Route::post('/drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store'])
+                ->name('drivers.advance-entries.store');
             Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
             Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
@@ -134,6 +187,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
                 ->name('attendances.monthly-wages');
             Route::get('/attendances/settlement-sheet', [\App\Http\Controllers\Api\AttendanceController::class, 'settlementSheet'])
                 ->name('attendances.settlement-sheet');
+            Route::get('/attendances/settlement-sheet/export', [\App\Http\Controllers\Api\AttendanceController::class, 'exportSettlementSheet'])
+                ->name('attendances.settlement-sheet.export');
             Route::patch('/monthly-driver-wages/{monthlyDriverWage}/settlement', [\App\Http\Controllers\Api\AttendanceController::class, 'updateSettlementLine'])
                 ->name('monthly-driver-wages.update-settlement');
             Route::patch('/attendances/vehicle-settlement-line', [\App\Http\Controllers\Api\AttendanceController::class, 'updateVehicleSettlementLine'])

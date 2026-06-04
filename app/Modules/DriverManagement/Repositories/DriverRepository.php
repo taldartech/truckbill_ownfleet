@@ -8,10 +8,19 @@ use Illuminate\Database\Eloquent\Collection;
 
 class DriverRepository
 {
-    public function paginate(int $perPage = 15, bool $activeOnly = false): LengthAwarePaginator
+    public function paginate(int $perPage = 15, bool $activeOnly = false, ?string $search = null): LengthAwarePaginator
     {
         return Driver::query()
             ->when($activeOnly, fn ($query) => $query->where('is_active', true))
+            ->when($search !== null && $search !== '', function ($query) use ($search): void {
+                $term = '%'.$search.'%';
+                $query->where(function ($inner) use ($term): void {
+                    $inner->where('name', 'like', $term)
+                        ->orWhere('phone', 'like', $term)
+                        ->orWhere('license_number', 'like', $term)
+                        ->orWhere('address', 'like', $term);
+                });
+            })
             ->orderBy('name')
             ->paginate($perPage);
     }

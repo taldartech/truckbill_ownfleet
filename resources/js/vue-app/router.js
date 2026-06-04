@@ -124,6 +124,27 @@ const router = createRouter({
                     component: () => import('./pages/reports/TyreReportsPage.vue'),
                     meta: { requiresTenant: true, permission: 'tyre_reports.view' },
                 },
+                {
+                    path: 'access/roles',
+                    name: 'access.roles',
+                    component: () => import('./pages/access/RolesIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'roles.view' },
+                },
+                {
+                    path: 'access/permissions',
+                    name: 'access.permissions',
+                    component: () => import('./pages/access/PermissionsIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'permissions.view' },
+                },
+                {
+                    path: 'access/users',
+                    name: 'access.users',
+                    component: () => import('./pages/access/UsersIndexPage.vue'),
+                    meta: {
+                        allowWithoutTenant: true,
+                        permission: ['users.view', 'super_admins.view'],
+                    },
+                },
             ],
         },
         {
@@ -198,8 +219,11 @@ router.beforeEach(async (to) => {
     }
 
     if (to.meta.permission) {
-        const permissions = user.permissions ?? [];
-        const hasPermission = permissions.includes(to.meta.permission);
+        const userPermissions = user.permissions ?? [];
+        const required = Array.isArray(to.meta.permission)
+            ? to.meta.permission
+            : [to.meta.permission];
+        const hasPermission = required.some((slug) => userPermissions.includes(slug));
         const inCompany =
             !user.requires_company_selection &&
             (user.effective_tenant_id ?? user.company_id) != null;

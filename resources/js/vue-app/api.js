@@ -74,11 +74,7 @@ export function clearClientAuthState() {
             return;
         }
 
-        if (
-            name === 'XSRF-TOKEN' ||
-            name.startsWith('remember_web_') ||
-            name.includes('session')
-        ) {
+        if (name === 'XSRF-TOKEN' || name.startsWith('remember_web_')) {
             expireCookie(name);
         }
     });
@@ -193,6 +189,11 @@ api.interceptors.response.use(
     },
 );
 
+/**
+ * Submit login as a classic HTML form POST so the browser persists the session
+ * cookie on redirect. JSON/XHR login can drop the session cookie in some setups
+ * while the remember-me cookie still works.
+ */
 export async function login(email, password, remember = false) {
     const token = (await refreshCsrfToken()) || metaCsrfToken();
 
@@ -200,15 +201,31 @@ export async function login(email, password, remember = false) {
         throw new Error('Missing CSRF token');
     }
 
-    const payload = { email, password, _token: token };
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/login';
+    form.style.display = 'none';
+
+    const fields = {
+        _token: token,
+        email,
+        password,
+    };
 
     if (remember) {
-        payload.remember = true;
+        fields.remember = '1';
     }
 
-    const { data } = await api.post('/login', payload);
+    Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+    });
 
-    return data;
+    document.body.appendChild(form);
+    form.submit();
 }
 
 export async function fetchCurrentUser() {

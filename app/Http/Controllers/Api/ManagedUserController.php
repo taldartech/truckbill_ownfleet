@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreManagedUserRequest;
+use App\Http\Requests\UpdateManagedUserRequest;
+use App\Http\Resources\ManagedUserResource;
+use App\Http\Resources\UserRoleResource;
+use App\Support\RoleHierarchy;
+use App\User;
+use App\UserRole;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
+
+class ManagedUserController extends Controller
+{
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', User::class);
+
+        $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+        $actor = $request->user();
+
+        $query = User::query()
+            ->with(['userRole', 'tenant'])
+            ->when($request->filled('search'), function ($builder) use ($request): void {
+                $search = '%'.$request->string('search').'%';
+                $builder->where(function ($inner) use ($search): void {
+                    $inner->where('name', 'like', $search)
+                        ->orWhere('email', 'like', $search);
+                });
+            })
+            ->when($request->filled('user_role_id'), fn ($builder) => $builder->where('user_role_id', (int) $request->input('user_role_id')))
+            ->orderBy('name');
+
+        if ($actor !== null && RoleHierarchy::managesSuperAdmins($actor)) {
+            $query->where('user_role_id', UserRole::SUPER_ADMIN);
+        } elseif ($actor !== null && RoleHierarchy::managesTenantUsers($actor)) {
+            $tenantIds = RoleHierarchy::ownedTenantIds($actor);
+
+            $query
+                ->whereIn('tenant_id', $tenantIds)
+                ->whereNotIn('user_role_id', [UserRole::MASTER_ADMIN, UserRole::SUPER_ADMIN]);
+        }
+
+        return ManagedUserResource::collection($query->paginate($perPage));
+    }
+
+    public function store(StoreManagedUserRequest $request): ManagedUserResource
+    {
+        $validated = $request->validated();
+        $roleId = (int) $validated['user_role_id'];
+
+        $user = User::query()->create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'user_role_id' => $roleId,
+            'tenant_id' => $roleId === UserRole::SUPER_ADMIN
+                ? null
+                : ($validated['tenant_id'] ?? null),
+            'created_by' => $request->user()?->id,
+            'updated_by' => $request->user()?->id,
+        ]);
+
+        $user->load(['userRole', 'tenant']);
+
+        return new ManagedUserResource($user);
+    }
+
+    public function show(User $managedUser): ManagedUserResource
+    {
+        $this->authorize('view', $managedUser);
+
+        $managedUser->load(['userRole', 'tenant']);
+
+        return new ManagedUserResource($managedUser);
+    }
+
+    public function update(UpdateManagedUserRequest $request, User $managedUser): ManagedUserResource
+    {
+        $validated = $request->validated();
+
+        if (RoleHierarchy::isProtectedRole((int) $managedUser->user_role_id)) {
+            unset($validated['user_role_id'], $validated['tenant_id']);
+        }
+
+        if (isset($validated['user_role_id'])) {
+            $roleId = (int) $validated['user_role_id'];
+
+            if ($roleId === UserRole::SUPER_ADMIN) {
+                $validated['tenant_id'] = null;
+            }
+        }
+
+        if (array_key_exists('password', $validated) && ($validated['password'] === null || $validated['password'] === '')) {
+            unset($validated['password']);
+        }
+
+        unset($validated['password_confirmation']);
+
+        $validated['updated_by'] = $request->user()?->id;
+
+        $managedUser->update($validated);
+        $managedUser->load(['userRole', 'tenant']);
+
+        return new ManagedUserResource($managedUser);
+    }
+
+    public function destroy(User $managedUser): Response
+    {
+        $this->authorize('delete', $managedUser);
+
+        $managedUser->delete();
+
+        return response()->noContent();
+    }
+
+    public function assignableRoles(Request $request): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', User::class);
+
+        $actor = $request->user();
+        $ids = $actor !== null ? RoleHierarchy::assignableRoleIds($actor) : [];
+
+        $roles = UserRole::query()
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get();
+
+        return UserRoleResource::collection($roles);
+    }
+}

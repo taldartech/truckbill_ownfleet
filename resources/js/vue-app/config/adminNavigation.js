@@ -105,4 +105,34 @@ export const adminNavigation = [
             },
         ],
     },
+    {
+        label: 'Access Control',
+        icon: 'bi bi-shield-lock',
+        children: [
+            {
+                label: 'Roles',
+                icon: 'bi bi-person-badge',
+                to: '/access/roles',
+                permission: 'roles.view',
+            },
+            {
+                label: 'Permissions',
+                icon: 'bi bi-key',
+                to: '/access/permissions',
+                permission: 'permissions.view',
+            },
+            {
+                label: 'Super Admins',
+                icon: 'bi bi-person-gear',
+                to: '/access/users',
+                permission: 'super_admins.view',
+            },
+            {
+                label: 'Users',
+                icon: 'bi bi-people',
+                to: '/access/users',
+                permission: 'users.view',
+            },
+        ],
+    },
 ];

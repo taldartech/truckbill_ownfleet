@@ -6,15 +6,19 @@ use App\Attendance;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
+use App\Permission;
 use App\Policies\AttendancePolicy;
 use App\Policies\CityPolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
+use App\Policies\ManagedUserPolicy;
+use App\Policies\PermissionPolicy;
 use App\Policies\StatePolicy;
 use App\Policies\StationPolicy;
 use App\Policies\TenantPolicy;
 use App\Policies\TripPolicy;
 use App\Policies\TyrePolicy;
+use App\Policies\UserRolePolicy;
 use App\Policies\VehicleDocumentPolicy;
 use App\Policies\VehiclePolicy;
 use App\State;
@@ -23,6 +27,7 @@ use App\Tenant;
 use App\Trip;
 use App\Tyre;
 use App\User;
+use App\UserRole;
 use App\Vehicle;
 use App\VehicleDocument;
 use Illuminate\Pagination\Paginator;
@@ -70,6 +75,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(State::class, StatePolicy::class);
         Gate::policy(City::class, CityPolicy::class);
         Gate::policy(Tyre::class, TyrePolicy::class);
+        Gate::policy(UserRole::class, UserRolePolicy::class);
+        Gate::policy(Permission::class, PermissionPolicy::class);
+        Gate::policy(User::class, ManagedUserPolicy::class);
 
         Route::bind('company', static fn (string $value): Tenant => Tenant::query()->findOrFail($value));
     }

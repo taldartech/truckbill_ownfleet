@@ -47,6 +47,8 @@ class DemoFleetDataSeeder extends Seeder
         ['name' => 'Sanjay Reddy', 'phone' => '9876501008', 'daily_wage' => 1200.00, 'employee_code' => 'DRV-1008', 'father_name' => 'Venkat Reddy', 'bank_account_number' => '50100100010008', 'bank_ifsc' => 'HDFC0001008'],
         ['name' => 'Ajay Desai', 'phone' => '9876501009', 'daily_wage' => 925.00, 'employee_code' => 'DRV-1009', 'father_name' => 'Jayesh Desai', 'bank_account_number' => '50100100010009', 'bank_ifsc' => 'HDFC0001009'],
         ['name' => 'Nitin Joshi', 'phone' => '9876501010', 'daily_wage' => 975.00, 'employee_code' => 'DRV-1010', 'father_name' => 'Amit Joshi', 'bank_account_number' => '50100100010010', 'bank_ifsc' => 'HDFC0001010'],
+        ['name' => 'Rahul Bench', 'phone' => '9876501011', 'daily_wage' => 900.00, 'employee_code' => 'DRV-1011', 'father_name' => 'Ravi Bench', 'bank_account_number' => '50100100010011', 'bank_ifsc' => 'HDFC0001011'],
+        ['name' => 'Kiran Bench', 'phone' => '9876501012', 'daily_wage' => 950.00, 'employee_code' => 'DRV-1012', 'father_name' => 'Sunil Bench', 'bank_account_number' => '50100100010012', 'bank_ifsc' => 'HDFC0001012'],
     ];
 
     /**
@@ -67,8 +69,14 @@ class DemoFleetDataSeeder extends Seeder
 
     public function run(): void
     {
-        $slug = self::DEFAULT_TENANT_SLUG;
+        $this->seedForTenant(self::DEFAULT_TENANT_SLUG);
+    }
 
+    public function seedForTenant(
+        string $slug,
+        ?string $attendanceFrom = null,
+        ?string $attendanceTo = null,
+    ): void {
         $tenant = Tenant::query()->where('slug', $slug)->first();
 
         if ($tenant === null) {
@@ -77,11 +85,17 @@ class DemoFleetDataSeeder extends Seeder
             return;
         }
 
+        $from = $attendanceFrom ?? self::ATTENDANCE_FROM;
+        $to = $attendanceTo ?? self::ATTENDANCE_TO;
+
         $drivers = $this->seedDrivers($tenant->id);
         $vehicles = $this->seedVehicles($tenant->id);
-        $this->seedAssignments($tenant->id, $drivers, $vehicles);
+        $this->seedAssignments($tenant->id, $drivers, $vehicles, $from);
 
-        $attendanceCount = $this->seedAttendances($tenant->id, $drivers, $vehicles);
+        $attendanceCount = $this->seedAttendances($tenant->id, $drivers, $vehicles, $from, $to);
+
+        $fromLabel = Carbon::parse($from)->format('M Y');
+        $toLabel = Carbon::parse($to)->format('M Y');
 
         $this->command?->info("Demo fleet data ready for [{$tenant->name}] ({$slug})");
         $this->command?->table(
@@ -89,7 +103,7 @@ class DemoFleetDataSeeder extends Seeder
             [
                 ['Drivers', (string) $drivers->count()],
                 ['Vehicles', (string) $vehicles->count()],
-                ['Attendance rows (Jan–Jun '.self::ATTENDANCE_YEAR.')', (string) $attendanceCount],
+                ['Attendance rows ('.$fromLabel.' – '.$toLabel.')', (string) $attendanceCount],
             ],
         );
     }
@@ -159,9 +173,9 @@ class DemoFleetDataSeeder extends Seeder
      * @param  Collection<int, Driver>  $drivers
      * @param  Collection<int, Vehicle>  $vehicles
      */
-    private function seedAssignments(string $tenantId, Collection $drivers, Collection $vehicles): void
+    private function seedAssignments(string $tenantId, Collection $drivers, Collection $vehicles, string $attendanceFrom): void
     {
-        $assignedFrom = Carbon::parse(self::ATTENDANCE_FROM)->subMonth()->startOfMonth();
+        $assignedFrom = Carbon::parse($attendanceFrom)->subMonth()->startOfMonth();
 
         foreach ($vehicles as $index => $vehicle) {
             $driver = $drivers->get($index);
@@ -189,9 +203,14 @@ class DemoFleetDataSeeder extends Seeder
      * @param  Collection<int, Driver>  $drivers
      * @param  Collection<int, Vehicle>  $vehicles
      */
-    private function seedAttendances(string $tenantId, Collection $drivers, Collection $vehicles): int
-    {
-        $period = CarbonPeriod::create(self::ATTENDANCE_FROM, self::ATTENDANCE_TO);
+    private function seedAttendances(
+        string $tenantId,
+        Collection $drivers,
+        Collection $vehicles,
+        string $attendanceFrom,
+        string $attendanceTo,
+    ): int {
+        $period = CarbonPeriod::create($attendanceFrom, $attendanceTo);
         $created = 0;
 
         foreach ($vehicles as $index => $vehicle) {

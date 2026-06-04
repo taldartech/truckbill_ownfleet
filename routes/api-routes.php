@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ComplianceController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\LocationController;
@@ -27,11 +28,14 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
     Route::apiResource('vehicles', VehicleController::class);
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
+    Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
+    Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
     Route::apiResource('drivers', DriverController::class);
     Route::apiResource('driver-assignments', DriverAssignmentController::class);
     Route::get('attendances/month-overview', [AttendanceController::class, 'monthOverview']);
     Route::get('attendances/monthly-wages', [AttendanceController::class, 'monthlyWages']);
     Route::get('attendances/settlement-sheet', [AttendanceController::class, 'settlementSheet']);
+    Route::get('attendances/settlement-sheet/export', [AttendanceController::class, 'exportSettlementSheet']);
     Route::patch('monthly-driver-wages/{monthlyDriverWage}/settlement', [AttendanceController::class, 'updateSettlementLine']);
     Route::patch('attendances/vehicle-settlement-line', [AttendanceController::class, 'updateVehicleSettlementLine']);
     Route::post('attendances/close-month', [AttendanceController::class, 'closeMonth']);

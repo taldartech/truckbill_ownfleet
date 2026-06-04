@@ -1,10 +1,78 @@
 {
+  "_AppButton-CKlBgn3i.js": {
+    "file": "assets/AppButton-CKlBgn3i.js",
+    "name": "AppButton",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_AppTableActions-DbTTXBGe.js": {
+    "file": "assets/AppTableActions-DbTTXBGe.js",
+    "name": "AppTableActions",
+    "imports": [
+      "_crudActionPresets-BodR9WNg.js",
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_attendances-DRIeFf9u.js": {
+    "file": "assets/attendances-DRIeFf9u.js",
+    "name": "attendances",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_crudActionPresets-BodR9WNg.js": {
+    "file": "assets/crudActionPresets-BodR9WNg.js",
+    "name": "crudActionPresets"
+  },
+  "_drivers-Bx63Ww37.js": {
+    "file": "assets/drivers-Bx63Ww37.js",
+    "name": "drivers",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
   "_index-DcNlVx-A.js": {
     "file": "assets/index-DcNlVx-A.js",
     "name": "index"
   },
+  "_permissions-D8poGrLW.js": {
+    "file": "assets/permissions-D8poGrLW.js",
+    "name": "permissions",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_useApiFormErrors-Bs4MsSE6.js": {
+    "file": "assets/useApiFormErrors-Bs4MsSE6.js",
+    "name": "useApiFormErrors",
+    "imports": [
+      "_crudActionPresets-BodR9WNg.js",
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_useRequireCompanyContext-D2ALWO6y.js": {
+    "file": "assets/useRequireCompanyContext-D2ALWO6y.js",
+    "name": "useRequireCompanyContext",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "_vehicles-VE8i440g.js": {
+    "file": "assets/vehicles-VE8i440g.js",
+    "name": "vehicles",
+    "imports": [
+      "resources/js/vue-app/main.js"
+    ]
+  },
+  "node_modules/bootstrap/dist/js/bootstrap.esm.js": {
+    "file": "assets/bootstrap.esm-BIRXU5Tj.js",
+    "name": "bootstrap.esm",
+    "src": "node_modules/bootstrap/dist/js/bootstrap.esm.js",
+    "isDynamicEntry": true
+  },
   "resources/css/app.css": {
-    "file": "assets/app-k90CFT6u.css",
+    "file": "assets/app-BuhOdsbs.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -28,7 +96,7 @@
     ]
   },
   "resources/js/vue-app/main.js": {
-    "file": "assets/main-CEsExb7W.js",
+    "file": "assets/main-BVol74x9.js",
     "name": "main",
     "src": "resources/js/vue-app/main.js",
     "isEntry": true,
@@ -36,17 +104,162 @@
       "_index-DcNlVx-A.js"
     ],
     "dynamicImports": [
-      "resources/js/vue-app/pages/drivers/DriversIndexPage.vue"
+      "resources/js/vue-app/pages/companies/CompaniesIndexPage.vue",
+      "resources/js/vue-app/pages/trucks/TrucksIndexPage.vue",
+      "resources/js/vue-app/pages/drivers/DriversIndexPage.vue",
+      "resources/js/vue-app/pages/attendance/AttendancesIndexPage.vue",
+      "resources/js/vue-app/pages/attendance/MonthlySettlementPage.vue",
+      "resources/js/vue-app/pages/reports/AttendanceReportsPage.vue",
+      "resources/js/vue-app/pages/access/RolesIndexPage.vue",
+      "resources/js/vue-app/pages/access/PermissionsIndexPage.vue",
+      "resources/js/vue-app/pages/access/UsersIndexPage.vue"
+    ],
+    "css": [
+      "assets/main-C-4DUiTh.css"
+    ]
+  },
+  "resources/js/vue-app/pages/access/PermissionsIndexPage.vue": {
+    "file": "assets/PermissionsIndexPage-BbGWFBil.js",
+    "name": "PermissionsIndexPage",
+    "src": "resources/js/vue-app/pages/access/PermissionsIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_permissions-D8poGrLW.js",
+      "resources/js/vue-app/main.js",
+      "_AppButton-CKlBgn3i.js",
+      "_AppTableActions-DbTTXBGe.js",
+      "_useApiFormErrors-Bs4MsSE6.js",
+      "_index-DcNlVx-A.js",
+      "_crudActionPresets-BodR9WNg.js"
+    ],
+    "dynamicImports": [
+      "node_modules/bootstrap/dist/js/bootstrap.esm.js"
+    ]
+  },
+  "resources/js/vue-app/pages/access/RolesIndexPage.vue": {
+    "file": "assets/RolesIndexPage-BeCVjz6k.js",
+    "name": "RolesIndexPage",
+    "src": "resources/js/vue-app/pages/access/RolesIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_permissions-D8poGrLW.js",
+      "_AppTableActions-DbTTXBGe.js",
+      "_useApiFormErrors-Bs4MsSE6.js",
+      "_index-DcNlVx-A.js",
+      "_crudActionPresets-BodR9WNg.js"
+    ],
+    "dynamicImports": [
+      "node_modules/bootstrap/dist/js/bootstrap.esm.js"
+    ]
+  },
+  "resources/js/vue-app/pages/access/UsersIndexPage.vue": {
+    "file": "assets/UsersIndexPage-DyDqwQVC.js",
+    "name": "UsersIndexPage",
+    "src": "resources/js/vue-app/pages/access/UsersIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_AppButton-CKlBgn3i.js",
+      "_AppTableActions-DbTTXBGe.js",
+      "_useApiFormErrors-Bs4MsSE6.js",
+      "_index-DcNlVx-A.js",
+      "_crudActionPresets-BodR9WNg.js"
+    ],
+    "dynamicImports": [
+      "node_modules/bootstrap/dist/js/bootstrap.esm.js"
+    ]
+  },
+  "resources/js/vue-app/pages/attendance/AttendancesIndexPage.vue": {
+    "file": "assets/AttendancesIndexPage-CXFv-jz4.js",
+    "name": "AttendancesIndexPage",
+    "src": "resources/js/vue-app/pages/attendance/AttendancesIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_drivers-Bx63Ww37.js",
+      "_attendances-DRIeFf9u.js",
+      "_vehicles-VE8i440g.js",
+      "_crudActionPresets-BodR9WNg.js",
+      "_AppButton-CKlBgn3i.js",
+      "_AppTableActions-DbTTXBGe.js",
+      "_index-DcNlVx-A.js"
+    ],
+    "css": [
+      "assets/AttendancesIndexPage-Crmpt3FP.css"
+    ]
+  },
+  "resources/js/vue-app/pages/attendance/MonthlySettlementPage.vue": {
+    "file": "assets/MonthlySettlementPage-xEkZq0o7.js",
+    "name": "MonthlySettlementPage",
+    "src": "resources/js/vue-app/pages/attendance/MonthlySettlementPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_attendances-DRIeFf9u.js",
+      "_index-DcNlVx-A.js"
+    ],
+    "css": [
+      "assets/MonthlySettlementPage-DGQwRCSn.css"
+    ]
+  },
+  "resources/js/vue-app/pages/companies/CompaniesIndexPage.vue": {
+    "file": "assets/CompaniesIndexPage-BaqlAbun.js",
+    "name": "CompaniesIndexPage",
+    "src": "resources/js/vue-app/pages/companies/CompaniesIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_AppButton-CKlBgn3i.js",
+      "_index-DcNlVx-A.js"
     ]
   },
   "resources/js/vue-app/pages/drivers/DriversIndexPage.vue": {
-    "file": "assets/DriversIndexPage-CL874jC6.js",
+    "file": "assets/DriversIndexPage-CWEY-cKN.js",
     "name": "DriversIndexPage",
     "src": "resources/js/vue-app/pages/drivers/DriversIndexPage.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/vue-app/main.js",
+      "_drivers-Bx63Ww37.js",
+      "_AppButton-CKlBgn3i.js",
+      "_useApiFormErrors-Bs4MsSE6.js",
+      "_crudActionPresets-BodR9WNg.js",
       "_index-DcNlVx-A.js"
+    ]
+  },
+  "resources/js/vue-app/pages/reports/AttendanceReportsPage.vue": {
+    "file": "assets/AttendanceReportsPage-C_s3cw19.js",
+    "name": "AttendanceReportsPage",
+    "src": "resources/js/vue-app/pages/reports/AttendanceReportsPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_drivers-Bx63Ww37.js",
+      "_vehicles-VE8i440g.js",
+      "_AppButton-CKlBgn3i.js",
+      "_useRequireCompanyContext-D2ALWO6y.js",
+      "_index-DcNlVx-A.js"
+    ]
+  },
+  "resources/js/vue-app/pages/trucks/TrucksIndexPage.vue": {
+    "file": "assets/TrucksIndexPage-BP0kIOv5.js",
+    "name": "TrucksIndexPage",
+    "src": "resources/js/vue-app/pages/trucks/TrucksIndexPage.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/vue-app/main.js",
+      "_vehicles-VE8i440g.js",
+      "_useApiFormErrors-Bs4MsSE6.js",
+      "_crudActionPresets-BodR9WNg.js",
+      "_AppTableActions-DbTTXBGe.js",
+      "_drivers-Bx63Ww37.js",
+      "_AppButton-CKlBgn3i.js",
+      "_useRequireCompanyContext-D2ALWO6y.js",
+      "_index-DcNlVx-A.js"
+    ],
+    "css": [
+      "assets/TrucksIndexPage-BfqRpxB1.css"
     ]
   }
 }
