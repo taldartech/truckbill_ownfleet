@@ -26,19 +26,27 @@ class DemoFleetDataSeeder extends Seeder
     private const ATTENDANCE_TO = '2026-06-30';
 
     /**
-     * @var list<array{name: string, phone: string, daily_wage: float}>
+     * @var list<array{
+     *     name: string,
+     *     phone: string,
+     *     daily_wage: float,
+     *     employee_code: string,
+     *     father_name: string,
+     *     bank_account_number: string,
+     *     bank_ifsc: string
+     * }>
      */
     private const DRIVERS = [
-        ['name' => 'Ramesh Kumar', 'phone' => '9876501001', 'daily_wage' => 850.00],
-        ['name' => 'Suresh Patil', 'phone' => '9876501002', 'daily_wage' => 900.00],
-        ['name' => 'Vikram Singh', 'phone' => '9876501003', 'daily_wage' => 950.00],
-        ['name' => 'Anil Sharma', 'phone' => '9876501004', 'daily_wage' => 1000.00],
-        ['name' => 'Deepak Yadav', 'phone' => '9876501005', 'daily_wage' => 1050.00],
-        ['name' => 'Manoj Gupta', 'phone' => '9876501006', 'daily_wage' => 1100.00],
-        ['name' => 'Prakash Mehta', 'phone' => '9876501007', 'daily_wage' => 1150.00],
-        ['name' => 'Sanjay Reddy', 'phone' => '9876501008', 'daily_wage' => 1200.00],
-        ['name' => 'Ajay Desai', 'phone' => '9876501009', 'daily_wage' => 925.00],
-        ['name' => 'Nitin Joshi', 'phone' => '9876501010', 'daily_wage' => 975.00],
+        ['name' => 'Ramesh Kumar', 'phone' => '9876501001', 'daily_wage' => 850.00, 'employee_code' => 'DRV-1001', 'father_name' => 'Rajesh Kumar', 'bank_account_number' => '50100100010001', 'bank_ifsc' => 'HDFC0001001'],
+        ['name' => 'Suresh Patil', 'phone' => '9876501002', 'daily_wage' => 900.00, 'employee_code' => 'DRV-1002', 'father_name' => 'Ganesh Patil', 'bank_account_number' => '50100100010002', 'bank_ifsc' => 'HDFC0001002'],
+        ['name' => 'Vikram Singh', 'phone' => '9876501003', 'daily_wage' => 950.00, 'employee_code' => 'DRV-1003', 'father_name' => 'Harvinder Singh', 'bank_account_number' => '50100100010003', 'bank_ifsc' => 'HDFC0001003'],
+        ['name' => 'Anil Sharma', 'phone' => '9876501004', 'daily_wage' => 1000.00, 'employee_code' => 'DRV-1004', 'father_name' => 'Sunil Sharma', 'bank_account_number' => '50100100010004', 'bank_ifsc' => 'HDFC0001004'],
+        ['name' => 'Deepak Yadav', 'phone' => '9876501005', 'daily_wage' => 1050.00, 'employee_code' => 'DRV-1005', 'father_name' => 'Ramprasad Yadav', 'bank_account_number' => '50100100010005', 'bank_ifsc' => 'HDFC0001005'],
+        ['name' => 'Manoj Gupta', 'phone' => '9876501006', 'daily_wage' => 1100.00, 'employee_code' => 'DRV-1006', 'father_name' => 'Vinod Gupta', 'bank_account_number' => '50100100010006', 'bank_ifsc' => 'HDFC0001006'],
+        ['name' => 'Prakash Mehta', 'phone' => '9876501007', 'daily_wage' => 1150.00, 'employee_code' => 'DRV-1007', 'father_name' => 'Mukesh Mehta', 'bank_account_number' => '50100100010007', 'bank_ifsc' => 'HDFC0001007'],
+        ['name' => 'Sanjay Reddy', 'phone' => '9876501008', 'daily_wage' => 1200.00, 'employee_code' => 'DRV-1008', 'father_name' => 'Venkat Reddy', 'bank_account_number' => '50100100010008', 'bank_ifsc' => 'HDFC0001008'],
+        ['name' => 'Ajay Desai', 'phone' => '9876501009', 'daily_wage' => 925.00, 'employee_code' => 'DRV-1009', 'father_name' => 'Jayesh Desai', 'bank_account_number' => '50100100010009', 'bank_ifsc' => 'HDFC0001009'],
+        ['name' => 'Nitin Joshi', 'phone' => '9876501010', 'daily_wage' => 975.00, 'employee_code' => 'DRV-1010', 'father_name' => 'Amit Joshi', 'bank_account_number' => '50100100010010', 'bank_ifsc' => 'HDFC0001010'],
     ];
 
     /**
@@ -102,6 +110,10 @@ class DemoFleetDataSeeder extends Seeder
                     ],
                     [
                         'name' => $definition['name'],
+                        'employee_code' => $definition['employee_code'],
+                        'father_name' => $definition['father_name'],
+                        'bank_account_number' => $definition['bank_account_number'],
+                        'bank_ifsc' => $definition['bank_ifsc'],
                         'license_number' => 'DL-DEMO-'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
                         'license_expiry_date' => Carbon::create(self::ATTENDANCE_YEAR, 12, 31),
                         'joining_date' => Carbon::create(self::ATTENDANCE_YEAR - 1, 6, 1)->addMonths($index),

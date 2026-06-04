@@ -4,7 +4,9 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use App\Enums\TripExpenseType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TripExpense extends Model
 {
@@ -14,9 +16,30 @@ class TripExpense extends Model
     protected $fillable = [
         'tenant_id',
         'trip_id',
+        'trip_route_leg_id',
         'expense_type',
         'amount',
         'currency',
         'notes',
+        'created_by',
+        'updated_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'expense_type' => TripExpenseType::class,
+            'amount' => 'decimal:2',
+        ];
+    }
+
+    public function trip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class);
+    }
+
+    public function routeLeg(): BelongsTo
+    {
+        return $this->belongsTo(TripRouteLeg::class, 'trip_route_leg_id');
+    }
 }

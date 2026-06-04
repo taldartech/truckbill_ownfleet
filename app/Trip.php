@@ -4,6 +4,7 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use App\Enums\TripStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,10 +19,16 @@ class Trip extends Model
         'vehicle_id',
         'driver_id',
         'trip_number',
+        'customer_name',
+        'broker_name',
+        'start_station_id',
         'status',
         'start_at',
         'end_at',
         'total_distance_km',
+        'loaded_distance_km',
+        'half_loaded_distance_km',
+        'empty_distance_km',
         'total_expense_amount',
         'total_freight_amount',
         'created_by',
@@ -31,9 +38,13 @@ class Trip extends Model
     protected function casts(): array
     {
         return [
+            'status' => TripStatus::class,
             'start_at' => 'datetime',
             'end_at' => 'datetime',
             'total_distance_km' => 'decimal:2',
+            'loaded_distance_km' => 'decimal:2',
+            'half_loaded_distance_km' => 'decimal:2',
+            'empty_distance_km' => 'decimal:2',
             'total_expense_amount' => 'decimal:2',
             'total_freight_amount' => 'decimal:2',
         ];
@@ -44,8 +55,28 @@ class Trip extends Model
         return $this->belongsTo(Vehicle::class);
     }
 
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class);
+    }
+
     public function routeLegs(): HasMany
     {
-        return $this->hasMany(TripRouteLeg::class);
+        return $this->hasMany(TripRouteLeg::class)->orderBy('sequence_no');
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(TripExpense::class);
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(TripStatusHistory::class);
+    }
+
+    public function profitAmount(): float
+    {
+        return (float) $this->total_freight_amount - (float) $this->total_expense_amount;
     }
 }

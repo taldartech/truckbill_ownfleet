@@ -87,7 +87,7 @@
 
     <div class="col-md-12 mt-1">
         <h6 class="mb-1">Template Content</h6>
-        <small class="text-muted">Variables aur body ko saath me manage karo.</small>
+        <small class="text-muted">Manage variables and message body together.</small>
     </div>
 
     <div class="col-md-4">

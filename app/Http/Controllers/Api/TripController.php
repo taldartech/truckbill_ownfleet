@@ -2,91 +2,111 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\UpdateTripRequest;
 use App\Http\Resources\TripResource;
+use App\Modules\TripManagement\Services\TripService;
+use App\Modules\TripManagement\Services\TripValidationService;
 use App\Trip;
-use App\TripRouteLeg;
-use App\TripStatusHistory;
+use App\Vehicle;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
-class TripController
+class TripController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function __construct(
+        private readonly TripService $tripService,
+        private readonly TripValidationService $tripValidation,
+    ) {}
+
+    public function nextTripNumber(): JsonResponse
     {
-        return TripResource::collection(Trip::query()->latest()->paginate());
+        $this->authorize('create', Trip::class);
+
+        return response()->json([
+            'trip_number' => $this->tripService->previewNextTripNumber(),
+        ]);
     }
 
-    public function store(StoreTripRequest $request): TripResource
+    public function vehiclePrimaryDriver(Vehicle $vehicle): JsonResponse
     {
-        $trip = DB::transaction(function () use ($request): Trip {
-            $trip = Trip::query()->create([
-                ...$request->safe()->except(['route_legs']),
-                'created_by' => $request->user()?->id,
-                'updated_by' => $request->user()?->id,
-            ]);
+        $this->authorize('view', $vehicle);
 
-            $routeLegs = $request->validated('route_legs', []);
-            foreach ($routeLegs as $routeLeg) {
-                TripRouteLeg::query()->create([
-                    ...$routeLeg,
-                    'trip_id' => $trip->id,
-                ]);
-            }
+        $driverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($vehicle->id);
 
-            TripStatusHistory::query()->create([
-                'trip_id' => $trip->id,
-                'to_status' => $trip->status,
-                'changed_at' => now(),
-                'changed_by' => $request->user()?->id,
-            ]);
+        $vehicle->loadMissing(['currentPrimaryAssignment.driver']);
 
-            return $trip;
-        });
-
-        return new TripResource($trip->fresh());
+        return response()->json([
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driverId,
+            'driver' => $vehicle->currentPrimaryAssignment?->driver !== null
+                ? [
+                    'id' => $vehicle->currentPrimaryAssignment->driver->id,
+                    'name' => $vehicle->currentPrimaryAssignment->driver->name,
+                    'phone' => $vehicle->currentPrimaryAssignment->driver->phone,
+                ]
+                : null,
+            'has_assignment' => $driverId !== null,
+        ]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Trip $trip): TripResource
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return new TripResource($trip->load('routeLegs'));
-    }
+        $this->authorize('viewAny', Trip::class);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateTripRequest $request, Trip $trip): TripResource
-    {
-        $oldStatus = $trip->status;
-        $trip->update([
-            ...$request->validated(),
-            'updated_by' => $request->user()?->id,
+        $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+
+        $filters = $request->only([
+            'vehicle_id',
+            'driver_id',
+            'status',
+            'from_date',
+            'to_date',
+            'customer_name',
         ]);
 
-        if ($request->filled('status') && $oldStatus !== $trip->status) {
-            TripStatusHistory::query()->create([
-                'trip_id' => $trip->id,
-                'from_status' => $oldStatus,
-                'to_status' => $trip->status,
-                'changed_at' => now(),
-                'changed_by' => $request->user()?->id,
-            ]);
-        }
-
-        return new TripResource($trip->fresh());
+        return TripResource::collection($this->tripService->paginate($perPage, $filters));
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    public function store(StoreTripRequest $request): JsonResponse
+    {
+        $trip = $this->tripService->create(
+            $request->validated(),
+            $request->user()?->id,
+        );
+
+        return (new TripResource($trip))
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function show(Trip $trip): TripResource
+    {
+        $this->authorize('view', $trip);
+
+        $trip->load(['vehicle', 'driver', 'routeLegs', 'expenses.routeLeg']);
+
+        return new TripResource($trip);
+    }
+
+    public function update(UpdateTripRequest $request, Trip $trip): TripResource
+    {
+        $trip = $this->tripService->update(
+            $trip,
+            $request->validated(),
+            $request->user()?->id,
+        );
+
+        return new TripResource($trip);
+    }
+
     public function destroy(Trip $trip): Response
     {
-        $trip->delete();
+        $this->authorize('delete', $trip);
+        $this->tripService->delete($trip);
 
         return response()->noContent();
     }

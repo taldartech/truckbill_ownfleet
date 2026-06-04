@@ -12,7 +12,7 @@ class DriverRepository
     {
         return Driver::query()
             ->when($activeOnly, fn ($query) => $query->where('is_active', true))
-            ->latest()
+            ->orderBy('name')
             ->paginate($perPage);
     }
 

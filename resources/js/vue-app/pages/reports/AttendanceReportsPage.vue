@@ -204,7 +204,7 @@ function buildParams(page = 1) {
 }
 
 async function loadReport(page = 1) {
-    if (needsCompanySelection()) {
+    if (needsCompanySelection.value) {
         return;
     }
 

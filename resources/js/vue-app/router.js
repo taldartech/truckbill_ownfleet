@@ -59,10 +59,70 @@ const router = createRouter({
                     meta: { requiresTenant: true },
                 },
                 {
+                    path: 'trips',
+                    name: 'trips.index',
+                    component: () => import('./pages/trips/TripsIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.view' },
+                },
+                {
+                    path: 'trips/create',
+                    name: 'trips.create',
+                    component: () => import('./pages/trips/TripCreatePage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                },
+                {
+                    path: 'trips/:id/edit',
+                    name: 'trips.edit',
+                    component: () => import('./pages/trips/TripEditPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                },
+                {
+                    path: 'stations',
+                    name: 'stations.index',
+                    component: () => import('./pages/stations/StationsIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'stations.view' },
+                },
+                {
+                    path: 'locations',
+                    name: 'locations.index',
+                    component: () => import('./pages/locations/LocationsIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'locations.view' },
+                },
+                {
                     path: 'reports/attendance',
                     name: 'reports.attendance',
                     component: () => import('./pages/reports/AttendanceReportsPage.vue'),
                     meta: { requiresTenant: true, permission: 'reports.view' },
+                },
+                {
+                    path: 'reports/trips',
+                    name: 'reports.trips',
+                    component: () => import('./pages/reports/TripReportsPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trip_reports.view' },
+                },
+                {
+                    path: 'tyres',
+                    name: 'tyres.index',
+                    component: () => import('./pages/tyres/TyresIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyres.view' },
+                },
+                {
+                    path: 'trucks/:vehicleId/tyres',
+                    name: 'vehicles.tyres',
+                    component: () => import('./pages/tyres/VehicleTyresPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyres.view' },
+                },
+                {
+                    path: 'tyres/:id',
+                    name: 'tyres.show',
+                    component: () => import('./pages/tyres/TyreDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyres.view' },
+                },
+                {
+                    path: 'reports/tyres',
+                    name: 'reports.tyres',
+                    component: () => import('./pages/reports/TyreReportsPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyre_reports.view' },
                 },
             ],
         },
@@ -145,7 +205,13 @@ router.beforeEach(async (to) => {
             (user.effective_tenant_id ?? user.company_id) != null;
 
         if (!hasPermission || (to.meta.requiresTenant && !inCompany)) {
-            return { name: 'dashboard' };
+            return {
+                name: 'dashboard',
+                query: {
+                    denied: '1',
+                    from: to.name ?? to.path,
+                },
+            };
         }
     }
 

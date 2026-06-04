@@ -3,15 +3,25 @@
 namespace App\Providers;
 
 use App\Attendance;
+use App\City;
 use App\Driver;
 use App\DriverAssignment;
 use App\Policies\AttendancePolicy;
+use App\Policies\CityPolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
+use App\Policies\StatePolicy;
+use App\Policies\StationPolicy;
 use App\Policies\TenantPolicy;
+use App\Policies\TripPolicy;
+use App\Policies\TyrePolicy;
 use App\Policies\VehicleDocumentPolicy;
 use App\Policies\VehiclePolicy;
+use App\State;
+use App\Station;
 use App\Tenant;
+use App\Trip;
+use App\Tyre;
 use App\User;
 use App\Vehicle;
 use App\VehicleDocument;
@@ -55,6 +65,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Tenant::class, TenantPolicy::class);
         Gate::policy(Vehicle::class, VehiclePolicy::class);
         Gate::policy(VehicleDocument::class, VehicleDocumentPolicy::class);
+        Gate::policy(Trip::class, TripPolicy::class);
+        Gate::policy(Station::class, StationPolicy::class);
+        Gate::policy(State::class, StatePolicy::class);
+        Gate::policy(City::class, CityPolicy::class);
+        Gate::policy(Tyre::class, TyrePolicy::class);
 
         Route::bind('company', static fn (string $value): Tenant => Tenant::query()->findOrFail($value));
     }

@@ -2,6 +2,11 @@
  * Table row CRUD icons — same as Drivers index (btn-edit blue, btn-danger red).
  */
 export const CRUD_ACTION_PRESETS = {
+    view: {
+        btnClass: 'btn-info',
+        icon: 'fas fa-eye',
+        title: 'View details',
+    },
     edit: {
         btnClass: 'btn-edit',
         icon: 'fas fa-pencil-alt',

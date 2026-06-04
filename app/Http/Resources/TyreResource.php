@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Http\Resources;
+
+use App\Enums\TyrePosition;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class TyreResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'serial_number' => $this->serial_number,
+            'brand' => $this->brand,
+            'size' => $this->size,
+            'purchase_date' => $this->purchase_date?->toDateString(),
+            'purchase_cost' => (float) $this->purchase_cost,
+            'warranty_details' => $this->warranty_details,
+            'tyre_type' => $this->tyre_type?->value,
+            'current_km' => (float) $this->current_km,
+            'expected_life_km' => (float) ($this->expected_life_km ?? 40000),
+            'status' => $this->status?->value,
+            'scrapped_at' => $this->scrapped_at?->toDateString(),
+            'scrap_notes' => $this->scrap_notes,
+            'notes' => $this->notes,
+            'active_installation' => $this->when(
+                $this->relationLoaded('activeInstallation') && $this->activeInstallation !== null,
+                function () {
+                    $active = $this->activeInstallation;
+
+                    return [
+                        'id' => $active->id,
+                        'installation_id' => $active->id,
+                        'vehicle_id' => $active->vehicle_id,
+                        'vehicle_registration' => $active->vehicle?->registration_number,
+                        'position' => $active->position_code instanceof TyrePosition
+                            ? $active->position_code->value
+                            : $active->position_code,
+                        'position_label' => $active->position_code instanceof TyrePosition
+                            ? $active->position_code->label()
+                            : $active->position_code,
+                        'installed_at' => $active->installed_at?->toDateString(),
+                        'km_at_installation' => (float) $active->km_at_installation,
+                    ];
+                }
+            ),
+            'installations' => TyreInstallationResource::collection($this->whenLoaded('installations')),
+            'rotations' => TyreRotationResource::collection($this->whenLoaded('rotations')),
+            'retreads' => TyreRetreadResource::collection($this->whenLoaded('retreads')),
+            'damages' => TyreDamageResource::collection($this->whenLoaded('damages')),
+            'expenses' => TyreExpenseResource::collection($this->whenLoaded('expenses')),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+}

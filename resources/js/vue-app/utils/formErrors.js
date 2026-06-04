@@ -25,3 +25,13 @@ export function fieldErrorMessage(fieldErrors, field) {
 export function hasFieldError(fieldErrors, field) {
     return Boolean(fieldErrorMessage(fieldErrors, field));
 }
+
+export function scrollToFirstFormError() {
+    requestAnimationFrame(() => {
+        const target = document.querySelector(
+            '.trip-form .is-invalid, .trip-form .is-invalid-picker, .trip-form .alert-danger',
+        );
+
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+}

@@ -12,6 +12,7 @@
             </main>
             <AppFooter />
         </div>
+        <AppToastHost />
     </div>
 </template>
 
@@ -22,6 +23,7 @@ import { fetchCurrentUser } from '../api';
 import AppFooter from '../components/AppFooter.vue';
 import AppHeader from '../components/AppHeader.vue';
 import AppSidebar from '../components/AppSidebar.vue';
+import AppToastHost from '../components/ui/AppToastHost.vue';
 import { adminNavigation } from '../config/adminNavigation';
 import { useFilteredNavigation } from '../composables/useFilteredNavigation';
 

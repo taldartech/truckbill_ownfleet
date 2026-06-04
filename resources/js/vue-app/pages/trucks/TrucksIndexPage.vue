@@ -60,6 +60,14 @@
                                         action="documents"
                                         @click="openDocuments(vehicle)"
                                     />
+                                    <RouterLink
+                                        v-if="canViewTyres"
+                                        :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        title="Tyre positions"
+                                    >
+                                        <i class="bi bi-circle"></i>
+                                    </RouterLink>
                                     <AppCrudActionButton
                                         v-if="canManage"
                                         action="edit"
@@ -153,6 +161,7 @@ const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } 
     useRequireCompanyContext();
 
 const canManage = computed(() => canInCompany('vehicles.manage'));
+const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewAssignments = computed(() => canInCompany('driver_assignments.view'));
 const canManageAssignments = computed(() => canInCompany('driver_assignments.manage'));
 const canViewDocuments = computed(() => canInCompany('vehicle_documents.view'));
@@ -192,7 +201,7 @@ function showToast(message, type = 'success') {
 }
 
 async function loadVehicles(page = pagination.currentPage) {
-    if (needsCompanySelection()) {
+    if (needsCompanySelection.value) {
         vehicles.value = [];
         loading.value = false;
         pagination.currentPage = 1;

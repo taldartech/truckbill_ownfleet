@@ -1,3 +1,4 @@
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePermissions } from './usePermissions';
 
@@ -8,9 +9,9 @@ export function useRequireCompanyContext() {
     const router = useRouter();
     const { user } = usePermissions();
 
-    function needsCompanySelection() {
-        return Boolean(user.value?.requires_company_selection);
-    }
+    const needsCompanySelection = computed(() => Boolean(user.value?.requires_company_selection));
+
+    const hasCompanyContext = computed(() => !needsCompanySelection.value);
 
     function redirectToCompanySelection(message = 'Select a company before continuing.') {
         return router.push({
@@ -20,7 +21,7 @@ export function useRequireCompanyContext() {
     }
 
     function guardCompanyContext() {
-        if (needsCompanySelection()) {
+        if (needsCompanySelection.value) {
             return redirectToCompanySelection();
         }
 
@@ -40,6 +41,7 @@ export function useRequireCompanyContext() {
     return {
         user,
         needsCompanySelection,
+        hasCompanyContext,
         guardCompanyContext,
         handleCompanyContextError,
         redirectToCompanySelection,

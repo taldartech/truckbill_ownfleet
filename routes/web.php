@@ -153,6 +153,63 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
             Route::post('/attendances/{attendance}/mark-wage-paid', [\App\Http\Controllers\Api\AttendanceController::class, 'markWagePaid'])
                 ->name('attendances.mark-wage-paid');
             Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+
+            Route::get('/trips/next-number', [\App\Http\Controllers\Api\TripController::class, 'nextTripNumber'])
+                ->name('trips.next-number');
+            Route::get('/vehicles/{vehicle}/primary-driver', [\App\Http\Controllers\Api\TripController::class, 'vehiclePrimaryDriver'])
+                ->name('vehicles.primary-driver');
+            Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
+            Route::get('/locations/countries', [\App\Http\Controllers\Api\LocationController::class, 'countries']);
+            Route::get('/locations/states', [\App\Http\Controllers\Api\LocationController::class, 'states']);
+            Route::get('/locations/cities', [\App\Http\Controllers\Api\LocationController::class, 'cities']);
+            Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
+            Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
+            Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+
+            Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
+            Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);
+            Route::post('/tyres/{tyre}/install', [\App\Http\Controllers\Api\TyreController::class, 'install'])->name('tyres.install');
+            Route::post('/tyre-installations/{tyre_installation}/remove', [\App\Http\Controllers\Api\TyreController::class, 'removeInstallation'])
+                ->name('tyre-installations.remove');
+            Route::post('/tyres/{tyre}/rotate', [\App\Http\Controllers\Api\TyreController::class, 'rotate'])->name('tyres.rotate');
+            Route::post('/tyres/{tyre}/retread', [\App\Http\Controllers\Api\TyreController::class, 'retread'])->name('tyres.retread');
+            Route::post('/tyres/{tyre}/damage', [\App\Http\Controllers\Api\TyreController::class, 'damage'])->name('tyres.damage');
+            Route::post('/tyres/{tyre}/expenses', [\App\Http\Controllers\Api\TyreController::class, 'expense'])->name('tyres.expenses');
+            Route::get('/tyre-installations/{tyre_installation}/removal-preview', [\App\Http\Controllers\Api\TyreController::class, 'removalPreview'])
+                ->name('tyre-installations.removal-preview');
+            Route::post('/tyres/{tyre}/scrap', [\App\Http\Controllers\Api\TyreController::class, 'scrap'])->name('tyres.scrap');
+            Route::get('/vehicles/{vehicle}/tyre-positions', [\App\Http\Controllers\Api\TyreController::class, 'vehiclePositions'])
+                ->name('vehicles.tyre-positions');
+
+            Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
+                ->name('reports.tyres.life');
+            Route::get('/reports/tyres/cost-per-km', [\App\Http\Controllers\Api\TyreReportController::class, 'costPerKm'])
+                ->name('reports.tyres.cost-per-km');
+            Route::get('/reports/tyres/replacements', [\App\Http\Controllers\Api\TyreReportController::class, 'replacements'])
+                ->name('reports.tyres.replacements');
+            Route::get('/reports/tyres/retread-history', [\App\Http\Controllers\Api\TyreReportController::class, 'retreadHistory'])
+                ->name('reports.tyres.retread-history');
+            Route::get('/reports/tyres/vehicle-wise', [\App\Http\Controllers\Api\TyreReportController::class, 'vehicleWiseUsage'])
+                ->name('reports.tyres.vehicle-wise');
+            Route::get('/reports/tyres/expense-summary', [\App\Http\Controllers\Api\TyreReportController::class, 'expenseSummary'])
+                ->name('reports.tyres.expense-summary');
+
+            Route::get('/reports/trips/profitability', [\App\Http\Controllers\Api\TripReportController::class, 'profitability'])
+                ->name('reports.trips.profitability');
+            Route::get('/reports/trips/vehicle-wise', [\App\Http\Controllers\Api\TripReportController::class, 'vehicleWise'])
+                ->name('reports.trips.vehicle-wise');
+            Route::get('/reports/trips/driver-wise', [\App\Http\Controllers\Api\TripReportController::class, 'driverWise'])
+                ->name('reports.trips.driver-wise');
+            Route::get('/reports/trips/empty-km', [\App\Http\Controllers\Api\TripReportController::class, 'emptyKm'])
+                ->name('reports.trips.empty-km');
+            Route::get('/reports/trips/expense-summary', [\App\Http\Controllers\Api\TripReportController::class, 'expenseSummary'])
+                ->name('reports.trips.expense-summary');
+            Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])
+                ->name('reports.trips.route-profitability');
+            Route::get('/reports/trips/pending-freight', [\App\Http\Controllers\Api\TripReportController::class, 'pendingFreight'])
+                ->name('reports.trips.pending-freight');
+            Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
+                ->name('reports.trips.export');
         });
     });
 
