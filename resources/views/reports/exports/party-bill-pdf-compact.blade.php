@@ -22,11 +22,11 @@
             padding: 6px;
             background: #ffffff;
             border-radius: 6px;
-            box-shadow: inset 0 0 0 1px #d1fae5;
+            box-shadow: inset 0 0 0 1px #E8F5EE;
         }
         .compact-top {
             border: 0;
-            background: linear-gradient(90deg, #2FB36F, #2D8CFF);
+            background: linear-gradient(90deg, #2FB36F, #23965C);
             padding: 7px 8px;
             margin-bottom: 6px;
             border-radius: 4px;

@@ -1,34 +1,38 @@
 :root {
-    /* Primary Colors */
+    /* Brand green (your chosen primary) */
     --brand-primary: #2FB36F;
     --brand-primary-dark: #23965C;
     --brand-accent-blue: #2D8CFF;
     --brand-accent-blue-dark: #1F6FE0;
 
+    /* Text — no harsh black; pairs with green UI */
+    --brand-text-primary: #475569;
+    --brand-text-muted: #64748B;
+    --brand-text-on-green: #FFFFFF;
+    --brand-text-accent: #1B7A4A;
+
     /* Neutrals & Backgrounds */
     --brand-bg: #F8FAFC;
     --brand-card-bg: #FFFFFF;
-    --brand-border: #E5E7EB;
-    --brand-text-primary: #111827;
-    --brand-text-muted: #4B5563;
+    --brand-border: #E2E8F0;
 
     /* Status Colors */
     --brand-success: #22C55E;
-    --brand-warning: #F59E0B;
+    --brand-warning: #D97706;
     --brand-danger: #EF4444;
-    --brand-info: #3B82F6;
+    --brand-info: #2D8CFF;
 
     /* Logic Colors */
-    --brand-active-bg: #E9F7F0;
-    --brand-row-hover: #F0FDF4;
+    --brand-active-bg: #E8F5EE;
+    --brand-row-hover: #F4FBF7;
     --brand-table-header-bg: #F1F5F9;
     --brand-input-focus-shadow: rgba(47, 179, 111, 0.15);
-    --brand-gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent-blue) 100%);
-    --brand-gradient-success: linear-gradient(135deg, #22C55E 0%, #10B981 100%);
-    --brand-gradient-warning: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-    --brand-gradient-danger: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%);
-    --brand-gradient-info: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-    --brand-gradient-secondary: linear-gradient(135deg, #6B7280 0%, #374151 100%);
+    --brand-gradient: linear-gradient(135deg, #2FB36F 0%, #23965C 100%);
+    --brand-gradient-success: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+    --brand-gradient-warning: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+    --brand-gradient-danger: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    --brand-gradient-info: linear-gradient(135deg, #2D8CFF 0%, #1F6FE0 100%);
+    --brand-gradient-secondary: linear-gradient(135deg, #64748B 0%, #475569 100%);
 
     /* Soft Backgrounds */
     --brand-soft-primary: rgba(47, 179, 111, 0.1);
@@ -133,8 +137,13 @@ a:hover {
 
 .nav-sidebar .nav-link.active {
     background-color: var(--brand-active-bg) !important;
-    color: var(--brand-primary) !important;
+    color: var(--brand-text-accent) !important;
     border-left: 4px solid var(--brand-primary) !important;
+    font-weight: 600;
+}
+
+.nav-sidebar .nav-link.active i {
+    color: var(--brand-primary) !important;
 }
 
 /* Table Foundation */
@@ -174,7 +183,7 @@ a:hover {
 
 .bg-brand-warning {
     background-color: var(--brand-warning) !important;
-    color: #111827 !important;
+    color: var(--brand-text-on-green) !important;
 }
 
 .bg-brand-danger {
@@ -318,12 +327,12 @@ a.btn-edit:hover {
 .btn-back {
     background-color: #E5E7EB !important;
     border-color: #D1D5DB !important;
-    color: #111827 !important;
+    color: var(--brand-text-primary) !important;
 }
 
 .btn-back:hover {
-    background-color: #D1D5DB !important;
-    color: #000000 !important;
+    background-color: #CBD5E1 !important;
+    color: var(--brand-text-primary) !important;
 }
 
 /* Bootstrap Button Overrides */
@@ -354,27 +363,27 @@ a.btn-outline-primary:hover {
 }
 
 .btn-success {
-    background-color: var(--brand-success) !important;
-    border: 1px solid var(--brand-success) !important;
-    color: #FFFFFF !important;
+    background-color: var(--brand-primary) !important;
+    border: 1px solid var(--brand-primary) !important;
+    color: var(--brand-text-on-green) !important;
 }
 
 .btn-success:hover {
-    background-color: #16a34a !important;
-    border-color: #16a34a !important;
-    color: #FFFFFF !important;
+    background-color: var(--brand-primary-dark) !important;
+    border-color: var(--brand-primary-dark) !important;
+    color: var(--brand-text-on-green) !important;
 }
 
 .btn-warning {
     background-color: var(--brand-warning) !important;
     border: 1px solid var(--brand-warning) !important;
-    color: #000000 !important; /* High contrast black for yellow/orange background */
+    color: var(--brand-text-on-green) !important;
 }
 
 .btn-warning:hover {
-    background-color: #d97706 !important;
-    border-color: #d97706 !important;
-    color: #000000 !important;
+    background-color: #b45309 !important;
+    border-color: #b45309 !important;
+    color: var(--brand-text-on-green) !important;
 }
 
 .btn-danger {
@@ -415,12 +424,12 @@ a.btn-outline-primary:hover {
 .btn-secondary {
     background-color: #E5E7EB !important;
     border-color: #D1D5DB !important;
-    color: #111827 !important;
+    color: var(--brand-text-primary) !important;
 }
 
 .btn-secondary:hover {
-    background-color: #D1D5DB !important;
-    color: #000000 !important;
+    background-color: #CBD5E1 !important;
+    color: var(--brand-text-primary) !important;
 }
 
 .btn-light,
@@ -455,7 +464,11 @@ a.btn-outline-primary:hover {
 
 .badge.bg-warning {
     background-color: var(--brand-warning) !important;
-    color: #111827 !important;
+    color: var(--brand-text-on-green) !important;
+}
+
+.badge.bg-warning.text-dark {
+    color: var(--brand-text-on-green) !important;
 }
 
 .badge.bg-danger {
@@ -520,4 +533,92 @@ a.btn-outline-primary:hover {
 
 .rounded-16 {
     border-radius: 16px !important;
+}
+
+/* Green chrome — always white text, never black on green/yellow */
+.modal-header.bg-success,
+.modal-header.bg-primary,
+.modal-header.bg-brand-primary,
+.modal-header.bg-warning,
+.modal-header.bg-info,
+.card-header.bg-success {
+    background-color: var(--brand-primary) !important;
+    border-bottom: 1px solid var(--brand-primary-dark) !important;
+    color: var(--brand-text-on-green) !important;
+}
+
+.modal-header.bg-success.text-dark,
+.modal-header.bg-warning.text-dark {
+    color: var(--brand-text-on-green) !important;
+}
+
+.modal-header.bg-success .modal-title,
+.modal-header.bg-primary .modal-title,
+.modal-header.bg-brand-primary .modal-title,
+.modal-header.bg-warning .modal-title,
+.modal-header.bg-info .modal-title,
+.card-header.bg-success,
+.card-header.bg-success.text-white {
+    color: var(--brand-text-on-green) !important;
+}
+
+.modal-header.bg-success .btn-close,
+.modal-header.bg-primary .btn-close,
+.modal-header.bg-brand-primary .btn-close,
+.modal-header.bg-warning .btn-close,
+.modal-header.bg-info .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+.card-header.bg-success.text-white {
+    background-color: var(--brand-primary) !important;
+}
+
+.modal-footer .btn-success {
+    background-color: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: #FFFFFF !important;
+}
+
+.modal-footer .btn-success:hover {
+    background-color: var(--brand-primary-dark) !important;
+    border-color: var(--brand-primary-dark) !important;
+}
+
+/* Typography on white backgrounds — soft slate, not black */
+label,
+.form-label,
+.form-check-label {
+    color: var(--brand-text-primary) !important;
+}
+
+.fw-bold.text-dark,
+.text-dark:not(.bg-light):not(.bg-white) {
+    color: var(--brand-text-primary);
+}
+
+/* Colored surfaces: white text only */
+.bg-success:not(.badge),
+.bg-primary:not(.badge),
+.bg-brand-primary,
+.bg-success.text-dark,
+.bg-primary.text-dark {
+    color: var(--brand-text-on-green) !important;
+}
+
+.badge.bg-success,
+.badge.bg-primary {
+    color: var(--brand-text-on-green) !important;
+}
+
+/* Mint highlight areas: dark green text, not black */
+.bg-brand-active,
+.bg-soft-primary,
+.alert-success {
+    color: var(--brand-text-accent);
+}
+
+.alert-success {
+    background-color: var(--brand-active-bg) !important;
+    border-color: rgba(47, 179, 111, 0.25) !important;
 }

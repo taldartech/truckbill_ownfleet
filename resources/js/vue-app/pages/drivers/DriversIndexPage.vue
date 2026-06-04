@@ -5,9 +5,6 @@
             <AppButton v-if="canManage" icon="bi bi-plus" label="Create" @click="openCreate" />
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div class="card">
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h3 class="card-title mb-0">Drivers List</h3>
@@ -114,7 +111,6 @@
             mode="create"
             :saving="saving"
             :field-errors="fieldErrors"
-            :form-error="driverFormError"
             @close="closeCreate"
             @submit="handleCreate"
         />
@@ -126,7 +122,6 @@
             :driver="editingDriver"
             :saving="saving"
             :field-errors="fieldErrors"
-            :form-error="driverFormError"
             @close="closeEdit"
             @submit="handleUpdate"
         />
@@ -140,7 +135,6 @@
             :can-manage="canManage"
             :saving="advanceSaving"
             :field-errors="advanceFieldErrors"
-            :form-error="advanceFormError"
             @close="closeAdvance"
             @submit="handleAdvanceSubmit"
         />
@@ -156,8 +150,11 @@ import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+
+const toast = useAppToast();
 
 const pageId = 'driversIndex';
 
@@ -183,7 +180,6 @@ const advanceDriver = ref(null);
 const advanceSaving = ref(false);
 const advanceModalRef = ref(null);
 const searchQuery = ref('');
-const flash = reactive({ success: '', error: '' });
 const pagination = reactive({
     currentPage: 1,
     perPage: 25,
@@ -194,11 +190,6 @@ const pagination = reactive({
 });
 
 let searchDebounceTimer = null;
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 function formatPhone(phone) {
     const value = String(phone ?? '').trim();
@@ -218,7 +209,6 @@ function rowNumber(index) {
 
 async function loadDrivers(page = pagination.currentPage) {
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listDrivers({
@@ -234,7 +224,7 @@ async function loadDrivers(page = pagination.currentPage) {
         pagination.from = response.meta.from ?? (drivers.value.length > 0 ? 1 : 0);
         pagination.to = response.meta.to ?? drivers.value.length;
     } catch {
-        showToast('Could not load drivers.', 'error');
+        toast.error('Could not load drivers.');
         drivers.value = [];
         pagination.currentPage = 1;
         pagination.lastPage = 1;
@@ -303,11 +293,15 @@ async function handleAdvanceSubmit(payload) {
 
     try {
         await createDriverAdvanceEntry(advanceDriver.value.id, payload);
-        showToast('Advance entry saved.');
+        toast.success('Advance entry saved.');
         await advanceModalRef.value?.loadLedger();
     } catch (error) {
-        if (!applyAdvanceApiError(error)) {
-            showToast('Unable to save advance entry.', 'error');
+        if (applyAdvanceApiError(error)) {
+            if (advanceFormError.value) {
+                toast.error(advanceFormError.value);
+            }
+        } else {
+            toast.error('Unable to save advance entry.');
         }
     } finally {
         advanceSaving.value = false;
@@ -316,22 +310,32 @@ async function handleAdvanceSubmit(payload) {
 
 function applyValidationError(error) {
     if (applyApiError(error)) {
+        if (driverFormError.value) {
+            toast.error(driverFormError.value);
+        }
+
         return;
     }
 
     if (error.response?.status === 419) {
-        showToast('Your session has expired. Please refresh the page and sign in again.', 'error');
+        toast.error('Your session has expired. Please refresh the page and sign in again.');
 
         return;
     }
 
     if (error.response?.status === 403) {
-        showToast('You do not have permission to perform this action.', 'error');
+        toast.error('You do not have permission to perform this action.');
 
         return;
     }
 
-    showToast('Unable to save driver. Please try again.', 'error');
+    if (driverFormError.value) {
+        toast.error(driverFormError.value);
+
+        return;
+    }
+
+    toast.error('Unable to save driver. Please try again.');
 }
 
 async function handleCreate(payload) {
@@ -340,7 +344,7 @@ async function handleCreate(payload) {
 
     try {
         await createDriver(payload);
-        showToast('Driver has been added successfully.');
+        toast.success('Driver has been added successfully.');
         closeCreate();
         await loadDrivers(1);
     } catch (error) {
@@ -360,7 +364,7 @@ async function handleUpdate(payload) {
 
     try {
         await updateDriver(editingDriver.value.id, payload);
-        showToast('Driver has been updated successfully.');
+        toast.success('Driver has been updated successfully.');
         closeEdit();
         await loadDrivers();
     } catch (error) {
@@ -377,7 +381,7 @@ async function handleDelete(driver) {
 
     try {
         await deleteDriver(driver.id);
-        showToast('Driver deleted successfully.');
+        toast.success('Driver deleted successfully.');
 
         const page =
             drivers.value.length === 1 && pagination.currentPage > 1
@@ -386,7 +390,7 @@ async function handleDelete(driver) {
 
         await loadDrivers(page);
     } catch {
-        showToast('Unable to delete driver. Please try again.', 'error');
+        toast.error('Unable to delete driver. Please try again.');
     }
 }
 

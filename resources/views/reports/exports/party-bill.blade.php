@@ -39,7 +39,7 @@
                 <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 65%);">
                     <tr>
                         <td style="width: {{ $cellW }}; padding: {{ $partyBillHeaderCompact ? '6px 8px' : '10px 12px' }}; text-align: center; vertical-align: middle; border-right: 1px solid #bbf7d0;">
-                            <div style="display: inline-block; background: #ffffff; border: 1px solid #d1fae5; border-radius: 8px; padding: {{ $logoPad }}; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);">
+                            <div style="display: inline-block; background: #ffffff; border: 1px solid #E8F5EE; border-radius: 8px; padding: {{ $logoPad }}; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);">
                                 <img src="{{ $invoiceCompanyLogoSrc }}" alt="{{ $company->name }}" style="max-width: {{ $logoMax }}; max-height: {{ $logoMax }}; width: auto; height: auto; object-fit: contain; display: block;">
                             </div>
                         </td>

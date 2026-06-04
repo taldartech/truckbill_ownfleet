@@ -34,6 +34,10 @@ function toastClass(type) {
         return 'text-bg-warning';
     }
 
+    if (type === 'info') {
+        return 'text-bg-info';
+    }
+
     return 'text-bg-success';
 }
 </script>

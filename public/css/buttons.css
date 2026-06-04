@@ -46,7 +46,7 @@ a.btn-secondary {
 .btn-secondary:hover,
 button.btn-secondary:hover,
 a.btn-secondary:hover {
-    background-color: #d1fae5;
+    background-color: #E8F5EE;
     color: var(--brand-primary-dark) !important;
     border-color: var(--brand-primary-dark);
 }

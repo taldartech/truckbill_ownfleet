@@ -29,9 +29,10 @@ import { useFilteredNavigation } from '../composables/useFilteredNavigation';
 
 const router = useRouter();
 const user = ref(window.__AUTH_USER__ ?? null);
-const navigationItems = useFilteredNavigation(adminNavigation);
 
 provide('currentUser', user);
+
+const navigationItems = useFilteredNavigation(adminNavigation, user);
 
 function onUserUpdated(updatedUser) {
     user.value = updatedUser;

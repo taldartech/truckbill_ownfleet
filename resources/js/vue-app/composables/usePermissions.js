@@ -2,10 +2,18 @@ import { computed, inject, unref } from 'vue';
 
 /**
  * Single source for UI permission checks (mirrors backend permission slugs on user.permissions).
+ *
+ * @param {import('vue').MaybeRefOrGetter<object|null|undefined>} [explicitUserRef] Pass from AppShellLayout so nav reacts when company context changes (inject is unavailable in the same component as provide).
  */
-export function usePermissions() {
-    const currentUser = inject('currentUser', null);
-    const user = computed(() => unref(currentUser) ?? window.__AUTH_USER__ ?? null);
+export function usePermissions(explicitUserRef = null) {
+    const injectedUser = inject('currentUser', null);
+    const user = computed(() => {
+        if (explicitUserRef != null) {
+            return unref(explicitUserRef);
+        }
+
+        return unref(injectedUser) ?? window.__AUTH_USER__ ?? null;
+    });
 
     const permissions = computed(() => user.value?.permissions ?? []);
 

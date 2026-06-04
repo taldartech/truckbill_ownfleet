@@ -27,6 +27,9 @@ export function useAppToast() {
         warning(message) {
             pushToast(message, 'warning');
         },
+        info(message) {
+            pushToast(message, 'info');
+        },
         dismiss: removeToast,
     };
 }
