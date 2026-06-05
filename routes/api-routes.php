@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\StationController;
 use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\TripReportController;
 use App\Http\Controllers\Api\TyreController;
+use App\Http\Controllers\Api\TyreLayoutController;
 use App\Http\Controllers\Api\TyreReportController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\VehicleDocumentController;
@@ -27,6 +28,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::apiResource('vehicles', VehicleController::class);
+    Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'toggleStatus']);
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
     Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
     Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
@@ -55,6 +57,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::apiResource('states', StateController::class)->except(['destroy']);
     Route::apiResource('cities', CityController::class)->except(['destroy']);
     Route::apiResource('stations', StationController::class);
+    Route::apiResource('tyre-layouts', TyreLayoutController::class);
     Route::post('tyres/replace', [TyreController::class, 'replace']);
     Route::apiResource('tyres', TyreController::class);
     Route::post('tyres/{tyre}/install', [TyreController::class, 'install']);

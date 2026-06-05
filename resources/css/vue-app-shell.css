@@ -170,3 +170,20 @@
         display: none;
     }
 }
+
+.vue-app-shell .app-index-list-card > .card-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vue-app-shell .app-index-list-card .table {
+    margin-bottom: 0;
+}
+
+.vue-app-shell .app-index-filters .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+}

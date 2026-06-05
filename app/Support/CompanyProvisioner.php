@@ -15,7 +15,7 @@ class CompanyProvisioner
     {
         $name = (string) ($attributes['name'] ?? '');
 
-        return Tenant::query()->create([
+        $tenant = Tenant::query()->create([
             'owner_user_id' => $owner->id,
             'name' => $name,
             'slug' => Tenant::ensureUniqueSlug($name),
@@ -36,5 +36,9 @@ class CompanyProvisioner
             'lr_credits' => 150,
             'truck_credits' => 0,
         ]);
+
+        TyreLayoutDefaults::seedForTenant($tenant->id);
+
+        return $tenant;
     }
 }

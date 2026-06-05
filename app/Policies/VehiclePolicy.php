@@ -35,6 +35,17 @@ class VehiclePolicy
 
     public function delete(User $user, Vehicle $vehicle): bool
     {
-        return $this->update($user, $vehicle);
+        return CurrentTenant::id() === $vehicle->tenant_id
+            && $user->hasPermission('vehicles.delete')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
+    }
+
+    public function toggleStatus(User $user, Vehicle $vehicle): bool
+    {
+        return CurrentTenant::id() === $vehicle->tenant_id
+            && $user->hasPermission('vehicles.toggle_status')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 }

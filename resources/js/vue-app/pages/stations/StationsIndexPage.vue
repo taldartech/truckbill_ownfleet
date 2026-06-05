@@ -1,20 +1,21 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Stations</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Add Station" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Stations">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
-        <div class="card">
-            <div class="card-header d-flex gap-2 align-items-center">
+        <div class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">Station List</h3>
-                <input
+                <AppIndexSearchInput
                     v-model="search"
-                    type="search"
-                    class="form-control form-control-sm ms-auto"
-                    style="max-width: 260px"
+                    input-id="stationsIndex_search"
                     placeholder="Search station, city, state"
-                    @input="debouncedLoad"
+                    max-width="260px"
+                    :disabled="loading"
+                    @update:model-value="debouncedLoad"
                 />
             </div>
             <div class="card-body table-responsive">
@@ -110,6 +111,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { createStation, deleteStation, listAllStations, updateStation } from '../../api/stations';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';

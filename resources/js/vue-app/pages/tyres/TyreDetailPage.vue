@@ -196,8 +196,23 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Position</label>
-                <select v-model="actionForm.position_code" class="form-select" required>
-                    <option v-for="p in positions" :key="p.value" :value="p.value">{{ p.label }}</option>
+                <select
+                    v-model="actionForm.position_code"
+                    class="form-select"
+                    required
+                    :disabled="!actionForm.vehicle_id || loadingVehiclePositions"
+                >
+                    <option value="">
+                        {{ loadingVehiclePositions ? 'Loading positions…' : 'Select truck first' }}
+                    </option>
+                    <option
+                        v-for="p in installPositionOptions"
+                        :key="p.value"
+                        :value="p.value"
+                        :disabled="p.occupied"
+                    >
+                        {{ p.label }}{{ p.occupied ? ' (occupied)' : '' }}
+                    </option>
                 </select>
             </div>
             <div class="mb-2">
@@ -262,8 +277,15 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">New Position</label>
-                <select v-model="actionForm.new_position" class="form-select" required>
-                    <option v-for="p in positions" :key="p.value" :value="p.value">{{ p.label }}</option>
+                <select
+                    v-model="actionForm.new_position"
+                    class="form-select"
+                    required
+                    :disabled="loadingVehiclePositions"
+                >
+                    <option v-for="p in rotatePositionOptions" :key="p.value" :value="p.value">
+                        {{ p.label }}{{ p.occupied ? ' (occupied)' : '' }}
+                    </option>
                 </select>
             </div>
             <div class="mb-2">
@@ -342,6 +364,7 @@ import { useRoute } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import {
     getTyre,
+    getVehicleTyrePositions,
     installTyre,
     listTyres,
     previewTyreRemoval,
@@ -373,19 +396,30 @@ const showDamage = ref(false);
 const showReplace = ref(false);
 const replacePreview = ref(null);
 
-const positions = [
-    { value: 'FRONT_LEFT', label: 'Front Left' },
-    { value: 'FRONT_RIGHT', label: 'Front Right' },
-    { value: 'REAR_LEFT_OUTER', label: 'Rear Left (Outer)' },
-    { value: 'REAR_LEFT_INNER', label: 'Rear Left (Inner)' },
-    { value: 'REAR_RIGHT_OUTER', label: 'Rear Right (Outer)' },
-    { value: 'REAR_RIGHT_INNER', label: 'Rear Right (Inner)' },
-    { value: 'SPARE', label: 'Spare' },
-];
+const vehiclePositionSlots = ref([]);
+const loadingVehiclePositions = ref(false);
+
+const installPositionOptions = computed(() =>
+    vehiclePositionSlots.value.map((slot) => ({
+        value: slot.position,
+        label: slot.position_label,
+        occupied: !slot.is_empty,
+    })),
+);
+
+const rotatePositionOptions = computed(() =>
+    vehiclePositionSlots.value
+        .filter((slot) => slot.position !== tyre.value?.active_installation?.position)
+        .map((slot) => ({
+            value: slot.position,
+            label: slot.position_label,
+            occupied: !slot.is_empty,
+        })),
+);
 
 const actionForm = reactive({
     vehicle_id: '',
-    position_code: 'FRONT_LEFT',
+    position_code: '',
     installed_at: new Date().toISOString().slice(0, 10),
     new_position: 'FRONT_RIGHT',
     rotation_date: new Date().toISOString().slice(0, 10),
@@ -480,7 +514,11 @@ async function loadTyre() {
         tyre.value = payload.tyre;
         lifeSummary.value = payload.life_summary;
         timeline.value = payload.timeline;
-        actionForm.new_position = tyre.value?.active_installation?.position ?? 'FRONT_RIGHT';
+        if (tyre.value?.active_installation?.vehicle_id) {
+            await loadVehiclePositions(tyre.value.active_installation.vehicle_id);
+            const firstOpen = rotatePositionOptions.value.find((p) => !p.occupied);
+            actionForm.new_position = firstOpen?.value ?? tyre.value?.active_installation?.position ?? '';
+        }
         actionForm.km_at_replacement = null;
     } finally {
         loading.value = false;
@@ -495,6 +533,43 @@ async function loadReplacePreview() {
     const res = await previewTyreRemoval(instId, actionForm.km_at_replacement);
     replacePreview.value = res.data ?? null;
 }
+
+async function loadVehiclePositions(vehicleId) {
+    if (!vehicleId) {
+        vehiclePositionSlots.value = [];
+        actionForm.position_code = '';
+        return;
+    }
+
+    loadingVehiclePositions.value = true;
+    try {
+        vehiclePositionSlots.value = await getVehicleTyrePositions(vehicleId);
+        const firstEmpty = vehiclePositionSlots.value.find((slot) => slot.is_empty);
+        if (firstEmpty && !actionForm.position_code) {
+            actionForm.position_code = firstEmpty.position;
+        }
+    } finally {
+        loadingVehiclePositions.value = false;
+    }
+}
+
+watch(
+    () => actionForm.vehicle_id,
+    (vehicleId) => {
+        actionForm.position_code = '';
+        loadVehiclePositions(vehicleId);
+    },
+);
+
+watch(showRotate, async (open) => {
+    if (open && tyre.value?.active_installation?.vehicle_id) {
+        await loadVehiclePositions(tyre.value.active_installation.vehicle_id);
+        const firstOpen = rotatePositionOptions.value.find((p) => !p.occupied);
+        if (firstOpen) {
+            actionForm.new_position = firstOpen.value;
+        }
+    }
+});
 
 async function loadStockTyres() {
     const res = await listTyres({ perPage: 100, status: 'IN_STOCK' });

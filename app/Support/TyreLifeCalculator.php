@@ -2,13 +2,14 @@
 
 namespace App\Support;
 
-use App\Enums\TyrePosition;
 use App\Tyre;
 use App\TyreInstallation;
 
 class TyreLifeCalculator
 {
     public const DEFAULT_EXPECTED_LIFE_KM = 40000;
+
+    public function __construct(private readonly TyrePositionCatalog $positionCatalog = new TyrePositionCatalog) {}
 
     public function expectedLifeKm(Tyre $tyre): float
     {
@@ -80,13 +81,13 @@ class TyreLifeCalculator
         $count = 0;
 
         foreach ($tyre->installations as $installation) {
-            if ($this->positionValue($installation->position_code) === TyrePosition::Spare->value) {
+            if ($this->positionCatalog->isSpare($this->positionValue($installation->position_code))) {
                 $count++;
             }
         }
 
         foreach ($tyre->rotations ?? [] as $rotation) {
-            if ($this->positionValue($rotation->new_position) === TyrePosition::Spare->value) {
+            if ($this->positionCatalog->isSpare($this->positionValue($rotation->new_position))) {
                 $count++;
             }
         }
@@ -126,10 +127,6 @@ class TyreLifeCalculator
 
     private function positionValue(mixed $position): ?string
     {
-        if ($position instanceof TyrePosition) {
-            return $position->value;
-        }
-
         return is_string($position) ? $position : null;
     }
 }

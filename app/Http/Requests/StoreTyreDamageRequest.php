@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\TyreDamageType;
+use App\Rules\TyrePositionAllowedOnVehicle;
 use App\Tyre;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,7 +24,12 @@ class StoreTyreDamageRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
-            'position_code' => ['nullable', Rule::enum(\App\Enums\TyrePosition::class)],
+            'position_code' => [
+                'nullable',
+                'string',
+                'max:64',
+                new TyrePositionAllowedOnVehicle($this->input('vehicle_id')),
+            ],
             'damage_type' => ['required', Rule::enum(TyreDamageType::class)],
             'km_at_occurrence' => ['nullable', 'numeric', 'min:0'],
             'occurred_at' => ['required', 'date'],

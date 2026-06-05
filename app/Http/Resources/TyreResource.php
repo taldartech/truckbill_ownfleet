@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\TyrePosition;
+use App\Support\TyrePositionCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -38,12 +38,8 @@ class TyreResource extends JsonResource
                         'installation_id' => $active->id,
                         'vehicle_id' => $active->vehicle_id,
                         'vehicle_registration' => $active->vehicle?->registration_number,
-                        'position' => $active->position_code instanceof TyrePosition
-                            ? $active->position_code->value
-                            : $active->position_code,
-                        'position_label' => $active->position_code instanceof TyrePosition
-                            ? $active->position_code->label()
-                            : $active->position_code,
+                        'position' => $active->position_code,
+                        'position_label' => (new TyrePositionCatalog)->labelFor($active->position_code),
                         'installed_at' => $active->installed_at?->toDateString(),
                         'km_at_installation' => (float) $active->km_at_installation,
                     ];

@@ -56,9 +56,11 @@ class TripValidationService
 
     public function assertVehicleExists(string $vehicleId): void
     {
-        if (! Vehicle::query()->whereKey($vehicleId)->exists()) {
+        $vehicle = Vehicle::query()->find($vehicleId);
+
+        if ($vehicle === null || ! $vehicle->is_active) {
             throw ValidationException::withMessages([
-                'vehicle_id' => ['Selected vehicle was not found for this company.'],
+                'vehicle_id' => ['Selected vehicle is inactive or not found.'],
             ]);
         }
     }

@@ -4,7 +4,6 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
-use App\Enums\TyrePosition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,7 +33,6 @@ class TyreInstallation extends Model
             'km_at_installation' => 'decimal:2',
             'km_at_removal' => 'decimal:2',
             'running_km' => 'decimal:2',
-            'position_code' => TyrePosition::class,
         ];
     }
 

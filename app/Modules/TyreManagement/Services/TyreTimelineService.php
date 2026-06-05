@@ -2,14 +2,17 @@
 
 namespace App\Modules\TyreManagement\Services;
 
-use App\Enums\TyrePosition;
 use App\Support\TyreLifeCalculator;
+use App\Support\TyrePositionCatalog;
 use App\Tyre;
 use App\TyreReplacement;
 
 class TyreTimelineService
 {
-    public function __construct(private readonly TyreLifeCalculator $lifeCalculator) {}
+    public function __construct(
+        private readonly TyreLifeCalculator $lifeCalculator,
+        private readonly TyrePositionCatalog $positionCatalog = new TyrePositionCatalog,
+    ) {}
 
     /**
      * @return list<array<string, mixed>>
@@ -39,7 +42,7 @@ class TyreTimelineService
                 'position' => $this->positionValue($installation->position_code),
                 'position_label' => $position,
                 'km' => (float) $installation->km_at_installation,
-                'is_spare' => $this->positionValue($installation->position_code) === TyrePosition::Spare->value,
+                'is_spare' => $this->positionCatalog->isSpare($this->positionValue($installation->position_code)),
             ]);
 
             if ($installation->removed_at !== null) {
@@ -71,7 +74,7 @@ class TyreTimelineService
                 'from_position' => $this->positionValue($rotation->previous_position),
                 'to_position' => $this->positionValue($rotation->new_position),
                 'km' => $rotation->km_at_rotation !== null ? (float) $rotation->km_at_rotation : null,
-                'is_spare' => $this->positionValue($rotation->new_position) === TyrePosition::Spare->value,
+                'is_spare' => $this->positionCatalog->isSpare($this->positionValue($rotation->new_position)),
             ]);
         }
 
@@ -144,21 +147,11 @@ class TyreTimelineService
 
     private function positionLabel(mixed $position): string
     {
-        if ($position instanceof TyrePosition) {
-            return $position->label();
-        }
-
-        $enum = is_string($position) ? TyrePosition::tryFrom($position) : null;
-
-        return $enum?->label() ?? (string) $position;
+        return $this->positionCatalog->labelFor(is_string($position) ? $position : null);
     }
 
     private function positionValue(mixed $position): ?string
     {
-        if ($position instanceof TyrePosition) {
-            return $position->value;
-        }
-
         return is_string($position) ? $position : null;
     }
 }

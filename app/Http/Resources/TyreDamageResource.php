@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\TyrePositionCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,10 +16,8 @@ class TyreDamageResource extends JsonResource
         return [
             'id' => $this->id,
             'damage_type' => $this->damage_type?->value,
-            'position' => $this->position_code?->value ?? $this->position_code,
-            'position_label' => $this->position_code instanceof \App\Enums\TyrePosition
-                ? $this->position_code->label()
-                : $this->position_code,
+            'position' => $this->position_code,
+            'position_label' => (new TyrePositionCatalog)->labelFor($this->position_code),
             'km_at_occurrence' => $this->km_at_occurrence !== null ? (float) $this->km_at_occurrence : null,
             'occurred_at' => $this->occurred_at?->toDateString(),
             'description' => $this->description,

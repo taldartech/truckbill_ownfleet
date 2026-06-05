@@ -37,6 +37,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-wallet',
         title: 'Advance wallet',
     },
+    tyres: {
+        btnClass: 'btn-outline-secondary',
+        icon: 'bi bi-circle',
+        title: 'Tyre positions',
+    },
 };
 
 export function crudActionButtonClasses(action) {

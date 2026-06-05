@@ -1,19 +1,19 @@
 <template>
-    <div class="container mt-4 companies-page">
-        <div class="col-sm-6">
-            <h3 class="mb-0">Company Management</h3>
-            <p class="text-muted small mb-0">Select a company to work in, or register a new one.</p>
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader
+            title="Company Management"
+            subtitle="Select a company to work in, or register a new one."
+        >
+            <template v-if="canCreate" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
-        <div v-if="routeNotice" class="alert alert-warning mt-3">{{ routeNotice }}</div>
-        <div v-if="flash.success" class="alert alert-success mt-3">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger mt-3">{{ flash.error }}</div>
+        <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
+        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
+        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div v-if="canCreate" class="d-flex justify-content-end gap-2 mb-3 mt-3">
-            <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
-        </div>
-
-        <div class="card mb-4">
+        <div class="card app-index-list-card mb-4">
             <div class="card-header">
                 <h3 class="card-title mb-0">Companies List</h3>
             </div>
@@ -105,6 +105,7 @@ import {
 } from '../../api/companies';
 import CompanyFormModal from '../../components/companies/CompanyFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import { usePermissions } from '../../composables/usePermissions';
 
 const router = useRouter();
