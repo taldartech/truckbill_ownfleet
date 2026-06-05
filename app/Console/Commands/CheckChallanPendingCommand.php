@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Challan;
+use App\Enums\ChallanPaymentStatus;
 use App\Jobs\SendComplianceReminderJob;
 use Illuminate\Console\Command;
 
@@ -28,7 +29,7 @@ class CheckChallanPendingCommand extends Command
     public function handle(): int
     {
         $challans = Challan::query()
-            ->where('status', 'PENDING')
+            ->where('status', ChallanPaymentStatus::Unpaid->value)
             ->get();
 
         foreach ($challans as $challan) {

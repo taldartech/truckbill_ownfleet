@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('challan_number');
             $table->date('challan_date');
             $table->decimal('amount', 12, 2)->default(0);
-            $table->string('status')->default('PENDING');
+            $table->string('status')->default('UNPAID');
             $table->timestamps();
         });
     }

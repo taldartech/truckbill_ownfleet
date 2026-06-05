@@ -43,6 +43,9 @@ class PermissionSeeder extends Seeder
         'tyres.view' => ['name' => 'View tyres', 'group' => 'tyres'],
         'tyres.manage' => ['name' => 'Manage tyres', 'group' => 'tyres'],
         'tyre_reports.view' => ['name' => 'View tyre reports', 'group' => 'tyres'],
+        'challans.view' => ['name' => 'View challans', 'group' => 'compliance'],
+        'challans.manage' => ['name' => 'Create & edit challans', 'group' => 'compliance'],
+        'challans.delete' => ['name' => 'Delete challans', 'group' => 'compliance'],
         'roles.view' => ['name' => 'View roles', 'group' => 'access'],
         'roles.manage' => ['name' => 'Manage role permissions', 'group' => 'access'],
         'permissions.view' => ['name' => 'View permissions', 'group' => 'access'],
@@ -99,6 +102,9 @@ class PermissionSeeder extends Seeder
             'tyres.view',
             'tyres.manage',
             'tyre_reports.view',
+            'challans.view',
+            'challans.manage',
+            'challans.delete',
             'users.view',
             'users.manage',
         ],
@@ -128,6 +134,8 @@ class PermissionSeeder extends Seeder
             'tyres.view',
             'tyres.manage',
             'tyre_reports.view',
+            'challans.view',
+            'challans.manage',
         ],
         UserRole::MODERATOR => [
             'dashboard.view',
@@ -143,6 +151,7 @@ class PermissionSeeder extends Seeder
             'locations.view',
             'tyres.view',
             'tyre_reports.view',
+            'challans.view',
         ],
         UserRole::ACCOUNTANT => [
             'dashboard.view',
@@ -160,6 +169,8 @@ class PermissionSeeder extends Seeder
             'locations.view',
             'tyres.view',
             'tyre_reports.view',
+            'challans.view',
+            'challans.manage',
         ],
     ];
 

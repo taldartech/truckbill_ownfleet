@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChallanController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ComplianceController;
 use App\Http\Controllers\Api\DashboardController;
@@ -89,6 +90,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
 
     Route::get('/compliance', [ComplianceController::class, 'index']);
+    Route::apiResource('challans', ChallanController::class);
     Route::post('/compliance/challans', [ComplianceController::class, 'storeChallan']);
     Route::post('/compliance/emis', [ComplianceController::class, 'storeEmi']);
 });

@@ -45,6 +45,17 @@ class VueAppTest extends TestCase
             ->assertSee('id="app"', false);
     }
 
+    public function test_authenticated_user_can_view_vue_challans_page(): void
+    {
+        $this->seedRolesAndPermissions();
+        $user = $this->createUser('admin');
+
+        $this->actingAs($user)
+            ->get('/app/challans')
+            ->assertOk()
+            ->assertSee('id="app"', false);
+    }
+
     public function test_api_me_returns_user_with_tenant_and_role(): void
     {
         $user = $this->createUser('admin');

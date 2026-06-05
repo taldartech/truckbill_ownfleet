@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Attendance;
+use App\Challan;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
 use App\Permission;
 use App\Policies\AttendancePolicy;
+use App\Policies\ChallanPolicy;
 use App\Policies\CityPolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
@@ -64,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
             return true;
         });
 
+        Gate::policy(Challan::class, ChallanPolicy::class);
         Gate::policy(Driver::class, DriverPolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
         Gate::policy(DriverAssignment::class, DriverAssignmentPolicy::class);

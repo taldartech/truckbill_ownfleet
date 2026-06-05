@@ -159,6 +159,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
             Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
 
+            Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
+
             Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
             Route::post('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'store'])->name('vehicles.store');
             Route::get('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'show'])->name('vehicles.show');

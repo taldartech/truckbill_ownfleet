@@ -47,6 +47,12 @@ const router = createRouter({
                     meta: { requiresTenant: true },
                 },
                 {
+                    path: 'challans',
+                    name: 'challans.index',
+                    component: () => import('./pages/challans/ChallansIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'challans.view' },
+                },
+                {
                     path: 'attendance',
                     name: 'attendance.index',
                     component: () => import('./pages/attendance/AttendancesIndexPage.vue'),

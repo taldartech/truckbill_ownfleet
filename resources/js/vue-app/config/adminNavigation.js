@@ -41,6 +41,13 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Challans',
+                icon: 'bi bi-receipt',
+                to: '/challans',
+                permission: 'challans.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'Trips',
                 icon: 'bi bi-signpost-split',
                 to: '/trips',
