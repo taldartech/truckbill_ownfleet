@@ -1,22 +1,23 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Driver Attendance &amp; Wages</h3>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <RouterLink
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Driver Attendance &amp; Wages">
+            <template #actions>
+                <AppButton
+                    variant="secondary"
+                    outline
+                    size="sm"
+                    icon="bi bi-table"
+                    label="Monthly Settlement"
                     :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
-                    class="btn btn-outline-primary btn-sm"
-                >
-                    <i class="bi bi-table"></i> Monthly Settlement
-                </RouterLink>
+                />
                 <AppButton
                     v-if="canManageAttendance && isMonthEditable"
                     icon="bi bi-exclamation-triangle"
                     label="Mark Exception"
                     @click="openCreate"
                 />
-            </div>
-        </div>
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
@@ -64,7 +65,7 @@
                     />
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <button type="button" class="btn btn-outline-primary" @click="reloadAll">Apply</button>
+                    <AppButton icon="bi bi-funnel" label="Apply" @click="reloadAll" />
                 </div>
             </div>
         </div>
@@ -86,12 +87,9 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">Exceptions Log</h3>
-                <span v-if="pagination.total" class="text-muted small">
-                    {{ pagination.from }}–{{ pagination.to }} of {{ pagination.total }}
-                </span>
             </div>
             <div class="card-body">
                 <div class="row g-3 mb-3">
@@ -130,12 +128,8 @@
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end gap-2">
-                        <button type="button" class="btn btn-outline-primary" @click="applyDetailFilters">
-                            Filter
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" @click="resetDetailFilters">
-                            Reset
-                        </button>
+                        <AppButton icon="bi bi-funnel" label="Apply" size="sm" @click="applyDetailFilters" />
+                        <AppButton variant="secondary" outline label="Clear" size="sm" @click="resetDetailFilters" />
                     </div>
                 </div>
 
@@ -211,57 +205,21 @@
                     </table>
                 </div>
 
-                <nav
-                    v-if="pagination.last_page > 1"
-                    class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
-                    aria-label="Attendance pagination"
-                >
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="text-muted small mb-0" for="per_page">Per page</label>
-                        <select
-                            id="per_page"
-                            v-model.number="pagination.per_page"
-                            class="form-select form-select-sm"
-                            style="width: auto"
-                            @change="onPerPageChange"
-                        >
-                            <option :value="15">15</option>
-                            <option :value="25">25</option>
-                            <option :value="50">50</option>
-                        </select>
-                    </div>
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item" :class="{ disabled: pagination.current_page <= 1 }">
-                            <button
-                                type="button"
-                                class="page-link"
-                                :disabled="pagination.current_page <= 1"
-                                @click="goToPage(pagination.current_page - 1)"
-                            >
-                                Previous
-                            </button>
-                        </li>
-                        <li class="page-item disabled">
-                            <span class="page-link">
-                                Page {{ pagination.current_page }} / {{ pagination.last_page }}
-                            </span>
-                        </li>
-                        <li
-                            class="page-item"
-                            :class="{ disabled: pagination.current_page >= pagination.last_page }"
-                        >
-                            <button
-                                type="button"
-                                class="page-link"
-                                :disabled="pagination.current_page >= pagination.last_page"
-                                @click="goToPage(pagination.current_page + 1)"
-                            >
-                                Next
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
             </div>
+            <AppIndexPaginationFooter
+                page-id="attendancesIndex"
+                :loading="tableLoading"
+                :current-page="pagination.current_page"
+                :last-page="pagination.last_page"
+                :per-page="pagination.per_page"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="records"
+                :per-page-options="[15, 25, 50]"
+                @page-change="goToPage"
+                @update:per-page="onAttendancePerPageUpdate"
+            />
         </div>
 
         <AttendanceFormModal
@@ -299,6 +257,8 @@ import { listAllVehicles } from '../../api/vehicles';
 import AttendanceFormModal from '../../components/attendance/AttendanceFormModal.vue';
 import AttendanceMonthGrid from '../../components/attendance/AttendanceMonthGrid.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
@@ -565,7 +525,8 @@ function goToPage(page) {
     loadAttendances();
 }
 
-function onPerPageChange() {
+function onAttendancePerPageUpdate(perPage) {
+    pagination.per_page = perPage;
     pagination.current_page = 1;
     loadAttendances();
 }

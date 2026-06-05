@@ -1,23 +1,21 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <div>
-                <h3 class="mb-0">States & Cities</h3>
-                <p class="text-muted small mb-0">Country: India (fixed)</p>
-            </div>
-            <AppButton
-                v-if="canManage && activeTab === 'states'"
-                icon="bi bi-plus"
-                label="Add State"
-                @click="openStateCreate"
-            />
-            <AppButton
-                v-if="canManage && activeTab === 'cities'"
-                icon="bi bi-plus"
-                label="Add City"
-                @click="openCityCreate"
-            />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="States & Cities" subtitle="Country: India (fixed)">
+            <template v-if="canManage" #actions>
+                <AppButton
+                    v-if="activeTab === 'states'"
+                    icon="bi bi-plus"
+                    label="Create"
+                    @click="openStateCreate"
+                />
+                <AppButton
+                    v-if="activeTab === 'cities'"
+                    icon="bi bi-plus"
+                    label="Create"
+                    @click="openCityCreate"
+                />
+            </template>
+        </AppIndexPageHeader>
 
         <ul class="nav nav-tabs mb-3">
             <li class="nav-item">
@@ -42,18 +40,16 @@
             </li>
         </ul>
 
-        <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
-
-        <div v-show="activeTab === 'states'" class="card">
-            <div class="card-header d-flex gap-2 align-items-center">
+        <div v-show="activeTab === 'states'" class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">State List</h3>
-                <input
+                <AppIndexSearchInput
                     v-model="stateSearch"
-                    type="search"
-                    class="form-control form-control-sm ms-auto"
-                    style="max-width: 260px"
+                    input-id="locationsStates_search"
                     placeholder="Search state or code"
-                    @input="debouncedLoadStates"
+                    max-width="260px"
+                    :disabled="loadingStates"
+                    @update:model-value="debouncedLoadStates"
                 />
             </div>
             <div class="card-body table-responsive p-0">
@@ -84,39 +80,23 @@
                     </tbody>
                 </table>
             </div>
-            <div
-                v-if="statePagination.lastPage > 1"
-                class="card-footer d-flex justify-content-between align-items-center"
-            >
-                <small class="text-muted">
-                    Showing {{ statePagination.from }} to {{ statePagination.to }} of
-                    {{ statePagination.total }}
-                </small>
-                <div class="btn-group btn-group-sm">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loadingStates || statePagination.currentPage <= 1"
-                        @click="loadStates(statePagination.currentPage - 1)"
-                    >
-                        Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled>
-                        Page {{ statePagination.currentPage }} / {{ statePagination.lastPage }}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loadingStates || statePagination.currentPage >= statePagination.lastPage"
-                        @click="loadStates(statePagination.currentPage + 1)"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                page-id="locationsStates"
+                :loading="loadingStates"
+                :current-page="statePagination.currentPage"
+                :last-page="statePagination.lastPage"
+                :per-page="statePagination.perPage"
+                :total="statePagination.total"
+                :from="statePagination.from"
+                :to="statePagination.to"
+                item-label="states"
+                :per-page-options="[15, 25, 50]"
+                @page-change="loadStates"
+                @update:per-page="onStatePerPageUpdate"
+            />
         </div>
 
-        <div v-show="activeTab === 'cities'" class="card">
+        <div v-show="activeTab === 'cities'" class="card app-index-list-card">
             <div class="card-header d-flex flex-wrap gap-2 align-items-center">
                 <h3 class="card-title mb-0">City List</h3>
                 <select
@@ -130,13 +110,13 @@
                         {{ state.name }}
                     </option>
                 </select>
-                <input
+                <AppIndexSearchInput
                     v-model="citySearch"
-                    type="search"
-                    class="form-control form-control-sm ms-auto"
-                    style="max-width: 260px"
+                    input-id="locationsCities_search"
                     placeholder="Search city"
-                    @input="debouncedLoadCities"
+                    max-width="260px"
+                    :disabled="loadingCities"
+                    @update:model-value="debouncedLoadCities"
                 />
             </div>
             <div class="card-body table-responsive p-0">
@@ -165,122 +145,70 @@
                     </tbody>
                 </table>
             </div>
-            <div
-                v-if="cityPagination.lastPage > 1"
-                class="card-footer d-flex justify-content-between align-items-center"
-            >
-                <small class="text-muted">
-                    Showing {{ cityPagination.from }} to {{ cityPagination.to }} of
-                    {{ cityPagination.total }}
-                </small>
-                <div class="btn-group btn-group-sm">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loadingCities || cityPagination.currentPage <= 1"
-                        @click="loadCities(cityPagination.currentPage - 1)"
-                    >
-                        Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled>
-                        Page {{ cityPagination.currentPage }} / {{ cityPagination.lastPage }}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loadingCities || cityPagination.currentPage >= cityPagination.lastPage"
-                        @click="loadCities(cityPagination.currentPage + 1)"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                page-id="locationsCities"
+                :loading="loadingCities"
+                :current-page="cityPagination.currentPage"
+                :last-page="cityPagination.lastPage"
+                :per-page="cityPagination.perPage"
+                :total="cityPagination.total"
+                :from="cityPagination.from"
+                :to="cityPagination.to"
+                item-label="cities"
+                :per-page-options="[15, 25, 50]"
+                @page-change="loadCities"
+                @update:per-page="onCityPerPageUpdate"
+            />
         </div>
 
-        <div
-            v-if="showStateModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeStateModal"
-        >
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title">{{ editingState ? 'Edit State' : 'Add State' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeStateModal"></button>
-                    </div>
-                    <form @submit.prevent="saveState">
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" value="India" disabled />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">State Name *</label>
-                                <input v-model="stateForm.name" type="text" class="form-control" required />
-                                <div v-if="fieldErrors.name" class="text-danger small mt-1">{{ fieldErrors.name[0] }}</div>
-                            </div>
-                            <div class="mb-0">
-                                <label class="form-label">State Code</label>
-                                <input v-model="stateForm.code" type="text" class="form-control" maxlength="10" />
-                                <div v-if="fieldErrors.code" class="text-danger small mt-1">{{ fieldErrors.code[0] }}</div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeStateModal">Cancel</button>
-                            <AppButton type="submit" label="Save" :loading="saving" />
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <StateFormModal
+            modal-id="addStateModal"
+            :show="showStateCreate"
+            mode="create"
+            :saving="stateSaving"
+            :field-errors="stateFieldErrors"
+            :form-error="stateFormError"
+            @close="closeStateCreate"
+            @submit="handleStateCreate"
+        />
 
-        <div
-            v-if="showCityModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeCityModal"
-        >
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title">{{ editingCity ? 'Edit City' : 'Add City' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeCityModal"></button>
-                    </div>
-                    <form @submit.prevent="saveCity">
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" value="India" disabled />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">State *</label>
-                                <select v-model="cityForm.state_id" class="form-select" required>
-                                    <option value="">Select state</option>
-                                    <option v-for="state in stateOptions" :key="state.id" :value="state.id">
-                                        {{ state.name }}
-                                    </option>
-                                </select>
-                                <div v-if="fieldErrors.state_id" class="text-danger small mt-1">
-                                    {{ fieldErrors.state_id[0] }}
-                                </div>
-                            </div>
-                            <div class="mb-0">
-                                <label class="form-label">City Name *</label>
-                                <input v-model="cityForm.name" type="text" class="form-control" required />
-                                <div v-if="fieldErrors.name" class="text-danger small mt-1">{{ fieldErrors.name[0] }}</div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeCityModal">Cancel</button>
-                            <AppButton type="submit" label="Save" :loading="saving" />
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <StateFormModal
+            modal-id="editStateModal"
+            :show="showStateEdit"
+            mode="edit"
+            :state="editingState"
+            :saving="stateSaving"
+            :field-errors="stateFieldErrors"
+            :form-error="stateFormError"
+            @close="closeStateEdit"
+            @submit="handleStateUpdate"
+        />
+
+        <CityFormModal
+            modal-id="addCityModal"
+            :show="showCityCreate"
+            mode="create"
+            :state-options="stateOptions"
+            :initial-state-id="cityCreateStateId"
+            :saving="citySaving"
+            :field-errors="cityFieldErrors"
+            :form-error="cityFormError"
+            @close="closeCityCreate"
+            @submit="handleCityCreate"
+        />
+
+        <CityFormModal
+            modal-id="editCityModal"
+            :show="showCityEdit"
+            mode="edit"
+            :city="editingCity"
+            :state-options="stateOptions"
+            :saving="citySaving"
+            :field-errors="cityFieldErrors"
+            :form-error="cityFormError"
+            @close="closeCityEdit"
+            @submit="handleCityUpdate"
+        />
     </div>
 </template>
 
@@ -289,19 +217,35 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { createCity, listCities, updateCity } from '../../api/cities';
 import { listStates as listLookupStates } from '../../api/locations';
 import { createState, listStates, updateState } from '../../api/states';
+import CityFormModal from '../../components/locations/CityFormModal.vue';
+import StateFormModal from '../../components/locations/StateFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 
-const PER_PAGE = 15;
-
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('locations.manage'));
-const { success: toastSuccess, error: toastError } = useAppToast();
-const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
+const toast = useAppToast();
+
+const {
+    fieldErrors: stateFieldErrors,
+    formError: stateFormError,
+    clearErrors: clearStateErrors,
+    applyApiError: applyStateApiError,
+} = useApiFormErrors();
+
+const {
+    fieldErrors: cityFieldErrors,
+    formError: cityFormError,
+    clearErrors: clearCityErrors,
+    applyApiError: applyCityApiError,
+} = useApiFormErrors();
 
 const activeTab = ref('states');
 const states = ref([]);
@@ -309,19 +253,22 @@ const stateOptions = ref([]);
 const cities = ref([]);
 const loadingStates = ref(true);
 const loadingCities = ref(true);
-const saving = ref(false);
+const stateSaving = ref(false);
+const citySaving = ref(false);
 const stateSearch = ref('');
 const citySearch = ref('');
 const cityStateFilter = ref('');
-const showStateModal = ref(false);
-const showCityModal = ref(false);
+const showStateCreate = ref(false);
+const showStateEdit = ref(false);
+const showCityCreate = ref(false);
+const showCityEdit = ref(false);
 const editingState = ref(null);
 const editingCity = ref(null);
-const stateForm = reactive({ name: '', code: '' });
-const cityForm = reactive({ name: '', state_id: '' });
+const cityCreateStateId = ref('');
 
 const statePagination = reactive({
     currentPage: 1,
+    perPage: 15,
     lastPage: 1,
     from: 0,
     to: 0,
@@ -330,6 +277,7 @@ const statePagination = reactive({
 
 const cityPagination = reactive({
     currentPage: 1,
+    perPage: 15,
     lastPage: 1,
     from: 0,
     to: 0,
@@ -342,9 +290,68 @@ let cityDebounceTimer = null;
 function applyPagination(target, meta) {
     target.currentPage = meta.current_page ?? 1;
     target.lastPage = meta.last_page ?? 1;
+    target.perPage = meta.per_page ?? target.perPage;
     target.from = meta.from ?? 0;
     target.to = meta.to ?? 0;
     target.total = meta.total ?? 0;
+}
+
+function applyStateValidationError(error) {
+    if (applyStateApiError(error)) {
+        if (stateFormError.value) {
+            toast.error(stateFormError.value);
+        }
+
+        return;
+    }
+
+    if (error.response?.status === 419) {
+        toast.error('Your session has expired. Please refresh the page and sign in again.');
+
+        return;
+    }
+
+    if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this action.');
+
+        return;
+    }
+
+    toast.error('Unable to save state. Please try again.');
+}
+
+function applyCityValidationError(error) {
+    if (applyCityApiError(error)) {
+        if (cityFormError.value) {
+            toast.error(cityFormError.value);
+        }
+
+        return;
+    }
+
+    if (error.response?.status === 419) {
+        toast.error('Your session has expired. Please refresh the page and sign in again.');
+
+        return;
+    }
+
+    if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this action.');
+
+        return;
+    }
+
+    toast.error('Unable to save city. Please try again.');
+}
+
+function onStatePerPageUpdate(perPage) {
+    statePagination.perPage = perPage;
+    loadStates(1);
+}
+
+function onCityPerPageUpdate(perPage) {
+    cityPagination.perPage = perPage;
+    loadCities(1);
 }
 
 function debouncedLoadStates() {
@@ -367,7 +374,7 @@ async function loadStates(page = 1) {
     try {
         const result = await listStates({
             page,
-            perPage: PER_PAGE,
+            perPage: statePagination.perPage,
             search: stateSearch.value || undefined,
         });
 
@@ -384,7 +391,7 @@ async function loadCities(page = 1) {
     try {
         const result = await listCities({
             page,
-            perPage: PER_PAGE,
+            perPage: cityPagination.perPage,
             stateId: cityStateFilter.value || undefined,
             search: citySearch.value || undefined,
         });
@@ -402,107 +409,128 @@ function onCityFilterChange() {
 
 function switchTab(tab) {
     activeTab.value = tab;
-    clearErrors();
 }
 
 function openStateCreate() {
-    editingState.value = null;
-    stateForm.name = '';
-    stateForm.code = '';
-    clearErrors();
-    showStateModal.value = true;
+    clearStateErrors();
+    showStateCreate.value = true;
+}
+
+function closeStateCreate() {
+    showStateCreate.value = false;
+    clearStateErrors();
 }
 
 function openStateEdit(state) {
-    editingState.value = state;
-    stateForm.name = state.name;
-    stateForm.code = state.code || '';
-    clearErrors();
-    showStateModal.value = true;
+    editingState.value = { ...state };
+    clearStateErrors();
+    showStateEdit.value = true;
 }
 
-function closeStateModal() {
-    showStateModal.value = false;
+function closeStateEdit() {
+    showStateEdit.value = false;
+    editingState.value = null;
+    clearStateErrors();
 }
 
 function openCityCreate() {
-    editingCity.value = null;
-    cityForm.name = '';
-    cityForm.state_id = cityStateFilter.value || '';
-    clearErrors();
-    showCityModal.value = true;
+    cityCreateStateId.value = cityStateFilter.value || '';
+    clearCityErrors();
+    showCityCreate.value = true;
+}
+
+function closeCityCreate() {
+    showCityCreate.value = false;
+    clearCityErrors();
 }
 
 function openCityEdit(city) {
-    editingCity.value = city;
-    cityForm.name = city.name;
-    cityForm.state_id = city.state_id;
-    clearErrors();
-    showCityModal.value = true;
+    editingCity.value = { ...city };
+    clearCityErrors();
+    showCityEdit.value = true;
 }
 
-function closeCityModal() {
-    showCityModal.value = false;
+function closeCityEdit() {
+    showCityEdit.value = false;
+    editingCity.value = null;
+    clearCityErrors();
 }
 
-async function saveState() {
-    saving.value = true;
-    clearErrors();
-
-    const payload = {
-        name: stateForm.name.trim(),
-        code: stateForm.code.trim() || null,
-    };
+async function handleStateCreate(payload) {
+    stateSaving.value = true;
+    clearStateErrors();
 
     try {
-        if (editingState.value) {
-            await updateState(editingState.value.id, payload);
-            toastSuccess('State updated.');
-        } else {
-            await createState(payload);
-            toastSuccess('State created.');
-        }
-
-        closeStateModal();
-        await Promise.all([loadStateOptions(), loadStates(statePagination.currentPage)]);
+        await createState(payload);
+        toast.success('State has been added successfully.');
+        closeStateCreate();
+        await Promise.all([loadStateOptions(), loadStates(1)]);
     } catch (error) {
-        if (!applyApiError(error)) {
-            toastError('Could not save state.');
-        }
+        applyStateValidationError(error);
     } finally {
-        saving.value = false;
+        stateSaving.value = false;
     }
 }
 
-async function saveCity() {
-    saving.value = true;
-    clearErrors();
+async function handleStateUpdate(payload) {
+    if (!editingState.value?.id) {
+        return;
+    }
 
-    const payload = {
-        name: cityForm.name.trim(),
-        state_id: cityForm.state_id,
-    };
+    stateSaving.value = true;
+    clearStateErrors();
 
     try {
-        if (editingCity.value) {
-            await updateCity(editingCity.value.id, payload);
-            toastSuccess('City updated.');
-        } else {
-            await createCity(payload);
-            toastSuccess('City created.');
-        }
+        await updateState(editingState.value.id, payload);
+        toast.success('State has been updated successfully.');
+        closeStateEdit();
+        await Promise.all([loadStateOptions(), loadStates(statePagination.currentPage)]);
+    } catch (error) {
+        applyStateValidationError(error);
+    } finally {
+        stateSaving.value = false;
+    }
+}
 
-        closeCityModal();
+async function handleCityCreate(payload) {
+    citySaving.value = true;
+    clearCityErrors();
+
+    try {
+        await createCity(payload);
+        toast.success('City has been added successfully.');
+        closeCityCreate();
         await Promise.all([
             loadCities(cityPagination.currentPage),
             loadStates(statePagination.currentPage),
         ]);
     } catch (error) {
-        if (!applyApiError(error)) {
-            toastError('Could not save city.');
-        }
+        applyCityValidationError(error);
     } finally {
-        saving.value = false;
+        citySaving.value = false;
+    }
+}
+
+async function handleCityUpdate(payload) {
+    if (!editingCity.value?.id) {
+        return;
+    }
+
+    citySaving.value = true;
+    clearCityErrors();
+
+    try {
+        await updateCity(editingCity.value.id, payload);
+        toast.success('City has been updated successfully.');
+        closeCityEdit();
+        await Promise.all([
+            loadCities(cityPagination.currentPage),
+            loadStates(statePagination.currentPage),
+        ]);
+    } catch (error) {
+        applyCityValidationError(error);
+    } finally {
+        citySaving.value = false;
     }
 }
 

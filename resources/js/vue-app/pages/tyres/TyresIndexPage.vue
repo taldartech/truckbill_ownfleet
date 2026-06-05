@@ -1,42 +1,39 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Tyre Management</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Add Tyre" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Tyre Management">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <div class="card mb-3">
-            <div class="card-body row g-3 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label">Search</label>
-                    <input
-                        v-model="search"
-                        type="search"
-                        class="form-control"
-                        placeholder="Tyre number, brand, size"
-                        @input="debouncedLoad"
-                    />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Status</label>
-                    <select v-model="statusFilter" class="form-select" @change="loadTyres(1)">
-                        <option value="">All</option>
-                        <option v-for="s in tyreStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                    </select>
-                </div>
+        <AppIndexFiltersCard :show-actions="false">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <AppIndexSearchInput
+                    v-model="search"
+                    input-id="tyresIndex_search"
+                    placeholder="Tyre number, brand, size"
+                    max-width="100%"
+                    :disabled="loading"
+                    @update:model-value="debouncedLoad"
+                />
             </div>
-        </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select v-model="statusFilter" class="form-select" @change="loadTyres(1)">
+                    <option value="">All</option>
+                    <option v-for="s in tyreStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+            </div>
+        </AppIndexFiltersCard>
 
-        <div class="card">
-            <div class="card-header d-flex justify-content-between">
+        <div class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">Tyre Master</h3>
-                <span v-if="pagination.total" class="text-muted small">
-                    {{ pagination.from }}–{{ pagination.to }} of {{ pagination.total }}
-                </span>
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading…</div>
@@ -84,24 +81,21 @@
                         </tr>
                     </tbody>
                 </table>
-                <nav v-if="pagination.lastPage > 1" class="mt-3">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item" :class="{ disabled: pagination.currentPage <= 1 }">
-                            <button class="page-link" type="button" @click="loadTyres(pagination.currentPage - 1)">
-                                Prev
-                            </button>
-                        </li>
-                        <li class="page-item disabled">
-                            <span class="page-link">Page {{ pagination.currentPage }} / {{ pagination.lastPage }}</span>
-                        </li>
-                        <li class="page-item" :class="{ disabled: pagination.currentPage >= pagination.lastPage }">
-                            <button class="page-link" type="button" @click="loadTyres(pagination.currentPage + 1)">
-                                Next
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
             </div>
+            <AppIndexPaginationFooter
+                page-id="tyresIndex"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="tyres"
+                :per-page-options="[15, 25, 50]"
+                @page-change="loadTyres"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <div
@@ -176,7 +170,12 @@ import { useRouter } from 'vue-router';
 import { createTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 
@@ -208,7 +207,7 @@ const search = ref('');
 const statusFilter = ref('');
 const showModal = ref(false);
 const editing = ref(null);
-const pagination = reactive({ currentPage: 1, lastPage: 1, total: 0, from: 0, to: 0, perPage: 15 });
+const { pagination, syncFromMeta } = useListPagination(15);
 
 const form = reactive({
     serial_number: '',
@@ -273,6 +272,11 @@ function goToDetail(id) {
     router.push({ name: 'tyres.show', params: { id } });
 }
 
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadTyres(1);
+}
+
 async function loadTyres(page = 1) {
     if (needsCompanySelection.value) {
         loading.value = false;
@@ -287,11 +291,7 @@ async function loadTyres(page = 1) {
             status: statusFilter.value || undefined,
         });
         tyres.value = response.data;
-        pagination.currentPage = response.meta.current_page ?? page;
-        pagination.lastPage = response.meta.last_page ?? 1;
-        pagination.total = response.meta.total ?? tyres.value.length;
-        pagination.from = response.meta.from ?? 0;
-        pagination.to = response.meta.to ?? tyres.value.length;
+        syncFromMeta(response.meta, tyres.value.length);
     } finally {
         loading.value = false;
     }

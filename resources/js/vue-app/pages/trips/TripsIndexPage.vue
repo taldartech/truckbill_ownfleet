@@ -1,9 +1,10 @@
 <template>
-    <div class="container mt-4 trips-index-page">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Trip Management</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Create Trip" @click="goToCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Trip Management">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="goToCreate" />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
@@ -14,51 +15,34 @@
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div class="card mb-3">
-            <div class="card-header py-2">
-                <span class="small text-muted">Filters</span>
-                <span v-if="filtersActive" class="badge bg-light text-dark border ms-2">Active</span>
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
+            <div class="col-md-2">
+                <label class="form-label">From Date</label>
+                <input v-model="filters.from_date" type="date" class="form-control" />
             </div>
-            <div class="card-body row g-3 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label">From Date</label>
-                    <input v-model="filters.from_date" type="date" class="form-control" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">To Date</label>
-                    <input v-model="filters.to_date" type="date" class="form-control" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Vehicle</label>
-                    <select v-model="filters.vehicle_id" class="form-select">
-                        <option value="">All vehicles</option>
-                        <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Status</label>
-                    <select v-model="filters.status" class="form-select">
-                        <option value="">All statuses</option>
-                        <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                    </select>
-                </div>
-                <div class="col-md-3 d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-primary" @click="loadTrips(1)">
-                        <i class="bi bi-funnel me-1"></i> Apply
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" @click="clearFilters">
-                        <i class="bi bi-x-circle me-1"></i> Clear
-                    </button>
-                </div>
+            <div class="col-md-2">
+                <label class="form-label">To Date</label>
+                <input v-model="filters.to_date" type="date" class="form-control" />
             </div>
-        </div>
+            <div class="col-md-3">
+                <label class="form-label">Vehicle</label>
+                <select v-model="filters.vehicle_id" class="form-select">
+                    <option value="">All vehicles</option>
+                    <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select v-model="filters.status" class="form-select">
+                    <option value="">All statuses</option>
+                    <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+            </div>
+        </AppIndexFiltersCard>
 
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">Trips List</h3>
-                <span v-if="pagination.total" class="text-muted small">
-                    {{ pagination.from }}–{{ pagination.to }} of {{ pagination.total }}
-                </span>
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading trips…</div>
@@ -118,32 +102,20 @@
                     </tbody>
                 </table>
             </div>
-            <div v-if="pagination.lastPage > 1" class="card-footer d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }}
-                </small>
-                <div class="btn-group btn-group-sm">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage <= 1"
-                        @click="loadTrips(pagination.currentPage - 1)"
-                    >
-                        Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled>
-                        Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage >= pagination.lastPage"
-                        @click="loadTrips(pagination.currentPage + 1)"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                page-id="tripsIndex"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="trips"
+                :per-page-options="[15, 25, 50]"
+                @page-change="loadTrips"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
     </div>
 </template>
@@ -155,7 +127,11 @@ import { deleteTrip, defaultTripListFilters, listTrips, TRIP_STATUSES, tripStatu
 import { listAllVehicles } from '../../api/vehicles';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -178,13 +154,7 @@ const tripStatuses = TRIP_STATUSES;
 
 const filters = reactive(defaultTripListFilters());
 
-const pagination = reactive({
-    currentPage: 1,
-    lastPage: 1,
-    from: 0,
-    to: 0,
-    total: 0,
-});
+const { pagination, syncFromMeta } = useListPagination(15);
 
 const defaultFilters = defaultTripListFilters();
 
@@ -275,6 +245,11 @@ function clearFilters() {
     loadTrips(1);
 }
 
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadTrips(1);
+}
+
 async function loadTrips(page = 1) {
     loading.value = true;
     flash.error = '';
@@ -282,7 +257,7 @@ async function loadTrips(page = 1) {
     try {
         const result = await listTrips({
             page,
-            perPage: 15,
+            perPage: pagination.perPage,
             from_date: filters.from_date || undefined,
             to_date: filters.to_date || undefined,
             vehicle_id: filters.vehicle_id || undefined,
@@ -290,11 +265,7 @@ async function loadTrips(page = 1) {
         });
 
         trips.value = result.data;
-        pagination.currentPage = result.meta.current_page ?? page;
-        pagination.lastPage = result.meta.last_page ?? 1;
-        pagination.from = result.meta.from ?? 0;
-        pagination.to = result.meta.to ?? 0;
-        pagination.total = result.meta.total ?? trips.value.length;
+        syncFromMeta(result.meta, trips.value.length);
     } catch (error) {
         flash.error = applyApiError(error, 'Failed to load trips.');
     } finally {

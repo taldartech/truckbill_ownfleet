@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
+                <div class="modal-header bg-success text-white">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="fas fa-wallet me-2"></i>
                         Driver Advance — {{ driverName || '—' }}
@@ -17,9 +17,6 @@
                     <button type="button" class="btn-close" aria-label="Close" @click="close"></button>
                 </div>
                 <div class="modal-body">
-                    <div v-if="loadError" class="alert alert-danger py-2">{{ loadError }}</div>
-                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-
                     <div class="d-flex align-items-center justify-content-between mb-3 p-3 bg-light rounded">
                         <span class="text-muted">Wallet balance</span>
                         <span class="fs-4 fw-bold text-dark">{{ formatMoney(balance) }}</span>
@@ -79,7 +76,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-3 d-flex align-items-end">
-                                        <button type="submit" class="btn btn-warning w-100" :disabled="saving">
+                                        <button type="submit" class="btn btn-success w-100" :disabled="saving">
                                             {{ saving ? 'Saving…' : 'Add' }}
                                         </button>
                                     </div>
@@ -145,7 +142,10 @@
 
 <script setup>
 import { ref, watch } from 'vue';
-import { createDriverAdvanceEntry, fetchDriverAdvanceLedger } from '../../api/driverAdvances';
+import { fetchDriverAdvanceLedger } from '../../api/driverAdvances';
+import { useAppToast } from '../../composables/useAppToast';
+
+const toast = useAppToast();
 
 const props = defineProps({
     modalId: { type: String, required: true },
@@ -155,14 +155,12 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
     saving: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
-    formError: { type: String, default: '' },
 });
 
 const emit = defineEmits(['close', 'submit', 'loaded']);
 
 const modalElement = ref(null);
 const loading = ref(false);
-const loadError = ref('');
 const balance = ref(0);
 const entries = ref([]);
 
@@ -198,7 +196,6 @@ async function loadLedger() {
     }
 
     loading.value = true;
-    loadError.value = '';
 
     try {
         const data = await fetchDriverAdvanceLedger(props.driverId);
@@ -206,7 +203,7 @@ async function loadLedger() {
         entries.value = data.entries ?? [];
         emit('loaded', data);
     } catch {
-        loadError.value = 'Could not load advance ledger.';
+        toast.error('Could not load advance ledger.');
         balance.value = 0;
         entries.value = [];
     } finally {

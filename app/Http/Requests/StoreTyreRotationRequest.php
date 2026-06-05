@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\TyrePosition;
+use App\Rules\TyrePositionAllowedOnVehicle;
 use App\Tyre;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreTyreRotationRequest extends FormRequest
 {
@@ -21,12 +20,31 @@ class StoreTyreRotationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $vehicleId = $this->resolveRotationVehicleId();
+
         return [
             'rotation_date' => ['required', 'date'],
-            'previous_position' => ['required', Rule::enum(TyrePosition::class)],
-            'new_position' => ['required', Rule::enum(TyrePosition::class), 'different:previous_position'],
+            'previous_position' => ['required', 'string', 'max:64'],
+            'new_position' => [
+                'required',
+                'string',
+                'max:64',
+                'different:previous_position',
+                new TyrePositionAllowedOnVehicle($vehicleId),
+            ],
             'reason' => ['nullable', 'string', 'max:1000'],
             'km_at_rotation' => ['nullable', 'numeric', 'min:0'],
         ];
+    }
+
+    private function resolveRotationVehicleId(): ?string
+    {
+        $tyre = $this->route('tyre');
+
+        if (! $tyre instanceof Tyre) {
+            return null;
+        }
+
+        return $tyre->activeInstallation()->value('vehicle_id');
     }
 }

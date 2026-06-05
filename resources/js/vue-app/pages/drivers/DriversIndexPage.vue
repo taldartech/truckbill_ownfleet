@@ -1,26 +1,21 @@
 <template>
-    <div class="container mt-4 drivers-page">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Drivers Management</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Create" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Drivers Management">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
-        <div class="card">
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="card app-index-list-card">
+            <div class="card-header">
                 <h3 class="card-title mb-0">Drivers List</h3>
-                <div class="input-group input-group-sm" style="max-width: 280px">
-                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-                    <input
-                        v-model="searchQuery"
-                        type="search"
-                        class="form-control"
-                        placeholder="Search name, mobile, license…"
-                        aria-label="Search drivers"
-                    />
-                </div>
+                <AppIndexSearchInput
+                    v-model="searchQuery"
+                    :input-id="`${pageId}_search`"
+                    placeholder="Search name, mobile, license…"
+                    aria-label="Search drivers"
+                    :disabled="loading"
+                />
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading drivers…</div>
@@ -61,51 +56,19 @@
                     </tbody>
                 </table>
             </div>
-            <div
-                v-if="pagination.total > 0"
-                class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2"
-            >
-                <small class="text-muted">
-                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} drivers
-                </small>
-                <div class="d-flex align-items-center gap-2">
-                    <label class="small text-muted mb-0" :for="`${pageId}_per_page`">Per page</label>
-                    <select
-                        :id="`${pageId}_per_page`"
-                        v-model.number="pagination.perPage"
-                        class="form-select form-select-sm"
-                        style="width: auto"
-                        :disabled="loading"
-                        @change="onPerPageChange"
-                    >
-                        <option :value="10">10</option>
-                        <option :value="25">25</option>
-                        <option :value="50">50</option>
-                        <option :value="100">100</option>
-                    </select>
-                    <div v-if="pagination.lastPage > 1" class="btn-group btn-group-sm">
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            :disabled="loading || pagination.currentPage <= 1"
-                            @click="goToPage(pagination.currentPage - 1)"
-                        >
-                            Previous
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" disabled>
-                            Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            :disabled="loading || pagination.currentPage >= pagination.lastPage"
-                            @click="goToPage(pagination.currentPage + 1)"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                :page-id="pageId"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="drivers"
+                @page-change="goToPage"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <DriverFormModal
@@ -114,7 +77,6 @@
             mode="create"
             :saving="saving"
             :field-errors="fieldErrors"
-            :form-error="driverFormError"
             @close="closeCreate"
             @submit="handleCreate"
         />
@@ -126,7 +88,6 @@
             :driver="editingDriver"
             :saving="saving"
             :field-errors="fieldErrors"
-            :form-error="driverFormError"
             @close="closeEdit"
             @submit="handleUpdate"
         />
@@ -140,7 +101,6 @@
             :can-manage="canManage"
             :saving="advanceSaving"
             :field-errors="advanceFieldErrors"
-            :form-error="advanceFormError"
             @close="closeAdvance"
             @submit="handleAdvanceSubmit"
         />
@@ -148,16 +108,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { createDriverAdvanceEntry } from '../../api/driverAdvances';
 import { createDriver, deleteDriver, listDrivers, updateDriver } from '../../api/drivers';
 import DriverAdvanceModal from '../../components/drivers/DriverAdvanceModal.vue';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
+import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+
+const toast = useAppToast();
 
 const pageId = 'driversIndex';
 
@@ -183,22 +150,9 @@ const advanceDriver = ref(null);
 const advanceSaving = ref(false);
 const advanceModalRef = ref(null);
 const searchQuery = ref('');
-const flash = reactive({ success: '', error: '' });
-const pagination = reactive({
-    currentPage: 1,
-    perPage: 25,
-    lastPage: 1,
-    total: 0,
-    from: 0,
-    to: 0,
-});
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
 
 let searchDebounceTimer = null;
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 function formatPhone(phone) {
     const value = String(phone ?? '').trim();
@@ -218,7 +172,6 @@ function rowNumber(index) {
 
 async function loadDrivers(page = pagination.currentPage) {
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listDrivers({
@@ -228,19 +181,11 @@ async function loadDrivers(page = pagination.currentPage) {
         });
 
         drivers.value = response.data;
-        pagination.currentPage = response.meta.current_page ?? page;
-        pagination.lastPage = response.meta.last_page ?? 1;
-        pagination.total = response.meta.total ?? drivers.value.length;
-        pagination.from = response.meta.from ?? (drivers.value.length > 0 ? 1 : 0);
-        pagination.to = response.meta.to ?? drivers.value.length;
+        syncFromMeta(response.meta, drivers.value.length);
     } catch {
-        showToast('Could not load drivers.', 'error');
+        toast.error('Could not load drivers.');
         drivers.value = [];
-        pagination.currentPage = 1;
-        pagination.lastPage = 1;
-        pagination.total = 0;
-        pagination.from = 0;
-        pagination.to = 0;
+        resetPagination();
     } finally {
         loading.value = false;
     }
@@ -254,7 +199,8 @@ function goToPage(page) {
     loadDrivers(page);
 }
 
-function onPerPageChange() {
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
     pagination.currentPage = 1;
     loadDrivers(1);
 }
@@ -303,11 +249,15 @@ async function handleAdvanceSubmit(payload) {
 
     try {
         await createDriverAdvanceEntry(advanceDriver.value.id, payload);
-        showToast('Advance entry saved.');
+        toast.success('Advance entry saved.');
         await advanceModalRef.value?.loadLedger();
     } catch (error) {
-        if (!applyAdvanceApiError(error)) {
-            showToast('Unable to save advance entry.', 'error');
+        if (applyAdvanceApiError(error)) {
+            if (advanceFormError.value) {
+                toast.error(advanceFormError.value);
+            }
+        } else {
+            toast.error('Unable to save advance entry.');
         }
     } finally {
         advanceSaving.value = false;
@@ -316,22 +266,32 @@ async function handleAdvanceSubmit(payload) {
 
 function applyValidationError(error) {
     if (applyApiError(error)) {
+        if (driverFormError.value) {
+            toast.error(driverFormError.value);
+        }
+
         return;
     }
 
     if (error.response?.status === 419) {
-        showToast('Your session has expired. Please refresh the page and sign in again.', 'error');
+        toast.error('Your session has expired. Please refresh the page and sign in again.');
 
         return;
     }
 
     if (error.response?.status === 403) {
-        showToast('You do not have permission to perform this action.', 'error');
+        toast.error('You do not have permission to perform this action.');
 
         return;
     }
 
-    showToast('Unable to save driver. Please try again.', 'error');
+    if (driverFormError.value) {
+        toast.error(driverFormError.value);
+
+        return;
+    }
+
+    toast.error('Unable to save driver. Please try again.');
 }
 
 async function handleCreate(payload) {
@@ -340,7 +300,7 @@ async function handleCreate(payload) {
 
     try {
         await createDriver(payload);
-        showToast('Driver has been added successfully.');
+        toast.success('Driver has been added successfully.');
         closeCreate();
         await loadDrivers(1);
     } catch (error) {
@@ -360,7 +320,7 @@ async function handleUpdate(payload) {
 
     try {
         await updateDriver(editingDriver.value.id, payload);
-        showToast('Driver has been updated successfully.');
+        toast.success('Driver has been updated successfully.');
         closeEdit();
         await loadDrivers();
     } catch (error) {
@@ -377,7 +337,7 @@ async function handleDelete(driver) {
 
     try {
         await deleteDriver(driver.id);
-        showToast('Driver deleted successfully.');
+        toast.success('Driver deleted successfully.');
 
         const page =
             drivers.value.length === 1 && pagination.currentPage > 1
@@ -386,7 +346,7 @@ async function handleDelete(driver) {
 
         await loadDrivers(page);
     } catch {
-        showToast('Unable to delete driver. Please try again.', 'error');
+        toast.error('Unable to delete driver. Please try again.');
     }
 }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Enums\TyrePosition;
 use App\Enums\TyreStatus;
+use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\Tyre;
 use App\User;
@@ -91,8 +92,25 @@ class TyreManagementTest extends TestCase
             ->getJson("/api/vehicles/{$vehicle->id}/tyre-positions");
 
         $response->assertOk();
+        $response->assertOk();
         $response->assertJsonCount(7, 'data');
         $response->assertJsonPath('data.0.position_label', 'Front Left');
+    }
+
+    public function test_vehicle_tyre_positions_respects_tyre_layout_with_multiple_spares(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        $vehicle->update(['tyre_layout' => 'TYRES_12']);
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/vehicles/{$vehicle->id}/tyre-positions");
+
+        $response->assertOk();
+        $response->assertJsonCount(12, 'data');
+        $response->assertJsonFragment(['position' => 'SPARE_1', 'position_label' => 'Spare 1']);
+        $response->assertJsonFragment(['position' => 'SPARE_2', 'position_label' => 'Spare 2']);
+        $response->assertJsonFragment(['position' => 'AX2_L_OUT', 'position_label' => 'Axle 2 — Left (Outer)']);
     }
 
     public function test_early_removal_shows_recommendation_when_life_remaining(): void
@@ -169,6 +187,8 @@ class TyreManagementTest extends TestCase
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 5000,
         ]);
+
+        TyreLayoutDefaults::seedForTenant($tenant->id);
 
         return [$tenant, $user, $vehicle];
     }

@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\TyrePosition;
+use App\Rules\TyrePositionAllowedOnVehicle;
 use App\Tyre;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class InstallTyreRequest extends FormRequest
 {
@@ -23,7 +22,12 @@ class InstallTyreRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
-            'position_code' => ['required', Rule::enum(TyrePosition::class)],
+            'position_code' => [
+                'required',
+                'string',
+                'max:64',
+                new TyrePositionAllowedOnVehicle($this->input('vehicle_id')),
+            ],
             'installed_at' => ['required', 'date'],
             'km_at_installation' => ['nullable', 'numeric', 'min:0'],
         ];

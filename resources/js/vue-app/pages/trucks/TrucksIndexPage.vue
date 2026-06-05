@@ -1,9 +1,10 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Truck Management</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Add Truck" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Truck Management">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
@@ -14,7 +15,45 @@
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div class="card">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadVehicles(1)" @clear="clearFilters">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <AppIndexSearchInput
+                    v-model="filters.search"
+                    input-id="trucksIndex_search"
+                    placeholder="Registration, make, model…"
+                    max-width="100%"
+                    :disabled="loading"
+                />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Vehicle type</label>
+                <select v-model="filters.vehicle_type" class="form-select">
+                    <option value="">All types</option>
+                    <option v-for="type in vehicleTypes" :key="type.value" :value="type.value">
+                        {{ type.label }}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select v-model="filters.status" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Primary driver</label>
+                <select v-model="filters.primary_driver" class="form-select">
+                    <option value="">All trucks</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="unassigned">Unassigned</option>
+                </select>
+            </div>
+        </AppIndexFiltersCard>
+
+        <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">Trucks List</h3>
             </div>
@@ -25,21 +64,26 @@
                         <tr>
                             <th>Registration</th>
                             <th>Type</th>
+                            <th>Tyre layout</th>
                             <th>Make / Model</th>
                             <th>Primary Driver</th>
                             <th>Odometer (KM)</th>
+                            <th>Status</th>
                             <th style="width: 160px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="vehicles.length === 0">
-                            <td colspan="6" class="text-center text-muted">No trucks found. Add your first truck.</td>
+                            <td colspan="8" class="text-center text-muted">
+                                {{ filtersActive ? 'No trucks found for selected filters.' : 'No trucks found. Add your first truck.' }}
+                            </td>
                         </tr>
                         <tr v-for="vehicle in vehicles" :key="vehicle.id">
                             <td>
                                 <strong>{{ vehicle.registration_number }}</strong>
                             </td>
                             <td>{{ vehicle.vehicle_type }}</td>
+                            <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td>
                             <td>{{ formatMakeModel(vehicle) }}</td>
                             <td>
                                 <span v-if="vehicle.current_primary_assignment?.driver?.name">
@@ -48,6 +92,32 @@
                                 <span v-else class="text-muted">Unassigned</span>
                             </td>
                             <td>{{ vehicle.odometer_km ?? '0' }}</td>
+                            <td>
+                                <div v-if="canToggleStatus" class="form-check form-switch mb-0">
+                                    <input
+                                        :id="`truckStatus_${vehicle.id}`"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        :checked="vehicle.is_active"
+                                        :disabled="togglingId === vehicle.id"
+                                        @change="handleToggleStatus(vehicle, $event)"
+                                    />
+                                    <label
+                                        :for="`truckStatus_${vehicle.id}`"
+                                        class="form-check-label small"
+                                    >
+                                        {{ vehicle.is_active ? 'Active' : 'Inactive' }}
+                                    </label>
+                                </div>
+                                <span
+                                    v-else
+                                    class="badge"
+                                    :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
+                                >
+                                    {{ vehicle.is_active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
                             <td>
                                 <AppTableActions>
                                     <AppCrudActionButton
@@ -63,10 +133,10 @@
                                     <RouterLink
                                         v-if="canViewTyres"
                                         :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                        class="btn btn-sm btn-outline-secondary"
+                                        :class="tyreLinkClasses"
                                         title="Tyre positions"
                                     >
-                                        <i class="bi bi-circle"></i>
+                                        <i class="bi bi-circle" aria-hidden="true"></i>
                                     </RouterLink>
                                     <AppCrudActionButton
                                         v-if="canManage"
@@ -74,7 +144,7 @@
                                         @click="openEdit(vehicle)"
                                     />
                                     <AppCrudActionButton
-                                        v-if="canManage"
+                                        v-if="canDelete"
                                         action="delete"
                                         @click="handleDelete(vehicle)"
                                     />
@@ -84,32 +154,19 @@
                     </tbody>
                 </table>
             </div>
-            <div v-if="pagination.lastPage > 1" class="card-footer d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} trucks
-                </small>
-                <div class="btn-group btn-group-sm">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage <= 1"
-                        @click="goToPage(pagination.currentPage - 1)"
-                    >
-                        Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled>
-                        Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage >= pagination.lastPage"
-                        @click="goToPage(pagination.currentPage + 1)"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                page-id="trucksIndex"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="trucks"
+                @page-change="goToPage"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <VehicleFormModal
@@ -146,21 +203,39 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { createVehicle, deleteVehicle, listVehicles, updateVehicle } from '../../api/vehicles';
+import {
+    createVehicle,
+    defaultVehicleListFilters,
+    deleteVehicle,
+    listVehicles,
+    toggleVehicleStatus,
+    updateVehicle,
+    VEHICLE_TYPES,
+} from '../../api/vehicles';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { crudActionButtonClasses } from '../../utils/crudActionPresets';
+
+const tyreLinkClasses = crudActionButtonClasses('tyres');
 
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
 
 const canManage = computed(() => canInCompany('vehicles.manage'));
+const canDelete = computed(() => canInCompany('vehicles.delete'));
+const canToggleStatus = computed(() => canInCompany('vehicles.toggle_status'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewAssignments = computed(() => canInCompany('driver_assignments.view'));
 const canManageAssignments = computed(() => canInCompany('driver_assignments.manage'));
@@ -180,13 +255,19 @@ const documentsVehicle = ref(null);
 const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
 const flash = reactive({ success: '', error: '' });
-const pagination = reactive({
-    currentPage: 1,
-    perPage: 10,
-    lastPage: 1,
-    total: 0,
-    from: 0,
-    to: 0,
+const togglingId = ref(null);
+const vehicleTypes = VEHICLE_TYPES;
+const filters = reactive(defaultVehicleListFilters());
+const defaultFilters = defaultVehicleListFilters();
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
+
+const filtersActive = computed(() => {
+    return (
+        filters.search.trim() !== defaultFilters.search ||
+        filters.vehicle_type !== defaultFilters.vehicle_type ||
+        filters.status !== defaultFilters.status ||
+        filters.primary_driver !== defaultFilters.primary_driver
+    );
 });
 
 function formatMakeModel(vehicle) {
@@ -204,11 +285,7 @@ async function loadVehicles(page = pagination.currentPage) {
     if (needsCompanySelection.value) {
         vehicles.value = [];
         loading.value = false;
-        pagination.currentPage = 1;
-        pagination.lastPage = 1;
-        pagination.total = 0;
-        pagination.from = 0;
-        pagination.to = 0;
+        resetPagination();
 
         return;
     }
@@ -217,24 +294,23 @@ async function loadVehicles(page = pagination.currentPage) {
     flash.error = '';
 
     try {
-        const response = await listVehicles({ page, perPage: pagination.perPage });
+        const response = await listVehicles({
+            page,
+            perPage: pagination.perPage,
+            search: filters.search.trim(),
+            vehicleType: filters.vehicle_type,
+            status: filters.status,
+            primaryDriver: filters.primary_driver,
+        });
         vehicles.value = response.data;
-        pagination.currentPage = response.meta.current_page ?? page;
-        pagination.lastPage = response.meta.last_page ?? 1;
-        pagination.total = response.meta.total ?? vehicles.value.length;
-        pagination.from = response.meta.from ?? (vehicles.value.length > 0 ? 1 : 0);
-        pagination.to = response.meta.to ?? vehicles.value.length;
+        syncFromMeta(response.meta, vehicles.value.length);
     } catch (error) {
         if (!handleCompanyContextError(error, 'Could not load trucks.')) {
             showToast('Could not load trucks.', 'error');
         }
 
         vehicles.value = [];
-        pagination.currentPage = 1;
-        pagination.lastPage = 1;
-        pagination.total = 0;
-        pagination.from = 0;
-        pagination.to = 0;
+        resetPagination();
     } finally {
         loading.value = false;
     }
@@ -246,6 +322,17 @@ function goToPage(page) {
     }
 
     loadVehicles(page);
+}
+
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    pagination.currentPage = 1;
+    loadVehicles(1);
+}
+
+function clearFilters() {
+    Object.assign(filters, defaultVehicleListFilters());
+    loadVehicles(1);
 }
 
 function openCreate() {
@@ -326,6 +413,23 @@ async function handleSubmit(payload) {
         }
     } finally {
         saving.value = false;
+    }
+}
+
+async function handleToggleStatus(vehicle, event) {
+    const nextActive = event.target.checked;
+    togglingId.value = vehicle.id;
+    flash.error = '';
+
+    try {
+        const updated = await toggleVehicleStatus(vehicle.id, nextActive);
+        vehicle.is_active = updated.is_active;
+        showToast(updated.is_active ? 'Truck activated.' : 'Truck deactivated.');
+    } catch {
+        event.target.checked = vehicle.is_active;
+        showToast('Unable to update truck status.', 'error');
+    } finally {
+        togglingId.value = null;
     }
 }
 

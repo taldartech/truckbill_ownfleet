@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVehicleRequest;
+use App\Http\Requests\ToggleVehicleStatusRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
+use App\Support\TyreLayoutDefaults;
 use App\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,19 +20,50 @@ class VehicleController extends Controller
         $this->authorize('viewAny', Vehicle::class);
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
+        $query = Vehicle::query()
+            ->with(['currentPrimaryAssignment.driver'])
+            ->latest();
 
-        return VehicleResource::collection(
-            Vehicle::query()
-                ->with(['currentPrimaryAssignment.driver'])
-                ->latest()
-                ->paginate($perPage)
-        );
+        if ($request->filled('status')) {
+            $status = $request->string('status')->toString();
+
+            if ($status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        } elseif ($request->boolean('active_only')) {
+            $query->where('is_active', true);
+        }
+
+        if ($request->filled('vehicle_type')) {
+            $query->where('vehicle_type', $request->string('vehicle_type')->toString());
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(function ($builder) use ($search) {
+                $builder->where('registration_number', 'like', "%{$search}%")
+                    ->orWhere('make', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('primary_driver')) {
+            $query->filterByPrimaryDriver($request->string('primary_driver')->toString());
+        }
+
+        return VehicleResource::collection($query->paginate($perPage));
     }
 
     public function store(StoreVehicleRequest $request): VehicleResource
     {
+        $validated = $request->validated();
+        $validated['tyre_layout'] = $validated['tyre_layout'] ?? TyreLayoutDefaults::defaultCode();
+
         $vehicle = Vehicle::query()->create([
-            ...$request->validated(),
+            ...$validated,
+            'is_active' => true,
             'created_by' => $request->user()?->id,
             'updated_by' => $request->user()?->id,
         ]);
@@ -49,6 +82,16 @@ class VehicleController extends Controller
     {
         $vehicle->update([
             ...$request->validated(),
+            'updated_by' => $request->user()?->id,
+        ]);
+
+        return new VehicleResource($vehicle->fresh());
+    }
+
+    public function toggleStatus(ToggleVehicleStatusRequest $request, Vehicle $vehicle): VehicleResource
+    {
+        $vehicle->update([
+            'is_active' => (bool) $request->validated('is_active'),
             'updated_by' => $request->user()?->id,
         ]);
 

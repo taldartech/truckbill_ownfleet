@@ -36,15 +36,26 @@ function filterNavItems(items, can, canInCompany, requiresCompanySelection) {
         .filter(Boolean);
 }
 
-export function useFilteredNavigation(items) {
-    const { can, canInCompany, user } = usePermissions();
+/**
+ * @param {import('vue').MaybeRefOrGetter<object|null|undefined>} [userRef] Reactive user ref from AppShellLayout.
+ */
+export function useFilteredNavigation(items, userRef = null) {
+    const { can, canInCompany, user } = usePermissions(userRef);
 
-    return computed(() =>
-        filterNavItems(
+    return computed(() => {
+        const current = user.value;
+
+        // Track company context and permissions so the sidebar updates after Enter / Exit company.
+        void current?.requires_company_selection;
+        void current?.effective_tenant_id;
+        void current?.company_id;
+        void current?.permissions?.length;
+
+        return filterNavItems(
             items,
             can,
             canInCompany,
-            Boolean(user.value?.requires_company_selection),
-        ),
-    );
+            Boolean(current?.requires_company_selection),
+        );
+    });
 }

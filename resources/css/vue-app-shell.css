@@ -4,22 +4,22 @@
 
 .vue-app-shell .app-sidebar,
 .vue-app-shell .main-sidebar {
-    width: 220px !important;
-    min-width: 220px !important;
-    max-width: 220px !important;
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
 }
 
 .vue-app-shell .sidebar-wrapper {
-    width: 220px !important;
-    min-width: 220px !important;
-    max-width: 220px !important;
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
     height: calc(100vh - calc(7.5rem + 1px)) !important;
 }
 
 .vue-app-shell .nav-link.active,
 .vue-app-shell .nav-link.router-link-exact-active {
     background: var(--brand-active-bg) !important;
-    color: var(--brand-primary) !important;
+    color: var(--brand-text-accent) !important;
     border-right: 4px solid var(--brand-primary) !important;
     font-weight: 600 !important;
 }
@@ -45,6 +45,14 @@
 .vue-app-shell .sidebar-menu .nav-link p {
     margin: 0;
     flex: 1;
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.vue-app-shell .sidebar-menu .nav-treeview .nav-link {
+    padding-left: 1.5rem !important;
 }
 
 .vue-app-shell .sidebar-menu .nav-icon,
@@ -161,4 +169,21 @@
     .vue-app-shell .credit-pill .label {
         display: none;
     }
+}
+
+.vue-app-shell .app-index-list-card > .card-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vue-app-shell .app-index-list-card .table {
+    margin-bottom: 0;
+}
+
+.vue-app-shell .app-index-filters .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
 }

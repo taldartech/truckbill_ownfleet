@@ -35,6 +35,26 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
+                                <label :for="`${modalId}_layout`" class="form-label">Tyre layout *</label>
+                                <select
+                                    :id="`${modalId}_layout`"
+                                    v-model="form.tyre_layout"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': props.fieldErrors.tyre_layout }"
+                                    required
+                                >
+                                    <option v-for="opt in tyreLayoutOptions" :key="opt.code" :value="opt.code">
+                                        {{ opt.name }} ({{ opt.position_count }} positions)
+                                    </option>
+                                </select>
+            
+                                <div v-if="props.fieldErrors.tyre_layout" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.tyre_layout[0] }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label :for="`${modalId}_type`" class="form-label">Vehicle Type *</label>
                                 <select
                                     :id="`${modalId}_type`"
@@ -126,6 +146,9 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { listAllTyreLayouts } from '../../api/tyreLayouts';
+
+const DEFAULT_TYRE_LAYOUT = 'TYRES_10';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -143,11 +166,14 @@ const modalElement = ref(null);
 let bootstrapModal = null;
 const isEdit = computed(() => props.mode === 'edit');
 const form = ref(emptyForm());
+const tyreLayoutOptions = ref([]);
+const loadingLayouts = ref(false);
 
 function emptyForm() {
     return {
         registration_number: '',
         vehicle_type: 'TRUCK',
+        tyre_layout: DEFAULT_TYRE_LAYOUT,
         make: '',
         model: '',
         manufacture_year: '',
@@ -159,6 +185,7 @@ function fillForm(vehicle) {
     form.value = {
         registration_number: vehicle?.registration_number ?? '',
         vehicle_type: vehicle?.vehicle_type ?? 'TRUCK',
+        tyre_layout: vehicle?.tyre_layout ?? DEFAULT_TYRE_LAYOUT,
         make: vehicle?.make ?? '',
         model: vehicle?.model ?? '',
         manufacture_year: vehicle?.manufacture_year ? String(vehicle.manufacture_year) : '',
@@ -166,9 +193,23 @@ function fillForm(vehicle) {
     };
 }
 
+async function loadTyreLayoutOptions() {
+    loadingLayouts.value = true;
+    try {
+        tyreLayoutOptions.value = await listAllTyreLayouts({ activeOnly: true });
+        if (!form.value.tyre_layout && tyreLayoutOptions.value.length) {
+            form.value.tyre_layout = tyreLayoutOptions.value[0].code;
+        }
+    } catch {
+        tyreLayoutOptions.value = [];
+    } finally {
+        loadingLayouts.value = false;
+    }
+}
+
 watch(
     () => props.show,
-    (visible) => {
+    async (visible) => {
         if (!modalElement.value || typeof window.bootstrap === 'undefined') {
             return;
         }
@@ -179,6 +220,7 @@ watch(
 
         if (visible) {
             fillForm(props.vehicle);
+            await loadTyreLayoutOptions();
             bootstrapModal.show();
         } else {
             bootstrapModal.hide();
@@ -194,6 +236,7 @@ function submit() {
     emit('submit', {
         registration_number: form.value.registration_number.trim().toUpperCase(),
         vehicle_type: form.value.vehicle_type,
+        tyre_layout: form.value.tyre_layout,
         make: form.value.make || null,
         model: form.value.model || null,
         manufacture_year: form.value.manufacture_year ? Number(form.value.manufacture_year) : null,

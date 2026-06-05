@@ -4,7 +4,6 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
-use App\Enums\TyrePosition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,8 +27,6 @@ class TyreRotation extends Model
     {
         return [
             'rotation_date' => 'date',
-            'previous_position' => TyrePosition::class,
-            'new_position' => TyrePosition::class,
             'km_at_rotation' => 'decimal:2',
         ];
     }

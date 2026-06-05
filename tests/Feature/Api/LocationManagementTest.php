@@ -95,6 +95,27 @@ class LocationManagementTest extends TestCase
         $this->assertGreaterThan(1, $citiesResponse->json('meta.last_page'));
     }
 
+    public function test_state_create_auto_creates_india_country_when_missing(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        \App\Country::query()->where('code', 'IN')->delete();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/states', [
+                'name' => 'Auto Country State',
+                'code' => 'AC',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Auto Country State');
+
+        $this->assertDatabaseHas('countries', [
+            'code' => 'IN',
+            'name' => 'India',
+        ]);
+    }
+
     public function test_moderator_can_view_but_not_manage_locations(): void
     {
         [$tenant, $user] = $this->createFixtures('moderator');

@@ -107,6 +107,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trip_reports.view' },
                 },
                 {
+                    path: 'tyre-layouts',
+                    name: 'tyre-layouts.index',
+                    component: () => import('./pages/tyre-layouts/TyreLayoutsIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyre_layouts.view' },
+                },
+                {
                     path: 'tyres',
                     name: 'tyres.index',
                     component: () => import('./pages/tyres/TyresIndexPage.vue'),

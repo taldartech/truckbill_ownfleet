@@ -3,10 +3,10 @@
 namespace App\Modules\TyreManagement\Services;
 
 use App\Enums\TyreExpenseType;
-use App\Enums\TyrePosition;
 use App\Enums\TyreStatus;
 use App\Modules\TyreManagement\Repositories\TyreRepository;
 use App\Support\TyreLifeCalculator;
+use App\Support\TyrePositionCatalog;
 use App\Tyre;
 use App\TyreDamage;
 use App\TyreExpense;
@@ -25,6 +25,7 @@ class TyreService
         private readonly TyreRepository $tyreRepository,
         private readonly TyreLifeCalculator $lifeCalculator,
         private readonly TyreTimelineService $timelineService,
+        private readonly TyrePositionCatalog $positionCatalog,
     ) {}
 
     public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null): LengthAwarePaginator
@@ -84,14 +85,14 @@ class TyreService
             }
 
             $vehicle = Vehicle::query()->findOrFail($data['vehicle_id']);
-            $position = TyrePosition::from($data['position_code']);
+            $positionCode = (string) $data['position_code'];
 
-            $this->assertPositionAvailable($vehicle->id, $position, null);
+            $this->assertPositionAvailable($vehicle, $positionCode, null);
 
             $installation = TyreInstallation::query()->create([
                 'tyre_id' => $tyre->id,
                 'vehicle_id' => $vehicle->id,
-                'position_code' => $position->value,
+                'position_code' => $positionCode,
                 'installed_at' => $data['installed_at'],
                 'km_at_installation' => $data['km_at_installation'] ?? $vehicle->odometer_km ?? 0,
             ]);
@@ -142,26 +143,28 @@ class TyreService
                 throw ValidationException::withMessages(['tyre' => 'Tyre must be installed before rotation.']);
             }
 
-            $previous = TyrePosition::from($data['previous_position']);
-            $newPosition = TyrePosition::from($data['new_position']);
+            $previousCode = (string) $data['previous_position'];
+            $newPositionCode = (string) $data['new_position'];
+            $currentCode = (string) $installation->position_code;
 
-            if ($installation->position_code !== $previous) {
+            if ($currentCode !== $previousCode) {
                 throw ValidationException::withMessages(['previous_position' => 'Does not match current tyre position.']);
             }
 
-            $this->assertPositionAvailable($installation->vehicle_id, $newPosition, $installation->id);
+            $vehicle = $installation->vehicle ?? Vehicle::query()->findOrFail($installation->vehicle_id);
+            $this->assertPositionAvailable($vehicle, $newPositionCode, $installation->id);
 
             $rotation = TyreRotation::query()->create([
                 'tyre_id' => $tyre->id,
                 'vehicle_id' => $installation->vehicle_id,
                 'rotation_date' => $data['rotation_date'],
-                'previous_position' => $previous->value,
-                'new_position' => $newPosition->value,
+                'previous_position' => $previousCode,
+                'new_position' => $newPositionCode,
                 'reason' => $data['reason'] ?? null,
                 'km_at_rotation' => $data['km_at_rotation'] ?? null,
             ]);
 
-            $installation->update(['position_code' => $newPosition->value]);
+            $installation->update(['position_code' => $newPositionCode]);
 
             return $rotation->load('vehicle');
         });
@@ -221,7 +224,7 @@ class TyreService
             $oldTyre = Tyre::query()->findOrFail($data['old_tyre_id']);
             $newTyre = isset($data['new_tyre_id']) ? Tyre::query()->findOrFail($data['new_tyre_id']) : null;
             $vehicle = Vehicle::query()->findOrFail($data['vehicle_id']);
-            $position = TyrePosition::from($data['position_code']);
+            $positionCode = (string) $data['position_code'];
 
             $active = $oldTyre->activeInstallation;
 
@@ -244,7 +247,7 @@ class TyreService
             if ($newTyre !== null) {
                 $this->install($newTyre, [
                     'vehicle_id' => $vehicle->id,
-                    'position_code' => $position->value,
+                    'position_code' => $positionCode,
                     'installed_at' => $data['replaced_at'],
                     'km_at_installation' => $kmAtReplace,
                 ]);
@@ -252,7 +255,7 @@ class TyreService
 
             return TyreReplacement::query()->create([
                 'vehicle_id' => $vehicle->id,
-                'position_code' => $position->value,
+                'position_code' => $positionCode,
                 'old_tyre_id' => $oldTyre->id,
                 'new_tyre_id' => $newTyre?->id,
                 'replaced_at' => $data['replaced_at'],
@@ -284,17 +287,16 @@ class TyreService
 
     public function vehiclePositions(string $vehicleId): array
     {
+        $vehicle = Vehicle::query()->findOrFail($vehicleId);
         $installations = TyreInstallation::query()
             ->where('vehicle_id', $vehicleId)
             ->whereNull('removed_at')
             ->with('tyre')
             ->get();
 
-        return collect(TyrePosition::cases())->map(function (TyrePosition $position) use ($installations): array {
+        return collect($this->positionCatalog->positionsForVehicle($vehicle))->map(function (array $slot) use ($installations): array {
             $installation = $installations->first(
-                fn (TyreInstallation $row) => ($row->position_code instanceof TyrePosition
-                    ? $row->position_code->value
-                    : $row->position_code) === $position->value
+                fn (TyreInstallation $row) => (string) $row->position_code === $slot['code']
             );
 
             $tyre = $installation?->tyre;
@@ -302,11 +304,12 @@ class TyreService
             $stintKm = $installation ? $this->lifeCalculator->activeStintKm($installation) : 0;
 
             return [
-                'position' => $position->value,
-                'position_label' => $position->label(),
+                'position' => $slot['code'],
+                'position_label' => $slot['label'],
                 'installation_id' => $installation?->id,
                 'is_empty' => $installation === null,
-                'is_spare' => $position === TyrePosition::Spare,
+                'is_spare' => $slot['is_spare'],
+                'axle' => $slot['axle'],
                 'tyre' => $tyre ? [
                     'id' => $tyre->id,
                     'serial_number' => $tyre->serial_number,
@@ -345,11 +348,17 @@ class TyreService
         );
     }
 
-    private function assertPositionAvailable(string $vehicleId, TyrePosition $position, ?string $exceptInstallationId): void
+    private function assertPositionAvailable(Vehicle $vehicle, string $positionCode, ?string $exceptInstallationId): void
     {
+        if (! $this->positionCatalog->isAllowedOnVehicle($vehicle, $positionCode)) {
+            throw ValidationException::withMessages([
+                'position_code' => 'This position is not valid for the selected truck layout.',
+            ]);
+        }
+
         $query = TyreInstallation::query()
-            ->where('vehicle_id', $vehicleId)
-            ->where('position_code', $position->value)
+            ->where('vehicle_id', $vehicle->id)
+            ->where('position_code', $positionCode)
             ->whereNull('removed_at');
 
         if ($exceptInstallationId !== null) {

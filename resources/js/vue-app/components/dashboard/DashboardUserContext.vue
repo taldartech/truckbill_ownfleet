@@ -130,7 +130,7 @@ function formatId(value) {
     font-size: 0.7rem;
     word-break: break-all;
     color: var(--brand-primary, #2563eb);
-    background: rgba(37, 99, 235, 0.08);
+    background: rgba(47, 179, 111, 0.08);
     padding: 0.15rem 0.35rem;
     border-radius: 0.25rem;
 }

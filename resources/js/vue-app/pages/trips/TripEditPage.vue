@@ -135,7 +135,7 @@ function handleReturnToStart() {
 
 async function loadLookups() {
     [vehicles.value, drivers.value, stations.value] = await Promise.all([
-        listAllVehicles(),
+        listAllVehicles({ activeOnly: true }),
         listAllDrivers({ activeOnly: true }),
         listAllStations(),
     ]);

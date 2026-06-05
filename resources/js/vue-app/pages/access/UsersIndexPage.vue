@@ -1,14 +1,15 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">{{ pageTitle }}</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" :label="addButtonLabel" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader :title="pageTitle">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div class="card">
+        <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">{{ listTitle }}</h3>
             </div>
@@ -52,32 +53,19 @@
                     </tbody>
                 </table>
             </div>
-            <div v-if="pagination.lastPage > 1" class="card-footer d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }}
-                </small>
-                <div class="btn-group btn-group-sm">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage <= 1"
-                        @click="goToPage(pagination.currentPage - 1)"
-                    >
-                        Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled>
-                        Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        :disabled="loading || pagination.currentPage >= pagination.lastPage"
-                        @click="goToPage(pagination.currentPage + 1)"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <AppIndexPaginationFooter
+                page-id="usersIndex"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="users"
+                @page-change="goToPage"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <UserFormModal
@@ -109,7 +97,10 @@ import {
 import UserFormModal from '../../components/access/UserFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
@@ -124,9 +115,6 @@ const pageTitle = computed(() =>
 );
 const listTitle = computed(() =>
     managesSuperAdmins.value ? 'Super Admins List' : 'Company Users List',
-);
-const addButtonLabel = computed(() =>
-    managesSuperAdmins.value ? 'Add Super Admin' : 'Add User',
 );
 const showCompanyColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
 const tableColspan = computed(() => {
@@ -154,14 +142,7 @@ const showForm = ref(false);
 const formMode = ref('create');
 const editingUser = ref(null);
 const flash = reactive({ success: '', error: '' });
-const pagination = reactive({
-    currentPage: 1,
-    perPage: 15,
-    lastPage: 1,
-    total: 0,
-    from: 0,
-    to: 0,
-});
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
 function showToast(message, type = 'success') {
     flash.success = type === 'success' ? message : '';
@@ -175,14 +156,11 @@ async function loadUsers(page = pagination.currentPage) {
     try {
         const response = await listManagedUsers({ page, per_page: pagination.perPage });
         users.value = response.data ?? [];
-        pagination.currentPage = response.meta?.current_page ?? page;
-        pagination.lastPage = response.meta?.last_page ?? 1;
-        pagination.total = response.meta?.total ?? users.value.length;
-        pagination.from = response.meta?.from ?? (users.value.length > 0 ? 1 : 0);
-        pagination.to = response.meta?.to ?? users.value.length;
+        syncFromMeta(response.meta, users.value.length);
     } catch {
         showToast('Could not load users.', 'error');
         users.value = [];
+        resetPagination();
     } finally {
         loading.value = false;
     }
@@ -209,6 +187,12 @@ function goToPage(page) {
     }
 
     loadUsers(page);
+}
+
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    pagination.currentPage = 1;
+    loadUsers(1);
 }
 
 function openCreate() {

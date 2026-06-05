@@ -1,14 +1,24 @@
 export function extractValidationErrors(error) {
-    if (error?.response?.status !== 422) {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+
+    if (status === 422) {
+        return {
+            fieldErrors: data?.errors ?? {},
+            message: data?.message ?? null,
+        };
+    }
+
+    if (typeof data?.message === 'string' && data.message.length > 0) {
         return {
             fieldErrors: {},
-            message: null,
+            message: data.message,
         };
     }
 
     return {
-        fieldErrors: error.response.data?.errors ?? {},
-        message: error.response.data?.message ?? null,
+        fieldErrors: {},
+        message: null,
     };
 }
 

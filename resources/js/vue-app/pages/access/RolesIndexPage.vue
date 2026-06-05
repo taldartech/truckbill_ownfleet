@@ -1,13 +1,11 @@
 <template>
-    <div class="container mt-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Role Management</h3>
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Role Management" />
 
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div class="card">
+        <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">Roles List</h3>
             </div>
@@ -64,6 +62,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { listUserRoles, syncRolePermissions } from '../../api/userRoles';
 import RolePermissionsModal from '../../components/access/RolePermissionsModal.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';

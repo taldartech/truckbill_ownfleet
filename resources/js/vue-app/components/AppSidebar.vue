@@ -22,7 +22,7 @@
                         </li>
                         <li v-else class="nav-item" :class="{ 'menu-open': isSubmenuOpen(index, item) }">
                             <a href="#" class="nav-link" @click.prevent="toggleSubmenu(index)">
-                                <i :class="item.icon"></i>
+                                <i :class="item.icon" class="nav-icon"></i>
                                 <p>
                                     {{ item.label }}
                                     <i class="nav-arrow bi bi-chevron-right"></i>

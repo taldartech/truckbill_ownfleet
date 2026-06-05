@@ -165,6 +165,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
             Route::post('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'store'])->name('vehicles.store');
             Route::get('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'show'])->name('vehicles.show');
             Route::put('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'update'])->name('vehicles.update');
+            Route::patch('/vehicles/{vehicle}/status', [\App\Http\Controllers\Api\VehicleController::class, 'toggleStatus'])
+                ->name('vehicles.toggle-status');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
             Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
@@ -222,6 +224,8 @@ Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+
+            Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
             Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
             Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);

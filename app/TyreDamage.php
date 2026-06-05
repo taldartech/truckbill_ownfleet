@@ -5,7 +5,6 @@ namespace App;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\TyreDamageType;
-use App\Enums\TyrePosition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -30,7 +29,6 @@ class TyreDamage extends Model
     protected function casts(): array
     {
         return [
-            'position_code' => TyrePosition::class,
             'damage_type' => TyreDamageType::class,
             'occurred_at' => 'date',
             'km_at_occurrence' => 'decimal:2',
