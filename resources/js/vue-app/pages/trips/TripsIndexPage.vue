@@ -136,6 +136,7 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { friendlyApiErrorMessage } from '../../utils/formErrors';
 
 const route = useRoute();
 const router = useRouter();
@@ -280,7 +281,10 @@ async function loadTrips(page = 1) {
         trips.value = result.data;
         syncFromMeta(result.meta, trips.value.length);
     } catch (error) {
-        flash.error = applyApiError(error, 'Failed to load trips.');
+        if (!applyApiError(error, 'Failed to load trips.')) {
+            flash.error = friendlyApiErrorMessage(error, 'Failed to load trips.');
+            toast.error(flash.error);
+        }
     } finally {
         loading.value = false;
     }
@@ -300,7 +304,10 @@ async function handleDelete(trip) {
         flash.success = 'Trip deleted.';
         await loadTrips(pagination.currentPage);
     } catch (error) {
-        flash.error = applyApiError(error, 'Failed to delete trip.');
+        if (!applyApiError(error, 'Failed to delete trip.')) {
+            flash.error = friendlyApiErrorMessage(error, 'Failed to delete trip.');
+            toast.error(flash.error);
+        }
     }
 }
 

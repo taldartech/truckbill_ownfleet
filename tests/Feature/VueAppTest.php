@@ -12,6 +12,13 @@ class VueAppTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seedRolesAndPermissions();
+    }
+
     public function test_guest_can_view_vue_login_page(): void
     {
         $this->get('/app/login')
@@ -106,16 +113,12 @@ class VueAppTest extends TestCase
             ->getJson('/app/dashboard/stats')
             ->assertOk()
             ->assertJsonStructure([
-                'monthlyStats' => [
-                    'total_bookings',
-                    'active_trips',
-                    'outstanding_amount',
+                'fleet' => [
+                    'vehicles_count',
+                    'drivers_count',
+                    'present_today_count',
                 ],
-                'invoicePaymentStatuses' => [
-                    'pending',
-                    'partial',
-                    'paid',
-                ],
+                'generated_at',
             ]);
     }
 

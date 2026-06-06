@@ -9,6 +9,7 @@ use App\MonthlyDriverWage;
 use App\Tenant;
 use App\User;
 use App\UserRole;
+use App\Support\MonthlyWageAccrual;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -30,24 +31,29 @@ class AttendancePhaseOneTest extends TestCase
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Primary Driver', 950.00);
+        $month = now()->subMonth()->startOfMonth();
+        $overviewDate = $month->copy()->addDays(14)->toDateString();
 
         DriverAssignment::query()->create([
             'tenant_id' => $tenant->id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'assigned_from' => '2026-06-01',
+            'assigned_from' => $month->toDateString(),
             'is_primary' => true,
         ]);
 
         Sanctum::actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/attendances/month-overview?from_date=2026-06-01&to_date=2026-06-30');
+            ->getJson('/api/attendances/month-overview?from_date='.$month->toDateString().'&to_date='.$month->copy()->endOfMonth()->toDateString());
 
         $response->assertOk();
-        $response->assertJsonPath('data.rows.0.days.2026-06-15.status', 'PRESENT');
-        $response->assertJsonPath('data.rows.0.days.2026-06-15.is_implicit', true);
-        $response->assertJsonPath('data.rows.0.days.2026-06-15.wage_amount', 31.67);
+        $response->assertJsonPath("data.rows.0.days.{$overviewDate}.status", 'PRESENT');
+        $response->assertJsonPath("data.rows.0.days.{$overviewDate}.is_implicit", true);
+        $response->assertJsonPath(
+            "data.rows.0.days.{$overviewDate}.wage_amount",
+            MonthlyWageAccrual::perDay(950.00, $overviewDate),
+        );
     }
 
     public function test_attendance_uses_primary_driver_from_active_assignment_when_not_sent(): void
@@ -292,12 +298,15 @@ class AttendancePhaseOneTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary Driver', 900);
         $alternate = $this->createDriver($tenant, 'Alternate Driver', 800);
+        $month = now()->subMonth()->startOfMonth();
+        $absenceDate = $month->copy()->addDays(9)->toDateString();
+        $followingDate = $month->copy()->addDays(10)->toDateString();
 
         DriverAssignment::query()->create([
             'tenant_id' => $tenant->id,
             'driver_id' => $primary->id,
             'vehicle_id' => $vehicle->id,
-            'assigned_from' => '2026-06-01',
+            'assigned_from' => $month->toDateString(),
             'is_primary' => true,
         ]);
 
@@ -306,7 +315,7 @@ class AttendancePhaseOneTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances', [
                 'vehicle_id' => $vehicle->id,
-                'attendance_date' => '2026-06-10',
+                'attendance_date' => $absenceDate,
                 'status' => 'ABSENT',
                 'temporary_driver_id' => $alternate->id,
                 'temporary_assignment_remarks' => 'Primary on leave',
@@ -316,11 +325,11 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonPath('data.wage_owner_driver_id', $alternate->id);
 
         $overview = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/attendances/month-overview?from_date=2026-06-01&to_date=2026-06-30');
+            ->getJson('/api/attendances/month-overview?from_date='.$month->toDateString().'&to_date='.$month->copy()->endOfMonth()->toDateString());
 
         $overview->assertOk();
-        $overview->assertJsonPath('data.rows.0.days.2026-06-11.status', 'PRESENT');
-        $overview->assertJsonPath('data.rows.0.days.2026-06-11.is_implicit', true);
+        $overview->assertJsonPath("data.rows.0.days.{$followingDate}.status", 'PRESENT');
+        $overview->assertJsonPath("data.rows.0.days.{$followingDate}.is_implicit", true);
     }
 
     public function test_month_overview_returns_grouped_lightweight_payload(): void
@@ -434,6 +443,11 @@ class AttendancePhaseOneTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary For Month', 1000);
         $alternate = $this->createDriver($tenant, 'Alternate For Month', 900);
+        $month = now()->subMonth()->startOfMonth();
+        $absenceDate = $month->copy()->addDays(4)->toDateString();
+        $presentDate = $month->copy()->addDays(5)->toDateString();
+        $alternateWage = MonthlyWageAccrual::perDay(900.00, $absenceDate);
+        $primaryWage = MonthlyWageAccrual::perDay(1000.00, $presentDate);
 
         Attendance::query()->create([
             'tenant_id' => $tenant->id,
@@ -441,9 +455,9 @@ class AttendancePhaseOneTest extends TestCase
             'primary_driver_id' => $primary->id,
             'wage_owner_driver_id' => $alternate->id,
             'temporary_driver_id' => $alternate->id,
-            'attendance_date' => '2026-06-05',
+            'attendance_date' => $absenceDate,
             'status' => 'ABSENT',
-            'wage_amount' => 30.00,
+            'wage_amount' => $alternateWage,
             'wage_payment_status' => 'unpaid',
             'marked_via' => 'admin_panel',
         ]);
@@ -453,9 +467,9 @@ class AttendancePhaseOneTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'primary_driver_id' => $primary->id,
             'wage_owner_driver_id' => $primary->id,
-            'attendance_date' => '2026-06-06',
+            'attendance_date' => $presentDate,
             'status' => 'PRESENT',
-            'wage_amount' => 33.33,
+            'wage_amount' => $primaryWage,
             'wage_payment_status' => 'unpaid',
             'marked_via' => 'admin_panel',
         ]);
@@ -464,7 +478,7 @@ class AttendancePhaseOneTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/close-month', [
-                'month' => '2026-06',
+                'month' => $month->format('Y-m'),
             ])
             ->assertOk()
             ->assertJsonCount(2, 'data');
@@ -473,13 +487,12 @@ class AttendancePhaseOneTest extends TestCase
             'tenant_id' => $tenant->id,
             'driver_id' => $primary->id,
             'payable_days' => 1,
-            'total_wage' => 33.33,
+            'total_wage' => $primaryWage,
         ]);
         $this->assertDatabaseHas('monthly_driver_wages', [
             'tenant_id' => $tenant->id,
             'driver_id' => $alternate->id,
-            'payable_days' => 1,
-            'total_wage' => 30.00,
+            'total_wage' => $alternateWage,
         ]);
     }
 

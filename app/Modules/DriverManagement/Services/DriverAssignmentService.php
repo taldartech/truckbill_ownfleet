@@ -6,6 +6,7 @@ use App\DriverAssignment;
 use App\Modules\DriverManagement\Repositories\DriverAssignmentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class DriverAssignmentService
@@ -18,6 +19,16 @@ class DriverAssignmentService
     }
 
     public function create(array $data): DriverAssignment
+    {
+        return DB::transaction(function () use ($data): DriverAssignment {
+            return $this->createAssignment($data);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function createAssignment(array $data): DriverAssignment
     {
         $isPrimary = (bool) ($data['is_primary'] ?? true);
         $assignedFrom = Carbon::parse($data['assigned_from'])->toDateString();
@@ -43,6 +54,16 @@ class DriverAssignmentService
     }
 
     public function update(DriverAssignment $driverAssignment, array $data): DriverAssignment
+    {
+        return DB::transaction(function () use ($driverAssignment, $data): DriverAssignment {
+            return $this->updateAssignment($driverAssignment, $data);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function updateAssignment(DriverAssignment $driverAssignment, array $data): DriverAssignment
     {
         $merged = [
             'vehicle_id' => $data['vehicle_id'] ?? $driverAssignment->vehicle_id,

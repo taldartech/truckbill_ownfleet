@@ -81,7 +81,7 @@ Route::middleware('guest')->group(function () {
     Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
 });
 
-Route::middleware('auth')->prefix('app')->name('app.')->group(function () {
+Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(function () {
     Route::get('/user', function () {
         $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant']);
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\City;
 use App\Driver;
+use App\DriverAssignment;
 use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
 use App\Modules\TripManagement\Services\TripService;
@@ -234,6 +235,14 @@ class TripManagementTest extends TestCase
             'phone' => '9876543210',
             'daily_wage' => 900,
             'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
         ]);
 
         $cityA = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();

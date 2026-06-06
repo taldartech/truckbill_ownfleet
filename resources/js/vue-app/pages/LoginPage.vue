@@ -134,6 +134,7 @@ onMounted(async () => {
 
 async function handleLogin(event) {
     error.value = '';
+    submitting.value = true;
 
     try {
         const token = (await refreshCsrfToken()) || currentCsrfToken();
@@ -144,11 +145,17 @@ async function handleLogin(event) {
             return;
         }
 
-        event.target.querySelector('input[name="_token"]').value = token;
-        submitting.value = true;
+        const tokenInput = event.target.querySelector('input[name="_token"]');
+
+        if (tokenInput) {
+            tokenInput.value = token;
+        }
+
         event.target.submit();
     } catch {
         error.value = 'Unable to sign in. Please refresh the page and try again.';
+    } finally {
+        submitting.value = false;
     }
 }
 </script>

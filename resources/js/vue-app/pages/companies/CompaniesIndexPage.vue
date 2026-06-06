@@ -2,7 +2,7 @@
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader
             title="Company Management"
-            subtitle="Select a company to work in, or register a new one."
+            
         >
             <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
@@ -35,7 +35,12 @@
                         </thead>
                         <tbody>
                             <tr v-if="companies.length === 0">
-                                <td colspan="8" class="text-center text-muted py-4">No companies yet.</td>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <span v-if="canCreate">
+                                        No companies yet. Use the Create button to register your first company.
+                                    </span>
+                                    <span v-else>No companies yet.</span>
+                                </td>
                             </tr>
                             <tr v-for="(company, index) in companies" :key="company.id">
                                 <td>{{ index + 1 }}</td>

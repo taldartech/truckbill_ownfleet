@@ -29,8 +29,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\EnsurePermission::class,
         ]);
 
-        $middleware->web(append: [
+        $middleware->priority([
+            \Illuminate\Auth\Middleware\Authenticate::class,
+            \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
             \App\Http\Middleware\ResolveTenant::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
 
         $middleware->redirectGuestsTo('/app/login');

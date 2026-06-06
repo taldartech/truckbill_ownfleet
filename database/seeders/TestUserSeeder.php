@@ -18,17 +18,6 @@ class TestUserSeeder extends Seeder
     {
         $this->call(UserRoleSeeder::class);
 
-        $tenant = Tenant::query()->firstOrCreate(
-            ['slug' => 'test-company'],
-            [
-                'name' => 'Test Company',
-                'short_name' => Tenant::ensureUniqueShortName('TESTCO'),
-                'timezone' => 'Asia/Kolkata',
-                'is_active' => true,
-                'is_blocked' => false,
-            ],
-        );
-
         $platformRoles = [
             UserRole::MASTER_ADMIN,
             UserRole::SUPER_ADMIN,
@@ -44,6 +33,26 @@ class TestUserSeeder extends Seeder
 
         foreach ($platformRoles as $roleId) {
             $this->seedUser($roleId, null);
+        }
+
+        $superAdmin = User::query()
+            ->where('email', $this->emailFor(UserRole::SUPER_ADMIN))
+            ->first();
+
+        $tenant = Tenant::query()->firstOrCreate(
+            ['slug' => 'test-company'],
+            [
+                'owner_user_id' => $superAdmin?->id,
+                'name' => 'Test Company',
+                'short_name' => Tenant::ensureUniqueShortName('TESTCO'),
+                'timezone' => 'Asia/Kolkata',
+                'is_active' => true,
+                'is_blocked' => false,
+            ],
+        );
+
+        if ($superAdmin !== null && $tenant->owner_user_id === null) {
+            $tenant->update(['owner_user_id' => $superAdmin->id]);
         }
 
         foreach ($tenantRoles as $roleId) {

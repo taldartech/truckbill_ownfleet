@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Permission;
+use App\Support\SelectedCompanySession;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -108,7 +109,7 @@ class RolePermissionManagementTest extends TestCase
 
         $response = $this->actingAs($master)->deleteJson("/app/api/managed-users/{$target->id}");
 
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 
     public function test_accountant_cannot_access_role_api(): void
@@ -182,6 +183,8 @@ class RolePermissionManagementTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['tenant_id']);
+
+        SelectedCompanySession::set($ownedTenant->id);
 
         $this->actingAs($super)
             ->getJson('/app/api/managed-users')

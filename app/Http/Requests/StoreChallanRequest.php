@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Challan;
 use App\Enums\ChallanPaymentStatus;
+use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,7 +23,14 @@ class StoreChallanRequest extends FormRequest
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
-            'challan_number' => ['required', 'string', 'max:100'],
+            'challan_number' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('challans', 'challan_number')->where(
+                    fn ($query) => $query->where('tenant_id', CurrentTenant::id()),
+                ),
+            ],
             'challan_date' => ['required', 'date'],
             'violation_type' => ['required', 'string', 'max:150'],
             'amount' => ['required', 'numeric', 'min:0'],

@@ -16,6 +16,8 @@ class LocationController extends Controller
 {
     public function countries(): AnonymousResourceCollection
     {
+        $this->authorize('locations.view');
+
         return CountryResource::collection(
             Country::query()->orderBy('name')->get()
         );
@@ -23,6 +25,8 @@ class LocationController extends Controller
 
     public function states(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('locations.view');
+
         $countryId = (int) $request->input('country_id', Country::query()->where('code', 'IN')->value('id') ?? 1);
 
         return StateResource::collection(
@@ -35,6 +39,8 @@ class LocationController extends Controller
 
     public function cities(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('locations.view');
+
         $request->validate([
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'search' => ['nullable', 'string', 'max:120'],

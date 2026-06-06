@@ -23,6 +23,67 @@ class TripValidationService
         'CANCELLED' => [],
     ];
 
+    public function assertTripIsEditable(Trip $trip): void
+    {
+        $current = $trip->status instanceof TripStatus
+            ? $trip->status->value
+            : strtoupper((string) $trip->status);
+
+        if (in_array($current, [TripStatus::Completed->value, TripStatus::Cancelled->value], true)) {
+            throw ValidationException::withMessages([
+                'trip' => ['Completed or cancelled trips cannot be edited.'],
+            ]);
+        }
+    }
+
+    public function assertDriverHasNoOpenTrip(string $driverId, ?string $ignoreTripId = null): void
+    {
+        $query = Trip::query()
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [
+                TripStatus::Created->value,
+                TripStatus::InProgress->value,
+            ]);
+
+        if ($ignoreTripId !== null) {
+            $query->where('id', '!=', $ignoreTripId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'driver_id' => ['This driver already has an open trip. Complete or cancel it before creating another.'],
+            ]);
+        }
+    }
+
+    public function assertDriverAssignedToVehicle(string $vehicleId, string $driverId, ?string $tripStartAt): void
+    {
+        if ($tripStartAt === null) {
+            throw ValidationException::withMessages([
+                'start_at' => ['Trip start date is required to validate driver assignment.'],
+            ]);
+        }
+
+        $date = Carbon::parse($tripStartAt)->toDateString();
+
+        $assigned = DriverAssignment::query()
+            ->where('vehicle_id', $vehicleId)
+            ->where('driver_id', $driverId)
+            ->where('is_primary', true)
+            ->whereDate('assigned_from', '<=', $date)
+            ->where(function ($query) use ($date): void {
+                $query->whereNull('assigned_to')
+                    ->orWhereDate('assigned_to', '>=', $date);
+            })
+            ->exists();
+
+        if (! $assigned) {
+            throw ValidationException::withMessages([
+                'driver_id' => ['Selected driver is not assigned to this vehicle on the trip start date.'],
+            ]);
+        }
+    }
+
     public function assertVehicleHasNoOpenTrip(string $vehicleId, ?string $ignoreTripId = null): void
     {
         $query = Trip::query()

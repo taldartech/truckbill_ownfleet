@@ -159,11 +159,17 @@ class TyreService
                 ]);
             }
 
+            $installation = TyreInstallation::query()
+                ->whereKey($installation->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $conflictingInstallation = TyreInstallation::query()
                 ->where('vehicle_id', $vehicle->id)
                 ->where('position_code', $newPositionCode)
                 ->whereNull('removed_at')
                 ->where('id', '!=', $installation->id)
+                ->lockForUpdate()
                 ->first();
 
             $rotationCost = (float) ($data['cost'] ?? 0);
@@ -191,6 +197,8 @@ class TyreService
                     'km_at_rotation' => $data['km_at_rotation'] ?? null,
                 ]);
 
+                $swapBufferPosition = '__SWAP__'.$installation->id;
+                $installation->update(['position_code' => $swapBufferPosition]);
                 $conflictingInstallation->update(['position_code' => $previousCode]);
             }
 
@@ -405,7 +413,7 @@ class TyreService
             $query->where('id', '!=', $exceptInstallationId);
         }
 
-        if ($query->exists()) {
+        if ($query->lockForUpdate()->exists()) {
             throw ValidationException::withMessages([
                 'position_code' => 'Another tyre is already assigned to this position on the vehicle.',
             ]);

@@ -6,6 +6,7 @@ use App\Attendance;
 use App\Challan;
 use App\City;
 use App\Driver;
+use App\Emi;
 use App\DriverAssignment;
 use App\Permission;
 use App\Policies\AttendancePolicy;
@@ -13,6 +14,7 @@ use App\Policies\ChallanPolicy;
 use App\Policies\CityPolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
+use App\Policies\EmiPolicy;
 use App\Policies\ManagedUserPolicy;
 use App\Policies\PermissionPolicy;
 use App\Policies\StatePolicy;
@@ -69,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(Challan::class, ChallanPolicy::class);
+        Gate::policy(Emi::class, EmiPolicy::class);
         Gate::policy(Driver::class, DriverPolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
         Gate::policy(DriverAssignment::class, DriverAssignmentPolicy::class);

@@ -10,6 +10,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class VehicleResource extends JsonResource
 {
     /**
+     * @var array<string, string>
+     */
+    private static array $tyreLayoutLabelCache = [];
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -50,11 +55,19 @@ class VehicleResource extends JsonResource
 
     private function resolveTyreLayoutLabel(): string
     {
+        $cacheKey = $this->tenant_id.'|'.($this->tyre_layout ?? TyreLayoutDefaults::defaultCode());
+
+        if (isset(self::$tyreLayoutLabelCache[$cacheKey])) {
+            return self::$tyreLayoutLabelCache[$cacheKey];
+        }
+
         $layout = TyreLayout::query()
             ->where('tenant_id', $this->tenant_id)
             ->where('code', $this->tyre_layout)
             ->first();
 
-        return $layout?->name ?? (string) ($this->tyre_layout ?? TyreLayoutDefaults::defaultCode());
+        self::$tyreLayoutLabelCache[$cacheKey] = $layout?->name ?? (string) ($this->tyre_layout ?? TyreLayoutDefaults::defaultCode());
+
+        return self::$tyreLayoutLabelCache[$cacheKey];
     }
 }

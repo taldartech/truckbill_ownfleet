@@ -53,7 +53,9 @@ class TripService
 
             $this->tripValidation->assertVehicleExists($vehicleId);
             $this->tripValidation->assertDriverIsActive($driverId);
+            $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
             $this->tripValidation->assertVehicleHasNoOpenTrip($vehicleId);
+            $this->tripValidation->assertDriverHasNoOpenTrip($driverId);
             $this->tripValidation->assertRouteLegsAreValid($routeLegs, isset($data['start_station_id']) ? (int) $data['start_station_id'] : null);
             $this->tripValidation->assertNoDuplicateTripWindow(
                 $vehicleId,
@@ -95,6 +97,8 @@ class TripService
     public function update(Trip $trip, array $data, ?string $userId = null): Trip
     {
         return DB::transaction(function () use ($trip, $data, $userId): Trip {
+            $this->tripValidation->assertTripIsEditable($trip);
+
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
             $expenses = $data['expenses'] ?? null;
@@ -115,6 +119,11 @@ class TripService
             if (isset($data['driver_id'])) {
                 $this->tripValidation->assertDriverIsActive($driverId);
             }
+
+            $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
+
+            $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $tripStartAt);
+            $this->tripValidation->assertDriverHasNoOpenTrip($driverId, $trip->id);
 
             if ($routeLegs !== null) {
                 $startStationId = isset($data['start_station_id'])

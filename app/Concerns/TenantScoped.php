@@ -17,9 +17,14 @@ trait TenantScoped
 
         static::addGlobalScope('tenant', function (Builder $builder): void {
             $tenantId = TenantContext::tenantId();
-            if ($tenantId !== null) {
-                $builder->where($builder->getModel()->getTable().'.tenant_id', $tenantId);
+
+            if ($tenantId === null) {
+                $builder->whereRaw('0 = 1');
+
+                return;
             }
+
+            $builder->where($builder->getModel()->getTable().'.tenant_id', $tenantId);
         });
     }
 }

@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Challan;
 use App\Emi;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreChallanRequest;
 use App\Http\Requests\StoreEmiRequest;
 use Illuminate\Http\JsonResponse;
 
-class ComplianceController
+class ComplianceController extends Controller
 {
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', Challan::class);
+        $this->authorize('viewAny', Emi::class);
+
         return response()->json([
             'challans' => Challan::query()->latest()->paginate(),
             'emis' => Emi::query()->latest()->paginate(),

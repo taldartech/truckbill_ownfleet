@@ -3,7 +3,6 @@
 namespace App;
 
 use App\Concerns\HasPermissions;
-use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Support\SelectedCompanySession;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +16,6 @@ class User extends Authenticatable
     use HasApiTokens;
     use HasPermissions;
     use Notifiable;
-    use TenantScoped;
     use UsesUuid;
 
     private ?string $cachedEffectiveTenantId = null;

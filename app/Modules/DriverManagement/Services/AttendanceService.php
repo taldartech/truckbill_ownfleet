@@ -17,6 +17,7 @@ use App\Support\MonthlyWageAccrual;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceService
@@ -77,75 +78,83 @@ class AttendanceService
      */
     public function closeMonth(string $month, ?string $actorId = null): Collection
     {
-        [$monthStart, $monthEnd] = $this->monthBoundaries($month);
-        $tenantId = CurrentTenant::requireId();
+        return DB::transaction(function () use ($month, $actorId): Collection {
+            [$monthStart, $monthEnd] = $this->monthBoundaries($month);
+            $tenantId = CurrentTenant::requireId();
 
-        $driverStats = $this->attendanceCalendar->driverPrimaryDayStats($monthStart, $monthEnd);
-        $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
-        $calendarDays = (int) Carbon::parse($monthStart)->daysInMonth;
-        $driverIds = collect(array_keys($driverStats))
-            ->merge(array_keys($substituteEarnings))
-            ->unique()
-            ->values();
-        $activeDriverIds = [];
+            AttendanceMonthLock::query()
+                ->where('tenant_id', $tenantId)
+                ->whereDate('month', $monthStart)
+                ->lockForUpdate()
+                ->first();
 
-        foreach ($driverIds as $driverId) {
-            $stats = $driverStats[$driverId] ?? ['present' => 0, 'absent' => 0, 'leave' => 0, 'payable_days' => 0];
-            $substitute = $substituteEarnings[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
+            $driverStats = $this->attendanceCalendar->driverPrimaryDayStats($monthStart, $monthEnd);
+            $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
+            $calendarDays = (int) Carbon::parse($monthStart)->daysInMonth;
+            $driverIds = collect(array_keys($driverStats))
+                ->merge(array_keys($substituteEarnings))
+                ->unique()
+                ->values();
+            $activeDriverIds = [];
 
-            if (((int) $stats['present'] + (int) $stats['absent'] + (int) $stats['leave']) === 0 && $substitute['days'] === 0) {
-                continue;
+            foreach ($driverIds as $driverId) {
+                $stats = $driverStats[$driverId] ?? ['present' => 0, 'absent' => 0, 'leave' => 0, 'payable_days' => 0];
+                $substitute = $substituteEarnings[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
+
+                if (((int) $stats['present'] + (int) $stats['absent'] + (int) $stats['leave']) === 0 && $substitute['days'] === 0) {
+                    continue;
+                }
+
+                $activeDriverIds[] = $driverId;
+
+                $monthlyWage = MonthlyDriverWage::query()->firstOrNew([
+                    'tenant_id' => $tenantId,
+                    'driver_id' => $driverId,
+                    'month' => $monthStart,
+                ]);
+
+                $isPaid = $monthlyWage->exists && $monthlyWage->payment_status === WagePaymentStatus::Paid;
+
+                if (! $monthlyWage->exists) {
+                    $monthlyWage->created_by = $actorId;
+                }
+
+                if (! $isPaid) {
+                    $monthlyWage->payment_status = WagePaymentStatus::Unpaid->value;
+                    $monthlyWage->paid_at = null;
+                }
+
+                $monthlyWage->closed_at = now();
+                $monthlyWage->updated_by = $actorId;
+
+                $driver = Driver::query()->find($driverId);
+
+                if ($driver !== null) {
+                    $this->monthlySettlementService->applySettlementDefaults(
+                        $monthlyWage,
+                        $driver,
+                        $stats,
+                        $calendarDays,
+                        $substitute,
+                    );
+                }
+
+                $monthlyWage->save();
             }
 
-            $activeDriverIds[] = $driverId;
+            MonthlyDriverWage::query()
+                ->whereDate('month', $monthStart)
+                ->where('payment_status', WagePaymentStatus::Unpaid->value)
+                ->when(
+                    count($activeDriverIds) > 0,
+                    fn ($query) => $query->whereNotIn('driver_id', $activeDriverIds),
+                )
+                ->delete();
 
-            $monthlyWage = MonthlyDriverWage::query()->firstOrNew([
-                'tenant_id' => $tenantId,
-                'driver_id' => $driverId,
-                'month' => $monthStart,
-            ]);
+            $this->monthLockService->closeMonth($month, $actorId);
 
-            $isPaid = $monthlyWage->exists && $monthlyWage->payment_status === WagePaymentStatus::Paid;
-
-            if (! $monthlyWage->exists) {
-                $monthlyWage->created_by = $actorId;
-            }
-
-            if (! $isPaid) {
-                $monthlyWage->payment_status = WagePaymentStatus::Unpaid->value;
-                $monthlyWage->paid_at = null;
-            }
-
-            $monthlyWage->closed_at = now();
-            $monthlyWage->updated_by = $actorId;
-
-            $driver = Driver::query()->find($driverId);
-
-            if ($driver !== null) {
-                $this->monthlySettlementService->applySettlementDefaults(
-                    $monthlyWage,
-                    $driver,
-                    $stats,
-                    $calendarDays,
-                    $substitute,
-                );
-            }
-
-            $monthlyWage->save();
-        }
-
-        MonthlyDriverWage::query()
-            ->whereDate('month', $monthStart)
-            ->where('payment_status', WagePaymentStatus::Unpaid->value)
-            ->when(
-                count($activeDriverIds) > 0,
-                fn ($query) => $query->whereNotIn('driver_id', $activeDriverIds),
-            )
-            ->delete();
-
-        $this->monthLockService->closeMonth($month, $actorId);
-
-        return $this->listMonthlyWages($month);
+            return $this->listMonthlyWages($month);
+        });
     }
 
     public function lockMonth(string $month, ?string $actorId = null): AttendanceMonthLock
@@ -168,39 +177,50 @@ class AttendanceService
      */
     public function markAllMonthlyWagesPaid(string $month, ?string $actorId = null, ?string $paymentNotes = null): Collection
     {
-        [$monthStart] = $this->monthBoundaries($month);
-        $status = $this->monthLockService->statusForMonth($month);
+        return DB::transaction(function () use ($month, $actorId, $paymentNotes): Collection {
+            [$monthStart] = $this->monthBoundaries($month);
+            $tenantId = CurrentTenant::requireId();
+            $status = $this->monthLockService->statusForMonth($month);
 
-        if ($status === AttendanceMonthStatus::Open) {
-            throw ValidationException::withMessages([
-                'month' => ['Close the month before marking monthly payments.'],
-            ]);
-        }
+            if ($status === AttendanceMonthStatus::Open) {
+                throw ValidationException::withMessages([
+                    'month' => ['Close the month before marking monthly payments.'],
+                ]);
+            }
 
-        $unpaid = MonthlyDriverWage::query()
-            ->whereDate('month', $monthStart)
-            ->where('payment_status', WagePaymentStatus::Unpaid->value)
-            ->get();
+            AttendanceMonthLock::query()
+                ->where('tenant_id', $tenantId)
+                ->whereDate('month', $monthStart)
+                ->lockForUpdate()
+                ->first();
 
-        foreach ($unpaid as $monthlyDriverWage) {
-            if ((float) $monthlyDriverWage->total_wage > 0) {
-                $this->markMonthlyWagePaid($monthlyDriverWage, [
+            $unpaid = MonthlyDriverWage::query()
+                ->where('tenant_id', $tenantId)
+                ->whereDate('month', $monthStart)
+                ->where('payment_status', WagePaymentStatus::Unpaid->value)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($unpaid as $monthlyDriverWage) {
+                if ((float) $monthlyDriverWage->total_wage > 0) {
+                    $this->markMonthlyWagePaid($monthlyDriverWage, [
+                        'payment_notes' => $paymentNotes,
+                        'updated_by' => $actorId,
+                    ]);
+
+                    continue;
+                }
+
+                $monthlyDriverWage->update([
+                    'payment_status' => WagePaymentStatus::Paid,
+                    'paid_at' => now(),
                     'payment_notes' => $paymentNotes,
                     'updated_by' => $actorId,
                 ]);
-
-                continue;
             }
 
-            $monthlyDriverWage->update([
-                'payment_status' => WagePaymentStatus::Paid,
-                'paid_at' => now(),
-                'payment_notes' => $paymentNotes,
-                'updated_by' => $actorId,
-            ]);
-        }
-
-        return $this->listMonthlyWages($month);
+            return $this->listMonthlyWages($month);
+        });
     }
 
     public function mark(array $payload): Attendance

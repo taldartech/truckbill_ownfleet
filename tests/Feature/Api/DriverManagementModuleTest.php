@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Driver;
 use App\DriverAssignment;
+use App\Support\TenantContext;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -87,9 +88,11 @@ class DriverManagementModuleTest extends TestCase
 
         $this->createDriver($tenant, 'Alpha Driver', 800);
         $this->createDriver($tenant, 'Beta Driver', 850, null);
-        Driver::query()->where('tenant_id', $tenant->id)->where('name', 'Beta Driver')->update([
+        TenantContext::setTenantId($tenant->id);
+        Driver::query()->where('name', 'Beta Driver')->update([
             'phone' => '9111222333',
         ]);
+        TenantContext::setTenantId(null);
 
         $paginated = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/drivers?per_page=1&page=1');
@@ -124,7 +127,7 @@ class DriverManagementModuleTest extends TestCase
         $response = $this->withHeader('X-Tenant-Id', $tenantA->id)
             ->getJson("/api/drivers/{$driverB->id}");
 
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 
     public function test_attendance_marking_sets_wage_owner_driver_and_wage_amount(): void
