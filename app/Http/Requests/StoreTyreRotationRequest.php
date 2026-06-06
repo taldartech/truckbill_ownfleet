@@ -33,6 +33,7 @@ class StoreTyreRotationRequest extends FormRequest
                 new TyrePositionAllowedOnVehicle($vehicleId),
             ],
             'reason' => ['nullable', 'string', 'max:1000'],
+            'cost' => ['required', 'numeric', 'min:0'],
             'km_at_rotation' => ['nullable', 'numeric', 'min:0'],
         ];
     }

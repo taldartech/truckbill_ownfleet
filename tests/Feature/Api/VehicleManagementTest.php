@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Driver;
 use App\DriverAssignment;
 use App\Support\SelectedCompanySession;
+use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -121,6 +122,45 @@ class VehicleManagementTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.registration_number', $unassignedVehicle->registration_number);
+    }
+
+    public function test_admin_cannot_create_vehicle_with_duplicate_registration_number(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        TyreLayoutDefaults::seedForTenant($tenant->id);
+        $this->createVehicle($tenant, 'MH12AB1001');
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'mh12ab1001',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['registration_number'])
+            ->assertJsonPath(
+                'errors.registration_number.0',
+                'This registration number is already in use.',
+            );
+    }
+
+    public function test_admin_cannot_update_vehicle_to_duplicate_registration_number(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        TyreLayoutDefaults::seedForTenant($tenant->id);
+        $this->createVehicle($tenant, 'MH12AB1001');
+        $otherVehicle = $this->createVehicle($tenant, 'MH12AB2002');
+
+        $this->actingAs($admin)
+            ->putJson("/app/api/vehicles/{$otherVehicle->id}", [
+                'registration_number' => 'MH12AB1001',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['registration_number'])
+            ->assertJsonPath(
+                'errors.registration_number.0',
+                'This registration number is already in use.',
+            );
     }
 
     public function test_vehicle_index_can_filter_by_search_type_and_status(): void

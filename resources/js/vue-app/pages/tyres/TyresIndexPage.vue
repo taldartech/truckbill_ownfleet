@@ -45,6 +45,7 @@
                             <th>Size</th>
                             <th>Type</th>
                             <th>Status</th>
+                            <th>Warranty</th>
                             <th>Vehicle / Position</th>
                             <th>Purchase</th>
                             <th v-if="canManage" style="width: 140px">Actions</th>
@@ -52,7 +53,7 @@
                     </thead>
                     <tbody>
                         <tr v-if="tyres.length === 0">
-                            <td :colspan="canManage ? 8 : 7" class="text-center text-muted">No tyres found.</td>
+                            <td :colspan="canManage ? 9 : 8" class="text-center text-muted">No tyres found.</td>
                         </tr>
                         <tr v-for="tyre in tyres" :key="tyre.id">
                             <td>
@@ -62,8 +63,21 @@
                             </td>
                             <td>{{ tyre.brand || '—' }}</td>
                             <td>{{ tyre.size || '—' }}</td>
-                            <td>{{ formatType(tyre.tyre_type) }}</td>
-                            <td><span class="badge bg-secondary">{{ formatStatus(tyre.status) }}</span></td>
+                            <td>{{ formatTyreType(tyre.tyre_type) }}</td>
+                            <td>
+                                <span class="badge" :class="tyreStatusBadgeClass(tyre.status)">
+                                    {{ formatTyreStatus(tyre.status) }}
+                                </span>
+                            </td>
+                            <td class="small">
+                                <template v-if="hasTyreWarranty(tyre)">
+                                    <span class="badge mb-1" :class="warrantyBadgeClass(tyre)">Yes</span>
+                                    <div class="text-muted" :title="formatWarrantyTooltip(tyre)">
+                                        {{ formatWarrantySummary(tyre) }}
+                                    </div>
+                                </template>
+                                <span v-else class="badge" :class="warrantyBadgeClass(tyre)">No</span>
+                            </td>
                             <td>
                                 <template v-if="tyre.active_installation">
                                     {{ tyre.active_installation.vehicle_registration }}
@@ -111,26 +125,62 @@
                         <h5 class="modal-title">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
                         <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                     </div>
-                    <form @submit.prevent="save">
+                    <form novalidate @submit.prevent="save">
                         <div class="modal-body row g-3">
+                            <div v-if="formError" class="col-12">
+                                <div class="alert alert-danger py-2 mb-0">{{ formError }}</div>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label">Tyre Number *</label>
-                                <input v-model="form.serial_number" type="text" class="form-control" required />
+                                <input
+                                    v-model="form.serial_number"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.serial_number }"
+                                    required
+                                />
+                                <div v-if="fieldErrors.serial_number" class="invalid-feedback d-block">
+                                    {{ fieldErrors.serial_number[0] }}
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Brand</label>
-                                <input v-model="form.brand" type="text" class="form-control" />
+                                <input
+                                    v-model="form.brand"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.brand }"
+                                />
+                                <div v-if="fieldErrors.brand" class="invalid-feedback d-block">
+                                    {{ fieldErrors.brand[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Size</label>
-                                <input v-model="form.size" type="text" class="form-control" placeholder="10.00-20" />
+                                <input
+                                    v-model="form.size"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.size }"
+                                    placeholder="10.00-20"
+                                />
+                                <div v-if="fieldErrors.size" class="invalid-feedback d-block">
+                                    {{ fieldErrors.size[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Tyre Type</label>
-                                <select v-model="form.tyre_type" class="form-select">
+                                <select
+                                    v-model="form.tyre_type"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': fieldErrors.tyre_type }"
+                                >
                                     <option value="">—</option>
                                     <option v-for="t in tyreTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
                                 </select>
+                                <div v-if="fieldErrors.tyre_type" class="invalid-feedback d-block">
+                                    {{ fieldErrors.tyre_type[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Purchase Date</label>
@@ -144,9 +194,44 @@
                                 <label class="form-label">Expected life (KM)</label>
                                 <input v-model.number="form.expected_life_km" type="number" min="1000" class="form-control" placeholder="40000" />
                             </div>
-                            <div class="col-md-8">
-                                <label class="form-label">Warranty Details</label>
-                                <input v-model="form.warranty_details" type="text" class="form-control" />
+                            <div class="col-md-4">
+                                <label class="form-label">Warranty Valid Until</label>
+                                <input
+                                    v-model="form.warranty_valid_until"
+                                    type="date"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.warranty_valid_until }"
+                                />
+                                <div v-if="fieldErrors.warranty_valid_until" class="invalid-feedback d-block">
+                                    {{ fieldErrors.warranty_valid_until[0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Warranty KM Limit</label>
+                                <input
+                                    v-model.number="form.warranty_km"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    class="form-control"
+                                    placeholder="e.g. 40000"
+                                    :class="{ 'is-invalid': fieldErrors.warranty_km }"
+                                />
+                                <div v-if="fieldErrors.warranty_km" class="invalid-feedback d-block">
+                                    {{ fieldErrors.warranty_km[0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-text pb-2">Kab tak aur kitne km tak warranty cover kare.</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Warranty Notes</label>
+                                <textarea
+                                    v-model="form.warranty_details"
+                                    class="form-control"
+                                    rows="2"
+                                    placeholder="Dealer name, claim terms, etc."
+                                />
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Notes</label>
@@ -175,30 +260,29 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import {
+    TYRE_STATUSES,
+    TYRE_TYPES,
+    formatTyreStatus,
+    formatTyreType,
+    formatWarrantySummary,
+    formatWarrantyTooltip,
+    hasTyreWarranty,
+    tyreStatusBadgeClass,
+    warrantyBadgeClass,
+} from '../../utils/tyreDisplay';
 
 const router = useRouter();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('tyres.manage'));
 
-const tyreStatuses = [
-    { value: 'IN_STOCK', label: 'In Stock' },
-    { value: 'INSTALLED', label: 'Installed' },
-    { value: 'RETREADED', label: 'Retreaded' },
-    { value: 'DAMAGED', label: 'Damaged' },
-    { value: 'SCRAPPED', label: 'Scrapped' },
-];
-
-const tyreTypes = [
-    { value: 'RADIAL', label: 'Radial' },
-    { value: 'BIAS', label: 'Bias' },
-    { value: 'TUBELESS', label: 'Tubeless' },
-    { value: 'TUBED', label: 'Tubed' },
-    { value: 'OTHER', label: 'Other' },
-];
+const tyreStatuses = TYRE_STATUSES;
+const tyreTypes = TYRE_TYPES;
 
 const tyres = ref([]);
 const loading = ref(true);
@@ -207,6 +291,7 @@ const search = ref('');
 const statusFilter = ref('');
 const showModal = ref(false);
 const editing = ref(null);
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta } = useListPagination(15);
 
 const form = reactive({
@@ -217,6 +302,8 @@ const form = reactive({
     purchase_date: '',
     purchase_cost: 0,
     expected_life_km: 40000,
+    warranty_valid_until: '',
+    warranty_km: null,
     warranty_details: '',
     notes: '',
 });
@@ -237,6 +324,8 @@ function resetForm() {
         purchase_date: '',
         purchase_cost: 0,
         expected_life_km: 40000,
+        warranty_valid_until: '',
+        warranty_km: null,
         warranty_details: '',
         notes: '',
     });
@@ -245,11 +334,13 @@ function resetForm() {
 function openCreate() {
     editing.value = null;
     resetForm();
+    clearErrors();
     showModal.value = true;
 }
 
 function openEdit(tyre) {
     editing.value = tyre;
+    clearErrors();
     Object.assign(form, {
         serial_number: tyre.serial_number,
         brand: tyre.brand ?? '',
@@ -258,6 +349,8 @@ function openEdit(tyre) {
         purchase_date: tyre.purchase_date ?? '',
         purchase_cost: tyre.purchase_cost ?? 0,
         expected_life_km: tyre.expected_life_km ?? 40000,
+        warranty_valid_until: tyre.warranty_valid_until ?? '',
+        warranty_km: tyre.warranty_km ?? null,
         warranty_details: tyre.warranty_details ?? '',
         notes: tyre.notes ?? '',
     });
@@ -266,6 +359,7 @@ function openEdit(tyre) {
 
 function closeModal() {
     showModal.value = false;
+    clearErrors();
 }
 
 function goToDetail(id) {
@@ -299,8 +393,15 @@ async function loadTyres(page = 1) {
 
 async function save() {
     saving.value = true;
+    clearErrors();
+
     try {
-        const payload = { ...form, tyre_type: form.tyre_type || null };
+        const payload = {
+            ...form,
+            tyre_type: form.tyre_type || null,
+            warranty_valid_until: form.warranty_valid_until || null,
+            warranty_km: form.warranty_km === '' || form.warranty_km == null ? null : form.warranty_km,
+        };
         if (editing.value) {
             await updateTyre(editing.value.id, payload);
         } else {
@@ -308,17 +409,11 @@ async function save() {
         }
         closeModal();
         await loadTyres(pagination.currentPage);
+    } catch (error) {
+        applyApiError(error, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;
     }
-}
-
-function formatStatus(status) {
-    return tyreStatuses.find((s) => s.value === status)?.label ?? status ?? '—';
-}
-
-function formatType(type) {
-    return tyreTypes.find((t) => t.value === type)?.label ?? type ?? '—';
 }
 
 function formatMoney(amount) {

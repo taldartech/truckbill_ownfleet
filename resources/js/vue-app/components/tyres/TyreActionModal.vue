@@ -13,11 +13,16 @@
                 </div>
                 <form @submit.prevent="$emit('submit')">
                     <div class="modal-body">
+                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                         <slot />
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('close')">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary" :disabled="saving">
+                            {{ saving ? 'Saving…' : 'Save' }}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -28,6 +33,8 @@
 <script setup>
 defineProps({
     title: { type: String, required: true },
+    formError: { type: String, default: '' },
+    saving: { type: Boolean, default: false },
 });
 
 defineEmits(['close', 'submit']);

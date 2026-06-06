@@ -101,7 +101,7 @@ class TripService
             unset($data['route_legs'], $data['expenses'], $data['trip_number']);
 
             if (isset($data['status'])) {
-                $this->tripValidation->assertStatusTransition($trip, (string) $data['status']);
+                $this->tripValidation->assertStatusTransition($trip, (string) $data['status'], $data);
             }
 
             $vehicleId = (string) ($data['vehicle_id'] ?? $trip->vehicle_id);
@@ -154,13 +154,23 @@ class TripService
                 isset($data['status'])
                 && $oldStatus->value !== ($trip->status->value ?? (string) $trip->status)
             ) {
+                $newStatus = $trip->status->value ?? (string) $trip->status;
+                $changedAt = now();
+
+                if ($newStatus === TripStatus::Cancelled->value && isset($data['cancelled_at'])) {
+                    $changedAt = $data['cancelled_at'];
+                }
+
                 TripStatusHistory::query()->create([
                     'tenant_id' => $trip->tenant_id,
                     'trip_id' => $trip->id,
                     'from_status' => $oldStatus->value,
-                    'to_status' => $trip->status->value,
-                    'changed_at' => now(),
+                    'to_status' => $newStatus,
+                    'changed_at' => $changedAt,
                     'changed_by' => $userId,
+                    'remarks' => $newStatus === TripStatus::Cancelled->value
+                        ? ($data['cancellation_reason'] ?? null)
+                        : null,
                 ]);
             }
 

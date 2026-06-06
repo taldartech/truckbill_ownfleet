@@ -21,6 +21,8 @@ class TyreResource extends JsonResource
             'purchase_date' => $this->purchase_date?->toDateString(),
             'purchase_cost' => (float) $this->purchase_cost,
             'warranty_details' => $this->warranty_details,
+            'warranty_valid_until' => $this->warranty_valid_until?->toDateString(),
+            'warranty_km' => $this->warranty_km !== null ? (float) $this->warranty_km : null,
             'tyre_type' => $this->tyre_type?->value,
             'current_km' => (float) $this->current_km,
             'expected_life_km' => (float) ($this->expected_life_km ?? 40000),

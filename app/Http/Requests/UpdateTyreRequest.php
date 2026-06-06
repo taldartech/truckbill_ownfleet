@@ -40,6 +40,8 @@ class UpdateTyreRequest extends FormRequest
             'purchase_date' => ['sometimes', 'nullable', 'date'],
             'purchase_cost' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'warranty_details' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'warranty_valid_until' => ['sometimes', 'nullable', 'date'],
+            'warranty_km' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'tyre_type' => ['sometimes', 'nullable', Rule::enum(TyreType::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'expected_life_km' => ['sometimes', 'nullable', 'numeric', 'min:1000'],

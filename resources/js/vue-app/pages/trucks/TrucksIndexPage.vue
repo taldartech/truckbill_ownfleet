@@ -222,6 +222,7 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
@@ -248,8 +249,7 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingVehicle = ref(null);
-const fieldErrors = ref({});
-const vehicleFormError = ref('');
+const { fieldErrors, formError: vehicleFormError, clearErrors, applyApiError } = useApiFormErrors();
 const showDocuments = ref(false);
 const documentsVehicle = ref(null);
 const showAssignment = ref(false);
@@ -338,24 +338,21 @@ function clearFilters() {
 function openCreate() {
     formMode.value = 'create';
     editingVehicle.value = null;
-    fieldErrors.value = {};
-    vehicleFormError.value = '';
+    clearErrors();
     showForm.value = true;
 }
 
 function openEdit(vehicle) {
     formMode.value = 'edit';
     editingVehicle.value = { ...vehicle };
-    fieldErrors.value = {};
-    vehicleFormError.value = '';
+    clearErrors();
     showForm.value = true;
 }
 
 function closeForm() {
     showForm.value = false;
     editingVehicle.value = null;
-    fieldErrors.value = {};
-    vehicleFormError.value = '';
+    clearErrors();
 }
 
 function openDocuments(vehicle) {
@@ -387,8 +384,7 @@ async function onAssignmentSaved() {
 
 async function handleSubmit(payload) {
     saving.value = true;
-    fieldErrors.value = {};
-    vehicleFormError.value = '';
+    clearErrors();
 
     try {
         if (formMode.value === 'edit' && editingVehicle.value?.id) {
@@ -402,14 +398,10 @@ async function handleSubmit(payload) {
         closeForm();
         await loadVehicles();
     } catch (error) {
-        if (error.response?.status === 422) {
-            fieldErrors.value = error.response.data.errors ?? {};
-            vehicleFormError.value = error.response.data.message ?? 'Please check the highlighted fields.';
-            return;
-        }
-
-        if (!handleCompanyContextError(error, 'Select a company before saving a truck.')) {
-            showToast('Unable to save truck.', 'error');
+        if (!applyApiError(error, 'Please check the highlighted fields.')) {
+            if (!handleCompanyContextError(error, 'Select a company before saving a truck.')) {
+                showToast('Unable to save truck.', 'error');
+            }
         }
     } finally {
         saving.value = false;

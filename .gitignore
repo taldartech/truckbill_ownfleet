@@ -25,6 +25,9 @@ nbproject/private
 node_modules/
 bower_components/
 
+# Vite build output
+/public/build
+
 # Docs
 /docs/_site/
 /docs/vendor/

@@ -178,7 +178,6 @@ async function handleSubmit() {
 
     try {
         await updateTrip(route.params.id, payload);
-        toast.success('Trip updated successfully.');
         await router.push({ name: 'trips.index', query: { updated: '1' } });
     } catch (error) {
         if (!applyApiError(error, 'Failed to update trip.')) {

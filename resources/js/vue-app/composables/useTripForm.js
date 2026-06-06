@@ -26,6 +26,9 @@ export function useTripForm() {
         status: 'CREATED',
         start_at: '',
         end_at: '',
+        cancelled_at: '',
+        cancellation_reason: '',
+        actual_arrival_at: '',
         route_legs: [],
         expenses: [],
     });
@@ -38,6 +41,9 @@ export function useTripForm() {
         form.status = 'CREATED';
         form.start_at = '';
         form.end_at = '';
+        form.cancelled_at = '';
+        form.cancellation_reason = '';
+        form.actual_arrival_at = '';
         form.route_legs = [];
         form.expenses = [];
     }
@@ -110,6 +116,9 @@ export function useTripForm() {
         form.status = trip.status ?? 'CREATED';
         form.start_at = toDatetimeLocal(trip.start_at);
         form.end_at = toDatetimeLocal(trip.end_at);
+        form.cancelled_at = toDatetimeLocal(trip.cancelled_at);
+        form.cancellation_reason = trip.cancellation_reason ?? '';
+        form.actual_arrival_at = toDatetimeLocal(trip.actual_arrival_at);
         form.route_legs = (trip.route_legs ?? []).map((leg) => ({
             from_station_id: leg.from_station_id ?? '',
             to_station_id: leg.to_station_id ?? '',
@@ -158,6 +167,9 @@ export function useTripForm() {
             status: form.status,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
+            cancelled_at: form.cancelled_at || null,
+            cancellation_reason: form.cancellation_reason || null,
+            actual_arrival_at: form.actual_arrival_at || null,
             route_legs: form.route_legs.map((leg, index) => ({
                 from_station_id: leg.from_station_id,
                 to_station_id: leg.to_station_id,

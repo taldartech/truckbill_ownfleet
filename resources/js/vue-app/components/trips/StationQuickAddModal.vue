@@ -23,22 +23,23 @@
 
                         <div class="mb-3">
                             <label class="form-label">State *</label>
-                            <select v-model="stateId" class="form-select" required>
-                                <option value="">Select state</option>
-                                <option v-for="state in states" :key="state.id" :value="state.id">
-                                    {{ state.name }}
-                                </option>
-                            </select>
+                            <SearchableSelect
+                                v-model="stateId"
+                                :items="states"
+                                placeholder="Select state"
+                                search-placeholder="Search state…"
+                            />
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">City *</label>
-                            <select v-model="cityId" class="form-select" :disabled="!stateId" required>
-                                <option value="">Select city</option>
-                                <option v-for="city in cities" :key="city.id" :value="city.id">
-                                    {{ city.name }}
-                                </option>
-                            </select>
+                            <SearchableSelect
+                                v-model="cityId"
+                                :items="cities"
+                                placeholder="Select city"
+                                search-placeholder="Search city…"
+                                :disabled="!stateId"
+                            />
                         </div>
 
                         <label class="form-label">Station Name *</label>
@@ -60,6 +61,7 @@ import { createStation } from '../../api/stations';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import AppButton from '../ui/AppButton.vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

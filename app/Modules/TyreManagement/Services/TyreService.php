@@ -152,7 +152,21 @@ class TyreService
             }
 
             $vehicle = $installation->vehicle ?? Vehicle::query()->findOrFail($installation->vehicle_id);
-            $this->assertPositionAvailable($vehicle, $newPositionCode, $installation->id);
+
+            if (! $this->positionCatalog->isAllowedOnVehicle($vehicle, $newPositionCode)) {
+                throw ValidationException::withMessages([
+                    'new_position' => 'This position is not valid for the selected truck layout.',
+                ]);
+            }
+
+            $conflictingInstallation = TyreInstallation::query()
+                ->where('vehicle_id', $vehicle->id)
+                ->where('position_code', $newPositionCode)
+                ->whereNull('removed_at')
+                ->where('id', '!=', $installation->id)
+                ->first();
+
+            $rotationCost = (float) ($data['cost'] ?? 0);
 
             $rotation = TyreRotation::query()->create([
                 'tyre_id' => $tyre->id,
@@ -161,10 +175,36 @@ class TyreService
                 'previous_position' => $previousCode,
                 'new_position' => $newPositionCode,
                 'reason' => $data['reason'] ?? null,
+                'cost' => $rotationCost,
                 'km_at_rotation' => $data['km_at_rotation'] ?? null,
             ]);
 
+            if ($conflictingInstallation !== null) {
+                TyreRotation::query()->create([
+                    'tyre_id' => $conflictingInstallation->tyre_id,
+                    'vehicle_id' => $installation->vehicle_id,
+                    'rotation_date' => $data['rotation_date'],
+                    'previous_position' => $newPositionCode,
+                    'new_position' => $previousCode,
+                    'reason' => $data['reason'] ?? null,
+                    'cost' => null,
+                    'km_at_rotation' => $data['km_at_rotation'] ?? null,
+                ]);
+
+                $conflictingInstallation->update(['position_code' => $previousCode]);
+            }
+
             $installation->update(['position_code' => $newPositionCode]);
+
+            if ($rotationCost > 0) {
+                $this->recordExpense(
+                    $tyre,
+                    TyreExpenseType::Rotation,
+                    $rotationCost,
+                    $data['rotation_date'],
+                    $data['reason'] ?? 'Tyre rotation',
+                );
+            }
 
             return $rotation->load('vehicle');
         });

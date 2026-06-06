@@ -62,8 +62,9 @@
                         <h5 class="modal-title">{{ editing ? 'Edit Station' : 'Add Station' }}</h5>
                         <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                     </div>
-                    <form @submit.prevent="save">
+                    <form novalidate @submit.prevent="save">
                         <div class="modal-body">
+                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                             <div class="mb-3">
                                 <label class="form-label">Country</label>
                                 <input type="text" class="form-control" :value="indiaCountry?.name || 'India'" disabled />
@@ -71,27 +72,41 @@
 
                             <div class="mb-3">
                                 <label class="form-label">State *</label>
-                                <select v-model="stateId" class="form-select" required>
-                                    <option value="">Select state</option>
-                                    <option v-for="state in states" :key="state.id" :value="state.id">
-                                        {{ state.name }}
-                                    </option>
-                                </select>
+                                <SearchableSelect
+                                    v-model="stateId"
+                                    :items="states"
+                                    placeholder="Select state"
+                                    search-placeholder="Search state…"
+                                    :invalid="Boolean(fieldErrors.state_id)"
+                                    :error-message="fieldErrors.state_id?.[0]"
+                                />
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">City *</label>
-                                <select v-model="cityId" class="form-select" :disabled="!stateId" required>
-                                    <option value="">Select city</option>
-                                    <option v-for="city in cities" :key="city.id" :value="city.id">
-                                        {{ city.name }}
-                                    </option>
-                                </select>
+                                <SearchableSelect
+                                    v-model="cityId"
+                                    :items="cities"
+                                    placeholder="Select city"
+                                    search-placeholder="Search city…"
+                                    :disabled="!stateId"
+                                    :invalid="Boolean(fieldErrors.city_id)"
+                                    :error-message="fieldErrors.city_id?.[0]"
+                                />
                             </div>
 
                             <div class="mb-0">
                                 <label class="form-label">Station Name *</label>
-                                <input v-model="form.name" type="text" class="form-control" required />
+                                <input
+                                    v-model="form.name"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.name }"
+                                    required
+                                />
+                                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                                    {{ fieldErrors.name[0] }}
+                                </div>
                                 <div class="form-text">Example: Depot, Yard, or local area name.</div>
                             </div>
                         </div>
@@ -114,6 +129,8 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';
 
@@ -138,6 +155,7 @@ const search = ref('');
 const showModal = ref(false);
 const editing = ref(null);
 const form = reactive({ name: '' });
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 let debounceTimer = null;
 
@@ -159,6 +177,7 @@ async function loadStations() {
 async function openCreate() {
     editing.value = null;
     form.name = '';
+    clearErrors();
     resetLocationFields();
     showModal.value = true;
     await initialize();
@@ -167,6 +186,7 @@ async function openCreate() {
 async function openEdit(station) {
     editing.value = station;
     form.name = station.name;
+    clearErrors();
     await initialize({
         countryId: station.country_id || countryId.value,
         stateId: station.state_id,
@@ -178,11 +198,13 @@ async function openEdit(station) {
 function closeModal() {
     showModal.value = false;
     editing.value = null;
+    clearErrors();
     resetLocationFields();
 }
 
 async function save() {
     saving.value = true;
+    clearErrors();
 
     const payload = {
         name: form.name.trim(),
@@ -200,6 +222,8 @@ async function save() {
 
         closeModal();
         await loadStations();
+    } catch (error) {
+        applyApiError(error, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;
     }

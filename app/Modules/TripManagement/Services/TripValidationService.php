@@ -142,7 +142,10 @@ class TripValidationService
         }
     }
 
-    public function assertStatusTransition(Trip $trip, string $newStatus): void
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function assertStatusTransition(Trip $trip, string $newStatus, array $data = []): void
     {
         $current = $trip->status instanceof TripStatus
             ? $trip->status->value
@@ -162,10 +165,40 @@ class TripValidationService
             ]);
         }
 
-        if ($next === TripStatus::Completed->value && $trip->end_at === null) {
-            throw ValidationException::withMessages([
-                'end_at' => ['End date is required before marking a trip as completed.'],
-            ]);
+        if ($next === TripStatus::Completed->value) {
+            $endAt = $data['end_at'] ?? $trip->end_at;
+
+            if ($endAt === null) {
+                throw ValidationException::withMessages([
+                    'end_at' => ['End date is required before marking a trip as completed.'],
+                ]);
+            }
+
+            $actualArrivalAt = $data['actual_arrival_at'] ?? $trip->actual_arrival_at;
+
+            if ($actualArrivalAt === null) {
+                throw ValidationException::withMessages([
+                    'actual_arrival_at' => ['Actual arrival date is required before marking a trip as completed.'],
+                ]);
+            }
+        }
+
+        if ($next === TripStatus::Cancelled->value) {
+            $cancelledAt = $data['cancelled_at'] ?? $trip->cancelled_at;
+
+            if ($cancelledAt === null) {
+                throw ValidationException::withMessages([
+                    'cancelled_at' => ['Cancellation date and time is required.'],
+                ]);
+            }
+
+            $reason = trim((string) ($data['cancellation_reason'] ?? $trip->cancellation_reason ?? ''));
+
+            if ($reason === '') {
+                throw ValidationException::withMessages([
+                    'cancellation_reason' => ['Please provide a reason for cancelling this trip.'],
+                ]);
+            }
         }
     }
 

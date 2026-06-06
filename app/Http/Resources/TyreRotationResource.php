@@ -22,6 +22,7 @@ class TyreRotationResource extends JsonResource
             'new_position' => $this->new_position,
             'new_position_label' => (new TyrePositionCatalog)->labelFor($this->new_position),
             'reason' => $this->reason,
+            'cost' => $this->cost !== null ? (float) $this->cost : null,
             'km_at_rotation' => $this->km_at_rotation !== null ? (float) $this->km_at_rotation : null,
         ];
     }

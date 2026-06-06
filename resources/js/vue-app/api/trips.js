@@ -116,6 +116,30 @@ export function validateTripPayload(payload) {
         errors.end_at = ['End date cannot be before start date.'];
     }
 
+    if (payload.status === 'COMPLETED') {
+        if (!payload.end_at) {
+            errors.end_at = ['End date is required to complete the trip.'];
+        }
+
+        if (!payload.actual_arrival_at) {
+            errors.actual_arrival_at = ['Actual arrival date is required to complete the trip.'];
+        }
+
+        if (payload.start_at && payload.actual_arrival_at && payload.actual_arrival_at < payload.start_at) {
+            errors.actual_arrival_at = ['Actual arrival cannot be before start date.'];
+        }
+    }
+
+    if (payload.status === 'CANCELLED') {
+        if (!payload.cancelled_at) {
+            errors.cancelled_at = ['Cancellation date and time is required.'];
+        }
+
+        if (!payload.cancellation_reason?.trim()) {
+            errors.cancellation_reason = ['Please provide a reason for cancelling this trip.'];
+        }
+    }
+
     const legs = payload.route_legs ?? [];
 
     if (legs.length === 0) {

@@ -206,15 +206,28 @@ function formatRoute(trip) {
 }
 
 function showRouteFlash() {
-    if (route.query.created === '1') {
+    const { created, updated, denied, ...rest } = route.query;
+
+    if (created === '1') {
         flash.success = 'Trip created successfully.';
         toast.success(flash.success);
-    } else if (route.query.updated === '1') {
+        router.replace({ query: rest });
+
+        return;
+    }
+
+    if (updated === '1') {
         flash.success = 'Trip updated successfully.';
         toast.success(flash.success);
-    } else if (route.query.denied === '1') {
+        router.replace({ query: rest });
+
+        return;
+    }
+
+    if (denied === '1') {
         flash.error = 'You do not have permission to open that page, or company context is missing.';
         toast.error(flash.error);
+        router.replace({ query: rest });
     }
 }
 
@@ -298,7 +311,6 @@ watch(
 );
 
 onMounted(async () => {
-    showRouteFlash();
     await loadLookups();
     await loadTrips();
 });

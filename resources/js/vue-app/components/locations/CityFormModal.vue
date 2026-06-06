@@ -31,21 +31,15 @@
                         </div>
                         <div class="mb-3">
                             <label :for="`${modalId}_state`" class="form-label">State *</label>
-                            <select
-                                :id="`${modalId}_state`"
+                            <SearchableSelect
+                                :input-id="`${modalId}_state`"
                                 v-model="form.state_id"
-                                class="form-select"
-                                :class="{ 'is-invalid': fieldErrors.state_id }"
-                                required
-                            >
-                                <option value="">Select state</option>
-                                <option v-for="state in stateOptions" :key="state.id" :value="state.id">
-                                    {{ state.name }}
-                                </option>
-                            </select>
-                            <div v-if="fieldErrors.state_id" class="invalid-feedback d-block">
-                                {{ fieldErrors.state_id[0] }}
-                            </div>
+                                :items="stateOptions"
+                                placeholder="Select state"
+                                search-placeholder="Search state…"
+                                :invalid="Boolean(fieldErrors.state_id)"
+                                :error-message="fieldErrors.state_id?.[0]"
+                            />
                         </div>
                         <div class="mb-0">
                             <label :for="`${modalId}_name`" class="form-label">City Name *</label>
@@ -77,6 +71,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

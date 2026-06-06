@@ -113,6 +113,60 @@ class TyreManagementTest extends TestCase
         $response->assertJsonFragment(['position' => 'AX2_L_OUT', 'position_label' => 'Axle 2 — Left (Outer)']);
     }
 
+    public function test_rotate_swaps_tyres_when_target_position_is_occupied(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $leftTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-LEFT', TyrePosition::FrontLeft->value);
+        $rightTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-RIGHT', TyrePosition::FrontRight->value);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$leftTyreId}/rotate", [
+                'rotation_date' => '2026-06-05',
+                'previous_position' => TyrePosition::FrontLeft->value,
+                'new_position' => TyrePosition::FrontRight->value,
+                'cost' => 500,
+                'reason' => 'Steer swap',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.new_position', TyrePosition::FrontRight->value);
+
+        $this->assertDatabaseHas('tyre_installations', [
+            'tyre_id' => $leftTyreId,
+            'vehicle_id' => $vehicle->id,
+            'position_code' => TyrePosition::FrontRight->value,
+            'removed_at' => null,
+        ]);
+
+        $this->assertDatabaseHas('tyre_installations', [
+            'tyre_id' => $rightTyreId,
+            'vehicle_id' => $vehicle->id,
+            'position_code' => TyrePosition::FrontLeft->value,
+            'removed_at' => null,
+        ]);
+
+        $this->assertDatabaseHas('tyre_rotations', [
+            'tyre_id' => $leftTyreId,
+            'previous_position' => TyrePosition::FrontLeft->value,
+            'new_position' => TyrePosition::FrontRight->value,
+            'cost' => 500,
+        ]);
+
+        $this->assertDatabaseHas('tyre_expenses', [
+            'tyre_id' => $leftTyreId,
+            'expense_type' => 'ROTATION',
+            'amount' => 500,
+        ]);
+
+        $this->assertDatabaseHas('tyre_rotations', [
+            'tyre_id' => $rightTyreId,
+            'previous_position' => TyrePosition::FrontRight->value,
+            'new_position' => TyrePosition::FrontLeft->value,
+        ]);
+    }
+
     public function test_early_removal_shows_recommendation_when_life_remaining(): void
     {
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
@@ -159,6 +213,29 @@ class TyreManagementTest extends TestCase
                 'serial_number' => 'TYRE-DENIED',
             ])
             ->assertForbidden();
+    }
+
+    private function createAndInstallTyre(Tenant $tenant, Vehicle $vehicle, string $serial, string $positionCode): string
+    {
+        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/tyres', [
+                'serial_number' => $serial,
+                'purchase_cost' => 20000,
+            ]);
+
+        $create->assertOk();
+        $tyreId = $create->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => $positionCode,
+                'installed_at' => '2026-03-01',
+                'km_at_installation' => 1000,
+            ])
+            ->assertCreated();
+
+        return $tyreId;
     }
 
     /**

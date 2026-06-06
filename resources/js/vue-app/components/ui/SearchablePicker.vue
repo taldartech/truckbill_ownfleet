@@ -1,7 +1,7 @@
 <template>
     <div ref="pickerRef" class="searchable-picker" :class="{ 'is-invalid-picker': invalid }">
         <div class="picker-row">
-            <div class="picker-main">
+            <div ref="pickerMainRef" class="picker-main">
                 <div class="picker-trigger-wrap">
                     <button
                         :id="inputId"
@@ -24,6 +24,43 @@
                     </button>
                 </div>
                 <div v-if="errorMessage" class="invalid-feedback d-block">{{ errorMessage }}</div>
+
+                <Teleport to="body" :disabled="!attachDropdownToBody">
+                    <div
+                        v-if="isOpen"
+                        ref="dropdownRef"
+                        class="picker-dropdown-menu shadow"
+                        :class="{ 'picker-dropdown-menu--fixed': attachDropdownToBody }"
+                        :style="attachDropdownToBody ? dropdownStyle : undefined"
+                    >
+                        <div class="picker-search-wrap">
+                            <input
+                                v-model.trim="searchQuery"
+                                type="text"
+                                class="form-control form-control-sm picker-search-input"
+                                :placeholder="searchPlaceholder"
+                                @click.stop
+                            />
+                        </div>
+                        <div class="picker-list-scroll">
+                            <button
+                                v-for="item in filteredItems"
+                                :key="item.id"
+                                type="button"
+                                class="dropdown-item picker-option"
+                                @click="selectItem(item)"
+                            >
+                                <span class="picker-option-name">{{ item.name ?? item.label }}</span>
+                                <span v-if="itemLocationLine(item)" class="picker-option-meta">
+                                    {{ itemLocationLine(item) }}
+                                </span>
+                            </button>
+                            <div v-if="filteredItems.length === 0" class="px-3 py-2 text-muted small">
+                                No station found.
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
             </div>
             <div class="picker-actions">
                 <button
@@ -47,42 +84,6 @@
                 </button>
             </div>
         </div>
-
-        <Teleport to="body">
-            <div
-                v-if="isOpen"
-                ref="dropdownRef"
-                class="picker-dropdown-menu shadow"
-                :style="dropdownStyle"
-            >
-                <div class="picker-search-wrap">
-                    <input
-                        v-model.trim="searchQuery"
-                        type="text"
-                        class="form-control form-control-sm picker-search-input"
-                        :placeholder="searchPlaceholder"
-                        @click.stop
-                    />
-                </div>
-                <div class="picker-list-scroll">
-                    <button
-                        v-for="item in filteredItems"
-                        :key="item.id"
-                        type="button"
-                        class="dropdown-item picker-option"
-                        @click="selectItem(item)"
-                    >
-                        <span class="picker-option-name">{{ item.name ?? item.label }}</span>
-                        <span v-if="itemLocationLine(item)" class="picker-option-meta">
-                            {{ itemLocationLine(item) }}
-                        </span>
-                    </button>
-                    <div v-if="filteredItems.length === 0" class="px-3 py-2 text-muted small">
-                        No station found.
-                    </div>
-                </div>
-            </div>
-        </Teleport>
 
         <Teleport to="body">
             <div
@@ -127,11 +128,13 @@ const props = defineProps({
     invalid: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
     canQuickAdd: { type: Boolean, default: false },
+    attachDropdownToBody: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue', 'quick-add']);
 
 const pickerRef = ref(null);
+const pickerMainRef = ref(null);
 const triggerRef = ref(null);
 const dropdownRef = ref(null);
 const infoRef = ref(null);
@@ -199,7 +202,11 @@ function itemLocationLine(item) {
 }
 
 function updateDropdownPosition() {
-    const el = triggerRef.value;
+    if (!props.attachDropdownToBody) {
+        return;
+    }
+
+    const el = pickerMainRef.value;
 
     if (!el) {
         return;
@@ -211,7 +218,7 @@ function updateDropdownPosition() {
         position: 'fixed',
         top: `${rect.bottom + 4}px`,
         left: `${rect.left}px`,
-        width: `${Math.max(rect.width, 220)}px`,
+        width: `${rect.width}px`,
         zIndex: '2100',
     };
 }
@@ -338,6 +345,7 @@ watch(
 .picker-main {
     flex: 1;
     min-width: 0;
+    position: relative;
 }
 .picker-actions {
     display: flex;
@@ -357,7 +365,9 @@ watch(
     border-color: #dc3545;
 }
 .picker-trigger {
+    width: 100%;
     padding-right: 2.4rem;
+    --bs-form-select-bg-icon: none;
 }
 .picker-trigger-wrap {
     position: relative;
@@ -378,6 +388,13 @@ watch(
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 0.375rem;
+}
+.picker-dropdown-menu:not(.picker-dropdown-menu--fixed) {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    z-index: 1060;
 }
 .picker-search-wrap {
     padding: 0.55rem;

@@ -20,6 +20,7 @@ class TyreRotation extends Model
         'previous_position',
         'new_position',
         'reason',
+        'cost',
         'km_at_rotation',
     ];
 
@@ -27,6 +28,7 @@ class TyreRotation extends Model
     {
         return [
             'rotation_date' => 'date',
+            'cost' => 'decimal:2',
             'km_at_rotation' => 'decimal:2',
         ];
     }

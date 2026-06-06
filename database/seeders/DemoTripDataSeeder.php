@@ -2,24 +2,39 @@
 
 namespace Database\Seeders;
 
+use App\City;
 use App\Driver;
 use App\DriverAssignment;
 use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
+use App\Station;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Trip;
 use App\User;
 use App\Vehicle;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class DemoTripDataSeeder extends Seeder
 {
     public const DEFAULT_TENANT_SLUG = 'test-company';
 
     private const ADMIN_EMAIL = 'admin@test.truckbill.local';
+
+    /**
+     * @var array<string, string>
+     */
+    private const CITY_ALIASES = [
+        'Bangalore' => 'Bengaluru',
+        'Bhubaneswar' => 'Khordha',
+        'Goa' => 'North Goa',
+    ];
+
+    /** @var array<string, int> */
+    private array $stationCache = [];
 
     /**
      * @var list<array<string, mixed>>
@@ -340,16 +355,22 @@ class DemoTripDataSeeder extends Seeder
                 continue;
             }
 
+            [$startStationId, $routeLegs] = $this->buildRouteLegsWithStations(
+                $tenant->id,
+                $definition['route_legs'],
+            );
+
             $payload = [
                 'tenant_id' => $tenant->id,
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driverId,
                 'customer_name' => $definition['customer_name'],
                 'broker_name' => $definition['broker_name'] ?? null,
+                'start_station_id' => $startStationId,
                 'start_at' => $definition['start_at'],
                 'end_at' => $definition['end_at'],
                 'status' => $definition['status']->value,
-                'route_legs' => $this->normalizeRouteLegs($definition['route_legs']),
+                'route_legs' => $routeLegs,
                 'expenses' => $this->normalizeExpenses($definition['expenses'] ?? []),
             ];
 
@@ -395,6 +416,85 @@ class DemoTripDataSeeder extends Seeder
             ->where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->value('id');
+    }
+
+    private function resolveCityName(string $cityName): string
+    {
+        return self::CITY_ALIASES[$cityName] ?? $cityName;
+    }
+
+    private function stationForCity(string $tenantId, string $cityName): int
+    {
+        $resolvedName = $this->resolveCityName($cityName);
+        $cacheKey = "{$tenantId}:{$resolvedName}";
+
+        if (isset($this->stationCache[$cacheKey])) {
+            return $this->stationCache[$cacheKey];
+        }
+
+        $city = City::query()->where('name', $resolvedName)->with('state')->first();
+
+        if ($city === null) {
+            throw new RuntimeException("City not found for demo trip seeding: {$cityName} (resolved: {$resolvedName})");
+        }
+
+        $station = Station::query()->firstOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'city_id' => $city->id,
+                'name' => "{$cityName} Depot",
+            ],
+            [
+                'country_id' => $city->state->country_id,
+                'state_id' => $city->state_id,
+            ],
+        );
+
+        return $this->stationCache[$cacheKey] = $station->id;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $legs
+     * @return array{0: int, 1: list<array<string, mixed>>}
+     */
+    private function buildRouteLegsWithStations(string $tenantId, array $legs): array
+    {
+        $normalized = $this->normalizeRouteLegs($legs);
+        $startCity = (string) ($normalized[0]['from_city'] ?? '');
+        $startStationId = $this->stationForCity($tenantId, $startCity);
+
+        $built = [];
+
+        foreach ($normalized as $index => $leg) {
+            $fromCity = (string) $leg['from_city'];
+            $toCity = (string) $leg['to_city'];
+
+            $built[] = [
+                ...$leg,
+                'from_station_id' => $this->stationForCity($tenantId, $fromCity),
+                'to_station_id' => $this->stationForCity($tenantId, $toCity),
+                'sequence_no' => (int) ($leg['sequence_no'] ?? ($index + 1)),
+            ];
+        }
+
+        $lastLeg = $built[array_key_last($built)];
+
+        if ($lastLeg['to_station_id'] !== $startStationId) {
+            $lastNormalized = $normalized[array_key_last($normalized)];
+            $returnDistance = (float) ($lastNormalized['distance_km'] ?? $normalized[0]['distance_km'] ?? 100);
+
+            $built[] = [
+                'from_city' => $lastNormalized['to_city'],
+                'to_city' => $startCity,
+                'from_station_id' => $lastLeg['to_station_id'],
+                'to_station_id' => $startStationId,
+                'route_type' => RouteType::Empty->value,
+                'sequence_no' => count($built) + 1,
+                'distance_km' => $returnDistance,
+            ];
+        }
+
+        return [$startStationId, $built];
     }
 
     /**

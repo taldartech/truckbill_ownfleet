@@ -73,17 +73,13 @@
                                                     :key="driver.id"
                                                     type="button"
                                                     class="dropdown-item driver-option"
-                                                    :class="{ 'text-danger fw-semibold': isDriverPrimaryElsewhere(driver.id) }"
                                                     @click="selectDriver(driver)"
                                                 >
                                                     {{ driver.name }}
                                                     <template v-if="driver.phone"> — {{ driver.phone }}</template>
-                                                    <template v-if="isDriverPrimaryElsewhere(driver.id)">
-                                                        [Primary on {{ activePrimaryByDriver[driver.id].vehicleLabel }}]
-                                                    </template>
                                                 </button>
                                                 <div v-if="filteredDrivers.length === 0" class="px-3 py-2 text-muted small">
-                                                    No driver found.
+                                                    No unassigned driver found.
                                                 </div>
                                             </div>
                                         </div>
@@ -94,11 +90,6 @@
                                         class="invalid-feedback d-block"
                                     >
                                         {{ fieldErrorMessage(fieldErrors, 'driver_id') }}
-                                    </div>
-                                    <div v-if="selectedDriverConflict" class="text-danger small mt-2">
-                                        This driver is currently primary on
-                                        <strong>{{ selectedDriverConflict.vehicleLabel }}</strong>.
-                                        Continue only if you want to move this driver.
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -226,14 +217,18 @@ const currentAssignedFrom = computed(
     () => props.vehicle?.current_primary_assignment?.assigned_from ?? null,
 );
 
+const unassignedDrivers = computed(() =>
+    drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),
+);
+
 const filteredDrivers = computed(() => {
     const query = driverSearch.value.toLowerCase();
 
     if (!query) {
-        return drivers.value;
+        return unassignedDrivers.value;
     }
 
-    return drivers.value.filter((driver) => {
+    return unassignedDrivers.value.filter((driver) => {
         const name = String(driver.name ?? '').toLowerCase();
         const phone = String(driver.phone ?? '').toLowerCase();
 
@@ -241,23 +236,18 @@ const filteredDrivers = computed(() => {
     });
 });
 
-const selectedDriverConflict = computed(() => activePrimaryByDriver.value[assignForm.value.driver_id] ?? null);
 const selectedDriverLabel = computed(() => {
     if (!assignForm.value.driver_id) {
         return 'Select driver';
     }
 
-    const selected = drivers.value.find((driver) => driver.id === assignForm.value.driver_id);
+    const selected = unassignedDrivers.value.find((driver) => driver.id === assignForm.value.driver_id);
 
     if (!selected) {
         return 'Select driver';
     }
 
-    const vehicleInfo = activePrimaryByDriver.value[selected.id]?.vehicleLabel;
-
-    return vehicleInfo
-        ? `${selected.name} (${selected.phone ?? ''}) - Primary on ${vehicleInfo}`
-        : `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
+    return `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
 });
 
 function todayIso() {
@@ -293,7 +283,6 @@ async function loadActivePrimaryAssignments() {
     try {
         const response = await listDriverAssignments({ perPage: 500 });
         const rows = response.data ?? [];
-        const currentVehicleId = props.vehicle?.id ?? null;
         const today = todayIso();
         const primaryAssignments = rows.filter(
             (row) =>
@@ -303,7 +292,7 @@ async function loadActivePrimaryAssignments() {
         );
 
         activePrimaryByDriver.value = primaryAssignments.reduce((accumulator, row) => {
-            if (!row.driver_id || row.vehicle_id === currentVehicleId) {
+            if (!row.driver_id) {
                 return accumulator;
             }
 
@@ -387,16 +376,6 @@ function close() {
 async function assignDriver() {
     if (!props.vehicle?.id || !assignForm.value.driver_id) {
         return;
-    }
-
-    if (selectedDriverConflict.value) {
-        const shouldContinue = window.confirm(
-            `This driver is currently primary on ${selectedDriverConflict.value.vehicleLabel}. Do you want to reassign anyway?`,
-        );
-
-        if (!shouldContinue) {
-            return;
-        }
     }
 
     saving.value = true;

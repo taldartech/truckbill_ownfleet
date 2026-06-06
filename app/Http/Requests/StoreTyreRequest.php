@@ -33,6 +33,8 @@ class StoreTyreRequest extends FormRequest
             'purchase_date' => ['nullable', 'date'],
             'purchase_cost' => ['nullable', 'numeric', 'min:0'],
             'warranty_details' => ['nullable', 'string', 'max:2000'],
+            'warranty_valid_until' => ['nullable', 'date', 'after_or_equal:purchase_date'],
+            'warranty_km' => ['nullable', 'numeric', 'min:0'],
             'tyre_type' => ['nullable', Rule::enum(TyreType::class)],
             'current_km' => ['nullable', 'numeric', 'min:0'],
             'expected_life_km' => ['nullable', 'numeric', 'min:1000'],

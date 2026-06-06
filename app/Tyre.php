@@ -23,6 +23,8 @@ class Tyre extends Model
         'purchase_date',
         'purchase_cost',
         'warranty_details',
+        'warranty_valid_until',
+        'warranty_km',
         'tyre_type',
         'current_km',
         'expected_life_km',
@@ -36,6 +38,8 @@ class Tyre extends Model
     {
         return [
             'purchase_date' => 'date',
+            'warranty_valid_until' => 'date',
+            'warranty_km' => 'decimal:2',
             'purchase_cost' => 'decimal:2',
             'current_km' => 'decimal:2',
             'expected_life_km' => 'decimal:2',

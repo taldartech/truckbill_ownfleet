@@ -69,6 +69,7 @@ class TyreTimelineService
                 'date' => $rotation->rotation_date?->toDateString(),
                 'title' => "Rotated on {$vehicle}",
                 'detail' => $this->positionLabel($rotation->previous_position).' → '.$this->positionLabel($rotation->new_position)
+                    .($rotation->cost !== null && (float) $rotation->cost > 0 ? ' · ₹'.number_format((float) $rotation->cost, 2) : '')
                     .($rotation->reason ? " ({$rotation->reason})" : ''),
                 'vehicle_registration' => $vehicle,
                 'from_position' => $this->positionValue($rotation->previous_position),

@@ -50,7 +50,12 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Status</label>
-                    <select v-model="form.status" class="form-select" :disabled="statusLocked">
+                    <select
+                        :value="form.status"
+                        class="form-select"
+                        :disabled="statusLocked"
+                        @change="onStatusChange($event.target.value)"
+                    >
                         <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
                     <div class="mt-1">
@@ -77,6 +82,25 @@
                     <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
                         {{ fieldErrors.end_at[0] }}
                     </div>
+                </div>
+                <div v-if="form.status === 'CANCELLED'" class="col-md-6">
+                    <div class="alert alert-danger mb-0 py-2">
+                        <div class="small">
+                            <strong>Cancelled:</strong> {{ formatDisplayDate(form.cancelled_at) }}
+                        </div>
+                        <div v-if="form.cancellation_reason" class="small mt-1">
+                            <strong>Reason:</strong> {{ form.cancellation_reason }}
+                        </div>
+                    </div>
+                </div>
+                <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at" class="col-md-3">
+                    <label class="form-label">Actual Arrival</label>
+                    <input
+                        :value="formatDisplayDate(form.actual_arrival_at)"
+                        type="text"
+                        class="form-control bg-light"
+                        readonly
+                    />
                 </div>
             </div>
         </div>
@@ -155,6 +179,7 @@
                                         v-model="leg.to_station_id"
                                         :items="stations"
                                         placeholder="Select station"
+                                        attach-dropdown-to-body
                                         :invalid="Boolean(legFieldError(index, 'to_station_id'))"
                                         :error-message="legFieldError(index, 'to_station_id')"
                                         :can-quick-add="canQuickAddStation"
@@ -345,6 +370,18 @@
             @close="showStationQuickAdd = false"
             @created="onStationCreated"
         />
+
+        <TripStatusChangeModal
+            :show="showStatusModal"
+            :status="pendingStatus"
+            :start-at="form.start_at"
+            :end-at-value="form.end_at"
+            :actual-arrival-at-value="form.actual_arrival_at"
+            :cancelled-at-value="form.cancelled_at"
+            :cancellation-reason-value="form.cancellation_reason"
+            @cancel="onStatusModalCancel"
+            @confirm="onStatusModalConfirm"
+        />
     </div>
 </template>
 
@@ -360,6 +397,7 @@ import {
 } from '../../api/trips';
 import SearchablePicker from '../ui/SearchablePicker.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
+import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -388,6 +426,8 @@ const emit = defineEmits([
 
 const showStationQuickAdd = ref(false);
 const quickAddLegIndex = ref(null);
+const showStatusModal = ref(false);
+const pendingStatus = ref('');
 
 const summary = computed(() => summarizeTripForm(props.form));
 
@@ -501,6 +541,61 @@ function formatNum(value) {
 
 function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDisplayDate(value) {
+    if (!value) {
+        return '—';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+function onStatusChange(newStatus) {
+    if (newStatus === props.form.status || props.statusLocked) {
+        return;
+    }
+
+    if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED') {
+        pendingStatus.value = newStatus;
+        showStatusModal.value = true;
+
+        return;
+    }
+
+    props.form.status = newStatus;
+}
+
+function onStatusModalCancel() {
+    showStatusModal.value = false;
+    pendingStatus.value = '';
+}
+
+function onStatusModalConfirm(data) {
+    props.form.status = pendingStatus.value;
+
+    if (pendingStatus.value === 'CANCELLED') {
+        props.form.cancelled_at = data.cancelled_at;
+        props.form.cancellation_reason = data.cancellation_reason;
+    } else if (pendingStatus.value === 'COMPLETED') {
+        props.form.end_at = data.end_at;
+        props.form.actual_arrival_at = data.actual_arrival_at;
+    }
+
+    showStatusModal.value = false;
+    pendingStatus.value = '';
 }
 
 function openQuickAddForLeg(index) {

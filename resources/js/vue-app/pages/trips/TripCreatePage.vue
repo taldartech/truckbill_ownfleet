@@ -158,8 +158,7 @@ async function handleSubmit() {
     saving.value = true;
 
     try {
-        const trip = await createTrip(payload);
-        toast.success(`Trip ${trip.trip_number ?? ''} created successfully.`);
+        await createTrip(payload);
         await router.push({ name: 'trips.index', query: { created: '1' } });
     } catch (error) {
         if (!applyApiError(error, 'Failed to create trip.')) {

@@ -93,14 +93,23 @@
                         <h5 class="modal-title">{{ editing ? 'Edit Tyre Layout' : 'Add Tyre Layout' }}</h5>
                         <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                     </div>
-                    <form @submit.prevent="save">
+                    <form novalidate @submit.prevent="save">
                         <div class="modal-body">
                             <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
 
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     <label class="form-label">Name *</label>
-                                    <input v-model="form.name" type="text" class="form-control" required />
+                                    <input
+                                        v-model="form.name"
+                                        type="text"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': fieldErrors.name }"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                                        {{ fieldErrors.name[0] }}
+                                    </div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Code</label>
@@ -108,8 +117,12 @@
                                         v-model="form.code"
                                         type="text"
                                         class="form-control"
+                                        :class="{ 'is-invalid': fieldErrors.code }"
                                         placeholder="Auto from name"
                                     />
+                                    <div v-if="fieldErrors.code" class="invalid-feedback d-block">
+                                        {{ fieldErrors.code[0] }}
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Layout type *</label>
@@ -197,6 +210,7 @@ import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFoot
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useListPagination } from '../../composables/useListPagination';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 
@@ -210,7 +224,7 @@ const saving = ref(false);
 const search = ref('');
 const showModal = ref(false);
 const editing = ref(null);
-const formError = ref('');
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const flash = reactive({ success: '', error: '' });
 
 const form = ref(emptyForm());
@@ -301,19 +315,20 @@ function onPerPageUpdate(perPage) {
 function openCreate() {
     editing.value = null;
     form.value = emptyForm();
-    formError.value = '';
+    clearErrors();
     showModal.value = true;
 }
 
 function openEdit(layout) {
     editing.value = layout;
     fillForm(layout);
-    formError.value = '';
+    clearErrors();
     showModal.value = true;
 }
 
 function closeModal() {
     showModal.value = false;
+    clearErrors();
 }
 
 function buildPayload() {
@@ -340,7 +355,7 @@ function buildPayload() {
 
 async function save() {
     saving.value = true;
-    formError.value = '';
+    clearErrors();
     try {
         guardCompanyContext();
         const payload = buildPayload();
@@ -354,10 +369,7 @@ async function save() {
         showModal.value = false;
         await loadLayouts();
     } catch (e) {
-        formError.value = e?.response?.data?.message ?? 'Could not save layout.';
-        if (e?.response?.data?.errors) {
-            formError.value = Object.values(e.response.data.errors).flat().join(' ');
-        }
+        applyApiError(e, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;
     }
