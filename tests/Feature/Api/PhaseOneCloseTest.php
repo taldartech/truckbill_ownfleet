@@ -2,15 +2,24 @@
 
 namespace Tests\Feature\Api;
 
+use App\AppNotification;
 use App\Attendance;
+use App\DocumentAlertSetting;
 use App\Driver;
 use App\DriverAssignment;
+use App\Enums\TripStatus;
+use App\Enums\TyreStatus;
+use App\Tyre;
+use App\Mail\DocumentExpiryReminderMail;
+use App\Support\DocumentAlertNotifier;
 use App\Tenant;
+use App\Trip;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
 use App\VehicleDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PhaseOneCloseTest extends TestCase
@@ -46,9 +55,50 @@ class PhaseOneCloseTest extends TestCase
             ->getJson('/app/dashboard/stats')
             ->assertOk()
             ->assertJsonPath('fleet.vehicles_count', 1)
+            ->assertJsonPath('fleet.active_vehicles_count', 1)
             ->assertJsonPath('fleet.drivers_count', 1)
             ->assertJsonPath('fleet.present_today_count', 1)
-            ->assertJsonPath('fleet.absent_today_count', 0);
+            ->assertJsonPath('fleet.absent_today_count', 0)
+            ->assertJsonPath('fleet.assigned_trucks_today_count', 1);
+    }
+
+    public function test_attendance_dashboard_stats_include_all_status_breakdowns(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Primary Driver', 800);
+        $substitute = $this->createDriver($tenant, 'Substitute Driver', 600);
+        $today = now()->toDateString();
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => $today,
+            'is_primary' => true,
+        ]);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driver->id,
+            'temporary_driver_id' => $substitute->id,
+            'wage_owner_driver_id' => $substitute->id,
+            'attendance_date' => $today,
+            'status' => 'ABSENT',
+            'wage_amount' => 600,
+            'wage_payment_status' => 'unpaid',
+            'marked_via' => 'admin_panel',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('fleet.assigned_trucks_today_count', 1)
+            ->assertJsonPath('fleet.present_today_count', 0)
+            ->assertJsonPath('fleet.absent_today_count', 0)
+            ->assertJsonPath('fleet.absent_substitute_today_count', 1)
+            ->assertJsonPath('fleet.exceptions_today_count', 1);
     }
 
     public function test_moderator_can_view_reports_but_not_export(): void
@@ -170,7 +220,252 @@ class PhaseOneCloseTest extends TestCase
         $this->actingAs($user)
             ->getJson('/app/dashboard/stats')
             ->assertOk()
-            ->assertJsonPath('fleet.expiring_documents_count', 1);
+            ->assertJsonPath('fleet.expiring_documents_count', 1)
+            ->assertJsonPath('fleet.expired_documents_count', 0);
+    }
+
+    public function test_expired_documents_count_appears_for_roles_with_document_view(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+
+        VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'insurance',
+            'expiry_date' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('fleet.expired_documents_count', 1)
+            ->assertJsonPath('fleet.expiring_documents_count', 0);
+    }
+
+    public function test_trip_dashboard_stats_return_status_counts_for_selected_period(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Trip Driver', 900);
+        $today = now()->toDateString();
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-001',
+            'status' => TripStatus::Created,
+            'start_at' => $today.' 08:00:00',
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-002',
+            'status' => TripStatus::InProgress,
+            'start_at' => $today.' 09:00:00',
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-003',
+            'status' => TripStatus::Completed,
+            'start_at' => $today.' 10:00:00',
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-004',
+            'status' => TripStatus::Cancelled,
+            'start_at' => now()->subDays(10)->toDateString().' 11:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+            ->assertOk()
+            ->assertJsonPath('trips.total_count', 3)
+            ->assertJsonPath('trips.created_count', 1)
+            ->assertJsonPath('trips.in_progress_count', 1)
+            ->assertJsonPath('trips.completed_count', 1)
+            ->assertJsonPath('trips.cancelled_count', 0)
+            ->assertJsonPath('period.from_date', $today)
+            ->assertJsonPath('period.to_date', $today);
+    }
+
+    public function test_tyre_dashboard_stats_return_status_counts_for_admin(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-DASH-1',
+            'status' => TyreStatus::InStock,
+            'purchase_cost' => 10000,
+        ]);
+
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-DASH-2',
+            'status' => TyreStatus::Installed,
+            'purchase_cost' => 12000,
+        ]);
+
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-DASH-3',
+            'status' => TyreStatus::Damaged,
+            'purchase_cost' => 9000,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('tyres.total_count', 3)
+            ->assertJsonPath('tyres.in_stock_count', 1)
+            ->assertJsonPath('tyres.installed_count', 1)
+            ->assertJsonPath('tyres.damaged_count', 1)
+            ->assertJsonPath('tyres.scrapped_count', 0);
+    }
+
+    public function test_compliance_alerts_list_expired_and_expiring_documents(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+
+        VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'insurance',
+            'expiry_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'puc',
+            'expiry_date' => now()->addDays(12)->toDateString(),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/app/dashboard/compliance-alerts')
+            ->assertOk()
+            ->assertJsonCount(2, 'documents');
+
+        $documents = collect($response->json('documents'));
+        $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expired'));
+        $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expiring'));
+    }
+
+    public function test_document_alert_notifier_creates_live_and_email_notifications(): void
+    {
+        Mail::fake();
+
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+
+        $user->update([
+            'document_alerts_live' => true,
+            'document_alerts_email' => true,
+        ]);
+
+        DocumentAlertSetting::query()->create([
+            'tenant_id' => $tenant->id,
+            'notify_live' => true,
+            'notify_email' => true,
+            'recipient_user_ids' => [],
+        ]);
+
+        $document = VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'insurance',
+            'expiry_date' => now()->addDays(5)->toDateString(),
+        ]);
+
+        app(DocumentAlertNotifier::class)->notifyForDocument($document);
+
+        $this->assertDatabaseHas('app_notifications', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'type' => 'document_expiry',
+        ]);
+
+        Mail::assertSent(DocumentExpiryReminderMail::class, function (DocumentExpiryReminderMail $mail) use ($user): bool {
+            return $mail->hasTo($user->email);
+        });
+    }
+
+    public function test_super_admin_can_update_document_alert_settings_per_user(): void
+    {
+        $superAdmin = User::query()->create([
+            'name' => 'Super Admin',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $tenant = Tenant::query()->create([
+            'name' => 'Alert Tenant',
+            'slug' => fake()->unique()->slug(),
+            'timezone' => 'Asia/Kolkata',
+            'is_active' => true,
+            'owner_user_id' => $superAdmin->id,
+        ]);
+
+        $companyUser = User::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Ops User',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::MODERATOR,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies/'.$tenant->id.'/enter')
+            ->assertOk();
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/document-alert-settings', [
+                'notify_live' => true,
+                'notify_email' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('settings.notify_email', false);
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/managed-users/'.$companyUser->id, [
+                'document_alerts_live' => true,
+                'document_alerts_email' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document_alerts_live', true)
+            ->assertJsonPath('data.document_alerts_email', true);
+
+        AppNotification::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $companyUser->id,
+            'type' => 'document_expiry',
+            'title' => 'Insurance expiring — MH12AB1234',
+            'body' => 'Insurance for MH12AB1234 expires soon.',
+            'data' => ['status' => 'expiring'],
+        ]);
+
+        $this->actingAs($companyUser)
+            ->getJson('/app/api/notifications/unread-count')
+            ->assertOk()
+            ->assertJsonPath('count', 1);
+
+        $this->actingAs($companyUser)
+            ->getJson('/app/api/notifications')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'document_expiry');
     }
 
     /**

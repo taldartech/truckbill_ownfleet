@@ -703,7 +703,7 @@ const routeTypes = ROUTE_TYPES;
 
 <style scoped>
 .trip-expenses-card__header {
-    background: #1a7a4a !important;
+    background: var(--brand-primary) !important;
     padding: 14px 18px;
 }
 .trip-expenses-card__subtitle {

@@ -249,7 +249,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { createTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -275,6 +275,7 @@ import {
     warrantyBadgeClass,
 } from '../../utils/tyreDisplay';
 
+const route = useRoute();
 const router = useRouter();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
@@ -420,5 +421,16 @@ function formatMoney(amount) {
     return amount != null ? `₹${Number(amount).toLocaleString('en-IN')}` : '—';
 }
 
-onMounted(() => loadTyres());
+function applyRouteFilters() {
+    const { status } = route.query;
+
+    if (typeof status === 'string' && status !== '') {
+        statusFilter.value = status;
+    }
+}
+
+onMounted(() => {
+    applyRouteFilters();
+    loadTyres();
+});
 </script>

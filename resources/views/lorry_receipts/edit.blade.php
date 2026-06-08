@@ -2100,7 +2100,7 @@ if (grNumberInput) {
                     html: confirmationHTML,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#28a745',
+                    confirmButtonColor: '#2FB36F',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: '✅ Yes, Submit',
                     cancelButtonText: '❌ Cancel',

@@ -228,9 +228,10 @@ const props = defineProps({
     vehicle: { type: Object, default: null },
     canManage: { type: Boolean, default: false },
     modalId: { type: String, required: true },
+    initialDocumentId: { type: String, default: null },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'saved']);
 
 const modalElement = ref(null);
 let bootstrapModal = null;
@@ -287,11 +288,24 @@ async function loadDocuments() {
 
     try {
         documents.value = await listVehicleDocuments(props.vehicle.id);
+        openInitialDocumentIfNeeded();
     } catch (error) {
         documents.value = [];
         showRequestError(error, 'Unable to load documents right now.');
     } finally {
         loading.value = false;
+    }
+}
+
+function openInitialDocumentIfNeeded() {
+    if (!props.initialDocumentId) {
+        return;
+    }
+
+    const document = documents.value.find((item) => item.id === props.initialDocumentId);
+
+    if (document) {
+        editDocument(document);
     }
 }
 
@@ -365,6 +379,7 @@ async function saveDocument() {
 
         resetDocForm();
         await loadDocuments();
+        emit('saved');
     } catch (error) {
         if (!applyApiError(error)) {
             formError.value = 'Unable to save the document. Please try again.';
@@ -382,6 +397,7 @@ async function removeDocument(doc) {
     try {
         await deleteVehicleDocument(doc.id);
         await loadDocuments();
+        emit('saved');
     } catch (error) {
         showRequestError(error, 'Unable to delete the document.');
     }

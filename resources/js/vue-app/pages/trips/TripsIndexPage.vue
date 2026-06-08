@@ -394,7 +394,25 @@ async function loadFilterLookups() {
     brokers.value = brokerList;
 }
 
+function applyRouteFilters() {
+    const { status, from_date: fromDate, to_date: toDate } = route.query;
+
+    if (typeof status === 'string' && status !== '') {
+        filters.status = status;
+    }
+
+    if (typeof fromDate === 'string' && fromDate !== '') {
+        filters.from_date = fromDate;
+    }
+
+    if (typeof toDate === 'string' && toDate !== '') {
+        filters.to_date = toDate;
+    }
+}
+
 onMounted(async () => {
+    applyRouteFilters();
+
     if (!needsCompanySelection.value) {
         await loadFilterLookups();
     }

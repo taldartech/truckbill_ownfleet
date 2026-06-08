@@ -2,34 +2,38 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SendComplianceReminderJob;
+use App\Support\DocumentAlertNotifier;
 use App\VehicleDocument;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 class CheckDocumentExpiryCommand extends Command
 {
     protected $signature = 'compliance:check-document-expiry';
 
-    protected $description = 'Queue reminders for expiring vehicle documents';
+    protected $description = 'Send live and email reminders for expiring vehicle documents';
 
-    public function handle(): int
+    public function handle(DocumentAlertNotifier $notifier): int
     {
+        $today = Carbon::today();
         $documents = VehicleDocument::query()
+            ->withoutGlobalScope('tenant')
+            ->with('vehicle:id,registration_number')
             ->whereNotNull('expiry_date')
-            ->whereDate('expiry_date', '<=', now()->addDays(7))
+            ->where(function ($query) use ($today): void {
+                $query->whereDate('expiry_date', '<', $today->toDateString())
+                    ->orWhereDate('expiry_date', '<=', $today->copy()->addDays(30)->toDateString());
+            })
             ->get();
 
+        $sentCount = 0;
+
         foreach ($documents as $document) {
-            SendComplianceReminderJob::dispatch(
-                (string) $document->tenant_id,
-                'email',
-                'ops@tenant.local',
-                'Document expiry reminder',
-                json_encode($document->toArray(), JSON_THROW_ON_ERROR)
-            );
+            $notifier->notifyForDocument($document);
+            $sentCount++;
         }
 
-        $this->info("Queued {$documents->count()} document reminders.");
+        $this->info("Processed {$sentCount} document alerts.");
 
         return self::SUCCESS;
     }

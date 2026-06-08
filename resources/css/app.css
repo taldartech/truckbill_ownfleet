@@ -12,6 +12,7 @@
 
     --color-brand-primary: #2FB36F;
     --color-brand-primary-dark: #23965C;
+    --color-brand-success: #2FB36F;
     --color-brand-accent-blue: #2D8CFF;
     --color-brand-bg: #F8FAFC;
 
@@ -266,4 +267,34 @@
         padding-left: 12px;
         padding-right: 12px;
     }
+}
+
+/* Brand green — loaded after Bootstrap CDN in the Vue shell */
+:root {
+    --bs-success: #2FB36F;
+    --bs-success-rgb: 47, 179, 111;
+    --bs-green: #2FB36F;
+    --bs-form-valid-color: #2FB36F;
+    --bs-form-valid-border-color: #2FB36F;
+}
+
+/* White text on green headers (beats global h1–h6 slate color) */
+.card-header.bg-success :is(h1, h2, h3, h4, h5, h6, .card-title),
+.modal-header.bg-success :is(h1, h2, h3, h4, h5, h6, .modal-title),
+.modal-header.bg-primary :is(h1, h2, h3, h4, h5, h6, .modal-title),
+.bg-success:not(.badge):not(.bg-success-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
+.bg-primary:not(.badge) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
+.trip-expenses-card__header,
+.trip-expenses-card__header :is(h1, h2, h3, h4, h5, h6, .card-title),
+.stop-expense-card__header,
+.stop-expense-card__header :is(.stop-expense-card__title, .stop-header-amount) {
+    color: #fff !important;
+}
+
+.card-header.bg-success :is(i, .bi),
+.modal-header.bg-success :is(i, .bi),
+.modal-header.bg-primary :is(i, .bi),
+.trip-expenses-card__header :is(i, .bi),
+.stop-expense-card__header :is(i, .bi) {
+    color: #fff !important;
 }

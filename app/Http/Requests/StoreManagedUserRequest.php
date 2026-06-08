@@ -39,6 +39,8 @@ class StoreManagedUserRequest extends FormRequest
                     Rule::in($ownedTenantIds),
                 ),
             ],
+            'document_alerts_live' => ['sometimes', 'boolean'],
+            'document_alerts_email' => ['sometimes', 'boolean'],
         ];
     }
 

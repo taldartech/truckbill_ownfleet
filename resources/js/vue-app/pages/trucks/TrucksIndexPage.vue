@@ -201,7 +201,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import {
     createVehicle,
     defaultVehicleListFilters,
@@ -228,6 +228,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { crudActionButtonClasses } from '../../utils/crudActionPresets';
 
 const tyreLinkClasses = crudActionButtonClasses('tyres');
+const route = useRoute();
 
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
@@ -438,7 +439,17 @@ async function handleDelete(vehicle) {
     }
 }
 
+function applyRouteFilters() {
+    const { status } = route.query;
+
+    if (typeof status === 'string' && status !== '') {
+        filters.status = status;
+    }
+}
+
 onMounted(async () => {
+    applyRouteFilters();
+
     const ok = await guardCompanyContext();
 
     if (ok === true) {

@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ManagedUserController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\UserRoleController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Resources\UserResource;
 use App\Support\DashboardPreviewData;
@@ -78,7 +80,10 @@ Route::get('/app/csrf-token', function (): JsonResponse {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
-    Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
+    Route::get('/forgot-password', fn () => view('auth.forgot-password'))->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->name('password.email');
+    Route::get('/reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
+    Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
 });
 
 Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(function () {
@@ -92,6 +97,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
 
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\FleetDashboardController::class, 'stats'])
         ->name('dashboard.stats');
+    Route::get('/dashboard/compliance-alerts', [\App\Http\Controllers\Api\FleetDashboardController::class, 'complianceAlerts'])
+        ->name('dashboard.compliance-alerts');
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/companies', [ApiCompanyController::class, 'index'])->name('companies.index');
@@ -174,6 +181,22 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
                 ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
+
+            Route::get('/notifications', [\App\Http\Controllers\Api\AppNotificationController::class, 'index'])
+                ->name('notifications.index');
+            Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\AppNotificationController::class, 'unreadCount'])
+                ->name('notifications.unread-count');
+            Route::post('/notifications/read-all', [\App\Http\Controllers\Api\AppNotificationController::class, 'markAllRead'])
+                ->name('notifications.read-all');
+            Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\AppNotificationController::class, 'markRead'])
+                ->name('notifications.read');
+
+            Route::get('/document-alert-settings', [\App\Http\Controllers\Api\DocumentAlertSettingController::class, 'show'])
+                ->middleware('permission:users.manage')
+                ->name('document-alert-settings.show');
+            Route::put('/document-alert-settings', [\App\Http\Controllers\Api\DocumentAlertSettingController::class, 'update'])
+                ->middleware('permission:users.manage')
+                ->name('document-alert-settings.update');
 
             Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
             Route::post('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'store'])->name('vehicle-documents.store');

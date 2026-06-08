@@ -4,11 +4,13 @@ namespace App;
 
 use App\Concerns\HasPermissions;
 use App\Concerns\UsesUuid;
+use App\Mail\ResetPasswordMail;
 use App\Support\SelectedCompanySession;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -36,6 +38,8 @@ class User extends Authenticatable
         'email',
         'password',
         'user_role_id',
+        'document_alerts_live',
+        'document_alerts_email',
         'created_by',
         'updated_by',
     ];
@@ -51,6 +55,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'user_role_id' => 'integer',
+            'document_alerts_live' => 'boolean',
+            'document_alerts_email' => 'boolean',
         ];
     }
 
@@ -154,6 +160,17 @@ class User extends Authenticatable
         }
 
         return '/app/dashboard';
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $expireMinutes = (int) config('auth.passwords.users.expire', 60);
+
+        Mail::to($this->email)->send(new ResetPasswordMail(
+            email: $this->email,
+            token: $token,
+            count: $expireMinutes,
+        ));
     }
 
     public function canAccessCompanyPanel(): bool

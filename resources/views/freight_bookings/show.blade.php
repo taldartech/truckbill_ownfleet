@@ -926,7 +926,7 @@
                                 icon: 'success',
                                 title: 'Success!',
                                 text: successText,
-                                confirmButtonColor: '#28a745'
+                                confirmButtonColor: '#2FB36F'
                             }).then(() => {
                                 bootstrap.Modal.getInstance(document.getElementById('voucherPaymentModal')).hide();
                                 window.location.reload();

@@ -1094,7 +1094,7 @@
                             icon: 'success',
                             title: 'Success',
                             text: successText,
-                            confirmButtonColor: '#28a745'
+                            confirmButtonColor: '#2FB36F'
                         }).then(() => {
                             window.location.reload();
                         });
@@ -2410,7 +2410,7 @@
                             icon: 'success',
                             title: 'Success!',
                             text: successText,
-                            confirmButtonColor: '#28a745'
+                            confirmButtonColor: '#2FB36F'
                         }).then(() => {
                             $('#freightBookingsTable').DataTable().ajax.reload();
                         });
@@ -2654,7 +2654,7 @@
                             icon: 'success',
                             title: 'Success!',
                             text: successText,
-                            confirmButtonColor: '#28a745'
+                            confirmButtonColor: '#2FB36F'
                         }).then(() => {
                             $('#voucherPaymentModal').modal('hide');
                             location.reload();
@@ -2697,7 +2697,7 @@
                                             icon: 'success',
                                             title: 'Success!',
                                             text: successText,
-                                            confirmButtonColor: '#28a745'
+                                            confirmButtonColor: '#2FB36F'
                                         }).then(() => {
                                             $('#voucherPaymentModal').modal('hide');
                                             location.reload();
@@ -2772,7 +2772,7 @@
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Printed',
                 cancelButtonText: 'No',
-                confirmButtonColor: '#198754',
+                confirmButtonColor: '#2FB36F',
             }).then((result) => {
                 if (!result.isConfirmed) {
                     return;

@@ -25,6 +25,8 @@ class ManagedUserResource extends JsonResource
                 ? RoleHierarchy::roleLabel((int) $this->user_role_id)
                 : null,
             'is_protected' => RoleHierarchy::isProtectedRole((int) $this->user_role_id),
+            'document_alerts_live' => (bool) $this->document_alerts_live,
+            'document_alerts_email' => (bool) $this->document_alerts_email,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

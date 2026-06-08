@@ -1536,7 +1536,7 @@ lrItemsContainer.addEventListener('blur', function(e) {
                             html: confirmationHTML,
                             icon: 'question',
                             showCancelButton: true,
-                            confirmButtonColor: '#28a745',
+                            confirmButtonColor: '#2FB36F',
                             confirmButtonText: '✅ Submit',
                             cancelButtonText: '❌ Cancel',
                             width: '90%'

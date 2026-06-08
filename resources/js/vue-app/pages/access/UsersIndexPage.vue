@@ -9,6 +9,68 @@
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
+        <div v-if="showCompanyAlertSettings" class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                    <div>
+                        <h3 class="h6 fw-bold mb-1">
+                            <i class="fas fa-bell me-2 text-brand-primary"></i>
+                            Company Document Alerts
+                        </h3>
+                        <p class="text-muted small mb-0">
+                            Turn channels on or off for the entered company. Enable alerts per user when creating or
+                            editing them below.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn btn-brand-primary btn-sm"
+                        :disabled="companySettingsSaving || companySettingsLoading"
+                        @click="saveCompanyAlertSettings"
+                    >
+                        {{ companySettingsSaving ? 'Saving…' : 'Save channels' }}
+                    </button>
+                </div>
+
+                <div v-if="companySettingsLoading" class="text-muted small">Loading company alert settings…</div>
+                <div v-else-if="companySettingsError" class="alert alert-danger py-2 mb-0">
+                    {{ companySettingsError }}
+                </div>
+                <div v-else class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input
+                                id="company_notify_live"
+                                v-model="companyAlertSettings.notify_live"
+                                class="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                            />
+                            <label class="form-check-label" for="company_notify_live">Live notifications</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input
+                                id="company_notify_email"
+                                v-model="companyAlertSettings.notify_email"
+                                class="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                            />
+                            <label class="form-check-label" for="company_notify_email">Email notifications</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-else-if="showCompanyAlertSettingsNotice" class="alert alert-info">
+            Enter a company from
+            <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
+            to configure company-wide document alert channels.
+        </div>
+
         <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">{{ listTitle }}</h3>
@@ -22,6 +84,7 @@
                             <th>Email</th>
                             <th>Role</th>
                             <th v-if="showCompanyColumn">Company</th>
+                            <th v-if="showDocumentAlertsColumn">Document Alerts</th>
                             <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
@@ -42,6 +105,20 @@
                             <td>{{ user.email }}</td>
                             <td>{{ user.role_label }}</td>
                             <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
+                            <td v-if="showDocumentAlertsColumn">
+                                <span v-if="user.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
+                                    Live
+                                </span>
+                                <span v-if="user.document_alerts_email" class="badge bg-info-subtle text-info-emphasis me-1">
+                                    Email
+                                </span>
+                                <span
+                                    v-if="!user.document_alerts_live && !user.document_alerts_email"
+                                    class="text-muted small"
+                                >
+                                    Off
+                                </span>
+                            </td>
                             <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions v-if="!user.is_protected">
                                     <AppCrudActionButton action="edit" @click="openEdit(user)" />
@@ -86,7 +163,9 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { listAllCompanies } from '../../api/companies';
+import { fetchDocumentAlertSettings, updateDocumentAlertSettings } from '../../api/documentAlertSettings';
 import {
     createManagedUser,
     deleteManagedUser,
@@ -117,10 +196,22 @@ const listTitle = computed(() =>
     managesSuperAdmins.value ? 'Super Admins List' : 'Company Users List',
 );
 const showCompanyColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
+const showDocumentAlertsColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
+const hasCompanyContext = computed(() => !user.value?.requires_company_selection);
+const showCompanyAlertSettings = computed(
+    () => can('users.manage') && managesTenantUsers.value && hasCompanyContext.value,
+);
+const showCompanyAlertSettingsNotice = computed(
+    () => can('users.manage') && managesTenantUsers.value && !hasCompanyContext.value,
+);
 const tableColspan = computed(() => {
     let cols = 3;
 
     if (showCompanyColumn.value) {
+        cols += 1;
+    }
+
+    if (showDocumentAlertsColumn.value) {
         cols += 1;
     }
 
@@ -130,6 +221,14 @@ const tableColspan = computed(() => {
 
     return cols;
 });
+
+const companyAlertSettings = reactive({
+    notify_live: true,
+    notify_email: true,
+});
+const companySettingsLoading = ref(false);
+const companySettingsSaving = ref(false);
+const companySettingsError = ref('');
 
 const { fieldErrors, formError: userFormError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -163,6 +262,43 @@ async function loadUsers(page = pagination.currentPage) {
         resetPagination();
     } finally {
         loading.value = false;
+    }
+}
+
+async function loadCompanyAlertSettings() {
+    if (!showCompanyAlertSettings.value) {
+        return;
+    }
+
+    companySettingsLoading.value = true;
+    companySettingsError.value = '';
+
+    try {
+        const data = await fetchDocumentAlertSettings();
+        companyAlertSettings.notify_live = data.settings?.notify_live ?? true;
+        companyAlertSettings.notify_email = data.settings?.notify_email ?? true;
+    } catch {
+        companySettingsError.value = 'Could not load company alert settings.';
+    } finally {
+        companySettingsLoading.value = false;
+    }
+}
+
+async function saveCompanyAlertSettings() {
+    companySettingsSaving.value = true;
+    companySettingsError.value = '';
+
+    try {
+        await updateDocumentAlertSettings({
+            notify_live: companyAlertSettings.notify_live,
+            notify_email: companyAlertSettings.notify_email,
+        });
+        showToast('Company alert channels saved.');
+    } catch {
+        companySettingsError.value = 'Could not save company alert settings.';
+        showToast('Could not save company alert settings.', 'error');
+    } finally {
+        companySettingsSaving.value = false;
     }
 }
 
@@ -254,6 +390,6 @@ async function handleDelete(user) {
 }
 
 onMounted(async () => {
-    await Promise.all([loadFormOptions(), loadUsers()]);
+    await Promise.all([loadFormOptions(), loadUsers(), loadCompanyAlertSettings()]);
 });
 </script>

@@ -88,6 +88,45 @@
                                 </div>
                             </div>
                         </div>
+                        <div v-if="showDocumentAlertPreferences" class="border rounded p-3 mb-3 bg-light">
+                            <h6 class="fw-bold mb-2">
+                                <i class="fas fa-bell me-2 text-brand-primary"></i>
+                                Document Alert Notifications
+                            </h6>
+                            <p class="text-muted small mb-3">
+                                Choose how this user receives document expiry alerts for their company.
+                            </p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input
+                                            :id="`${modalId}_document_alerts_live`"
+                                            v-model="form.document_alerts_live"
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            role="switch"
+                                        />
+                                        <label class="form-check-label" :for="`${modalId}_document_alerts_live`">
+                                            Live notifications
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input
+                                            :id="`${modalId}_document_alerts_email`"
+                                            v-model="form.document_alerts_email"
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            role="switch"
+                                        />
+                                        <label class="form-check-label" :for="`${modalId}_document_alerts_email`">
+                                            Email notifications
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_password`" class="form-label">
@@ -164,11 +203,17 @@ const requiresCompany = computed(() => {
     return roleId > 0 && roleId !== SUPER_ADMIN_ROLE_ID && roleId !== MASTER_ADMIN_ROLE_ID;
 });
 
+const showDocumentAlertPreferences = computed(
+    () => requiresCompany.value || Boolean(props.user?.tenant_id),
+);
+
 const form = ref({
     name: '',
     email: '',
     user_role_id: '',
     tenant_id: '',
+    document_alerts_live: false,
+    document_alerts_email: false,
     password: '',
     password_confirmation: '',
 });
@@ -180,6 +225,8 @@ function resetForm() {
             email: props.user.email ?? '',
             user_role_id: props.user.user_role_id ?? '',
             tenant_id: props.user.tenant_id ?? '',
+            document_alerts_live: Boolean(props.user.document_alerts_live),
+            document_alerts_email: Boolean(props.user.document_alerts_email),
             password: '',
             password_confirmation: '',
         };
@@ -189,6 +236,8 @@ function resetForm() {
             email: '',
             user_role_id: '',
             tenant_id: '',
+            document_alerts_live: false,
+            document_alerts_email: false,
             password: '',
             password_confirmation: '',
         };
@@ -208,6 +257,8 @@ function submit() {
 
     if (requiresCompany.value) {
         payload.tenant_id = form.value.tenant_id;
+        payload.document_alerts_live = form.value.document_alerts_live;
+        payload.document_alerts_email = form.value.document_alerts_email;
     }
 
     if (form.value.password) {

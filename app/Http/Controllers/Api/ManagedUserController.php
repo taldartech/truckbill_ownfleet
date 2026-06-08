@@ -61,6 +61,12 @@ class ManagedUserController extends Controller
             'tenant_id' => $roleId === UserRole::SUPER_ADMIN
                 ? null
                 : ($validated['tenant_id'] ?? null),
+            'document_alerts_live' => $roleId === UserRole::SUPER_ADMIN
+                ? false
+                : (bool) ($validated['document_alerts_live'] ?? false),
+            'document_alerts_email' => $roleId === UserRole::SUPER_ADMIN
+                ? false
+                : (bool) ($validated['document_alerts_email'] ?? false),
             'created_by' => $request->user()?->id,
             'updated_by' => $request->user()?->id,
         ]);

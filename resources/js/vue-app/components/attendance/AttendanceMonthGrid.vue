@@ -391,7 +391,7 @@ function buildIndividualDriverRows(sourceRows) {
 }
 
 .cell-present {
-    background: #198754;
+    background: var(--brand-primary);
     color: #fff;
 }
 
@@ -476,7 +476,7 @@ function buildIndividualDriverRows(sourceRows) {
 
 .pay-paid {
     background: #fff;
-    color: #198754;
+    color: var(--brand-primary);
 }
 
 .pay-unpaid {
@@ -510,11 +510,11 @@ function buildIndividualDriverRows(sourceRows) {
 }
 
 .cell-btn.cell-present {
-    background: #198754;
+    background: var(--brand-primary);
 }
 
 .cell-btn.cell-implicit {
-    background: #75b798;
+    background: rgba(var(--brand-primary-rgb), 0.55);
 }
 
 .cell-btn.cell-no-work {

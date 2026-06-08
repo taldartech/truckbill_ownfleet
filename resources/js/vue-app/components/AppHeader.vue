@@ -44,10 +44,65 @@
                         </div>
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link app-header-icon-btn" href="#" role="button" aria-label="Notifications" @click.prevent>
+                    <li
+                        v-if="showNotifications"
+                        ref="notificationMenuRef"
+                        class="nav-item dropdown app-header-notifications"
+                        :class="{ show: notificationMenuOpen }"
+                    >
+                        <a
+                            href="#"
+                            class="nav-link app-header-icon-btn position-relative"
+                            :class="{ 'is-active': notificationMenuOpen }"
+                            role="button"
+                            aria-label="Notifications"
+                            :aria-expanded="notificationMenuOpen"
+                            @click.prevent="toggleNotificationMenu"
+                        >
                             <i class="far fa-bell"></i>
+                            <span v-if="unreadCount > 0" class="app-header-notification-badge">
+                                {{ unreadCount > 99 ? '99+' : unreadCount }}
+                            </span>
                         </a>
+                        <div
+                            class="dropdown-menu dropdown-menu-end shadow app-header-notification-menu"
+                            :class="{ show: notificationMenuOpen }"
+                            @click.stop
+                        >
+                            <div class="app-header-notification-head">
+                                <span class="fw-semibold">Notifications</span>
+                                <button
+                                    v-if="notifications.length"
+                                    type="button"
+                                    class="btn btn-link btn-sm p-0"
+                                    @click="handleMarkAllRead"
+                                >
+                                    Mark all read
+                                </button>
+                            </div>
+
+                            <div v-if="notificationsLoading" class="app-header-notification-empty">Loading…</div>
+                            <div v-else-if="notifications.length === 0" class="app-header-notification-empty">
+                                No notifications yet.
+                            </div>
+                            <div v-else class="app-header-notification-list">
+                                <button
+                                    v-for="notification in notifications"
+                                    :key="notification.id"
+                                    type="button"
+                                    class="app-header-notification-item"
+                                    :class="{ 'app-header-notification-item--unread': !notification.read_at }"
+                                    @click="handleNotificationClick(notification)"
+                                >
+                                    <div class="app-header-notification-item__title">{{ notification.title }}</div>
+                                    <div class="app-header-notification-item__body">{{ notification.body }}</div>
+                                    <div class="app-header-notification-item__time">
+                                        {{ formatNotificationTime(notification.created_at) }}
+                                    </div>
+                                </button>
+                            </div>
+
+                        </div>
                     </li>
 
                     <li ref="userMenuRef" class="nav-item dropdown user-menu" :class="{ show: userMenuOpen }">
@@ -55,7 +110,7 @@
                             href="#"
                             class="nav-link dropdown-toggle app-header-user-toggle"
                             :aria-expanded="userMenuOpen"
-                            @click.prevent="userMenuOpen = !userMenuOpen"
+                            @click.prevent="openUserMenu"
                         >
                             <i class="fas fa-user-circle fa-lg"></i>
                             <span v-if="displayName" class="app-header-user-name d-none d-md-inline">{{ displayName }}</span>
@@ -75,9 +130,6 @@
                             <a class="dropdown-item" href="/password/change" @click="userMenuOpen = false">
                                 <i class="fas fa-user me-2"></i>Profile
                             </a>
-                            <a class="dropdown-item" href="/password/change" @click="userMenuOpen = false">
-                                <i class="fas fa-cog me-2"></i>Settings
-                            </a>
                             <div class="dropdown-divider"></div>
                             <button type="button" class="dropdown-item text-danger" @click="signOut">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
@@ -87,15 +139,21 @@
                 </ul>
             </div>
         </div>
+
     </nav>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../api';
 import { exitCompany } from '../api/companies';
-
+import {
+    fetchNotifications,
+    fetchUnreadNotificationCount,
+    markAllNotificationsRead,
+    markNotificationRead,
+} from '../api/notifications';
 const props = defineProps({
     user: {
         type: Object,
@@ -109,6 +167,12 @@ const router = useRouter();
 
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
+const notificationMenuOpen = ref(false);
+const notificationMenuRef = ref(null);
+const notifications = ref([]);
+const notificationsLoading = ref(false);
+const unreadCount = ref(0);
+let pollTimer = null;
 
 const needsCompanySelection = computed(() => Boolean(props.user?.requires_company_selection));
 const companyName = computed(() => props.user?.tenant_name ?? props.user?.company?.name ?? '');
@@ -122,6 +186,9 @@ const showPlanBadges = computed(() => {
 
     return props.user.show_plan_badges === true || props.user.can_access_company_panel === true;
 });
+const showNotifications = computed(
+    () => Boolean(props.user?.can_access_company_panel) && !needsCompanySelection.value,
+);
 const displayName = computed(() => props.user?.name || props.user?.email || '');
 const planExpiryLabel = computed(() => props.user?.company?.plan_end_date_formatted ?? 'N/A');
 const lrCreditsLabel = computed(() => {
@@ -141,16 +208,130 @@ const memberSince = computed(() => {
     });
 });
 
+watch(
+    () => showNotifications.value,
+    (enabled) => {
+        if (enabled) {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+    },
+    { immediate: true },
+);
+
 function onDocumentClick(event) {
-    if (!userMenuOpen.value) {
+    if (userMenuOpen.value) {
+        const menu = userMenuRef.value;
+
+        if (menu && !menu.contains(event.target)) {
+            userMenuOpen.value = false;
+        }
+    }
+
+    if (notificationMenuOpen.value) {
+        const menu = notificationMenuRef.value;
+
+        if (menu && !menu.contains(event.target)) {
+            notificationMenuOpen.value = false;
+        }
+    }
+}
+
+function startPolling() {
+    stopPolling();
+    refreshUnreadCount();
+    pollTimer = window.setInterval(refreshUnreadCount, 60000);
+}
+
+function stopPolling() {
+    if (pollTimer !== null) {
+        window.clearInterval(pollTimer);
+        pollTimer = null;
+    }
+}
+
+async function refreshUnreadCount() {
+    if (!showNotifications.value) {
         return;
     }
 
-    const menu = userMenuRef.value;
-
-    if (menu && !menu.contains(event.target)) {
-        userMenuOpen.value = false;
+    try {
+        unreadCount.value = await fetchUnreadNotificationCount();
+    } catch {
+        unreadCount.value = 0;
     }
+}
+
+async function loadNotifications() {
+    notificationsLoading.value = true;
+
+    try {
+        const data = await fetchNotifications({ per_page: 15 });
+        notifications.value = data.data ?? [];
+    } catch {
+        notifications.value = [];
+    } finally {
+        notificationsLoading.value = false;
+    }
+}
+
+async function toggleNotificationMenu() {
+    notificationMenuOpen.value = !notificationMenuOpen.value;
+    userMenuOpen.value = false;
+
+    if (notificationMenuOpen.value) {
+        await loadNotifications();
+    }
+}
+
+function openUserMenu() {
+    userMenuOpen.value = !userMenuOpen.value;
+    notificationMenuOpen.value = false;
+}
+
+async function handleNotificationClick(notification) {
+    if (!notification.read_at) {
+        try {
+            await markNotificationRead(notification.id);
+            notification.read_at = new Date().toISOString();
+            unreadCount.value = Math.max(0, unreadCount.value - 1);
+        } catch {
+            // ignore
+        }
+    }
+
+    notificationMenuOpen.value = false;
+
+    if (notification.type === 'document_expiry') {
+        await router.push({ name: 'dashboard' });
+    }
+}
+
+async function handleMarkAllRead() {
+    try {
+        await markAllNotificationsRead();
+        notifications.value = notifications.value.map((notification) => ({
+            ...notification,
+            read_at: notification.read_at ?? new Date().toISOString(),
+        }));
+        unreadCount.value = 0;
+    } catch {
+        // ignore
+    }
+}
+
+function formatNotificationTime(value) {
+    if (!value) {
+        return '';
+    }
+
+    return new Date(value).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 onMounted(() => {
@@ -159,6 +340,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     document.removeEventListener('click', onDocumentClick);
+    stopPolling();
 });
 
 async function handleExitCompany() {

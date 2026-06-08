@@ -281,7 +281,7 @@ defineExpose({ grandTotal });
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 .stop-expense-card__header {
-    background: #1a7a4a;
+    background: var(--brand-primary);
     color: #fff;
     padding: 14px 18px;
 }
@@ -322,8 +322,8 @@ defineExpose({ grandTotal });
     white-space: nowrap;
 }
 .load-badge--full {
-    background: #e1f5ee;
-    color: #0f6e56;
+    background: var(--brand-active-bg);
+    color: var(--brand-primary-dark);
 }
 .load-badge--half {
     background: #fef9c3;
