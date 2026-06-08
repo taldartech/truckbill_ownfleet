@@ -13,10 +13,14 @@ class CheckDocumentExpiryCommand extends Command
 
     protected $description = 'Send live and email reminders for expiring vehicle documents';
 
+    private const CHUNK_SIZE = 200;
+
     public function handle(DocumentAlertNotifier $notifier): int
     {
         $today = Carbon::today();
-        $documents = VehicleDocument::query()
+        $documentCount = 0;
+
+        VehicleDocument::query()
             ->withoutGlobalScope('tenant')
             ->with('vehicle:id,registration_number')
             ->whereNotNull('expiry_date')
@@ -24,16 +28,15 @@ class CheckDocumentExpiryCommand extends Command
                 $query->whereDate('expiry_date', '<', $today->toDateString())
                     ->orWhereDate('expiry_date', '<=', $today->copy()->addDays(30)->toDateString());
             })
-            ->get();
+            ->lazyById(self::CHUNK_SIZE)
+            ->each(function (VehicleDocument $document) use ($notifier, &$documentCount): void {
+                $notifier->notifyForDocument($document);
+                $documentCount++;
+            });
 
-        $sentCount = 0;
+        $emailsQueued = $notifier->emailsQueued();
 
-        foreach ($documents as $document) {
-            $notifier->notifyForDocument($document);
-            $sentCount++;
-        }
-
-        $this->info("Processed {$sentCount} document alerts.");
+        $this->info("Processed {$documentCount} documents. Queued {$emailsQueued} email reminders.");
 
         return self::SUCCESS;
     }

@@ -4,18 +4,32 @@ namespace App\Support;
 
 use App\AppNotification;
 use App\DocumentAlertSetting;
-use App\Mail\DocumentExpiryReminderMail;
-use App\NotificationLog;
+use App\Jobs\SendDocumentExpiryReminderJob;
 use App\User;
 use App\VehicleDocument;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Mail;
-use Throwable;
 
 class DocumentAlertNotifier
 {
     private const DEFAULT_REMINDER_DAYS = 30;
+
+    /**
+     * @var array<string, DocumentAlertSetting>
+     */
+    private array $settingsCache = [];
+
+    /**
+     * @var array<string, Collection<int, User>>
+     */
+    private array $recipientsCache = [];
+
+    private int $emailsQueued = 0;
+
+    public function emailsQueued(): int
+    {
+        return $this->emailsQueued;
+    }
 
     public function notifyForDocument(VehicleDocument $document): void
     {
@@ -35,18 +49,9 @@ class DocumentAlertNotifier
             return;
         }
 
-        $settings = DocumentAlertSetting::query()
-            ->withoutGlobalScope('tenant')
-            ->firstOrCreate(
-                ['tenant_id' => $document->tenant_id],
-                [
-                    'notify_live' => true,
-                    'notify_email' => true,
-                    'recipient_user_ids' => [],
-                ],
-            );
-
-        $recipients = $this->resolveRecipients($settings, (string) $document->tenant_id);
+        $tenantId = (string) $document->tenant_id;
+        $settings = $this->resolveSettings($tenantId);
+        $recipients = $this->resolveRecipients($settings, $tenantId);
 
         if ($recipients->isEmpty()) {
             return;
@@ -81,7 +86,7 @@ class DocumentAlertNotifier
         foreach ($recipients as $recipient) {
             if ($settings->notify_live && $recipient->document_alerts_live) {
                 $this->createLiveNotification(
-                    (string) $document->tenant_id,
+                    $tenantId,
                     $recipient,
                     $title,
                     $body,
@@ -91,14 +96,36 @@ class DocumentAlertNotifier
             }
 
             if ($settings->notify_email && $recipient->document_alerts_email) {
-                $this->sendEmailNotification(
-                    (string) $document->tenant_id,
-                    $recipient,
+                SendDocumentExpiryReminderJob::dispatch(
+                    $tenantId,
+                    (string) $recipient->id,
                     $title,
                     $payload,
                 );
+
+                $this->emailsQueued++;
             }
         }
+    }
+
+    private function resolveSettings(string $tenantId): DocumentAlertSetting
+    {
+        if (isset($this->settingsCache[$tenantId])) {
+            return $this->settingsCache[$tenantId];
+        }
+
+        $this->settingsCache[$tenantId] = DocumentAlertSetting::query()
+            ->withoutGlobalScope('tenant')
+            ->firstOrCreate(
+                ['tenant_id' => $tenantId],
+                [
+                    'notify_live' => true,
+                    'notify_email' => true,
+                    'recipient_user_ids' => [],
+                ],
+            );
+
+        return $this->settingsCache[$tenantId];
     }
 
     /**
@@ -106,7 +133,11 @@ class DocumentAlertNotifier
      */
     private function resolveRecipients(DocumentAlertSetting $settings, string $tenantId): Collection
     {
-        return User::query()
+        if (isset($this->recipientsCache[$tenantId])) {
+            return $this->recipientsCache[$tenantId];
+        }
+
+        $this->recipientsCache[$tenantId] = User::query()
             ->with('userRole.permissions')
             ->where('tenant_id', $tenantId)
             ->where(function ($query): void {
@@ -117,6 +148,8 @@ class DocumentAlertNotifier
             ->get()
             ->filter(fn (User $user): bool => $user->hasPermission('vehicle_documents.view'))
             ->values();
+
+        return $this->recipientsCache[$tenantId];
     }
 
     /**
@@ -149,55 +182,5 @@ class DocumentAlertNotifier
             'data' => $payload,
             'dedupe_key' => $dedupeKey,
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function sendEmailNotification(
-        string $tenantId,
-        User $recipient,
-        string $subject,
-        array $payload,
-    ): void {
-        $alreadySent = NotificationLog::query()
-            ->withoutGlobalScope('tenant')
-            ->where('tenant_id', $tenantId)
-            ->where('channel', 'email')
-            ->where('recipient', $recipient->email)
-            ->where('subject', $subject)
-            ->whereDate('sent_at', Carbon::today())
-            ->exists();
-
-        if ($alreadySent) {
-            return;
-        }
-
-        try {
-            Mail::to($recipient->email)->send(new DocumentExpiryReminderMail($recipient, $payload));
-
-            NotificationLog::query()->create([
-                'tenant_id' => $tenantId,
-                'channel' => 'email',
-                'recipient' => $recipient->email,
-                'subject' => $subject,
-                'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-                'status' => 'SENT',
-                'sent_at' => now(),
-            ]);
-        } catch (Throwable $exception) {
-            NotificationLog::query()->create([
-                'tenant_id' => $tenantId,
-                'channel' => 'email',
-                'recipient' => $recipient->email,
-                'subject' => $subject,
-                'payload' => json_encode([
-                    'payload' => $payload,
-                    'error' => $exception->getMessage(),
-                ], JSON_THROW_ON_ERROR),
-                'status' => 'FAILED',
-                'sent_at' => now(),
-            ]);
-        }
     }
 }
