@@ -53,7 +53,7 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label :for="`${modalId}_vehicle`" class="form-label">Vehicle *</label>
+                                <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
                                 <select
                                     :id="`${modalId}_vehicle`"
                                     v-model="form.vehicle_id"
@@ -61,7 +61,7 @@
                                     :class="{ 'is-invalid': fieldErrors.vehicle_id }"
                                     required
                                 >
-                                    <option value="">Select vehicle</option>
+                                    <option value="">Select truck</option>
                                     <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
                                         {{ vehicle.registration_number }}
                                     </option>
@@ -111,6 +111,7 @@
                                 <input
                                     :id="`${modalId}_amount`"
                                     v-model="form.amount"
+                                    v-no-scroll-change
                                     type="number"
                                     min="0"
                                     step="0.01"

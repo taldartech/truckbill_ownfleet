@@ -12,7 +12,7 @@
                 <div class="modal-header bg-primary text-white">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="bi bi-exclamation-triangle"></i>
-                        {{ isEdit ? 'Edit Exception' : 'Mark Exception' }}
+                        {{ isEdit ? 'Edit Attendance' : 'Mark Attendance' }}
                     </h5>
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
@@ -44,7 +44,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label :for="`${modalId}_vehicle`" class="form-label">Vehicle *</label>
+                                <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
                                 <select
                                     :id="`${modalId}_vehicle`"
                                     v-model="form.vehicle_id"
@@ -53,7 +53,7 @@
                                     required
                                     @change="onVehicleChange"
                                 >
-                                    <option value="">Select vehicle</option>
+                                    <option value="">Select truck</option>
                                     <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
                                         {{ vehicle.registration_number }}
                                     </option>
@@ -145,7 +145,7 @@
                                 </select>
                                 <p class="form-text text-muted mb-0">
                                     Only drivers not assigned to any truck on this date can substitute. Names in red
-                                    are already on another vehicle.
+                                    are already on another truck.
                                 </p>
                                 <div
                                     v-if="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"

@@ -1,5 +1,5 @@
 <template>
-    <aside class="app-sidebar shadow">
+    <aside class="app-sidebar sidebar shadow">
         <div class="sidebar-brand">
             <a href="/app/dashboard" class="brand-link">
                 <img :src="logoUrl" alt="TruckBill Logo" class="brand-image" />

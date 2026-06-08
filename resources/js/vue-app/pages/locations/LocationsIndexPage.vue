@@ -40,126 +40,136 @@
             </li>
         </ul>
 
-        <div v-show="activeTab === 'states'" class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">State List</h3>
+        <AppIndexFiltersCard
+            v-show="activeTab === 'states'"
+            :active="stateFiltersActive"
+            @apply="loadStates(1)"
+            @clear="clearStateFilters"
+        >
+            <div>
+                <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="stateSearch"
                     input-id="locationsStates_search"
                     placeholder="Search state or code"
-                    max-width="260px"
+                    max-width="100%"
                     :disabled="loadingStates"
-                    @update:model-value="debouncedLoadStates"
                 />
             </div>
-            <div class="card-body table-responsive p-0">
-                <div v-if="loadingStates" class="text-center py-4 text-muted">Loading…</div>
-                <table v-else class="table table-bordered table-striped mb-0">
-                    <thead>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard v-show="activeTab === 'states'" :loading="loadingStates" loading-text="Loading states…">
+            <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>Code</th>
                             <th>Cities</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="states.length === 0">
-                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted">No states found.</td>
+                        <tr v-if="states.length === 0" class="app-index-empty-row">
+                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No states found.</td>
                         </tr>
                         <tr v-for="state in states" :key="state.id">
                             <td>{{ state.name }}</td>
                             <td>{{ state.code || '—' }}</td>
                             <td>{{ state.cities_count ?? 0 }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openStateEdit(state)" />
                                 </AppTableActions>
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="locationsStates"
-                :loading="loadingStates"
-                :current-page="statePagination.currentPage"
-                :last-page="statePagination.lastPage"
-                :per-page="statePagination.perPage"
-                :total="statePagination.total"
-                :from="statePagination.from"
-                :to="statePagination.to"
-                item-label="states"
-                :per-page-options="[15, 25, 50]"
-                @page-change="loadStates"
-                @update:per-page="onStatePerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    page-id="locationsStates"
+                    :loading="loadingStates"
+                    :current-page="statePagination.currentPage"
+                    :last-page="statePagination.lastPage"
+                    :per-page="statePagination.perPage"
+                    :total="statePagination.total"
+                    :from="statePagination.from"
+                    :to="statePagination.to"
+                    item-label="states"
+                    :per-page-options="[15, 25, 50]"
+                    @page-change="loadStates"
+                    @update:per-page="onStatePerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
-        <div v-show="activeTab === 'cities'" class="card app-index-list-card">
-            <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-                <h3 class="card-title mb-0">City List</h3>
-                <select
-                    v-model="cityStateFilter"
-                    class="form-select form-select-sm"
-                    style="max-width: 220px"
-                    @change="onCityFilterChange"
-                >
+        <AppIndexFiltersCard
+            v-show="activeTab === 'cities'"
+            :active="cityFiltersActive"
+            @apply="loadCities(1)"
+            @clear="clearCityFilters"
+        >
+            <div>
+                <label class="form-label">State</label>
+                <select v-model="cityStateFilter" class="form-select" :disabled="loadingCities">
                     <option value="">All states</option>
                     <option v-for="state in stateOptions" :key="state.id" :value="state.id">
                         {{ state.name }}
                     </option>
                 </select>
+            </div>
+            <div>
+                <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="citySearch"
                     input-id="locationsCities_search"
                     placeholder="Search city"
-                    max-width="260px"
+                    max-width="100%"
                     :disabled="loadingCities"
-                    @update:model-value="debouncedLoadCities"
                 />
             </div>
-            <div class="card-body table-responsive p-0">
-                <div v-if="loadingCities" class="text-center py-4 text-muted">Loading…</div>
-                <table v-else class="table table-bordered table-striped mb-0">
-                    <thead>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard v-show="activeTab === 'cities'" :loading="loadingCities" loading-text="Loading cities…">
+            <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>State</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="cities.length === 0">
-                            <td :colspan="canManage ? 3 : 2" class="text-center text-muted">No cities found.</td>
+                        <tr v-if="cities.length === 0" class="app-index-empty-row">
+                            <td :colspan="canManage ? 3 : 2" class="text-center text-muted py-4">No cities found.</td>
                         </tr>
                         <tr v-for="city in cities" :key="city.id">
                             <td>{{ city.name }}</td>
                             <td>{{ city.state_name || '—' }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openCityEdit(city)" />
                                 </AppTableActions>
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="locationsCities"
-                :loading="loadingCities"
-                :current-page="cityPagination.currentPage"
-                :last-page="cityPagination.lastPage"
-                :per-page="cityPagination.perPage"
-                :total="cityPagination.total"
-                :from="cityPagination.from"
-                :to="cityPagination.to"
-                item-label="cities"
-                :per-page-options="[15, 25, 50]"
-                @page-change="loadCities"
-                @update:per-page="onCityPerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    page-id="locationsCities"
+                    :loading="loadingCities"
+                    :current-page="cityPagination.currentPage"
+                    :last-page="cityPagination.lastPage"
+                    :per-page="cityPagination.perPage"
+                    :total="cityPagination.total"
+                    :from="cityPagination.from"
+                    :to="cityPagination.to"
+                    item-label="cities"
+                    :per-page-options="[15, 25, 50]"
+                    @page-change="loadCities"
+                    @update:per-page="onCityPerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <StateFormModal
             modal-id="addStateModal"
@@ -221,6 +231,8 @@ import CityFormModal from '../../components/locations/CityFormModal.vue';
 import StateFormModal from '../../components/locations/StateFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -284,8 +296,22 @@ const cityPagination = reactive({
     total: 0,
 });
 
-let stateDebounceTimer = null;
-let cityDebounceTimer = null;
+const stateFiltersActive = computed(() => stateSearch.value.trim() !== '');
+
+const cityFiltersActive = computed(
+    () => citySearch.value.trim() !== '' || cityStateFilter.value !== '',
+);
+
+function clearStateFilters() {
+    stateSearch.value = '';
+    loadStates(1);
+}
+
+function clearCityFilters() {
+    citySearch.value = '';
+    cityStateFilter.value = '';
+    loadCities(1);
+}
 
 function applyPagination(target, meta) {
     target.currentPage = meta.current_page ?? 1;
@@ -354,16 +380,6 @@ function onCityPerPageUpdate(perPage) {
     loadCities(1);
 }
 
-function debouncedLoadStates() {
-    clearTimeout(stateDebounceTimer);
-    stateDebounceTimer = setTimeout(() => loadStates(1), 350);
-}
-
-function debouncedLoadCities() {
-    clearTimeout(cityDebounceTimer);
-    cityDebounceTimer = setTimeout(() => loadCities(1), 350);
-}
-
 async function loadStateOptions() {
     stateOptions.value = await listLookupStates();
 }
@@ -401,10 +417,6 @@ async function loadCities(page = 1) {
     } finally {
         loadingCities.value = false;
     }
-}
-
-function onCityFilterChange() {
-    loadCities(1);
 }
 
 function switchTab(tab) {

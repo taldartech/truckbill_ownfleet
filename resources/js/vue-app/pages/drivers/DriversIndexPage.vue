@@ -6,28 +6,30 @@
             </template>
         </AppIndexPageHeader>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Drivers List</h3>
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadDrivers(1)" @clear="clearFilters">
+            <div>
+                <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="searchQuery"
                     :input-id="`${pageId}_search`"
                     placeholder="Search name, mobile, license…"
                     aria-label="Search drivers"
+                    max-width="100%"
                     :disabled="loading"
                 />
             </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading drivers…</div>
-                <table v-else class="table table-bordered table-striped mb-0">
-                    <thead>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard title="Drivers List" :loading="loading" loading-text="Loading drivers…">
+            <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th style="width: 70px">#</th>
                             <th>Name</th>
                             <th>Mobile</th>
                             <th>License Number</th>
                             <th>Address</th>
-                            <th v-if="canManage" style="width: 150px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 150px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -45,7 +47,7 @@
                             <td>{{ formatPhone(driver.phone) }}</td>
                             <td>{{ driver.license_number || '—' }}</td>
                             <td>{{ formatAddress(driver.address) }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(driver)" />
                                     <AppCrudActionButton action="advance" @click="openAdvance(driver)" />
@@ -54,22 +56,23 @@
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                :page-id="pageId"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="drivers"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    :page-id="pageId"
+                    :loading="loading"
+                    :current-page="pagination.currentPage"
+                    :last-page="pagination.lastPage"
+                    :per-page="pagination.perPage"
+                    :total="pagination.total"
+                    :from="pagination.from"
+                    :to="pagination.to"
+                    item-label="drivers"
+                    @page-change="goToPage"
+                    @update:per-page="onPerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <DriverFormModal
             modal-id="addDriverModal"
@@ -108,13 +111,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { createDriverAdvanceEntry } from '../../api/driverAdvances';
 import { createDriver, deleteDriver, listDrivers, updateDriver } from '../../api/drivers';
 import DriverAdvanceModal from '../../components/drivers/DriverAdvanceModal.vue';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -152,7 +157,13 @@ const advanceModalRef = ref(null);
 const searchQuery = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
 
-let searchDebounceTimer = null;
+const filtersActive = computed(() => searchQuery.value.trim() !== '');
+
+function clearFilters() {
+    searchQuery.value = '';
+    pagination.currentPage = 1;
+    loadDrivers(1);
+}
 
 function formatPhone(phone) {
     const value = String(phone ?? '').trim();
@@ -349,14 +360,6 @@ async function handleDelete(driver) {
         toast.error('Unable to delete driver. Please try again.');
     }
 }
-
-watch(searchQuery, () => {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        pagination.currentPage = 1;
-        loadDrivers(1);
-    }, 400);
-});
 
 onMounted(() => {
     loadDrivers();

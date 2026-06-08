@@ -55,7 +55,7 @@
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label :for="`${modalId}_type`" class="form-label">Vehicle Type *</label>
+                                <label :for="`${modalId}_type`" class="form-label">Truck Type *</label>
                                 <select
                                     :id="`${modalId}_type`"
                                     v-model="form.vehicle_type"
@@ -106,6 +106,7 @@
                                 <input
                                     :id="`${modalId}_year`"
                                     v-model="form.manufacture_year"
+                                    v-no-scroll-change
                                     type="number"
                                     min="1980"
                                     class="form-control"
@@ -121,6 +122,7 @@
                             <input
                                 :id="`${modalId}_odometer`"
                                 v-model="form.odometer_km"
+                                v-no-scroll-change
                                 type="number"
                                 min="0"
                                 step="0.01"

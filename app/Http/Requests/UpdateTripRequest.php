@@ -23,9 +23,11 @@ class UpdateTripRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'vehicle_id' => ['sometimes', 'uuid', 'exists:vehicles,id'],
-            'driver_id' => ['sometimes', 'uuid', 'exists:drivers,id'],
+            'vehicle_id' => ['prohibited'],
+            'driver_id' => ['prohibited'],
             'trip_number' => ['prohibited'],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'broker_id' => ['nullable', 'integer', 'exists:brokers,id'],
             'start_station_id' => ['sometimes', 'required', 'integer', 'exists:stations,id'],
             'status' => ['sometimes', Rule::enum(TripStatus::class)],
             'start_at' => ['sometimes', 'required', 'date'],
@@ -46,6 +48,10 @@ class UpdateTripRequest extends FormRequest
             'expenses' => ['nullable', 'array'],
             'expenses.*.expense_type' => ['required_with:expenses', Rule::enum(TripExpenseType::class)],
             'expenses.*.amount' => ['required_with:expenses', 'numeric', 'min:0'],
+            'expenses.*.fuel_liters' => ['nullable', 'numeric', 'min:0'],
+            'expenses.*.fuel_rate' => ['nullable', 'numeric', 'min:0'],
+            'expenses.*.odometer_start' => ['nullable', 'numeric', 'min:0'],
+            'expenses.*.odometer_end' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.route_leg_sequence' => ['nullable', 'integer', 'min:1'],
             'expenses.*.notes' => ['nullable', 'string', 'max:500'],
         ];

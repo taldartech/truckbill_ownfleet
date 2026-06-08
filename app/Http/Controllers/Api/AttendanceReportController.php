@@ -35,7 +35,7 @@ class AttendanceReportController extends Controller
 
             fputcsv($handle, [
                 'Date',
-                'Vehicle',
+                'Truck',
                 'Primary Driver',
                 'Temporary Driver',
                 'Status',

@@ -26,3 +26,9 @@ export async function createDriverAssignment(payload) {
 
     return unwrapResource(data);
 }
+
+export async function removeVehiclePrimaryDriver(vehicleId) {
+    const { data } = await api.post(`/app/api/vehicles/${vehicleId}/remove-primary-driver`);
+
+    return data;
+}

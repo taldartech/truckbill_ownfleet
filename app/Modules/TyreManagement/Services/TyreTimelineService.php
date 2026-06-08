@@ -115,6 +115,24 @@ class TyreTimelineService
             ]);
         }
 
+        if ($tyre->scrapped_at !== null) {
+            $detail = 'Marked as scrapped';
+            if ($tyre->scrap_sale_amount !== null && (float) $tyre->scrap_sale_amount > 0) {
+                $detail .= ' · Sale ₹'.number_format((float) $tyre->scrap_sale_amount, 2);
+            }
+            if ($tyre->scrap_notes) {
+                $detail .= " · {$tyre->scrap_notes}";
+            }
+
+            $events->push([
+                'type' => 'scrapped',
+                'date' => $tyre->scrapped_at->toDateString(),
+                'title' => 'Scrapped / sold',
+                'detail' => $detail,
+                'scrap_sale_amount' => $tyre->scrap_sale_amount !== null ? (float) $tyre->scrap_sale_amount : null,
+            ]);
+        }
+
         TyreReplacement::query()
             ->where('old_tyre_id', $tyre->id)
             ->orWhere('new_tyre_id', $tyre->id)

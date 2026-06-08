@@ -58,16 +58,10 @@ class Vehicle extends Model
     /**
      * @param  Builder<DriverAssignment>  $query
      */
-    public static function applyCurrentPrimaryAssignmentConstraints(Builder $query): void
+    public static function applyCurrentPrimaryAssignmentConstraints(Builder $query, ?string $asOfDate = null): void
     {
-        $today = now()->toDateString();
-
-        $query->where('is_primary', true)
-            ->whereDate('assigned_from', '<=', $today)
-            ->where(function (Builder $dateQuery) use ($today) {
-                $dateQuery->whereNull('assigned_to')
-                    ->orWhereDate('assigned_to', '>=', $today);
-            });
+        /** @var Builder<DriverAssignment> $query */
+        $query->activePrimaryOn($asOfDate ?? now()->toDateString());
     }
 
     /**
@@ -89,5 +83,10 @@ class Vehicle extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(VehicleDocument::class);
+    }
+
+    public function trips(): HasMany
+    {
+        return $this->hasMany(Trip::class);
     }
 }

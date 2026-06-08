@@ -20,8 +20,8 @@
             <div class="card-body">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading companies…</div>
                 <div v-else class="table-responsive">
-                    <table class="table table-bordered table-striped">
-                        <thead>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
                                 <th style="width: 60px">#</th>
                                 <th>Name</th>
@@ -30,7 +30,7 @@
                                 <th>Contact</th>
                                 <th>Plan End</th>
                                 <th>LR Credits</th>
-                                <th style="width: 180px">Actions</th>
+                                <th class="app-index-actions-cell" style="width: 180px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -63,7 +63,7 @@
                                 </td>
                                 <td>{{ company.plan_end_date_formatted || '—' }}</td>
                                 <td>{{ company.lr_credits ?? '—' }}</td>
-                                <td class="text-nowrap">
+                                <td class="app-index-actions-cell text-nowrap">
                                     <AppButton
                                         v-if="canEnter"
                                         size="sm"

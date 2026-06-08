@@ -48,15 +48,18 @@ class TyreReportService
             ->get()
             ->map(function (Tyre $tyre): array {
                 $totalCost = (float) $tyre->expenses->sum('amount') + (float) $tyre->purchase_cost;
+                $scrapRecovery = (float) ($tyre->scrap_sale_amount ?? 0);
+                $netCost = max(0, $totalCost - $scrapRecovery);
                 $installationKm = (float) $tyre->installations->sum('running_km');
                 $totalKm = max(1, (float) $tyre->current_km + $installationKm);
 
                 return [
                     'tyre_id' => $tyre->id,
                     'serial_number' => $tyre->serial_number,
-                    'total_cost' => round($totalCost, 2),
+                    'total_cost' => round($netCost, 2),
                     'total_km' => round($totalKm, 2),
-                    'cost_per_km' => round($totalCost / $totalKm, 4),
+                    'cost_per_km' => round($netCost / $totalKm, 4),
+                    'scrap_recovery' => round($scrapRecovery, 2),
                 ];
             })
             ->sortBy('cost_per_km')

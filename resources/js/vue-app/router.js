@@ -89,6 +89,18 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'stations.view' },
                 },
                 {
+                    path: 'brokers',
+                    name: 'brokers.index',
+                    component: () => import('./pages/brokers/BrokersIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'brokers.view' },
+                },
+                {
+                    path: 'customers',
+                    name: 'customers.index',
+                    component: () => import('./pages/customers/CustomersIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'customers.view' },
+                },
+                {
                     path: 'locations',
                     name: 'locations.index',
                     component: () => import('./pages/locations/LocationsIndexPage.vue'),

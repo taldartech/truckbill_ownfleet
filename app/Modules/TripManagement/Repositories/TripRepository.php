@@ -72,8 +72,34 @@ class TripRepository
             $query->whereDate('start_at', '<=', $filters['to_date']);
         }
 
+        if (! empty($filters['customer_id'])) {
+            $query->where('customer_id', (int) $filters['customer_id']);
+        }
+
+        if (! empty($filters['broker_id'])) {
+            $query->where('broker_id', (int) $filters['broker_id']);
+        }
+
         if (! empty($filters['customer_name'])) {
             $query->where('customer_name', 'like', '%'.$filters['customer_name'].'%');
+        }
+
+        if (! empty($filters['trip_number'])) {
+            $query->where('trip_number', 'like', '%'.$filters['trip_number'].'%');
+        }
+
+        if (! empty($filters['vehicle_search'])) {
+            $search = (string) $filters['vehicle_search'];
+            $query->whereHas('vehicle', function ($vehicleQuery) use ($search): void {
+                $vehicleQuery->where('registration_number', 'like', "%{$search}%")
+                    ->orWhere('make', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($filters['driver_search'])) {
+            $search = (string) $filters['driver_search'];
+            $query->whereHas('driver', fn ($driverQuery) => $driverQuery->where('name', 'like', "%{$search}%"));
         }
 
         return $query;

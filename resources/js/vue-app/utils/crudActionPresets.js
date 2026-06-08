@@ -3,7 +3,7 @@
  */
 export const CRUD_ACTION_PRESETS = {
     view: {
-        btnClass: 'btn-info',
+        btnClass: 'btn-view',
         icon: 'fas fa-eye',
         title: 'View details',
     },
@@ -18,7 +18,7 @@ export const CRUD_ACTION_PRESETS = {
         title: 'Delete',
     },
     driver: {
-        btnClass: 'btn-info',
+        btnClass: 'btn-view',
         icon: 'fas fa-user-tie',
         title: 'Driver assignment',
     },
@@ -51,5 +51,5 @@ export function crudActionButtonClasses(action) {
         return 'btn btn-secondary btn-sm';
     }
 
-    return `btn ${preset.btnClass} btn-sm`;
+    return `btn btn-icon ${preset.btnClass} btn-sm`;
 }

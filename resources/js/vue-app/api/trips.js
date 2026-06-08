@@ -23,8 +23,10 @@ export async function fetchNextTripNumber() {
     return data.trip_number ?? '';
 }
 
-export async function fetchVehiclePrimaryDriver(vehicleId) {
-    const { data } = await api.get(`/app/api/vehicles/${vehicleId}/primary-driver`);
+export async function fetchVehiclePrimaryDriver(vehicleId, { asOfDate = null } = {}) {
+    const { data } = await api.get(`/app/api/vehicles/${vehicleId}/primary-driver`, {
+        params: asOfDate ? { as_of_date: asOfDate } : {},
+    });
 
     return data;
 }
@@ -93,15 +95,31 @@ export function routeTypeMeta(type) {
     return ROUTE_TYPES.find((t) => t.value === type) ?? ROUTE_TYPES[0];
 }
 
-export function validateTripPayload(payload) {
+function parseNumeric(value) {
+    const parsed = Number(String(value ?? '').trim());
+
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function validateTripPayload(payload, { mode = 'create', previousStatus = null } = {}) {
     const errors = {};
 
-    if (!payload.vehicle_id) {
-        errors.vehicle_id = ['Please select a vehicle.'];
+    if (mode === 'create') {
+        if (!payload.vehicle_id) {
+            errors.vehicle_id = ['Please select a truck.'];
+        }
+
+        if (!payload.driver_id) {
+            errors.driver_id = ['Primary driver could not be resolved for the selected truck.'];
+        }
     }
 
-    if (!payload.driver_id) {
-        errors.driver_id = ['Please select a driver.'];
+    if (
+        mode === 'edit'
+        && previousStatus
+        && ['COMPLETED', 'CANCELLED'].includes(String(previousStatus).toUpperCase())
+    ) {
+        errors.trip = ['Completed or cancelled trips cannot be edited.'];
     }
 
     if (!payload.start_station_id) {
@@ -116,7 +134,7 @@ export function validateTripPayload(payload) {
         errors.end_at = ['End date cannot be before start date.'];
     }
 
-    if (payload.status === 'COMPLETED') {
+    if (payload.status === 'COMPLETED' && mode === 'edit') {
         if (!payload.end_at) {
             errors.end_at = ['End date is required to complete the trip.'];
         }
@@ -130,9 +148,9 @@ export function validateTripPayload(payload) {
         }
     }
 
-    if (payload.status === 'CANCELLED') {
+    if (payload.status === 'CANCELLED' && mode === 'edit') {
         if (!payload.cancelled_at) {
-            errors.cancelled_at = ['Cancellation date and time is required.'];
+            errors.cancelled_at = ['Cancellation date is required.'];
         }
 
         if (!payload.cancellation_reason?.trim()) {
@@ -165,7 +183,7 @@ export function validateTripPayload(payload) {
             errors[`route_legs.${index}.to_station_id`] = [`Stop ${index + 1}: from and to station cannot be same.`];
         }
 
-        if (Number(leg.distance_km) <= 0) {
+        if (parseNumeric(leg.distance_km) <= 0) {
             errors[`route_legs.${index}.distance_km`] = [`Stop ${index + 1}: distance must be greater than zero.`];
         }
 
@@ -191,9 +209,28 @@ export function emptyExpense() {
     return {
         expense_type: 'DIESEL',
         amount: 0,
+        fuel_liters: '',
+        fuel_rate: '',
+        odometer_start: '',
+        odometer_end: '',
         route_leg_sequence: '',
         notes: '',
     };
+}
+
+export function isDieselExpenseType(type) {
+    return String(type ?? '').toUpperCase() === 'DIESEL';
+}
+
+export function calcDieselAmount(liters, rate) {
+    const l = Number(liters);
+    const r = Number(rate);
+
+    if (!Number.isFinite(l) || !Number.isFinite(r) || l <= 0 || r <= 0) {
+        return 0;
+    }
+
+    return Math.round(l * r * 100) / 100;
 }
 
 export function tripStatusMeta(status) {
@@ -225,6 +262,11 @@ export function defaultTripListFilters() {
     return {
         ...thisMonthDateRange(),
         vehicle_id: '',
+        vehicle_search: '',
+        driver_search: '',
+        trip_number: '',
+        customer_id: '',
+        broker_id: '',
         status: '',
     };
 }

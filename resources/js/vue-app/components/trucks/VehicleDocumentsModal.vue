@@ -111,6 +111,7 @@
                                     <label class="form-label">Reminder (days)</label>
                                     <input
                                         v-model="docForm.reminder_days_before"
+                                        v-no-scroll-change
                                         type="number"
                                         min="1"
                                         max="90"

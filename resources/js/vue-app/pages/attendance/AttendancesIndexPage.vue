@@ -13,7 +13,7 @@
                 <AppButton
                     v-if="canManageAttendance && isMonthEditable"
                     icon="bi bi-exclamation-triangle"
-                    label="Mark Exception"
+                    label="Mark Attendance"
                     @click="openCreate"
                 />
             </template>
@@ -52,25 +52,70 @@
             </p>
         </div>
 
-        <div class="card mb-3">
-            <div class="card-body row g-3">
-                <div class="col-md-3">
-                    <label class="form-label" for="filter_month">Month</label>
-                    <input
-                        id="filter_month"
-                        v-model="filters.month"
-                        type="month"
-                        class="form-control"
-                        @change="onMonthChange"
-                    />
-                </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <AppButton icon="bi bi-funnel" label="Apply" @click="reloadAll" />
-                </div>
+        <AppIndexFiltersCard :active="listFiltersActive" @apply="applyListFilters" @clear="clearListFilters">
+            <div>
+                <label class="form-label" for="filter_month">Month</label>
+                <input
+                    id="filter_month"
+                    v-model="filters.month"
+                    type="month"
+                    class="form-control"
+                    aria-label="Select month"
+                    :disabled="overviewLoading || tableLoading"
+                />
             </div>
-        </div>
+            <div>
+                <label class="form-label" for="detail_vehicle">Truck</label>
+                <select
+                    id="detail_vehicle"
+                    v-model="detailFilters.vehicle_id"
+                    class="form-select"
+                    :disabled="tableLoading"
+                >
+                    <option value="">All trucks</option>
+                    <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
+                        {{ vehicle.registration_number }}
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="detail_driver">Driver</label>
+                <select
+                    id="detail_driver"
+                    v-model="detailFilters.primary_driver_id"
+                    class="form-select"
+                    :disabled="tableLoading"
+                >
+                    <option value="">All drivers</option>
+                    <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
+                        {{ driver.is_active === false ? `${driver.name} (Inactive)` : driver.name }}
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="detail_status">Status</label>
+                <select id="detail_status" v-model="detailFilters.status" class="form-select" :disabled="tableLoading">
+                    <option value="">All statuses</option>
+                    <option value="ABSENT">Absent</option>
+                    <option value="NO_WORK_DAY">No working day</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="detail_payment">Payment</label>
+                <select
+                    id="detail_payment"
+                    v-model="detailFilters.wage_payment_status"
+                    class="form-select"
+                    :disabled="tableLoading"
+                >
+                    <option value="">All payments</option>
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                </select>
+            </div>
+        </AppIndexFiltersCard>
 
-        <div class="card mb-3">
+        <div class="card mb-3 app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">Month Overview</h3>
                 <span class="text-muted small">Green P = auto present (today and past only) · future days stay blank until you mark an exception</span>
@@ -87,65 +132,18 @@
             </div>
         </div>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Exceptions Log</h3>
-            </div>
-            <div class="card-body">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label" for="detail_vehicle">Vehicle</label>
-                        <select id="detail_vehicle" v-model="detailFilters.vehicle_id" class="form-select">
-                            <option value="">All vehicles</option>
-                            <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                                {{ vehicle.registration_number }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="detail_driver">Driver</label>
-                        <select id="detail_driver" v-model="detailFilters.primary_driver_id" class="form-select">
-                            <option value="">All drivers</option>
-                            <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                                {{ driver.is_active === false ? `${driver.name} (Inactive)` : driver.name }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="detail_status">Status</label>
-                        <select id="detail_status" v-model="detailFilters.status" class="form-select">
-                            <option value="">All</option>
-                            <option value="ABSENT">Absent</option>
-                            <option value="NO_WORK_DAY">No working day</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="detail_payment">Payment</label>
-                        <select id="detail_payment" v-model="detailFilters.wage_payment_status" class="form-select">
-                            <option value="">All</option>
-                            <option value="paid">Paid</option>
-                            <option value="unpaid">Unpaid</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end gap-2">
-                        <AppButton icon="bi bi-funnel" label="Apply" size="sm" @click="applyDetailFilters" />
-                        <AppButton variant="secondary" outline label="Clear" size="sm" @click="resetDetailFilters" />
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <div v-if="tableLoading" class="text-center py-4 text-muted">Loading records…</div>
-                    <table v-else class="table table-bordered table-striped mb-0">
-                        <thead>
+        <AppIndexListCard title="Exceptions Log" :loading="tableLoading" loading-text="Loading records…">
+            <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
                                 <th>Date</th>
-                                <th>Vehicle</th>
+                                <th>Truck</th>
                                 <th>Primary Driver</th>
                                 <th>Status</th>
                                 <th>Alternate</th>
                                 <th>Wage</th>
                                 <th>Payment</th>
-                                <th v-if="canManageAttendance || canManageWages" style="width: 160px">Actions</th>
+                                <th v-if="canManageAttendance || canManageWages" class="app-index-actions-cell" style="width: 160px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -191,7 +189,7 @@
                                     </span>
                                     <span v-else class="text-muted">—</span>
                                 </td>
-                                <td v-if="canManageAttendance || canManageWages">
+                                <td v-if="canManageAttendance || canManageWages" class="app-index-actions-cell">
                                     <AppTableActions>
                                         <AppCrudActionButton
                                             v-if="canManageAttendance"
@@ -202,25 +200,24 @@
                                 </td>
                             </tr>
                         </tbody>
-                    </table>
-                </div>
-
-            </div>
-            <AppIndexPaginationFooter
-                page-id="attendancesIndex"
-                :loading="tableLoading"
-                :current-page="pagination.current_page"
-                :last-page="pagination.last_page"
-                :per-page="pagination.per_page"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="records"
-                :per-page-options="[15, 25, 50]"
-                @page-change="goToPage"
-                @update:per-page="onAttendancePerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    page-id="attendancesIndex"
+                    :loading="tableLoading"
+                    :current-page="pagination.current_page"
+                    :last-page="pagination.last_page"
+                    :per-page="pagination.per_page"
+                    :total="pagination.total"
+                    :from="pagination.from"
+                    :to="pagination.to"
+                    item-label="records"
+                    :per-page-options="[15, 25, 50]"
+                    @page-change="goToPage"
+                    @update:per-page="onAttendancePerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <AttendanceFormModal
             modal-id="attendanceFormModal"
@@ -257,6 +254,8 @@ import { listAllVehicles } from '../../api/vehicles';
 import AttendanceFormModal from '../../components/attendance/AttendanceFormModal.vue';
 import AttendanceMonthGrid from '../../components/attendance/AttendanceMonthGrid.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -312,6 +311,16 @@ const detailFilters = reactive({
     status: '',
     wage_payment_status: '',
 });
+
+const listFiltersActive = computed(
+    () =>
+        filters.month !== currentMonth() ||
+        detailFilters.vehicle_id !== '' ||
+        detailFilters.primary_driver_id !== '' ||
+        detailFilters.status !== '' ||
+        detailFilters.wage_payment_status !== '',
+);
+
 const pagination = reactive({
     current_page: 1,
     last_page: 1,
@@ -498,22 +507,19 @@ async function loadLookups() {
     }
 }
 
-function onMonthChange() {
+function applyListFilters() {
     pagination.current_page = 1;
     reloadAll();
 }
 
-function applyDetailFilters() {
-    pagination.current_page = 1;
-    loadAttendances();
-}
-
-function resetDetailFilters() {
+function clearListFilters() {
+    filters.month = currentMonth();
     detailFilters.vehicle_id = '';
     detailFilters.primary_driver_id = '';
     detailFilters.status = '';
     detailFilters.wage_payment_status = '';
-    applyDetailFilters();
+    pagination.current_page = 1;
+    reloadAll();
 }
 
 function goToPage(page) {

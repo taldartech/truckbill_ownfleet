@@ -141,7 +141,7 @@ class MonthlySettlementService
 
         if ($lock === null) {
             throw ValidationException::withMessages([
-                'month' => ['Close the month before saving vehicle settlement lines.'],
+                'month' => ['Close the month before saving truck settlement lines.'],
             ]);
         }
 

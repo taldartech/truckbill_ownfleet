@@ -11,13 +11,13 @@
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading roles…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+                <table v-else class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Role</th>
                             <th>System Name</th>
                             <th>Permissions</th>
-                            <th style="width: 140px">Actions</th>
+                            <th class="app-index-actions-cell" style="width: 140px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -28,7 +28,7 @@
                             </td>
                             <td><code>{{ role.name }}</code></td>
                             <td>{{ role.permissions_count ?? 0 }}</td>
-                            <td>
+                            <td class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton
                                         v-if="canManage"

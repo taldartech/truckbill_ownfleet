@@ -1,5 +1,5 @@
 <template>
-    <div class="app-table-actions d-flex flex-wrap gap-1 justify-content-center">
+    <div class="table-actions app-table-actions">
         <slot />
     </div>
 </template>

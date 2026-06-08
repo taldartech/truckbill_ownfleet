@@ -27,10 +27,10 @@
                                 Please enter when this trip was cancelled and why.
                             </p>
                             <div class="mb-3">
-                                <label class="form-label">Cancellation Date &amp; Time *</label>
+                                <label class="form-label">Cancellation Date *</label>
                                 <input
                                     v-model="cancelledAt"
-                                    type="datetime-local"
+                                    type="date"
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.cancelled_at }"
                                     required
@@ -57,7 +57,7 @@
 
                         <template v-else-if="status === 'COMPLETED'">
                             <p class="text-muted small mb-3">
-                                Confirm trip completion details before saving.
+                                Confirm trip completion dates before saving.
                             </p>
                             <div class="mb-3">
                                 <label class="form-label">Start Date</label>
@@ -67,7 +67,7 @@
                                 <label class="form-label">End Date *</label>
                                 <input
                                     v-model="endAt"
-                                    type="datetime-local"
+                                    type="date"
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.end_at }"
                                     required
@@ -77,15 +77,15 @@
                                 </div>
                             </div>
                             <div class="mb-0">
-                                <label class="form-label">Actual Arrival Date &amp; Time *</label>
+                                <label class="form-label">Actual Arrival Date *</label>
                                 <input
                                     v-model="actualArrivalAt"
-                                    type="datetime-local"
+                                    type="date"
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.actual_arrival_at }"
                                     required
                                 />
-                                <div class="form-text">When did the vehicle actually arrive back?</div>
+                                <div class="form-text">When did the truck actually arrive back?</div>
                                 <div v-if="fieldErrors.actual_arrival_at" class="invalid-feedback d-block">
                                     {{ fieldErrors.actual_arrival_at }}
                                 </div>
@@ -108,6 +108,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import { toDateInputFromIso, toDateInputValue } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
 
 const props = defineProps({
@@ -142,40 +143,28 @@ watch(
         Object.keys(fieldErrors).forEach((key) => delete fieldErrors[key]);
 
         if (props.status === 'CANCELLED') {
-            cancelledAt.value = props.cancelledAtValue || nowDatetimeLocal();
+            cancelledAt.value = toDateInputFromIso(props.cancelledAtValue) || toDateInputValue();
             cancellationReason.value = props.cancellationReasonValue || '';
         } else if (props.status === 'COMPLETED') {
-            endAt.value = props.endAtValue || nowDatetimeLocal();
-            actualArrivalAt.value = props.actualArrivalAtValue || nowDatetimeLocal();
+            endAt.value = toDateInputFromIso(props.endAtValue) || toDateInputValue();
+            actualArrivalAt.value = toDateInputFromIso(props.actualArrivalAtValue) || toDateInputValue();
         }
     },
 );
-
-function nowDatetimeLocal() {
-    const date = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function formatDisplayDate(value) {
     if (!value) {
         return '—';
     }
 
-    const date = new Date(value);
+    const dateOnly = toDateInputFromIso(value);
+    const parts = dateOnly.split('-');
 
-    if (Number.isNaN(date.getTime())) {
-        return value;
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
 
-    return date.toLocaleString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return value;
 }
 
 function validate() {
@@ -184,7 +173,7 @@ function validate() {
 
     if (props.status === 'CANCELLED') {
         if (!cancelledAt.value) {
-            fieldErrors.cancelled_at = 'Cancellation date and time is required.';
+            fieldErrors.cancelled_at = 'Cancellation date is required.';
         }
 
         if (!cancellationReason.value.trim()) {

@@ -15,14 +15,14 @@
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading users…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+                <table v-else class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>Email</th>
                             <th>Role</th>
                             <th v-if="showCompanyColumn">Company</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -42,7 +42,7 @@
                             <td>{{ user.email }}</td>
                             <td>{{ user.role_label }}</td>
                             <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions v-if="!user.is_protected">
                                     <AppCrudActionButton action="edit" @click="openEdit(user)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(user)" />

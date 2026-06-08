@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\UpdateTripRequest;
 use App\Http\Resources\TripResource;
+use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Modules\TripManagement\Services\TripService;
 use App\Modules\TripManagement\Services\TripValidationService;
 use App\Trip;
@@ -20,6 +21,7 @@ class TripController extends Controller
     public function __construct(
         private readonly TripService $tripService,
         private readonly TripValidationService $tripValidation,
+        private readonly DriverAssignmentService $driverAssignmentService,
     ) {}
 
     public function nextTripNumber(): JsonResponse
@@ -31,25 +33,23 @@ class TripController extends Controller
         ]);
     }
 
-    public function vehiclePrimaryDriver(Vehicle $vehicle): JsonResponse
+    public function vehiclePrimaryDriver(Request $request, Vehicle $vehicle): JsonResponse
     {
         $this->authorize('view', $vehicle);
 
-        $driverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($vehicle->id);
+        $asOfDate = $request->filled('as_of_date')
+            ? $request->string('as_of_date')->toString()
+            : null;
 
-        $vehicle->loadMissing(['currentPrimaryAssignment.driver']);
+        $summary = $this->driverAssignmentService->primaryAssignmentSummary($vehicle->id, $asOfDate);
+        $assignment = $summary['assignment'] ?? null;
 
         return response()->json([
             'vehicle_id' => $vehicle->id,
-            'primary_driver_id' => $driverId,
-            'driver' => $vehicle->currentPrimaryAssignment?->driver !== null
-                ? [
-                    'id' => $vehicle->currentPrimaryAssignment->driver->id,
-                    'name' => $vehicle->currentPrimaryAssignment->driver->name,
-                    'phone' => $vehicle->currentPrimaryAssignment->driver->phone,
-                ]
-                : null,
-            'has_assignment' => $driverId !== null,
+            'primary_driver_id' => $assignment['driver_id'] ?? null,
+            'driver' => $assignment['driver'] ?? null,
+            'has_assignment' => (bool) ($summary['has_active_primary'] ?? false),
+            'as_of_date' => $summary['as_of_date'] ?? null,
         ]);
     }
 
@@ -65,7 +65,12 @@ class TripController extends Controller
             'status',
             'from_date',
             'to_date',
+            'customer_id',
+            'broker_id',
             'customer_name',
+            'trip_number',
+            'vehicle_search',
+            'driver_search',
         ]);
 
         return TripResource::collection($this->tripService->paginate($perPage, $filters));

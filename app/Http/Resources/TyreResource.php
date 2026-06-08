@@ -29,6 +29,7 @@ class TyreResource extends JsonResource
             'status' => $this->status?->value,
             'scrapped_at' => $this->scrapped_at?->toDateString(),
             'scrap_notes' => $this->scrap_notes,
+            'scrap_sale_amount' => $this->scrap_sale_amount !== null ? (float) $this->scrap_sale_amount : null,
             'notes' => $this->notes,
             'active_installation' => $this->when(
                 $this->relationLoaded('activeInstallation') && $this->activeInstallation !== null,

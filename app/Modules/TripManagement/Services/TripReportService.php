@@ -222,8 +222,6 @@ class TripReportService
                 'freight_amount' => (float) $leg->freight_amount,
                 'advance_received' => (float) $leg->advance_received,
                 'balance_amount' => (float) $leg->balance_amount,
-                'payment_status' => $leg->payment_status->value ?? (string) $leg->payment_status,
-                'billing_status' => $leg->billing_status->value ?? (string) $leg->billing_status,
             ])
             ->all();
 

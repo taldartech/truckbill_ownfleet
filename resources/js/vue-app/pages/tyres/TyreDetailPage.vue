@@ -38,9 +38,9 @@
                     v-if="tyre.status !== 'SCRAPPED' && !tyre.active_installation"
                     type="button"
                     class="btn btn-outline-dark btn-sm"
-                    @click="handleScrap"
+                    @click="openScrap"
                 >
-                    Scrap
+                    Scrap / Sell
                 </button>
             </div>
         </div>
@@ -111,6 +111,18 @@
                             <div v-if="tyre.warranty_details?.trim()" class="col-12">
                                 <span class="text-muted">Warranty Notes</span><br />{{ tyre.warranty_details }}
                             </div>
+                            <template v-if="tyre.status === 'SCRAPPED'">
+                                <div class="col-md-4">
+                                    <span class="text-muted">Scrapped on</span><br />{{ tyre.scrapped_at || '—' }}
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Scrap sale amount</span><br />
+                                    {{ tyre.scrap_sale_amount != null ? `₹${Number(tyre.scrap_sale_amount).toLocaleString('en-IN')}` : '—' }}
+                                </div>
+                                <div v-if="tyre.scrap_notes?.trim()" class="col-12">
+                                    <span class="text-muted">Scrap notes</span><br />{{ tyre.scrap_notes }}
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -131,7 +143,7 @@
                                     class="btn btn-sm btn-warning mt-2"
                                     @click="handleRemove"
                                 >
-                                    Remove from vehicle
+                                    Remove from truck
                                 </button>
                             </template>
                             <span v-else class="text-muted">Not installed</span>
@@ -205,7 +217,7 @@
             @submit="submitInstall"
         >
             <div class="mb-2">
-                <label class="form-label">Vehicle</label>
+                <label class="form-label">Truck</label>
                 <select v-model="actionForm.vehicle_id" class="form-select" required>
                     <option value="">Select</option>
                     <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
@@ -238,7 +250,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Truck odometer (KM) at install *</label>
-                <input v-model.number="actionForm.km_at_installation" type="number" min="0" class="form-control" required />
+                <input v-model.number="actionForm.km_at_installation" v-no-scroll-change type="number" min="0" class="form-control" required />
             </div>
         </TyreActionModal>
 
@@ -269,7 +281,7 @@
                 <label class="form-label">Truck KM at replace</label>
                 <input
                     v-model.number="actionForm.km_at_replacement"
-                    type="number"
+                    v-no-scroll-change type="number"
                     min="0"
                     class="form-control"
                     @input="loadReplacePreview"
@@ -329,7 +341,7 @@
                 <label class="form-label">Rotation Cost (₹) *</label>
                 <input
                     v-model.number="actionForm.rotation_cost"
-                    type="number"
+                    v-no-scroll-change type="number"
                     min="0"
                     step="0.01"
                     class="form-control"
@@ -360,11 +372,46 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Cost</label>
-                <input v-model.number="actionForm.cost" type="number" min="0" step="0.01" class="form-control" required />
+                <input v-model.number="actionForm.cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Date</label>
                 <input v-model="actionForm.retread_date" type="date" class="form-control" required />
+            </div>
+        </TyreActionModal>
+
+        <TyreActionModal
+            v-if="showScrap"
+            title="Scrap / Sell Tyre"
+            :form-error="formError"
+            :saving="actionSaving"
+            @close="closeScrap"
+            @submit="submitScrap"
+        >
+            <div class="mb-2">
+                <label class="form-label">Scrap date</label>
+                <input v-model="actionForm.scrapped_at" type="date" class="form-control" required />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Sale amount (recovery)</label>
+                <input
+                    v-model.number="actionForm.scrap_sale_amount"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    placeholder="Amount received from scrap dealer"
+                />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Notes</label>
+                <textarea
+                    v-model="actionForm.scrap_notes"
+                    class="form-control"
+                    rows="2"
+                    placeholder="Buyer name, condition, etc."
+                />
             </div>
         </TyreActionModal>
 
@@ -396,7 +443,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">KM when damage happened</label>
-                <input v-model.number="actionForm.km_at_occurrence" type="number" min="0" class="form-control" />
+                <input v-model.number="actionForm.km_at_occurrence" v-no-scroll-change type="number" min="0" class="form-control" />
             </div>
             <div class="mb-2">
                 <label class="form-label">Description</label>
@@ -404,7 +451,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Repair Cost</label>
-                <input v-model.number="actionForm.repair_cost" type="number" min="0" step="0.01" class="form-control" />
+                <input v-model.number="actionForm.repair_cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" />
             </div>
         </TyreActionModal>
     </div>
@@ -474,6 +521,7 @@ const showRotate = ref(false);
 const showRetread = ref(false);
 const showDamage = ref(false);
 const showReplace = ref(false);
+const showScrap = ref(false);
 const replacePreview = ref(null);
 
 const vehiclePositionSlots = ref([]);
@@ -528,6 +576,9 @@ function createActionFormDefaults() {
         replaced_at: todayIsoDate(),
         km_at_replacement: null,
         replace_reason: '',
+        scrapped_at: todayIsoDate(),
+        scrap_sale_amount: null,
+        scrap_notes: '',
     };
 }
 
@@ -587,8 +638,8 @@ const activeRows = computed(() => {
 
 const activeColumns = computed(() => {
     const map = {
-        installations: ['Vehicle', 'Position', 'Installed @ KM', 'Removed', 'Ran KM', 'Advice'],
-        rotations: ['Vehicle', 'Date', 'From', 'To', 'Cost', 'Reason'],
+        installations: ['Truck', 'Position', 'Installed @ KM', 'Removed', 'Ran KM', 'Advice'],
+        rotations: ['Truck', 'Date', 'From', 'To', 'Cost', 'Reason'],
         retreads: ['Date', 'Vendor', 'Cost', 'Condition'],
         damages: ['Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
         expenses: ['Type', 'Date', 'Amount', 'Notes'],
@@ -640,6 +691,12 @@ function openReplace() {
     showReplace.value = true;
 }
 
+function openScrap() {
+    clearErrors();
+    resetActionForm();
+    showScrap.value = true;
+}
+
 function closeInstall() {
     closeActionModal(showInstall);
 }
@@ -658,6 +715,10 @@ function closeDamage() {
 
 function closeReplace() {
     closeActionModal(showReplace);
+}
+
+function closeScrap() {
+    closeActionModal(showScrap);
 }
 
 function finishTyreAction(modalRef) {
@@ -870,12 +931,19 @@ async function handleRemove() {
     await loadTyre();
 }
 
-async function handleScrap() {
-    if (!confirm('Mark this tyre as scrapped?')) {
-        return;
-    }
-    await scrapTyre(tyre.value.id, { scrapped_at: new Date().toISOString().slice(0, 10) });
-    await loadTyre();
+async function submitScrap() {
+    await runTyreAction(async () => {
+        await scrapTyre(tyre.value.id, {
+            scrapped_at: actionForm.scrapped_at,
+            scrap_sale_amount: actionForm.scrap_sale_amount === '' || actionForm.scrap_sale_amount == null
+                ? null
+                : actionForm.scrap_sale_amount,
+            scrap_notes: actionForm.scrap_notes || null,
+        });
+        finishTyreAction(showScrap);
+        activeTab.value = 'timeline';
+        await loadTyre();
+    });
 }
 
 watch(showReplace, async (open) => {

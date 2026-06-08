@@ -18,24 +18,32 @@
 
         <form v-else novalidate @submit.prevent="handleSubmit">
             <TripForm
+                mode="create"
                 :form="form"
-                :vehicles="vehicles"
-                :drivers="drivers"
                 :stations="stations"
+                :brokers="brokers"
+                :customers="customers"
                 :can-quick-add-station="canQuickAddStation"
+                :can-quick-add-broker="canQuickAddBroker"
+                :can-quick-add-customer="canQuickAddCustomer"
                 :form-error="tripFormError"
                 :field-errors="fieldErrors"
                 :trip-number-display="previewTripNumber"
                 :driver-warning="driverWarning"
                 :loading-driver="loadingDriver"
+                :primary-driver-name="primaryDriverName"
                 @add-stop="handleAddStop"
                 @return-to-start="handleReturnToStart"
                 @remove-route-leg="removeRouteLeg"
-                @add-expense="addExpense"
+                @add-expense="(options) => addExpense(options)"
                 @remove-expense="removeExpense"
                 @start-station-change="onStartStationChange"
                 @stop-change="onStopStationChange"
                 @station-created="onStationCreated"
+                @broker-created="onBrokerCreated"
+                @customer-created="onCustomerCreated"
+                @vehicle-selected="onVehicleSelected"
+                @clear-field-error="clearFieldError"
             />
 
             <div class="trip-form-actions sticky-bottom-bar card shadow-sm mt-3">
@@ -51,10 +59,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { listAllDrivers } from '../../api/drivers';
+import { listAllBrokers } from '../../api/brokers';
+import { listAllCustomers } from '../../api/customers';
 import { listAllStations } from '../../api/stations';
 import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/trips';
-import { listAllVehicles } from '../../api/vehicles';
 import TripForm from '../../components/trips/TripForm.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -63,13 +71,14 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useTripForm } from '../../composables/useTripForm';
 import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
+import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
-const { fieldErrors, formError: tripFormError, clearErrors, applyApiError } = useApiFormErrors();
+const { fieldErrors, formError: tripFormError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
 
 const {
     form,
@@ -87,16 +96,24 @@ const {
 const canQuickAddStation = computed(
     () => canInCompany('stations.manage') || canInCompany('trips.manage'),
 );
+const canQuickAddBroker = computed(
+    () => canInCompany('brokers.manage') || canInCompany('trips.manage'),
+);
+const canQuickAddCustomer = computed(
+    () => canInCompany('customers.manage') || canInCompany('trips.manage'),
+);
 
-const vehicles = ref([]);
-const drivers = ref([]);
 const stations = ref([]);
+const brokers = ref([]);
+const customers = ref([]);
 const saving = ref(false);
 const previewTripNumber = ref('');
 
-const { driverWarning, loadingDriver } = useVehicleDriverSync(form, {
-    onWarning: (message) => toast.warning(message),
-});
+const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
+
+function onVehicleSelected(vehicle) {
+    setPrimaryDriverFromSelection(vehicle);
+}
 
 function onStationCreated({ station, legIndex }) {
     stations.value = [station, ...stations.value.filter((s) => s.id !== station.id)];
@@ -108,6 +125,16 @@ function onStationCreated({ station, legIndex }) {
         form.start_station_id = station.id;
         onStartStationChange();
     }
+}
+
+function onBrokerCreated(broker) {
+    brokers.value = [broker, ...brokers.value.filter((item) => item.id !== broker.id)];
+    form.broker_id = broker.id;
+}
+
+function onCustomerCreated(customer) {
+    customers.value = [customer, ...customers.value.filter((item) => item.id !== customer.id)];
+    form.customer_id = customer.id;
 }
 
 function handleAddStop() {
@@ -133,18 +160,22 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    [vehicles.value, drivers.value, stations.value] = await Promise.all([
-        listAllVehicles({ activeOnly: true }),
-        listAllDrivers({ activeOnly: true }),
+    const [stationList, brokerList, customerList] = await Promise.all([
         listAllStations(),
+        listAllBrokers(),
+        listAllCustomers(),
     ]);
+
+    stations.value = stationList;
+    brokers.value = brokerList;
+    customers.value = customerList;
 }
 
 async function handleSubmit() {
     clearErrors();
 
-    const payload = buildPayload(stations.value);
-    const clientErrors = validateTripPayload(payload);
+    const payload = buildPayload(stations.value, { mode: 'create' });
+    const clientErrors = validateTripPayload(payload, { mode: 'create' });
 
     if (Object.keys(clientErrors).length > 0) {
         fieldErrors.value = clientErrors;
@@ -174,7 +205,7 @@ async function handleSubmit() {
 
 onMounted(async () => {
     resetForm();
-    form.start_at = new Date().toISOString().slice(0, 16);
+    form.start_at = toDateInputValue();
 
     if (!needsCompanySelection.value) {
         await loadLookups();

@@ -23,14 +23,14 @@ class TyrePositionAllowedOnVehicle implements ValidationRule
         }
 
         if ($this->vehicleId === null || $this->vehicleId === '') {
-            $fail('Select a vehicle first.');
+            $fail('Select a truck first.');
 
             return;
         }
 
         $vehicle = Vehicle::query()->find($this->vehicleId);
         if ($vehicle === null) {
-            $fail('The selected vehicle was not found.');
+            $fail('The selected truck was not found.');
 
             return;
         }

@@ -6,38 +6,38 @@
             </template>
         </AppIndexPageHeader>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Station List</h3>
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadStations" @clear="clearFilters">
+            <div>
+                <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="search"
                     input-id="stationsIndex_search"
                     placeholder="Search station, city, state"
-                    max-width="260px"
+                    max-width="100%"
                     :disabled="loading"
-                    @update:model-value="debouncedLoad"
                 />
             </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard :loading="loading" loading-text="Loading stations…">
+            <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>City</th>
                             <th>State</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="stations.length === 0">
-                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted">No stations found.</td>
+                        <tr v-if="stations.length === 0" class="app-index-empty-row">
+                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No stations found.</td>
                         </tr>
                         <tr v-for="station in stations" :key="station.id">
                             <td>{{ station.name }}</td>
                             <td>{{ station.city_name || '—' }}</td>
                             <td>{{ station.state_name || '—' }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(station)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(station)" />
@@ -45,9 +45,8 @@
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-        </div>
+            </table>
+        </AppIndexListCard>
 
         <div
             v-if="showModal"
@@ -126,6 +125,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { createStation, deleteStation, listAllStations, updateStation } from '../../api/stations';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
@@ -157,11 +158,11 @@ const editing = ref(null);
 const form = reactive({ name: '' });
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
-let debounceTimer = null;
+const filtersActive = computed(() => search.value.trim() !== '');
 
-function debouncedLoad() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => loadStations(), 350);
+function clearFilters() {
+    search.value = '';
+    loadStations();
 }
 
 async function loadStations() {

@@ -10,34 +10,28 @@
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <AppIndexFiltersCard :show-actions="false">
-            <div class="col-md-4">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadTyres(1)" @clear="clearFilters">
+            <div>
                 <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="search"
                     input-id="tyresIndex_search"
-                    placeholder="Tyre number, brand, size"
+                    placeholder="Tyre number, brand, size…"
                     max-width="100%"
                     :disabled="loading"
-                    @update:model-value="debouncedLoad"
                 />
             </div>
-            <div class="col-md-3">
+            <div>
                 <label class="form-label">Status</label>
-                <select v-model="statusFilter" class="form-select" @change="loadTyres(1)">
-                    <option value="">All</option>
+                <select v-model="statusFilter" class="form-select" :disabled="loading">
+                    <option value="">All statuses</option>
                     <option v-for="s in tyreStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
             </div>
         </AppIndexFiltersCard>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Tyre Master</h3>
-            </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading…</div>
-                <table v-else class="table table-bordered table-striped align-middle">
+        <AppIndexListCard :loading="loading" loading-text="Loading tyres…">
+            <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Tyre #</th>
@@ -46,18 +40,21 @@
                             <th>Type</th>
                             <th>Status</th>
                             <th>Warranty</th>
-                            <th>Vehicle / Position</th>
+                            <th>Truck / Position</th>
                             <th>Purchase</th>
-                            <th v-if="canManage" style="width: 140px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 140px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="tyres.length === 0">
-                            <td :colspan="canManage ? 9 : 8" class="text-center text-muted">No tyres found.</td>
+                        <tr v-if="tyres.length === 0" class="app-index-empty-row">
+                            <td :colspan="canManage ? 9 : 8" class="text-center text-muted py-4">No tyres found.</td>
                         </tr>
                         <tr v-for="tyre in tyres" :key="tyre.id">
                             <td>
-                                <RouterLink :to="{ name: 'tyres.show', params: { id: tyre.id } }">
+                                <RouterLink
+                                    :to="{ name: 'tyres.show', params: { id: tyre.id } }"
+                                    class="fw-semibold text-decoration-none"
+                                >
                                     {{ tyre.serial_number }}
                                 </RouterLink>
                             </td>
@@ -86,7 +83,7 @@
                                 <span v-else class="text-muted">—</span>
                             </td>
                             <td>{{ formatMoney(tyre.purchase_cost) }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="view" @click="goToDetail(tyre.id)" />
                                     <AppCrudActionButton action="edit" @click="openEdit(tyre)" />
@@ -94,23 +91,24 @@
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="tyresIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="tyres"
-                :per-page-options="[15, 25, 50]"
-                @page-change="loadTyres"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    page-id="tyresIndex"
+                    :loading="loading"
+                    :current-page="pagination.currentPage"
+                    :last-page="pagination.lastPage"
+                    :per-page="pagination.perPage"
+                    :total="pagination.total"
+                    :from="pagination.from"
+                    :to="pagination.to"
+                    item-label="tyres"
+                    :per-page-options="[15, 25, 50]"
+                    @page-change="loadTyres"
+                    @update:per-page="onPerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <div
             v-if="showModal"
@@ -188,11 +186,11 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Purchase Cost</label>
-                                <input v-model.number="form.purchase_cost" type="number" min="0" step="0.01" class="form-control" />
+                                <input v-model.number="form.purchase_cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" />
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Expected life (KM)</label>
-                                <input v-model.number="form.expected_life_km" type="number" min="1000" class="form-control" placeholder="40000" />
+                                <input v-model.number="form.expected_life_km" v-no-scroll-change type="number" min="1000" class="form-control" placeholder="40000" />
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Warranty Valid Until</label>
@@ -210,7 +208,7 @@
                                 <label class="form-label">Warranty KM Limit</label>
                                 <input
                                     v-model.number="form.warranty_km"
-                                    type="number"
+                                    v-no-scroll-change type="number"
                                     min="0"
                                     step="1"
                                     class="form-control"
@@ -222,7 +220,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
-                                <div class="form-text pb-2">Kab tak aur kitne km tak warranty cover kare.</div>
+                                <div class="form-text pb-2">Date and KM limit for warranty coverage.</div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Warranty Notes</label>
@@ -256,6 +254,7 @@ import { createTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -308,11 +307,12 @@ const form = reactive({
     notes: '',
 });
 
-let debounceTimer = null;
+const filtersActive = computed(() => search.value.trim() !== '' || statusFilter.value !== '');
 
-function debouncedLoad() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => loadTyres(1), 350);
+function clearFilters() {
+    search.value = '';
+    statusFilter.value = '';
+    loadTyres(1);
 }
 
 function resetForm() {

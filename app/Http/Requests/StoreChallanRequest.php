@@ -44,7 +44,7 @@ class StoreChallanRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'vehicle_id.required' => 'Please select a vehicle.',
+            'vehicle_id.required' => 'Please select a truck.',
             'driver_id.required' => 'Please select a driver.',
             'violation_type.required' => 'Violation type is required.',
         ];

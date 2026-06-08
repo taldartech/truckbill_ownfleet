@@ -15,14 +15,14 @@
             </div>
             <div class="card-body table-responsive">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading permissions…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+                <table v-else class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Slug</th>
                             <th>Name</th>
                             <th>Group</th>
                             <th>Roles</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -34,7 +34,7 @@
                             <td>{{ permission.name }}</td>
                             <td>{{ permission.group }}</td>
                             <td>{{ permission.roles_count ?? 0 }}</td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(permission)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(permission)" />

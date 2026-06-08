@@ -19,6 +19,10 @@ class TripExpense extends Model
         'trip_route_leg_id',
         'expense_type',
         'amount',
+        'fuel_liters',
+        'fuel_rate',
+        'odometer_start',
+        'odometer_end',
         'currency',
         'notes',
         'created_by',
@@ -30,6 +34,10 @@ class TripExpense extends Model
         return [
             'expense_type' => TripExpenseType::class,
             'amount' => 'decimal:2',
+            'fuel_liters' => 'decimal:2',
+            'fuel_rate' => 'decimal:2',
+            'odometer_start' => 'decimal:2',
+            'odometer_end' => 'decimal:2',
         ];
     }
 

@@ -2,19 +2,65 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\DriverAssignment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\ToggleVehicleStatusRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
+use App\Http\Resources\VehicleTripSelectionResource;
+use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Support\TyreLayoutDefaults;
 use App\Vehicle;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
 class VehicleController extends Controller
 {
+    public function __construct(private readonly DriverAssignmentService $driverAssignmentService) {}
+
+    public function forTripSelection(Request $request): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', Vehicle::class);
+
+        $search = trim($request->string('search')->toString());
+        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
+        $includeIneligible = $request->boolean('include_ineligible', true);
+
+        if (mb_strlen($search) < 2) {
+            return VehicleTripSelectionResource::collection(
+                new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage),
+            );
+        }
+
+        $query = Vehicle::query()
+            ->with(['currentPrimaryAssignment.driver'])
+            ->where(function ($builder) use ($search): void {
+                $builder->where('registration_number', 'like', "%{$search}%")
+                    ->orWhere('make', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%")
+                    ->orWhereHas('currentPrimaryAssignment.driver', function ($driverQuery) use ($search): void {
+                        $driverQuery->where('name', 'like', "%{$search}%");
+                    });
+            })
+            ->latest();
+
+        if (! $includeIneligible) {
+            $query->where('is_active', true)
+                ->whereHas('currentPrimaryAssignment', function ($assignmentQuery): void {
+                    Vehicle::applyCurrentPrimaryAssignmentConstraints($assignmentQuery);
+                })
+                ->whereHas('currentPrimaryAssignment.driver', fn ($driverQuery) => $driverQuery->where('is_active', true))
+                ->whereDoesntHave('trips', function ($tripQuery): void {
+                    $tripQuery->whereIn('status', ['CREATED', 'IN_PROGRESS']);
+                });
+        }
+
+        return VehicleTripSelectionResource::collection($query->paginate($perPage));
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Vehicle::class);
@@ -75,7 +121,36 @@ class VehicleController extends Controller
     {
         $this->authorize('view', $vehicle);
 
-        return new VehicleResource($vehicle->load('documents'));
+        return new VehicleResource($vehicle->load([
+            'documents',
+            'currentPrimaryAssignment.driver',
+        ]));
+    }
+
+    public function primaryAssignment(Vehicle $vehicle): JsonResponse
+    {
+        $this->authorize('view', $vehicle);
+
+        return response()->json(
+            $this->driverAssignmentService->primaryAssignmentSummary($vehicle->id),
+        );
+    }
+
+    public function removePrimaryDriver(Request $request, Vehicle $vehicle): JsonResponse
+    {
+        $this->authorize('view', $vehicle);
+        $this->authorize('create', DriverAssignment::class);
+
+        $this->driverAssignmentService->removePrimaryDriver(
+            $vehicle->id,
+            $request->user()?->id,
+        );
+
+        return response()->json([
+            'message' => 'Primary driver removed from this truck.',
+            'vehicle_id' => $vehicle->id,
+            ...$this->driverAssignmentService->primaryAssignmentSummary($vehicle->id),
+        ]);
     }
 
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): VehicleResource

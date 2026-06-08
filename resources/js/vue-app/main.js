@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import { refreshCsrfToken } from './api';
+import { noScrollChange } from './directives/noScrollChange';
 import router from './router';
 
 async function bootstrap() {
@@ -16,6 +17,7 @@ async function bootstrap() {
 
     const app = createApp(App);
 
+    app.directive('no-scroll-change', noScrollChange);
     app.use(router);
     await router.isReady();
     app.mount('#app');

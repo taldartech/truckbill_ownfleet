@@ -68,6 +68,20 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Brokers',
+                icon: 'bi bi-person-badge nav-icon',
+                to: '/brokers',
+                permission: 'brokers.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Customers',
+                icon: 'bi bi-building nav-icon',
+                to: '/customers',
+                permission: 'customers.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'States & Cities',
                 icon: 'bi bi-map nav-icon',
                 to: '/locations',

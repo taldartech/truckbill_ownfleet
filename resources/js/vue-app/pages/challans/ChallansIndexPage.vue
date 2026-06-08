@@ -1,131 +1,94 @@
 <template>
-    <div class="container mt-4 challans-page">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h3 class="mb-0">Challan Management</h3>
-            <AppButton v-if="canManage" icon="bi bi-plus" label="Add Challan" @click="openCreate" />
-        </div>
+    <div class="container mt-4 app-index-page">
+        <AppIndexPageHeader title="Challan Management">
+            <template v-if="canManage" #actions>
+                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+            </template>
+        </AppIndexPageHeader>
 
-        <div class="card">
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h3 class="card-title mb-0">Challan List</h3>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <select
-                        v-model="statusFilter"
-                        class="form-select form-select-sm"
-                        style="width: auto"
-                        :disabled="loading"
-                        @change="onFilterChange"
-                    >
-                        <option value="">All statuses</option>
-                        <option value="UNPAID">Unpaid</option>
-                        <option value="PAID">Paid</option>
-                    </select>
-                    <div class="input-group input-group-sm" style="max-width: 280px">
-                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-                        <input
-                            v-model="searchQuery"
-                            type="search"
-                            class="form-control"
-                            placeholder="Search challan, vehicle, driver…"
-                            aria-label="Search challans"
-                        />
-                    </div>
-                </div>
+        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
+            <div>
+                <label class="form-label">Search</label>
+                <AppIndexSearchInput
+                    v-model="searchQuery"
+                    :input-id="`${pageId}_search`"
+                    placeholder="Search challan, truck, driver…"
+                    max-width="100%"
+                    :disabled="loading"
+                />
             </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading challans…</div>
-                <table v-else class="table table-bordered table-striped mb-0">
-                    <thead>
-                        <tr>
-                            <th style="width: 70px">#</th>
-                            <th>Challan No.</th>
-                            <th>Date</th>
-                            <th>Vehicle</th>
-                            <th>Driver</th>
-                            <th>Violation</th>
-                            <th class="text-end">Amount</th>
-                            <th>Status</th>
-                            <th v-if="hasRowActions" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="challans.length === 0">
-                            <td :colspan="hasRowActions ? 9 : 8" class="text-center text-muted py-4">
-                                No challans found.
-                            </td>
-                        </tr>
-                        <tr v-for="(challan, index) in challans" :key="challan.id">
-                            <td class="text-center">{{ rowNumber(index) }}</td>
-                            <td><strong>{{ challan.challan_number }}</strong></td>
-                            <td>{{ formatDate(challan.challan_date) }}</td>
-                            <td>{{ vehicleLabel(challan) }}</td>
-                            <td>{{ driverLabel(challan) }}</td>
-                            <td>{{ challan.violation_type || '—' }}</td>
-                            <td class="text-end">{{ formatAmount(challan.amount) }}</td>
-                            <td>
-                                <span
-                                    class="badge"
-                                    :class="challan.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'"
-                                >
-                                    {{ challan.status === 'PAID' ? 'Paid' : 'Unpaid' }}
-                                </span>
-                            </td>
-                            <td v-if="hasRowActions">
-                                <AppTableActions>
-                                    <AppCrudActionButton v-if="canManage" action="edit" @click="openEdit(challan)" />
-                                    <AppCrudActionButton v-if="canDelete" action="delete" @click="handleDelete(challan)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div>
+                <label class="form-label">Status</label>
+                <select v-model="statusFilter" class="form-select" :disabled="loading">
+                    <option value="">All statuses</option>
+                    <option value="UNPAID">Unpaid</option>
+                    <option value="PAID">Paid</option>
+                </select>
             </div>
-            <div
-                v-if="pagination.total > 0"
-                class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2"
-            >
-                <small class="text-muted">
-                    Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} challans
-                </small>
-                <div class="d-flex align-items-center gap-2">
-                    <label class="small text-muted mb-0" :for="`${pageId}_per_page`">Per page</label>
-                    <select
-                        :id="`${pageId}_per_page`"
-                        v-model.number="pagination.perPage"
-                        class="form-select form-select-sm"
-                        style="width: auto"
-                        :disabled="loading"
-                        @change="onPerPageChange"
-                    >
-                        <option :value="10">10</option>
-                        <option :value="25">25</option>
-                        <option :value="50">50</option>
-                        <option :value="100">100</option>
-                    </select>
-                    <div v-if="pagination.lastPage > 1" class="btn-group btn-group-sm">
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            :disabled="loading || pagination.currentPage <= 1"
-                            @click="goToPage(pagination.currentPage - 1)"
-                        >
-                            Previous
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" disabled>
-                            Page {{ pagination.currentPage }} / {{ pagination.lastPage }}
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            :disabled="loading || pagination.currentPage >= pagination.lastPage"
-                            @click="goToPage(pagination.currentPage + 1)"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard :loading="loading" loading-text="Loading challans…">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 70px">#</th>
+                        <th>Challan No.</th>
+                        <th>Date</th>
+                        <th>Truck</th>
+                        <th>Driver</th>
+                        <th>Violation</th>
+                        <th class="text-end">Amount</th>
+                        <th>Status</th>
+                        <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="challans.length === 0" class="app-index-empty-row">
+                        <td :colspan="hasRowActions ? 9 : 8" class="text-center text-muted py-4">
+                            No challans found.
+                        </td>
+                    </tr>
+                    <tr v-for="(challan, index) in challans" :key="challan.id">
+                        <td class="text-center">{{ rowNumber(index) }}</td>
+                        <td><strong>{{ challan.challan_number }}</strong></td>
+                        <td>{{ formatDate(challan.challan_date) }}</td>
+                        <td>{{ vehicleLabel(challan) }}</td>
+                        <td>{{ driverLabel(challan) }}</td>
+                        <td>{{ challan.violation_type || '—' }}</td>
+                        <td class="text-end">{{ formatAmount(challan.amount) }}</td>
+                        <td>
+                            <span
+                                class="badge"
+                                :class="challan.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'"
+                            >
+                                {{ challan.status === 'PAID' ? 'Paid' : 'Unpaid' }}
+                            </span>
+                        </td>
+                        <td v-if="hasRowActions" class="app-index-actions-cell">
+                            <AppTableActions>
+                                <AppCrudActionButton v-if="canManage" action="edit" @click="openEdit(challan)" />
+                                <AppCrudActionButton v-if="canDelete" action="delete" @click="handleDelete(challan)" />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    :page-id="pageId"
+                    :loading="loading"
+                    :current-page="pagination.currentPage"
+                    :last-page="pagination.lastPage"
+                    :per-page="pagination.perPage"
+                    :total="pagination.total"
+                    :from="pagination.from"
+                    :to="pagination.to"
+                    item-label="challans"
+                    @page-change="goToPage"
+                    @update:per-page="onPerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <ChallanFormModal
             modal-id="addChallanModal"
@@ -153,11 +116,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { createChallan, deleteChallan, listChallans, updateChallan } from '../../api/challans';
 import ChallanFormModal from '../../components/challans/ChallanFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -181,16 +149,28 @@ const showEdit = ref(false);
 const editingChallan = ref(null);
 const searchQuery = ref('');
 const statusFilter = ref('');
+
 const pagination = reactive({
     currentPage: 1,
-    perPage: 25,
     lastPage: 1,
+    perPage: 25,
     total: 0,
     from: 0,
     to: 0,
 });
 
-let searchDebounceTimer = null;
+const filtersActive = computed(() => searchQuery.value.trim() !== '' || statusFilter.value !== '');
+
+function applyFilters() {
+    pagination.currentPage = 1;
+    loadChallans(1);
+}
+
+function clearFilters() {
+    searchQuery.value = '';
+    statusFilter.value = '';
+    applyFilters();
+}
 
 function formatDate(value) {
     if (!value) {
@@ -266,12 +246,8 @@ function goToPage(page) {
     loadChallans(page);
 }
 
-function onPerPageChange() {
-    pagination.currentPage = 1;
-    loadChallans(1);
-}
-
-function onFilterChange() {
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
     pagination.currentPage = 1;
     loadChallans(1);
 }
@@ -305,8 +281,7 @@ function applyValidationError(error, fallback = 'Unable to save challan. Please 
         return;
     }
 
-    challanFormError.value = friendlyApiErrorMessage(error, fallback);
-    toast.error(challanFormError.value);
+    toast.error(friendlyApiErrorMessage(error, fallback));
 }
 
 async function handleCreate(payload) {
@@ -315,7 +290,7 @@ async function handleCreate(payload) {
 
     try {
         await createChallan(payload);
-        toast.success('Challan has been added successfully.');
+        toast.success('Challan added successfully.');
         closeCreate();
         await loadChallans(1);
     } catch (error) {
@@ -335,7 +310,7 @@ async function handleUpdate(payload) {
 
     try {
         await updateChallan(editingChallan.value.id, payload);
-        toast.success('Challan has been updated successfully.');
+        toast.success('Challan updated successfully.');
         closeEdit();
         await loadChallans();
     } catch (error) {
@@ -364,14 +339,6 @@ async function handleDelete(challan) {
         toast.error(friendlyApiErrorMessage(error, 'Unable to delete challan. Please try again.'));
     }
 }
-
-watch(searchQuery, () => {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        pagination.currentPage = 1;
-        loadChallans(1);
-    }, 400);
-});
 
 onMounted(() => {
     loadChallans();

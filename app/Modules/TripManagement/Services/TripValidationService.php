@@ -17,7 +17,7 @@ class TripValidationService
      * @var array<string, list<string>>
      */
     private const ALLOWED_STATUS_TRANSITIONS = [
-        'CREATED' => ['IN_PROGRESS', 'CANCELLED'],
+        'CREATED' => ['IN_PROGRESS'],
         'IN_PROGRESS' => ['COMPLETED', 'CANCELLED'],
         'COMPLETED' => [],
         'CANCELLED' => [],
@@ -69,17 +69,13 @@ class TripValidationService
         $assigned = DriverAssignment::query()
             ->where('vehicle_id', $vehicleId)
             ->where('driver_id', $driverId)
-            ->where('is_primary', true)
-            ->whereDate('assigned_from', '<=', $date)
-            ->where(function ($query) use ($date): void {
-                $query->whereNull('assigned_to')
-                    ->orWhereDate('assigned_to', '>=', $date);
-            })
+            ->activePrimaryOn($date)
             ->exists();
 
         if (! $assigned) {
             throw ValidationException::withMessages([
-                'driver_id' => ['Selected driver is not assigned to this vehicle on the trip start date.'],
+                'driver_id' => ['No primary driver is assigned to this truck on the trip start date.'],
+                'start_at' => ['Adjust the trip start date or update the truck\'s primary driver assignment.'],
             ]);
         }
     }
@@ -99,7 +95,7 @@ class TripValidationService
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'vehicle_id' => ['This vehicle already has an open trip. Complete or cancel it before creating another.'],
+                'vehicle_id' => ['This truck already has an open trip. Complete or cancel it before creating another.'],
             ]);
         }
     }
@@ -121,7 +117,7 @@ class TripValidationService
 
         if ($vehicle === null || ! $vehicle->is_active) {
             throw ValidationException::withMessages([
-                'vehicle_id' => ['Selected vehicle is inactive or not found.'],
+                'vehicle_id' => ['Selected truck is inactive or not found.'],
             ]);
         }
     }
@@ -249,7 +245,7 @@ class TripValidationService
 
             if ($cancelledAt === null) {
                 throw ValidationException::withMessages([
-                    'cancelled_at' => ['Cancellation date and time is required.'],
+                    'cancelled_at' => ['Cancellation date is required.'],
                 ]);
             }
 
@@ -278,7 +274,10 @@ class TripValidationService
 
         $query = Trip::query()
             ->where('vehicle_id', $vehicleId)
-            ->where('status', '!=', TripStatus::Cancelled->value)
+            ->whereIn('status', [
+                TripStatus::Created->value,
+                TripStatus::InProgress->value,
+            ])
             ->where(function ($builder) use ($start, $end): void {
                 $builder
                     ->whereBetween('start_at', [$start, $end])
@@ -298,23 +297,20 @@ class TripValidationService
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'start_at' => ['Another trip already exists for this vehicle in the selected date range.'],
+                'start_at' => ['This truck already has an open trip in the selected date range. Complete or cancel it first.'],
             ]);
         }
     }
 
-    public function resolvePrimaryDriverIdForVehicle(string $vehicleId): ?string
+    public function resolvePrimaryDriverIdForVehicle(string $vehicleId, ?string $asOfDate = null): ?string
     {
-        $today = now()->toDateString();
+        $date = $asOfDate !== null
+            ? Carbon::parse($asOfDate)->toDateString()
+            : now()->toDateString();
 
         $assignment = DriverAssignment::query()
             ->where('vehicle_id', $vehicleId)
-            ->where('is_primary', true)
-            ->whereDate('assigned_from', '<=', $today)
-            ->where(function ($query) use ($today): void {
-                $query->whereNull('assigned_to')
-                    ->orWhereDate('assigned_to', '>=', $today);
-            })
+            ->activePrimaryOn($date)
             ->latest('assigned_from')
             ->first();
 

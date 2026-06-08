@@ -162,11 +162,17 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
 
             Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
+            Route::get('/vehicles/for-trip-selection', [\App\Http\Controllers\Api\VehicleController::class, 'forTripSelection'])
+                ->name('vehicles.for-trip-selection');
             Route::post('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'store'])->name('vehicles.store');
             Route::get('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'show'])->name('vehicles.show');
             Route::put('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'update'])->name('vehicles.update');
             Route::patch('/vehicles/{vehicle}/status', [\App\Http\Controllers\Api\VehicleController::class, 'toggleStatus'])
                 ->name('vehicles.toggle-status');
+            Route::get('/vehicles/{vehicle}/primary-assignment', [\App\Http\Controllers\Api\VehicleController::class, 'primaryAssignment'])
+                ->name('vehicles.primary-assignment');
+            Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
+                ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
             Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
@@ -224,6 +230,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+            Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
+            Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
 
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 

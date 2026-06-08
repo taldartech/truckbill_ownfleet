@@ -3,15 +3,19 @@
 namespace App\Providers;
 
 use App\Attendance;
+use App\Broker;
 use App\Challan;
 use App\City;
+use App\Customer;
 use App\Driver;
-use App\Emi;
 use App\DriverAssignment;
+use App\Emi;
 use App\Permission;
 use App\Policies\AttendancePolicy;
+use App\Policies\BrokerPolicy;
 use App\Policies\ChallanPolicy;
 use App\Policies\CityPolicy;
+use App\Policies\CustomerPolicy;
 use App\Policies\DriverAssignmentPolicy;
 use App\Policies\DriverPolicy;
 use App\Policies\EmiPolicy;
@@ -80,6 +84,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(VehicleDocument::class, VehicleDocumentPolicy::class);
         Gate::policy(Trip::class, TripPolicy::class);
         Gate::policy(Station::class, StationPolicy::class);
+        Gate::policy(Broker::class, BrokerPolicy::class);
+        Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(State::class, StatePolicy::class);
         Gate::policy(City::class, CityPolicy::class);
         Gate::policy(Tyre::class, TyrePolicy::class);

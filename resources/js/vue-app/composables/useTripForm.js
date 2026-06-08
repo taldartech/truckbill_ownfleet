@@ -1,27 +1,14 @@
 import { reactive } from 'vue';
 import { emptyExpense, emptyRouteStop } from '../api/trips';
-
-function toDatetimeLocal(value) {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    const pad = (n) => String(n).padStart(2, '0');
-
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
     const form = reactive({
         trip_number: '',
         vehicle_id: '',
         driver_id: '',
+        customer_id: '',
+        broker_id: '',
         start_station_id: '',
         status: 'CREATED',
         start_at: '',
@@ -37,6 +24,8 @@ export function useTripForm() {
         form.trip_number = '';
         form.vehicle_id = '';
         form.driver_id = '';
+        form.customer_id = '';
+        form.broker_id = '';
         form.start_station_id = '';
         form.status = 'CREATED';
         form.start_at = '';
@@ -113,12 +102,14 @@ export function useTripForm() {
         form.vehicle_id = trip.vehicle_id ?? '';
         form.driver_id = trip.driver_id ?? '';
         form.start_station_id = trip.start_station_id ?? '';
+        form.customer_id = trip.customer_id ?? '';
+        form.broker_id = trip.broker_id ?? '';
         form.status = trip.status ?? 'CREATED';
-        form.start_at = toDatetimeLocal(trip.start_at);
-        form.end_at = toDatetimeLocal(trip.end_at);
-        form.cancelled_at = toDatetimeLocal(trip.cancelled_at);
+        form.start_at = toDateInputFromIso(trip.start_at);
+        form.end_at = toDateInputFromIso(trip.end_at);
+        form.cancelled_at = toDateInputFromIso(trip.cancelled_at);
         form.cancellation_reason = trip.cancellation_reason ?? '';
-        form.actual_arrival_at = toDatetimeLocal(trip.actual_arrival_at);
+        form.actual_arrival_at = toDateInputFromIso(trip.actual_arrival_at);
         form.route_legs = (trip.route_legs ?? []).map((leg) => ({
             from_station_id: leg.from_station_id ?? '',
             to_station_id: leg.to_station_id ?? '',
@@ -134,6 +125,14 @@ export function useTripForm() {
         form.expenses = (trip.expenses ?? []).map((expense) => ({
             expense_type: expense.expense_type ?? 'DIESEL',
             amount: Number(expense.amount ?? 0),
+            fuel_liters: expense.fuel_liters != null && expense.fuel_liters !== '' ? Number(expense.fuel_liters) : '',
+            fuel_rate: expense.fuel_rate != null && expense.fuel_rate !== '' ? Number(expense.fuel_rate) : '',
+            odometer_start:
+                expense.odometer_start != null && expense.odometer_start !== ''
+                    ? Number(expense.odometer_start)
+                    : '',
+            odometer_end:
+                expense.odometer_end != null && expense.odometer_end !== '' ? Number(expense.odometer_end) : '',
             route_leg_sequence: expense.route_leg_sequence ?? '',
             notes: expense.notes ?? '',
         }));
@@ -141,8 +140,12 @@ export function useTripForm() {
         rebuildLegChain();
     }
 
-    function addExpense() {
-        form.expenses.push(emptyExpense());
+    function addExpense({ routeLegSequence = '', expenseType = 'DIESEL' } = {}) {
+        const expense = emptyExpense();
+        expense.expense_type = expenseType;
+        expense.route_leg_sequence =
+            routeLegSequence === '' || routeLegSequence == null ? '' : Number(routeLegSequence);
+        form.expenses.push(expense);
     }
 
     function removeExpense(index) {
@@ -157,14 +160,37 @@ export function useTripForm() {
         return stations.find((s) => String(s.id) === String(stationId))?.name ?? `#${stationId}`;
     }
 
-    function buildPayload(stations = []) {
+    function resolveLookupId(items, id, name) {
+        if (id) {
+            return id;
+        }
+
+        if (!name) {
+            return '';
+        }
+
+        const match = items.find((item) => String(item.name).toLowerCase() === String(name).toLowerCase());
+
+        return match?.id ?? '';
+    }
+
+    function applyLegacyPartyLookups(trip, customers = [], brokers = []) {
+        if (!form.customer_id && trip.customer_name) {
+            form.customer_id = resolveLookupId(customers, '', trip.customer_name);
+        }
+
+        if (!form.broker_id && trip.broker_name) {
+            form.broker_id = resolveLookupId(brokers, '', trip.broker_name);
+        }
+    }
+
+    function buildPayload(stations = [], { mode = 'create' } = {}) {
         rebuildLegChain();
 
-        return {
-            vehicle_id: form.vehicle_id,
-            driver_id: form.driver_id,
+        const payload = {
+            customer_id: form.customer_id || null,
+            broker_id: form.broker_id || null,
             start_station_id: form.start_station_id,
-            status: form.status,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
             cancelled_at: form.cancelled_at || null,
@@ -177,7 +203,7 @@ export function useTripForm() {
                 to_city: stationName(stations, leg.to_station_id),
                 route_type: leg.route_type,
                 sequence_no: leg.sequence_no || index + 1,
-                distance_km: leg.distance_km,
+                distance_km: Number(leg.distance_km ?? 0) || 0,
                 freight_amount: leg.route_type === 'EMPTY' ? 0 : leg.freight_amount,
                 remarks: leg.remarks || null,
             })),
@@ -186,10 +212,24 @@ export function useTripForm() {
                 .map((e) => ({
                     expense_type: e.expense_type,
                     amount: e.amount,
+                    fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
+                    fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
+                    odometer_start:
+                        e.odometer_start === '' || e.odometer_start == null ? null : Number(e.odometer_start),
+                    odometer_end: e.odometer_end === '' || e.odometer_end == null ? null : Number(e.odometer_end),
                     route_leg_sequence: e.route_leg_sequence || null,
                     notes: e.notes || null,
                 })),
         };
+
+        if (mode === 'create') {
+            payload.vehicle_id = form.vehicle_id;
+            payload.driver_id = form.driver_id;
+        } else {
+            payload.status = form.status;
+        }
+
+        return payload;
     }
 
     return {
@@ -206,5 +246,6 @@ export function useTripForm() {
         removeExpense,
         buildPayload,
         stationName,
+        applyLegacyPartyLookups,
     };
 }

@@ -19,7 +19,9 @@ class Trip extends Model
         'vehicle_id',
         'driver_id',
         'trip_number',
+        'customer_id',
         'customer_name',
+        'broker_id',
         'broker_name',
         'start_station_id',
         'status',
@@ -63,6 +65,16 @@ class Trip extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function broker(): BelongsTo
+    {
+        return $this->belongsTo(Broker::class);
     }
 
     public function routeLegs(): HasMany

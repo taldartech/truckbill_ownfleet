@@ -220,6 +220,176 @@ class DriverManagementModuleTest extends TestCase
         ]);
     }
 
+    public function test_primary_driver_can_be_replaced_on_same_effective_date(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driverA = $this->createDriver($tenant, 'Driver A', 600);
+        $driverB = $this->createDriver($tenant, 'Driver B', 650);
+        $effectiveDate = '2026-06-06';
+
+        Sanctum::actingAs($user);
+
+        $first = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driverA->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => $effectiveDate,
+            'is_primary' => true,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driverB->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => $effectiveDate,
+                'is_primary' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.driver_id', $driverB->id);
+
+        $first->refresh();
+
+        $this->assertSame($effectiveDate, $first->assigned_to?->toDateString());
+
+        $this->assertTrue(
+            DriverAssignment::query()
+                ->where('driver_id', $driverB->id)
+                ->where('vehicle_id', $vehicle->id)
+                ->whereDate('assigned_from', $effectiveDate)
+                ->whereNull('assigned_to')
+                ->exists(),
+        );
+    }
+
+    public function test_vehicle_primary_driver_can_be_removed(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Assigned Driver', 700);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => now()->subDays(3)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/vehicles/{$vehicle->id}/remove-primary-driver")
+            ->assertOk()
+            ->assertJsonPath('vehicle_id', $vehicle->id);
+
+        $assignment->refresh();
+
+        $this->assertSame(now()->toDateString(), $assignment->assigned_to?->toDateString());
+    }
+
+    public function test_primary_assignment_endpoint_returns_active_driver(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Active Driver', 700);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => now()->subDay()->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/vehicles/{$vehicle->id}/primary-assignment")
+            ->assertOk()
+            ->assertJsonPath('has_active_primary', true)
+            ->assertJsonPath('assignment.driver.name', 'Active Driver');
+    }
+
+    public function test_primary_assignment_endpoint_returns_empty_when_driver_removed(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Removed Driver', 700);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => now()->subDays(2)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/vehicles/{$vehicle->id}/remove-primary-driver")
+            ->assertOk()
+            ->assertJsonPath('has_active_primary', false);
+
+        $assignment->refresh();
+        $this->assertSame(now()->toDateString(), $assignment->assigned_to?->toDateString());
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/vehicles/{$vehicle->id}/primary-assignment")
+            ->assertOk()
+            ->assertJsonPath('has_active_primary', false)
+            ->assertJsonPath('assignment', null);
+    }
+
+    public function test_new_primary_assignment_cancels_scheduled_future_assignments_on_same_truck(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+        $currentDriver = $this->createDriver($tenant, 'Current Driver', 600);
+        $newDriver = $this->createDriver($tenant, 'New Driver', 650);
+
+        $scheduled = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $currentDriver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => now()->addMonth()->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $newDriver->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => now()->toDateString(),
+                'is_primary' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.driver_id', $newDriver->id);
+
+        $scheduled->refresh();
+
+        $this->assertSame(
+            $scheduled->assigned_from->toDateString(),
+            $scheduled->assigned_to?->toDateString(),
+        );
+    }
+
+    public function test_remove_primary_driver_fails_when_truck_has_no_assignment(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        $vehicle = $this->createVehicle($tenant);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/vehicles/{$vehicle->id}/remove-primary-driver")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['vehicle_id']);
+    }
+
     public function test_driver_role_cannot_create_or_update_driver_records(): void
     {
         [$tenant, $driverUser] = $this->createTenantUser('DRIVER');

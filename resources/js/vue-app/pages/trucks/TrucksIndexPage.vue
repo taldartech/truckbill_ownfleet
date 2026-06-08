@@ -16,7 +16,7 @@
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
         <AppIndexFiltersCard :active="filtersActive" @apply="loadVehicles(1)" @clear="clearFilters">
-            <div class="col-md-4">
+            <div>
                 <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="filters.search"
@@ -26,8 +26,8 @@
                     :disabled="loading"
                 />
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Vehicle type</label>
+            <div>
+                <label class="form-label">Truck type</label>
                 <select v-model="filters.vehicle_type" class="form-select">
                     <option value="">All types</option>
                     <option v-for="type in vehicleTypes" :key="type.value" :value="type.value">
@@ -35,7 +35,7 @@
                     </option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div>
                 <label class="form-label">Status</label>
                 <select v-model="filters.status" class="form-select">
                     <option value="">All statuses</option>
@@ -43,7 +43,7 @@
                     <option value="inactive">Inactive</option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <div>
                 <label class="form-label">Primary driver</label>
                 <select v-model="filters.primary_driver" class="form-select">
                     <option value="">All trucks</option>
@@ -54,13 +54,11 @@
         </AppIndexFiltersCard>
 
         <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Trucks List</h3>
-            </div>
-            <div class="card-body table-responsive">
+            <div class="card-body">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading trucks…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+                <div v-else class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Registration</th>
                             <th>Type</th>
@@ -69,7 +67,7 @@
                             <th>Primary Driver</th>
                             <th>Odometer (KM)</th>
                             <th>Status</th>
-                            <th style="width: 160px">Actions</th>
+                            <th class="app-index-actions-cell" style="width: 160px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -118,7 +116,7 @@
                                     {{ vehicle.is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
-                            <td>
+                            <td class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton
                                         v-if="canViewAssignments"
@@ -133,7 +131,7 @@
                                     <RouterLink
                                         v-if="canViewTyres"
                                         :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                        :class="tyreLinkClasses"
+                                        :class="`${tyreLinkClasses} btn-icon`"
                                         title="Tyre positions"
                                     >
                                         <i class="bi bi-circle" aria-hidden="true"></i>
@@ -152,7 +150,8 @@
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
             <AppIndexPaginationFooter
                 page-id="trucksIndex"

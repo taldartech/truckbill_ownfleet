@@ -13,22 +13,22 @@
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Layout List</h3>
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadLayouts(1)" @clear="clearFilters">
+            <div>
+                <label class="form-label">Search</label>
                 <AppIndexSearchInput
                     v-model="search"
                     input-id="tyreLayoutsIndex_search"
                     placeholder="Search name or code"
-                    max-width="260px"
+                    max-width="100%"
                     :disabled="loading"
-                    @update:model-value="debouncedLoad"
                 />
             </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading layouts…</div>
-                <table v-else class="table table-bordered table-striped">
-                    <thead>
+        </AppIndexFiltersCard>
+
+        <AppIndexListCard :loading="loading" loading-text="Loading layouts…">
+            <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>Code</th>
@@ -36,7 +36,7 @@
                             <th>Positions</th>
                             <th>Spares</th>
                             <th>Status</th>
-                            <th v-if="canManage" style="width: 120px">Actions</th>
+                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -54,7 +54,7 @@
                                     {{ layout.is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
-                            <td v-if="canManage">
+                            <td v-if="canManage" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(layout)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(layout)" />
@@ -62,23 +62,24 @@
                             </td>
                         </tr>
                     </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="tyreLayoutsIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="layouts"
-                :per-page-options="[10, 15, 25, 50]"
-                @page-change="loadLayouts"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+            </table>
+            <template #footer>
+                <AppIndexPaginationFooter
+                    page-id="tyreLayoutsIndex"
+                    :loading="loading"
+                    :current-page="pagination.currentPage"
+                    :last-page="pagination.lastPage"
+                    :per-page="pagination.perPage"
+                    :total="pagination.total"
+                    :from="pagination.from"
+                    :to="pagination.to"
+                    item-label="layouts"
+                    :per-page-options="[10, 15, 25, 50]"
+                    @page-change="loadLayouts"
+                    @update:per-page="onPerPageUpdate"
+                />
+            </template>
+        </AppIndexListCard>
 
         <div
             v-if="showModal"
@@ -133,7 +134,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Sort order</label>
-                                    <input v-model.number="form.sort_order" type="number" min="0" class="form-control" />
+                                    <input v-model.number="form.sort_order" v-no-scroll-change type="number" min="0" class="form-control" />
                                 </div>
                                 <div class="col-md-3 d-flex align-items-end">
                                     <div class="form-check">
@@ -148,11 +149,11 @@
                                 <div class="row g-3">
                                     <div class="col-md-3">
                                         <label class="form-label">Steer axles</label>
-                                        <input v-model.number="form.steer_axles" type="number" min="0" max="2" class="form-control" />
+                                        <input v-model.number="form.steer_axles" v-no-scroll-change type="number" min="0" max="2" class="form-control" />
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Spare count</label>
-                                        <input v-model.number="form.spare_count" type="number" min="0" max="10" class="form-control" />
+                                        <input v-model.number="form.spare_count" v-no-scroll-change type="number" min="0" max="10" class="form-control" />
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Dual axles</label>
@@ -205,6 +206,8 @@ import {
 } from '../../api/tyreLayouts';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -230,7 +233,12 @@ const flash = reactive({ success: '', error: '' });
 const form = ref(emptyForm());
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
-let debounceTimer = null;
+const filtersActive = computed(() => search.value.trim() !== '');
+
+function clearFilters() {
+    search.value = '';
+    loadLayouts(1);
+}
 
 function emptyForm() {
     return {
@@ -300,11 +308,6 @@ async function loadLayouts(page = pagination.currentPage) {
     } finally {
         loading.value = false;
     }
-}
-
-function debouncedLoad() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => loadLayouts(1), 300);
 }
 
 function onPerPageUpdate(perPage) {

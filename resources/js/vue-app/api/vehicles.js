@@ -22,6 +22,23 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
+export async function searchVehiclesForTripSelection({ search = '', page = 1, perPage = 20, asOfDate = null } = {}) {
+    const { data } = await api.get(`${vehiclesBase}/for-trip-selection`, {
+        params: {
+            search,
+            page,
+            per_page: perPage,
+            include_ineligible: 1,
+            ...(asOfDate ? { as_of_date: asOfDate } : {}),
+        },
+    });
+
+    return {
+        data: data.data ?? [],
+        meta: data.meta ?? {},
+    };
+}
+
 export async function listAllVehicles({ activeOnly = false } = {}) {
     const { data } = await api.get(vehiclesBase, {
         params: {
@@ -80,4 +97,10 @@ export async function toggleVehicleStatus(id, isActive) {
 
 export async function deleteVehicle(id) {
     await api.delete(`${vehiclesBase}/${id}`);
+}
+
+export async function fetchVehiclePrimaryAssignment(vehicleId) {
+    const { data } = await api.get(`${vehiclesBase}/${vehicleId}/primary-assignment`);
+
+    return data;
 }

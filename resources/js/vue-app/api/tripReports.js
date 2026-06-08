@@ -26,7 +26,7 @@ export function exportTripReport(type, filters = {}) {
 
 export const TRIP_REPORT_TYPES = [
     { value: 'profitability', label: 'Trip Profitability' },
-    { value: 'vehicle-wise', label: 'Vehicle-wise Trips' },
+    { value: 'vehicle-wise', label: 'Truck-wise Trips' },
     { value: 'driver-wise', label: 'Driver-wise Trips' },
     { value: 'empty-km', label: 'Empty KM Report' },
     { value: 'expense-summary', label: 'Expense Summary' },

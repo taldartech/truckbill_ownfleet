@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BrokerController;
 use App\Http\Controllers\Api\ChallanController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ComplianceController;
+use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverAssignmentController;
@@ -28,8 +30,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
+    Route::get('vehicles/for-trip-selection', [VehicleController::class, 'forTripSelection']);
     Route::apiResource('vehicles', VehicleController::class);
     Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'toggleStatus']);
+    Route::get('vehicles/{vehicle}/primary-assignment', [VehicleController::class, 'primaryAssignment']);
+    Route::post('vehicles/{vehicle}/remove-primary-driver', [VehicleController::class, 'removePrimaryDriver']);
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
     Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
     Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
@@ -58,6 +63,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::apiResource('states', StateController::class)->except(['destroy']);
     Route::apiResource('cities', CityController::class)->except(['destroy']);
     Route::apiResource('stations', StationController::class);
+    Route::apiResource('brokers', BrokerController::class);
+    Route::apiResource('customers', CustomerController::class);
     Route::apiResource('tyre-layouts', TyreLayoutController::class);
     Route::post('tyres/replace', [TyreController::class, 'replace']);
     Route::apiResource('tyres', TyreController::class);

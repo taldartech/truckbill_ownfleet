@@ -209,6 +209,7 @@
                                 <input
                                     :id="`${modalId}_daily_wage`"
                                     v-model="form.daily_wage"
+                                    v-no-scroll-change
                                     type="number"
                                     min="0.01"
                                     step="0.01"

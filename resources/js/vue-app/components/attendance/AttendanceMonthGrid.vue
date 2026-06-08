@@ -46,11 +46,11 @@
             No driver assignments for this month. Assign primary drivers to trucks first.
         </div>
 
-        <div v-else class="table-responsive">
+        <div v-else class="table-wrap">
             <table class="table table-sm table-bordered mb-0 grid-table">
                 <thead>
                     <tr>
-                        <th class="sticky-col vehicle-col">Vehicle</th>
+                        <th class="sticky-col vehicle-col">Truck</th>
                         <th class="sticky-col driver-col">Drivers</th>
                         <th
                             v-for="day in days"

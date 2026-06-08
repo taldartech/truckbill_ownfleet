@@ -37,7 +37,7 @@ class SubstituteDriverAvailability
             ->first();
 
         if ($primaryAssignment !== null) {
-            $vehicleLabel = $primaryAssignment->vehicle?->registration_number ?? 'another vehicle';
+            $vehicleLabel = $primaryAssignment->vehicle?->registration_number ?? 'another truck';
 
             return "This driver is already assigned as primary on {$vehicleLabel} for this date. Choose a driver who is not assigned to any truck.";
         }
@@ -51,7 +51,7 @@ class SubstituteDriverAvailability
             ->first();
 
         if ($substituteAttendance !== null) {
-            $vehicleLabel = $substituteAttendance->vehicle?->registration_number ?? 'another vehicle';
+            $vehicleLabel = $substituteAttendance->vehicle?->registration_number ?? 'another truck';
 
             return "This driver is already working as substitute on {$vehicleLabel} for this date.";
         }

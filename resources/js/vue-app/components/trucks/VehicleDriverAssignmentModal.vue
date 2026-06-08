@@ -17,18 +17,30 @@
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
                 <div class="modal-body">
-                    <div v-if="currentDriverName" class="alert alert-info py-2">
-                        <strong>Current primary driver:</strong> {{ currentDriverName }}
-                        <span v-if="currentAssignedFrom" class="text-muted">
-                            (since {{ currentAssignedFrom }})
-                        </span>
+                    <div v-if="hasActivePrimary" class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <strong>Current driver:</strong> {{ currentDriverName }}
+                            <span v-if="currentAssignedFrom" class="text-muted">
+                                (since {{ currentAssignedFrom }})
+                            </span>
+                        </div>
+                        <button
+                            v-if="canManage"
+                            type="button"
+                            class="btn btn-sm btn-outline-danger"
+                            :disabled="removing"
+                            @click="removePrimaryDriver"
+                        >
+                            <span v-if="removing" class="spinner-border spinner-border-sm me-1" role="status" />
+                            Remove Driver
+                        </button>
                     </div>
                     <div v-else class="alert alert-warning py-2 mb-3">
-                        No primary driver assigned for this truck yet.
+                        No driver assigned for this truck yet.
                     </div>
 
                     <div v-if="canManage" class="card mb-3">
-                        <div class="card-header">Assign Primary Driver</div>
+                        <div class="card-header">Assign New Driver</div>
                         <div class="card-body">
                             <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                             <form class="row g-3" @submit.prevent="assignDriver">
@@ -121,8 +133,8 @@
                                 </div>
                                 <div class="col-12">
                                     <p class="small text-muted mb-0">
-                                        Previous open primary assignment will close automatically the day before this
-                                        date.
+                                        The current primary driver on this truck will be closed automatically one day
+                                        before the new effective date.
                                     </p>
                                 </div>
                                 <div class="col-12">
@@ -142,25 +154,16 @@
                                         <th>Driver</th>
                                         <th>From</th>
                                         <th>To</th>
-                                        <th>Primary</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="assignments.length === 0">
-                                        <td colspan="4" class="text-center text-muted">No assignment history.</td>
+                                        <td colspan="3" class="text-center text-muted">No assignment history.</td>
                                     </tr>
                                     <tr v-for="row in assignments" :key="row.id">
                                         <td>{{ row.driver?.name ?? '—' }}</td>
                                         <td>{{ row.assigned_from ?? '—' }}</td>
-                                        <td>{{ row.assigned_to ?? 'Current' }}</td>
-                                        <td>
-                                            <span
-                                                class="badge"
-                                                :class="row.is_primary ? 'bg-success' : 'bg-secondary'"
-                                            >
-                                                {{ row.is_primary ? 'Yes' : 'No' }}
-                                            </span>
-                                        </td>
+                                        <td>{{ assignmentToLabel(row) }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -175,7 +178,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { listAllDrivers } from '../../api/drivers';
-import { createDriverAssignment, listDriverAssignments } from '../../api/driverAssignments';
+import {
+    createDriverAssignment,
+    listDriverAssignments,
+    removeVehiclePrimaryDriver,
+} from '../../api/driverAssignments';
+import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppButton from '../ui/AppButton.vue';
@@ -196,7 +204,13 @@ let bootstrapModal = null;
 
 const loading = ref(false);
 const saving = ref(false);
+const removing = ref(false);
 const assignments = ref([]);
+const primarySummary = ref({
+    as_of_date: '',
+    has_active_primary: false,
+    assignment: null,
+});
 const drivers = ref([]);
 const vehicleLabel = ref('');
 const driverSearch = ref('');
@@ -206,16 +220,16 @@ const driverPickerRef = ref(null);
 
 const assignForm = ref({
     driver_id: '',
-    assigned_from: new Date().toISOString().slice(0, 10),
+    assigned_from: '',
 });
 
-const currentDriverName = computed(
-    () => props.vehicle?.current_primary_assignment?.driver?.name ?? null,
-);
+const asOfDate = computed(() => primarySummary.value.as_of_date || '');
 
-const currentAssignedFrom = computed(
-    () => props.vehicle?.current_primary_assignment?.assigned_from ?? null,
-);
+const hasActivePrimary = computed(() => Boolean(primarySummary.value.has_active_primary));
+
+const currentDriverName = computed(() => primarySummary.value.assignment?.driver?.name ?? null);
+
+const currentAssignedFrom = computed(() => primarySummary.value.assignment?.assigned_from ?? null);
 
 const unassignedDrivers = computed(() =>
     drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),
@@ -250,8 +264,47 @@ const selectedDriverLabel = computed(() => {
     return `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
 });
 
-function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+function assignmentToLabel(row) {
+    if (isActivePrimaryRow(row)) {
+        return 'Current';
+    }
+
+    return row.assigned_to ?? '—';
+}
+
+function isActivePrimaryRow(row) {
+    const date = asOfDate.value;
+
+    if (!date || !row?.is_primary) {
+        return false;
+    }
+
+    const from = String(row.assigned_from);
+    const to = row.assigned_to ? String(row.assigned_to) : null;
+
+    return from <= date && (to === null || to > date);
+}
+
+async function loadPrimaryAssignment() {
+    if (!props.vehicle?.id) {
+        primarySummary.value = {
+            as_of_date: '',
+            has_active_primary: false,
+            assignment: null,
+        };
+
+        return;
+    }
+
+    try {
+        primarySummary.value = await fetchVehiclePrimaryAssignment(props.vehicle.id);
+    } catch {
+        primarySummary.value = {
+            as_of_date: '',
+            has_active_primary: false,
+            assignment: null,
+        };
+    }
 }
 
 async function loadHistory() {
@@ -280,30 +333,33 @@ async function loadDrivers() {
 }
 
 async function loadActivePrimaryAssignments() {
+    const date = asOfDate.value;
+
+    if (!date) {
+        activePrimaryByDriver.value = {};
+
+        return;
+    }
+
     try {
         const response = await listDriverAssignments({ perPage: 500 });
         const rows = response.data ?? [];
-        const today = todayIso();
-        const primaryAssignments = rows.filter(
-            (row) =>
-                row.is_primary === true &&
-                row.assigned_from <= today &&
-                (row.assigned_to === null || row.assigned_to >= today),
-        );
 
-        activePrimaryByDriver.value = primaryAssignments.reduce((accumulator, row) => {
-            if (!row.driver_id) {
+        activePrimaryByDriver.value = rows
+            .filter((row) => isActivePrimaryRow(row))
+            .reduce((accumulator, row) => {
+                if (!row.driver_id) {
+                    return accumulator;
+                }
+
+                accumulator[row.driver_id] = {
+                    vehicleId: row.vehicle_id,
+                    vehicleLabel: row.vehicle?.registration_number ?? 'another truck',
+                    driverName: row.driver?.name ?? 'Driver',
+                };
+
                 return accumulator;
-            }
-
-            accumulator[row.driver_id] = {
-                vehicleId: row.vehicle_id,
-                vehicleLabel: row.vehicle?.registration_number ?? 'another truck',
-                driverName: row.driver?.name ?? 'Driver',
-            };
-
-            return accumulator;
-        }, {});
+            }, {});
     } catch {
         activePrimaryByDriver.value = {};
     }
@@ -333,6 +389,11 @@ function handleClickOutside(event) {
     }
 }
 
+async function refreshAssignmentState() {
+    await loadPrimaryAssignment();
+    await Promise.all([loadHistory(), loadActivePrimaryAssignments()]);
+}
+
 watch(
     () => props.show,
     async (visible) => {
@@ -349,9 +410,10 @@ watch(
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
             driverSearch.value = '';
             isDriverDropdownOpen.value = false;
+            await loadPrimaryAssignment();
             assignForm.value = {
                 driver_id: '',
-                assigned_from: todayIso(),
+                assigned_from: asOfDate.value || new Date().toISOString().slice(0, 10),
             };
             await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
             bootstrapModal.show();
@@ -391,7 +453,7 @@ async function assignDriver() {
         assignForm.value.driver_id = '';
         driverSearch.value = '';
         clearErrors();
-        await Promise.all([loadHistory(), loadActivePrimaryAssignments()]);
+        await refreshAssignmentState();
         emit('assigned');
     } catch (error) {
         if (!applyApiError(error)) {
@@ -399,6 +461,40 @@ async function assignDriver() {
         }
     } finally {
         saving.value = false;
+    }
+}
+
+async function removePrimaryDriver() {
+    if (!props.vehicle?.id || !hasActivePrimary.value) {
+        return;
+    }
+
+    const confirmed = window.confirm(
+        `Remove ${currentDriverName.value} as driver from ${vehicleLabel.value}?`,
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    removing.value = true;
+    clearErrors();
+
+    try {
+        const response = await removeVehiclePrimaryDriver(props.vehicle.id);
+        primarySummary.value = {
+            as_of_date: response.as_of_date ?? asOfDate.value,
+            has_active_primary: Boolean(response.has_active_primary),
+            assignment: response.assignment ?? null,
+        };
+        await refreshAssignmentState();
+        emit('assigned');
+    } catch (error) {
+        if (!applyApiError(error)) {
+            formError.value = 'Could not remove primary driver. Please try again.';
+        }
+    } finally {
+        removing.value = false;
     }
 }
 </script>

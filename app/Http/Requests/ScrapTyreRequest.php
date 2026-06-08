@@ -22,6 +22,7 @@ class ScrapTyreRequest extends FormRequest
         return [
             'scrapped_at' => ['nullable', 'date'],
             'scrap_notes' => ['nullable', 'string', 'max:2000'],
+            'scrap_sale_amount' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

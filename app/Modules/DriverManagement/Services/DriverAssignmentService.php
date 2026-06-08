@@ -2,6 +2,7 @@
 
 namespace App\Modules\DriverManagement\Services;
 
+use App\Driver;
 use App\DriverAssignment;
 use App\Modules\DriverManagement\Repositories\DriverAssignmentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -18,6 +19,60 @@ class DriverAssignmentService
         return $this->driverAssignmentRepository->paginate($perPage, $vehicleId);
     }
 
+    public function currentPrimaryForVehicle(string $vehicleId, ?string $asOfDate = null): ?DriverAssignment
+    {
+        $asOf = $this->normalizeDate($asOfDate);
+
+        return DriverAssignment::query()
+            ->where('vehicle_id', $vehicleId)
+            ->activePrimaryOn($asOf)
+            ->with(['driver:id,name,phone,is_active'])
+            ->latest('assigned_from')
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function primaryAssignmentSummary(string $vehicleId, ?string $asOfDate = null): array
+    {
+        $asOf = $this->normalizeDate($asOfDate);
+        $assignment = $this->currentPrimaryForVehicle($vehicleId, $asOf);
+
+        return [
+            'vehicle_id' => $vehicleId,
+            'as_of_date' => $asOf,
+            'has_active_primary' => $assignment !== null,
+            'assignment' => $assignment !== null ? $this->formatAssignmentPayload($assignment, $asOf) : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function formatAssignmentPayload(DriverAssignment $assignment, string $asOfDate): array
+    {
+        $assignment->loadMissing('driver:id,name,phone,is_active');
+
+        return [
+            'id' => $assignment->id,
+            'driver_id' => $assignment->driver_id,
+            'vehicle_id' => $assignment->vehicle_id,
+            'assigned_from' => $assignment->assigned_from?->toDateString(),
+            'assigned_to' => $assignment->assigned_to?->toDateString(),
+            'is_primary' => (bool) $assignment->is_primary,
+            'status' => $assignment->statusOn($asOfDate),
+            'driver' => $assignment->driver !== null
+                ? [
+                    'id' => $assignment->driver->id,
+                    'name' => $assignment->driver->name,
+                    'phone' => $assignment->driver->phone,
+                    'is_active' => (bool) $assignment->driver->is_active,
+                ]
+                : null,
+        ];
+    }
+
     public function create(array $data): DriverAssignment
     {
         return DB::transaction(function () use ($data): DriverAssignment {
@@ -32,22 +87,20 @@ class DriverAssignmentService
     {
         $isPrimary = (bool) ($data['is_primary'] ?? true);
         $assignedFrom = Carbon::parse($data['assigned_from'])->toDateString();
-        $assignedTo = isset($data['assigned_to']) && $data['assigned_to'] !== null
-            ? Carbon::parse($data['assigned_to'])->toDateString()
-            : null;
 
         if ($isPrimary) {
-            $this->closeOpenPrimaryAssignment(
-                $data['vehicle_id'],
-                Carbon::parse($assignedFrom)->subDay()->toDateString(),
+            $this->assertDriverIsActive((string) $data['driver_id']);
+            $this->closeVehiclePrimaryAssignmentsBeforeNew(
+                (string) $data['vehicle_id'],
+                $assignedFrom,
             );
-            $this->closeDriverOpenPrimaryAssignments(
-                $data['driver_id'],
-                Carbon::parse($assignedFrom)->subDay()->toDateString(),
-                $data['vehicle_id'],
+            $this->ensureDriverNotPrimaryOnOtherVehicle(
+                (string) $data['driver_id'],
+                (string) $data['vehicle_id'],
+                $assignedFrom,
             );
-            $this->ensureVehicleHasNoPrimaryOverlap($data['vehicle_id'], $assignedFrom, $assignedTo);
-            $this->ensureDriverHasNoPrimaryOverlap($data['driver_id'], $assignedFrom, $assignedTo);
+
+            $data['assigned_to'] = null;
         }
 
         return $this->driverAssignmentRepository->create($data);
@@ -69,9 +122,6 @@ class DriverAssignmentService
             'vehicle_id' => $data['vehicle_id'] ?? $driverAssignment->vehicle_id,
             'driver_id' => $data['driver_id'] ?? $driverAssignment->driver_id,
             'assigned_from' => $data['assigned_from'] ?? $driverAssignment->assigned_from?->toDateString(),
-            'assigned_to' => array_key_exists('assigned_to', $data)
-                ? $data['assigned_to']
-                : $driverAssignment->assigned_to?->toDateString(),
             'is_primary' => array_key_exists('is_primary', $data)
                 ? (bool) $data['is_primary']
                 : (bool) $driverAssignment->is_primary,
@@ -79,33 +129,21 @@ class DriverAssignmentService
 
         if ($merged['is_primary']) {
             $assignedFrom = Carbon::parse((string) $merged['assigned_from'])->toDateString();
-            $assignedTo = $merged['assigned_to'] !== null
-                ? Carbon::parse((string) $merged['assigned_to'])->toDateString()
-                : null;
 
-            $this->closeOpenPrimaryAssignment(
-                (string) $merged['vehicle_id'],
-                Carbon::parse($assignedFrom)->subDay()->toDateString(),
-                $driverAssignment->id,
-            );
-            $this->closeDriverOpenPrimaryAssignments(
-                (string) $merged['driver_id'],
-                Carbon::parse($assignedFrom)->subDay()->toDateString(),
-                (string) $merged['vehicle_id'],
-                $driverAssignment->id,
-            );
-            $this->ensureVehicleHasNoPrimaryOverlap(
+            $this->assertDriverIsActive((string) $merged['driver_id']);
+            $this->closeVehiclePrimaryAssignmentsBeforeNew(
                 (string) $merged['vehicle_id'],
                 $assignedFrom,
-                $assignedTo,
                 $driverAssignment->id,
             );
-            $this->ensureDriverHasNoPrimaryOverlap(
+            $this->ensureDriverNotPrimaryOnOtherVehicle(
                 (string) $merged['driver_id'],
+                (string) $merged['vehicle_id'],
                 $assignedFrom,
-                $assignedTo,
                 $driverAssignment->id,
             );
+
+            $data['assigned_to'] = null;
         }
 
         return $this->driverAssignmentRepository->update($driverAssignment, $data);
@@ -116,78 +154,95 @@ class DriverAssignmentService
         $this->driverAssignmentRepository->delete($driverAssignment);
     }
 
-    private function closeOpenPrimaryAssignment(string $vehicleId, string $assignedTo, ?string $ignoreAssignmentId = null): void
+    public function removePrimaryDriver(string $vehicleId, ?string $actorId = null, ?string $asOfDate = null): void
     {
-        DriverAssignment::query()
-            ->where('vehicle_id', $vehicleId)
-            ->where('is_primary', true)
-            ->whereNull('assigned_to')
-            ->whereDate('assigned_from', '<=', $assignedTo)
-            ->when($ignoreAssignmentId !== null, fn ($query) => $query->whereKeyNot($ignoreAssignmentId))
-            ->update(['assigned_to' => $assignedTo]);
+        DB::transaction(function () use ($vehicleId, $actorId, $asOfDate): void {
+            $asOf = $this->normalizeDate($asOfDate);
+            $assignment = $this->currentPrimaryForVehicle($vehicleId, $asOf);
+
+            if ($assignment === null) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => ['No primary driver is currently assigned to this truck.'],
+                ]);
+            }
+
+            $assignment->update([
+                'assigned_to' => $asOf,
+                'updated_by' => $actorId,
+            ]);
+        });
     }
 
-    private function closeDriverOpenPrimaryAssignments(
-        string $driverId,
-        string $assignedTo,
-        string $newVehicleId,
+    private function closeVehiclePrimaryAssignmentsBeforeNew(
+        string $vehicleId,
+        string $newAssignedFrom,
         ?string $ignoreAssignmentId = null,
     ): void {
-        DriverAssignment::query()
-            ->where('driver_id', $driverId)
+        $newFrom = Carbon::parse($newAssignedFrom);
+
+        $assignments = DriverAssignment::query()
+            ->where('vehicle_id', $vehicleId)
             ->where('is_primary', true)
-            ->whereNull('assigned_to')
-            ->whereDate('assigned_from', '<=', $assignedTo)
-            ->where('vehicle_id', '!=', $newVehicleId)
             ->when($ignoreAssignmentId !== null, fn ($query) => $query->whereKeyNot($ignoreAssignmentId))
-            ->update(['assigned_to' => $assignedTo]);
+            ->where(function ($query) use ($newFrom): void {
+                $query->whereNull('assigned_to')
+                    ->orWhereDate('assigned_to', '>=', $newFrom->toDateString());
+            })
+            ->get();
+
+        foreach ($assignments as $assignment) {
+            $from = $assignment->assigned_from;
+
+            if ($from->lt($newFrom)) {
+                $assignment->update([
+                    'assigned_to' => $newFrom->copy()->subDay()->toDateString(),
+                ]);
+
+                continue;
+            }
+
+            $assignment->update([
+                'assigned_to' => $from->toDateString(),
+            ]);
+        }
     }
 
-    private function ensureVehicleHasNoPrimaryOverlap(
+    private function ensureDriverNotPrimaryOnOtherVehicle(
+        string $driverId,
         string $vehicleId,
         string $assignedFrom,
-        ?string $assignedTo = null,
-        ?string $ignoreAssignmentId = null,
-    ): void {
-        $conflictExists = DriverAssignment::query()
-            ->where('vehicle_id', $vehicleId)
-            ->where('is_primary', true)
-            ->when($ignoreAssignmentId !== null, fn ($query) => $query->whereKeyNot($ignoreAssignmentId))
-            ->whereDate('assigned_from', '<=', $assignedTo ?? '9999-12-31')
-            ->where(function ($query) use ($assignedFrom) {
-                $query->whereNull('assigned_to')
-                    ->orWhereDate('assigned_to', '>=', $assignedFrom);
-            })
-            ->exists();
-
-        if ($conflictExists) {
-            throw ValidationException::withMessages([
-                'vehicle_id' => ['A primary driver is already assigned for this truck in the selected period.'],
-            ]);
-        }
-    }
-
-    private function ensureDriverHasNoPrimaryOverlap(
-        string $driverId,
-        string $assignedFrom,
-        ?string $assignedTo = null,
         ?string $ignoreAssignmentId = null,
     ): void {
         $conflictExists = DriverAssignment::query()
             ->where('driver_id', $driverId)
+            ->where('vehicle_id', '!=', $vehicleId)
             ->where('is_primary', true)
             ->when($ignoreAssignmentId !== null, fn ($query) => $query->whereKeyNot($ignoreAssignmentId))
-            ->whereDate('assigned_from', '<=', $assignedTo ?? '9999-12-31')
-            ->where(function ($query) use ($assignedFrom) {
-                $query->whereNull('assigned_to')
-                    ->orWhereDate('assigned_to', '>=', $assignedFrom);
-            })
+            ->activePrimaryOn($assignedFrom)
             ->exists();
 
         if ($conflictExists) {
             throw ValidationException::withMessages([
-                'driver_id' => ['This driver is already assigned as primary on another truck in the selected period.'],
+                'driver_id' => ['This driver is already assigned as primary on another truck. Choose a different driver or remove that assignment first.'],
             ]);
         }
+    }
+
+    private function assertDriverIsActive(string $driverId): void
+    {
+        $driver = Driver::query()->find($driverId);
+
+        if ($driver === null || ! $driver->is_active) {
+            throw ValidationException::withMessages([
+                'driver_id' => ['Selected driver is inactive or not found.'],
+            ]);
+        }
+    }
+
+    private function normalizeDate(?string $asOfDate): string
+    {
+        return $asOfDate !== null
+            ? Carbon::parse($asOfDate)->toDateString()
+            : Carbon::today()->toDateString();
     }
 }

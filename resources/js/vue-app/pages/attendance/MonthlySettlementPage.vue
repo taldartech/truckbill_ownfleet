@@ -179,6 +179,7 @@
                                     <td>
                                         <input
                                             v-model.number="line.absent_deduction"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
@@ -189,6 +190,7 @@
                                     <td>
                                         <input
                                             v-model.number="line.base_salary"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
@@ -199,6 +201,7 @@
                                     <td>
                                         <input
                                             v-model.number="line.extra_deductions"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
@@ -292,6 +295,7 @@
                                     <td>
                                         <input
                                             v-model.number="row.salary"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
@@ -311,6 +315,7 @@
                                     <td>
                                         <input
                                             v-model.number="row.total"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"

@@ -2,6 +2,8 @@
 
 namespace App\Modules\TripManagement\Services;
 
+use App\Broker;
+use App\Customer;
 use App\Enums\FreightPaymentStatus;
 use App\Enums\RouteType;
 use App\Enums\TripStatus;
@@ -14,6 +16,7 @@ use App\Trip;
 use App\TripExpense;
 use App\TripRouteLeg;
 use App\TripStatusHistory;
+use App\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -23,6 +26,7 @@ class TripService
         private readonly TripRepository $tripRepository,
         private readonly TripValidationService $tripValidation,
         private readonly TripNumberGenerator $tripNumberGenerator,
+        private readonly VehicleTripEligibilityService $vehicleTripEligibility,
     ) {}
 
     /**
@@ -49,9 +53,34 @@ class TripService
             unset($data['route_legs'], $data['expenses'], $data['trip_number']);
 
             $vehicleId = (string) $data['vehicle_id'];
-            $driverId = (string) $data['driver_id'];
+            $vehicle = Vehicle::query()
+                ->with(['currentPrimaryAssignment.driver'])
+                ->findOrFail($vehicleId);
 
-            $this->tripValidation->assertVehicleExists($vehicleId);
+            $tripStartAt = $data['start_at'] ?? null;
+            $tripStartDate = $tripStartAt !== null
+                ? \Illuminate\Support\Carbon::parse($tripStartAt)->toDateString()
+                : null;
+
+            $this->vehicleTripEligibility->assertEligibleForTripCreation($vehicle, $tripStartDate);
+
+            $resolvedDriverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($vehicleId, $tripStartAt);
+
+            if ($resolvedDriverId === null) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'start_at' => ['No primary driver is assigned to this truck on the trip start date.'],
+                    'vehicle_id' => ['Choose a different truck or adjust the trip start date.'],
+                ]);
+            }
+
+            if (isset($data['driver_id']) && (string) $data['driver_id'] !== $resolvedDriverId) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'driver_id' => ['Driver must match the primary driver assigned to this truck.'],
+                ]);
+            }
+
+            $driverId = $resolvedDriverId;
+
             $this->tripValidation->assertDriverIsActive($driverId);
             $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
             $this->tripValidation->assertVehicleHasNoOpenTrip($vehicleId);
@@ -65,12 +94,14 @@ class TripService
 
             $tenantId = CurrentTenant::id() ?? $data['tenant_id'] ?? null;
             $tripNumber = $this->tripNumberGenerator->generate($tenantId);
+            $data = $this->normalizeBrokerCustomerFields($data);
 
             $trip = $this->tripRepository->create([
                 ...$data,
+                'driver_id' => $driverId,
                 'trip_number' => $tripNumber,
                 'start_station_id' => $data['start_station_id'] ?? null,
-                'status' => $data['status'] ?? TripStatus::Created->value,
+                'status' => TripStatus::Created->value,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
@@ -108,21 +139,9 @@ class TripService
                 $this->tripValidation->assertStatusTransition($trip, (string) $data['status'], $data);
             }
 
-            $vehicleId = (string) ($data['vehicle_id'] ?? $trip->vehicle_id);
-            $driverId = (string) ($data['driver_id'] ?? $trip->driver_id);
+            $vehicleId = (string) $trip->vehicle_id;
+            $driverId = (string) $trip->driver_id;
 
-            if (isset($data['vehicle_id'])) {
-                $this->tripValidation->assertVehicleExists($vehicleId);
-                $this->tripValidation->assertVehicleHasNoOpenTrip($vehicleId, $trip->id);
-            }
-
-            if (isset($data['driver_id'])) {
-                $this->tripValidation->assertDriverIsActive($driverId);
-            }
-
-            $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
-
-            $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $tripStartAt);
             $this->tripValidation->assertDriverHasNoOpenTrip($driverId, $trip->id);
 
             if ($routeLegs !== null) {
@@ -139,6 +158,10 @@ class TripService
                 $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
                 $trip->id,
             );
+
+            if (array_key_exists('customer_id', $data) || array_key_exists('broker_id', $data)) {
+                $data = $this->normalizeBrokerCustomerFields($data);
+            }
 
             $this->tripRepository->update($trip, [
                 ...$data,
@@ -291,6 +314,10 @@ class TripService
                 'trip_route_leg_id' => $legId,
                 'expense_type' => strtoupper((string) $expense['expense_type']),
                 'amount' => (float) ($expense['amount'] ?? 0),
+                'fuel_liters' => isset($expense['fuel_liters']) ? (float) $expense['fuel_liters'] : null,
+                'fuel_rate' => isset($expense['fuel_rate']) ? (float) $expense['fuel_rate'] : null,
+                'odometer_start' => isset($expense['odometer_start']) ? (float) $expense['odometer_start'] : null,
+                'odometer_end' => isset($expense['odometer_end']) ? (float) $expense['odometer_end'] : null,
                 'currency' => $expense['currency'] ?? 'INR',
                 'notes' => $expense['notes'] ?? null,
                 'created_by' => $userId,
@@ -358,5 +385,44 @@ class TripService
         }
 
         return FreightPaymentStatus::Pending;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeBrokerCustomerFields(array $data): array
+    {
+        if (array_key_exists('customer_id', $data)) {
+            $customerId = $data['customer_id'] !== null && $data['customer_id'] !== ''
+                ? (int) $data['customer_id']
+                : null;
+
+            if ($customerId) {
+                $customer = Customer::query()->find($customerId);
+                $data['customer_id'] = $customer?->id;
+                $data['customer_name'] = $customer?->name;
+            } else {
+                $data['customer_id'] = null;
+                $data['customer_name'] = null;
+            }
+        }
+
+        if (array_key_exists('broker_id', $data)) {
+            $brokerId = $data['broker_id'] !== null && $data['broker_id'] !== ''
+                ? (int) $data['broker_id']
+                : null;
+
+            if ($brokerId) {
+                $broker = Broker::query()->find($brokerId);
+                $data['broker_id'] = $broker?->id;
+                $data['broker_name'] = $broker?->name;
+            } else {
+                $data['broker_id'] = null;
+                $data['broker_name'] = null;
+            }
+        }
+
+        return $data;
     }
 }

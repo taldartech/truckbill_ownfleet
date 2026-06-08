@@ -12,78 +12,159 @@
             <div class="card-header bg-success text-white">
                 <h3 class="card-title mb-0"><i class="bi bi-signpost-split me-1"></i> Trip Details</h3>
             </div>
-            <div class="card-body row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Trip Number</label>
-                    <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Vehicle *</label>
-                    <select
-                        v-model="form.vehicle_id"
-                        class="form-select"
-                        :class="{ 'is-invalid': fieldErrors.vehicle_id }"
-                    >
-                        <option value="">Select vehicle</option>
-                        <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
-                    </select>
-                    <div v-if="fieldErrors.vehicle_id" class="invalid-feedback d-block">
-                        {{ fieldErrors.vehicle_id[0] }}
+            <div class="card-body trip-form-fields">
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label">Trip Number</label>
+                        <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
+                    </div>
+                    <div>
+                        <label class="form-label">Status</label>
+                        <template v-if="mode === 'create'">
+                            <input type="text" class="form-control bg-light" value="Created" readonly />
+                            <div class="mt-1">
+                                <span class="badge bg-info text-dark">Created</span>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div class="d-flex flex-wrap align-items-center gap-2 status-actions">
+                                <span class="badge" :class="currentStatusBadge.badge">{{ currentStatusBadge.label }}</span>
+                                <template v-if="!readonly && !statusLocked && allowedNextStatuses.length">
+                                    <button
+                                        v-for="next in allowedNextStatuses"
+                                        :key="next.value"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        @click="onStatusChange(next.value)"
+                                    >
+                                        Mark {{ next.label }}
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">
-                        Driver *
-                        <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
-                    </label>
-                    <select
-                        v-model="form.driver_id"
-                        class="form-select"
-                        :class="{ 'is-invalid': fieldErrors.driver_id }"
-                    >
-                        <option value="">Select driver</option>
-                        <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.name }}</option>
-                    </select>
-                    <div v-if="fieldErrors.driver_id" class="invalid-feedback d-block">
-                        {{ fieldErrors.driver_id[0] }}
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label">Truck *</label>
+                        <template v-if="mode === 'create'">
+                            <AsyncVehicleTripPicker
+                                v-model="form.vehicle_id"
+                                :as-of-date="tripStartDate"
+                                :driver-label="primaryDriverName"
+                                :invalid="Boolean(fieldErrors.vehicle_id)"
+                                :error-message="fieldErrorMessage('vehicle_id')"
+                                @vehicle-selected="$emit('vehicle-selected', $event)"
+                            />
+                        </template>
+                        <template v-else>
+                            <input
+                                :value="snapshotVehicleLabel"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                        </template>
+                    </div>
+                    <div>
+                        <label class="form-label">
+                            Primary Driver
+                            <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
+                        </label>
+                        <input
+                            :value="driverDisplayName"
+                            type="text"
+                            class="form-control bg-light"
+                            :class="{ 'is-invalid': fieldErrors.driver_id && mode !== 'edit' }"
+                            readonly
+                        />
+                        <div v-if="fieldErrors.driver_id && mode !== 'edit'" class="invalid-feedback d-block">
+                            {{ fieldErrorMessage('driver_id') }}
+                        </div>
+                        <div v-else-if="mode === 'edit'" class="form-text">
+                            Locked on this trip — saved when the trip was created.
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Status</label>
-                    <select
-                        :value="form.status"
-                        class="form-select"
-                        :disabled="statusLocked"
-                        @change="onStatusChange($event.target.value)"
-                    >
-                        <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                    </select>
-                    <div class="mt-1">
-                        <span class="badge" :class="currentStatusBadge.badge">{{ currentStatusBadge.label }}</span>
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label">Customer</label>
+                        <SearchablePicker
+                            v-if="!readonly"
+                            v-model="form.customer_id"
+                            :items="customers"
+                            placeholder="Select customer"
+                            search-placeholder="Search customer…"
+                            empty-message="No customer found."
+                            view-title="Customer details"
+                            quick-add-title="Quick add customer"
+                            :invalid="Boolean(fieldErrors.customer_id)"
+                            :error-message="fieldErrorMessage('customer_id')"
+                            :can-quick-add="canQuickAddCustomer"
+                            @quick-add="showCustomerQuickAdd = true"
+                        />
+                        <input
+                            v-else
+                            :value="partyLabel(customers, form.customer_id, snapshotCustomerName)"
+                            type="text"
+                            class="form-control form-input bg-light"
+                            readonly
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label">Broker</label>
+                        <SearchablePicker
+                            v-if="!readonly"
+                            v-model="form.broker_id"
+                            :items="brokers"
+                            placeholder="Select broker"
+                            search-placeholder="Search broker…"
+                            empty-message="No broker found."
+                            view-title="Broker details"
+                            quick-add-title="Quick add broker"
+                            :invalid="Boolean(fieldErrors.broker_id)"
+                            :error-message="fieldErrorMessage('broker_id')"
+                            :can-quick-add="canQuickAddBroker"
+                            @quick-add="showBrokerQuickAdd = true"
+                        />
+                        <input
+                            v-else
+                            :value="partyLabel(brokers, form.broker_id, snapshotBrokerName)"
+                            type="text"
+                            class="form-control form-input bg-light"
+                            readonly
+                        />
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Start Date *</label>
-                    <input
-                        v-model="form.start_at"
-                        type="datetime-local"
-                        class="form-control"
-                        :class="{ 'is-invalid': fieldErrors.start_at }"
-                    />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">End Date</label>
-                    <input
-                        v-model="form.end_at"
-                        type="datetime-local"
-                        class="form-control"
-                        :class="{ 'is-invalid': fieldErrors.end_at }"
-                    />
-                    <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
-                        {{ fieldErrors.end_at[0] }}
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label">Start Date *</label>
+                        <input
+                            v-model="form.start_at"
+                            type="date"
+                            class="form-control"
+                            :class="{ 'is-invalid': fieldErrors.start_at }"
+                            :readonly="readonly"
+                        />
+                        <div v-if="fieldErrors.start_at" class="invalid-feedback d-block">
+                            {{ fieldErrors.start_at[0] }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">End Date</label>
+                        <input
+                            v-model="form.end_at"
+                            type="date"
+                            class="form-control"
+                            :class="{ 'is-invalid': fieldErrors.end_at }"
+                            :readonly="readonly"
+                        />
+                        <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
+                            {{ fieldErrors.end_at[0] }}
+                        </div>
                     </div>
                 </div>
-                <div v-if="form.status === 'CANCELLED'" class="col-md-6">
+                <div v-if="form.status === 'CANCELLED'" class="mb-3">
                     <div class="alert alert-danger mb-0 py-2">
                         <div class="small">
                             <strong>Cancelled:</strong> {{ formatDisplayDate(form.cancelled_at) }}
@@ -93,8 +174,8 @@
                         </div>
                     </div>
                 </div>
-                <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at" class="col-md-3">
-                    <label class="form-label">Actual Arrival</label>
+                <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at" class="mb-3">
+                    <label class="form-label">Actual Arrival Date</label>
                     <input
                         :value="formatDisplayDate(form.actual_arrival_at)"
                         type="text"
@@ -108,7 +189,7 @@
         <div class="card mb-4">
             <div class="card-header bg-success text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h3 class="card-title mb-0"><i class="bi bi-arrow-repeat me-1"></i> Round Trip Route</h3>
-                <div class="d-flex flex-wrap gap-2">
+                <div v-if="!readonly" class="d-flex flex-wrap gap-2">
                     <button
                         type="button"
                         class="btn btn-sm btn-light"
@@ -132,6 +213,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Start Station (Home Base) *</label>
                         <SearchablePicker
+                            v-if="!readonly"
                             v-model="form.start_station_id"
                             :items="stations"
                             placeholder="Select start station"
@@ -140,6 +222,13 @@
                             :can-quick-add="canQuickAddStation"
                             @update:model-value="$emit('start-station-change')"
                             @quick-add="showStationQuickAdd = true"
+                        />
+                        <input
+                            v-else
+                            :value="stationLabel(form.start_station_id)"
+                            type="text"
+                            class="form-control bg-light"
+                            readonly
                         />
                     </div>
                     <div class="col-md-6">
@@ -157,7 +246,7 @@
                     Select start station, then click <strong>Add Stop</strong> to build the route.
                 </div>
 
-                <div class="table-responsive" v-else>
+                <div class="table-wrap" v-else>
                     <table class="table table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -167,7 +256,7 @@
                                 <th>Load Type</th>
                                 <th>KM *</th>
                                 <th>Freight ₹</th>
-                                <th style="width: 50px"></th>
+                                <th v-if="!readonly" style="width: 50px"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -176,6 +265,7 @@
                                 <td>{{ stationLabel(leg.from_station_id) }}</td>
                                 <td>
                                     <SearchablePicker
+                                        v-if="!readonly"
                                         v-model="leg.to_station_id"
                                         :items="stations"
                                         placeholder="Select station"
@@ -186,38 +276,51 @@
                                         @update:model-value="$emit('stop-change', index)"
                                         @quick-add="openQuickAddForLeg(index)"
                                     />
+                                    <span v-else>{{ stationLabel(leg.to_station_id) }}</span>
                                 </td>
                                 <td>
-                                    <select v-model="leg.route_type" class="form-select form-select-sm">
+                                    <select
+                                        v-if="!readonly"
+                                        v-model="leg.route_type"
+                                        class="form-select form-select-sm"
+                                    >
                                         <option v-for="t in routeTypes" :key="t.value" :value="t.value">
                                             {{ t.label }}
                                         </option>
                                     </select>
+                                    <span v-else>{{ routeTypeMeta(leg.route_type).label }}</span>
                                 </td>
                                 <td>
                                     <input
+                                        v-if="!readonly"
                                         v-model.number="leg.distance_km"
+                                        v-no-scroll-change
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         class="form-control form-control-sm"
                                         :class="{ 'is-invalid': legFieldError(index, 'distance_km') }"
+                                        @input="onLegDistanceInput(index)"
                                     />
+                                    <span v-else>{{ formatNum(leg.distance_km) }}</span>
                                     <div v-if="legFieldError(index, 'distance_km')" class="invalid-feedback d-block">
                                         {{ legFieldError(index, 'distance_km') }}
                                     </div>
                                 </td>
                                 <td>
                                     <input
+                                        v-if="!readonly"
                                         v-model.number="leg.freight_amount"
+                                        v-no-scroll-change
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         class="form-control form-control-sm"
                                         :disabled="leg.route_type === 'EMPTY'"
                                     />
+                                    <span v-else>₹{{ formatMoney(leg.freight_amount) }}</span>
                                 </td>
-                                <td>
+                                <td v-if="!readonly">
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-outline-danger"
@@ -234,29 +337,29 @@
         </div>
 
         <div class="card mb-4 border-primary">
-            <div class="card-body py-3">
-                <div class="row g-3 text-center">
-                    <div class="col-md-2 col-6">
+            <div class="card-body p-0">
+                <div class="km-summary-bar">
+                    <div>
                         <div class="small text-muted">Full Load KM</div>
                         <strong class="text-success">{{ formatNum(summary.loadedKm) }}</strong>
                     </div>
-                    <div class="col-md-2 col-6">
+                    <div>
                         <div class="small text-muted">Half Load KM</div>
                         <strong class="text-warning">{{ formatNum(summary.halfLoadedKm) }}</strong>
                     </div>
-                    <div class="col-md-2 col-6">
+                    <div>
                         <div class="small text-muted">Empty KM</div>
                         <strong class="text-secondary">{{ formatNum(summary.emptyKm) }}</strong>
                     </div>
-                    <div class="col-md-2 col-6">
+                    <div>
                         <div class="small text-muted">Total KM</div>
                         <strong>{{ formatNum(summary.totalKm) }}</strong>
                     </div>
-                    <div class="col-md-2 col-6">
+                    <div>
                         <div class="small text-muted">Freight</div>
                         <strong>₹{{ formatMoney(summary.freightTotal) }}</strong>
                     </div>
-                    <div class="col-md-2 col-6">
+                    <div>
                         <div class="small text-muted">Expenses</div>
                         <strong>₹{{ formatMoney(summary.expenseTotal) }}</strong>
                     </div>
@@ -270,98 +373,29 @@
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div>
-                    <h3 class="card-title mb-0"><i class="bi bi-cash-stack me-1"></i> Trip Expenses</h3>
-                    <div v-if="form.expenses.length > 0" class="small opacity-75">
-                        Total: ₹{{ formatMoney(summary.expenseTotal) }}
+        <div class="card mb-4 trip-expenses-card">
+            <div class="card-header trip-expenses-card__header text-white">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <h3 class="card-title mb-0">
+                            <i class="bi bi-receipt me-2"></i>Trip Expenses
+                        </h3>
+                        
+                    </div>
+                    <div class="trip-expenses-card__live-total">
+                        Live total: ₹{{ formatMoney(summary.expenseTotal) }}
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-light" @click="$emit('add-expense')">
-                    <i class="bi bi-plus"></i> Add Expense
-                </button>
             </div>
-            <div class="card-body">
-                <p class="small text-muted mb-3">
-                    <strong>Linked Stop</strong> ties an expense to a route stop (e.g. diesel at Stop 1, loading at Stop 2).
-                    Use <strong>Whole trip</strong> for costs that apply to the entire trip.
-                </p>
-
-                <div v-if="form.expenses.length === 0" class="text-muted border rounded p-3 text-center bg-light">
-                    No expenses yet. Click <strong>Add Expense</strong> for diesel, toll, loading, etc.
-                </div>
-
-                <div v-else class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="min-width: 160px">Type</th>
-                                <th style="width: 130px">Amount ₹</th>
-                                <th style="min-width: 260px">
-                                    Linked Stop
-                                    <i
-                                        class="bi bi-info-circle text-muted ms-1"
-                                        title="Which route stop this expense belongs to"
-                                    ></i>
-                                </th>
-                                <th>Notes</th>
-                                <th style="width: 52px"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(expense, index) in form.expenses" :key="index">
-                                <td>
-                                    <select v-model="expense.expense_type" class="form-select form-select-sm">
-                                        <option v-for="t in expenseTypes" :key="t.value" :value="t.value">
-                                            {{ t.label }}
-                                        </option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input
-                                        v-model.number="expense.amount"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        class="form-control form-control-sm text-end"
-                                        placeholder="0.00"
-                                    />
-                                </td>
-                                <td>
-                                    <select
-                                        class="form-select form-select-sm"
-                                        :value="expenseStopValue(expense)"
-                                        :disabled="expenseStopOptions.length <= 1"
-                                        @change="onExpenseStopChange(expense, $event.target.value)"
-                                    >
-                                        <option v-for="opt in expenseStopOptions" :key="opt.value" :value="opt.value">
-                                            {{ opt.label }}
-                                        </option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input
-                                        v-model="expense.notes"
-                                        type="text"
-                                        class="form-control form-control-sm"
-                                        placeholder="Optional note"
-                                    />
-                                </td>
-                                <td class="text-center">
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        title="Remove expense"
-                                        @click="$emit('remove-expense', index)"
-                                    >
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card-body trip-expenses-card__body">
+                <TripExpensesPanel
+                    :expenses="form.expenses"
+                    :route-legs="form.route_legs"
+                    :stations="stations"
+                    :readonly="readonly"
+                    @add-expense="$emit('add-expense', $event)"
+                    @remove-expense="$emit('remove-expense', $event)"
+                />
             </div>
         </div>
 
@@ -369,6 +403,18 @@
             :show="showStationQuickAdd"
             @close="showStationQuickAdd = false"
             @created="onStationCreated"
+        />
+
+        <BrokerQuickAddModal
+            :show="showBrokerQuickAdd"
+            @close="showBrokerQuickAdd = false"
+            @created="onBrokerCreated"
+        />
+
+        <CustomerQuickAddModal
+            :show="showCustomerQuickAdd"
+            @close="showCustomerQuickAdd = false"
+            @created="onCustomerCreated"
         />
 
         <TripStatusChangeModal
@@ -388,29 +434,43 @@
 <script setup>
 import { computed, ref } from 'vue';
 import {
-    EXPENSE_TYPES,
     ROUTE_TYPES,
-    TRIP_STATUSES,
     routeTypeMeta,
     summarizeTripForm,
     tripStatusMeta,
 } from '../../api/trips';
+import { dateOnlyFromDatetimeLocal } from '../../utils/datetime';
 import SearchablePicker from '../ui/SearchablePicker.vue';
+import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
+import TripExpensesPanel from './TripExpensesPanel.vue';
+import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
+import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
+    mode: { type: String, default: 'create' },
     vehicles: { type: Array, default: () => [] },
     drivers: { type: Array, default: () => [] },
+    snapshotVehicleLabel: { type: String, default: '' },
+    snapshotDriverName: { type: String, default: '' },
     stations: { type: Array, default: () => [] },
+    brokers: { type: Array, default: () => [] },
+    customers: { type: Array, default: () => [] },
+    snapshotCustomerName: { type: String, default: '' },
+    snapshotBrokerName: { type: String, default: '' },
     formError: { type: String, default: '' },
     fieldErrors: { type: Object, default: () => ({}) },
     tripNumberDisplay: { type: String, default: '' },
     driverWarning: { type: String, default: '' },
     loadingDriver: { type: Boolean, default: false },
+    primaryDriverName: { type: String, default: '' },
     statusLocked: { type: Boolean, default: false },
+    readonly: { type: Boolean, default: false },
     canQuickAddStation: { type: Boolean, default: false },
+    canQuickAddBroker: { type: Boolean, default: false },
+    canQuickAddCustomer: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -422,16 +482,50 @@ const emit = defineEmits([
     'start-station-change',
     'stop-change',
     'station-created',
+    'broker-created',
+    'customer-created',
+    'vehicle-selected',
+    'status-updated',
+    'clear-field-error',
 ]);
 
 const showStationQuickAdd = ref(false);
+const showBrokerQuickAdd = ref(false);
+const showCustomerQuickAdd = ref(false);
 const quickAddLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
 
 const summary = computed(() => summarizeTripForm(props.form));
 
+const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
+
 const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
+
+const driverDisplayName = computed(() => {
+    if (props.mode === 'edit') {
+        return props.snapshotDriverName || '—';
+    }
+
+    return props.primaryDriverName || (props.loadingDriver ? 'Loading…' : '—');
+});
+
+const allowedNextStatuses = computed(() => {
+    const current = String(props.form.status ?? '').toUpperCase();
+
+    if (current === 'CREATED') {
+        return [{ value: 'IN_PROGRESS', label: 'In Progress' }];
+    }
+
+    if (current === 'IN_PROGRESS') {
+        return [
+            { value: 'COMPLETED', label: 'Completed' },
+            { value: 'CANCELLED', label: 'Cancelled' },
+        ];
+    }
+
+    return [];
+});
 
 const validationMessages = computed(() => {
     const messages = [];
@@ -479,39 +573,6 @@ const routePreview = computed(() => {
     return parts.join(' → ');
 });
 
-const expenseStopOptions = computed(() => {
-    const options = [{ value: '', label: 'Whole trip (general expense)' }];
-
-    props.form.route_legs.forEach((leg, index) => {
-        if (!leg.to_station_id) {
-            return;
-        }
-
-        const from = stationLabel(leg.from_station_id);
-        const to = stationLabel(leg.to_station_id);
-        const loadType = routeTypeMeta(leg.route_type).label;
-
-        options.push({
-            value: String(index + 1),
-            label: `Stop ${index + 1}: ${from} → ${to} (${loadType})`,
-        });
-    });
-
-    return options;
-});
-
-function expenseStopValue(expense) {
-    if (expense.route_leg_sequence === '' || expense.route_leg_sequence == null) {
-        return '';
-    }
-
-    return String(expense.route_leg_sequence);
-}
-
-function onExpenseStopChange(expense, value) {
-    expense.route_leg_sequence = value === '' ? '' : Number(value);
-}
-
 function stationLabel(stationId) {
     if (!stationId) {
         return '—';
@@ -520,6 +581,16 @@ function stationLabel(stationId) {
     const match = props.stations.find((s) => String(s.id) === String(stationId));
 
     return match?.name ?? `#${stationId}`;
+}
+
+function partyLabel(items, entityId, fallbackName = '') {
+    if (!entityId) {
+        return fallbackName || '—';
+    }
+
+    const match = items.find((item) => String(item.id) === String(entityId));
+
+    return match?.name ?? fallbackName ?? `#${entityId}`;
 }
 
 function fieldErrorMessage(field) {
@@ -535,6 +606,10 @@ function legFieldError(index, field) {
     return Array.isArray(errors) ? errors[0] : errors;
 }
 
+function onLegDistanceInput(index) {
+    emit('clear-field-error', `route_legs.${index}.distance_km`);
+}
+
 function formatNum(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
@@ -548,19 +623,20 @@ function formatDisplayDate(value) {
         return '—';
     }
 
+    const dateOnly = String(value).slice(0, 10);
+    const parts = dateOnly.split('-');
+
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
         return value;
     }
 
-    return date.toLocaleString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return date.toLocaleDateString('en-IN');
 }
 
 function onStatusChange(newStatus) {
@@ -576,6 +652,7 @@ function onStatusChange(newStatus) {
     }
 
     props.form.status = newStatus;
+    emit('status-updated', { status: newStatus });
 }
 
 function onStatusModalCancel() {
@@ -596,6 +673,11 @@ function onStatusModalConfirm(data) {
 
     showStatusModal.value = false;
     pendingStatus.value = '';
+
+    emit('status-updated', {
+        status: props.form.status,
+        ...data,
+    });
 }
 
 function openQuickAddForLeg(index) {
@@ -608,7 +690,37 @@ function onStationCreated(station) {
     quickAddLegIndex.value = null;
 }
 
+function onBrokerCreated(broker) {
+    emit('broker-created', broker);
+}
+
+function onCustomerCreated(customer) {
+    emit('customer-created', customer);
+}
+
 const routeTypes = ROUTE_TYPES;
-const tripStatuses = TRIP_STATUSES;
-const expenseTypes = EXPENSE_TYPES;
 </script>
+
+<style scoped>
+.trip-expenses-card__header {
+    background: #1a7a4a !important;
+    padding: 14px 18px;
+}
+.trip-expenses-card__subtitle {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 4px;
+}
+.trip-expenses-card__live-total {
+    font-size: 14px;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 99px;
+    padding: 8px 14px;
+    white-space: nowrap;
+}
+.trip-expenses-card__body {
+    padding: 16px;
+    background: #f9fafb;
+}
+</style>

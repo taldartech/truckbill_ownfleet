@@ -4,8 +4,10 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class DriverAssignment extends Model
 {
@@ -40,5 +42,36 @@ class DriverAssignment extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    /**
+     * @param  Builder<DriverAssignment>  $query
+     */
+    public function scopeActivePrimaryOn(Builder $query, ?string $asOfDate = null): void
+    {
+        $asOf = $asOfDate ?? Carbon::today()->toDateString();
+
+        $query->where('is_primary', true)
+            ->whereDate('assigned_from', '<=', $asOf)
+            ->where(function (Builder $dateQuery) use ($asOf): void {
+                $dateQuery->whereNull('assigned_to')
+                    ->orWhereDate('assigned_to', '>', $asOf);
+            });
+    }
+
+    public function statusOn(string $asOfDate): string
+    {
+        $from = $this->assigned_from->toDateString();
+        $to = $this->assigned_to?->toDateString();
+
+        if ($from > $asOfDate) {
+            return 'scheduled';
+        }
+
+        if ($to !== null && $to <= $asOfDate) {
+            return 'ended';
+        }
+
+        return 'active';
     }
 }

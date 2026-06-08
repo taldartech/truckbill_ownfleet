@@ -81,7 +81,7 @@ class TyreService
             }
 
             if ($tyre->activeInstallation()->exists()) {
-                throw ValidationException::withMessages(['tyre' => 'Tyre is already installed on a vehicle.']);
+                throw ValidationException::withMessages(['tyre' => 'Tyre is already installed on a truck.']);
             }
 
             $vehicle = Vehicle::query()->findOrFail($data['vehicle_id']);
@@ -107,7 +107,7 @@ class TyreService
     {
         return DB::transaction(function () use ($installation, $data): TyreInstallation {
             if ($installation->removed_at !== null) {
-                throw ValidationException::withMessages(['installation' => 'Tyre is already removed from this vehicle.']);
+                throw ValidationException::withMessages(['installation' => 'Tyre is already removed from this truck.']);
             }
 
             $kmAtRemoval = $data['km_at_removal'] ?? $installation->vehicle?->odometer_km ?? $installation->km_at_installation;
@@ -277,7 +277,7 @@ class TyreService
             $active = $oldTyre->activeInstallation;
 
             if ($active === null || $active->vehicle_id !== $vehicle->id) {
-                throw ValidationException::withMessages(['old_tyre_id' => 'Old tyre is not installed on the selected vehicle.']);
+                throw ValidationException::withMessages(['old_tyre_id' => 'Old tyre is not installed on the selected truck.']);
             }
 
             $kmAtReplace = (float) ($data['km_at_replacement'] ?? $vehicle->odometer_km);
@@ -320,13 +320,14 @@ class TyreService
     {
         return DB::transaction(function () use ($tyre, $data): Tyre {
             if ($tyre->activeInstallation()->exists()) {
-                throw ValidationException::withMessages(['tyre' => 'Remove tyre from vehicle before scrapping.']);
+                throw ValidationException::withMessages(['tyre' => 'Remove tyre from truck before scrapping.']);
             }
 
             $tyre->update([
                 'status' => TyreStatus::Scrapped,
                 'scrapped_at' => $data['scrapped_at'] ?? now()->toDateString(),
                 'scrap_notes' => $data['scrap_notes'] ?? null,
+                'scrap_sale_amount' => $data['scrap_sale_amount'] ?? null,
             ]);
 
             return $tyre->fresh();
@@ -415,7 +416,7 @@ class TyreService
 
         if ($query->lockForUpdate()->exists()) {
             throw ValidationException::withMessages([
-                'position_code' => 'Another tyre is already assigned to this position on the vehicle.',
+                'position_code' => 'Another tyre is already assigned to this position on the truck.',
             ]);
         }
     }

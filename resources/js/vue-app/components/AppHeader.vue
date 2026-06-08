@@ -1,9 +1,9 @@
 <template>
     <nav class="app-header navbar navbar-expand bg-body">
-        <div class="container-fluid">
-            <ul class="navbar-nav">
+        <div class="container-fluid app-header-inner">
+            <ul class="navbar-nav app-header-start">
                 <li class="nav-item">
-                    <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" @click.prevent>
+                    <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Toggle sidebar">
                         <i class="fa-solid fa-bars"></i>
                     </a>
                 </li>
@@ -26,56 +26,66 @@
                 </li>
             </ul>
 
-            <ul class="navbar-nav ms-auto">
-                <li v-if="showPlanBadges" class="nav-item d-flex align-items-center me-3">
-                    <div class="credits-container">
-                        <div class="credit-pill" title="Plan Expiry">
-                            <i class="bi bi-calendar-event"></i>
-                            <span class="label">Expiry:</span>
-                            <span class="value">{{ planExpiryLabel }}</span>
+            <div class="app-header-end">
+                <ul class="navbar-nav app-header-actions">
+                    <li v-if="showPlanBadges" class="nav-item app-header-plan-badges d-flex align-items-center">
+                        <div class="credits-container">
+                            <div class="credit-pill" title="Plan Expiry">
+                                <i class="bi bi-calendar-event"></i>
+                                <span class="label">Expiry:</span>
+                                <span class="value">{{ planExpiryLabel }}</span>
+                            </div>
+                            <div class="credit-divider"></div>
+                            <div class="credit-pill" title="LR Credits Remaining">
+                                <i class="bi bi-coin"></i>
+                                <span class="label">Credits:</span>
+                                <span class="value">{{ lrCreditsLabel }}</span>
+                            </div>
                         </div>
-                        <div class="credit-divider"></div>
-                        <div class="credit-pill" title="LR Credits Remaining">
-                            <i class="bi bi-coin"></i>
-                            <span class="label">Credits:</span>
-                            <span class="value">{{ lrCreditsLabel }}</span>
-                        </div>
-                    </div>
-                </li>
+                    </li>
 
-                <li ref="userMenuRef" class="nav-item dropdown user-menu" :class="{ show: userMenuOpen }">
-                    <a
-                        href="#"
-                        class="nav-link dropdown-toggle"
-                        :aria-expanded="userMenuOpen"
-                        @click.prevent="userMenuOpen = !userMenuOpen"
-                    >
-                        <i class="fas fa-user-circle fa-lg"></i>
-                        <span v-if="user?.name" class="d-none d-md-inline">{{ user.name }}</span>
-                    </a>
-                    <div
-                        class="dropdown-menu dropdown-menu-lg dropdown-menu-end shadow"
-                        :class="{ show: userMenuOpen }"
-                        @click.stop
-                    >
-                        <div class="user-header bg-primary text-center py-4">
-                            <i class="fas fa-user-circle fa-3x text-white mb-2"></i>
-                            <p class="text-white mb-0">
-                                {{ user?.name || user?.email }}
-                                <small v-if="memberSince" class="d-block mt-1">Member since {{ memberSince }}</small>
-                            </p>
-                        </div>
-                        <div class="user-footer d-flex justify-content-center p-3">
-                            <button type="button" class="btn btn-danger text-white btn-sm rounded-3 me-2" @click="signOut">
-                                Sign out
-                            </button>
-                            <a href="/password/change" class="btn btn-primary text-white btn-sm rounded-3" @click="userMenuOpen = false">
-                                Change Password
+                    <li class="nav-item">
+                        <a class="nav-link app-header-icon-btn" href="#" role="button" aria-label="Notifications" @click.prevent>
+                            <i class="far fa-bell"></i>
+                        </a>
+                    </li>
+
+                    <li ref="userMenuRef" class="nav-item dropdown user-menu" :class="{ show: userMenuOpen }">
+                        <a
+                            href="#"
+                            class="nav-link dropdown-toggle app-header-user-toggle"
+                            :aria-expanded="userMenuOpen"
+                            @click.prevent="userMenuOpen = !userMenuOpen"
+                        >
+                            <i class="fas fa-user-circle fa-lg"></i>
+                            <span v-if="displayName" class="app-header-user-name d-none d-md-inline">{{ displayName }}</span>
+                        </a>
+                        <div
+                            class="dropdown-menu dropdown-menu-lg dropdown-menu-end shadow"
+                            :class="{ show: userMenuOpen }"
+                            @click.stop
+                        >
+                            <div class="user-header bg-primary text-center py-4">
+                                <i class="fas fa-user-circle fa-3x text-white mb-2"></i>
+                                <p class="text-white mb-0">
+                                    {{ displayName }}
+                                    <small v-if="memberSince" class="d-block mt-1">Member since {{ memberSince }}</small>
+                                </p>
+                            </div>
+                            <a class="dropdown-item" href="/password/change" @click="userMenuOpen = false">
+                                <i class="fas fa-user me-2"></i>Profile
                             </a>
+                            <a class="dropdown-item" href="/password/change" @click="userMenuOpen = false">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <button type="button" class="dropdown-item text-danger" @click="signOut">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </button>
                         </div>
-                    </div>
-                </li>
-            </ul>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 </template>
@@ -105,7 +115,14 @@ const companyName = computed(() => props.user?.tenant_name ?? props.user?.compan
 const showExitCompany = computed(
     () => props.user?.role === 'super_admin' && (props.user?.effective_company_id ?? props.user?.company_id),
 );
-const showPlanBadges = computed(() => props.user?.show_plan_badges === true);
+const showPlanBadges = computed(() => {
+    if (!props.user) {
+        return false;
+    }
+
+    return props.user.show_plan_badges === true || props.user.can_access_company_panel === true;
+});
+const displayName = computed(() => props.user?.name || props.user?.email || '');
 const planExpiryLabel = computed(() => props.user?.company?.plan_end_date_formatted ?? 'N/A');
 const lrCreditsLabel = computed(() => {
     const credits = props.user?.company?.lr_credits;

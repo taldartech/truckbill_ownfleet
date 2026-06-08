@@ -6,10 +6,10 @@ use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
 use App\MonthlyDriverWage;
+use App\Support\MonthlyWageAccrual;
 use App\Tenant;
 use App\User;
 use App\UserRole;
-use App\Support\MonthlyWageAccrual;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -241,15 +241,14 @@ class AttendancePhaseOneTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/driver-assignments', [
-                'driver_id' => $driver->id,
-                'vehicle_id' => $vehicleA->id,
-                'assigned_from' => '2026-06-01',
-                'assigned_to' => '2026-06-30',
-                'is_primary' => true,
-            ])
-            ->assertCreated();
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleA->id,
+            'assigned_from' => '2026-06-01',
+            'assigned_to' => '2026-06-30',
+            'is_primary' => true,
+        ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/driver-assignments', [
@@ -262,7 +261,7 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonValidationErrors(['driver_id']);
     }
 
-    public function test_truck_cannot_have_two_primary_drivers_for_same_period(): void
+    public function test_truck_replaces_existing_primary_driver_without_overlap_error(): void
     {
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
         $vehicle = $this->createVehicle($tenant);
@@ -271,15 +270,14 @@ class AttendancePhaseOneTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/driver-assignments', [
-                'driver_id' => $driverA->id,
-                'vehicle_id' => $vehicle->id,
-                'assigned_from' => '2026-06-01',
-                'assigned_to' => '2026-06-30',
-                'is_primary' => true,
-            ])
-            ->assertCreated();
+        $first = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driverA->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-01',
+            'assigned_to' => '2026-06-30',
+            'is_primary' => true,
+        ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/driver-assignments', [
@@ -288,8 +286,12 @@ class AttendancePhaseOneTest extends TestCase
                 'assigned_from' => '2026-06-10',
                 'is_primary' => true,
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['vehicle_id']);
+            ->assertCreated()
+            ->assertJsonPath('data.driver_id', $driverB->id);
+
+        $first->refresh();
+
+        $this->assertSame('2026-06-09', $first->assigned_to?->toDateString());
     }
 
     public function test_alternate_driver_is_only_for_that_day_and_primary_continues_next_day(): void

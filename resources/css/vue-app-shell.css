@@ -70,8 +70,86 @@
 }
 
 .vue-app-shell .app-header {
-    position: relative;
+    position: sticky;
+    top: 0;
     z-index: 1035;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+    background: #fff !important;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    overflow: visible;
+}
+
+.vue-app-shell .app-header .app-header-inner {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: visible;
+}
+
+.vue-app-shell .app-header .app-header-start,
+.vue-app-shell .app-header .app-header-end {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+.vue-app-shell .app-header .app-header-start {
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.vue-app-shell .app-header .app-header-end {
+    margin-left: auto;
+}
+
+.vue-app-shell .app-header .navbar-nav {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+}
+
+.vue-app-shell .app-header .app-header-actions {
+    gap: 0.25rem;
+}
+
+.vue-app-shell .app-header .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 56px;
+    white-space: nowrap;
+}
+
+.vue-app-shell .app-header .app-header-icon-btn {
+    width: 2.5rem;
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.vue-app-shell .app-header .app-header-user-toggle {
+    max-width: 16rem;
+}
+
+.vue-app-shell .app-header .app-header-user-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vue-app-shell .app-header .credits-container {
+    margin-top: 0;
 }
 
 .vue-app-shell .navbar-nav > .user-menu {
@@ -116,6 +194,21 @@
     transition: all 0.3s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     border: none;
+}
+
+.vue-app-shell .navbar-nav > .user-menu > .dropdown-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+}
+
+.vue-app-shell .navbar-nav > .user-menu > .dropdown-menu .dropdown-item button,
+.vue-app-shell .navbar-nav > .user-menu > .dropdown-menu button.dropdown-item {
+    background: transparent;
+    border: 0;
+    text-align: left;
 }
 
 .vue-app-shell .credits-container {
@@ -171,19 +264,252 @@
     }
 }
 
+@media (max-width: 768px) {
+    .vue-app-shell .app-header .app-header-plan-badges {
+        display: none !important;
+    }
+}
+
+.vue-app-shell .app-index-filters {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.vue-app-shell .app-index-filters > .card-header {
+    background-color: rgba(0, 0, 0, 0.04);
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.vue-app-shell .app-index-filters > .card-body.app-index-filters-body {
+    padding: 0.75rem 1rem;
+}
+
+.vue-app-shell .app-index-filters .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.vue-app-shell .app-index-filters-fields .form-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.vue-app-shell .app-index-filters-fields .form-control,
+.vue-app-shell .app-index-filters-fields .form-select {
+    font-size: 0.875rem;
+}
+
+.vue-app-shell .app-index-list-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
 .vue-app-shell .app-index-list-card > .card-header {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.03);
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.vue-app-shell .app-index-list-card > .card-header .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.vue-app-shell .app-index-list-card > .card-header .app-index-search,
+.vue-app-shell .app-index-list-card > .card-header .app-index-card-toolbar {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.vue-app-shell .app-index-list-card > .card-header.app-index-card-header--toolbar-only {
+    justify-content: flex-end;
+}
+
+.vue-app-shell .app-index-list-card > .card-header.app-index-card-header--toolbar-only .app-index-card-toolbar {
+    margin-left: 0;
+}
+
+.vue-app-shell .app-index-list-card > .card-body {
+    min-width: 0;
+    padding: 0;
+}
+
+.vue-app-shell .app-index-list-card > .card-body > .text-center {
+    padding: 1.5rem 1rem;
+}
+
+.vue-app-shell .app-index-list-card .table-responsive,
+.vue-app-shell .app-index-list-card .table-wrap {
+    border: none;
+    border-radius: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.vue-app-shell .app-index-list-card .table-wrap table {
+    min-width: 720px;
 }
 
 .vue-app-shell .app-index-list-card .table {
     margin-bottom: 0;
 }
 
-.vue-app-shell .app-index-filters .card-title {
-    font-size: 0.95rem;
+.vue-app-shell .app-index-list-card .table.table-bordered {
+    border: 0;
+}
+
+.vue-app-shell .app-index-list-card .table.table-bordered > :not(caption) > * > * {
+    border-width: 0 0 1px;
+}
+
+.vue-app-shell .app-index-list-card .table.table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-color-type: inherit;
+    --bs-table-bg-type: transparent;
+    background-color: transparent;
+}
+
+.vue-app-shell .app-index-list-card .table > :not(caption) > * > * {
+    padding: 0.6rem 0.85rem;
+    vertical-align: middle;
+}
+
+.vue-app-shell .app-index-list-card .table thead th {
+    background-color: #f8f9fa;
+    font-size: 0.8rem;
     font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+    vertical-align: middle;
+    border-bottom-width: 1px;
+    white-space: nowrap;
+}
+
+.vue-app-shell .app-index-list-card .table.table-hover > tbody > tr:hover > * {
+    --bs-table-bg-state: rgba(0, 0, 0, 0.03);
+    --bs-table-color-state: inherit;
+    background-color: rgba(0, 0, 0, 0.03);
+    color: inherit;
+}
+
+.vue-app-shell .app-index-list-card .table tbody tr.app-index-empty-row > *,
+.vue-app-shell .app-index-list-card .table tbody tr.app-index-empty-row:hover > * {
+    --bs-table-bg-state: transparent;
+    background-color: transparent;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.vue-app-shell .app-index-page .page-header {
+    margin-bottom: 1rem;
+}
+
+.vue-app-shell .app-index-list-card > .card-body.table-responsive {
+    padding: 0;
+}
+
+.vue-app-shell .app-index-list-card .table td.app-index-actions-cell,
+.vue-app-shell .app-index-list-card .table th.app-index-actions-cell {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.vue-app-shell .app-index-month-input {
+    width: auto;
+    min-width: 10rem;
+    max-width: 11rem;
+}
+
+.vue-app-shell .page-header .app-index-month-input {
+    flex-shrink: 0;
+}
+
+.vue-app-shell .app-content-header.main-content {
+    padding-top: 0;
+}
+
+.vue-app-shell .filters-grid .form-label {
+    margin-bottom: 0.35rem;
+}
+
+.vue-app-shell .app-index-filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.vue-app-shell .app-index-filters-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    flex: 1 1 0;
+    min-width: min(100%, 240px);
+}
+
+.vue-app-shell .filters-actions-cell {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.vue-app-shell .app-filter-action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.vue-app-shell .app-filter-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.vue-app-shell .app-filter-action-btn--apply {
+    background: var(--brand-primary, #2fb36f);
+    color: #fff;
+}
+
+.vue-app-shell .app-filter-action-btn--reset {
+    background: var(--brand-text-primary, #212529);
+    color: #fff;
+}
+
+.vue-app-shell .app-table-actions {
+    justify-content: center;
+}
+
+.vue-app-shell .app-table-actions .btn-icon,
+.vue-app-shell .app-table-actions .btn {
+    border-radius: 8px;
+}
+
+.vue-app-shell .app-index-pagination {
+    background: #fff;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+@media (max-width: 768px) {
+    .vue-app-shell.layout-fixed .app-main {
+        margin-left: 0 !important;
+    }
 }

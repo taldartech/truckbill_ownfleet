@@ -122,6 +122,7 @@
     <link rel="stylesheet" href="/theme/dist/css/adminlte.min.css" />
     <link rel="stylesheet" href="/css/buttons.css">
     <link rel="stylesheet" href="/css/brand.css">
+    @vite(['resources/css/app.css'])
     <!-- apexcharts -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css"
         integrity="sha256-4MX+61mt9NVvvuPjUWdUdyfZfxSB1/Rf9WtqRHgG5S0=" crossorigin="anonymous" />
@@ -502,7 +503,7 @@
             </div>
             <!--end::Container-->
         </nav>
-        <aside class="app-sidebar  shadow">
+        <aside class="app-sidebar sidebar shadow">
             <!--begin::Sidebar Brand-->
             <div class="sidebar-brand">
                 <!--begin::Brand Link-->
@@ -1206,7 +1207,7 @@
         </aside>
         <main class="app-main">
             <!--begin::App Content Header-->
-            <div class="app-content-header">
+            <div class="app-content-header main-content">
                 <!--begin::Container-->
                 <div class="container-fluid">
                     @yield('content')

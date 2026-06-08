@@ -47,16 +47,16 @@
                                 v-for="item in filteredItems"
                                 :key="item.id"
                                 type="button"
-                                class="dropdown-item picker-option"
+                                class="picker-option"
                                 @click="selectItem(item)"
                             >
-                                <span class="picker-option-name">{{ item.name ?? item.label }}</span>
-                                <span v-if="itemLocationLine(item)" class="picker-option-meta">
+                                <span class="picker-option-name">{{ optionDisplayName(item) }}</span>
+                                <span v-if="itemLocationLine(item)" class="picker-option-sub">
                                     {{ itemLocationLine(item) }}
                                 </span>
                             </button>
                             <div v-if="filteredItems.length === 0" class="px-3 py-2 text-muted small">
-                                No station found.
+                                {{ emptyMessage }}
                             </div>
                         </div>
                     </div>
@@ -67,7 +67,7 @@
                     type="button"
                     class="btn btn-outline-secondary btn-sm picker-action-btn"
                     :disabled="!selectedItem || disabled"
-                    title="Station details"
+                    :title="viewTitle"
                     @click.stop="toggleInfo"
                 >
                     <i class="bi bi-eye"></i>
@@ -77,7 +77,7 @@
                     type="button"
                     class="btn btn-outline-success btn-sm picker-action-btn"
                     :disabled="disabled"
-                    title="Quick add station"
+                    :title="quickAddTitle"
                     @click.stop="openQuickAdd"
                 >
                     <i class="bi bi-plus-lg"></i>
@@ -106,8 +106,24 @@
                         <dt>Country</dt>
                         <dd>{{ selectedItem.country_name }}</dd>
                     </template>
-                    <template v-if="!hasLocationDetails">
-                        <dd class="text-muted mb-0">No location details on file.</dd>
+                    <template v-if="selectedItem.contact_number">
+                        <dt>Contact</dt>
+                        <dd>{{ selectedItem.contact_number }}</dd>
+                    </template>
+                    <template v-if="selectedItem.gst_number">
+                        <dt>GST</dt>
+                        <dd>{{ selectedItem.gst_number }}</dd>
+                    </template>
+                    <template v-if="selectedItem.pan_number">
+                        <dt>PAN</dt>
+                        <dd>{{ selectedItem.pan_number }}</dd>
+                    </template>
+                    <template v-if="selectedItem.address">
+                        <dt>Address</dt>
+                        <dd>{{ selectedItem.address }}</dd>
+                    </template>
+                    <template v-if="!hasProfileDetails">
+                        <dd class="text-muted mb-0">No details on file.</dd>
                     </template>
                 </dl>
             </div>
@@ -129,6 +145,9 @@ const props = defineProps({
     errorMessage: { type: String, default: '' },
     canQuickAdd: { type: Boolean, default: false },
     attachDropdownToBody: { type: Boolean, default: false },
+    emptyMessage: { type: String, default: 'No station found.' },
+    viewTitle: { type: String, default: 'Station details' },
+    quickAddTitle: { type: String, default: 'Quick add station' },
 });
 
 const emit = defineEmits(['update:modelValue', 'quick-add']);
@@ -152,14 +171,22 @@ const selectedItem = computed(() => {
     return props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null;
 });
 
-const hasLocationDetails = computed(() => {
+const hasProfileDetails = computed(() => {
     const item = selectedItem.value;
 
     if (!item) {
         return false;
     }
 
-    return Boolean(item.city_name || item.state_name || item.country_name);
+    return Boolean(
+        item.city_name
+            || item.state_name
+            || item.country_name
+            || item.contact_number
+            || item.gst_number
+            || item.pan_number
+            || item.address,
+    );
 });
 
 const displayLabel = computed(() => {
@@ -186,6 +213,10 @@ const filteredItems = computed(() => {
             item.city_name,
             item.state_name,
             item.country_name,
+            item.contact_number,
+            item.gst_number,
+            item.pan_number,
+            item.address,
         ]
             .filter(Boolean)
             .join(' ')
@@ -194,6 +225,20 @@ const filteredItems = computed(() => {
         return haystack.includes(query);
     });
 });
+
+function optionDisplayName(item) {
+    if (item.name) {
+        return item.name;
+    }
+
+    if (!item.label) {
+        return '';
+    }
+
+    const [namePart] = String(item.label).split(' — ');
+
+    return namePart || item.label;
+}
 
 function itemLocationLine(item) {
     const parts = [item.city_name, item.state_name].filter(Boolean);
@@ -366,7 +411,9 @@ watch(
 }
 .picker-trigger {
     width: 100%;
-    padding-right: 2.4rem;
+    min-height: 42px;
+    font-size: 14px;
+    padding: 8px 2.4rem 8px 12px;
     --bs-form-select-bg-icon: none;
 }
 .picker-trigger-wrap {
@@ -401,21 +448,39 @@ watch(
     border-bottom: 1px solid #dee2e6;
 }
 .picker-list-scroll {
-    max-height: 220px;
+    max-height: 280px;
     overflow-y: auto;
 }
 .picker-option {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    width: 100%;
+    padding: 8px 12px;
+    cursor: pointer;
+    border: 0;
+    border-radius: 6px;
+    gap: 2px;
+    text-align: left;
+    background: transparent;
     white-space: normal;
 }
-.picker-option-name {
-    font-weight: 500;
+.picker-option:hover,
+.picker-option:focus {
+    background: var(--color-background-secondary, #f8f9fa);
+    outline: none;
 }
-.picker-option-meta {
-    font-size: 0.75rem;
-    color: #6c757d;
+.picker-option-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary, #212529);
+    line-height: 1.3;
+}
+.picker-option-sub {
+    font-size: 12px;
+    color: var(--color-text-secondary, #6c757d);
+    line-height: 1.3;
+    margin-top: 1px;
 }
 .picker-info-popover {
     background: #fff;

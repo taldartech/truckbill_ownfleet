@@ -50,6 +50,7 @@
                                         <input
                                             :id="`${modalId}_amount`"
                                             v-model.number="form.amount"
+                                            v-no-scroll-change
                                             type="number"
                                             step="0.01"
                                             min="0.01"

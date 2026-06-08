@@ -31,6 +31,7 @@ class Tyre extends Model
         'status',
         'scrapped_at',
         'scrap_notes',
+        'scrap_sale_amount',
         'notes',
     ];
 
@@ -46,6 +47,7 @@ class Tyre extends Model
             'status' => TyreStatus::class,
             'tyre_type' => TyreType::class,
             'scrapped_at' => 'date',
+            'scrap_sale_amount' => 'decimal:2',
         ];
     }
 

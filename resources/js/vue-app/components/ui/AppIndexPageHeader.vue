@@ -1,5 +1,5 @@
 <template>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="page-header">
         <div>
             <h3 class="mb-0">{{ title }}</h3>
             <p v-if="subtitle" class="text-muted small mb-0">{{ subtitle }}</p>

@@ -10,6 +10,25 @@ export function useApiFormErrors() {
         formError.value = '';
     }
 
+    function clearFieldError(key) {
+        if (!key || !(key in fieldErrors.value)) {
+            return;
+        }
+
+        const next = { ...fieldErrors.value };
+        delete next[key];
+
+        if (key.startsWith('route_legs.')) {
+            delete next.route_legs;
+        }
+
+        fieldErrors.value = next;
+
+        if (Object.keys(fieldErrors.value).length === 0) {
+            formError.value = '';
+        }
+    }
+
     /**
      * @returns {boolean} true when validation errors were applied to the form
      */
@@ -30,6 +49,7 @@ export function useApiFormErrors() {
         fieldErrors,
         formError,
         clearErrors,
+        clearFieldError,
         applyApiError,
     };
 }
