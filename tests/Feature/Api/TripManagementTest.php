@@ -123,6 +123,28 @@ class TripManagementTest extends TestCase
         ]);
     }
 
+    public function test_trip_search_ignores_date_range(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'start_at' => '2026-01-15 08:00:00',
+            'trip_number' => 'TRIP-2026-000099',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-01&to_date=2026-06-30&search=TRIP-2026-000099')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-000099');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-01&to_date=2026-06-30')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_moderator_can_view_but_not_create_trips(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');

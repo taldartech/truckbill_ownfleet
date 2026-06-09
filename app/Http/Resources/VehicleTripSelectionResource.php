@@ -20,6 +20,7 @@ class VehicleTripSelectionResource extends JsonResource
         $eligibility = $eligibilityService->evaluate(
             $this->resource,
             $request->filled('as_of_date') ? $request->string('as_of_date')->toString() : null,
+            $request->filled('end_at') ? $request->string('end_at')->toString() : null,
         );
 
         $registrationNumber = $this->registration_number;

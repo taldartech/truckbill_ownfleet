@@ -151,14 +151,14 @@ class DriverManagementModuleTest extends TestCase
             ->postJson('/api/attendances', $payload);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.wage_owner_driver_id', $substitute->id);
-        $response->assertJsonPath('data.wage_amount', '30.00');
+        $response->assertJsonPath('data.wage_owner_driver_id', $primary->id);
+        $response->assertJsonPath('data.wage_amount', '31.67');
 
         $this->assertDatabaseHas('attendances', [
             'tenant_id' => $tenant->id,
             'vehicle_id' => $vehicle->id,
             'primary_driver_id' => $primary->id,
-            'wage_owner_driver_id' => $substitute->id,
+            'wage_owner_driver_id' => $primary->id,
         ]);
     }
 

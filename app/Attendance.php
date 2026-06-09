@@ -25,6 +25,7 @@ class Attendance extends Model
         'status',
         'marked_via',
         'wage_amount',
+        'substitute_payment_amount',
         'wage_payment_status',
         'wage_paid_at',
         'wage_transfer_notes',
@@ -37,6 +38,7 @@ class Attendance extends Model
         return [
             'attendance_date' => 'date',
             'wage_amount' => 'decimal:2',
+            'substitute_payment_amount' => 'decimal:2',
             'marked_via' => AttendanceMarkedVia::class,
             'wage_payment_status' => WagePaymentStatus::class,
             'wage_paid_at' => 'datetime',

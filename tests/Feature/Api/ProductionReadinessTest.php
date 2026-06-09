@@ -131,7 +131,7 @@ class ProductionReadinessTest extends TestCase
             ->assertJsonValidationErrors(['trip']);
     }
 
-    public function test_vehicle_cannot_have_two_open_trips(): void
+    public function test_vehicle_cannot_have_overlapping_open_trips(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
         Sanctum::actingAs($user);
@@ -143,6 +143,23 @@ class ProductionReadinessTest extends TestCase
             ->postJson('/api/trips', $this->tripPayload($vehicle, $driver, $stations))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['vehicle_id']);
+    }
+
+    public function test_vehicle_can_have_future_non_overlapping_open_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        app(TripService::class)->create($this->tripPayload($vehicle, $driver, $stations, asArray: true));
+
+        $futurePayload = $this->tripPayload($vehicle, $driver, $stations);
+        $futurePayload['start_at'] = '2026-06-11 08:00:00';
+        $futurePayload['end_at'] = '2026-06-15 20:00:00';
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $futurePayload)
+            ->assertCreated();
     }
 
     /**

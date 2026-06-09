@@ -104,6 +104,12 @@ export async function markAttendance(payload) {
     return unwrapResource(data);
 }
 
+export async function bulkMarkAttendance(payload) {
+    const { data } = await api.post(`${attendancesBase}/bulk-mark`, payload);
+
+    return data.data ?? [];
+}
+
 export async function updateAttendance(id, payload) {
     const { data } = await api.put(`${attendancesBase}/${id}`, payload);
 

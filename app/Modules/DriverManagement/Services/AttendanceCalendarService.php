@@ -192,11 +192,15 @@ class AttendanceCalendarService
                 }
 
                 $counted[$key] = true;
-                $pay = $this->substituteWageForCell(
-                    $cell,
-                    (string) $date,
-                    $substituteBases[$substituteId] ?? 0.0,
-                );
+                $pay = round((float) ($cell['substitute_payment_amount'] ?? 0), 2);
+
+                if ($pay <= 0) {
+                    $pay = $this->substituteWageForCell(
+                        $cell,
+                        (string) $date,
+                        $substituteBases[$substituteId] ?? 0.0,
+                    );
+                }
 
                 if (! isset($earnings[$substituteId])) {
                     $earnings[$substituteId] = ['days' => 0, 'total_wage' => 0.0];
@@ -296,6 +300,8 @@ class AttendanceCalendarService
                 $stats[$driverId]['present']++;
             } elseif ($status === AttendanceStatus::NoWorkDay->value) {
                 $stats[$driverId]['leave']++;
+            } elseif ($status === AttendanceStatus::Absent->value && ! empty($cell['temporary_driver_id'])) {
+                $stats[$driverId]['present']++;
             } else {
                 $stats[$driverId]['absent']++;
             }
@@ -459,6 +465,7 @@ class AttendanceCalendarService
             'temporary_driver_name' => null,
             'wage_owner_driver_id' => $driver->id,
             'wage_amount' => $accrual,
+            'substitute_payment_amount' => 0,
             'wage_payment_status' => $paymentStatus,
         ];
     }
@@ -490,14 +497,15 @@ class AttendanceCalendarService
                 'primary_driver_name' => $exception->primaryDriver?->name,
                 'temporary_driver_id' => null,
                 'temporary_driver_name' => null,
-                'wage_owner_driver_id' => $ownerId,
+                'wage_owner_driver_id' => $exception->primary_driver_id,
                 'wage_amount' => $accrual,
+                'substitute_payment_amount' => 0,
                 'wage_payment_status' => $paymentStatus,
             ];
         }
 
-        $ownerId = $exception->wage_owner_driver_id;
-        $paymentStatus = $ownerId !== null && in_array((string) $ownerId, $paidDriverIds, true)
+        $ownerId = $exception->primary_driver_id;
+        $paymentStatus = in_array((string) $ownerId, $paidDriverIds, true)
             ? 'paid'
             : ($exception->wage_payment_status?->value ?? $exception->wage_payment_status ?? 'unpaid');
 
@@ -511,6 +519,7 @@ class AttendanceCalendarService
             'temporary_driver_name' => $exception->temporaryDriver?->name,
             'wage_owner_driver_id' => $ownerId,
             'wage_amount' => (float) $exception->wage_amount,
+            'substitute_payment_amount' => (float) $exception->substitute_payment_amount,
             'wage_payment_status' => $paymentStatus,
         ];
     }

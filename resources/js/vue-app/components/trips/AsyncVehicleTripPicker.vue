@@ -94,6 +94,7 @@ const props = defineProps({
     invalid: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
     asOfDate: { type: String, default: '' },
+    tripEndDate: { type: String, default: '' },
     driverLabel: { type: String, default: '' },
     minSearchLength: { type: Number, default: 2 },
 });
@@ -126,7 +127,7 @@ function itemDriverLine(item) {
 function itemReasonLine(item) {
     if (!item.selectable && item.disabled_reason) {
         if (item.reason_code === 'OPEN_TRIP_EXISTS' && item.open_trip_number) {
-            return `Open Trip Exists (${item.open_trip_number})`;
+            return `Trip Already Scheduled (${item.open_trip_number})`;
         }
 
         if (item.primary_driver_name) {
@@ -244,6 +245,7 @@ async function fetchPage(page = 1, append = false) {
             page,
             perPage: 20,
             asOfDate: props.asOfDate || null,
+            endAt: props.tripEndDate || null,
         });
 
         items.value = append ? [...items.value, ...result.data] : result.data;
@@ -289,7 +291,7 @@ function handleReposition() {
 watch(searchQuery, scheduleSearch);
 
 watch(
-    () => props.asOfDate,
+    () => [props.asOfDate, props.tripEndDate],
     () => {
         if (searchQuery.value.trim().length >= props.minSearchLength) {
             fetchPage(1, false);

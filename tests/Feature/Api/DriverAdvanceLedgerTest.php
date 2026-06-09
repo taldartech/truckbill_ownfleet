@@ -93,7 +93,7 @@ class DriverAdvanceLedgerTest extends TestCase
         $this->assertSame(5000.0, DriverAdvanceEntry::balanceFor($driver));
     }
 
-    public function test_settlement_sheet_omits_advance_fields(): void
+    public function test_settlement_sheet_includes_advance_fields(): void
     {
         [$tenant, $user] = $this->seedAssignedDriver(30000.00);
 
@@ -110,12 +110,11 @@ class DriverAdvanceLedgerTest extends TestCase
         $line = $sheet->json('data.payroll_lines.0');
 
         $this->assertIsArray($line);
-        $this->assertArrayNotHasKey('advance_deducted', $line);
-        $this->assertArrayNotHasKey('total_advance', $line);
-        $this->assertArrayNotHasKey('net_advance', $line);
+        $this->assertArrayHasKey('advance_deducted', $line);
+        $this->assertArrayHasKey('total_advance', $line);
     }
 
-    public function test_settlement_patch_cannot_set_advance_fields(): void
+    public function test_settlement_patch_can_set_advance_deducted(): void
     {
         [$tenant, $user, , $driver] = $this->seedAssignedDriver(30000.00);
 
@@ -137,12 +136,12 @@ class DriverAdvanceLedgerTest extends TestCase
             ]);
 
         $patch->assertOk();
-        $patch->assertJsonPath('data.advance_deducted', '0.00');
+        $patch->assertJsonPath('data.advance_deducted', '9999.00');
 
         $this->assertDatabaseHas('monthly_driver_wages', [
             'id' => $wageId,
             'driver_id' => $driver->id,
-            'advance_deducted' => 0,
+            'advance_deducted' => 9999,
         ]);
     }
 

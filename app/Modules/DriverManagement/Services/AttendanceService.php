@@ -5,7 +5,9 @@ namespace App\Modules\DriverManagement\Services;
 use App\Attendance;
 use App\AttendanceMonthLock;
 use App\Driver;
+use App\DriverAdvanceEntry;
 use App\DriverAssignment;
+use App\Enums\DriverAdvanceEntryType;
 use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceMonthStatus;
 use App\Enums\AttendanceStatus;
@@ -318,7 +320,30 @@ class AttendanceService
             'updated_by' => $payload['updated_by'] ?? null,
         ]);
 
+        $this->recordAdvanceRecovery($monthlyDriverWage, $payload['updated_by'] ?? null);
+
         return $monthlyDriverWage->fresh('driver');
+    }
+
+    private function recordAdvanceRecovery(MonthlyDriverWage $monthlyDriverWage, ?string $actorId = null): void
+    {
+        $deducted = round((float) $monthlyDriverWage->advance_deducted, 2);
+
+        if ($deducted <= 0) {
+            return;
+        }
+
+        $monthLabel = Carbon::parse($monthlyDriverWage->month)->format('F Y');
+
+        DriverAdvanceEntry::query()->create([
+            'tenant_id' => $monthlyDriverWage->tenant_id,
+            'driver_id' => $monthlyDriverWage->driver_id,
+            'entry_type' => DriverAdvanceEntryType::Cr,
+            'amount' => $deducted,
+            'entry_date' => now()->toDateString(),
+            'remarks' => "Salary recovery for {$monthLabel}",
+            'created_by' => $actorId,
+        ]);
     }
 
     public function delete(Attendance $attendance): void
@@ -326,6 +351,55 @@ class AttendanceService
         $this->monthLockService->assertEditableForDate($attendance->attendance_date->toDateString());
 
         $this->attendanceRepository->delete($attendance);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return Collection<int, Attendance>
+     */
+    public function bulkMark(array $payload, ?string $actorId = null): Collection
+    {
+        $from = Carbon::parse((string) $payload['from_date'])->startOfDay();
+        $to = Carbon::parse((string) $payload['to_date'])->startOfDay();
+
+        if ($to->lt($from)) {
+            throw ValidationException::withMessages([
+                'to_date' => ['End date must be on or after start date.'],
+            ]);
+        }
+
+        if ($from->diffInDays($to) > 31) {
+            throw ValidationException::withMessages([
+                'to_date' => ['Bulk mark is limited to 31 days at a time.'],
+            ]);
+        }
+
+        $status = $payload['attendance_type'] === 'ABSENT_SUBSTITUTE'
+            ? AttendanceStatus::Absent->value
+            : AttendanceStatus::Absent->value;
+
+        $marked = collect();
+        $cursor = $from->copy();
+
+        while ($cursor->lte($to)) {
+            $date = $cursor->toDateString();
+            $this->monthLockService->assertEditableForDate($date);
+
+            $marked->push($this->mark([
+                'vehicle_id' => $payload['vehicle_id'],
+                'attendance_date' => $date,
+                'status' => $status,
+                'temporary_driver_id' => $payload['temporary_driver_id'] ?? null,
+                'temporary_assignment_remarks' => $payload['temporary_assignment_remarks'] ?? null,
+                'marked_via' => AttendanceMarkedVia::AdminPanel->value,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+            ]));
+
+            $cursor->addDay();
+        }
+
+        return $marked;
     }
 
     /**
@@ -371,14 +445,9 @@ class AttendanceService
             );
         }
 
-        $wageOwnerDriver = $this->resolveWageOwnerDriver($status, $primaryDriver, [
-            ...$payload,
-            'temporary_driver_id' => $temporaryDriverId,
-        ]);
-
         $payload['status'] = $status->value;
         $payload['primary_driver_id'] = $primaryDriver->id;
-        $payload['wage_owner_driver_id'] = $wageOwnerDriver->id;
+        $payload['wage_owner_driver_id'] = $primaryDriver->id;
 
         if ($status === AttendanceStatus::NoWorkDay) {
             $payload['temporary_driver_id'] = null;
@@ -393,8 +462,14 @@ class AttendanceService
         }
 
         if (! array_key_exists('wage_amount', $payload) || $payload['wage_amount'] === null) {
-            $payload['wage_amount'] = $this->resolveWageAmount($status, $wageOwnerDriver, $payload);
+            $payload['wage_amount'] = $this->resolveWageAmount($status, $primaryDriver, $payload);
         }
+
+        $payload['substitute_payment_amount'] = $this->resolveSubstitutePaymentAmount(
+            $status,
+            $temporaryDriverId,
+            (string) $payload['attendance_date'],
+        );
 
         if ($existing === null) {
             $payload['wage_payment_status'] = WagePaymentStatus::Unpaid->value;
@@ -410,33 +485,37 @@ class AttendanceService
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function resolveWageAmount(AttendanceStatus $status, Driver $wageOwnerDriver, array $payload): float
+    private function resolveWageAmount(AttendanceStatus $status, Driver $primaryDriver, array $payload): float
     {
         $attendanceDate = (string) ($payload['attendance_date'] ?? now()->toDateString());
-        $monthlyBase = (float) $wageOwnerDriver->daily_wage;
 
-        if ($status === AttendanceStatus::Present) {
-            return MonthlyWageAccrual::perDay($monthlyBase, $attendanceDate);
+        if ($status === AttendanceStatus::Absent && empty($payload['temporary_driver_id'])) {
+            return 0.0;
         }
 
-        if ($status === AttendanceStatus::Absent && ! empty($payload['temporary_driver_id'])) {
-            return MonthlyWageAccrual::perDay($monthlyBase, $attendanceDate);
+        if ($status === AttendanceStatus::NoWorkDay) {
+            return 0.0;
         }
 
-        return 0;
+        return MonthlyWageAccrual::perDay((float) $primaryDriver->daily_wage, $attendanceDate);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function resolveWageOwnerDriver(AttendanceStatus $status, Driver $primaryDriver, array $payload): Driver
-    {
-        if ($status === AttendanceStatus::Absent && ! empty($payload['temporary_driver_id'])) {
-            /** @var Driver */
-            return Driver::query()->findOrFail($payload['temporary_driver_id']);
+    private function resolveSubstitutePaymentAmount(
+        AttendanceStatus $status,
+        ?string $temporaryDriverId,
+        string $attendanceDate,
+    ): float {
+        if ($status !== AttendanceStatus::Absent || $temporaryDriverId === null || $temporaryDriverId === '') {
+            return 0.0;
         }
 
-        return $primaryDriver;
+        $substitute = Driver::query()->find($temporaryDriverId);
+
+        if ($substitute === null) {
+            return 0.0;
+        }
+
+        return MonthlyWageAccrual::perDay((float) $substitute->daily_wage, $attendanceDate);
     }
 
     private function resolvePrimaryDriverIdFromAssignment(string $vehicleId, string $attendanceDate): ?string

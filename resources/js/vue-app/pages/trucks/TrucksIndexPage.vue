@@ -78,15 +78,53 @@
                         </tr>
                         <tr v-for="vehicle in vehicles" :key="vehicle.id">
                             <td>
-                                <strong>{{ vehicle.registration_number }}</strong>
+                                <RouterLink
+                                    :to="{
+                                        name: 'trucks.index',
+                                        query: { search: vehicle.registration_number },
+                                    }"
+                                    class="truck-registration-link"
+                                    title="Find this truck"
+                                >
+                                    {{ vehicle.registration_number }}
+                                </RouterLink>
                             </td>
                             <td>{{ vehicle.vehicle_type }}</td>
                             <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td>
                             <td>{{ formatMakeModel(vehicle) }}</td>
-                            <td>
-                                <span v-if="vehicle.current_primary_assignment?.driver?.name">
-                                    {{ vehicle.current_primary_assignment.driver.name }}
-                                </span>
+                            <td class="primary-driver-cell">
+                                <div
+                                    v-if="vehicle.current_primary_assignment?.driver?.name"
+                                    class="primary-driver-assigned"
+                                >
+                                    <span class="primary-driver-name">
+                                        {{ vehicle.current_primary_assignment.driver.name }}
+                                    </span>
+                                    <button
+                                        v-if="canManageAssignments"
+                                        type="button"
+                                        class="primary-driver-change"
+                                        title="Change primary driver"
+                                        @click="openAssignment(vehicle)"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+                                <div
+                                    v-else-if="canManageAssignments"
+                                    class="primary-driver-empty"
+                                >
+                                    <span class="badge rounded-pill primary-driver-badge">Unassigned</span>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm primary-driver-assign-btn"
+                                        title="Assign primary driver"
+                                        @click="openAssignment(vehicle)"
+                                    >
+                                        <i class="bi bi-person-plus" aria-hidden="true"></i>
+                                        Assign
+                                    </button>
+                                </div>
                                 <span v-else class="text-muted">Unassigned</span>
                             </td>
                             <td>{{ vehicle.odometer_km ?? '0' }}</td>
@@ -200,12 +238,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
     createVehicle,
     defaultVehicleListFilters,
     deleteVehicle,
+    listAllVehicles,
     listVehicles,
     toggleVehicleStatus,
     updateVehicle,
@@ -440,10 +479,41 @@ async function handleDelete(vehicle) {
 }
 
 function applyRouteFilters() {
-    const { status } = route.query;
+    const { status, search } = route.query;
 
     if (typeof status === 'string' && status !== '') {
         filters.status = status;
+    }
+
+    if (typeof search === 'string' && search.trim() !== '') {
+        filters.search = search.trim();
+    }
+}
+
+async function resolveVehicleSearchFromRoute() {
+    const search = route.query.search;
+
+    if (typeof search === 'string' && search.trim() !== '') {
+        filters.search = search.trim();
+
+        return;
+    }
+
+    const vehicleId = route.query.vehicle_id;
+
+    if (typeof vehicleId !== 'string' || vehicleId === '') {
+        return;
+    }
+
+    try {
+        const allVehicles = await listAllVehicles();
+        const vehicle = allVehicles.find((item) => item.id === vehicleId);
+
+        if (vehicle?.registration_number) {
+            filters.search = vehicle.registration_number;
+        }
+    } catch {
+        // Search filter stays empty if lookup fails.
     }
 }
 
@@ -453,7 +523,91 @@ onMounted(async () => {
     const ok = await guardCompanyContext();
 
     if (ok === true) {
+        await resolveVehicleSearchFromRoute();
         await loadVehicles();
     }
 });
+
+watch(
+    () => [route.query.search, route.query.vehicle_id],
+    async () => {
+        applyRouteFilters();
+        await resolveVehicleSearchFromRoute();
+        await loadVehicles(1);
+    },
+);
 </script>
+
+<style scoped>
+.truck-registration-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.truck-registration-link:hover {
+    text-decoration: underline;
+}
+
+.primary-driver-cell {
+    min-width: 10rem;
+}
+
+.primary-driver-assigned {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+}
+
+.primary-driver-name {
+    font-weight: 500;
+    color: var(--brand-text-primary, #475569);
+}
+
+.primary-driver-change {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font-size: 0.75rem;
+    color: var(--brand-text-muted, #64748b);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.primary-driver-change:hover {
+    color: var(--brand-accent-blue, #2d8cff);
+}
+
+.primary-driver-empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.primary-driver-badge {
+    background: #f1f5f9 !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0;
+    font-weight: 500;
+}
+
+.primary-driver-assign-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+    background: #fff !important;
+}
+
+.primary-driver-assign-btn:hover {
+    border-color: #94a3b8 !important;
+    color: #334155 !important;
+    background: #f8fafc !important;
+}
+</style>

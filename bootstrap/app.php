@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -61,5 +62,21 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => $exception->getMessage() !== '' ? $exception->getMessage() : 'This action is unauthorized.',
             ], Response::HTTP_FORBIDDEN);
+        });
+
+        $exceptions->render(function (QueryException $exception, Request $request) {
+            if (! $request->is('app/api/*') && ! $request->is('api/*')) {
+                return null;
+            }
+
+            $message = 'Unable to save. Please try again.';
+
+            if (str_contains($exception->getMessage(), 'Column not found')) {
+                $message = 'Database update required. Run: php artisan migrate';
+            }
+
+            return response()->json([
+                'message' => $message,
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         });
     })->create();

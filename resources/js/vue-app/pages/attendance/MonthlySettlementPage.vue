@@ -61,15 +61,6 @@
                         Lock Month
                     </button>
                     <button
-                        v-if="canManageWages && monthLock.status === 'paid'"
-                        type="button"
-                        class="btn btn-outline-warning btn-sm"
-                        :disabled="unlocking"
-                        @click="handleUnlockMonth"
-                    >
-                        Unlock Month
-                    </button>
-                    <button
                         v-if="canManageWages && monthLock.status === 'closed'"
                         type="button"
                         class="btn btn-outline-secondary btn-sm"
@@ -113,32 +104,23 @@
                 </ul>
 
                 <div v-show="activeTab === 'payroll'" class="settlement-scroll-wrap">
-                    <p class="text-muted small mb-2">
-                        <strong>Daily rate</strong> = Base ÷ 30 ·
-                        <strong>Primary</strong> = P × daily rate ·
-                        <strong>Substitute</strong> = extra days on other trucks (Sub.P / Sub.Pay) ·
-                        <strong>Gross</strong> = Primary + Sub.Pay ·
-                        <strong>Net</strong> = Gross − Extra Ded.
-                    </p>
                     <div class="table-responsive settlement-table-wrap">
                         <table class="table table-bordered table-sm settlement-table mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>S.No.</th>
                                     <th>Name</th>
-                                    <th>Aadhaar</th>
-                                    <th>Bank A/C</th>
-                                    <th>IFSC</th>
                                     <th>Pay Days</th>
                                     <th>P</th>
                                     <th>A</th>
-                                    <th>L</th>
                                     <th>Sub.P</th>
                                     <th>Sub.Pay</th>
                                     <th>Gross</th>
                                     <th>Absent Ded.</th>
                                     <th>Base</th>
                                     <th>Extra Ded.</th>
+                                    <th>Adv. Bal.</th>
+                                    <th>Adv. Ded.</th>
                                     <th>Net</th>
                                     <th>Rnd</th>
                                     <th>Remarks</th>
@@ -147,7 +129,7 @@
                             </thead>
                             <tbody>
                                 <tr v-if="payrollLines.length === 0">
-                                    <td colspan="19" class="text-center text-muted py-4">
+                                    <td colspan="17" class="text-center text-muted py-4">
                                         Close the month to generate payroll lines.
                                     </td>
                                 </tr>
@@ -166,13 +148,9 @@
                                             Substitute
                                         </span>
                                     </td>
-                                    <td>{{ line.aadhaar_number || '—' }}</td>
-                                    <td>{{ line.bank_account_number || '—' }}</td>
-                                    <td>{{ line.bank_ifsc || '—' }}</td>
                                     <td>{{ line.pay_days }}</td>
                                     <td>{{ line.present_days }}</td>
                                     <td>{{ line.absent_days }}</td>
-                                    <td>{{ line.leave_days }}</td>
                                     <td>{{ line.substitute_days ?? 0 }}</td>
                                     <td class="text-end">{{ formatMoney(line.substitute_pay) }}</td>
                                     <td class="text-end">{{ formatMoney(line.gross_earning) }}</td>
@@ -205,8 +183,20 @@
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
-                                            :disabled="!canEditSheet || !line.monthly_wage_id"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id || line.is_substitute"
                                             title="PF + ESI + other deductions"
+                                            @change="savePayrollLine(line)"
+                                        />
+                                    </td>
+                                    <td class="text-end text-muted">{{ formatMoney(line.total_advance) }}</td>
+                                    <td>
+                                        <input
+                                            v-model.number="line.advance_deducted"
+                                            v-no-scroll-change
+                                            type="number"
+                                            step="0.01"
+                                            class="form-control form-control-sm settlement-input"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id || line.is_substitute"
                                             @change="savePayrollLine(line)"
                                         />
                                     </td>
@@ -229,7 +219,7 @@
                                             @change="savePayrollLine(line)"
                                         />
                                     </td>
-                                    <td>
+                                    <td class="text-nowrap">
                                         <span
                                             class="badge"
                                             :class="
@@ -240,6 +230,25 @@
                                         >
                                             {{ line.payment_status === 'paid' ? 'Paid' : 'Unpaid' }}
                                         </span>
+                                        <button
+                                            v-if="
+                                                canManageWages &&
+                                                monthLock.status === 'closed' &&
+                                                line.monthly_wage_id &&
+                                                line.payment_status !== 'paid' &&
+                                                Number(line.gross_earning) > 0
+                                            "
+                                            type="button"
+                                            class="btn btn-success btn-sm ms-1"
+                                            :disabled="markingDriverId === line.monthly_wage_id"
+                                            @click="handleMarkDriverPaid(line)"
+                                        >
+                                            {{
+                                                markingDriverId === line.monthly_wage_id
+                                                    ? '…'
+                                                    : 'Mark Paid'
+                                            }}
+                                        </button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -248,9 +257,6 @@
                 </div>
 
                 <div v-show="activeTab === 'vehicles'" class="settlement-scroll-wrap">
-                    <p class="text-muted small mb-2">
-                        Primary driver row + <strong>~ substitute</strong> rows (same truck). P / A / N per day.
-                    </p>
                     <div class="table-responsive settlement-table-wrap">
                         <table class="table table-bordered table-sm settlement-table mb-0">
                             <thead class="table-light">
@@ -341,9 +347,9 @@ import {
     fetchSettlementSheet,
     lockMonthWages,
     markAllMonthlyWagesPaid,
+    markMonthlyWagePaid,
     reopenMonthWages,
     settlementSheetExportUrl,
-    unlockMonthWages,
     updateSettlementLine,
     updateVehicleSettlementLine,
 } from '../../api/attendances';
@@ -358,9 +364,9 @@ const canEditSheet = computed(() => canManageWages.value && monthLock.value.stat
 const loading = ref(true);
 const closing = ref(false);
 const locking = ref(false);
-const unlocking = ref(false);
 const reopening = ref(false);
 const markingAll = ref(false);
+const markingDriverId = ref(null);
 const activeTab = ref('payroll');
 const selectedMonth = ref(route.query.month ?? currentMonth());
 const sheet = ref({});
@@ -460,12 +466,15 @@ async function savePayrollLine(line) {
             absent_deduction: line.absent_deduction,
             base_salary: line.base_salary,
             extra_deductions: line.extra_deductions,
+            advance_deducted: line.advance_deducted,
             round_net: line.round_net,
             remarks: line.remarks,
         });
 
         line.net_salary = updated.net_salary;
         line.gross_earning = updated.gross_earning;
+        line.total_advance = updated.total_advance;
+        line.advance_deducted = updated.advance_deducted;
         line.extra_deductions =
             Number(updated.pf ?? 0) + Number(updated.esi ?? 0) + Number(updated.other_deduction ?? 0);
     } catch (error) {
@@ -520,6 +529,34 @@ async function handleMarkAllPaid() {
     }
 }
 
+async function handleMarkDriverPaid(line) {
+    if (!line.monthly_wage_id) {
+        return;
+    }
+
+    const notes = window.prompt('Payment notes (optional):', line.payment_notes ?? '') ?? null;
+
+    if (notes === null) {
+        return;
+    }
+
+    markingDriverId.value = line.monthly_wage_id;
+
+    try {
+        const updated = await markMonthlyWagePaid(line.monthly_wage_id, {
+            payment_notes: notes.trim() || undefined,
+        });
+
+        line.payment_status = updated.payment_status ?? 'paid';
+        line.payment_notes = updated.payment_notes ?? notes;
+        showToast(`${line.name} marked paid.`);
+    } catch (error) {
+        showToast(error.response?.data?.message ?? 'Unable to mark driver paid.', 'error');
+    } finally {
+        markingDriverId.value = null;
+    }
+}
+
 async function handleLockMonth() {
     if (!window.confirm('Lock this month? Attendance exceptions cannot be changed after lock.')) {
         return;
@@ -535,24 +572,6 @@ async function handleLockMonth() {
         showToast(error.response?.data?.message ?? 'Unable to lock month.', 'error');
     } finally {
         locking.value = false;
-    }
-}
-
-async function handleUnlockMonth() {
-    if (!window.confirm('Unlock month back to closed state?')) {
-        return;
-    }
-
-    unlocking.value = true;
-
-    try {
-        await unlockMonthWages(selectedMonth.value);
-        await loadSheet();
-        showToast('Month unlocked.');
-    } catch (error) {
-        showToast(error.response?.data?.message ?? 'Unable to unlock.', 'error');
-    } finally {
-        unlocking.value = false;
     }
 }
 

@@ -261,10 +261,8 @@ export function thisMonthDateRange(referenceDate = new Date()) {
 export function defaultTripListFilters() {
     return {
         ...thisMonthDateRange(),
+        search: '',
         vehicle_id: '',
-        vehicle_search: '',
-        driver_search: '',
-        trip_number: '',
         customer_id: '',
         broker_id: '',
         status: '',

@@ -22,7 +22,13 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function searchVehiclesForTripSelection({ search = '', page = 1, perPage = 20, asOfDate = null } = {}) {
+export async function searchVehiclesForTripSelection({
+    search = '',
+    page = 1,
+    perPage = 20,
+    asOfDate = null,
+    endAt = null,
+} = {}) {
     const { data } = await api.get(`${vehiclesBase}/for-trip-selection`, {
         params: {
             search,
@@ -30,6 +36,7 @@ export async function searchVehiclesForTripSelection({ search = '', page = 1, pe
             per_page: perPage,
             include_ineligible: 1,
             ...(asOfDate ? { as_of_date: asOfDate } : {}),
+            ...(endAt ? { end_at: endAt } : {}),
         },
     });
 

@@ -61,8 +61,11 @@ class TripService
             $tripStartDate = $tripStartAt !== null
                 ? \Illuminate\Support\Carbon::parse($tripStartAt)->toDateString()
                 : null;
+            $tripEndDate = isset($data['end_at']) && $data['end_at'] !== null
+                ? \Illuminate\Support\Carbon::parse($data['end_at'])->toDateString()
+                : null;
 
-            $this->vehicleTripEligibility->assertEligibleForTripCreation($vehicle, $tripStartDate);
+            $this->vehicleTripEligibility->assertEligibleForTripCreation($vehicle, $tripStartDate, $tripEndDate);
 
             $resolvedDriverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($vehicleId, $tripStartAt);
 
@@ -83,11 +86,14 @@ class TripService
 
             $this->tripValidation->assertDriverIsActive($driverId);
             $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
-            $this->tripValidation->assertVehicleHasNoOpenTrip($vehicleId);
-            $this->tripValidation->assertDriverHasNoOpenTrip($driverId);
             $this->tripValidation->assertRouteLegsAreValid($routeLegs, isset($data['start_station_id']) ? (int) $data['start_station_id'] : null);
             $this->tripValidation->assertNoDuplicateTripWindow(
                 $vehicleId,
+                $data['start_at'] ?? null,
+                $data['end_at'] ?? null,
+            );
+            $this->tripValidation->assertNoDuplicateDriverTripWindow(
+                $driverId,
                 $data['start_at'] ?? null,
                 $data['end_at'] ?? null,
             );
@@ -142,8 +148,6 @@ class TripService
             $vehicleId = (string) $trip->vehicle_id;
             $driverId = (string) $trip->driver_id;
 
-            $this->tripValidation->assertDriverHasNoOpenTrip($driverId, $trip->id);
-
             if ($routeLegs !== null) {
                 $startStationId = isset($data['start_station_id'])
                     ? (int) $data['start_station_id']
@@ -154,6 +158,12 @@ class TripService
 
             $this->tripValidation->assertNoDuplicateTripWindow(
                 $vehicleId,
+                $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
+                $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
+                $trip->id,
+            );
+            $this->tripValidation->assertNoDuplicateDriverTripWindow(
+                $driverId,
                 $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
                 $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
                 $trip->id,

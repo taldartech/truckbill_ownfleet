@@ -36,24 +36,41 @@ class TripValidationService
         }
     }
 
-    public function assertDriverHasNoOpenTrip(string $driverId, ?string $ignoreTripId = null): void
-    {
+    public function findOverlappingOpenTrip(
+        ?string $vehicleId = null,
+        ?string $driverId = null,
+        ?string $startAt = null,
+        ?string $endAt = null,
+        ?string $ignoreTripId = null,
+    ): ?Trip {
+        if ($startAt === null || ($vehicleId === null && $driverId === null)) {
+            return null;
+        }
+
+        [$windowStart, $windowEnd] = $this->resolveTripWindow($startAt, $endAt);
+
         $query = Trip::query()
-            ->where('driver_id', $driverId)
             ->whereIn('status', [
                 TripStatus::Created->value,
                 TripStatus::InProgress->value,
             ]);
 
+        if ($vehicleId !== null) {
+            $query->where('vehicle_id', $vehicleId);
+        }
+
+        if ($driverId !== null) {
+            $query->where('driver_id', $driverId);
+        }
+
         if ($ignoreTripId !== null) {
             $query->where('id', '!=', $ignoreTripId);
         }
 
-        if ($query->exists()) {
-            throw ValidationException::withMessages([
-                'driver_id' => ['This driver already has an open trip. Complete or cancel it before creating another.'],
-            ]);
-        }
+        return $query
+            ->whereRaw('DATE(start_at) <= ?', [$windowEnd])
+            ->whereRaw('COALESCE(DATE(end_at), DATE(start_at)) >= ?', [$windowStart])
+            ->first();
     }
 
     public function assertDriverAssignedToVehicle(string $vehicleId, string $driverId, ?string $tripStartAt): void
@@ -80,25 +97,6 @@ class TripValidationService
         }
     }
 
-    public function assertVehicleHasNoOpenTrip(string $vehicleId, ?string $ignoreTripId = null): void
-    {
-        $query = Trip::query()
-            ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', [
-                TripStatus::Created->value,
-                TripStatus::InProgress->value,
-            ]);
-
-        if ($ignoreTripId !== null) {
-            $query->where('id', '!=', $ignoreTripId);
-        }
-
-        if ($query->exists()) {
-            throw ValidationException::withMessages([
-                'vehicle_id' => ['This truck already has an open trip. Complete or cancel it before creating another.'],
-            ]);
-        }
-    }
 
     public function assertDriverIsActive(string $driverId): void
     {
@@ -265,41 +263,53 @@ class TripValidationService
         ?string $endAt,
         ?string $ignoreTripId = null,
     ): void {
-        if ($startAt === null) {
-            return;
-        }
+        $overlap = $this->findOverlappingOpenTrip(
+            vehicleId: $vehicleId,
+            startAt: $startAt,
+            endAt: $endAt,
+            ignoreTripId: $ignoreTripId,
+        );
 
-        $start = Carbon::parse($startAt);
-        $end = $endAt !== null ? Carbon::parse($endAt) : $start->copy()->endOfDay();
-
-        $query = Trip::query()
-            ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', [
-                TripStatus::Created->value,
-                TripStatus::InProgress->value,
-            ])
-            ->where(function ($builder) use ($start, $end): void {
-                $builder
-                    ->whereBetween('start_at', [$start, $end])
-                    ->orWhereBetween('end_at', [$start, $end])
-                    ->orWhere(function ($overlap) use ($start, $end): void {
-                        $overlap
-                            ->where('start_at', '<=', $start)
-                            ->where(function ($inner) use ($end): void {
-                                $inner->whereNull('end_at')->orWhere('end_at', '>=', $end);
-                            });
-                    });
-            });
-
-        if ($ignoreTripId !== null) {
-            $query->where('id', '!=', $ignoreTripId);
-        }
-
-        if ($query->exists()) {
+        if ($overlap !== null) {
             throw ValidationException::withMessages([
                 'start_at' => ['This truck already has an open trip in the selected date range. Complete or cancel it first.'],
+                'vehicle_id' => ["Trip {$overlap->trip_number} is already scheduled for this truck on overlapping dates."],
             ]);
         }
+    }
+
+    public function assertNoDuplicateDriverTripWindow(
+        string $driverId,
+        ?string $startAt,
+        ?string $endAt,
+        ?string $ignoreTripId = null,
+    ): void {
+        $overlap = $this->findOverlappingOpenTrip(
+            driverId: $driverId,
+            startAt: $startAt,
+            endAt: $endAt,
+            ignoreTripId: $ignoreTripId,
+        );
+
+        if ($overlap !== null) {
+            throw ValidationException::withMessages([
+                'start_at' => ['This driver already has an open trip in the selected date range. Complete or cancel it first.'],
+                'driver_id' => ["Trip {$overlap->trip_number} is already scheduled for this driver on overlapping dates."],
+            ]);
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function resolveTripWindow(?string $startAt, ?string $endAt): array
+    {
+        $windowStart = Carbon::parse($startAt)->toDateString();
+        $windowEnd = $endAt !== null
+            ? Carbon::parse($endAt)->toDateString()
+            : $windowStart;
+
+        return [$windowStart, $windowEnd];
     }
 
     public function resolvePrimaryDriverIdForVehicle(string $vehicleId, ?string $asOfDate = null): ?string

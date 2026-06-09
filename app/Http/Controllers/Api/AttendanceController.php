@@ -6,6 +6,7 @@ use App\Attendance;
 use App\AttendanceMonthLock;
 use App\Exports\SettlementSheetExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkMarkAttendanceRequest;
 use App\Http\Requests\CloseMonthlyWagesRequest;
 use App\Http\Requests\LockAttendanceMonthRequest;
 use App\Http\Requests\MarkAllMonthlyWagesPaidRequest;
@@ -179,6 +180,13 @@ class AttendanceController extends Controller
             'closed_at' => $lock->closed_at?->toISOString(),
             'locked_at' => $lock->locked_at?->toISOString(),
         ];
+    }
+
+    public function bulkMark(BulkMarkAttendanceRequest $request): AnonymousResourceCollection
+    {
+        return AttendanceResource::collection(
+            $this->attendanceService->bulkMark($request->validated(), $request->user()?->id),
+        );
     }
 
     public function store(MarkAttendanceRequest $request): AttendanceResource

@@ -28,6 +28,7 @@ class UpdateMonthlySettlementLineRequest extends FormRequest
             'esi' => ['nullable', 'numeric', 'min:0'],
             'other_deduction' => ['nullable', 'numeric', 'min:0'],
             'round_net' => ['nullable', 'boolean'],
+            'advance_deducted' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ];
     }

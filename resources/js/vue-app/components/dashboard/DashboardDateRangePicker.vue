@@ -1,6 +1,6 @@
 <template>
-    <div ref="rootElement" class="dashboard-date-range">
-        <label class="dashboard-date-range__label">Trip period</label>
+    <div ref="rootElement" class="dashboard-date-range" :class="{ 'dashboard-date-range--open': isOpen }">
+        <label class="dashboard-date-range__label">{{ label }}</label>
 
         <button
             type="button"
@@ -97,6 +97,14 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    label: {
+        type: String,
+        default: 'Trip period',
+    },
+    presetKeys: {
+        type: Array,
+        default: null,
+    },
 });
 
 const emit = defineEmits(['update:fromDate', 'update:toDate', 'change']);
@@ -111,7 +119,15 @@ const draftFromDate = ref(props.fromDate);
 const draftToDate = ref(props.toDate);
 const draftPreset = ref(detectDateRangePreset(props.fromDate, props.toDate));
 
-const selectablePresets = DATE_RANGE_PRESETS.filter((preset) => preset.key !== 'custom');
+const selectablePresets = computed(() => {
+    const allowedKeys =
+        props.presetKeys ??
+        DATE_RANGE_PRESETS.filter((preset) => preset.key !== 'custom').map((preset) => preset.key);
+
+    return DATE_RANGE_PRESETS.filter(
+        (preset) => preset.key !== 'custom' && allowedKeys.includes(preset.key),
+    );
+});
 
 const appliedRangeLabel = computed(() => formatDateRangeLabel(appliedFromDate.value, appliedToDate.value));
 
@@ -219,6 +235,10 @@ onUnmounted(() => {
     margin-left: auto;
 }
 
+.dashboard-date-range--open {
+    z-index: 1060;
+}
+
 .dashboard-date-range__label {
     display: block;
     margin-bottom: 0.35rem;
@@ -277,7 +297,7 @@ onUnmounted(() => {
     top: calc(100% + 0.35rem);
     right: 0;
     left: auto;
-    z-index: 30;
+    z-index: 1061;
     width: 16rem;
     padding: 0.75rem;
     border: 1px solid #dbe3ef;

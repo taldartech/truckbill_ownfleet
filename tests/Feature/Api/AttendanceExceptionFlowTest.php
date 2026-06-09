@@ -185,7 +185,7 @@ class AttendanceExceptionFlowTest extends TestCase
         $response->assertDownload('monthly-settlement-2026-06.xlsx');
     }
 
-    public function test_substitute_earnings_are_included_in_payroll_gross(): void
+    public function test_substitute_only_line_has_zero_payroll_gross(): void
     {
         [$tenant, $user, $vehicleOne, $primaryDriver] = $this->seedAssignedDriver(30000.00);
 
@@ -249,7 +249,7 @@ class AttendanceExceptionFlowTest extends TestCase
         $this->assertNotNull($substituteLine);
         $this->assertSame(1, $substituteLine['substitute_days']);
         $this->assertSame('1000.00', number_format((float) $substituteLine['substitute_pay'], 2, '.', ''));
-        $this->assertSame('1000.00', number_format((float) $substituteLine['gross_earning'], 2, '.', ''));
+        $this->assertSame('0.00', number_format((float) $substituteLine['gross_earning'], 2, '.', ''));
     }
 
     public function test_cannot_assign_primary_driver_from_another_truck_as_substitute(): void

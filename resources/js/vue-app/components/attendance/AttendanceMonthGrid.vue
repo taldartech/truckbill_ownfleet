@@ -1,71 +1,60 @@
 <template>
     <div class="attendance-month-grid">
-        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-            <span class="text-muted small fw-semibold">{{ monthLabel }}</span>
-            <div class="d-flex flex-wrap gap-3 small">
-                <span class="legend-item">
-                    <span class="cell cell-present cell-implicit">P</span>
-                    Auto present
-                </span>
-                <span class="legend-item">
-                    <span class="cell cell-absent-pure">A</span>
-                    Absent
-                </span>
-                <span class="legend-item">
-                    <span class="cell cell-absent-substitute">A</span>
-                    Absent + substitute
-                </span>
-                <span class="legend-item">
-                    <span class="cell cell-no-work">N</span>
-                    No working day
-                </span>
-                <span class="legend-item">
-                    <span class="cell cell-future">·</span>
-                    Future / not marked yet
-                </span>
-                <span class="legend-item">
-                    <span class="cell cell-none">·</span>
-                    No assignment
-                </span>
-                <span class="legend-item">
-                    <span class="pay-tag pay-paid">✓</span>
-                    Paid
-                </span>
-                <span class="legend-item">
-                    <span class="pay-tag pay-unpaid">₹</span>
-                    Unpaid
-                </span>
-            </div>
-            <span v-if="summary.present > 0 || summary.exceptions > 0" class="ms-auto text-muted small">
-                {{ summary.present }} auto present · {{ summary.exceptions ?? summary.marked ?? 0 }} exceptions ·
-                {{ summary.no_work ?? 0 }} no-work
+        <div class="grid-toolbar">
+            <span class="grid-title">Month Overview</span>
+            <span class="month-label">{{ monthLabel }}</span>
+            <span class="legend">
+                <span class="lg lg-p">P</span> Present
+                <span class="lg lg-a">A</span> Absent
+                <span class="lg lg-s">S</span> Substitute
+                <span class="lg lg-day">9</span> Day filled
+            </span>
+            <span v-if="summary.present > 0 || summary.exceptions > 0" class="summary">
+                {{ summary.present }} present · {{ summary.exceptions ?? summary.marked ?? 0 }} marked
             </span>
         </div>
 
-        <div v-if="rows.length === 0" class="text-center text-muted py-3 small">
+        <div v-if="rows.length === 0" class="text-center text-muted py-2 small">
             No driver assignments for this month. Assign primary drivers to trucks first.
         </div>
 
         <div v-else class="table-wrap">
             <table class="table table-sm table-bordered mb-0 grid-table">
+                <colgroup>
+                    <col class="col-vehicle" />
+                    <col class="col-driver" />
+                    <col v-for="day in days" :key="`col-${day}`" class="col-day" />
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="sticky-col vehicle-col">Truck</th>
-                        <th class="sticky-col driver-col">Drivers</th>
+                        <th class="sticky-col driver-col">Driver</th>
                         <th
                             v-for="day in days"
                             :key="day"
                             class="day-col text-center"
-                            :class="{ 'is-weekend': isWeekend(day) }"
+                            :class="{
+                                'is-weekend': isWeekend(day),
+                                'day-col-complete': isDayComplete(day),
+                            }"
+                            :title="dayHeaderTitle(day)"
                         >
                             {{ day }}
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in rows" :key="row.row_id ?? `${row.vehicle_id}-${row.driver_name}`">
+                    <tr v-for="row in rows" :key="row.vehicle_id">
                         <td class="sticky-col vehicle-col fw-semibold">
-                            {{ row.show_vehicle_label ? row.vehicle_label : '' }}
+                            <RouterLink
+                                v-if="linkTrucks"
+                                :to="truckRoute(row)"
+                                class="truck-link"
+                                @click.stop
+                            >
+                                {{ row.vehicle_label }}
+                            </RouterLink>
+                            <span v-else>{{ row.vehicle_label }}</span>
                         </td>
                         <td class="sticky-col driver-col text-muted small">
                             <span class="driver-name">{{ row.driver_name }}</span>
@@ -73,28 +62,21 @@
                         <td
                             v-for="day in days"
                             :key="`${row.vehicle_id}-${day}`"
-                            class="text-center p-1 day-cell"
+                            class="text-center day-cell"
                             :class="{ 'is-weekend': isWeekend(day) }"
                         >
                             <button
                                 v-if="cellRecord(row, day)"
                                 type="button"
-                                class="cell-btn"
+                                class="mark-btn"
                                 :class="cellClass(row, day)"
                                 :title="cellTitle(row, day)"
                                 :disabled="!canEdit"
                                 @click="handleCellSelect(row, day)"
                             >
-                                <span class="cell-letter">{{ cellLetter(row, day) }}</span>
-                                <span
-                                    v-if="isPayable(cellRecord(row, day))"
-                                    class="pay-tag"
-                                    :class="paymentTagClass(row, day)"
-                                >
-                                    {{ paymentTagLabel(row, day) }}
-                                </span>
+                                {{ cellLetter(row, day) }}
                             </button>
-                            <span v-else class="cell cell-none" :title="`${dateKey(day)} — not marked`">·</span>
+                            <span v-else class="mark mark-empty" :title="`${dateKey(day)} — not marked`">·</span>
                         </td>
                     </tr>
                 </tbody>
@@ -105,6 +87,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { isPresentConfirmed } from '../../utils/dailyAttendanceStorage';
 
 const props = defineProps({
     month: {
@@ -122,12 +105,16 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    linkTrucks: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['select']);
 
 const summary = computed(() => props.overview.summary ?? {});
-const rows = computed(() => buildIndividualDriverRows(props.overview.rows ?? []));
+const rows = computed(() => props.overview.rows ?? []);
 
 const monthLabel = computed(() => {
     if (!props.month) {
@@ -157,6 +144,15 @@ function dateKey(day) {
     return `${year}-${monthNumber}-${String(day).padStart(2, '0')}`;
 }
 
+function truckRoute(row) {
+    return {
+        name: 'trucks.index',
+        query: {
+            search: row.vehicle_label,
+        },
+    };
+}
+
 function isWeekend(day) {
     const [year, monthNumber] = props.month.split('-').map(Number);
     const weekday = new Date(year, monthNumber - 1, day).getDay();
@@ -168,50 +164,79 @@ function cellRecord(row, day) {
     return row.days?.[dateKey(day)] ?? null;
 }
 
-function isPaid(record) {
-    return record?.wage_payment_status === 'paid';
-}
-
-function isPayable(record) {
-    return Number(record?.wage_amount ?? 0) > 0;
-}
-
 function hasSubstitute(record) {
-    return Boolean(record?.temporary_driver_id);
+    return Boolean(record?.temporary_driver_id || record?.temporary_driver_name);
+}
+
+function isRowAssignable(row, day) {
+    const record = cellRecord(row, day);
+
+    return Boolean(record?.status);
+}
+
+function isRowFilledForDay(row, day) {
+    const record = cellRecord(row, day);
+    const date = dateKey(day);
+
+    if (!record?.status) {
+        return false;
+    }
+
+    if (record.status === 'PRESENT') {
+        if (!record.is_implicit) {
+            return true;
+        }
+
+        return isPresentConfirmed(date, row.vehicle_id);
+    }
+
+    return Boolean(record.id) || record.status === 'ABSENT' || hasSubstitute(record);
+}
+
+function isDayComplete(day) {
+    const assignableRows = rows.value.filter((row) => isRowAssignable(row, day));
+
+    if (assignableRows.length === 0) {
+        return false;
+    }
+
+    return assignableRows.every((row) => isRowFilledForDay(row, day));
+}
+
+function dayHeaderTitle(day) {
+    const date = dateKey(day);
+
+    if (isDayComplete(day)) {
+        return `${date}: daily attendance complete for all trucks`;
+    }
+
+    return date;
 }
 
 function cellClass(row, day) {
     const record = cellRecord(row, day);
 
     if (!record) {
-        return 'cell-none';
+        return 'mark-empty';
     }
 
     if (!record.status) {
-        return record.is_future ? 'cell-future' : 'cell-none';
+        return record.is_future ? 'mark-future' : 'mark-empty';
     }
 
     if (record.status === 'NO_WORK_DAY') {
-        return ['cell-no-work', isPaid(record) ? 'is-paid' : 'is-unpaid'];
+        return 'mark-a';
     }
 
-    let statusClass = 'cell-present';
-
-    if (record.status !== 'PRESENT') {
-        statusClass = hasSubstitute(record) ? 'cell-absent-substitute' : 'cell-absent-pure';
-    } else if (record.is_implicit) {
-        statusClass = 'cell-present cell-implicit';
+    if (record.status === 'PRESENT') {
+        return record.is_implicit ? 'mark-p mark-implicit' : 'mark-p';
     }
 
-    return [statusClass, isPaid(record) ? 'is-paid' : 'is-unpaid'];
-}
+    if (hasSubstitute(record)) {
+        return 'mark-s';
+    }
 
-function paymentTagClass(row, day) {
-    return isPaid(cellRecord(row, day)) ? 'pay-paid' : 'pay-unpaid';
-}
-
-function paymentTagLabel(row, day) {
-    return isPaid(cellRecord(row, day)) ? '✓' : '₹';
+    return 'mark-a';
 }
 
 function cellLetter(row, day) {
@@ -226,10 +251,14 @@ function cellLetter(row, day) {
     }
 
     if (record.status === 'NO_WORK_DAY') {
-        return 'N';
+        return 'A';
     }
 
-    return record.status === 'PRESENT' ? 'P' : 'A';
+    if (record.status === 'PRESENT') {
+        return 'P';
+    }
+
+    return hasSubstitute(record) ? 'S' : 'A';
 }
 
 function cellTitle(row, day) {
@@ -248,29 +277,27 @@ function cellTitle(row, day) {
     } else if (!record.status) {
         statusLabel = 'Not marked';
     } else if (record.status === 'NO_WORK_DAY') {
-        statusLabel = 'No working day (truck idle)';
+        statusLabel = 'Absent (no work)';
+    } else if (hasSubstitute(record)) {
+        statusLabel = 'Substitute on duty';
     } else if (record.status !== 'PRESENT') {
-        statusLabel = alternate ? 'Absent (substitute on duty)' : 'Absent (no work, wage ₹0)';
+        statusLabel = 'Absent';
     } else if (record.is_implicit) {
-        statusLabel = 'Auto present (from assignment)';
+        statusLabel = isPresentConfirmed(dateKey(day), row.vehicle_id)
+            ? 'Present (daily saved)'
+            : 'Present (default)';
     }
 
-    const parts = [`${dateKey(day)}: ${statusLabel}`, `Driver: ${record.primary_driver_name ?? '—'}`];
-
-    if (record.originated_as_alternate === true) {
-        parts.push('Marked from alternate assignment');
-    }
+    const parts = [`${dateKey(day)}: ${statusLabel}`, `Primary: ${record.primary_driver_name ?? '—'}`];
 
     if (alternate) {
-        parts.push(`Alternate: ${alternate}`);
+        parts.push(`Substitute: ${alternate}`);
     }
 
     parts.push(`Wage: ₹${wage}`);
 
-    if (isPayable(record)) {
-        parts.push(`Payment: ${isPaid(record) ? 'Paid' : 'Unpaid'}`);
-    } else {
-        parts.push('Payment: not applicable');
+    if (isDayComplete(day)) {
+        parts.push('Day complete');
     }
 
     return parts.join(' · ');
@@ -290,273 +317,266 @@ function handleCellSelect(row, day) {
     });
 }
 
-function buildIndividualDriverRows(sourceRows) {
-    const expanded = [];
-
-    for (const sourceRow of sourceRows) {
-        const perDriver = new Map();
-
-        const ensureRow = (driverName) => {
-            const normalizedName = String(driverName ?? '').trim();
-
-            if (!normalizedName) {
-                return null;
-            }
-
-            if (!perDriver.has(normalizedName)) {
-                perDriver.set(normalizedName, {
-                    row_id: `${sourceRow.vehicle_id}-${normalizedName}`,
-                    vehicle_id: sourceRow.vehicle_id,
-                    vehicle_label: sourceRow.vehicle_label,
-                    driver_name: normalizedName,
-                    is_primary_for_vehicle: normalizedName === String(sourceRow.driver_name ?? '').trim(),
-                    days: {},
-                });
-            }
-
-            return perDriver.get(normalizedName);
-        };
-
-        ensureRow(sourceRow.driver_name);
-
-        for (const [day, record] of Object.entries(sourceRow.days ?? {})) {
-            const primaryName = record?.primary_driver_name ?? sourceRow.driver_name;
-            const primaryRow = ensureRow(primaryName);
-
-            if (primaryRow) {
-                primaryRow.days[day] = { ...record };
-            }
-
-            if (record?.temporary_driver_name) {
-                const alternateRow = ensureRow(record.temporary_driver_name);
-
-                if (alternateRow) {
-                    alternateRow.days[day] = {
-                        ...record,
-                        status: 'PRESENT',
-                        primary_driver_name: record.temporary_driver_name,
-                        temporary_driver_id: null,
-                        temporary_driver_name: null,
-                        originated_as_alternate: true,
-                    };
-                }
-            }
-        }
-
-        expanded.push(...Array.from(perDriver.values()));
-    }
-
-    const sorted = expanded.sort((left, right) => {
-        const byVehicle = String(left.vehicle_label).localeCompare(String(right.vehicle_label));
-
-        if (byVehicle !== 0) {
-            return byVehicle;
-        }
-
-        if (left.is_primary_for_vehicle !== right.is_primary_for_vehicle) {
-            return left.is_primary_for_vehicle ? -1 : 1;
-        }
-
-        return String(left.driver_name).localeCompare(String(right.driver_name));
-    });
-
-    let previousVehicleId = null;
-
-    for (const row of sorted) {
-        row.show_vehicle_label = row.vehicle_id !== previousVehicleId;
-        previousVehicleId = row.vehicle_id;
-    }
-
-    return sorted;
-}
 </script>
 
 <style scoped>
-.legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
+.attendance-month-grid {
+    width: 100%;
 }
 
-.cell {
+.grid-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.72rem;
+}
+
+.grid-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.month-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.legend {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    color: #6c757d;
+}
+
+.lg {
+    font-weight: 700;
+    margin-right: 0.15rem;
+}
+
+.lg-p {
+    color: var(--brand-primary);
+}
+
+.lg-a {
+    color: #dc3545;
+}
+
+.lg-s {
+    color: #fd7e14;
+}
+
+.summary {
+    margin-left: auto;
+    color: #6c757d;
+}
+
+.mark-btn {
+    display: inline-block;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.1;
+    cursor: pointer;
+    text-align: center;
+}
+
+.mark-btn:disabled {
+    cursor: default;
+}
+
+.mark-p {
+    color: var(--brand-primary);
+}
+
+.mark-p.mark-implicit {
+    color: rgba(var(--brand-primary-rgb), 0.45);
+}
+
+.mark-a {
+    color: #dc3545;
+}
+
+.mark-s {
+    color: #fd7e14;
+}
+
+.lg-day {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border-radius: 0.25rem;
-    font-size: 0.7rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.15rem;
+    border-radius: 0.15rem;
+    background: #146c43;
+    color: #fff;
+    font-size: 0.58rem;
+    margin-right: 0.15rem;
+}
+
+.mark-empty {
+    color: #ced4da;
+    font-size: 0.62rem;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.1;
 }
 
-.cell-present {
-    background: var(--brand-primary);
-    color: #fff;
-}
-
-.cell-absent-pure {
-    background: #dc3545;
-    color: #fff;
-}
-
-.cell-absent-substitute {
-    background: #fd7e14;
-    color: #fff;
-}
-
-.cell-none {
-    background: #e9ecef;
+.mark-future {
     color: #adb5bd;
 }
 
-.cell-future {
-    background: #f8f9fa;
-    color: #6c757d;
-    border: 1px dashed #ced4da;
+.mark-btn:not(:disabled):hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
-.cell-no-work {
-    background: #6c757d;
-    color: #fff;
-}
-
-.cell-implicit {
-    opacity: 0.92;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+.table-wrap {
+    width: 100%;
+    max-height: min(75vh, 46rem);
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .grid-table {
-    font-size: 0.8rem;
+    table-layout: fixed;
+    width: 100%;
+    min-width: 100% !important;
+    font-size: 0.68rem;
+    border-collapse: collapse;
+    border-spacing: 0;
 }
 
-.grid-table .day-col {
-    min-width: 1.75rem;
-    padding: 0.25rem 0.1rem;
-    font-weight: 600;
-    color: #6c757d;
+.grid-table :is(th, td) {
+    padding: 0.2rem 0 !important;
 }
 
-.grid-table .is-weekend {
+.grid-table .sticky-col {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+}
+
+.col-vehicle {
+    width: 5rem;
+}
+
+.col-driver {
+    width: 6.5rem;
+}
+
+.col-day {
+    width: auto;
+}
+
+.grid-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
     background: #f8f9fa;
 }
 
-.sticky-col {
-    background: #fff;
-    white-space: nowrap;
-}
-
-.vehicle-col {
-    min-width: 7rem;
-}
-
-.driver-col {
-    min-width: 9rem;
-    max-width: 11rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.grid-table .day-col {
+    padding: 0.2rem 0 !important;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #6c757d;
+    line-height: 1.1;
 }
 
 .day-cell {
     vertical-align: middle;
 }
 
-.pay-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 0.85rem;
-    height: 0.75rem;
-    padding: 0 0.1rem;
-    border-radius: 0.15rem;
-    font-size: 0.55rem;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.pay-paid {
-    background: #fff;
-    color: var(--brand-primary);
-}
-
-.pay-unpaid {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.cell-btn {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.1rem;
-    width: 2.35rem;
-    height: 2.2rem;
-    padding: 0.15rem 0.05rem;
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
-}
-
-.cell-letter {
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #fff;
-}
-
-.cell-btn:disabled {
-    cursor: default;
-}
-
-.cell-btn.cell-present {
-    background: var(--brand-primary);
-}
-
-.cell-btn.cell-implicit {
-    background: rgba(var(--brand-primary-rgb), 0.55);
-}
-
-.cell-btn.cell-no-work {
-    background: #6c757d;
-}
-
-.cell-btn.cell-absent-pure {
-    background: #dc3545;
-}
-
-.cell-btn.cell-absent-substitute {
-    background: #fd7e14;
-}
-
-.cell-btn.cell-future {
+.grid-table .is-weekend {
     background: #f8f9fa;
-    border: 1px dashed #ced4da;
 }
 
-.cell-btn.cell-future .cell-letter {
-    color: #6c757d;
+.grid-table thead th.day-col-complete {
+    background: #146c43 !important;
+    color: #fff !important;
 }
 
-.cell-btn.is-unpaid {
-    box-shadow: inset 0 0 0 2px #ffc107;
+.grid-table thead th.day-col-complete.is-weekend {
+    background: #0f5132 !important;
 }
 
-.cell-btn.is-paid {
-    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+.sticky-col {
+    position: sticky;
+    background: #fff;
+    white-space: nowrap;
+    z-index: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.cell-btn:not(:disabled):hover {
-    filter: brightness(0.92);
-    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35);
+.vehicle-col {
+    left: 0;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+    font-size: 0.65rem;
+}
+
+.truck-link {
+    color: var(--brand-primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.truck-link:hover {
+    text-decoration: underline;
+}
+
+.driver-col {
+    left: 5rem;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+}
+
+thead .sticky-col {
+    z-index: 5;
+    background: #f8f9fa;
+}
+
+tbody tr:nth-of-type(even) .sticky-col {
+    background: #fafbfc;
 }
 
 .driver-name {
     display: block;
     color: #212529;
-    font-size: 0.75rem;
+    font-size: 0.62rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+@media (max-width: 1400px) {
+    .col-vehicle {
+        width: 4.5rem;
+    }
+
+    .col-driver {
+        width: 5.5rem;
+    }
+
+    .driver-col {
+        left: 4.5rem;
+    }
+
+    .grid-table {
+        font-size: 0.62rem;
+    }
+
+    .grid-table .day-col,
+    .mark-btn,
+    .mark-empty {
+        font-size: 0.58rem;
+    }
 }
 </style>

@@ -214,6 +214,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::get('/reports/attendance/export', [\App\Http\Controllers\Api\AttendanceReportController::class, 'export'])
                 ->name('reports.attendance.export');
 
+            Route::post('/attendances/bulk-mark', [\App\Http\Controllers\Api\AttendanceController::class, 'bulkMark'])
+                ->name('attendances.bulk-mark');
             Route::get('/attendances/month-overview', [\App\Http\Controllers\Api\AttendanceController::class, 'monthOverview'])
                 ->name('attendances.month-overview');
             Route::get('/attendances/monthly-wages', [\App\Http\Controllers\Api\AttendanceController::class, 'monthlyWages'])

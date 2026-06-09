@@ -51,6 +51,7 @@
                             <AsyncVehicleTripPicker
                                 v-model="form.vehicle_id"
                                 :as-of-date="tripStartDate"
+                                :trip-end-date="tripEndDate"
                                 :driver-label="primaryDriverName"
                                 :invalid="Boolean(fieldErrors.vehicle_id)"
                                 :error-message="fieldErrorMessage('vehicle_id')"
@@ -499,6 +500,7 @@ const pendingStatus = ref('');
 const summary = computed(() => summarizeTripForm(props.form));
 
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
+const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
 
 const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
 

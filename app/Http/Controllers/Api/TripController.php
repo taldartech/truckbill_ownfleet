@@ -68,6 +68,7 @@ class TripController extends Controller
             'customer_id',
             'broker_id',
             'customer_name',
+            'search',
             'trip_number',
             'vehicle_search',
             'driver_search',

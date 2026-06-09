@@ -1,3 +1,5 @@
+export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
+
 export const DATE_RANGE_PRESETS = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },

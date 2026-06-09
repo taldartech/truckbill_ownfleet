@@ -64,14 +64,6 @@ class TripRepository
             $query->where('status', strtoupper((string) $filters['status']));
         }
 
-        if (! empty($filters['from_date'])) {
-            $query->whereDate('start_at', '>=', $filters['from_date']);
-        }
-
-        if (! empty($filters['to_date'])) {
-            $query->whereDate('start_at', '<=', $filters['to_date']);
-        }
-
         if (! empty($filters['customer_id'])) {
             $query->where('customer_id', (int) $filters['customer_id']);
         }
@@ -84,13 +76,64 @@ class TripRepository
             $query->where('customer_name', 'like', '%'.$filters['customer_name'].'%');
         }
 
+        $hasTextSearch = $this->hasTextSearch($filters);
+
+        if ($hasTextSearch) {
+            $this->applyTextSearch($query, $filters);
+        } else {
+            if (! empty($filters['from_date'])) {
+                $query->whereDate('start_at', '>=', $filters['from_date']);
+            }
+
+            if (! empty($filters['to_date'])) {
+                $query->whereDate('start_at', '<=', $filters['to_date']);
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function hasTextSearch(array $filters): bool
+    {
+        foreach (['search', 'trip_number', 'vehicle_search', 'driver_search'] as $key) {
+            if (trim((string) ($filters[$key] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyTextSearch(Builder $query, array $filters): void
+    {
+        if (trim((string) ($filters['search'] ?? '')) !== '') {
+            $term = trim((string) $filters['search']);
+            $query->where(function (Builder $searchQuery) use ($term): void {
+                $searchQuery->where('trip_number', 'like', "%{$term}%")
+                    ->orWhereHas('vehicle', function (Builder $vehicleQuery) use ($term): void {
+                        $vehicleQuery->where('registration_number', 'like', "%{$term}%")
+                            ->orWhere('make', 'like', "%{$term}%")
+                            ->orWhere('model', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('driver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$term}%"));
+            });
+
+            return;
+        }
+
         if (! empty($filters['trip_number'])) {
             $query->where('trip_number', 'like', '%'.$filters['trip_number'].'%');
         }
 
         if (! empty($filters['vehicle_search'])) {
             $search = (string) $filters['vehicle_search'];
-            $query->whereHas('vehicle', function ($vehicleQuery) use ($search): void {
+            $query->whereHas('vehicle', function (Builder $vehicleQuery) use ($search): void {
                 $vehicleQuery->where('registration_number', 'like', "%{$search}%")
                     ->orWhere('make', 'like', "%{$search}%")
                     ->orWhere('model', 'like', "%{$search}%");
@@ -99,9 +142,7 @@ class TripRepository
 
         if (! empty($filters['driver_search'])) {
             $search = (string) $filters['driver_search'];
-            $query->whereHas('driver', fn ($driverQuery) => $driverQuery->where('name', 'like', "%{$search}%"));
+            $query->whereHas('driver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$search}%"));
         }
-
-        return $query;
     }
 }

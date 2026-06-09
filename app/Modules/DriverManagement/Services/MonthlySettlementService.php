@@ -4,6 +4,7 @@ namespace App\Modules\DriverManagement\Services;
 
 use App\AttendanceMonthLock;
 use App\Driver;
+use App\DriverAdvanceEntry;
 use App\Enums\AttendanceStatus;
 use App\MonthlyDriverWage;
 use App\Support\MonthlySettlementCalculator;
@@ -120,6 +121,7 @@ class MonthlySettlementService
             'gross_earning' => $payload['gross_earning'] ?? $monthlyDriverWage->gross_earning,
             'remarks' => array_key_exists('remarks', $payload) ? $payload['remarks'] : $monthlyDriverWage->remarks,
             'round_net' => $payload['round_net'] ?? $monthlyDriverWage->round_net,
+            'advance_deducted' => $payload['advance_deducted'] ?? $monthlyDriverWage->advance_deducted,
             'updated_by' => $actorId,
         ]);
 
@@ -187,8 +189,9 @@ class MonthlySettlementService
         $leaveDays = (int) $stats['leave'];
         $substituteDays = (int) ($substitute['days'] ?? 0);
         $substitutePay = round((float) ($substitute['total_wage'] ?? 0), 2);
-        $primaryGross = round($presentDays * $dailyRate, 2);
-        $gross = round($primaryGross + $substitutePay, 2);
+        $payableDays = (int) ($stats['payable_days'] ?? $presentDays);
+        $primaryGross = round($payableDays * $dailyRate, 2);
+        $gross = $isSubstituteOnly ? 0.0 : $primaryGross;
         $absentDeduction = MonthlySettlementCalculator::absentDeductionForDays(
             $absentDays,
             $monthlyBase,
@@ -200,9 +203,9 @@ class MonthlySettlementService
         if ($wage !== null) {
             $wage->absent_deduction = $absentDeduction;
             $wage->gross_earning = $gross;
-            $net = MonthlySettlementCalculator::netSalary($wage);
+            $net = $isSubstituteOnly ? 0.0 : MonthlySettlementCalculator::netSalary($wage);
         } else {
-            $net = max(0, $gross - $extraDeductions);
+            $net = $isSubstituteOnly ? 0.0 : max(0, $gross - $extraDeductions);
         }
 
         return [
@@ -223,8 +226,11 @@ class MonthlySettlementService
             'leave_days' => $leaveDays,
             'substitute_days' => $substituteDays,
             'substitute_pay' => $substitutePay,
+            'substitute_pay_record' => $substitutePay,
             'primary_gross' => $primaryGross,
             'gross_earning' => $gross,
+            'total_advance' => $wage?->total_advance,
+            'advance_deducted' => $wage?->advance_deducted,
             'absent_deduction' => $absentDeduction,
             'base_salary' => $wage?->base_salary ?? $monthlyBase,
             'extra_deductions' => $extraDeductions,
@@ -552,20 +558,24 @@ class MonthlySettlementService
         $presentDays = (int) $stats['present'];
         $absentDays = (int) $stats['absent'];
         $leaveDays = (int) $stats['leave'];
-        $substitutePay = round((float) ($substitute['total_wage'] ?? 0), 2);
-        $primaryGross = round($presentDays * $dailyRate, 2);
-        $gross = round($primaryGross + $substitutePay, 2);
+        $payableDays = (int) ($stats['payable_days'] ?? $presentDays);
+        $substituteDays = (int) ($substitute['days'] ?? 0);
+        $isSubstituteOnly = $presentDays === 0 && $absentDays === 0 && $leaveDays === 0 && $substituteDays > 0;
+        $primaryGross = round($payableDays * $dailyRate, 2);
+        $gross = $isSubstituteOnly ? 0.0 : $primaryGross;
+        $advanceBalance = DriverAdvanceEntry::balanceFor($driver);
 
         $monthlyWage->fill([
             'calendar_days' => $calendarDays,
             'present_days' => $presentDays,
             'absent_days' => $absentDays,
             'leave_days' => $leaveDays,
-            'payable_days' => $presentDays,
+            'payable_days' => $payableDays,
             'total_days' => $presentDays + $absentDays + $leaveDays,
             'gross_earning' => $gross,
             'total_wage' => $gross,
             'base_salary' => $monthlyBase,
+            'total_advance' => $advanceBalance,
             'absent_deduction' => MonthlySettlementCalculator::absentDeductionForDays(
                 $absentDays,
                 $monthlyBase,

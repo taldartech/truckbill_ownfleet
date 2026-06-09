@@ -80,7 +80,7 @@ class AttendancePhaseOneTest extends TestCase
         $response->assertJsonPath('data.rows.0.days.'.now()->toDateString().'.is_implicit', true);
     }
 
-    public function test_absent_with_alternate_driver_moves_wage_to_alternate(): void
+    public function test_absent_with_alternate_driver_credits_primary_and_records_substitute_payment(): void
     {
         [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
         $vehicle = $this->createVehicle($tenant);
@@ -100,8 +100,9 @@ class AttendancePhaseOneTest extends TestCase
             ]);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.wage_owner_driver_id', $alternate->id);
-        $response->assertJsonPath('data.wage_amount', '23.33');
+        $response->assertJsonPath('data.wage_owner_driver_id', $primary->id);
+        $response->assertJsonPath('data.wage_amount', '26.67');
+        $response->assertJsonPath('data.substitute_payment_amount', '23.33');
         $response->assertJsonPath('data.temporary_driver.id', $alternate->id);
     }
 
@@ -324,7 +325,7 @@ class AttendancePhaseOneTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.primary_driver_id', $primary->id)
-            ->assertJsonPath('data.wage_owner_driver_id', $alternate->id);
+            ->assertJsonPath('data.wage_owner_driver_id', $primary->id);
 
         $overview = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/attendances/month-overview?from_date='.$month->toDateString().'&to_date='.$month->copy()->endOfMonth()->toDateString());
@@ -439,7 +440,7 @@ class AttendancePhaseOneTest extends TestCase
         ]);
     }
 
-    public function test_close_month_splits_wages_by_actual_wage_owner_driver(): void
+    public function test_close_month_credits_primary_for_substitute_days_and_records_substitute_reference(): void
     {
         [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
         $vehicle = $this->createVehicle($tenant);
@@ -488,13 +489,13 @@ class AttendancePhaseOneTest extends TestCase
         $this->assertDatabaseHas('monthly_driver_wages', [
             'tenant_id' => $tenant->id,
             'driver_id' => $primary->id,
-            'payable_days' => 1,
-            'total_wage' => $primaryWage,
+            'payable_days' => 2,
+            'total_wage' => round($primaryWage + MonthlyWageAccrual::perDay(1000.00, $absenceDate), 2),
         ]);
         $this->assertDatabaseHas('monthly_driver_wages', [
             'tenant_id' => $tenant->id,
             'driver_id' => $alternate->id,
-            'total_wage' => $alternateWage,
+            'total_wage' => 0,
         ]);
     }
 

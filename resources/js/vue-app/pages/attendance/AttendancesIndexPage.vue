@@ -1,6 +1,6 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Driver Attendance &amp; Wages">
+        <AppIndexPageHeader title="Driver Attendance & Wages">
             <template #actions>
                 <AppButton
                     variant="secondary"
@@ -11,10 +11,13 @@
                     :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
                 />
                 <AppButton
-                    v-if="canManageAttendance && isMonthEditable"
-                    icon="bi bi-exclamation-triangle"
-                    label="Mark Attendance"
-                    @click="openCreate"
+                    v-if="canManageAttendance && canEditDay"
+                    variant="secondary"
+                    outline
+                    size="sm"
+                    icon="bi bi-calendar-range"
+                    label="Bulk Mark"
+                    @click="openBulkMark"
                 />
             </template>
         </AppIndexPageHeader>
@@ -30,7 +33,7 @@
             <strong>{{ monthLockLabel }} for {{ monthLabel() }}</strong>
             <template v-if="monthLock.status === 'closed'">
                 <p class="mb-0 mt-2 small">
-                    Step 1 done — exceptions are frozen. Open
+                    Step 1 done — attendance is frozen. Open
                     <RouterLink
                         :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
                         class="alert-link"
@@ -52,7 +55,35 @@
             </p>
         </div>
 
-        <AppIndexFiltersCard :active="listFiltersActive" @apply="applyListFilters" @clear="clearListFilters">
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button
+                    type="button"
+                    class="nav-link"
+                    :class="{ active: activeView === 'day' }"
+                    @click="setActiveView('day')"
+                >
+                    Daily Attendance
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    type="button"
+                    class="nav-link"
+                    :class="{ active: activeView === 'month' }"
+                    @click="setActiveView('month')"
+                >
+                    Month View
+                </button>
+            </li>
+        </ul>
+
+        <AppIndexFiltersCard
+            v-if="activeView === 'month'"
+            :active="listFiltersActive"
+            @apply="applyListFilters"
+            @clear="clearListFilters"
+        >
             <div>
                 <label class="form-label" for="filter_month">Month</label>
                 <input
@@ -115,24 +146,56 @@
             </div>
         </AppIndexFiltersCard>
 
-        <div class="card mb-3 app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Month Overview</h3>
-                <span class="text-muted small">Green P = auto present (today and past only) · future days stay blank until you mark an exception</span>
-            </div>
+        <div
+            v-if="activeView === 'day'"
+            class="card mb-3 app-index-list-card"
+            :class="{ 'daily-attendance-complete': dayAttendanceComplete }"
+        >
             <div class="card-body">
+                <AttendanceDayPanel
+                    ref="dayPanelRef"
+                    v-model:selected-date="dayDate"
+                    :vehicles="vehicles"
+                    :drivers="drivers"
+                    :overview-rows="dayOverview.rows"
+                    :loading="dayOverviewLoading"
+                    :saving="dailySaving"
+                    :can-edit="canEditDay"
+                    @save="handleDailySave"
+                    @complete-change="dayAttendanceComplete = $event"
+                />
+            </div>
+        </div>
+
+        <div v-else class="card mb-3 app-index-list-card month-overview-card">
+            <div class="card-body month-overview-body px-2 py-2">
                 <div v-if="overviewLoading" class="text-center py-4 text-muted">Loading overview…</div>
                 <AttendanceMonthGrid
                     v-else
+                    :key="monthGridKey"
                     :month="filters.month"
                     :overview="monthOverview"
                     :can-edit="canEditGrid"
+                    :link-trucks="true"
                     @select="openEditFromGrid"
                 />
             </div>
         </div>
 
-        <AppIndexListCard title="Exceptions Log" :loading="tableLoading" loading-text="Loading records…">
+        <div id="attendance-log" ref="attendanceLogRef">
+            <AppIndexListCard
+                :title="attendanceLogTitle"
+                :loading="tableLoading"
+                loading-text="Loading records…"
+            >
+                <template v-if="detailFilters.vehicle_id" #toolbar>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        Truck: {{ selectedTruckLabel }}
+                    </span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearTruckFilter">
+                        Clear filter
+                    </button>
+                </template>
             <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -149,7 +212,11 @@
                         <tbody>
                             <tr v-if="attendances.length === 0">
                                 <td :colspan="actionColspan" class="text-center text-muted">
-                                    No exceptions logged for this month.
+                                    {{
+                                        detailFilters.vehicle_id
+                                            ? `No A or S records for ${selectedTruckLabel || 'this truck'}.`
+                                            : 'No A or S attendance marked for this period.'
+                                    }}
                                 </td>
                             </tr>
                             <tr v-for="row in attendances" :key="row.id">
@@ -217,7 +284,22 @@
                     @update:per-page="onAttendancePerPageUpdate"
                 />
             </template>
-        </AppIndexListCard>
+            </AppIndexListCard>
+        </div>
+
+        <AttendanceBulkMarkModal
+            modal-id="attendanceBulkMarkModal"
+            :show="showBulkForm"
+            :vehicles="vehicles"
+            :drivers="drivers"
+            :saving="bulkSaving"
+            :default-vehicle-id="bulkPrefilledVehicleId"
+            :default-from-date="dayDate"
+            :field-errors="bulkFieldErrors"
+            :form-error="bulkFormError"
+            @close="closeBulkForm"
+            @submit="handleBulkSubmit"
+        />
 
         <AttendanceFormModal
             modal-id="attendanceFormModal"
@@ -226,7 +308,7 @@
             :attendance="editingRecord"
             :vehicles="vehicles"
             :drivers="drivers"
-            :month-overview="monthOverview"
+            :month-overview="activeView === 'day' ? dayOverview : monthOverview"
             :saving="saving"
             :prefilled-date="formPrefilledDate"
             :prefilled-vehicle-id="formPrefilledVehicleId"
@@ -240,9 +322,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { listAllDrivers } from '../../api/drivers';
 import {
+    bulkMarkAttendance,
     deleteAttendance,
     fetchMonthOverview,
     getAttendance,
@@ -250,7 +334,9 @@ import {
     markAttendance,
     updateAttendance,
 } from '../../api/attendances';
+import AttendanceBulkMarkModal from '../../components/attendance/AttendanceBulkMarkModal.vue';
 import { listAllVehicles } from '../../api/vehicles';
+import AttendanceDayPanel from '../../components/attendance/AttendanceDayPanel.vue';
 import AttendanceFormModal from '../../components/attendance/AttendanceFormModal.vue';
 import AttendanceMonthGrid from '../../components/attendance/AttendanceMonthGrid.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -261,8 +347,9 @@ import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFoot
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
-import { extractValidationErrors } from '../../utils/formErrors';
+import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
 
+const route = useRoute();
 const { canInCompany } = usePermissions();
 
 const canManageAttendance = computed(() => canInCompany('attendances.manage'));
@@ -271,6 +358,17 @@ const actionColspan = computed(() => (canManageAttendance.value || canManageWage
 const monthLock = computed(() => monthOverview.value.month_lock ?? { status: 'open' });
 const isMonthEditable = computed(() => monthLock.value.status === 'open');
 const canEditGrid = computed(() => canManageAttendance.value && isMonthEditable.value);
+const activeView = ref('day');
+const dayDate = ref(new Date().toISOString().slice(0, 10));
+const dayOverview = ref({
+    summary: { marked: 0, present: 0, absent: 0, paid: 0, unpaid: 0, exceptions: 0, no_work: 0 },
+    rows: [],
+    month_lock: { status: 'open', closed_at: null, locked_at: null },
+});
+const dayOverviewLoading = ref(false);
+const dayMonthLock = computed(() => dayOverview.value.month_lock ?? { status: 'open' });
+const isDayMonthEditable = computed(() => dayMonthLock.value.status === 'open');
+const canEditDay = computed(() => canManageAttendance.value && isDayMonthEditable.value);
 const monthLockLabel = computed(() => {
     if (monthLock.value.status === 'paid') {
         return 'Month locked';
@@ -298,6 +396,16 @@ const attendanceFieldErrors = ref({});
 const attendanceFormError = ref('');
 const tableLoading = ref(true);
 const saving = ref(false);
+const dailySaving = ref(false);
+const dayAttendanceComplete = ref(false);
+const monthGridKey = ref(0);
+const dayPanelRef = ref(null);
+const attendanceLogRef = ref(null);
+const bulkSaving = ref(false);
+const showBulkForm = ref(false);
+const bulkPrefilledVehicleId = ref('');
+const bulkFieldErrors = ref({});
+const bulkFormError = ref('');
 const showForm = ref(false);
 const formMode = ref('create');
 const editingRecord = ref(null);
@@ -320,6 +428,22 @@ const listFiltersActive = computed(
         detailFilters.status !== '' ||
         detailFilters.wage_payment_status !== '',
 );
+
+const selectedTruckLabel = computed(() => {
+    const vehicle = vehicles.value.find((item) => item.id === detailFilters.vehicle_id);
+
+    return vehicle?.registration_number ?? '';
+});
+
+const attendanceLogTitle = computed(() => {
+    const base = activeView.value === 'day' ? `Attendance Log — ${dayDate.value}` : 'Attendance Log';
+
+    if (!selectedTruckLabel.value) {
+        return base;
+    }
+
+    return `${base} · ${selectedTruckLabel.value}`;
+});
 
 const pagination = reactive({
     current_page: 1,
@@ -351,7 +475,10 @@ function monthDateRange(month) {
 }
 
 function detailQueryParams() {
-    const range = monthDateRange(filters.month);
+    const range =
+        activeView.value === 'day'
+            ? { from_date: dayDate.value, to_date: dayDate.value }
+            : monthDateRange(filters.month);
     const params = {
         page: pagination.current_page,
         per_page: pagination.per_page,
@@ -429,16 +556,12 @@ function statusBadgeIcon(row) {
 }
 
 function statusLabel(row) {
-    if (row.status === 'NO_WORK_DAY') {
-        return 'No working day';
-    }
-
     if (hasSubstitute(row)) {
-        return 'Absent + substitute';
+        return 'S — Substitute';
     }
 
-    if (row.status === 'ABSENT') {
-        return 'Absent';
+    if (row.status === 'ABSENT' || row.status === 'NO_WORK_DAY') {
+        return 'A — Absent';
     }
 
     return 'Present';
@@ -472,6 +595,50 @@ async function loadMonthOverview() {
     } finally {
         overviewLoading.value = false;
     }
+}
+
+async function loadDayOverview() {
+    dayOverviewLoading.value = true;
+
+    try {
+        dayOverview.value = await fetchMonthOverview({
+            from_date: dayDate.value,
+            to_date: dayDate.value,
+        });
+    } catch {
+        dayOverview.value = {
+            summary: { marked: 0, present: 0, absent: 0, paid: 0, unpaid: 0 },
+            rows: [],
+            month_lock: { status: 'open', closed_at: null, locked_at: null },
+        };
+    } finally {
+        dayOverviewLoading.value = false;
+    }
+}
+
+function setActiveView(view) {
+    activeView.value = view;
+
+    if (view === 'day') {
+        filters.month = dayDate.value.slice(0, 7);
+        pagination.current_page = 1;
+        reloadActiveView();
+        return;
+    }
+
+    reloadActiveView();
+}
+
+async function reloadActiveView() {
+    const tasks = [loadAttendances()];
+
+    if (activeView.value === 'day') {
+        tasks.push(loadDayOverview());
+    } else {
+        tasks.push(loadMonthOverview());
+    }
+
+    await Promise.all(tasks);
 }
 
 async function loadAttendances() {
@@ -522,6 +689,26 @@ function clearListFilters() {
     reloadAll();
 }
 
+async function filterByTruck(vehicleId) {
+    if (!vehicleId) {
+        return;
+    }
+
+    detailFilters.vehicle_id = vehicleId;
+    pagination.current_page = 1;
+    await loadAttendances();
+
+    await nextTick(() => {
+        attendanceLogRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+}
+
+function clearTruckFilter() {
+    detailFilters.vehicle_id = '';
+    pagination.current_page = 1;
+    loadAttendances();
+}
+
 function goToPage(page) {
     if (page < 1 || page > pagination.last_page) {
         return;
@@ -538,20 +725,106 @@ function onAttendancePerPageUpdate(perPage) {
 }
 
 async function reloadAll() {
-    await Promise.all([loadMonthOverview(), loadAttendances()]);
+    await reloadActiveView();
 }
 
-function openCreate() {
-    formMode.value = 'create';
-    editingRecord.value = null;
-    formPrefilledDate.value = '';
-    formPrefilledVehicleId.value = '';
-    showForm.value = true;
+function openBulkMark() {
+    bulkPrefilledVehicleId.value = '';
+    bulkFieldErrors.value = {};
+    bulkFormError.value = '';
+    showBulkForm.value = true;
+}
+
+function closeBulkForm() {
+    showBulkForm.value = false;
+    bulkFieldErrors.value = {};
+    bulkFormError.value = '';
+}
+
+async function persistDailyEntry(entry) {
+    if (entry.statusType === 'PRESENT') {
+        if (entry.attendance_id) {
+            await deleteAttendance(entry.attendance_id);
+        }
+
+        return;
+    }
+
+    const payload = {
+        vehicle_id: entry.vehicle_id,
+        primary_driver_id: entry.primary_driver_id,
+        attendance_date: entry.attendance_date,
+        status: 'ABSENT',
+        temporary_driver_id: entry.temporary_driver_id,
+        temporary_assignment_remarks: entry.remarks,
+        marked_via: 'admin_panel',
+    };
+
+    if (entry.attendance_id) {
+        await updateAttendance(entry.attendance_id, payload);
+    } else {
+        await markAttendance(payload);
+    }
+}
+
+async function handleDailySave({ entries, presentConfirmIds = [] }) {
+    dailySaving.value = true;
+
+    try {
+        for (const entry of entries) {
+            await persistDailyEntry(entry);
+        }
+
+        await reloadActiveView();
+        dayPanelRef.value?.syncFormRows();
+
+        const savedVehicleIds = [...new Set([...presentConfirmIds, ...entries.map((entry) => entry.vehicle_id)])];
+        dayPanelRef.value?.markVehiclesSaved(savedVehicleIds);
+        monthGridKey.value += 1;
+
+        const totalSaved = savedVehicleIds.length;
+        showToast(
+            totalSaved === 1 ? 'Attendance saved.' : `${totalSaved} truck${totalSaved === 1 ? '' : 's'} saved.`,
+        );
+    } catch (error) {
+        showToast(friendlyApiErrorMessage(error, 'Unable to save daily attendance.'), 'error');
+    } finally {
+        dailySaving.value = false;
+        dayPanelRef.value?.clearSavingState();
+    }
+}
+
+async function handleBulkSubmit(payload) {
+    bulkSaving.value = true;
+    bulkFieldErrors.value = {};
+    bulkFormError.value = '';
+
+    try {
+        await bulkMarkAttendance(payload);
+        closeBulkForm();
+        showToast('Bulk attendance saved.');
+        await reloadActiveView();
+    } catch (error) {
+        const { fieldErrors, message } = extractValidationErrors(error);
+
+        bulkFieldErrors.value = fieldErrors;
+        bulkFormError.value =
+            message ??
+            (Object.keys(fieldErrors).length > 0
+                ? 'Please check the highlighted fields.'
+                : friendlyApiErrorMessage(error, 'Unable to save bulk attendance.'));
+    } finally {
+        bulkSaving.value = false;
+    }
 }
 
 function openCreateFromCell(cell) {
     formMode.value = 'create';
-    editingRecord.value = null;
+    editingRecord.value = {
+        attendance_date: cell.attendance_date,
+        vehicle_id: cell.vehicle_id,
+        primary_driver_id: cell.primary_driver_id,
+    };
     formPrefilledDate.value = cell.attendance_date ?? '';
     formPrefilledVehicleId.value = cell.vehicle_id ?? '';
     showForm.value = true;
@@ -585,7 +858,7 @@ async function openEditFromGrid(cell) {
         formPrefilledVehicleId.value = '';
         showForm.value = true;
     } catch {
-        showToast('Could not load exception for editing.', 'error');
+        showToast('Could not load attendance for editing.', 'error');
     }
 }
 
@@ -606,10 +879,10 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingRecord.value?.id) {
             await updateAttendance(editingRecord.value.id, payload);
-            showToast('Exception updated successfully.');
+            showToast('Attendance updated successfully.');
         } else {
             await markAttendance(payload);
-            showToast('Exception saved successfully.');
+            showToast('Attendance saved successfully.');
         }
 
         closeForm();
@@ -617,13 +890,16 @@ async function handleSubmit(payload) {
     } catch (error) {
         const { fieldErrors, message } = extractValidationErrors(error);
 
-        if (Object.keys(fieldErrors).length > 0 || message) {
-            attendanceFieldErrors.value = fieldErrors;
-            attendanceFormError.value = message ?? 'Please check the highlighted fields and try again.';
-        } else if (error.response?.status === 403) {
-            showToast('You do not have permission for this action.', 'error');
+        attendanceFieldErrors.value = fieldErrors;
+
+        if (error.response?.status === 403) {
+            attendanceFormError.value = 'You do not have permission for this action.';
         } else {
-            showToast('Unable to save attendance.', 'error');
+            attendanceFormError.value =
+                message ??
+                (Object.keys(fieldErrors).length > 0
+                    ? 'Please check the highlighted fields and try again.'
+                    : friendlyApiErrorMessage(error, 'Unable to save attendance.'));
         }
     } finally {
         saving.value = false;
@@ -635,26 +911,73 @@ async function handleDeleteException(record) {
         return;
     }
 
-    if (!window.confirm('Remove this exception? The day will return to auto-present.')) {
-        return;
-    }
-
     saving.value = true;
 
     try {
         await deleteAttendance(record.id);
         closeForm();
-        showToast('Exception removed.');
+        showToast('Mark cleared — day is default present.');
         await reloadAll();
     } catch {
-        showToast('Unable to remove exception.', 'error');
+        showToast('Unable to change attendance.', 'error');
     } finally {
         saving.value = false;
     }
 }
 
+watch(dayDate, (date) => {
+    if (!date) {
+        return;
+    }
+
+    filters.month = date.slice(0, 7);
+
+    if (activeView.value === 'day') {
+        pagination.current_page = 1;
+        reloadActiveView();
+    }
+});
+
+watch(
+    () => filters.month,
+    (month) => {
+        if (activeView.value === 'month' && month) {
+            pagination.current_page = 1;
+            reloadActiveView();
+        }
+    },
+);
+
+async function applyVehicleQueryFromRoute() {
+    const vehicleId = route.query.vehicle_id;
+
+    if (!vehicleId || typeof vehicleId !== 'string') {
+        return;
+    }
+
+    await filterByTruck(vehicleId);
+}
+
 onMounted(async () => {
     await loadLookups();
-    await reloadAll();
+    await reloadActiveView();
+    await applyVehicleQueryFromRoute();
 });
+
+watch(
+    () => route.query.vehicle_id,
+    async (vehicleId) => {
+        if (!vehicleId || typeof vehicleId !== 'string') {
+            if (detailFilters.vehicle_id) {
+                clearTruckFilter();
+            }
+
+            return;
+        }
+
+        if (detailFilters.vehicle_id !== vehicleId) {
+            await filterByTruck(vehicleId);
+        }
+    },
+);
 </script>

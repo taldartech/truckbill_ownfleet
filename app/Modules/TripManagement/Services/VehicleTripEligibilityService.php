@@ -3,8 +3,6 @@
 namespace App\Modules\TripManagement\Services;
 
 use App\DriverAssignment;
-use App\Enums\TripStatus;
-use App\Trip;
 use App\Vehicle;
 use Illuminate\Support\Carbon;
 
@@ -18,6 +16,8 @@ class VehicleTripEligibilityService
 
     public const REASON_OPEN_TRIP_EXISTS = 'OPEN_TRIP_EXISTS';
 
+    public function __construct(private readonly TripValidationService $tripValidation) {}
+
     /**
      * @return array{
      *     selectable: bool,
@@ -28,14 +28,17 @@ class VehicleTripEligibilityService
      *     driver_status: string|null,
      * }
      */
-    public function evaluate(Vehicle $vehicle, ?string $asOfDate = null): array
-    {
+    public function evaluate(
+        Vehicle $vehicle,
+        ?string $tripStartDate = null,
+        ?string $tripEndDate = null,
+    ): array {
         if (! $vehicle->is_active) {
             return $this->ineligible(self::REASON_VEHICLE_INACTIVE, 'Truck Inactive');
         }
 
-        $asOf = $asOfDate !== null
-            ? Carbon::parse($asOfDate)->toDateString()
+        $asOf = $tripStartDate !== null
+            ? Carbon::parse($tripStartDate)->toDateString()
             : now()->toDateString();
 
         $assignment = DriverAssignment::query()
@@ -48,7 +51,7 @@ class VehicleTripEligibilityService
         if ($assignment === null || $assignment->driver === null) {
             return $this->ineligible(
                 self::REASON_NO_PRIMARY_DRIVER,
-                $asOfDate !== null ? 'No Driver Assigned on Trip Date' : 'No Driver Assigned',
+                $tripStartDate !== null ? 'No Driver Assigned on Trip Date' : 'No Driver Assigned',
             );
         }
 
@@ -58,25 +61,25 @@ class VehicleTripEligibilityService
             return $this->ineligible(self::REASON_DRIVER_INACTIVE, 'Driver Inactive', $driver->id, $driver->name, 'inactive');
         }
 
-        $hasOpenTrip = Trip::query()
-            ->where('vehicle_id', $vehicle->id)
-            ->whereIn('status', [
-                TripStatus::Created->value,
-                TripStatus::InProgress->value,
-            ])
-            ->first();
+        if ($tripStartDate !== null) {
+            $overlappingTrip = $this->tripValidation->findOverlappingOpenTrip(
+                vehicleId: $vehicle->id,
+                startAt: $tripStartDate,
+                endAt: $tripEndDate,
+            );
 
-        if ($hasOpenTrip !== null) {
-            return [
-                ...$this->ineligible(
-                    self::REASON_OPEN_TRIP_EXISTS,
-                    'Open Trip Exists',
-                    $driver->id,
-                    $driver->name,
-                    'active',
-                ),
-                'open_trip_number' => $hasOpenTrip->trip_number,
-            ];
+            if ($overlappingTrip !== null) {
+                return [
+                    ...$this->ineligible(
+                        self::REASON_OPEN_TRIP_EXISTS,
+                        'Trip Already Scheduled',
+                        $driver->id,
+                        $driver->name,
+                        'active',
+                    ),
+                    'open_trip_number' => $overlappingTrip->trip_number,
+                ];
+            }
         }
 
         return [
@@ -90,9 +93,12 @@ class VehicleTripEligibilityService
         ];
     }
 
-    public function assertEligibleForTripCreation(Vehicle $vehicle, ?string $asOfDate = null): void
-    {
-        $result = $this->evaluate($vehicle, $asOfDate);
+    public function assertEligibleForTripCreation(
+        Vehicle $vehicle,
+        ?string $tripStartDate = null,
+        ?string $tripEndDate = null,
+    ): void {
+        $result = $this->evaluate($vehicle, $tripStartDate, $tripEndDate);
 
         if ($result['selectable']) {
             return;

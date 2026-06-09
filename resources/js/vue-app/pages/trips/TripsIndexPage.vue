@@ -16,22 +16,26 @@
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
         <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Trip Number</label>
-                <input v-model="filters.trip_number" type="text" class="form-control" placeholder="Search trip #" />
-            </div>
-            <div>
-                <label class="form-label">Truck</label>
+            <div class="trips-filter-search">
+                <label class="form-label" for="trips_search">Search</label>
                 <input
-                    v-model="filters.vehicle_search"
-                    type="text"
+                    id="trips_search"
+                    v-model="filters.search"
+                    type="search"
                     class="form-control"
-                    placeholder="Registration / truck #"
+                    placeholder="Trip #, truck registration, driver name…"
+                    @keydown.enter.prevent="loadTrips(1)"
                 />
+                <div v-if="searchIgnoresDateRange" class="form-text">Search looks across all trips and ignores the date range.</div>
             </div>
-            <div>
-                <label class="form-label">Driver</label>
-                <input v-model="filters.driver_search" type="text" class="form-control" placeholder="Driver name" />
+            <div class="trips-filter-period">
+                <DashboardDateRangePicker
+                    v-model:from-date="filters.from_date"
+                    v-model:to-date="filters.to_date"
+                    label="Period"
+                    :preset-keys="tripDatePresetKeys"
+                    @change="onDateRangeChange"
+                />
             </div>
             <div>
                 <label class="form-label">Status</label>
@@ -61,14 +65,6 @@
                     empty-message="No broker found."
                     view-title="Broker details"
                 />
-            </div>
-            <div>
-                <label class="form-label">From Date</label>
-                <input v-model="filters.from_date" type="date" class="form-control" />
-            </div>
-            <div>
-                <label class="form-label">To Date</label>
-                <input v-model="filters.to_date" type="date" class="form-control" />
             </div>
         </AppIndexFiltersCard>
 
@@ -174,8 +170,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import { deleteTrip, defaultTripListFilters, listTrips, TRIP_STATUSES, tripStatusMeta } from '../../api/trips';
+import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import SearchablePicker from '../../components/ui/SearchablePicker.vue';
+import { TRIP_LIST_DATE_PRESET_KEYS } from '../../utils/dateRangePresets';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
@@ -206,6 +204,7 @@ const brokers = ref([]);
 const loading = ref(true);
 const flash = reactive({ success: '', error: '' });
 const tripStatuses = TRIP_STATUSES;
+const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
 const filters = reactive(defaultTripListFilters());
 
@@ -213,13 +212,13 @@ const { pagination, syncFromMeta } = useListPagination(15);
 
 const defaultFilters = defaultTripListFilters();
 
+const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
+
 const filtersActive = computed(() => {
     return (
         filters.from_date !== defaultFilters.from_date ||
         filters.to_date !== defaultFilters.to_date ||
-        filters.trip_number !== '' ||
-        filters.vehicle_search !== '' ||
-        filters.driver_search !== '' ||
+        filters.search.trim() !== '' ||
         filters.customer_id !== '' ||
         filters.broker_id !== '' ||
         filters.status !== ''
@@ -322,19 +321,25 @@ function onPerPageUpdate(perPage) {
     loadTrips(1);
 }
 
+function onDateRangeChange() {
+    if (!searchIgnoresDateRange.value) {
+        loadTrips(1);
+    }
+}
+
 async function loadTrips(page = 1) {
     loading.value = true;
     flash.error = '';
+
+    const search = filters.search.trim();
 
     try {
         const result = await listTrips({
             page,
             perPage: pagination.perPage,
-            from_date: filters.from_date || undefined,
-            to_date: filters.to_date || undefined,
-            trip_number: filters.trip_number || undefined,
-            vehicle_search: filters.vehicle_search || undefined,
-            driver_search: filters.driver_search || undefined,
+            search: search || undefined,
+            from_date: search ? undefined : filters.from_date || undefined,
+            to_date: search ? undefined : filters.to_date || undefined,
             customer_id: filters.customer_id || undefined,
             broker_id: filters.broker_id || undefined,
             status: filters.status || undefined,
@@ -422,6 +427,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.trips-filter-search {
+    grid-column: 1 / -1;
+}
+
+.trips-filter-period {
+    position: relative;
+    z-index: 1;
+    min-width: min(100%, 280px);
+}
+
 .trip-number-link {
     color: #0d6efd;
 }

@@ -24,6 +24,7 @@ class AttendanceResource extends JsonResource
             'status' => $this->status,
             'marked_via' => $this->marked_via?->value ?? $this->marked_via,
             'wage_amount' => $this->wage_amount,
+            'substitute_payment_amount' => $this->substitute_payment_amount,
             'wage_payment_status' => $this->wage_payment_status?->value ?? $this->wage_payment_status,
             'wage_paid_at' => $this->wage_paid_at?->toISOString(),
             'wage_transfer_notes' => $this->wage_transfer_notes,

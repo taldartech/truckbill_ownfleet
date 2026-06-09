@@ -1,3 +1,19 @@
+function sanitizeApiMessage(message) {
+    if (typeof message !== 'string' || message.length === 0) {
+        return null;
+    }
+
+    if (message.includes('Column not found') || message.includes('SQLSTATE')) {
+        return 'Database update required. Run: php artisan migrate';
+    }
+
+    if (message.length > 280) {
+        return 'Something went wrong. Please try again.';
+    }
+
+    return message;
+}
+
 export function extractValidationErrors(error) {
     const status = error?.response?.status;
     const data = error?.response?.data;
@@ -5,14 +21,16 @@ export function extractValidationErrors(error) {
     if (status === 422) {
         return {
             fieldErrors: data?.errors ?? {},
-            message: data?.message ?? null,
+            message: sanitizeApiMessage(data?.message),
         };
     }
 
-    if (typeof data?.message === 'string' && data.message.length > 0) {
+    const message = sanitizeApiMessage(data?.message);
+
+    if (message) {
         return {
             fieldErrors: {},
-            message: data.message,
+            message,
         };
     }
 

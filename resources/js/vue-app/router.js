@@ -59,6 +59,13 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'attendances.view' },
                 },
                 {
+                    path: 'attendance/trucks/:vehicleId',
+                    redirect: (to) => ({
+                        name: 'trucks.index',
+                        query: { vehicle_id: to.params.vehicleId },
+                    }),
+                },
+                {
                     path: 'attendance/settlement',
                     name: 'attendance.settlement',
                     component: () => import('./pages/attendance/MonthlySettlementPage.vue'),

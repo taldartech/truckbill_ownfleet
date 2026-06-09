@@ -7,233 +7,105 @@
         :aria-labelledby="`${modalId}Label`"
         aria-hidden="true"
     >
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        {{ isEdit ? 'Edit Attendance' : 'Mark Attendance' }}
-                    </h5>
+                    <div>
+                        <h5 :id="`${modalId}Label`" class="modal-title mb-0">
+                            <i class="bi bi-calendar-check"></i>
+                            {{ isEdit ? 'Edit Attendance' : 'Mark Attendance' }}
+                        </h5>
+                        <p v-if="contextSummary" class="small mb-0 mt-1 text-white-50">{{ contextSummary }}</p>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
                 <form novalidate @submit.prevent="submit">
                     <div class="modal-body">
-                        <p class="text-muted small">
-                            Normal working days are automatic from driver assignment. Only mark absences,
-                            substitutes, or days the truck did not run.
-                        </p>
+                        <div v-if="formError || contextError" class="alert alert-danger py-2">
+                            {{ formError || contextError }}
+                        </div>
 
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_date`" class="form-label">Date *</label>
-                                <input
-                                    :id="`${modalId}_date`"
-                                    v-model="form.attendance_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'attendance_date') }"
-                                    required
-                                />
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'attendance_date')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'attendance_date') }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
-                                <select
-                                    :id="`${modalId}_vehicle`"
-                                    v-model="form.vehicle_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'vehicle_id') }"
-                                    required
-                                    @change="onVehicleChange"
-                                >
-                                    <option value="">Select truck</option>
-                                    <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                                        {{ vehicle.registration_number }}
-                                    </option>
-                                </select>
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'vehicle_id')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'vehicle_id') }}
-                                </div>
+                        <div class="mb-3">
+                            <label :for="`${modalId}_exception`" class="form-label">Attendance Type *</label>
+                            <select
+                                :id="`${modalId}_exception`"
+                                v-model="form.exception_type"
+                                class="form-select"
+                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'status') }"
+                                required
+                            >
+                                <option v-if="isEdit" value="BLANK">· — Blank (clear mark)</option>
+                                <option value="ABSENT">A — Absent</option>
+                                <option value="ABSENT_SUBSTITUTE">S — Substitute</option>
+                            </select>
+                            <div v-if="fieldErrorMessage(fieldErrors, 'status')" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage(fieldErrors, 'status') }}
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_primary`" class="form-label">Primary Driver *</label>
-                                <select
-                                    :id="`${modalId}_primary`"
-                                    v-model="form.primary_driver_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'primary_driver_id') }"
-                                    required
-                                >
-                                    <option value="">Select driver</option>
-                                    <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
+                        <div v-if="form.exception_type === 'ABSENT_SUBSTITUTE'" class="mb-3">
+                            <label :for="`${modalId}_temp`" class="form-label">Substitute Driver *</label>
+                            <select
+                                :id="`${modalId}_temp`"
+                                v-model="form.temporary_driver_id"
+                                class="form-select"
+                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'temporary_driver_id') }"
+                                required
+                            >
+                                <option value="">Select substitute</option>
+                                <optgroup v-if="availableSubstituteDrivers.length" label="Available">
+                                    <option
+                                        v-for="driver in availableSubstituteDrivers"
+                                        :key="driver.id"
+                                        :value="driver.id"
+                                    >
                                         {{ driverLabel(driver) }}
                                     </option>
-                                </select>
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'primary_driver_id')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'primary_driver_id') }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_exception`" class="form-label">Exception Type *</label>
-                                <select
-                                    :id="`${modalId}_exception`"
-                                    v-model="form.exception_type"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'status') }"
-                                    required
-                                >
-                                    <option value="ABSENT">Absent (no work)</option>
-                                    <option value="ABSENT_SUBSTITUTE">Absent + substitute</option>
-                                    <option value="NO_WORK_DAY">No working day (truck idle)</option>
-                                </select>
-                                <div v-if="fieldErrorMessage(fieldErrors, 'status')" class="invalid-feedback d-block">
-                                    {{ fieldErrorMessage(fieldErrors, 'status') }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="form.exception_type === 'ABSENT_SUBSTITUTE'" class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_temp`" class="form-label">Substitute Driver *</label>
-                                <select
-                                    :id="`${modalId}_temp`"
-                                    v-model="form.temporary_driver_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'temporary_driver_id') }"
-                                    required
-                                >
-                                    <option value="">Select substitute</option>
-                                    <optgroup v-if="availableSubstituteDrivers.length" label="Available">
-                                        <option
-                                            v-for="driver in availableSubstituteDrivers"
-                                            :key="driver.id"
-                                            :value="driver.id"
-                                        >
-                                            {{ driverLabel(driver) }}
-                                        </option>
-                                    </optgroup>
-                                    <optgroup
-                                        v-if="busySubstituteDrivers.length"
-                                        label="Already assigned on this date"
+                                </optgroup>
+                                <optgroup v-if="busySubstituteDrivers.length" label="Already assigned on this date">
+                                    <option
+                                        v-for="entry in busySubstituteDrivers"
+                                        :key="entry.driver.id"
+                                        :value="entry.driver.id"
+                                        disabled
+                                        class="substitute-option-busy"
                                     >
-                                        <option
-                                            v-for="entry in busySubstituteDrivers"
-                                            :key="entry.driver.id"
-                                            :value="entry.driver.id"
-                                            disabled
-                                            class="substitute-option-busy"
-                                        >
-                                            {{ driverLabel(entry.driver) }} — {{ entry.busyLabel }}
-                                        </option>
-                                    </optgroup>
-                                </select>
-                                <p class="form-text text-muted mb-0">
-                                    Only drivers not assigned to any truck on this date can substitute. Names in red
-                                    are already on another truck.
-                                </p>
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'temporary_driver_id') }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_remarks`" class="form-label">Remarks</label>
-                                <input
-                                    :id="`${modalId}_remarks`"
-                                    v-model="form.temporary_assignment_remarks"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{
-                                        'is-invalid': hasFieldError(fieldErrors, 'temporary_assignment_remarks'),
-                                    }"
-                                    placeholder="Reason for substitute"
-                                />
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks') }}
-                                </div>
+                                        {{ driverLabel(entry.driver) }} — {{ entry.busyLabel }}
+                                    </option>
+                                </optgroup>
+                            </select>
+                            <div
+                                v-if="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
+                                class="invalid-feedback d-block"
+                            >
+                                {{ fieldErrorMessage(fieldErrors, 'temporary_driver_id') }}
                             </div>
                         </div>
 
-                        <div v-if="form.exception_type === 'ABSENT'" class="row mb-3">
-                            <div class="col-md-12">
-                                <label :for="`${modalId}_remarks`" class="form-label">Remarks</label>
-                                <input
-                                    :id="`${modalId}_remarks`"
-                                    v-model="form.temporary_assignment_remarks"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{
-                                        'is-invalid': hasFieldError(fieldErrors, 'temporary_assignment_remarks'),
-                                    }"
-                                    placeholder="Optional note"
-                                />
-                                <div
-                                    v-if="fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks')"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks') }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="isWagePayable" class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Monthly Payment Base</label>
-                                <input type="text" class="form-control" :value="monthlyBaseLabel" readonly />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Day Accrual (substitute)</label>
-                                <input type="text" class="form-control" :value="dayAccrualLabel" readonly />
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-12">
-                                <label :for="`${modalId}_notes`" class="form-label">Notes</label>
-                                <input
-                                    :id="`${modalId}_notes`"
-                                    v-model="form.wage_transfer_notes"
-                                    type="text"
-                                    class="form-control"
-                                    placeholder="Optional internal note"
-                                />
+                        <div class="mb-0">
+                            <label :for="`${modalId}_remarks`" class="form-label">Remarks</label>
+                            <input
+                                :id="`${modalId}_remarks`"
+                                v-model="form.temporary_assignment_remarks"
+                                type="text"
+                                class="form-control"
+                                :class="{
+                                    'is-invalid': hasFieldError(fieldErrors, 'temporary_assignment_remarks'),
+                                }"
+                                placeholder="Optional note"
+                            />
+                            <div
+                                v-if="fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks')"
+                                class="invalid-feedback d-block"
+                            >
+                                {{ fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks') }}
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button
-                            v-if="isEdit"
-                            type="button"
-                            class="btn btn-outline-danger me-auto"
-                            :disabled="saving"
-                            @click="removeException"
-                        >
-                            Remove exception
-                        </button>
                         <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
                         <button type="submit" class="btn btn-primary" :disabled="saving">
-                            {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Save Exception' }}
+                            {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Save Attendance' }}
                         </button>
                     </div>
                 </form>
@@ -244,7 +116,6 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { monthlyDayAccrual } from '../../utils/monthlyWage';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
     buildBusySubstituteDriversByDate,
@@ -275,6 +146,7 @@ let bootstrapModal = null;
 const isEdit = computed(() => props.mode === 'edit');
 
 const form = ref(emptyForm());
+const contextError = ref('');
 
 const alternateDrivers = computed(() =>
     props.drivers.filter((driver) => driver.id !== form.value.primary_driver_id),
@@ -331,35 +203,28 @@ function driverLabel(driver) {
     return driver?.is_active === false ? `${name} (Inactive)` : name;
 }
 
-const substituteDriver = computed(() => {
-    if (form.value.exception_type !== 'ABSENT_SUBSTITUTE') {
-        return null;
+const contextSummary = computed(() => {
+    if (!form.value.vehicle_id && !form.value.attendance_date) {
+        return '';
     }
 
-    return props.drivers.find((item) => item.id === form.value.temporary_driver_id) ?? null;
+    const vehicle = props.vehicles.find((item) => item.id === form.value.vehicle_id);
+    const vehicleLabel = vehicle?.registration_number ?? '—';
+    const driver =
+        props.drivers.find((item) => item.id === form.value.primary_driver_id) ??
+        vehicle?.primary_driver ??
+        vehicle?.current_primary_assignment?.driver;
+    const driverLabelText = driver ? driverLabel(driver) : '—';
+    const dateLabel = form.value.attendance_date
+        ? new Date(`${form.value.attendance_date}T12:00:00`).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+          })
+        : '—';
+
+    return `${vehicleLabel} · ${dateLabel} · ${driverLabelText}`;
 });
-
-const monthlyBaseAmount = computed(() => Number(substituteDriver.value?.daily_wage ?? 0));
-
-const dayAccrualAmount = computed(() =>
-    monthlyDayAccrual(monthlyBaseAmount.value, form.value.attendance_date),
-);
-
-const isWagePayable = computed(
-    () => form.value.exception_type === 'ABSENT_SUBSTITUTE' && dayAccrualAmount.value > 0,
-);
-
-const monthlyBaseLabel = computed(() => {
-    if (!substituteDriver.value) {
-        return '—';
-    }
-
-    return monthlyBaseAmount.value > 0 ? `₹ ${monthlyBaseAmount.value.toFixed(2)}` : 'Not set on driver';
-});
-
-const dayAccrualLabel = computed(() =>
-    isWagePayable.value ? `₹ ${dayAccrualAmount.value.toFixed(2)}` : '—',
-);
 
 function emptyForm() {
     return {
@@ -369,15 +234,10 @@ function emptyForm() {
         temporary_driver_id: '',
         temporary_assignment_remarks: '',
         exception_type: 'ABSENT',
-        wage_transfer_notes: '',
     };
 }
 
-function mapRecordToExceptionType(record) {
-    if (record?.status === 'NO_WORK_DAY') {
-        return 'NO_WORK_DAY';
-    }
-
+function mapRecordToAttendanceType(record) {
     if (record?.status === 'ABSENT' && record?.temporary_driver_id) {
         return 'ABSENT_SUBSTITUTE';
     }
@@ -395,8 +255,7 @@ function fillForm(record) {
         primary_driver_id: record?.primary_driver_id ?? '',
         temporary_driver_id: record?.temporary_driver_id ?? '',
         temporary_assignment_remarks: record?.temporary_assignment_remarks ?? '',
-        exception_type: record ? mapRecordToExceptionType(record) : 'ABSENT',
-        wage_transfer_notes: record?.wage_transfer_notes ?? '',
+        exception_type: record ? mapRecordToAttendanceType(record) : 'ABSENT',
     };
 
     if (!isEdit.value && form.value.vehicle_id) {
@@ -429,6 +288,28 @@ function onVehicleChange() {
     applyPrimaryDriverFromVehicle();
 }
 
+function ensureContextFields() {
+    contextError.value = '';
+
+    if (!form.value.vehicle_id || !form.value.attendance_date) {
+        contextError.value = 'Open this form from a truck on the Month View grid.';
+
+        return false;
+    }
+
+    if (!form.value.primary_driver_id) {
+        applyPrimaryDriverFromVehicle();
+    }
+
+    if (!form.value.primary_driver_id) {
+        contextError.value = 'This truck has no primary driver — assign one in Fleet first.';
+
+        return false;
+    }
+
+    return true;
+}
+
 watch(
     () => props.show,
     (visible) => {
@@ -441,6 +322,7 @@ watch(
         }
 
         if (visible) {
+            contextError.value = '';
             fillForm(props.attendance);
             bootstrapModal.show();
         } else {
@@ -475,10 +357,6 @@ function close() {
 }
 
 function buildStatusPayload() {
-    if (form.value.exception_type === 'NO_WORK_DAY') {
-        return { status: 'NO_WORK_DAY', temporary_driver_id: null };
-    }
-
     if (form.value.exception_type === 'ABSENT_SUBSTITUTE') {
         return {
             status: 'ABSENT',
@@ -490,6 +368,20 @@ function buildStatusPayload() {
 }
 
 function submit() {
+    if (!ensureContextFields()) {
+        return;
+    }
+
+    if (isEdit.value && form.value.exception_type === 'BLANK') {
+        if (!window.confirm('Clear this mark? Day will go back to default present (P).')) {
+            return;
+        }
+
+        emit('delete', props.attendance);
+
+        return;
+    }
+
     const statusPayload = buildStatusPayload();
 
     if (
@@ -507,13 +399,8 @@ function submit() {
         status: statusPayload.status,
         marked_via: 'admin_panel',
         temporary_assignment_remarks: form.value.temporary_assignment_remarks || null,
-        wage_transfer_notes: form.value.wage_transfer_notes || null,
         temporary_driver_id: statusPayload.temporary_driver_id,
     });
-}
-
-function removeException() {
-    emit('delete', props.attendance);
 }
 </script>
 
