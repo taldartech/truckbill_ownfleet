@@ -29,19 +29,7 @@
             <div class="app-header-end">
                 <ul class="navbar-nav app-header-actions">
                     <li v-if="showPlanBadges" class="nav-item app-header-plan-badges d-flex align-items-center">
-                        <div class="credits-container">
-                            <div class="credit-pill" title="Plan Expiry">
-                                <i class="bi bi-calendar-event"></i>
-                                <span class="label">Expiry:</span>
-                                <span class="value">{{ planExpiryLabel }}</span>
-                            </div>
-                            <div class="credit-divider"></div>
-                            <div class="credit-pill" title="LR Credits Remaining">
-                                <i class="bi bi-coin"></i>
-                                <span class="label">Credits:</span>
-                                <span class="value">{{ lrCreditsLabel }}</span>
-                            </div>
-                        </div>
+          
                     </li>
 
                     <li
