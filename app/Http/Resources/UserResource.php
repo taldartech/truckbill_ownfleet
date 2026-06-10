@@ -42,7 +42,6 @@ class UserResource extends JsonResource
             'show_plan_badges' => in_array($this->user_role_id, [
                 UserRole::ADMIN,
                 UserRole::MODERATOR,
-                UserRole::ACCOUNTANT,
             ], true) || ($this->userRole?->name === 'super_admin' && $this->canAccessCompanyPanel()),
             'company' => [
                 'id' => $effectiveTenantId,

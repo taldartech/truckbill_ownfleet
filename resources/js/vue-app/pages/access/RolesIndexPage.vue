@@ -43,40 +43,24 @@
                 </table>
             </div>
         </div>
-
-        <RolePermissionsModal
-            modal-id="rolePermissionsModal"
-            :show="showPermissions"
-            :role="editingRole"
-            :can-edit="canManage"
-            :saving="saving"
-            :form-error="permissionsFormError"
-            @close="closePermissions"
-            @submit="handleSyncPermissions"
-        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { listUserRoles, syncRolePermissions } from '../../api/userRoles';
-import RolePermissionsModal from '../../components/access/RolePermissionsModal.vue';
+import { useRouter } from 'vue-router';
+import { listUserRoles } from '../../api/userRoles';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
-import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
+const router = useRouter();
 const { can } = usePermissions();
 const canManage = computed(() => can('roles.manage'));
 
-const { formError: permissionsFormError, clearErrors, applyApiError } = useApiFormErrors();
-
 const roles = ref([]);
 const loading = ref(true);
-const saving = ref(false);
-const showPermissions = ref(false);
-const editingRole = ref(null);
 const flash = reactive({ success: '', error: '' });
 
 function showToast(message, type = 'success') {
@@ -99,37 +83,10 @@ async function loadRoles() {
 }
 
 function openPermissions(role) {
-    editingRole.value = { ...role };
-    clearErrors();
-    showPermissions.value = true;
-}
-
-function closePermissions() {
-    showPermissions.value = false;
-    editingRole.value = null;
-    clearErrors();
-}
-
-async function handleSyncPermissions(permissionIds) {
-    if (!editingRole.value?.id) {
-        return;
-    }
-
-    saving.value = true;
-    clearErrors();
-
-    try {
-        await syncRolePermissions(editingRole.value.id, permissionIds);
-        showToast('Role permissions updated.');
-        closePermissions();
-        await loadRoles();
-    } catch (error) {
-        if (!applyApiError(error, 'Unable to update role permissions.')) {
-            showToast('Unable to update role permissions.', 'error');
-        }
-    } finally {
-        saving.value = false;
-    }
+    router.push({
+        name: 'access.roles.permissions',
+        params: { roleId: role.id },
+    });
 }
 
 onMounted(loadRoles);

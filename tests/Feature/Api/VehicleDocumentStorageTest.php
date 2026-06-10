@@ -28,7 +28,7 @@ class VehicleDocumentStorageTest extends TestCase
 
     public function test_document_file_is_stored_under_tenant_vehicle_path(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
 
         Sanctum::actingAs($user);
@@ -62,7 +62,7 @@ class VehicleDocumentStorageTest extends TestCase
 
     public function test_deleting_document_removes_file_from_disk(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
 
         Sanctum::actingAs($user);

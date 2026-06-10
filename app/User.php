@@ -24,14 +24,6 @@ class User extends Authenticatable
 
     private bool $effectiveTenantIdResolved = false;
 
-    /**
-     * @var array<string, string>
-     */
-    private const ROLE_ALIASES = [
-        'fleet_manager' => 'admin',
-        'driver' => 'customer',
-    ];
-
     protected $fillable = [
         'tenant_id',
         'name',
@@ -144,12 +136,9 @@ class User extends Authenticatable
     public function canActAsAdmin(): bool
     {
         return $this->hasAnyRole([
-            'admin',
-            'super_admin',
             'master_admin',
-            'FLEET_MANAGER',
-            'ADMIN',
-            'SUPER_ADMIN',
+            'super_admin',
+            'admin',
         ]);
     }
 
@@ -178,7 +167,6 @@ class User extends Authenticatable
         if (in_array($this->user_role_id, [
             UserRole::ADMIN,
             UserRole::MODERATOR,
-            UserRole::ACCOUNTANT,
         ], true)) {
             return true;
         }
@@ -199,10 +187,7 @@ class User extends Authenticatable
             return false;
         }
 
-        $normalized = self::normalizeRoleName($role);
-        $expected = self::ROLE_ALIASES[$normalized] ?? $normalized;
-
-        return $current === $expected;
+        return $current === self::normalizeRoleName($role);
     }
 
     private static function normalizeRoleName(string $role): string

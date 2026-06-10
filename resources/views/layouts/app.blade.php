@@ -1063,8 +1063,8 @@
 
                         @endif
 
-                        {{-- Reports Section - admin, accountant, moderator, or super_admin in company context --}}
-                        @if (auth()->check() && (in_array(auth()->user()->userRole->name, ['accountant', 'admin', 'moderator']) || (auth()->user()->userRole->name === 'super_admin' && auth()->user()->canAccessCompanyPanel())))
+                        {{-- Reports Section - admin, moderator, or super_admin in company context --}}
+                        @if (auth()->check() && (in_array(auth()->user()->userRole->name, ['admin', 'moderator']) || (auth()->user()->userRole->name === 'super_admin' && auth()->user()->canAccessCompanyPanel())))
                             <li class="nav-item">
                                 <a class="nav-link{{ Request::is('reports*') ? ' active' : '' }}" href="#reportsMenu"
                                     data-lte-toggle="collapse">

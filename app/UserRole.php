@@ -2,6 +2,7 @@
 
 namespace App;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,12 +17,6 @@ class UserRole extends Model
 
     public const MODERATOR = 4;
 
-    public const ACCOUNTANT = 5;
-
-    public const TRANSPORTER = 6;
-
-    public const CUSTOMER = 7;
-
     /**
      * @var array<int, string>
      */
@@ -30,9 +25,6 @@ class UserRole extends Model
         self::SUPER_ADMIN => 'super_admin',
         self::ADMIN => 'admin',
         self::MODERATOR => 'moderator',
-        self::ACCOUNTANT => 'accountant',
-        self::TRANSPORTER => 'transporter',
-        self::CUSTOMER => 'customer',
     ];
 
     protected $fillable = [
@@ -49,24 +41,24 @@ class UserRole extends Model
         return $this->belongsToMany(Permission::class, 'permission_user_role');
     }
 
-    /**
-     * @var array<string, int>
-     */
-    private const ALIASES = [
-        'fleet_manager' => self::ADMIN,
-        'driver' => self::CUSTOMER,
-    ];
-
     public static function idFor(string $name): ?int
     {
         $normalized = strtolower(str_replace('-', '_', $name));
-
-        if (isset(self::ALIASES[$normalized])) {
-            return self::ALIASES[$normalized];
-        }
-
         $flipped = array_flip(self::NAMES);
 
         return $flipped[$normalized] ?? null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function systemRoleIds(): array
+    {
+        return array_keys(self::NAMES);
+    }
+
+    public function scopeSystemRoles(Builder $query): void
+    {
+        $query->whereIn('id', self::systemRoleIds());
     }
 }

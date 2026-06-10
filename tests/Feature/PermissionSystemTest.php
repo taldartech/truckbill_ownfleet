@@ -45,7 +45,7 @@ class PermissionSystemTest extends TestCase
         $this->assertTrue(Gate::forUser($user)->allows('create', \App\Driver::class));
     }
 
-    public function test_accountant_cannot_manage_drivers(): void
+    public function test_moderator_cannot_manage_drivers(): void
     {
         $tenant = Tenant::query()->create([
             'name' => 'Acct Tenant',
@@ -59,7 +59,7 @@ class PermissionSystemTest extends TestCase
             'name' => 'Accountant',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
-            'user_role_id' => UserRole::ACCOUNTANT,
+            'user_role_id' => UserRole::MODERATOR,
         ]);
 
         $user->load('userRole.permissions');

@@ -53,9 +53,9 @@ class DriverManagementModuleTest extends TestCase
         ]);
     }
 
-    public function test_fleet_manager_can_create_driver_with_uuid_and_tenant_scope(): void
+    public function test_admin_can_create_driver_with_uuid_and_tenant_scope(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         Sanctum::actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -83,7 +83,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_driver_index_supports_pagination_and_search(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         Sanctum::actingAs($user);
 
         $this->createDriver($tenant, 'Alpha Driver', 800);
@@ -111,8 +111,8 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_tenant_isolation_blocks_cross_tenant_driver_access(): void
     {
-        [$tenantA, $userA] = $this->createTenantUser('FLEET_MANAGER');
-        [$tenantB] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenantA, $userA] = $this->createTenantUser('admin');
+        [$tenantB] = $this->createTenantUser('admin');
 
         $driverB = Driver::query()->create([
             'tenant_id' => $tenantB->id,
@@ -132,7 +132,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_attendance_marking_sets_wage_owner_driver_and_wage_amount(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary Driver', 950.00);
         $substitute = $this->createDriver($tenant, 'Substitute Driver', 900.00);
@@ -164,7 +164,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_license_expiring_endpoint_returns_drivers_within_days_filter(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('admin');
         Sanctum::actingAs($user);
 
         $expiringSoon = $this->createDriver($tenant, 'Soon Expiring', 800, now()->addDays(10)->toDateString());
@@ -193,7 +193,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_driver_deactivation_closes_open_primary_assignments(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $driver = $this->createDriver($tenant, 'Driver Leaving', 900);
         $vehicle = $this->createVehicle($tenant);
 
@@ -222,7 +222,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_primary_driver_can_be_replaced_on_same_effective_date(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driverA = $this->createDriver($tenant, 'Driver A', 600);
         $driverB = $this->createDriver($tenant, 'Driver B', 650);
@@ -264,7 +264,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_vehicle_primary_driver_can_be_removed(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Assigned Driver', 700);
 
@@ -290,7 +290,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_primary_assignment_endpoint_returns_active_driver(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Active Driver', 700);
 
@@ -313,7 +313,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_primary_assignment_endpoint_returns_empty_when_driver_removed(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Removed Driver', 700);
 
@@ -344,7 +344,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_new_primary_assignment_cancels_scheduled_future_assignments_on_same_truck(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $currentDriver = $this->createDriver($tenant, 'Current Driver', 600);
         $newDriver = $this->createDriver($tenant, 'New Driver', 650);
@@ -379,7 +379,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_remove_primary_driver_fails_when_truck_has_no_assignment(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
 
         Sanctum::actingAs($user);

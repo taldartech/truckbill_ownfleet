@@ -182,7 +182,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_profitability_report_returns_calculated_rows(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('accountant');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
         Sanctum::actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 

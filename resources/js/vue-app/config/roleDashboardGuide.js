@@ -37,25 +37,4 @@ export const ROLE_DASHBOARD_GUIDE = [
         dashboard_view: true,
         screen: 'Full KPI dashboard',
     },
-    {
-        role: 'accountant',
-        tenant_id: 'fixed UUID',
-        effective_tenant_id: 'same as tenant_id',
-        dashboard_view: true,
-        screen: 'Full KPI dashboard',
-    },
-    {
-        role: 'transporter',
-        tenant_id: 'fixed UUID',
-        effective_tenant_id: 'same as tenant_id',
-        dashboard_view: false,
-        screen: 'Lottie placeholder — no dashboard.view',
-    },
-    {
-        role: 'customer',
-        tenant_id: 'fixed UUID',
-        effective_tenant_id: 'same as tenant_id',
-        dashboard_view: false,
-        screen: 'Lottie placeholder — no dashboard.view',
-    },
 ];

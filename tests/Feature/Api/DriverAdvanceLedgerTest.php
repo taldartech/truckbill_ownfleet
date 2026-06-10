@@ -162,7 +162,7 @@ class DriverAdvanceLedgerTest extends TestCase
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
-            'user_role_id' => UserRole::idFor('FLEET_MANAGER') ?? UserRole::ADMIN,
+            'user_role_id' => UserRole::ADMIN,
         ]);
 
         $driver = Driver::query()->create([
@@ -194,7 +194,7 @@ class DriverAdvanceLedgerTest extends TestCase
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
-            'user_role_id' => UserRole::idFor('FLEET_MANAGER') ?? UserRole::ADMIN,
+            'user_role_id' => UserRole::ADMIN,
         ]);
 
         $vehicle = Vehicle::query()->create([

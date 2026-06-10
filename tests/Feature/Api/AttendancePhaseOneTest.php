@@ -28,7 +28,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_attendance_auto_sets_wage_for_present_driver(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Primary Driver', 950.00);
         $month = now()->subMonth()->startOfMonth();
@@ -58,7 +58,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_attendance_uses_primary_driver_from_active_assignment_when_not_sent(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Assigned Driver', 980.00);
 
@@ -82,7 +82,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_absent_with_alternate_driver_credits_primary_and_records_substitute_payment(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary Driver', 800.00);
         $alternate = $this->createDriver($tenant, 'Alternate Driver', 700.00);
@@ -108,7 +108,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_cannot_mark_wage_paid_when_no_wage_is_due(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Driver', 500.00);
 
@@ -131,9 +131,9 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonValidationErrors(['wage_amount']);
     }
 
-    public function test_accountant_can_mark_wage_paid_but_not_create_attendance(): void
+    public function test_moderator_cannot_create_attendance_or_mark_wage_paid(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('moderator');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Driver', 500.00);
 
@@ -163,18 +163,12 @@ class AttendancePhaseOneTest extends TestCase
             ->postJson("/api/attendances/{$attendance->id}/mark-wage-paid", [
                 'wage_transfer_notes' => 'Paid in cash to primary driver',
             ])
-            ->assertOk()
-            ->assertJsonPath('data.wage_payment_status', 'paid');
-
-        $this->assertDatabaseHas('attendances', [
-            'id' => $attendance->id,
-            'wage_payment_status' => 'paid',
-        ]);
+            ->assertForbidden();
     }
 
     public function test_driver_master_stores_extended_fields(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
 
         Sanctum::actingAs($user);
 
@@ -204,7 +198,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_primary_assignment_closes_previous_open_assignment(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driverA = $this->createDriver($tenant, 'Driver A', 600);
         $driverB = $this->createDriver($tenant, 'Driver B', 650);
@@ -235,7 +229,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_driver_cannot_be_primary_on_two_trucks_for_same_period(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicleA = $this->createVehicle($tenant);
         $vehicleB = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Single Shift Driver', 700);
@@ -264,7 +258,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_truck_replaces_existing_primary_driver_without_overlap_error(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driverA = $this->createDriver($tenant, 'Driver One', 650);
         $driverB = $this->createDriver($tenant, 'Driver Two', 700);
@@ -297,7 +291,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_alternate_driver_is_only_for_that_day_and_primary_continues_next_day(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary Driver', 900);
         $alternate = $this->createDriver($tenant, 'Alternate Driver', 800);
@@ -337,7 +331,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_month_overview_returns_grouped_lightweight_payload(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Overview Driver', 900.00);
 
@@ -368,7 +362,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_month_overview_is_available_on_app_api_prefix(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'App Api Driver', 500.00);
 
@@ -392,7 +386,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_close_month_creates_monthly_wage_summary_from_attendance(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Monthly Driver', 1000.00);
 
@@ -442,7 +436,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_close_month_credits_primary_for_substitute_days_and_records_substitute_reference(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $primary = $this->createDriver($tenant, 'Primary For Month', 1000);
         $alternate = $this->createDriver($tenant, 'Alternate For Month', 900);
@@ -501,7 +495,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_mark_monthly_wage_paid_updates_monthly_and_daily_status(): void
     {
-        [$tenant, $user] = $this->createTenantUser('ACCOUNTANT');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Pay Monthly', 900.00);
 
@@ -550,7 +544,7 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_attendance_index_supports_pagination_and_filters(): void
     {
-        [$tenant, $user] = $this->createTenantUser('FLEET_MANAGER');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicleA = $this->createVehicle($tenant);
         $vehicleB = $this->createVehicle($tenant);
         $driverA = $this->createDriver($tenant, 'Driver A', 700.00);

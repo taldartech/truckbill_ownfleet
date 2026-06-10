@@ -114,9 +114,9 @@ class PhaseOneCloseTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_accountant_can_export_attendance_report_csv(): void
+    public function test_admin_can_export_attendance_report_csv(): void
     {
-        [$tenant, $user] = $this->createTenantUser('accountant');
+        [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Export Driver', 700);
 

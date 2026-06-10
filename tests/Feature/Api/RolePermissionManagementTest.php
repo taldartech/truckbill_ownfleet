@@ -29,6 +29,10 @@ class RolePermissionManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonFragment(['name' => 'admin']);
+        $response->assertJsonCount(4, 'data');
+        $response->assertJsonMissing(['name' => 'accountant']);
+        $response->assertJsonMissing(['name' => 'transporter']);
+        $response->assertJsonMissing(['name' => 'customer']);
 
         $this->actingAs($master)
             ->putJson('/app/api/user-roles/99999/permissions', [
@@ -112,7 +116,7 @@ class RolePermissionManagementTest extends TestCase
         $response->assertNotFound();
     }
 
-    public function test_accountant_cannot_access_role_api(): void
+    public function test_moderator_cannot_access_role_api(): void
     {
         $tenant = Tenant::query()->create([
             'name' => 'RBAC Tenant',
@@ -126,7 +130,7 @@ class RolePermissionManagementTest extends TestCase
             'name' => 'Accountant',
             'email' => 'acct-rbac@example.com',
             'password' => 'password',
-            'user_role_id' => UserRole::ACCOUNTANT,
+            'user_role_id' => UserRole::MODERATOR,
         ]);
 
         $this->actingAs($user)

@@ -20,9 +20,6 @@ class RoleHierarchy
             UserRole::SUPER_ADMIN => [
                 UserRole::ADMIN,
                 UserRole::MODERATOR,
-                UserRole::ACCOUNTANT,
-                UserRole::TRANSPORTER,
-                UserRole::CUSTOMER,
             ],
             default => [],
         };

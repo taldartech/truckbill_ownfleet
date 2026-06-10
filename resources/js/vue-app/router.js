@@ -162,6 +162,12 @@ const router = createRouter({
                     meta: { allowWithoutTenant: true, permission: 'roles.view' },
                 },
                 {
+                    path: 'access/roles/:roleId/permissions',
+                    name: 'access.roles.permissions',
+                    component: () => import('./pages/access/RolePermissionsPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'roles.view' },
+                },
+                {
                     path: 'access/permissions',
                     name: 'access.permissions',
                     component: () => import('./pages/access/PermissionsIndexPage.vue'),

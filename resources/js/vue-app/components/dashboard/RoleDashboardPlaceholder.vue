@@ -83,9 +83,6 @@ const roleLabels = {
     super_admin: 'Super Admin',
     admin: 'Admin',
     moderator: 'Moderator',
-    accountant: 'Accountant',
-    transporter: 'Transporter',
-    customer: 'Customer',
 };
 
 const roleLabel = computed(() => roleLabels[props.role] ?? 'Your');

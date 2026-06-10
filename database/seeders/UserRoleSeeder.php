@@ -15,5 +15,9 @@ class UserRoleSeeder extends Seeder
                 ['name' => $name],
             );
         }
+
+        UserRole::query()
+            ->whereNotIn('id', UserRole::systemRoleIds())
+            ->delete();
     }
 }
