@@ -45,6 +45,7 @@ class UpdateTyreRequest extends FormRequest
             'tyre_type' => ['sometimes', 'nullable', Rule::enum(TyreType::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'expected_life_km' => ['sometimes', 'nullable', 'numeric', 'min:1000'],
+            'current_km' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }
 }

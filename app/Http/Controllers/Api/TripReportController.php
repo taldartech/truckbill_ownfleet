@@ -18,63 +18,42 @@ class TripReportController extends Controller
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->profitability($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->profitability($filters));
     }
 
     public function vehicleWise(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->vehicleWise($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->vehicleWise($filters));
     }
 
     public function driverWise(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->driverWise($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->driverWise($filters));
     }
 
     public function emptyKm(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->emptyKm($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->emptyKm($filters));
     }
 
     public function expenseSummary(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->expenseSummary($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->expenseSummary($filters));
     }
 
     public function routeProfitability(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
 
-        return response()->json([
-            'data' => $this->tripReportService->routeProfitability($this->filters($request)),
-        ]);
-    }
-
-    public function pendingFreight(Request $request): JsonResponse
-    {
-        $this->authorize('trip_reports.view');
-
-        return response()->json([
-            'data' => $this->tripReportService->pendingFreightCollection($this->filters($request)),
-        ]);
+        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->routeProfitability($filters));
     }
 
     public function export(Request $request): BinaryFileResponse
@@ -90,13 +69,27 @@ class TripReportController extends Controller
             'empty-km' => $this->tripReportService->emptyKm($filters),
             'expense-summary' => $this->tripReportService->expenseSummary($filters),
             'route-profitability' => $this->tripReportService->routeProfitability($filters),
-            'pending-freight' => $this->tripReportService->pendingFreightCollection($filters),
             default => $this->tripReportService->profitability($filters),
         };
 
         $filename = 'trip-report-'.$type.'-'.now()->format('Y-m-d-His').'.xlsx';
 
         return Excel::download(new TripReportExport($rows), $filename);
+    }
+
+    /**
+     * @param  callable(array<string, mixed>): list<array<string, mixed>>  $report
+     */
+    private function reportResponse(Request $request, callable $report): JsonResponse
+    {
+        $filters = $this->filters($request);
+
+        return response()->json([
+            'data' => $report($filters),
+            'summary' => [
+                'trip_count' => $this->tripReportService->filteredTripCount($filters),
+            ],
+        ]);
     }
 
     /**

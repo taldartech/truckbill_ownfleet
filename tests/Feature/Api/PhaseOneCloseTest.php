@@ -9,11 +9,11 @@ use App\Driver;
 use App\DriverAssignment;
 use App\Enums\TripStatus;
 use App\Enums\TyreStatus;
-use App\Tyre;
 use App\Mail\DocumentExpiryReminderMail;
 use App\Support\DocumentAlertNotifier;
 use App\Tenant;
 use App\Trip;
+use App\Tyre;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -331,6 +331,130 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('tyres.installed_count', 1)
             ->assertJsonPath('tyres.damaged_count', 1)
             ->assertJsonPath('tyres.scrapped_count', 0);
+    }
+
+    public function test_dashboard_stats_include_running_trips_list(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Running Driver', 900);
+        $today = now()->toDateString();
+
+        $runningTrip = Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-RUN-1',
+            'status' => TripStatus::InProgress,
+            'start_at' => $today.' 08:00:00',
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-DONE-1',
+            'status' => TripStatus::Completed,
+            'start_at' => $today.' 09:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('trips.running_trips.0.id', $runningTrip->id)
+            ->assertJsonPath('trips.running_trips.0.trip_number', 'TRP-RUN-1')
+            ->assertJsonPath('trips.running_trips.0.vehicle_registration', $vehicle->registration_number)
+            ->assertJsonCount(1, 'trips.running_trips');
+    }
+
+    public function test_dashboard_stats_return_trip_financial_totals_for_selected_period(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Finance Driver', 900);
+        $today = now()->toDateString();
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FIN-1',
+            'status' => TripStatus::Completed,
+            'start_at' => $today.' 08:00:00',
+            'total_freight_amount' => 50000,
+            'total_expense_amount' => 20000,
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FIN-2',
+            'status' => TripStatus::InProgress,
+            'start_at' => $today.' 09:00:00',
+            'total_freight_amount' => 10000,
+            'total_expense_amount' => 5000,
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FIN-3',
+            'status' => TripStatus::Cancelled,
+            'start_at' => $today.' 10:00:00',
+            'total_freight_amount' => 8000,
+            'total_expense_amount' => 3000,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+            ->assertOk()
+            ->assertJsonPath('trips.total_count', 3)
+            ->assertJsonPath('trips.total_freight_amount', 50000)
+            ->assertJsonPath('trips.total_expense_amount', 20000)
+            ->assertJsonPath('trips.profit_amount', 30000);
+    }
+
+    public function test_dashboard_stats_return_tyre_period_totals_for_selected_period(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $today = now()->toDateString();
+
+        $purchasedTyre = Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-PERIOD-1',
+            'status' => TyreStatus::InStock,
+            'purchase_date' => $today,
+            'purchase_cost' => 15000,
+        ]);
+
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-PERIOD-2',
+            'status' => TyreStatus::Scrapped,
+            'purchase_date' => $today,
+            'purchase_cost' => 12000,
+            'scrapped_at' => $today,
+            'scrap_sale_amount' => 2500,
+        ]);
+
+        \App\TyreExpense::query()->create([
+            'tenant_id' => $tenant->id,
+            'tyre_id' => $purchasedTyre->id,
+            'expense_type' => \App\Enums\TyreExpenseType::Repair,
+            'amount' => 1200,
+            'expense_date' => $today,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+            ->assertOk()
+            ->assertJsonPath('tyres.purchased_count', 2)
+            ->assertJsonPath('tyres.purchased_total_cost', 27000)
+            ->assertJsonPath('tyres.expenses_total', 1200)
+            ->assertJsonPath('tyres.period_scrapped_count', 1)
+            ->assertJsonPath('tyres.period_scrapped_recovery_amount', 2500);
     }
 
     public function test_compliance_alerts_list_expired_and_expiring_documents(): void

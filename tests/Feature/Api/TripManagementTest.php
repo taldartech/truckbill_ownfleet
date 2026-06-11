@@ -7,6 +7,7 @@ use App\Driver;
 use App\DriverAssignment;
 use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
+use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
 use App\Support\TenantContext;
@@ -300,21 +301,38 @@ class TripManagementTest extends TestCase
             ->getJson('/api/reports/trips/profitability');
 
         $response->assertOk();
-        $response->assertJsonStructure(['data' => [['s_no', 'trip_number', 'profit_amount']]]);
+        $response->assertJsonStructure([
+            'data' => [['s_no', 'trip_number', 'profit_amount']],
+            'summary' => ['trip_count'],
+        ]);
+        $response->assertJsonPath('summary.trip_count', 1);
     }
 
-    public function test_pending_freight_report_lists_unpaid_loaded_legs(): void
+    public function test_vehicle_wise_trip_report_includes_trip_count(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
         Sanctum::actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/reports/trips/pending-freight');
+            ->getJson('/api/reports/trips/vehicle-wise');
 
         $response->assertOk();
-        $response->assertJsonStructure(['data' => [['s_no', 'trip_number', 'freight_amount', 'advance_received', 'balance_amount']]]);
-        $response->assertJsonFragment(['advance_received' => 5000, 'balance_amount' => 13000]);
+        $response->assertJsonPath('data.0.trip_count', 1);
+        $response->assertJsonPath('summary.trip_count', 1);
+    }
+
+    public function test_expense_summary_report_includes_trip_count(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        Sanctum::actingAs($user);
+        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/reports/trips/expense-summary');
+
+        $response->assertOk();
+        $response->assertJsonStructure(['data' => [['trip_count', 'entry_count', 'total_amount']]]);
     }
 
     public function test_trip_report_export_returns_excel_for_selected_filters(): void
@@ -782,6 +800,49 @@ class TripManagementTest extends TestCase
             ]);
 
         $response->assertCreated();
+    }
+
+    public function test_admin_can_soft_delete_created_trip_and_records_deleted_by(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson('/api/trips/'.$trip->id)
+            ->assertNoContent();
+
+        $this->assertNull(Trip::query()->find($trip->id));
+
+        $deletedTrip = Trip::query()->withTrashed()->find($trip->id);
+
+        $this->assertNotNull($deletedTrip);
+        $this->assertNotNull($deletedTrip->deleted_at);
+        $this->assertSame($user->id, $deletedTrip->deleted_by);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $trip->id]);
+    }
+
+    public function test_admin_cannot_delete_completed_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['status' => TripStatus::Completed->value]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson('/api/trips/'.$trip->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['trip']);
+
+        $this->assertNotNull(Trip::query()->find($trip->id));
     }
 
     /**

@@ -8,9 +8,11 @@ use App\Driver;
 use App\DriverAssignment;
 use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
+use App\Enums\TyrePosition;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
 use App\Support\TenantContext;
+use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\Trip;
 use App\User;
@@ -70,6 +72,48 @@ class FleetMonthlyReportTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get('/api/reports/fleet-monthly/export?month=2026-06')
             ->assertForbidden();
+    }
+
+    public function test_monthly_fleet_report_includes_tyres_used_and_expense_for_truck(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        TyreLayoutDefaults::seedForTenant($tenant->id);
+        Sanctum::actingAs($user);
+
+        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/tyres', [
+                'serial_number' => 'TYRE-FLEET-1',
+                'purchase_date' => '2026-06-05',
+                'purchase_cost' => 18000,
+            ]);
+
+        $tyreId = $create->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-06-08',
+                'km_at_installation' => 1000,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/retread", [
+                'vendor' => 'MRF Vendor',
+                'cost' => 2500,
+                'retread_date' => '2026-06-20',
+            ])
+            ->assertCreated();
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/reports/fleet-monthly?month=2026-06');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.rows.0.tyres_used', 1);
+        $response->assertJsonPath('data.rows.0.tyre_expense', 20500);
+        $response->assertJsonPath('data.summary.total_tyres_used', 1);
+        $response->assertJsonPath('data.summary.tyre_bill', 20500);
     }
 
     public function test_month_parameter_is_required(): void

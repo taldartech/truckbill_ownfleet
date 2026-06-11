@@ -213,9 +213,18 @@
                                     type="number"
                                     min="0"
                                     class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.current_km }"
                                     placeholder="0"
                                 />
-                                <div class="form-text">0 = new tyre. Enter prior KM for used tyres.</div>
+                                <div v-if="fieldErrors.current_km" class="invalid-feedback d-block">
+                                    {{ fieldErrors.current_km[0] }}
+                                </div>
+                                <div v-else class="form-text">
+                                    0 = new tyre. Prior KM before this fleet, or fix a wrong entry at create time.
+                                    <span v-if="editing && minimumRecordedKm > 0">
+                                        Minimum {{ minimumRecordedKm }} km (already run on trucks).
+                                    </span>
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Warranty Valid Until</label>
@@ -244,9 +253,7 @@
                                     {{ fieldErrors.warranty_km[0] }}
                                 </div>
                             </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <div class="form-text pb-2">Date and KM limit for warranty coverage.</div>
-                            </div>
+                            
                             <div class="col-12">
                                 <label class="form-label">Warranty Notes</label>
                                 <textarea
@@ -285,7 +292,7 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
-import { createTyre, listTyres, updateTyre } from '../../api/tyres';
+import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
 import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -358,6 +365,8 @@ const filtersActive = computed(
     () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
 );
 
+const minimumRecordedKm = computed(() => Number(editing.value?.minimum_recorded_km ?? 0));
+
 function clearFilters() {
     search.value = '';
     statusFilter.value = '';
@@ -389,7 +398,7 @@ function openCreate() {
     showModal.value = true;
 }
 
-function openEdit(tyre) {
+async function openEdit(tyre) {
     editing.value = tyre;
     clearErrors();
     Object.assign(form, {
@@ -407,6 +416,17 @@ function openEdit(tyre) {
         notes: tyre.notes ?? '',
     });
     showModal.value = true;
+
+    try {
+        const payload = await getTyre(tyre.id);
+        editing.value = {
+            ...tyre,
+            minimum_recorded_km: payload.life_summary?.minimum_current_km ?? 0,
+        };
+        form.current_km = payload.tyre?.current_km ?? form.current_km;
+    } catch {
+        // Keep list values if detail fetch fails.
+    }
 }
 
 function closeModal() {

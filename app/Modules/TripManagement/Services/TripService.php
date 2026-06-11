@@ -244,7 +244,7 @@ class TripService
         });
     }
 
-    public function delete(Trip $trip): void
+    public function delete(Trip $trip, ?string $userId = null): void
     {
         $status = $trip->status instanceof TripStatus
             ? $trip->status
@@ -256,7 +256,7 @@ class TripService
             ]);
         }
 
-        $this->tripRepository->delete($trip);
+        $this->tripRepository->delete($trip, $userId);
     }
 
     /**

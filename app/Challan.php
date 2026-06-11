@@ -7,9 +7,11 @@ use App\Concerns\UsesUuid;
 use App\Enums\ChallanPaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Challan extends Model
 {
+    use SoftDeletes;
     use TenantScoped;
     use UsesUuid;
 
@@ -38,11 +40,11 @@ class Challan extends Model
 
     public function vehicle(): BelongsTo
     {
-        return $this->belongsTo(Vehicle::class);
+        return $this->belongsTo(Vehicle::class)->withTrashed();
     }
 
     public function driver(): BelongsTo
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(Driver::class)->withTrashed();
     }
 }

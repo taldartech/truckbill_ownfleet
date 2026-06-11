@@ -21,7 +21,8 @@ class UpdateTyreStintRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'stint_km' => ['required', 'numeric', 'min:0'],
+            'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
+            'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];
     }
 }

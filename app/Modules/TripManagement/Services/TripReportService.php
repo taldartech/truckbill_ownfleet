@@ -2,8 +2,6 @@
 
 namespace App\Modules\TripManagement\Services;
 
-use App\Enums\FreightPaymentStatus;
-use App\Enums\RouteType;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Trip;
 use App\TripExpense;
@@ -15,6 +13,14 @@ class TripReportService
     private const REPORT_ROW_LIMIT = 500;
 
     public function __construct(private readonly TripRepository $tripRepository) {}
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function filteredTripCount(array $filters = []): int
+    {
+        return $this->tripRepository->filteredQuery($filters)->count();
+    }
 
     /**
      * @param  array<string, mixed>  $filters
@@ -146,6 +152,7 @@ class TripReportService
             ->groupBy(fn (TripExpense $expense) => $expense->expense_type->value ?? (string) $expense->expense_type)
             ->map(fn (Collection $items, string $type): array => [
                 'expense_type' => $type,
+                'trip_count' => $items->pluck('trip_id')->unique()->count(),
                 'entry_count' => $items->count(),
                 'total_amount' => (float) $items->sum('amount'),
             ])
@@ -167,62 +174,24 @@ class TripReportService
 
         $rows = TripRouteLeg::query()
             ->whereIn('trip_id', $tripIds)
-            ->with(['trip.vehicle', 'expenses'])
-            ->orderBy('sequence_no')
+            ->with('expenses')
             ->limit(5000)
             ->get()
-            ->map(function (TripRouteLeg $leg): array {
-                $legExpenses = (float) $leg->expenses->sum('amount');
-                $freight = (float) $leg->freight_amount;
+            ->groupBy(fn (TripRouteLeg $leg): string => $leg->from_location.' → '.$leg->to_location)
+            ->map(function (Collection $legs, string $route): array {
+                $freight = (float) $legs->sum('freight_amount');
+                $legExpenses = (float) $legs->sum(fn (TripRouteLeg $leg): float => (float) $leg->expenses->sum('amount'));
 
                 return [
-                    'trip_number' => $leg->trip?->trip_number,
-                    'vehicle' => $leg->trip?->vehicle?->registration_number,
-                    'sequence_no' => $leg->sequence_no,
-                    'route' => $leg->from_location.' → '.$leg->to_location,
-                    'route_type' => $leg->route_type->value ?? (string) $leg->route_type,
-                    'distance_km' => (float) $leg->distance_km,
-                    'freight_amount' => $freight,
-                    'expense_amount' => $legExpenses,
+                    'route' => $route,
+                    'trip_count' => $legs->pluck('trip_id')->unique()->count(),
+                    'total_distance_km' => (float) $legs->sum('distance_km'),
+                    'total_freight_amount' => $freight,
+                    'total_expense_amount' => $legExpenses,
                     'profit_amount' => $freight - $legExpenses,
                 ];
             })
-            ->all();
-
-        return $this->withSerialNumbers($rows);
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return list<array<string, mixed>>
-     */
-    public function pendingFreightCollection(array $filters = []): array
-    {
-        $tripIds = $this->tripRepository->filteredQuery($filters)
-            ->limit(self::REPORT_ROW_LIMIT)
-            ->pluck('id');
-
-        $rows = TripRouteLeg::query()
-            ->whereIn('trip_id', $tripIds)
-            ->where('route_type', RouteType::Loaded->value)
-            ->whereIn('payment_status', [
-                FreightPaymentStatus::Pending->value,
-                FreightPaymentStatus::Partial->value,
-            ])
-            ->with(['trip.vehicle', 'trip.driver'])
-            ->orderBy('created_at')
-            ->limit(5000)
-            ->get()
-            ->map(fn (TripRouteLeg $leg): array => [
-                'trip_number' => $leg->trip?->trip_number,
-                'vehicle' => $leg->trip?->vehicle?->registration_number,
-                'driver' => $leg->trip?->driver?->name,
-                'customer_name' => $leg->trip?->customer_name,
-                'route' => $leg->from_location.' → '.$leg->to_location,
-                'freight_amount' => (float) $leg->freight_amount,
-                'advance_received' => (float) $leg->advance_received,
-                'balance_amount' => (float) $leg->balance_amount,
-            ])
+            ->values()
             ->all();
 
         return $this->withSerialNumbers($rows);

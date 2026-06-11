@@ -47,24 +47,10 @@ export const adminNavigation = [
         icon: 'bi bi-signpost-split nav-icon',
         children: [
             {
-                label: 'Challans',
-                icon: 'bi bi-receipt',
-                to: '/challans',
-                permission: 'challans.view',
-                requiresTenant: true,
-            },
-            {
                 label: 'Trips',
                 icon: 'bi bi-signpost-split nav-icon',
                 to: '/trips',
                 permission: 'trips.view',
-                requiresTenant: true,
-            },
-            {
-                label: 'Stations',
-                icon: 'bi bi-geo-alt nav-icon',
-                to: '/stations',
-                permission: 'stations.view',
                 requiresTenant: true,
             },
             {
@@ -79,6 +65,20 @@ export const adminNavigation = [
                 icon: 'bi bi-building nav-icon',
                 to: '/customers',
                 permission: 'customers.view',
+                requiresTenant: true,
+            },
+        ],
+    },
+    {
+        label: 'Locations',
+        icon: 'bi bi-geo-alt nav-icon',
+        requiresTenant: true,
+        children: [
+            {
+                label: 'Stations',
+                icon: 'bi bi-geo-alt nav-icon',
+                to: '/stations',
+                permission: 'stations.view',
                 requiresTenant: true,
             },
             {

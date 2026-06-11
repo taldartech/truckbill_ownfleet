@@ -11,6 +11,8 @@ use App\Tenant;
 use App\Trip;
 use App\TripExpense;
 use App\TyreExpense;
+use App\TyreInstallation;
+use App\TyreReplacement;
 use App\Vehicle;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +36,7 @@ class FleetMonthlyReportService
         $tripStats = $this->tripStatsByVehicle($monthStart, $monthEnd);
         $dieselLitersByVehicle = $this->dieselLitersByVehicle($monthStart, $monthEnd);
         $tyreExpenseByVehicle = $this->tyreExpenseByVehicle($monthStart, $monthEnd);
+        $tyresUsedByVehicle = $this->tyresUsedByVehicle($monthStart, $monthEnd);
         $driverByVehicle = $this->primaryDriversByVehicle($asOfDate);
 
         $rows = [];
@@ -42,6 +45,7 @@ class FleetMonthlyReportService
         $totals = [
             'total_bill' => 0.0,
             'total_saving' => 0.0,
+            'total_tyres_used' => 0,
         ];
 
         Vehicle::query()
@@ -54,6 +58,7 @@ class FleetMonthlyReportService
                 $tripStats,
                 $dieselLitersByVehicle,
                 $tyreExpenseByVehicle,
+                $tyresUsedByVehicle,
                 $driverByVehicle,
             ): void {
                 $serial++;
@@ -63,12 +68,14 @@ class FleetMonthlyReportService
                 $totalFreight = (float) ($stats->total_freight ?? 0);
                 $totalExpense = (float) ($stats->total_expense ?? 0);
                 $dieselLiters = (float) ($dieselLitersByVehicle->get($vehicle->id)?->diesel_liters ?? 0);
+                $tyresUsed = (int) ($tyresUsedByVehicle->get($vehicle->id)?->tyres_used ?? 0);
                 $tyreExpense = (float) ($tyreExpenseByVehicle->get($vehicle->id)?->tyre_expense ?? 0);
                 $saving = round($totalFreight - $totalExpense, 2);
                 $average = $dieselLiters > 0 ? round($totalKm / $dieselLiters, 2) : 0.0;
 
                 $totals['total_bill'] += $totalFreight;
                 $totals['total_saving'] += $saving;
+                $totals['total_tyres_used'] += $tyresUsed;
 
                 $rows[] = [
                     's_no' => $serial,
@@ -79,6 +86,7 @@ class FleetMonthlyReportService
                     'diesel_liters' => round($dieselLiters, 2),
                     'average_km_per_liter' => $average,
                     'total_expense' => round($totalExpense, 2),
+                    'tyres_used' => $tyresUsed,
                     'tyre_expense' => round($tyreExpense, 2),
                     'saving' => $saving,
                 ];
@@ -100,6 +108,7 @@ class FleetMonthlyReportService
                 'challan_rto' => round($challanRto, 2),
                 'total_saving' => $totalSaving,
                 'tyre_bill' => round($tyreBill, 2),
+                'total_tyres_used' => $totals['total_tyres_used'],
                 'net_saving' => $netSaving,
             ],
         ];
@@ -122,6 +131,7 @@ class FleetMonthlyReportService
             'diesel_liters' => '',
             'average_km_per_liter' => '',
             'total_expense' => '',
+            'tyres_used' => '',
             'tyre_expense' => '',
             'saving' => '',
         ];
@@ -137,6 +147,7 @@ class FleetMonthlyReportService
             'diesel_liters' => 'Challan RTO',
             'average_km_per_liter' => $summary['challan_rto'],
             'total_expense' => 'Total Saving',
+            'tyres_used' => $summary['total_tyres_used'],
             'tyre_expense' => $summary['total_saving'],
             'saving' => 'Tyre Bill',
         ];
@@ -150,6 +161,7 @@ class FleetMonthlyReportService
             'diesel_liters' => '',
             'average_km_per_liter' => '',
             'total_expense' => $summary['tyre_bill'],
+            'tyres_used' => $summary['total_tyres_used'],
             'tyre_expense' => 'Net Saving',
             'saving' => $summary['net_saving'],
         ];
@@ -216,24 +228,78 @@ class FleetMonthlyReportService
      */
     private function tyreExpenseByVehicle(Carbon $monthStart, Carbon $monthEnd): \Illuminate\Support\Collection
     {
-        return TyreExpense::query()
-            ->join('tyre_installations', function ($join): void {
-                $join->on('tyre_installations.tyre_id', '=', 'tyre_expenses.tyre_id')
-                    ->whereColumn('tyre_installations.installed_at', '<=', 'tyre_expenses.expense_date')
-                    ->where(function ($query): void {
-                        $query->whereNull('tyre_installations.removed_at')
-                            ->orWhereColumn('tyre_installations.removed_at', '>', 'tyre_expenses.expense_date');
-                    });
-            })
-            ->whereDate('tyre_expenses.expense_date', '>=', $monthStart->toDateString())
-            ->whereDate('tyre_expenses.expense_date', '<=', $monthEnd->toDateString())
-            ->groupBy('tyre_installations.vehicle_id')
+        $monthStartDate = $monthStart->toDateString();
+        $monthEndDate = $monthEnd->toDateString();
+
+        return DB::table(DB::raw('(
+            SELECT DISTINCT
+                tyre_expenses.id,
+                tyre_expenses.amount,
+                tyre_installations.vehicle_id
+            FROM tyre_expenses
+            INNER JOIN tyre_installations ON tyre_installations.tyre_id = tyre_expenses.tyre_id
+            WHERE tyre_expenses.expense_date >= ?
+              AND tyre_expenses.expense_date <= ?
+              AND (
+                (
+                    tyre_installations.installed_at <= tyre_expenses.expense_date
+                    AND (
+                        tyre_installations.removed_at IS NULL
+                        OR tyre_installations.removed_at > tyre_expenses.expense_date
+                    )
+                )
+                OR tyre_installations.installed_at BETWEEN ? AND ?
+              )
+        ) as attributed_tyre_expenses'))
+            ->setBindings([$monthStartDate, $monthEndDate, $monthStartDate, $monthEndDate])
+            ->groupBy('vehicle_id')
             ->select([
-                'tyre_installations.vehicle_id',
-                DB::raw('COALESCE(SUM(tyre_expenses.amount), 0) as tyre_expense'),
+                'vehicle_id',
+                DB::raw('COALESCE(SUM(amount), 0) as tyre_expense'),
             ])
             ->get()
             ->keyBy('vehicle_id');
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<string, object{vehicle_id: string, tyres_used: int|string}>
+     */
+    private function tyresUsedByVehicle(Carbon $monthStart, Carbon $monthEnd): \Illuminate\Support\Collection
+    {
+        $monthStartDate = $monthStart->toDateString();
+        $monthEndDate = $monthEnd->toDateString();
+
+        $installations = TyreInstallation::query()
+            ->whereDate('installed_at', '>=', $monthStartDate)
+            ->whereDate('installed_at', '<=', $monthEndDate)
+            ->groupBy('vehicle_id')
+            ->select([
+                'vehicle_id',
+                DB::raw('COUNT(*) as tyres_used'),
+            ])
+            ->pluck('tyres_used', 'vehicle_id');
+
+        $removeOnlyReplacements = TyreReplacement::query()
+            ->whereNull('new_tyre_id')
+            ->whereDate('replaced_at', '>=', $monthStartDate)
+            ->whereDate('replaced_at', '<=', $monthEndDate)
+            ->groupBy('vehicle_id')
+            ->select([
+                'vehicle_id',
+                DB::raw('COUNT(*) as tyres_used'),
+            ])
+            ->pluck('tyres_used', 'vehicle_id');
+
+        $vehicleIds = $installations->keys()->merge($removeOnlyReplacements->keys())->unique();
+
+        return $vehicleIds->mapWithKeys(function (string $vehicleId) use ($installations, $removeOnlyReplacements): array {
+            $count = (int) ($installations->get($vehicleId) ?? 0) + (int) ($removeOnlyReplacements->get($vehicleId) ?? 0);
+
+            return [$vehicleId => (object) [
+                'vehicle_id' => $vehicleId,
+                'tyres_used' => $count,
+            ]];
+        });
     }
 
     /**

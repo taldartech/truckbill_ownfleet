@@ -143,11 +143,14 @@
                                     Since {{ tyre.active_installation.installed_at }}
                                 </div>
                                 <div class="small mt-1">
-                                    KM on truck: <strong>{{ tyre.active_installation.stint_km ?? 0 }}</strong>
+                                    Odometer at install: <strong>{{ tyre.active_installation.km_at_installation ?? 0 }}</strong> km
+                                </div>
+                                <div class="small">
+                                    KM on truck: <strong>{{ lifeSummary?.active_stint_km ?? tyre.active_installation.stint_km ?? 0 }}</strong> km
                                 </div>
                                 <div v-if="canManage" class="d-flex flex-wrap gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-primary" @click="openUpdateKm">
-                                        Update KM
+                                        Update odometer
                                     </button>
                                     <button type="button" class="btn btn-sm btn-warning" @click="openRemove">
                                         Remove from truck
@@ -267,6 +270,19 @@
                 <label class="form-label">Installation Date</label>
                 <input v-model="actionForm.installed_at" type="date" class="form-control" required />
             </div>
+            <div class="mb-2">
+                <label class="form-label">Odometer at install (km)</label>
+                <input
+                    v-model.number="actionForm.km_at_installation"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    required
+                />
+                <div class="form-text">Truck odometer when this tyre is fitted. Stint KM is calculated from this reading.</div>
+            </div>
         </TyreActionModal>
 
         <TyreActionModal
@@ -293,16 +309,23 @@
                 <input v-model="actionForm.replaced_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">KM on truck *</label>
+                <label class="form-label">Current truck odometer (km) *</label>
                 <input
-                    v-model.number="actionForm.stint_km"
+                    v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
                     type="number"
                     min="0"
+                    step="0.01"
                     class="form-control"
                     required
                     @input="loadReplacePreview"
                 />
+            </div>
+            <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
+                KM on truck: <strong>{{ calculatedStintKm }} km</strong>
+                <span v-if="lifeSummary">
+                    · Life used about <strong>{{ previewLifePercent(calculatedStintKm) }}%</strong>
+                </span>
             </div>
             <div class="mb-2">
                 <label class="form-label">Reason</label>
@@ -351,22 +374,28 @@
                 {{ selectedRotateTarget.label }}.
             </div>
             <div class="row g-2 mb-2">
-                <div class="col-md-4">
-                    <label class="form-label">KM on truck *</label>
+                <div class="col-md-6">
+                    <label class="form-label">Current truck odometer (km) *</label>
                     <input
-                        v-model.number="actionForm.stint_km"
+                        v-model.number="actionForm.odometer_km"
                         v-no-scroll-change
                         type="number"
                         min="0"
+                        step="0.01"
                         class="form-control"
                         required
                     />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <label class="form-label">Rotation Date</label>
                     <input v-model="actionForm.rotation_date" type="date" class="form-control" required />
                 </div>
-                <div class="col-md-4">
+            </div>
+            <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
+                KM on truck: <strong>{{ calculatedStintKm }} km</strong>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
                     <label class="form-label">Rotation Cost (₹) *</label>
                     <input
                         v-model.number="actionForm.rotation_cost"
@@ -424,16 +453,20 @@
                 <input v-model="actionForm.removed_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">KM on truck *</label>
+                <label class="form-label">Current truck odometer (km) *</label>
                 <input
-                    v-model.number="actionForm.stint_km"
+                    v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
                     type="number"
                     min="0"
+                    step="0.01"
                     class="form-control"
                     required
                     @input="loadRemovePreview"
                 />
+            </div>
+            <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
+                KM on truck: <strong>{{ calculatedStintKm }} km</strong>
             </div>
             <div v-if="removePreview" class="alert py-2 small" :class="removePreview.level === 'warning' ? 'alert-warning' : 'alert-info'">
                 {{ removePreview.message }}
@@ -442,27 +475,29 @@
 
         <TyreActionModal
             v-if="showUpdateKm"
-            title="Update KM on Truck"
+            title="Update from Odometer"
             :form-error="formError"
             :saving="actionSaving"
             @close="closeUpdateKm"
             @submit="submitUpdateKm"
         >
             <div class="mb-2">
-                <label class="form-label">KM on truck *</label>
+                <label class="form-label">Current truck odometer (km) *</label>
                 <input
-                    v-model.number="actionForm.stint_km"
+                    v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
                     type="number"
                     min="0"
+                    step="0.01"
                     class="form-control"
                     required
                 />
             </div>
-            <div v-if="lifeSummary" class="alert alert-info small py-2 mb-0">
-                Life will update to about
-                <strong>{{ previewLifePercent(actionForm.stint_km) }}%</strong>
-                after saving.
+            <div v-if="calculatedStintKm != null" class="alert alert-info small py-2 mb-0">
+                KM on truck: <strong>{{ calculatedStintKm }} km</strong>
+                <span v-if="lifeSummary">
+                    · Life used about <strong>{{ previewLifePercent(calculatedStintKm) }}%</strong>
+                </span>
             </div>
         </TyreActionModal>
 
@@ -571,6 +606,7 @@ import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
 import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
+import { calculateTyreStintKm, resolveVehicleOdometer } from '../../utils/tyreStint';
 import {
     formatDamageType,
     formatTyreStatus,
@@ -658,6 +694,37 @@ const installLifeLabel = computed(() => {
     return stockKm > 0 ? 'Used tyre' : 'New tyre';
 });
 
+const activeKmAtInstallation = computed(() => {
+    const active = tyre.value?.active_installation;
+
+    return active?.km_at_installation ?? 0;
+});
+
+const calculatedStintKm = computed(() => {
+    const odometer = actionForm.odometer_km;
+
+    if (odometer === '' || odometer == null || Number.isNaN(Number(odometer))) {
+        return null;
+    }
+
+    return calculateTyreStintKm(activeKmAtInstallation.value, odometer);
+});
+
+function prefillActiveVehicleOdometer() {
+    const active = tyre.value?.active_installation;
+    if (!active) {
+        return;
+    }
+
+    actionForm.odometer_km =
+        active.vehicle_odometer_km ??
+        resolveVehicleOdometer(vehicles.value, active.vehicle_id);
+}
+
+function prefillInstallOdometer(vehicleId) {
+    actionForm.km_at_installation = resolveVehicleOdometer(vehicles.value, vehicleId);
+}
+
 function todayIsoDate() {
     return new Date().toISOString().slice(0, 10);
 }
@@ -679,6 +746,8 @@ function createActionFormDefaults() {
         repair_cost: null,
         damage_description: '',
         km_at_occurrence: null,
+        km_at_installation: 0,
+        odometer_km: 0,
         stint_km: 0,
         removed_at: todayIsoDate(),
         new_tyre_id: '',
@@ -778,6 +847,7 @@ function openInstall() {
 function openRotate() {
     clearErrors();
     resetActionForm();
+    prefillActiveVehicleOdometer();
     showRotate.value = true;
 }
 
@@ -796,14 +866,14 @@ function openDamage() {
 function openReplace() {
     clearErrors();
     resetActionForm();
-    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    prefillActiveVehicleOdometer();
     showReplace.value = true;
 }
 
 function openRemove() {
     clearErrors();
     resetActionForm();
-    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    prefillActiveVehicleOdometer();
     removePreview.value = null;
     showRemove.value = true;
     loadRemovePreview();
@@ -812,7 +882,7 @@ function openRemove() {
 function openUpdateKm() {
     clearErrors();
     resetActionForm();
-    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    prefillActiveVehicleOdometer();
     showUpdateKm.value = true;
 }
 
@@ -942,19 +1012,21 @@ async function loadTyre() {
 
 async function loadReplacePreview() {
     const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
-    if (!instId) {
+    if (!instId || calculatedStintKm.value == null) {
+        replacePreview.value = null;
         return;
     }
-    const res = await previewTyreRemoval(instId, actionForm.stint_km);
+    const res = await previewTyreRemoval(instId, { odometerKm: actionForm.odometer_km });
     replacePreview.value = res.data ?? null;
 }
 
 async function loadRemovePreview() {
     const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
-    if (!instId) {
+    if (!instId || calculatedStintKm.value == null) {
+        removePreview.value = null;
         return;
     }
-    const res = await previewTyreRemoval(instId, actionForm.stint_km);
+    const res = await previewTyreRemoval(instId, { odometerKm: actionForm.odometer_km });
     removePreview.value = res.data ?? null;
 }
 
@@ -981,6 +1053,7 @@ watch(
     () => actionForm.vehicle_id,
     (vehicleId) => {
         actionForm.position_code = '';
+        prefillInstallOdometer(vehicleId);
         loadVehiclePositions(vehicleId);
     },
 );
@@ -991,7 +1064,7 @@ watch(showRotate, async (open) => {
     }
 
     clearErrors();
-    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    prefillActiveVehicleOdometer();
 
     if (tyre.value?.active_installation?.vehicle_id) {
         await loadVehiclePositions(tyre.value.active_installation.vehicle_id);
@@ -1011,6 +1084,7 @@ async function submitInstall() {
             vehicle_id: actionForm.vehicle_id,
             position_code: actionForm.position_code,
             installed_at: actionForm.installed_at,
+            km_at_installation: actionForm.km_at_installation,
         });
         finishTyreAction(showInstall);
         await loadTyre();
@@ -1024,7 +1098,7 @@ async function submitRotate() {
             previous_position: tyre.value.active_installation.position,
             new_position: actionForm.new_position,
             cost: actionForm.rotation_cost,
-            stint_km: actionForm.stint_km,
+            odometer_km: actionForm.odometer_km,
             reason: actionForm.reason || null,
         });
         finishTyreAction(showRotate);
@@ -1069,7 +1143,7 @@ async function submitReplace() {
             old_tyre_id: tyre.value.id,
             new_tyre_id: actionForm.new_tyre_id || null,
             replaced_at: actionForm.replaced_at,
-            stint_km: actionForm.stint_km,
+            odometer_km: actionForm.odometer_km,
             reason: actionForm.replace_reason || null,
         });
         finishTyreAction(showReplace);
@@ -1086,7 +1160,7 @@ async function submitRemove() {
     await runTyreAction(async () => {
         await removeTyreInstallation(instId, {
             removed_at: actionForm.removed_at,
-            stint_km: actionForm.stint_km,
+            odometer_km: actionForm.odometer_km,
         });
         finishTyreAction(showRemove);
         removePreview.value = null;
@@ -1101,7 +1175,7 @@ async function submitUpdateKm() {
     }
 
     await runTyreAction(async () => {
-        await updateTyreInstallationStintKm(instId, { stint_km: actionForm.stint_km });
+        await updateTyreInstallationStintKm(instId, { odometer_km: actionForm.odometer_km });
         finishTyreAction(showUpdateKm);
         await loadTyre();
     });

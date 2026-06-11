@@ -7,6 +7,7 @@ use App\Driver;
 use App\DriverAssignment;
 use App\Support\TenantContext;
 use App\Tenant;
+use App\Trip;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -484,6 +485,48 @@ class DriverManagementModuleTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.driver_id', $replacement->id)
             ->assertJsonPath('data.has_paid_attendance', false);
+    }
+
+    public function test_admin_can_soft_delete_driver_and_preserve_linked_trips(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Retired Driver', 700);
+
+        $trip = Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-SOFT-DEL-1',
+            'status' => 'CREATED',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/drivers/{$driver->id}")
+            ->assertNoContent();
+
+        $this->assertNull(Driver::query()->find($driver->id));
+        $this->assertSoftDeleted('drivers', ['id' => $driver->id]);
+
+        $deletedDriver = Driver::query()->withTrashed()->find($driver->id);
+        $this->assertNotNull($deletedDriver);
+        $this->assertFalse($deletedDriver->is_active);
+        $this->assertSame($user->id, $deletedDriver->deleted_by);
+
+        $this->assertNotNull(Trip::query()->find($trip->id));
+        $this->assertSame($driver->id, Trip::query()->find($trip->id)?->driver_id);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/drivers')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $driver->id]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/trips/{$trip->id}")
+            ->assertOk()
+            ->assertJsonPath('data.driver.name', 'Retired Driver');
     }
 
     public function test_driver_role_cannot_create_or_update_driver_records(): void

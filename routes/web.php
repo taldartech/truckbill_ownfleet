@@ -316,8 +316,6 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
                 ->name('reports.trips.expense-summary');
             Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])
                 ->name('reports.trips.route-profitability');
-            Route::get('/reports/trips/pending-freight', [\App\Http\Controllers\Api\TripReportController::class, 'pendingFreight'])
-                ->name('reports.trips.pending-freight');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])

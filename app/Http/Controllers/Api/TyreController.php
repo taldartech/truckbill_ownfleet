@@ -68,9 +68,10 @@ class TyreController extends Controller
         $this->authorize('view', $tyreInstallation->tyre);
 
         $stintKm = $request->filled('stint_km') ? (float) $request->input('stint_km') : null;
+        $odometerKm = $request->filled('odometer_km') ? (float) $request->input('odometer_km') : null;
 
         return response()->json([
-            'data' => $this->tyreService->previewRemoval($tyreInstallation, $stintKm),
+            'data' => $this->tyreService->previewRemoval($tyreInstallation, $stintKm, $odometerKm),
             'life_summary' => $this->tyreService->showWithLifecycle($tyreInstallation->tyre_id)['life_summary'],
         ]);
     }

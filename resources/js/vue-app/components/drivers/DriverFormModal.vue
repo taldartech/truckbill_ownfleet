@@ -124,10 +124,12 @@
                                     :id="`${modalId}_aadhaar`"
                                     v-model="form.aadhaar_number"
                                     type="text"
+                                    inputmode="numeric"
                                     maxlength="12"
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.aadhaar_number }"
                                     placeholder="12 digits"
+                                    @input="onAadhaarInput"
                                 />
                                 <div v-if="fieldErrors.aadhaar_number" class="invalid-feedback d-block">
                                     {{ fieldErrors.aadhaar_number[0] }}
@@ -143,6 +145,7 @@
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.pan_number }"
                                     placeholder="ABCDE1234F"
+                                    @input="onPanInput"
                                 />
                                 <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
                                     {{ fieldErrors.pan_number[0] }}
@@ -157,7 +160,9 @@
                                     :id="`${modalId}_bank_account`"
                                     v-model="form.bank_account_number"
                                     type="text"
+                                    inputmode="numeric"
                                     class="form-control"
+                                    @input="onBankAccountInput"
                                 />
                             </div>
                             <div class="col-md-6">
@@ -191,9 +196,12 @@
                                     :id="`${modalId}_emergency_phone`"
                                     v-model="form.emergency_contact_phone"
                                     type="text"
+                                    inputmode="numeric"
                                     maxlength="10"
                                     class="form-control"
                                     :class="{ 'is-invalid': fieldErrors.emergency_contact_phone }"
+                                    placeholder="10-digit mobile number"
+                                    @input="onEmergencyPhoneInput"
                                 />
                                 <div v-if="fieldErrors.emergency_contact_phone" class="invalid-feedback d-block">
                                     {{ fieldErrors.emergency_contact_phone[0] }}
@@ -253,6 +261,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { normalizeDigits, normalizeMobile } from '../../utils/phone';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -291,15 +300,28 @@ const monthlyPaymentError = computed(() => {
 
 const form = ref(emptyForm());
 
-function normalizeMobile(value) {
-    return String(value ?? '').replace(/\D/g, '').slice(0, 10);
+function onMobileInput(event) {
+    form.value.mobile = normalizeMobile(event.target.value);
+    mobileClientError.value = '';
 }
 
-function onMobileInput(event) {
-    const normalized = normalizeMobile(event.target.value);
+function onAadhaarInput(event) {
+    form.value.aadhaar_number = normalizeDigits(event.target.value, 12);
+}
 
-    form.value.mobile = normalized;
-    mobileClientError.value = '';
+function onPanInput(event) {
+    form.value.pan_number = String(event.target.value ?? '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 10);
+}
+
+function onBankAccountInput(event) {
+    form.value.bank_account_number = normalizeDigits(event.target.value);
+}
+
+function onEmergencyPhoneInput(event) {
+    form.value.emergency_contact_phone = normalizeMobile(event.target.value);
 }
 
 function emptyForm() {
@@ -418,7 +440,7 @@ function submit() {
         bank_ifsc: form.value.bank_ifsc?.trim()?.toUpperCase() || null,
         joining_date: form.value.joining_date,
         emergency_contact_name: form.value.emergency_contact_name?.trim() || null,
-        emergency_contact_phone: form.value.emergency_contact_phone || null,
+        emergency_contact_phone: normalizeMobile(form.value.emergency_contact_phone) || null,
         daily_wage: wage,
         is_active: Boolean(form.value.is_active),
     });

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Challan;
+use App\Driver;
 use App\Enums\ChallanPaymentStatus;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,13 +26,29 @@ class UpdateChallanRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
-            'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
+            'driver_id' => [
+                'required',
+                'uuid',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $challan = $this->route('challan');
+
+                    if ($challan instanceof Challan && (string) $value === (string) $challan->driver_id) {
+                        return;
+                    }
+
+                    if (! Driver::query()->whereKey($value)->exists()) {
+                        $fail('Please select a valid driver.');
+                    }
+                },
+            ],
             'challan_number' => [
                 'required',
                 'string',
                 'max:100',
                 Rule::unique('challans', 'challan_number')
-                    ->where(fn ($query) => $query->where('tenant_id', CurrentTenant::id()))
+                    ->where(fn ($query) => $query
+                        ->where('tenant_id', CurrentTenant::id())
+                        ->whereNull('deleted_at'))
                     ->ignore($this->route('challan')),
             ],
             'challan_date' => ['required', 'date'],

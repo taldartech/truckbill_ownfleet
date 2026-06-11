@@ -37,8 +37,13 @@ class DriverRepository
         return $driver->fresh();
     }
 
-    public function delete(Driver $driver): void
+    public function delete(Driver $driver, ?string $userId = null): void
     {
+        $driver->update([
+            'is_active' => false,
+            'deleted_by' => $userId,
+        ]);
+
         $driver->delete();
     }
 

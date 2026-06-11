@@ -44,8 +44,11 @@
         </AppIndexFiltersCard>
 
         <div class="card app-index-list-card">
-            <div class="card-header">
+            <div class="card-header d-flex align-items-center justify-content-between">
                 <h3 class="card-title mb-0">{{ currentReportLabel }}</h3>
+                <span v-if="!loading && tripCount !== null" class="badge bg-secondary">
+                    {{ tripCount }} {{ tripCount === 1 ? 'trip' : 'trips' }}
+                </span>
             </div>
             <div class="card-body">
                 <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
@@ -94,6 +97,7 @@ const reportTypes = TRIP_REPORT_TYPES;
 const reportType = ref('profitability');
 const vehicles = ref([]);
 const rows = ref([]);
+const tripCount = ref(null);
 const loading = ref(false);
 const flash = reactive({ error: '' });
 
@@ -131,6 +135,8 @@ const columns = computed(() => {
 const COLUMN_LABELS = {
     s_no: 'S.No',
     vehicle: 'Truck',
+    trip_count: 'Trip Count',
+    entry_count: 'Entry Count',
 };
 
 function formatColumn(key) {
@@ -171,10 +177,13 @@ async function loadReport() {
     flash.error = '';
 
     try {
-        rows.value = await fetchTripReport(reportType.value, buildFilterParams());
+        const result = await fetchTripReport(reportType.value, buildFilterParams());
+        rows.value = result.rows;
+        tripCount.value = result.summary?.trip_count ?? result.rows.length;
     } catch (error) {
         flash.error = error?.response?.data?.message ?? 'Failed to load trip report.';
         rows.value = [];
+        tripCount.value = null;
     } finally {
         loading.value = false;
     }

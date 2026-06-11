@@ -9,14 +9,15 @@ use App\DriverAssignment;
 use App\Enums\RouteType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
+use App\Permission;
 use App\Station;
 use App\Support\TenantContext;
 use App\Tenant;
-use App\Trip;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -69,6 +70,7 @@ class ProductionReadinessTest extends TestCase
     public function test_duplicate_challan_number_is_rejected_per_tenant(): void
     {
         [$tenant, $user, $vehicle, $driver] = $this->createVehicleDriverFixtures('admin');
+        $this->grantChallanPermissions('admin');
         Sanctum::actingAs($user);
 
         Challan::query()->create([
@@ -281,5 +283,23 @@ class ProductionReadinessTest extends TestCase
         ];
 
         return $payload;
+    }
+
+    private function grantChallanPermissions(string $role): void
+    {
+        foreach ([
+            'challans.view' => 'View challans',
+            'challans.manage' => 'Create & edit challans',
+        ] as $slug => $name) {
+            $permission = Permission::query()->firstOrCreate(
+                ['slug' => $slug],
+                ['name' => $name, 'group' => 'compliance'],
+            );
+
+            DB::table('permission_user_role')->insertOrIgnore([
+                'permission_id' => $permission->id,
+                'user_role_id' => UserRole::idFor($role),
+            ]);
+        }
     }
 }

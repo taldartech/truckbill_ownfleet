@@ -105,7 +105,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('/reports/trips/empty-km', [TripReportController::class, 'emptyKm']);
     Route::get('/reports/trips/expense-summary', [TripReportController::class, 'expenseSummary']);
     Route::get('/reports/trips/route-profitability', [TripReportController::class, 'routeProfitability']);
-    Route::get('/reports/trips/pending-freight', [TripReportController::class, 'pendingFreight']);
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
     Route::get('/reports/fleet-monthly', [FleetMonthlyReportController::class, 'show']);
     Route::get('/reports/fleet-monthly/export', [FleetMonthlyReportController::class, 'export']);

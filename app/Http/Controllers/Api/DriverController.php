@@ -55,10 +55,10 @@ class DriverController extends Controller
         return new DriverResource($driver);
     }
 
-    public function destroy(Driver $driver): Response
+    public function destroy(Request $request, Driver $driver): Response
     {
         $this->authorize('delete', $driver);
-        $this->driverService->delete($driver);
+        $this->driverService->delete($driver, $request->user()?->id);
 
         return response()->noContent();
     }

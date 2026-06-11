@@ -18,7 +18,7 @@
             <div class="dashboard-stat-card__headline">
                 <h3 class="dashboard-stat-card__title">{{ title }}</h3>
                 <div class="dashboard-stat-card__total-row">
-                    <span class="dashboard-stat-card__total">{{ formatNumber(total) }}</span>
+                    <span class="dashboard-stat-card__total">{{ formatValue(total, format) }}</span>
                     <span class="dashboard-stat-card__total-label">{{ totalLabel }}</span>
                 </div>
             </div>
@@ -37,7 +37,7 @@
                 @keydown.enter.prevent="onItemClick(item, $event)"
                 @keydown.space.prevent="onItemClick(item, $event)"
             >
-                <span class="dashboard-stat-card__metric-value">{{ formatNumber(item.value) }}</span>
+                <span class="dashboard-stat-card__metric-value">{{ formatValue(item.value, item.format ?? 'number') }}</span>
                 <span class="dashboard-stat-card__metric-label">{{ item.label }}</span>
             </div>
         </div>
@@ -49,6 +49,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { formatMoney } from '../../utils/formatMoney';
 
 const router = useRouter();
 
@@ -89,6 +90,10 @@ const props = defineProps({
         type: [Object, String],
         default: null,
     },
+    format: {
+        type: String,
+        default: 'number',
+    },
 });
 
 const emit = defineEmits(['click']);
@@ -120,6 +125,14 @@ function onItemClick(item, event) {
 
 function formatNumber(value) {
     return new Intl.NumberFormat('en-IN').format(Number(value ?? 0));
+}
+
+function formatValue(value, valueFormat) {
+    if (valueFormat === 'currency') {
+        return formatMoney(value);
+    }
+
+    return formatNumber(value);
 }
 </script>
 

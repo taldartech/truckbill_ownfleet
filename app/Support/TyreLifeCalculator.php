@@ -29,7 +29,8 @@ class TyreLifeCalculator
      *     spare_usage_count: int,
      *     total_repair_cost: float,
      *     total_cost: float,
-     *     is_early_wear_risk: bool
+     *     is_early_wear_risk: bool,
+     *     minimum_current_km: float
      * }
      */
     public function summary(Tyre $tyre): array
@@ -37,6 +38,9 @@ class TyreLifeCalculator
         $tyre->loadMissing(['installations.vehicle', 'rotations', 'damages', 'expenses', 'activeInstallation.vehicle']);
 
         $expected = $this->expectedLifeKm($tyre);
+        $minimumCurrentKm = (float) $tyre->installations
+            ->whereNotNull('removed_at')
+            ->sum('running_km');
         $stockKm = (float) $tyre->current_km;
         $activeStintKm = $tyre->activeInstallation
             ? $this->activeStintKm($tyre->activeInstallation)
@@ -62,12 +66,33 @@ class TyreLifeCalculator
             'total_repair_cost' => round($repairCost, 2),
             'total_cost' => round($totalCost, 2),
             'is_early_wear_risk' => $remaining > ($expected * 0.6) && $percent < 25,
+            'minimum_current_km' => round($minimumCurrentKm, 2),
         ];
     }
 
     public function activeStintKm(TyreInstallation $installation): float
     {
-        return max(0, (float) ($installation->stint_km ?? 0));
+        $stored = max(0, (float) ($installation->stint_km ?? 0));
+
+        if ($installation->removed_at !== null) {
+            return $stored;
+        }
+
+        $installation->loadMissing('vehicle');
+        $vehicle = $installation->vehicle;
+
+        if ($vehicle === null) {
+            return $stored;
+        }
+
+        $atInstall = max(0, (float) ($installation->km_at_installation ?? 0));
+        $currentOdometer = max(0, (float) ($vehicle->odometer_km ?? 0));
+
+        if ($currentOdometer > $atInstall) {
+            return max($stored, (new TyreStintCalculator)->stintFromOdometer($atInstall, $currentOdometer));
+        }
+
+        return $stored;
     }
 
     public function spareUsageCount(Tyre $tyre): int

@@ -10,13 +10,15 @@ export async function fetchTripReport(type, filters = {}) {
         'empty-km': `${reportsBase}/empty-km`,
         'expense-summary': `${reportsBase}/expense-summary`,
         'route-profitability': `${reportsBase}/route-profitability`,
-        'pending-freight': `${reportsBase}/pending-freight`,
     };
 
     const url = endpoints[type] ?? endpoints.profitability;
     const { data } = await api.get(url, { params: filters });
 
-    return data.data ?? [];
+    return {
+        rows: data.data ?? [],
+        summary: data.summary ?? { trip_count: (data.data ?? []).length },
+    };
 }
 
 export function exportTripReport(type, filters = {}) {
@@ -31,5 +33,4 @@ export const TRIP_REPORT_TYPES = [
     { value: 'empty-km', label: 'Empty KM Report' },
     { value: 'expense-summary', label: 'Expense Summary' },
     { value: 'route-profitability', label: 'Route Profitability' },
-    { value: 'pending-freight', label: 'Pending Freight Collection' },
 ];

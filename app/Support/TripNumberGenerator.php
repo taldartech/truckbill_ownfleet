@@ -39,6 +39,7 @@ class TripNumberGenerator
         $prefix = sprintf('TRIP-%d-', $year);
 
         $query = Trip::query()
+            ->withTrashed()
             ->where('tenant_id', $tenantId)
             ->where('trip_number', 'like', $prefix.'%');
 

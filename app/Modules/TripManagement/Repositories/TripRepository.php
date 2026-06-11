@@ -32,8 +32,12 @@ class TripRepository
         return $trip->fresh();
     }
 
-    public function delete(Trip $trip): void
+    public function delete(Trip $trip, ?string $userId = null): void
     {
+        if ($userId !== null) {
+            $trip->update(['deleted_by' => $userId]);
+        }
+
         $trip->delete();
     }
 

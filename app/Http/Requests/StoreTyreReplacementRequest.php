@@ -30,7 +30,8 @@ class StoreTyreReplacementRequest extends FormRequest
             'new_tyre_id' => ['nullable', 'uuid', 'exists:tyres,id', 'different:old_tyre_id'],
             'replaced_at' => ['required', 'date'],
             'reason' => ['nullable', 'string', 'max:1000'],
-            'stint_km' => ['required', 'numeric', 'min:0'],
+            'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
+            'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];
     }
 }

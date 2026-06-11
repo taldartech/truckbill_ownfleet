@@ -8,9 +8,11 @@ use App\Enums\TripStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
 {
+    use SoftDeletes;
     use TenantScoped;
     use UsesUuid;
 
@@ -39,6 +41,7 @@ class Trip extends Model
         'total_freight_amount',
         'created_by',
         'updated_by',
+        'deleted_by',
     ];
 
     protected function casts(): array
@@ -60,17 +63,17 @@ class Trip extends Model
 
     public function vehicle(): BelongsTo
     {
-        return $this->belongsTo(Vehicle::class);
+        return $this->belongsTo(Vehicle::class)->withTrashed();
     }
 
     public function driver(): BelongsTo
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(Driver::class)->withTrashed();
     }
 
     public function substituteDriver(): BelongsTo
     {
-        return $this->belongsTo(Driver::class, 'substitute_driver_id');
+        return $this->belongsTo(Driver::class, 'substitute_driver_id')->withTrashed();
     }
 
     public function customer(): BelongsTo
@@ -96,6 +99,11 @@ class Trip extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(TripStatusHistory::class);
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public function profitAmount(): float

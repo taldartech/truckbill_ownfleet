@@ -34,9 +34,10 @@ class DriverService
         return $updatedDriver;
     }
 
-    public function delete(Driver $driver): void
+    public function delete(Driver $driver, ?string $userId = null): void
     {
-        $this->driverRepository->delete($driver);
+        $this->closeOpenAssignmentsForInactiveDriver($driver);
+        $this->driverRepository->delete($driver, $userId);
     }
 
     public function licenseExpiringWithinDays(int $days): Collection

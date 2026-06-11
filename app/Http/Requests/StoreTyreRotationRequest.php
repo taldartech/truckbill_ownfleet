@@ -34,7 +34,8 @@ class StoreTyreRotationRequest extends FormRequest
             ],
             'reason' => ['nullable', 'string', 'max:1000'],
             'cost' => ['required', 'numeric', 'min:0'],
-            'stint_km' => ['required', 'numeric', 'min:0'],
+            'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
+            'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];
     }
 

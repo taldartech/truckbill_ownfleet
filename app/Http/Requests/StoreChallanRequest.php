@@ -22,13 +22,19 @@ class StoreChallanRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
-            'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
+            'driver_id' => [
+                'required',
+                'uuid',
+                Rule::exists('drivers', 'id')->whereNull('deleted_at'),
+            ],
             'challan_number' => [
                 'required',
                 'string',
                 'max:100',
                 Rule::unique('challans', 'challan_number')->where(
-                    fn ($query) => $query->where('tenant_id', CurrentTenant::id()),
+                    fn ($query) => $query
+                        ->where('tenant_id', CurrentTenant::id())
+                        ->whereNull('deleted_at'),
                 ),
             ],
             'challan_date' => ['required', 'date'],

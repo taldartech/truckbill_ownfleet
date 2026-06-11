@@ -26,9 +26,29 @@
                             <span v-else>Quick overview of trips, fleet, tyres, attendance and compliance.</span>
                         </p>
                     </div>
-                    <div class="dashboard-page__today">
-                        <i class="fas fa-calendar-day me-2"></i>
-                        {{ todayLabel }}
+                    <div class="dashboard-page__hero-actions">
+                        <div v-if="quickActions.length" class="dashboard-page__quick-actions">
+                            <RouterLink
+                                v-for="action in quickActions"
+                                :key="action.label"
+                                :to="action.to"
+                                class="btn btn-sm btn-primary dashboard-page__quick-action"
+                            >
+                                <i :class="[action.icon, 'me-1']"></i>
+                                {{ action.label }}
+                            </RouterLink>
+                        </div>
+                        <DashboardDateRangePicker
+                            v-if="showPeriodFilter"
+                            v-model:from-date="periodFromDate"
+                            v-model:to-date="periodToDate"
+                            label="Period"
+                            @change="loadDashboard"
+                        />
+                        <div class="dashboard-page__today">
+                            <i class="fas fa-calendar-day me-2"></i>
+                            {{ todayLabel }}
+                        </div>
                     </div>
                 </header>
 
@@ -40,21 +60,18 @@
 
             <template v-else>
                 <section v-if="canViewTrips" class="dashboard-page__section">
-                    <div class="dashboard-page__section-head">
+                    <div class="dashboard-page__section-head dashboard-page__section-head--compact">
                         <div>
                             <h5 class="dashboard-page__section-title">
                                 <i class="fas fa-route me-2"></i>Trips
                             </h5>
-                            <p class="dashboard-page__section-copy">Trips starting in the selected period.</p>
+                            <p class="dashboard-page__section-copy">
+                                Trip profit uses Completed trips only. Created, Running and Cancelled trips are excluded from amounts.
+                            </p>
                         </div>
-                        <DashboardDateRangePicker
-                            v-model:from-date="tripFromDate"
-                            v-model:to-date="tripToDate"
-                            @change="loadDashboard"
-                        />
                     </div>
 
-                    <div class="dashboard-page__cards dashboard-page__cards--single">
+                    <div class="dashboard-page__cards">
                         <DashboardGroupedStatCard
                             title="Trips"
                             :total="tripStats?.total_count ?? 0"
@@ -63,6 +80,24 @@
                             hint="Click total or a status to open Trip Management."
                             :to="tripsIndexRoute()"
                             :items="tripBreakdownItems"
+                        />
+                        <DashboardGroupedStatCard
+                            title="Trip Profit"
+                            :total="tripStats?.profit_amount ?? 0"
+                            total-label="Profit"
+                            format="currency"
+                            icon="fas fa-indian-rupee-sign"
+                            :tone="tripProfitTone"
+                            hint="Completed trips only. Profit = total freight − total expenses."
+                            :to="tripsIndexRoute({ status: 'COMPLETED' })"
+                            :items="tripFinanceItems"
+                        />
+                    </div>
+
+                    <div class="dashboard-page__panels">
+                        <DashboardRunningTripsPanel
+                            :trips="runningTrips"
+                            :trips-index-route="tripsIndexRoute()"
                         />
                     </div>
                 </section>
@@ -123,6 +158,19 @@
                             @click="openComplianceModal"
                         />
                     </div>
+
+                    <div v-if="showComplianceAlertsPanel" class="dashboard-page__panels">
+                        <DashboardComplianceAlertsPanel
+                            :documents="compliancePreview.documents"
+                            :licenses="compliancePreview.licenses"
+                            :total-count="complianceTotalCount"
+                            :loading="complianceLoading"
+                            :can-manage-licenses="canManageDrivers"
+                            @view-all="openComplianceModal"
+                            @edit-document="openDocumentFromAlert"
+                            @edit-license="openDriverFromAlert"
+                        />
+                    </div>
                 </section>
 
                 <section v-if="canViewTyres" class="dashboard-page__section">
@@ -131,11 +179,13 @@
                             <h5 class="dashboard-page__section-title">
                                 <i class="fas fa-circle-dot me-2"></i>Tyre Management
                             </h5>
-                            <p class="dashboard-page__section-copy">Live snapshot of your tyre inventory.</p>
+                            <p class="dashboard-page__section-copy">
+                                Inventory is live. Purchases, expenses and scrapped recovery use the selected period.
+                            </p>
                         </div>
                     </div>
 
-                    <div class="dashboard-page__cards dashboard-page__cards--single">
+                    <div class="dashboard-page__cards">
                         <DashboardGroupedStatCard
                             title="Tyres"
                             :total="tyreStats?.total_count ?? 0"
@@ -144,6 +194,31 @@
                             hint="Click total or a status to open Tyre Management."
                             :to="{ name: 'tyres.index' }"
                             :items="tyreBreakdownItems"
+                        />
+                        <DashboardGroupedStatCard
+                            title="Tyre Purchases"
+                            :total="tyreStats?.purchased_count ?? 0"
+                            total-label="Tyres"
+                            icon="fas fa-cart-shopping"
+                            tone="primary"
+                            :items="tyrePurchaseItems"
+                        />
+                        <DashboardGroupedStatCard
+                            title="Tyre Expenses"
+                            :total="tyreStats?.expenses_total ?? 0"
+                            total-label="Total"
+                            format="currency"
+                            icon="fas fa-wrench"
+                            tone="warning"
+                            :items="tyreExpenseItems"
+                        />
+                        <DashboardGroupedStatCard
+                            title="Scrapped Tyres"
+                            :total="tyreStats?.period_scrapped_count ?? 0"
+                            total-label="Scrapped"
+                            icon="fas fa-recycle"
+                            tone="warning"
+                            :items="tyreScrappedItems"
                         />
                     </div>
                 </section>
@@ -187,10 +262,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import api from '../api';
+import { fetchComplianceAlerts } from '../api/dashboard';
 import { fetchDriver, updateDriver } from '../api/drivers';
+import DashboardComplianceAlertsPanel from '../components/dashboard/DashboardComplianceAlertsPanel.vue';
 import DashboardComplianceModal from '../components/dashboard/DashboardComplianceModal.vue';
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
 import DashboardGroupedStatCard from '../components/dashboard/DashboardGroupedStatCard.vue';
+import DashboardRunningTripsPanel from '../components/dashboard/DashboardRunningTripsPanel.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
 import DriverFormModal from '../components/drivers/DriverFormModal.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
@@ -206,18 +284,49 @@ const fleetStats = ref(null);
 const tripStats = ref(null);
 const tyreStats = ref(null);
 const requiresCompany = ref(false);
+const complianceLoading = ref(false);
+const compliancePreview = ref({ documents: [], licenses: [] });
 
-const defaultTripRange = defaultDashboardTripRange();
-const tripFromDate = ref(defaultTripRange.from_date);
-const tripToDate = ref(defaultTripRange.to_date);
+const defaultPeriodRange = defaultDashboardTripRange();
+const periodFromDate = ref(defaultPeriodRange.from_date);
+const periodToDate = ref(defaultPeriodRange.to_date);
 
 const currentRole = computed(() => user.value?.role ?? 'user');
 const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
+const showPeriodFilter = computed(() => canViewTrips.value || canViewTyres.value);
 const canViewAttendance = computed(() => canInCompany('attendances.view'));
 const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
 const canManageDrivers = computed(() => canInCompany('drivers.manage'));
+const canManageTrips = computed(() => canInCompany('trips.manage'));
+const canViewComplianceAlerts = computed(
+    () => canInCompany('vehicle_documents.view') || canInCompany('drivers.view'),
+);
+
+const quickActions = computed(() => {
+    const actions = [];
+
+    if (canManageTrips.value) {
+        actions.push({
+            label: 'New Trip',
+            icon: 'fas fa-plus',
+            to: { name: 'trips.create' },
+        });
+    }
+
+    if (canViewAttendance.value) {
+        actions.push({
+            label: 'Attendance',
+            icon: 'fas fa-calendar-check',
+            to: { name: 'attendance.index' },
+        });
+    }
+
+    return actions;
+});
+
+const runningTrips = computed(() => tripStats.value?.running_trips ?? []);
 
 const showComplianceModal = ref(false);
 const showDocumentsModal = ref(false);
@@ -287,11 +396,13 @@ const driverBreakdownItems = computed(() => {
             key: 'active',
             label: 'Active',
             value: stats.drivers_count,
+            to: { name: 'drivers.index' },
         },
         {
             key: 'inactive',
             label: 'Inactive',
             value: stats.inactive_drivers_count,
+            to: { name: 'drivers.index' },
         },
     ];
 });
@@ -303,8 +414,6 @@ const attendanceBreakdownItems = computed(() => {
         { key: 'present', label: 'Present', value: stats.present_today_count },
         { key: 'absent', label: 'Absent', value: stats.absent_today_count },
         { key: 'substitute', label: 'Substitute', value: stats.absent_substitute_today_count },
-        { key: 'no_work', label: 'No Work', value: stats.no_work_day_today_count },
-        { key: 'exceptions', label: 'Exceptions', value: stats.exceptions_today_count },
     ];
 });
 
@@ -312,12 +421,41 @@ function tripsIndexRoute(extraQuery = {}) {
     return {
         name: 'trips.index',
         query: {
-            from_date: tripFromDate.value,
-            to_date: tripToDate.value,
+            from_date: periodFromDate.value,
+            to_date: periodToDate.value,
             ...extraQuery,
         },
     };
 }
+
+const tripFinanceItems = computed(() => {
+    const stats = tripStats.value ?? {};
+
+    return [
+        {
+            key: 'freight',
+            label: 'Freight',
+            value: stats.total_freight_amount,
+            format: 'currency',
+        },
+        {
+            key: 'expenses',
+            label: 'Expenses',
+            value: stats.total_expense_amount,
+            format: 'currency',
+        },
+    ];
+});
+
+const tripProfitTone = computed(() => {
+    const profit = Number(tripStats.value?.profit_amount ?? 0);
+
+    if (profit < 0) {
+        return 'warning';
+    }
+
+    return 'success';
+});
 
 const tripBreakdownItems = computed(() => {
     const stats = tripStats.value ?? {};
@@ -337,7 +475,7 @@ const tripBreakdownItems = computed(() => {
         },
         {
             key: 'completed',
-            label: 'Done',
+            label: 'Completed',
             value: stats.completed_count,
             to: tripsIndexRoute({ status: 'COMPLETED' }),
         },
@@ -346,6 +484,41 @@ const tripBreakdownItems = computed(() => {
             label: 'Cancelled',
             value: stats.cancelled_count,
             to: tripsIndexRoute({ status: 'CANCELLED' }),
+        },
+    ];
+});
+
+const tyrePurchaseItems = computed(() => {
+    const stats = tyreStats.value ?? {};
+
+    return [
+        {
+            key: 'purchase_cost',
+            label: 'Purchase Cost',
+            value: stats.purchased_total_cost,
+            format: 'currency',
+        },
+    ];
+});
+
+const tyreExpenseItems = computed(() => [
+    {
+        key: 'period',
+        label: 'Repair & maintenance',
+        value: tyreStats.value?.expenses_total,
+        format: 'currency',
+    },
+]);
+
+const tyreScrappedItems = computed(() => {
+    const stats = tyreStats.value ?? {};
+
+    return [
+        {
+            key: 'recovery',
+            label: 'Scrap Recovery',
+            value: stats.period_scrapped_recovery_amount,
+            format: 'currency',
         },
     ];
 });
@@ -418,6 +591,14 @@ const complianceTotalCount = computed(() =>
 
 const showComplianceSection = computed(() => complianceBreakdownItems.value.length > 0);
 
+const showComplianceAlertsPanel = computed(
+    () =>
+        showComplianceSection.value
+        && (complianceLoading.value
+            || compliancePreview.value.documents.length > 0
+            || compliancePreview.value.licenses.length > 0),
+);
+
 function openComplianceModal() {
     showComplianceModal.value = true;
 }
@@ -487,6 +668,51 @@ async function onComplianceItemSaved() {
     await loadDashboard();
 }
 
+async function loadCompliancePreview() {
+    if (!canViewComplianceAlerts.value || !userHasCompanyContext.value) {
+        compliancePreview.value = { documents: [], licenses: [] };
+
+        return;
+    }
+
+    complianceLoading.value = true;
+
+    try {
+        const alerts = await fetchComplianceAlerts();
+
+        if (alerts.requiresCompany) {
+            compliancePreview.value = { documents: [], licenses: [] };
+
+            return;
+        }
+
+        const documents = [...alerts.documents].sort((left, right) => {
+            if (left.status === right.status) {
+                return String(left.expiry_date).localeCompare(String(right.expiry_date));
+            }
+
+            return left.status === 'expired' ? -1 : 1;
+        });
+
+        const licenses = [...alerts.licenses].sort((left, right) => {
+            if (left.status === right.status) {
+                return String(left.license_expiry_date).localeCompare(String(right.license_expiry_date));
+            }
+
+            return left.status === 'expired' ? -1 : 1;
+        });
+
+        compliancePreview.value = {
+            documents: documents.slice(0, 5),
+            licenses: licenses.slice(0, 5),
+        };
+    } catch {
+        compliancePreview.value = { documents: [], licenses: [] };
+    } finally {
+        complianceLoading.value = false;
+    }
+}
+
 async function loadDashboard() {
     if (showRolePlaceholder.value) {
         loading.value = false;
@@ -500,9 +726,9 @@ async function loadDashboard() {
     try {
         const params = {};
 
-        if (canViewTrips.value) {
-            params.from_date = tripFromDate.value;
-            params.to_date = tripToDate.value;
+        if (showPeriodFilter.value) {
+            params.from_date = periodFromDate.value;
+            params.to_date = periodToDate.value;
         }
 
         const { data } = await api.get('/app/dashboard/stats', { params });
@@ -511,6 +737,8 @@ async function loadDashboard() {
         fleetStats.value = data.fleet ?? null;
         tripStats.value = data.trips ?? null;
         tyreStats.value = data.tyres ?? null;
+
+        await loadCompliancePreview();
     } catch {
         loadError.value = 'Could not load dashboard data.';
     } finally {
@@ -557,6 +785,29 @@ watch(
 .dashboard-page__subtitle {
     color: var(--brand-text-muted, #64748b);
     font-size: 0.92rem;
+}
+
+.dashboard-page__hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.dashboard-page__quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dashboard-page__quick-action {
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.dashboard-page__panels {
+    margin-top: 1rem;
 }
 
 .dashboard-page__today {

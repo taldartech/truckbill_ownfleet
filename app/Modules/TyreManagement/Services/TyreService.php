@@ -7,6 +7,7 @@ use App\Enums\TyreStatus;
 use App\Modules\TyreManagement\Repositories\TyreRepository;
 use App\Support\TyreLifeCalculator;
 use App\Support\TyrePositionCatalog;
+use App\Support\TyreStintCalculator;
 use App\Tyre;
 use App\TyreDamage;
 use App\TyreExpense;
@@ -26,6 +27,7 @@ class TyreService
         private readonly TyreLifeCalculator $lifeCalculator,
         private readonly TyreTimelineService $timelineService,
         private readonly TyrePositionCatalog $positionCatalog,
+        private readonly TyreStintCalculator $stintCalculator,
     ) {}
 
     public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null, ?string $vehicleId = null): LengthAwarePaginator
@@ -70,6 +72,10 @@ class TyreService
 
     public function update(Tyre $tyre, array $data): Tyre
     {
+        if (array_key_exists('current_km', $data)) {
+            $this->assertCurrentKmCanBeSet($tyre, (float) $data['current_km']);
+        }
+
         return $this->tyreRepository->update($tyre, $data)->fresh(['activeInstallation.vehicle']);
     }
 
@@ -89,12 +95,17 @@ class TyreService
 
             $this->assertPositionAvailable($vehicle, $positionCode, null);
 
+            $kmAtInstallation = $this->stintCalculator->resolveInstallOdometer(
+                $vehicle,
+                $data['km_at_installation'] ?? null,
+            );
+
             $installation = TyreInstallation::query()->create([
                 'tyre_id' => $tyre->id,
                 'vehicle_id' => $vehicle->id,
                 'position_code' => $positionCode,
                 'installed_at' => $data['installed_at'],
-                'km_at_installation' => $data['km_at_installation'] ?? 0,
+                'km_at_installation' => $kmAtInstallation,
                 'stint_km' => 0,
             ]);
 
@@ -111,7 +122,12 @@ class TyreService
                 throw ValidationException::withMessages(['installation' => 'Tyre is already removed from this truck.']);
             }
 
-            $runningKm = max(0, (float) ($data['stint_km'] ?? $installation->stint_km ?? 0));
+            $runningKm = $this->stintCalculator->resolveStintForInstallation($installation, $data);
+            $odometerReading = $this->stintCalculator->resolveOdometerReading($data);
+            $kmAtRemoval = $odometerReading ?? $this->stintCalculator->stintFromOdometer(
+                (float) ($installation->km_at_installation ?? 0),
+                (float) ($installation->km_at_installation ?? 0) + $runningKm,
+            );
             $tyre = $installation->tyre;
             $recommendation = $this->lifeCalculator->removalRecommendation($tyre, $runningKm);
 
@@ -119,6 +135,7 @@ class TyreService
                 'removed_at' => $data['removed_at'] ?? now()->toDateString(),
                 'stint_km' => $runningKm,
                 'running_km' => $runningKm,
+                'km_at_removal' => $kmAtRemoval,
                 'removal_recommendation' => $recommendation['message'] ?? null,
             ]);
 
@@ -126,6 +143,11 @@ class TyreService
                 'status' => TyreStatus::InStock,
                 'current_km' => (float) $tyre->current_km + $runningKm,
             ]);
+
+            $installation->loadMissing('vehicle');
+            if ($installation->vehicle !== null && $odometerReading !== null) {
+                $this->stintCalculator->syncVehicleOdometer($installation->vehicle, $odometerReading);
+            }
 
             $installation = $installation->fresh(['vehicle', 'tyre']);
             $installation->setAttribute('removal_advice', $recommendation);
@@ -173,7 +195,8 @@ class TyreService
                 ->first();
 
             $rotationCost = (float) ($data['cost'] ?? 0);
-            $stintKm = max(0, (float) $data['stint_km']);
+            $stintKm = $this->stintCalculator->resolveStintForInstallation($installation, $data);
+            $odometerReading = $this->stintCalculator->resolveOdometerReading($data);
 
             $rotation = TyreRotation::query()->create([
                 'tyre_id' => $tyre->id,
@@ -207,6 +230,10 @@ class TyreService
                 'position_code' => $newPositionCode,
                 'stint_km' => $stintKm,
             ]);
+
+            if ($odometerReading !== null) {
+                $this->stintCalculator->syncVehicleOdometer($vehicle, $odometerReading);
+            }
 
             if ($rotationCost > 0) {
                 $this->recordExpense(
@@ -284,12 +311,14 @@ class TyreService
                 throw ValidationException::withMessages(['old_tyre_id' => 'Old tyre is not installed on the selected truck.']);
             }
 
-            $stintKm = max(0, (float) $data['stint_km']);
+            $stintKm = $this->stintCalculator->resolveStintForInstallation($active, $data);
+            $odometerReading = $this->stintCalculator->resolveOdometerReading($data);
             $advice = $this->lifeCalculator->removalRecommendation($oldTyre, $stintKm);
 
             $this->removeInstallation($active, [
                 'removed_at' => $data['replaced_at'],
                 'stint_km' => $stintKm,
+                'odometer_km' => $odometerReading,
             ]);
 
             $oldTyre->refresh();
@@ -300,6 +329,7 @@ class TyreService
                     'vehicle_id' => $vehicle->id,
                     'position_code' => $positionCode,
                     'installed_at' => $data['replaced_at'],
+                    'km_at_installation' => $odometerReading ?? $this->stintCalculator->resolveInstallOdometer($vehicle, null),
                 ]);
             }
 
@@ -379,10 +409,15 @@ class TyreService
     /**
      * @return array{level: string, message: string, remaining_life_km: float, stint_km: float}|null
      */
-    public function previewRemoval(TyreInstallation $installation, ?float $stintKm = null): ?array
+    public function previewRemoval(TyreInstallation $installation, ?float $stintKm = null, ?float $odometerKm = null): ?array
     {
         $installation->loadMissing(['tyre', 'vehicle']);
-        $km = $stintKm ?? (float) ($installation->stint_km ?? 0);
+
+        if ($odometerKm !== null) {
+            $km = $this->stintCalculator->stintFromInstallationOdometer($installation, $odometerKm);
+        } else {
+            $km = $stintKm ?? (float) ($installation->stint_km ?? 0);
+        }
 
         return $this->lifeCalculator->removalRecommendation($installation->tyre, max(0, $km));
     }
@@ -394,9 +429,17 @@ class TyreService
                 throw ValidationException::withMessages(['installation' => 'Cannot update KM for a removed installation.']);
             }
 
+            $stintKm = $this->stintCalculator->resolveStintForInstallation($installation, $data);
+            $odometerReading = $this->stintCalculator->resolveOdometerReading($data);
+
             $installation->update([
-                'stint_km' => max(0, (float) $data['stint_km']),
+                'stint_km' => $stintKm,
             ]);
+
+            $installation->loadMissing('vehicle');
+            if ($installation->vehicle !== null && $odometerReading !== null) {
+                $this->stintCalculator->syncVehicleOdometer($installation->vehicle, $odometerReading);
+            }
 
             return $installation->fresh(['vehicle', 'tyre']);
         });
@@ -411,6 +454,25 @@ class TyreService
             $data['expense_date'],
             $data['notes'] ?? 'Maintenance expense',
         );
+    }
+
+    private function assertCurrentKmCanBeSet(Tyre $tyre, float $newValue): void
+    {
+        if ($tyre->status === TyreStatus::Scrapped) {
+            throw ValidationException::withMessages([
+                'current_km' => 'Cannot change KM already used on a scrapped tyre.',
+            ]);
+        }
+
+        $minimumFromStints = (float) $tyre->installations()
+            ->whereNotNull('removed_at')
+            ->sum('running_km');
+
+        if ($newValue < $minimumFromStints) {
+            throw ValidationException::withMessages([
+                'current_km' => "KM already used cannot be less than {$minimumFromStints} km recorded from truck usage.",
+            ]);
+        }
     }
 
     private function assertPositionAvailable(Vehicle $vehicle, string $positionCode, ?string $exceptInstallationId): void

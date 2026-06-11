@@ -417,22 +417,23 @@
                             <i class="fa-solid fa-bars"></i>
                         </a>
                     </li>
-                    <li class="nav-item d-none d-md-block"><a href="#" class="nav-link">
-                            @auth
-                                <span class="align-middle ms-3 me-2 border-start ps-3 small text-muted"
-                                    style="font-size: 1em;">
-                                    <i
-                                        class="fas fa-building me-1"></i>{{ Auth::user()->company ? Auth::user()->company->name : '' }}
-                                </span>
-                            @endauth
-                        </a>
-                    </li>
                     @auth
-                        @if (auth()->user()?->userRole?->name === 'super_admin' && auth()->user()?->effectiveTenantId())
-                            <li class="nav-item">
-                                <a href="{{ route('company.exit') }}" class="nav-link text-warning" title="Exit company context">
-                                    <i class="bi bi-box-arrow-left me-1"></i>Exit Company
-                                </a>
+                        @if (Auth::user()->company || (auth()->user()?->userRole?->name === 'super_admin' && auth()->user()?->effectiveTenantId()))
+                            <li class="nav-item d-none d-md-flex align-items-center app-header-company-nav">
+                                <div class="app-header-company-context">
+                                    <span class="app-header-company-context__name">
+                                        <i class="fas fa-building"></i>{{ Auth::user()->company ? Auth::user()->company->name : '' }}
+                                    </span>
+                                    @if (auth()->user()?->userRole?->name === 'super_admin' && auth()->user()?->effectiveTenantId())
+                                        <a
+                                            href="{{ route('company.exit') }}"
+                                            class="app-header-company-context__exit"
+                                            title="Exit company context"
+                                        >
+                                            <i class="bi bi-box-arrow-left"></i>Exit
+                                        </a>
+                                    @endif
+                                </div>
                             </li>
                         @endif
                     @endauth

@@ -45,6 +45,7 @@ class TyreResource extends JsonResource
                         'position_label' => (new TyrePositionCatalog)->labelFor($active->position_code),
                         'installed_at' => $active->installed_at?->toDateString(),
                         'km_at_installation' => (float) $active->km_at_installation,
+                        'vehicle_odometer_km' => (float) ($active->vehicle?->odometer_km ?? 0),
                         'stint_km' => (float) ($active->stint_km ?? 0),
                     ];
                 }

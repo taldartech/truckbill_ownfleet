@@ -45,13 +45,14 @@
                                 <th class="text-end">Diesel (L)</th>
                                 <th class="text-end">Average</th>
                                 <th class="text-end">Total Exp.</th>
-                                <th class="text-end">Tyre Exp.</th>
+                                <th class="text-end">Tyres Used</th>
+                                <th class="text-end">Tyre Exp. (₹)</th>
                                 <th class="text-end">Saving</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="rows.length === 0">
-                                <td colspan="10" class="text-center text-muted py-4">
+                                <td colspan="11" class="text-center text-muted py-4">
                                     No trucks found for this company.
                                 </td>
                             </tr>
@@ -64,6 +65,7 @@
                                 <td class="text-end">{{ formatNumber(row.diesel_liters) }}</td>
                                 <td class="text-end">{{ formatNumber(row.average_km_per_liter) }}</td>
                                 <td class="text-end">{{ formatNumber(row.total_expense) }}</td>
+                                <td class="text-end">{{ formatNumber(row.tyres_used, 0) }}</td>
                                 <td class="text-end">{{ formatNumber(row.tyre_expense) }}</td>
                                 <td class="text-end">{{ formatNumber(row.saving) }}</td>
                             </tr>
@@ -96,8 +98,12 @@
                             <tr>
                                 <th scope="row">Challan RTO</th>
                                 <td class="text-end">{{ formatNumber(summary.challan_rto) }}</td>
+                                <th scope="row">Total Tyres Used</th>
+                                <td class="text-end">{{ formatNumber(summary.total_tyres_used, 0) }}</td>
+                            </tr>
+                            <tr>
                                 <th scope="row">Net Saving</th>
-                                <td class="text-end">{{ formatNumber(summary.net_saving) }}</td>
+                                <td class="text-end" colspan="3">{{ formatNumber(summary.net_saving) }}</td>
                             </tr>
                         </tbody>
                     </table>

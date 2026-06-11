@@ -32,9 +32,16 @@ export async function getTyre(id) {
     };
 }
 
-export async function previewTyreRemoval(installationId, stintKm) {
+export async function previewTyreRemoval(installationId, { stintKm, odometerKm } = {}) {
+    const params = {};
+    if (odometerKm != null && odometerKm !== '') {
+        params.odometer_km = odometerKm;
+    } else if (stintKm != null) {
+        params.stint_km = stintKm;
+    }
+
     const { data } = await api.get(`/app/api/tyre-installations/${installationId}/removal-preview`, {
-        params: stintKm != null ? { stint_km: stintKm } : {},
+        params,
     });
     return data;
 }

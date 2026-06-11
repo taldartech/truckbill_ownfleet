@@ -7,9 +7,11 @@ use App\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Driver extends Model
 {
+    use SoftDeletes;
     use TenantScoped;
     use UsesUuid;
 
@@ -31,6 +33,7 @@ class Driver extends Model
         'is_active',
         'created_by',
         'updated_by',
+        'deleted_by',
     ];
 
     protected function casts(): array
@@ -61,5 +64,10 @@ class Driver extends Model
     public function advanceEntries(): HasMany
     {
         return $this->hasMany(DriverAdvanceEntry::class);
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

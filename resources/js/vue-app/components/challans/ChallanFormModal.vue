@@ -169,6 +169,7 @@
 import { computed, ref, watch } from 'vue';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllVehicles } from '../../api/vehicles';
+import { mergeLookupOption } from '../../utils/mergeLookupOption';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -189,6 +190,8 @@ const isEdit = computed(() => props.mode === 'edit');
 
 const vehicles = ref([]);
 const drivers = ref([]);
+const baseVehicleOptions = ref([]);
+const baseDriverOptions = ref([]);
 
 const form = ref(emptyForm());
 
@@ -216,11 +219,17 @@ function fillForm(challan) {
     };
 }
 
+function refreshLookupOptions(challan = props.challan) {
+    vehicles.value = mergeLookupOption(baseVehicleOptions.value, challan?.vehicle ?? null);
+    drivers.value = mergeLookupOption(baseDriverOptions.value, challan?.driver ?? null);
+}
+
 async function loadOptions() {
     const [vehicleList, driverList] = await Promise.all([listAllVehicles(), listAllDrivers({ activeOnly: true })]);
 
-    vehicles.value = vehicleList;
-    drivers.value = driverList;
+    baseVehicleOptions.value = vehicleList;
+    baseDriverOptions.value = driverList;
+    refreshLookupOptions(props.challan);
 }
 
 watch(
@@ -247,9 +256,12 @@ watch(
 watch(
     () => props.challan,
     (challan) => {
-        if (props.show) {
-            fillForm(challan);
+        if (!props.show) {
+            return;
         }
+
+        fillForm(challan);
+        refreshLookupOptions(challan);
     },
 );
 

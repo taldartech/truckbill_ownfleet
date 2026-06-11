@@ -162,10 +162,10 @@ class TripController extends Controller
         return new TripResource($trip);
     }
 
-    public function destroy(Trip $trip): Response
+    public function destroy(Request $request, Trip $trip): Response
     {
         $this->authorize('delete', $trip);
-        $this->tripService->delete($trip);
+        $this->tripService->delete($trip, $request->user()?->id);
 
         return response()->noContent();
     }

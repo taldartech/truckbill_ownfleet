@@ -5,10 +5,12 @@ namespace App\Support;
 use App\Driver;
 use App\Enums\AttendanceStatus;
 use App\Enums\TripStatus;
+use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
-use App\Tyre;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
 use App\Trip;
+use App\Tyre;
+use App\TyreExpense;
 use App\User;
 use App\Vehicle;
 use App\VehicleDocument;
@@ -75,7 +77,10 @@ class FleetDashboardStats
         }
 
         if ($user->hasPermission('tyres.view')) {
-            $payload['tyres'] = self::buildTyreStats();
+            $payload['tyres'] = array_merge(
+                self::buildTyreInventoryStats(),
+                self::buildTyrePeriodStats($fromDate, $toDate),
+            );
         }
 
         return $payload;
@@ -126,7 +131,7 @@ class FleetDashboardStats
     }
 
     /**
-     * @return array<string, int>
+     * @return array<string, float|int>
      */
     private static function buildTripStats(string $fromDate, string $toDate): array
     {
@@ -134,19 +139,50 @@ class FleetDashboardStats
             ->whereDate('start_at', '>=', $fromDate)
             ->whereDate('start_at', '<=', $toDate);
 
+        $financialQuery = (clone $baseQuery)
+            ->where('status', TripStatus::Completed->value);
+
+        $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
+        $totalExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
+
         return [
             'total_count' => (clone $baseQuery)->count(),
             'created_count' => (clone $baseQuery)->where('status', TripStatus::Created->value)->count(),
             'in_progress_count' => (clone $baseQuery)->where('status', TripStatus::InProgress->value)->count(),
             'completed_count' => (clone $baseQuery)->where('status', TripStatus::Completed->value)->count(),
             'cancelled_count' => (clone $baseQuery)->where('status', TripStatus::Cancelled->value)->count(),
+            'total_freight_amount' => round($totalFreight, 2),
+            'total_expense_amount' => round($totalExpenses, 2),
+            'profit_amount' => round($totalFreight - $totalExpenses, 2),
+            'running_trips' => self::buildRunningTripsList(),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function buildRunningTripsList(): array
+    {
+        return Trip::query()
+            ->with(['vehicle:id,registration_number', 'driver:id,name'])
+            ->where('status', TripStatus::InProgress->value)
+            ->latest('start_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (Trip $trip): array => [
+                'id' => $trip->id,
+                'trip_number' => $trip->trip_number,
+                'vehicle_registration' => $trip->vehicle?->registration_number,
+                'driver_name' => $trip->driver?->name,
+                'start_at' => $trip->start_at?->toISOString(),
+            ])
+            ->all();
     }
 
     /**
      * @return array<string, int>
      */
-    private static function buildTyreStats(): array
+    private static function buildTyreInventoryStats(): array
     {
         return [
             'total_count' => Tyre::query()->count(),
@@ -154,6 +190,35 @@ class FleetDashboardStats
             'installed_count' => Tyre::query()->where('status', TyreStatus::Installed->value)->count(),
             'damaged_count' => Tyre::query()->where('status', TyreStatus::Damaged->value)->count(),
             'scrapped_count' => Tyre::query()->where('status', TyreStatus::Scrapped->value)->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, float|int>
+     */
+    private static function buildTyrePeriodStats(string $fromDate, string $toDate): array
+    {
+        $purchaseQuery = Tyre::query()
+            ->whereNotNull('purchase_date')
+            ->whereDate('purchase_date', '>=', $fromDate)
+            ->whereDate('purchase_date', '<=', $toDate);
+
+        $scrappedQuery = Tyre::query()
+            ->where('status', TyreStatus::Scrapped->value)
+            ->whereNotNull('scrapped_at')
+            ->whereDate('scrapped_at', '>=', $fromDate)
+            ->whereDate('scrapped_at', '<=', $toDate);
+
+        return [
+            'purchased_count' => (clone $purchaseQuery)->count(),
+            'purchased_total_cost' => round((float) (clone $purchaseQuery)->sum('purchase_cost'), 2),
+            'expenses_total' => round((float) TyreExpense::query()
+                ->where('expense_type', '!=', TyreExpenseType::Purchase->value)
+                ->whereDate('expense_date', '>=', $fromDate)
+                ->whereDate('expense_date', '<=', $toDate)
+                ->sum('amount'), 2),
+            'period_scrapped_count' => (clone $scrappedQuery)->count(),
+            'period_scrapped_recovery_amount' => round((float) (clone $scrappedQuery)->sum('scrap_sale_amount'), 2),
         ];
     }
 }

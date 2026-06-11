@@ -7,22 +7,33 @@
                         <i class="fa-solid fa-bars"></i>
                     </a>
                 </li>
-                <li v-if="needsCompanySelection" class="nav-item d-none d-md-block">
-                    <RouterLink class="nav-link text-warning fw-semibold" :to="{ name: 'companies.index' }">
-                        <i class="fas fa-building me-1"></i>Select company
-                    </RouterLink>
-                </li>
-                <li v-else-if="companyName" class="nav-item d-none d-md-block">
-                    <span class="nav-link">
-                        <span class="align-middle ms-3 me-2 border-start ps-3 small text-muted" style="font-size: 1em">
-                            <i class="fas fa-building me-1"></i>{{ companyName }}
-                        </span>
-                    </span>
-                </li>
-                <li v-if="showExitCompany" class="nav-item d-none d-md-block">
-                    <button type="button" class="nav-link btn btn-link text-warning p-0 border-0" @click="handleExitCompany">
-                        <i class="fas fa-sign-out-alt me-1"></i>Exit company
-                    </button>
+                <li
+                    v-if="needsCompanySelection || companyName"
+                    class="nav-item d-none d-md-flex align-items-center app-header-company-nav"
+                >
+                    <div class="app-header-company-context">
+                        <RouterLink
+                            v-if="needsCompanySelection"
+                            class="app-header-company-context__select"
+                            :to="{ name: 'companies.index' }"
+                        >
+                            <i class="fas fa-building"></i>Select company
+                        </RouterLink>
+                        <template v-else>
+                            <span class="app-header-company-context__name">
+                                <i class="fas fa-building"></i>{{ companyName }}
+                            </span>
+                            <button
+                                v-if="showExitCompany"
+                                type="button"
+                                class="app-header-company-context__exit"
+                                title="Exit company context"
+                                @click="handleExitCompany"
+                            >
+                                <i class="fas fa-sign-out-alt"></i>Exit
+                            </button>
+                        </template>
+                    </div>
                 </li>
             </ul>
 

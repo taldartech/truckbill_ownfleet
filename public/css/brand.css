@@ -703,3 +703,83 @@ label,
 .text-bg-success :is(h1, h2, h3, h4, h5, h6, strong, span) {
     color: var(--brand-text-on-green) !important;
 }
+
+/* Header company context chip */
+.app-header-company-nav {
+    margin-left: 0.5rem;
+}
+
+.app-header-company-context {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: min(28rem, 42vw);
+    padding: 0.3rem 0.65rem 0.3rem 0.75rem;
+    border: 1px solid var(--brand-border);
+    border-radius: 999px;
+    background: var(--brand-bg);
+    line-height: 1.2;
+}
+
+.app-header-company-context__name,
+.app-header-company-context__select {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--brand-text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.app-header-company-context__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-header-company-context__name i,
+.app-header-company-context__select i {
+    flex-shrink: 0;
+    color: var(--brand-primary);
+    font-size: 0.875rem;
+}
+
+.app-header-company-context__select:hover {
+    color: var(--brand-text-accent);
+}
+
+.app-header-company-context__exit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--brand-text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.app-header-company-context__exit:hover,
+.app-header-company-context__exit:focus-visible {
+    background: var(--brand-active-bg);
+    border-color: rgba(47, 179, 111, 0.25);
+    color: var(--brand-text-accent);
+    outline: none;
+}
+
+.app-header-company-context__exit i {
+    font-size: 0.7rem;
+}
