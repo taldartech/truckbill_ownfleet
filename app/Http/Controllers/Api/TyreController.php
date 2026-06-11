@@ -13,6 +13,7 @@ use App\Http\Requests\StoreTyreRequest;
 use App\Http\Requests\StoreTyreRetreadRequest;
 use App\Http\Requests\StoreTyreRotationRequest;
 use App\Http\Requests\UpdateTyreRequest;
+use App\Http\Requests\UpdateTyreStintRequest;
 use App\Http\Resources\TyreDamageResource;
 use App\Http\Resources\TyreExpenseResource;
 use App\Http\Resources\TyreInstallationResource;
@@ -37,8 +38,9 @@ class TyreController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 100);
         $search = $request->filled('search') ? (string) $request->input('search') : null;
         $status = $request->filled('status') ? (string) $request->input('status') : null;
+        $vehicleId = $request->filled('vehicle_id') ? (string) $request->input('vehicle_id') : null;
 
-        return TyreResource::collection($this->tyreService->paginate($perPage, $search, $status));
+        return TyreResource::collection($this->tyreService->paginate($perPage, $search, $status, $vehicleId));
     }
 
     public function store(StoreTyreRequest $request): TyreResource
@@ -65,10 +67,10 @@ class TyreController extends Controller
     {
         $this->authorize('view', $tyreInstallation->tyre);
 
-        $km = $request->filled('km_at_removal') ? (float) $request->input('km_at_removal') : null;
+        $stintKm = $request->filled('stint_km') ? (float) $request->input('stint_km') : null;
 
         return response()->json([
-            'data' => $this->tyreService->previewRemoval($tyreInstallation, $km),
+            'data' => $this->tyreService->previewRemoval($tyreInstallation, $stintKm),
             'life_summary' => $this->tyreService->showWithLifecycle($tyreInstallation->tyre_id)['life_summary'],
         ]);
     }
@@ -90,6 +92,13 @@ class TyreController extends Controller
     public function removeInstallation(RemoveTyreInstallationRequest $request, TyreInstallation $tyreInstallation): TyreInstallationResource
     {
         $installation = $this->tyreService->removeInstallation($tyreInstallation, $request->validated());
+
+        return new TyreInstallationResource($installation);
+    }
+
+    public function updateStintKm(UpdateTyreStintRequest $request, TyreInstallation $tyreInstallation): TyreInstallationResource
+    {
+        $installation = $this->tyreService->updateStintKm($tyreInstallation, $request->validated());
 
         return new TyreInstallationResource($installation);
     }

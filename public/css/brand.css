@@ -572,6 +572,11 @@ a.btn-outline-primary:hover {
     color: var(--brand-text-on-green) !important;
 }
 
+.modal-header.bg-danger {
+    color: #fff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
 .modal-header.bg-success.text-dark,
 .modal-header.bg-warning.text-dark {
     color: var(--brand-text-on-green) !important;
@@ -587,11 +592,19 @@ a.btn-outline-primary:hover {
     color: var(--brand-text-on-green) !important;
 }
 
+.modal-header.bg-danger,
+.modal-header.bg-danger .modal-title,
+.modal-header.bg-danger :is(i, .bi, .fas, .far, .fab) {
+    color: #fff !important;
+}
+
 .modal-header.bg-success .btn-close,
 .modal-header.bg-primary .btn-close,
 .modal-header.bg-brand-primary .btn-close,
 .modal-header.bg-warning .btn-close,
-.modal-header.bg-info .btn-close {
+.modal-header.bg-info .btn-close,
+.modal-header.bg-danger .btn-close,
+.modal-header.bg-danger .btn-close-white {
     filter: brightness(0) invert(1);
 }
 
@@ -653,8 +666,10 @@ label,
 .modal-header.bg-success :is(h1, h2, h3, h4, h5, h6, .modal-title),
 .modal-header.bg-primary :is(h1, h2, h3, h4, h5, h6, .modal-title),
 .modal-header.bg-brand-primary :is(h1, h2, h3, h4, h5, h6, .modal-title),
+.modal-header.bg-danger :is(h1, h2, h3, h4, h5, h6, .modal-title),
 .bg-success:not(.badge):not(.bg-success-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .bg-primary:not(.badge) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
+.bg-danger:not(.badge):not(.bg-danger-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .bg-brand-primary :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .bg-gradient-primary :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .trip-expenses-card__header,
@@ -668,6 +683,7 @@ label,
 .modal-header.bg-success :is(i, .bi, .fas, .far, .fab),
 .modal-header.bg-primary :is(i, .bi, .fas, .far, .fab),
 .modal-header.bg-brand-primary :is(i, .bi, .fas, .far, .fab),
+.modal-header.bg-danger :is(i, .bi, .fas, .far, .fab),
 .bg-success:not(.badge):not(.bg-success-subtle) :is(i, .bi, .fas, .far, .fab),
 .bg-primary:not(.badge) :is(i, .bi, .fas, .far, .fab),
 .bg-brand-primary :is(i, .bi, .fas, .far, .fab),

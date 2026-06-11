@@ -59,6 +59,11 @@
                                 {{ emptyMessage }}
                             </div>
                         </div>
+                        <PickerListFooter
+                            :visible-count="filteredItems.length"
+                            :total-count="items.length"
+                            :scroll-threshold="8"
+                        />
                     </div>
                 </Teleport>
             </div>
@@ -133,6 +138,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import PickerListFooter from './PickerListFooter.vue';
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },

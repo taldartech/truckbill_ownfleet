@@ -98,7 +98,7 @@ class TyreLayoutDefaults
 
     public static function seedForTenant(string $tenantId): void
     {
-        if (TyreLayout::query()->where('tenant_id', $tenantId)->exists()) {
+        if (TyreLayout::query()->withoutGlobalScopes()->where('tenant_id', $tenantId)->exists()) {
             return;
         }
 
@@ -136,6 +136,7 @@ class TyreLayoutDefaults
     private static function codeExists(string $tenantId, string $code, ?string $ignoreId): bool
     {
         $query = TyreLayout::query()
+            ->withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('code', $code);
 

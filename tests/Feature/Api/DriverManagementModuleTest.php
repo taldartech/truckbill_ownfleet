@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
 use App\Support\TenantContext;
@@ -388,6 +389,101 @@ class DriverManagementModuleTest extends TestCase
             ->postJson("/api/vehicles/{$vehicle->id}/remove-primary-driver")
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['vehicle_id']);
+    }
+
+    public function test_admin_can_delete_driver_assignment_without_paid_attendance(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Mistaken Driver', 600);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-09',
+            'assigned_to' => '2026-06-09',
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/driver-assignments/{$assignment->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('driver_assignments', [
+            'id' => $assignment->id,
+        ]);
+    }
+
+    public function test_admin_cannot_delete_driver_assignment_when_wage_is_paid_in_attendance(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Paid Driver', 600);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-01',
+            'assigned_to' => '2026-06-09',
+            'is_primary' => true,
+        ]);
+
+        Attendance::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'primary_driver_id' => $driver->id,
+            'wage_owner_driver_id' => $driver->id,
+            'attendance_date' => '2026-06-05',
+            'status' => 'PRESENT',
+            'wage_amount' => 600,
+            'wage_payment_status' => 'paid',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/driver-assignments/{$assignment->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_assignment']);
+
+        $this->assertDatabaseHas('driver_assignments', [
+            'id' => $assignment->id,
+        ]);
+    }
+
+    public function test_admin_can_update_driver_assignment_without_paid_attendance(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Wrong Driver', 600);
+        $replacement = $this->createDriver($tenant, 'Correct Driver', 650);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-09',
+            'assigned_to' => '2026-06-09',
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/driver-assignments/{$assignment->id}", [
+                'driver_id' => $replacement->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-06-09',
+                'assigned_to' => '2026-06-09',
+                'is_primary' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.driver_id', $replacement->id)
+            ->assertJsonPath('data.has_paid_attendance', false);
     }
 
     public function test_driver_role_cannot_create_or_update_driver_records(): void

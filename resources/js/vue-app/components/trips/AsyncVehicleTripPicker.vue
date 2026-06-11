@@ -77,6 +77,12 @@
                         <div v-else-if="items.length === 0" class="px-3 py-2 text-muted small">No trucks found.</div>
                     </template>
                 </div>
+                <PickerListFooter
+                    v-if="!loading && searchQuery.length >= minSearchLength && items.length > 0"
+                    :visible-count="items.length"
+                    :total-count="totalResults"
+                    :load-more-available="currentPage < lastPage"
+                />
             </div>
         </Teleport>
     </div>
@@ -85,6 +91,7 @@
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { searchVehiclesForTripSelection } from '../../api/vehicles';
+import PickerListFooter from '../ui/PickerListFooter.vue';
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },
@@ -114,6 +121,7 @@ const highlightedIndex = ref(-1);
 const dropdownStyle = ref({});
 const currentPage = ref(1);
 const lastPage = ref(1);
+const totalResults = ref(null);
 let debounceTimer = null;
 
 function itemDriverLine(item) {
@@ -251,6 +259,7 @@ async function fetchPage(page = 1, append = false) {
         items.value = append ? [...items.value, ...result.data] : result.data;
         currentPage.value = result.meta.current_page ?? page;
         lastPage.value = result.meta.last_page ?? page;
+        totalResults.value = result.meta.total ?? items.value.length;
         highlightedIndex.value = items.value.findIndex((item) => item.selectable);
     } finally {
         loading.value = false;

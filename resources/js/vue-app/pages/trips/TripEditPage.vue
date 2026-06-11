@@ -1,15 +1,5 @@
 <template>
     <div class="container mt-4 pb-5">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <div>
-                <h3 class="mb-1">{{ pageTitle }}</h3>
-                <RouterLink :to="{ name: 'trips.index' }" class="text-muted small text-decoration-none">
-                    <i class="bi bi-arrow-left"></i> Back to Trips List
-                </RouterLink>
-            </div>
-            <span v-if="form.trip_number" class="badge bg-light text-dark border">{{ form.trip_number }}</span>
-        </div>
-
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before editing trips.
         </div>
@@ -24,6 +14,7 @@
 
             <form novalidate @submit.prevent="handleSubmit">
                 <TripForm
+                    ref="tripFormRef"
                     mode="edit"
                     :form="form"
                     :stations="stations"
@@ -40,6 +31,8 @@
                     :trip-number-display="form.trip_number"
                     :snapshot-vehicle-label="snapshotVehicleLabel"
                     :snapshot-driver-name="snapshotDriverName"
+                    :snapshot-substitute-driver-name="snapshotSubstituteDriverName"
+                    :drivers="drivers"
                     :status-locked="isTerminalStatus"
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
@@ -53,18 +46,58 @@
                     @customer-created="onCustomerCreated"
                     @status-updated="handleStatusUpdated"
                     @clear-field-error="clearFieldError"
-                />
+                >
+                    <template #trip-details-actions>
+                        <RouterLink
+                            :to="{ name: 'trips.index' }"
+                            class="btn btn-sm trip-details-action-btn trip-details-action-btn--back"
+                        >
+                            Back
+                        </RouterLink>
+                        <button
+                            v-if="!isTerminalStatus"
+                            type="submit"
+                            class="btn btn-sm trip-details-action-btn trip-details-action-btn--update"
+                            :disabled="saving"
+                        >
+                            <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <i v-else class="bi bi-check-lg me-1"></i>
+                            Update
+                        </button>
+                    </template>
+                </TripForm>
 
                 <div class="trip-form-actions sticky-bottom-bar card shadow-sm mt-3">
                     <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
-                        <AppButton variant="secondary" outline label="Back" :to="{ name: 'trips.index' }" />
-                        <AppButton
+                        <template v-if="showStatusFooterActions">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-success"
+                                @click="handleFooterStatusChange('COMPLETED')"
+                            >
+                                Completed
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-danger"
+                                @click="handleFooterStatusChange('CANCELLED')"
+                            >
+                                Cancelled
+                            </button>
+                        </template>
+                        <RouterLink :to="{ name: 'trips.index' }" class="btn btn-sm btn-outline-secondary">
+                            Back
+                        </RouterLink>
+                        <button
                             v-if="!isTerminalStatus"
                             type="submit"
-                            icon="bi bi-check-lg"
-                            label="Update Trip"
-                            :loading="saving"
-                        />
+                            class="btn btn-sm btn-primary"
+                            :disabled="saving"
+                        >
+                            <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <i v-else class="bi bi-check-lg me-1"></i>
+                            Update
+                        </button>
                     </div>
                 </div>
             </form>
@@ -77,15 +110,16 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
+import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
 import { fetchTrip, updateTrip, validateTripPayload } from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useTripForm } from '../../composables/useTripForm';
+import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 
 const route = useRoute();
@@ -122,10 +156,12 @@ const canQuickAddCustomer = computed(
 const stations = ref([]);
 const brokers = ref([]);
 const customers = ref([]);
+const drivers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const snapshotVehicleLabel = ref('');
 const snapshotDriverName = ref('');
+const snapshotSubstituteDriverName = ref('');
 const snapshotCustomerName = ref('');
 const snapshotBrokerName = ref('');
 const originalStatus = ref('');
@@ -134,7 +170,21 @@ const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
 );
 
-const pageTitle = computed(() => (isTerminalStatus.value ? 'View Trip' : 'Edit Trip'));
+const tripFormRef = ref(null);
+
+const { applyWindowValidation } = useTripWindowValidation(form, {
+    fieldErrors,
+    clearFieldError,
+    ignoreTripId: computed(() => route.params.id),
+});
+
+const showStatusFooterActions = computed(
+    () => !isTerminalStatus.value && String(form.status ?? '').toUpperCase() === 'IN_PROGRESS',
+);
+
+function handleFooterStatusChange(status) {
+    tripFormRef.value?.changeStatus(status);
+}
 
 function onStationCreated({ station, legIndex }) {
     stations.value = [station, ...stations.value.filter((s) => s.id !== station.id)];
@@ -178,15 +228,17 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList] = await Promise.all([
+    const [stationList, brokerList, customerList, driverList] = await Promise.all([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
+        listAllDrivers({ activeOnly: true }),
     ]);
 
     stations.value = stationList;
     brokers.value = brokerList;
     customers.value = customerList;
+    drivers.value = driverList;
 }
 
 async function loadTrip() {
@@ -201,6 +253,7 @@ async function loadTrip() {
         originalStatus.value = trip.status ?? 'CREATED';
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
         snapshotDriverName.value = trip.driver?.name ?? '—';
+        snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
         snapshotCustomerName.value = trip.customer_name ?? '';
         snapshotBrokerName.value = trip.broker_name ?? '';
     } catch (error) {
@@ -238,6 +291,27 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
         return;
     }
 
+    try {
+        const windowAvailable = await applyWindowValidation();
+
+        if (!windowAvailable) {
+            tripFormError.value = 'This truck already has another open trip in the selected date range.';
+            toast.error(tripFormError.value);
+            scrollToFirstFormError();
+
+            return;
+        }
+    } catch (error) {
+        if (!applyApiError(error, 'Could not verify trip dates for this truck.')) {
+            tripFormError.value = error?.response?.data?.message ?? 'Could not verify trip dates for this truck.';
+        }
+
+        toast.error(tripFormError.value);
+        scrollToFirstFormError();
+
+        return;
+    }
+
     saving.value = true;
 
     try {
@@ -247,6 +321,7 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
         originalStatus.value = trip.status ?? form.status;
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? snapshotVehicleLabel.value;
         snapshotDriverName.value = trip.driver?.name ?? snapshotDriverName.value;
+        snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? snapshotSubstituteDriverName.value;
         snapshotCustomerName.value = trip.customer_name ?? snapshotCustomerName.value;
         snapshotBrokerName.value = trip.broker_name ?? snapshotBrokerName.value;
         applyLegacyPartyLookups(trip, customers.value, brokers.value);

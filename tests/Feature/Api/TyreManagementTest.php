@@ -127,6 +127,7 @@ class TyreManagementTest extends TestCase
                 'previous_position' => TyrePosition::FrontLeft->value,
                 'new_position' => TyrePosition::FrontRight->value,
                 'cost' => 500,
+                'stint_km' => 8000,
                 'reason' => 'Steer swap',
             ]);
 
@@ -192,11 +193,122 @@ class TyreManagementTest extends TestCase
         $installationId = $install->json('data.id');
 
         $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson("/api/tyre-installations/{$installationId}/removal-preview?km_at_removal=2000");
+            ->getJson("/api/tyre-installations/{$installationId}/removal-preview?stint_km=1000");
 
         $preview->assertOk();
         $preview->assertJsonPath('data.level', 'warning');
         $this->assertStringContainsString('1000', $preview->json('data.message'));
+    }
+
+    public function test_manual_stint_km_updates_life_without_vehicle_odometer(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/tyres', [
+                'serial_number' => 'TYRE-MANUAL',
+                'expected_life_km' => 40000,
+                'current_km' => 0,
+            ]);
+
+        $tyreId = $create->json('data.id');
+
+        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-03-01',
+            ]);
+
+        $installationId = $install->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson("/api/tyre-installations/{$installationId}/stint-km", [
+                'stint_km' => 8000,
+            ])
+            ->assertOk();
+
+        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}");
+
+        $show->assertOk();
+        $show->assertJsonPath('life_summary.life_used_percent', 20);
+        $show->assertJsonPath('life_summary.active_stint_km', 8000);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyre-installations/{$installationId}/remove", [
+                'removed_at' => '2026-06-01',
+                'stint_km' => 12000,
+            ])
+            ->assertOk();
+
+        $afterRemove = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}");
+
+        $afterRemove->assertJsonPath('life_summary.total_km_used', 12000);
+        $afterRemove->assertJsonPath('life_summary.life_used_percent', 30);
+    }
+
+    public function test_tyre_index_can_filter_by_truck(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $onTruckId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-ON-TRUCK', TyrePosition::FrontLeft->value);
+
+        $otherVehicle = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'registration_number' => 'MH12TY9999',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
+        ]);
+
+        $this->createAndInstallTyre($tenant, $otherVehicle, 'TYRE-OTHER-TRUCK', TyrePosition::FrontLeft->value);
+
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYRE-STOCK',
+            'purchase_cost' => 10000,
+            'status' => TyreStatus::InStock,
+        ]);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres?vehicle_id={$vehicle->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $onTruckId);
+        $response->assertJsonPath('data.0.serial_number', 'TYRE-ON-TRUCK');
+    }
+
+    public function test_used_tyre_shows_prior_life_at_install(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/tyres', [
+                'serial_number' => 'TYRE-OLD',
+                'expected_life_km' => 40000,
+                'current_km' => 18000,
+            ]);
+
+        $tyreId = $create->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-03-01',
+            ])
+            ->assertCreated();
+
+        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}");
+
+        $show->assertJsonPath('life_summary.stock_km', 18000);
+        $show->assertJsonPath('life_summary.life_used_percent', 45);
     }
 
     public function test_moderator_can_view_but_not_create_tyres_without_manage_permission(): void

@@ -40,7 +40,7 @@ class TripRepository
     public function findWithDetails(string $id): ?Trip
     {
         return Trip::query()
-            ->with(['vehicle', 'driver', 'routeLegs', 'expenses.routeLeg'])
+            ->with(['vehicle', 'driver', 'substituteDriver', 'routeLegs', 'expenses.routeLeg'])
             ->find($id);
     }
 

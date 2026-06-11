@@ -2,8 +2,10 @@
 
 namespace App\Modules\DriverManagement\Services;
 
+use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
+use App\Enums\WagePaymentStatus;
 use App\Modules\DriverManagement\Repositories\DriverAssignmentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -109,8 +111,32 @@ class DriverAssignmentService
     public function update(DriverAssignment $driverAssignment, array $data): DriverAssignment
     {
         return DB::transaction(function () use ($driverAssignment, $data): DriverAssignment {
+            $this->assertAssignmentIsMutable($driverAssignment);
+
             return $this->updateAssignment($driverAssignment, $data);
         });
+    }
+
+    public function hasPaidAttendanceInPeriod(DriverAssignment $driverAssignment): bool
+    {
+        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
+        $assignedTo = $driverAssignment->assigned_to?->toDateString() ?? Carbon::today()->toDateString();
+
+        if ($assignedFrom === null) {
+            return false;
+        }
+
+        return Attendance::query()
+            ->where('tenant_id', $driverAssignment->tenant_id)
+            ->where('vehicle_id', $driverAssignment->vehicle_id)
+            ->where(function ($query) use ($driverAssignment): void {
+                $query->where('primary_driver_id', $driverAssignment->driver_id)
+                    ->orWhere('wage_owner_driver_id', $driverAssignment->driver_id);
+            })
+            ->whereDate('attendance_date', '>=', $assignedFrom)
+            ->whereDate('attendance_date', '<=', $assignedTo)
+            ->where('wage_payment_status', WagePaymentStatus::Paid->value)
+            ->exists();
     }
 
     /**
@@ -129,21 +155,27 @@ class DriverAssignmentService
 
         if ($merged['is_primary']) {
             $assignedFrom = Carbon::parse((string) $merged['assigned_from'])->toDateString();
+            $isOpenAssignment = $driverAssignment->assigned_to === null;
 
-            $this->assertDriverIsActive((string) $merged['driver_id']);
-            $this->closeVehiclePrimaryAssignmentsBeforeNew(
-                (string) $merged['vehicle_id'],
-                $assignedFrom,
-                $driverAssignment->id,
-            );
-            $this->ensureDriverNotPrimaryOnOtherVehicle(
-                (string) $merged['driver_id'],
-                (string) $merged['vehicle_id'],
-                $assignedFrom,
-                $driverAssignment->id,
-            );
+            if ((string) $merged['driver_id'] !== (string) $driverAssignment->driver_id) {
+                $this->assertDriverIsActive((string) $merged['driver_id']);
+            }
 
-            $data['assigned_to'] = null;
+            if ($isOpenAssignment) {
+                $this->closeVehiclePrimaryAssignmentsBeforeNew(
+                    (string) $merged['vehicle_id'],
+                    $assignedFrom,
+                    $driverAssignment->id,
+                );
+                $this->ensureDriverNotPrimaryOnOtherVehicle(
+                    (string) $merged['driver_id'],
+                    (string) $merged['vehicle_id'],
+                    $assignedFrom,
+                    $driverAssignment->id,
+                );
+
+                $data['assigned_to'] = null;
+            }
         }
 
         return $this->driverAssignmentRepository->update($driverAssignment, $data);
@@ -151,7 +183,17 @@ class DriverAssignmentService
 
     public function delete(DriverAssignment $driverAssignment): void
     {
+        $this->assertAssignmentIsMutable($driverAssignment);
         $this->driverAssignmentRepository->delete($driverAssignment);
+    }
+
+    private function assertAssignmentIsMutable(DriverAssignment $driverAssignment): void
+    {
+        if ($this->hasPaidAttendanceInPeriod($driverAssignment)) {
+            throw ValidationException::withMessages([
+                'driver_assignment' => ['This assignment cannot be changed because wage payment has already been recorded in attendance for this driver.'],
+            ]);
+        }
     }
 
     public function removePrimaryDriver(string $vehicleId, ?string $actorId = null, ?string $asOfDate = null): void

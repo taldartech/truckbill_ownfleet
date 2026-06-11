@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CheckTripWindowRequest;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\UpdateTripRequest;
 use App\Http\Resources\TripResource;
@@ -30,6 +31,58 @@ class TripController extends Controller
 
         return response()->json([
             'trip_number' => $this->tripService->previewNextTripNumber(),
+        ]);
+    }
+
+    public function checkTripWindow(CheckTripWindowRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $ignoreTripId = $data['ignore_trip_id'] ?? null;
+
+        $vehicleOverlap = $this->tripValidation->findOverlappingOpenTrip(
+            vehicleId: $data['vehicle_id'],
+            startAt: $data['start_at'],
+            endAt: $data['end_at'] ?? null,
+            ignoreTripId: $ignoreTripId,
+        );
+
+        if ($vehicleOverlap !== null) {
+            return response()->json([
+                'available' => false,
+                'conflict_type' => 'vehicle',
+                'trip_id' => $vehicleOverlap->id,
+                'trip_number' => $vehicleOverlap->trip_number,
+                'messages' => [
+                    'start_at' => ['This truck already has an open trip in the selected date range. Complete or cancel it first.'],
+                    'vehicle_id' => ["Trip {$vehicleOverlap->trip_number} is already scheduled for this truck on overlapping dates."],
+                ],
+            ]);
+        }
+
+        if (! empty($data['driver_id'])) {
+            $driverOverlap = $this->tripValidation->findOverlappingOpenTrip(
+                driverId: $data['driver_id'],
+                startAt: $data['start_at'],
+                endAt: $data['end_at'] ?? null,
+                ignoreTripId: $ignoreTripId,
+            );
+
+            if ($driverOverlap !== null) {
+                return response()->json([
+                    'available' => false,
+                    'conflict_type' => 'driver',
+                    'trip_id' => $driverOverlap->id,
+                    'trip_number' => $driverOverlap->trip_number,
+                    'messages' => [
+                        'start_at' => ['This driver already has an open trip in the selected date range. Complete or cancel it first.'],
+                        'driver_id' => ["Trip {$driverOverlap->trip_number} is already scheduled for this driver on overlapping dates."],
+                    ],
+                ]);
+            }
+        }
+
+        return response()->json([
+            'available' => true,
         ]);
     }
 
@@ -93,7 +146,7 @@ class TripController extends Controller
     {
         $this->authorize('view', $trip);
 
-        $trip->load(['vehicle', 'driver', 'routeLegs', 'expenses.routeLeg']);
+        $trip->load(['vehicle', 'driver', 'substituteDriver', 'routeLegs', 'expenses.routeLeg']);
 
         return new TripResource($trip);
     }

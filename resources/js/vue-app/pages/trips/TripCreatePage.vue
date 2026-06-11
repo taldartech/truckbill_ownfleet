@@ -1,17 +1,5 @@
 <template>
     <div class="container mt-4 pb-5 trip-create-page">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <div>
-                <h3 class="mb-1">Create Trip</h3>
-                <RouterLink :to="{ name: 'trips.index' }" class="text-muted small text-decoration-none">
-                    <i class="bi bi-arrow-left"></i> Back to Trips List
-                </RouterLink>
-            </div>
-            <span v-if="previewTripNumber" class="badge bg-light text-dark border">
-                Next: {{ previewTripNumber }}
-            </span>
-        </div>
-
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before creating trips.
         </div>
@@ -28,10 +16,11 @@
                 :can-quick-add-customer="canQuickAddCustomer"
                 :form-error="tripFormError"
                 :field-errors="fieldErrors"
-                :trip-number-display="previewTripNumber"
+                :trip-number-display="previewTripNumber ? `Next: ${previewTripNumber}` : ''"
                 :driver-warning="driverWarning"
                 :loading-driver="loadingDriver"
                 :primary-driver-name="primaryDriverName"
+                :drivers="drivers"
                 @add-stop="handleAddStop"
                 @return-to-start="handleReturnToStart"
                 @remove-route-leg="removeRouteLeg"
@@ -44,12 +33,26 @@
                 @customer-created="onCustomerCreated"
                 @vehicle-selected="onVehicleSelected"
                 @clear-field-error="clearFieldError"
-            />
+            >
+                <template #trip-details-actions>
+                    <button type="submit" class="btn btn-sm btn-light fw-semibold px-3" :disabled="saving">
+                        <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <i v-else class="bi bi-check-lg me-1"></i>
+                        Create Trip
+                    </button>
+                </template>
+            </TripForm>
 
             <div class="trip-form-actions sticky-bottom-bar card shadow-sm mt-3">
                 <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
-                    <AppButton variant="secondary" outline label="Cancel" :to="{ name: 'trips.index' }" />
-                    <AppButton type="submit" icon="bi bi-check-lg" label="Create Trip" :loading="saving" />
+                    <RouterLink :to="{ name: 'trips.index' }" class="btn btn-sm btn-outline-secondary">
+                        Cancel
+                    </RouterLink>
+                    <button type="submit" class="btn btn-sm btn-primary" :disabled="saving">
+                        <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <i v-else class="bi bi-check-lg me-1"></i>
+                        Create Trip
+                    </button>
                 </div>
             </div>
         </form>
@@ -61,10 +64,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
+import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
 import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/trips';
+import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import TripForm from '../../components/trips/TripForm.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -106,10 +110,15 @@ const canQuickAddCustomer = computed(
 const stations = ref([]);
 const brokers = ref([]);
 const customers = ref([]);
+const drivers = ref([]);
 const saving = ref(false);
 const previewTripNumber = ref('');
 
 const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
+const { applyWindowValidation } = useTripWindowValidation(form, {
+    fieldErrors,
+    clearFieldError,
+});
 
 function onVehicleSelected(vehicle) {
     setPrimaryDriverFromSelection(vehicle);
@@ -160,15 +169,17 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList] = await Promise.all([
+    const [stationList, brokerList, customerList, driverList] = await Promise.all([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
+        listAllDrivers({ activeOnly: true }),
     ]);
 
     stations.value = stationList;
     brokers.value = brokerList;
     customers.value = customerList;
+    drivers.value = driverList;
 }
 
 async function handleSubmit() {
@@ -180,6 +191,27 @@ async function handleSubmit() {
     if (Object.keys(clientErrors).length > 0) {
         fieldErrors.value = clientErrors;
         tripFormError.value = 'Please fix the errors below before saving.';
+        toast.error(tripFormError.value);
+        scrollToFirstFormError();
+
+        return;
+    }
+
+    try {
+        const windowAvailable = await applyWindowValidation();
+
+        if (!windowAvailable) {
+            tripFormError.value = 'This truck already has another open trip in the selected date range.';
+            toast.error(tripFormError.value);
+            scrollToFirstFormError();
+
+            return;
+        }
+    } catch (error) {
+        if (!applyApiError(error, 'Could not verify trip dates for this truck.')) {
+            tripFormError.value = error?.response?.data?.message ?? 'Could not verify trip dates for this truck.';
+        }
+
         toast.error(tripFormError.value);
         scrollToFirstFormError();
 

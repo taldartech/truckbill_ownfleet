@@ -18,22 +18,6 @@ export const vehicleDocumentTypes = [
     { value: 'fastag', label: 'FASTag' },
 ];
 
-function buildFormData(payload, file) {
-    const formData = new FormData();
-
-    Object.entries(payload).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-            formData.append(key, value);
-        }
-    });
-
-    if (file) {
-        formData.append('file', file);
-    }
-
-    return formData;
-}
-
 export async function listVehicleDocuments(vehicleId) {
     const { data } = await api.get(documentsBase, {
         params: { vehicle_id: vehicleId, per_page: 100 },
@@ -42,21 +26,14 @@ export async function listVehicleDocuments(vehicleId) {
     return data.data ?? [];
 }
 
-export async function createVehicleDocument(payload, file = null) {
-    const formData = buildFormData(payload, file);
-    const { data } = await api.post(documentsBase, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
+export async function createVehicleDocument(payload) {
+    const { data } = await api.post(documentsBase, payload);
 
     return unwrapResource(data);
 }
 
-export async function updateVehicleDocument(id, payload, file = null) {
-    const formData = buildFormData(payload, file);
-    formData.append('_method', 'PUT');
-    const { data } = await api.post(`${documentsBase}/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
+export async function updateVehicleDocument(id, payload) {
+    const { data } = await api.put(`${documentsBase}/${id}`, payload);
 
     return unwrapResource(data);
 }

@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TyreRepository
 {
-    public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null, ?string $vehicleId = null): LengthAwarePaginator
     {
-        return $this->baseQuery($search, $status)
+        return $this->baseQuery($search, $status, $vehicleId)
             ->with(['activeInstallation.vehicle'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -42,10 +42,13 @@ class TyreRepository
         return $tyre->fresh();
     }
 
-    private function baseQuery(?string $search, ?string $status): Builder
+    private function baseQuery(?string $search, ?string $status, ?string $vehicleId = null): Builder
     {
         return Tyre::query()
             ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($vehicleId, function ($query) use ($vehicleId): void {
+                $query->whereHas('activeInstallation', fn ($installation) => $installation->where('vehicle_id', $vehicleId));
+            })
             ->when($search, function ($query) use ($search): void {
                 $term = '%'.addcslashes(trim($search), '%_').'%';
                 $query->where(function ($inner) use ($term): void {

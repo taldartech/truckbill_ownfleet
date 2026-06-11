@@ -8,43 +8,50 @@
         </div>
         <div v-if="driverWarning" class="alert alert-warning">{{ driverWarning }}</div>
 
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white">
-                <h3 class="card-title mb-0"><i class="bi bi-signpost-split me-1"></i> Trip Details</h3>
-            </div>
-            <div class="card-body trip-form-fields">
-                <div class="form-grid-2 mb-3">
-                    <div>
-                        <label class="form-label">Trip Number</label>
-                        <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
-                    </div>
-                    <div>
-                        <label class="form-label">Status</label>
-                        <template v-if="mode === 'create'">
-                            <input type="text" class="form-control bg-light" value="Created" readonly />
-                            <div class="mt-1">
-                                <span class="badge bg-info text-dark">Created</span>
-                            </div>
-                        </template>
-                        <template v-else>
-                            <div class="d-flex flex-wrap align-items-center gap-2 status-actions">
+        <div class="card mb-4 trip-details-card">
+            <div class="card-header trip-details-card__header bg-success text-white">
+                <div class="trip-details-card__row trip-details-card__row--main">
+                    <h3 class="card-title mb-0 trip-details-card__title">
+                        <span>{{ tripDetailsHeaderTitle }}</span>
+                        <template v-if="mode === 'edit'">
+                            <span v-if="tripNumberDisplay" class="trip-details-card__sep">{{ tripNumberDisplay }}</span>
+                            <span v-if="snapshotVehicleLabel" class="trip-details-card__sep">{{ snapshotVehicleLabel }}</span>
+                            <span class="trip-details-card__sep">
                                 <span class="badge" :class="currentStatusBadge.badge">{{ currentStatusBadge.label }}</span>
-                                <template v-if="!readonly && !statusLocked && allowedNextStatuses.length">
-                                    <button
-                                        v-for="next in allowedNextStatuses"
-                                        :key="next.value"
-                                        type="button"
-                                        class="btn btn-sm btn-outline-primary"
-                                        @click="onStatusChange(next.value)"
-                                    >
-                                        Mark {{ next.label }}
-                                    </button>
-                                </template>
-                            </div>
+                            </span>
                         </template>
+                    </h3>
+                    <div
+                        v-if="showHeaderActions"
+                        class="trip-details-card__actions"
+                    >
+                        <template v-if="mode === 'edit' && !readonly && !statusLocked">
+                            <button
+                                v-for="next in allowedNextStatuses"
+                                :key="next.value"
+                                type="button"
+                                class="btn btn-sm trip-details-action-btn"
+                                :class="statusActionButtonClass(next.value)"
+                                @click="onStatusChange(next.value)"
+                            >
+                                {{ next.label }}
+                            </button>
+                        </template>
+                        <slot name="trip-details-actions" />
                     </div>
                 </div>
-                <div class="form-grid-2 mb-3">
+            </div>
+            <div class="card-body trip-form-fields">
+                <div class="trip-details-grid mb-3">
+                    <div>
+                        <label class="form-label trip-number-label">
+                            <span>Trip Number</span>
+                            <span class="badge" :class="mode === 'create' ? 'bg-info text-dark' : currentStatusBadge.badge">
+                                {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
+                            </span>
+                        </label>
+                        <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
+                    </div>
                     <div>
                         <label class="form-label">Truck *</label>
                         <template v-if="mode === 'create'">
@@ -67,27 +74,6 @@
                             />
                         </template>
                     </div>
-                    <div>
-                        <label class="form-label">
-                            Primary Driver
-                            <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
-                        </label>
-                        <input
-                            :value="driverDisplayName"
-                            type="text"
-                            class="form-control bg-light"
-                            :class="{ 'is-invalid': fieldErrors.driver_id && mode !== 'edit' }"
-                            readonly
-                        />
-                        <div v-if="fieldErrors.driver_id && mode !== 'edit'" class="invalid-feedback d-block">
-                            {{ fieldErrorMessage('driver_id') }}
-                        </div>
-                        <div v-else-if="mode === 'edit'" class="form-text">
-                            Locked on this trip — saved when the trip was created.
-                        </div>
-                    </div>
-                </div>
-                <div class="form-grid-2 mb-3">
                     <div>
                         <label class="form-label">Customer</label>
                         <SearchablePicker
@@ -112,32 +98,6 @@
                             readonly
                         />
                     </div>
-                    <div>
-                        <label class="form-label">Broker</label>
-                        <SearchablePicker
-                            v-if="!readonly"
-                            v-model="form.broker_id"
-                            :items="brokers"
-                            placeholder="Select broker"
-                            search-placeholder="Search broker…"
-                            empty-message="No broker found."
-                            view-title="Broker details"
-                            quick-add-title="Quick add broker"
-                            :invalid="Boolean(fieldErrors.broker_id)"
-                            :error-message="fieldErrorMessage('broker_id')"
-                            :can-quick-add="canQuickAddBroker"
-                            @quick-add="showBrokerQuickAdd = true"
-                        />
-                        <input
-                            v-else
-                            :value="partyLabel(brokers, form.broker_id, snapshotBrokerName)"
-                            type="text"
-                            class="form-control form-input bg-light"
-                            readonly
-                        />
-                    </div>
-                </div>
-                <div class="form-grid-2 mb-3">
                     <div>
                         <label class="form-label">Start Date *</label>
                         <input
@@ -164,6 +124,99 @@
                             {{ fieldErrors.end_at[0] }}
                         </div>
                     </div>
+                    <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at">
+                        <label class="form-label">Actual Arrival Date</label>
+                        <input
+                            :value="formatDisplayDate(form.actual_arrival_at)"
+                            type="text"
+                            class="form-control bg-light"
+                            readonly
+                        />
+                    </div>
+                </div>
+                <div class="driver-broker-grid mb-3">
+                    <div class="driver-broker-grid__primary">
+                        <div class="driver-field-header">
+                            <label class="form-label mb-0">
+                                Primary Driver
+                                <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
+                            </label>
+                            <div
+                                v-if="!readonly && hasPrimaryDriver"
+                                class="form-check form-switch substitute-toggle mb-0"
+                            >
+                                <input
+                                    id="use-substitute-driver"
+                                    v-model="showSubstituteDriver"
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                />
+                                <label class="form-check-label" for="use-substitute-driver">
+                                    Substitute
+                                </label>
+                            </div>
+                        </div>
+                        <input
+                            :value="driverDisplayName"
+                            type="text"
+                            class="form-control bg-light"
+                            :class="{ 'is-invalid': fieldErrors.driver_id && mode !== 'edit' }"
+                            readonly
+                        />
+                        <div v-if="fieldErrors.driver_id && mode !== 'edit'" class="invalid-feedback d-block">
+                            {{ fieldErrorMessage('driver_id') }}
+                        </div>
+                    </div>
+                    <div
+                        v-if="showSubstituteDriverColumn"
+                        class="driver-broker-grid__substitute"
+                    >
+                        <label class="form-label">Substitute Driver</label>
+                        <SearchablePicker
+                            v-if="!readonly"
+                            v-model="form.substitute_driver_id"
+                            :items="substituteDriverOptions"
+                            placeholder="Select substitute driver"
+                            search-placeholder="Search driver…"
+                            empty-message="No driver found."
+                            view-title="Driver details"
+                            :invalid="Boolean(fieldErrors.substitute_driver_id)"
+                            :error-message="fieldErrorMessage('substitute_driver_id')"
+                            :can-quick-add="false"
+                        />
+                        <input
+                            v-else
+                            :value="substituteDriverDisplay"
+                            type="text"
+                            class="form-control bg-light"
+                            readonly
+                        />
+                    </div>
+                    <div class="driver-broker-grid__broker">
+                        <label class="form-label">Broker</label>
+                        <SearchablePicker
+                            v-if="!readonly"
+                            v-model="form.broker_id"
+                            :items="brokers"
+                            placeholder="Select broker"
+                            search-placeholder="Search broker…"
+                            empty-message="No broker found."
+                            view-title="Broker details"
+                            quick-add-title="Quick add broker"
+                            :invalid="Boolean(fieldErrors.broker_id)"
+                            :error-message="fieldErrorMessage('broker_id')"
+                            :can-quick-add="canQuickAddBroker"
+                            @quick-add="showBrokerQuickAdd = true"
+                        />
+                        <input
+                            v-else
+                            :value="partyLabel(brokers, form.broker_id, snapshotBrokerName)"
+                            type="text"
+                            class="form-control form-input bg-light"
+                            readonly
+                        />
+                    </div>
                 </div>
                 <div v-if="form.status === 'CANCELLED'" class="mb-3">
                     <div class="alert alert-danger mb-0 py-2">
@@ -174,15 +227,6 @@
                             <strong>Reason:</strong> {{ form.cancellation_reason }}
                         </div>
                     </div>
-                </div>
-                <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at" class="mb-3">
-                    <label class="form-label">Actual Arrival Date</label>
-                    <input
-                        :value="formatDisplayDate(form.actual_arrival_at)"
-                        type="text"
-                        class="form-control bg-light"
-                        readonly
-                    />
                 </div>
             </div>
         </div>
@@ -394,6 +438,8 @@
                     :route-legs="form.route_legs"
                     :stations="stations"
                     :readonly="readonly"
+                    :trip-start-date="form.start_at"
+                    :trip-end-date="form.end_at"
                     @add-expense="$emit('add-expense', $event)"
                     @remove-expense="$emit('remove-expense', $event)"
                 />
@@ -433,7 +479,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, useSlots, watch } from 'vue';
 import {
     ROUTE_TYPES,
     routeTypeMeta,
@@ -456,6 +502,7 @@ const props = defineProps({
     drivers: { type: Array, default: () => [] },
     snapshotVehicleLabel: { type: String, default: '' },
     snapshotDriverName: { type: String, default: '' },
+    snapshotSubstituteDriverName: { type: String, default: '' },
     stations: { type: Array, default: () => [] },
     brokers: { type: Array, default: () => [] },
     customers: { type: Array, default: () => [] },
@@ -490,6 +537,8 @@ const emit = defineEmits([
     'clear-field-error',
 ]);
 
+const slots = useSlots();
+
 const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
@@ -504,6 +553,18 @@ const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at))
 
 const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
 
+const tripDetailsHeaderTitle = computed(() => {
+    if (props.mode === 'create') {
+        return 'Create - Trip';
+    }
+
+    if (props.readonly || props.statusLocked) {
+        return 'View - Trip';
+    }
+
+    return 'Edit - Trip';
+});
+
 const driverDisplayName = computed(() => {
     if (props.mode === 'edit') {
         return props.snapshotDriverName || '—';
@@ -511,6 +572,68 @@ const driverDisplayName = computed(() => {
 
     return props.primaryDriverName || (props.loadingDriver ? 'Loading…' : '—');
 });
+
+const primaryDriverId = computed(() => props.form.driver_id ?? '');
+
+const hasPrimaryDriver = computed(() => Boolean(String(primaryDriverId.value).trim()));
+
+const showSubstituteDriver = ref(false);
+
+const showSubstituteDriverColumn = computed(
+    () => (props.readonly && Boolean(props.form.substitute_driver_id))
+        || (!props.readonly && hasPrimaryDriver.value && showSubstituteDriver.value),
+);
+
+const substituteDriverOptions = computed(() =>
+    props.drivers.filter((driver) => String(driver.id) !== String(primaryDriverId.value)),
+);
+
+const substituteDriverDisplay = computed(() => {
+    if (!props.form.substitute_driver_id) {
+        return '—';
+    }
+
+    const match = props.drivers.find(
+        (driver) => String(driver.id) === String(props.form.substitute_driver_id),
+    );
+
+    return match?.name ?? props.snapshotSubstituteDriverName ?? '—';
+});
+
+watch(
+    () => props.form.substitute_driver_id,
+    (substituteDriverId) => {
+        if (substituteDriverId) {
+            showSubstituteDriver.value = true;
+        }
+    },
+    { immediate: true },
+);
+
+watch(showSubstituteDriver, (enabled) => {
+    if (!enabled && !props.readonly) {
+        props.form.substitute_driver_id = '';
+        emit('clear-field-error', 'substitute_driver_id');
+    }
+});
+
+watch(
+    () => props.form.driver_id,
+    (driverId) => {
+        if (!driverId) {
+            showSubstituteDriver.value = false;
+
+            return;
+        }
+
+        if (
+            props.form.substitute_driver_id
+            && String(props.form.substitute_driver_id) === String(driverId)
+        ) {
+            props.form.substitute_driver_id = '';
+        }
+    },
+);
 
 const allowedNextStatuses = computed(() => {
     const current = String(props.form.status ?? '').toUpperCase();
@@ -528,6 +651,28 @@ const allowedNextStatuses = computed(() => {
 
     return [];
 });
+
+const showHeaderActions = computed(
+    () => Boolean(slots['trip-details-actions']) || (props.mode === 'edit' && !props.readonly && !props.statusLocked && allowedNextStatuses.value.length > 0),
+);
+
+function statusActionButtonClass(status) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    if (normalized === 'COMPLETED') {
+        return 'trip-details-action-btn--completed';
+    }
+
+    if (normalized === 'CANCELLED') {
+        return 'trip-details-action-btn--cancelled';
+    }
+
+    if (normalized === 'IN_PROGRESS') {
+        return 'trip-details-action-btn--progress';
+    }
+
+    return 'trip-details-action-btn--neutral';
+}
 
 const validationMessages = computed(() => {
     const messages = [];
@@ -701,6 +846,10 @@ function onCustomerCreated(customer) {
 }
 
 const routeTypes = ROUTE_TYPES;
+
+defineExpose({
+    changeStatus: onStatusChange,
+});
 </script>
 
 <style scoped>
@@ -724,5 +873,194 @@ const routeTypes = ROUTE_TYPES;
 .trip-expenses-card__body {
     padding: 16px;
     background: #f9fafb;
+}
+.trip-details-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 14px 18px;
+}
+.trip-details-card__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+}
+.trip-details-card__row--main {
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+@media (max-width: 768px) {
+    .trip-details-card__actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        width: 100%;
+    }
+}
+.trip-details-card__actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+.trip-details-card__actions :deep(.trip-details-action-btn),
+.trip-details-action-btn {
+    white-space: nowrap;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    border-radius: 0.375rem;
+    line-height: 1.2;
+}
+.trip-details-action-btn--completed {
+    background: #fff;
+    color: #157347;
+    border: 1px solid #157347;
+}
+.trip-details-action-btn--completed:hover {
+    background: #d1e7dd;
+    color: #146c43;
+}
+.trip-details-action-btn--cancelled {
+    background: #dc3545;
+    color: #fff;
+    border: 1px solid #bb2d3b;
+}
+.trip-details-action-btn--cancelled:hover {
+    background: #bb2d3b;
+    color: #fff;
+}
+.trip-details-action-btn--progress {
+    background: #0d6efd;
+    color: #fff;
+    border: 1px solid #0a58ca;
+}
+.trip-details-action-btn--progress:hover {
+    background: #0b5ed7;
+    color: #fff;
+}
+.trip-details-action-btn--back {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.trip-details-action-btn--back:hover {
+    background: rgba(255, 255, 255, 0.24);
+    color: #fff;
+}
+.trip-details-action-btn--update {
+    background: #fff;
+    color: #146c43;
+    border: 1px solid #fff;
+}
+.trip-details-action-btn--update:hover {
+    background: #f8f9fa;
+    color: #146c43;
+}
+.trip-details-action-btn--neutral {
+    background: #fff;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+.trip-details-card__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    min-width: 0;
+}
+.trip-details-card__sep::before {
+    content: '–';
+    margin-right: 0.5rem;
+    opacity: 0.75;
+    font-weight: 400;
+}
+.trip-number-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.trip-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+@media (max-width: 768px) {
+    .trip-details-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.driver-broker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+.driver-broker-grid__primary {
+    grid-column: 1;
+}
+.driver-broker-grid__substitute {
+    grid-column: 2;
+    animation: substitute-field-in 0.2s ease-out;
+}
+.driver-broker-grid__broker {
+    grid-column: 3;
+}
+.driver-field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.substitute-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-left: 0;
+    min-height: auto;
+}
+.substitute-toggle .form-check-input {
+    width: 2em;
+    height: 1.1em;
+    margin: 0;
+    cursor: pointer;
+}
+.substitute-toggle .form-check-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #6c757d;
+    cursor: pointer;
+    white-space: nowrap;
+    padding-top: 0;
+}
+.substitute-toggle .form-check-input:checked + .form-check-label {
+    color: #146c43;
+}
+.driver-broker-grid__substitute :deep(.searchable-picker),
+.driver-broker-grid__broker :deep(.searchable-picker) {
+    width: 100%;
+}
+@keyframes substitute-field-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@media (max-width: 768px) {
+    .driver-broker-grid {
+        grid-template-columns: 1fr;
+    }
+    .driver-broker-grid__primary,
+    .driver-broker-grid__substitute,
+    .driver-broker-grid__broker {
+        grid-column: auto;
+    }
 }
 </style>

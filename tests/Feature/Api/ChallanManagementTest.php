@@ -98,6 +98,27 @@ class ChallanManagementTest extends TestCase
         $this->assertDatabaseMissing('challans', ['id' => $challan->id]);
     }
 
+    public function test_moderator_cannot_access_challans(): void
+    {
+        [$tenant, $user, $vehicle, $driver] = $this->createFixtures('moderator');
+
+        $this->actingAs($user)
+            ->getJson('/app/api/challans')
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->postJson('/app/api/challans', [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'challan_number' => 'CH-MOD-1',
+                'challan_date' => '2026-06-01',
+                'violation_type' => 'Over speeding',
+                'amount' => 1500,
+                'status' => 'UNPAID',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_admin_can_update_challan_payment_status(): void
     {
         [$tenant, $user, $vehicle, $driver] = $this->createFixtures('admin');

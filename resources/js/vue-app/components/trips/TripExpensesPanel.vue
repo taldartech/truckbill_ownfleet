@@ -27,8 +27,9 @@
                 <template v-for="item in generalItems" :key="item.globalIndex">
                     <TripExpenseEntry
                         :expense="item.expense"
-                        :readonly="readonly"
-                        :autofocus="item.globalIndex === lastFocusedIndex"
+                        :disabled="readonly"
+                        :trip-start-date="tripStartDate"
+                        :trip-end-date="tripEndDate"
                         @remove="$emit('remove-expense', item.globalIndex)"
                     />
                 </template>
@@ -66,8 +67,9 @@
                 <template v-for="item in stop.items" :key="item.globalIndex">
                     <TripExpenseEntry
                         :expense="item.expense"
-                        :readonly="readonly"
-                        :autofocus="item.globalIndex === lastFocusedIndex"
+                        :disabled="readonly"
+                        :trip-start-date="tripStartDate"
+                        :trip-end-date="tripEndDate"
                         @remove="$emit('remove-expense', item.globalIndex)"
                     />
                 </template>
@@ -111,7 +113,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 import { routeTypeMeta } from '../../api/trips';
 import QuickExpensePills from './QuickExpensePills.vue';
 import TripExpenseEntry from './TripExpenseEntry.vue';
@@ -121,6 +123,8 @@ const props = defineProps({
     routeLegs: { type: Array, default: () => [] },
     stations: { type: Array, default: () => [] },
     readonly: { type: Boolean, default: false },
+    tripStartDate: { type: String, default: '' },
+    tripEndDate: { type: String, default: '' },
 });
 
 const emit = defineEmits(['add-expense', 'remove-expense']);
@@ -168,22 +172,6 @@ const summaryRows = computed(() => {
 
     return rows.filter((row) => row.total > 0);
 });
-
-watch(
-    () => [props.routeLegs.length, props.expenses.length],
-    () => {
-        if (props.routeLegs.length <= 5) {
-            return;
-        }
-
-        stopCards.value.forEach((stop) => {
-            if (stop.subtotal === 0 && collapsed[stop.key] === undefined) {
-                collapsed[stop.key] = true;
-            }
-        });
-    },
-    { immediate: true },
-);
 
 function collectItems(sequence) {
     const items = [];
@@ -236,11 +224,11 @@ function stationLabel(stationId) {
 }
 
 function isCollapsed(key) {
-    return Boolean(collapsed[key]);
+    return collapsed[key] !== false;
 }
 
 function toggleCollapsed(key) {
-    collapsed[key] = !collapsed[key];
+    collapsed[key] = isCollapsed(key) ? false : true;
 }
 
 function quickAdd(routeLegSequence, expenseType) {

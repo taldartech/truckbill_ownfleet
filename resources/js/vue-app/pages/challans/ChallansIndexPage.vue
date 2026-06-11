@@ -137,6 +137,7 @@ const pageId = 'challansIndex';
 const toast = useAppToast();
 const { fieldErrors, formError: challanFormError, clearErrors, applyApiError } = useApiFormErrors();
 const { canInCompany } = usePermissions();
+const canView = computed(() => canInCompany('challans.view'));
 const canManage = computed(() => canInCompany('challans.manage'));
 const canDelete = computed(() => canInCompany('challans.delete'));
 const hasRowActions = computed(() => canManage.value || canDelete.value);
@@ -209,6 +210,13 @@ function rowNumber(index) {
 }
 
 async function loadChallans(page = pagination.currentPage) {
+    if (!canView.value) {
+        challans.value = [];
+        loading.value = false;
+
+        return;
+    }
+
     loading.value = true;
 
     try {
@@ -341,6 +349,10 @@ async function handleDelete(challan) {
 }
 
 onMounted(() => {
-    loadChallans();
+    if (canView.value) {
+        loadChallans();
+    } else {
+        loading.value = false;
+    }
 });
 </script>

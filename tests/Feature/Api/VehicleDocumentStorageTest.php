@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\VehicleDocumentType;
+use App\Support\DocumentTypeDefaults;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -26,10 +27,58 @@ class VehicleDocumentStorageTest extends TestCase
         config(['fleet-documents.disk' => 'fleet_documents']);
     }
 
+    public function test_document_can_be_created_without_file_upload(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/vehicle-documents', [
+                'vehicle_id' => $vehicle->id,
+                'document_type' => VehicleDocumentType::Insurance->value,
+                'issue_date' => now()->toDateString(),
+                'expiry_date' => now()->addYear()->toDateString(),
+                'reminder_days_before' => 14,
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.has_file', false);
+        $response->assertJsonPath('data.document_type', VehicleDocumentType::Insurance->value);
+        $response->assertJsonPath('data.reminder_days_before', 14);
+
+        $this->assertDatabaseHas('vehicle_documents', [
+            'vehicle_id' => $vehicle->id,
+            'document_type' => VehicleDocumentType::Insurance->value,
+            'reminder_days_before' => 14,
+            'file_path' => null,
+        ]);
+    }
+
+    public function test_document_requires_issue_and_expiry_dates(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/vehicle-documents', [
+                'vehicle_id' => $vehicle->id,
+                'document_type' => VehicleDocumentType::Insurance->value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['issue_date', 'expiry_date']);
+    }
+
     public function test_document_file_is_stored_under_tenant_vehicle_path(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
 
         Sanctum::actingAs($user);
 
@@ -64,6 +113,7 @@ class VehicleDocumentStorageTest extends TestCase
     {
         [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
 
         Sanctum::actingAs($user);
 
@@ -73,6 +123,8 @@ class VehicleDocumentStorageTest extends TestCase
             ->post('/api/vehicle-documents', [
                 'vehicle_id' => $vehicle->id,
                 'document_type' => VehicleDocumentType::Rc->value,
+                'issue_date' => now()->toDateString(),
+                'expiry_date' => now()->addYear()->toDateString(),
                 'file' => $file,
             ]);
 
@@ -84,6 +136,31 @@ class VehicleDocumentStorageTest extends TestCase
             ->assertNoContent();
 
         Storage::disk('fleet_documents')->assertMissing($path);
+    }
+
+    public function test_vehicle_cannot_have_duplicate_document_type(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'vehicle_id' => $vehicle->id,
+            'document_type' => VehicleDocumentType::Insurance->value,
+            'issue_date' => now()->toDateString(),
+            'expiry_date' => now()->addYear()->toDateString(),
+        ];
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/vehicle-documents', $payload)
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/vehicle-documents', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['document_type']);
     }
 
     /**

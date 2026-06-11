@@ -21,6 +21,8 @@ class TyreLifeCalculator
     /**
      * @return array{
      *     expected_life_km: float,
+     *     stock_km: float,
+     *     active_stint_km: float,
      *     total_km_used: float,
      *     remaining_life_km: float,
      *     life_used_percent: float,
@@ -35,19 +37,11 @@ class TyreLifeCalculator
         $tyre->loadMissing(['installations.vehicle', 'rotations', 'damages', 'expenses', 'activeInstallation.vehicle']);
 
         $expected = $this->expectedLifeKm($tyre);
-        $totalUsed = (float) $tyre->current_km;
-
-        foreach ($tyre->installations as $installation) {
-            if ($installation->running_km !== null) {
-                $totalUsed += (float) $installation->running_km;
-
-                continue;
-            }
-
-            if ($installation->removed_at === null && $installation->id === $tyre->activeInstallation?->id) {
-                $totalUsed += $this->activeStintKm($installation);
-            }
-        }
+        $stockKm = (float) $tyre->current_km;
+        $activeStintKm = $tyre->activeInstallation
+            ? $this->activeStintKm($tyre->activeInstallation)
+            : 0.0;
+        $totalUsed = $stockKm + $activeStintKm;
 
         $remaining = max(0, round($expected - $totalUsed, 2));
         $percent = $expected > 0 ? round(min(100, ($totalUsed / $expected) * 100), 1) : 0;
@@ -59,6 +53,8 @@ class TyreLifeCalculator
 
         return [
             'expected_life_km' => $expected,
+            'stock_km' => round($stockKm, 2),
+            'active_stint_km' => round($activeStintKm, 2),
             'total_km_used' => round($totalUsed, 2),
             'remaining_life_km' => $remaining,
             'life_used_percent' => $percent,
@@ -71,9 +67,7 @@ class TyreLifeCalculator
 
     public function activeStintKm(TyreInstallation $installation): float
     {
-        $vehicleKm = (float) ($installation->vehicle?->odometer_km ?? $installation->km_at_installation);
-
-        return max(0, $vehicleKm - (float) $installation->km_at_installation);
+        return max(0, (float) ($installation->stint_km ?? 0));
     }
 
     public function spareUsageCount(Tyre $tyre): int
@@ -102,7 +96,9 @@ class TyreLifeCalculator
     {
         $summary = $this->summary($tyre);
         $expected = $summary['expected_life_km'];
-        $remaining = $summary['remaining_life_km'];
+        $stockKm = $summary['stock_km'];
+        $remaining = max(0, round($expected - ($stockKm + $stintKm), 2));
+        $percent = $expected > 0 ? round(min(100, (($stockKm + $stintKm) / $expected) * 100), 1) : 0;
 
         if ($stintKm < 5000 && $remaining > ($expected * 0.5)) {
             return [
@@ -113,7 +109,7 @@ class TyreLifeCalculator
             ];
         }
 
-        if ($remaining <= 5000 && $summary['life_used_percent'] >= 85) {
+        if ($remaining <= 5000 && $percent >= 85) {
             return [
                 'level' => 'info',
                 'message' => "Tyre near end of life (~{$remaining} km left of {$expected} km). Replacement recommended.",

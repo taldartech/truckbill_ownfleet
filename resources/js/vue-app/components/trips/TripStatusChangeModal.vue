@@ -12,7 +12,7 @@
                     class="modal-header text-white"
                     :class="status === 'CANCELLED' ? 'bg-danger' : 'bg-success'"
                 >
-                    <h5 class="modal-title">
+                    <h5 class="modal-title text-white">
                         <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
                         {{ modalTitle }}
                     </h5>
@@ -22,7 +22,18 @@
                     <div class="modal-body">
                         <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
 
-                        <template v-if="status === 'CANCELLED'">
+                        <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
+                            <div
+                                class="status-final-confirm__icon mb-3"
+                                :class="status === 'CANCELLED' ? 'text-danger' : 'text-success'"
+                            >
+                                <i class="bi" :class="status === 'CANCELLED' ? 'bi-exclamation-triangle-fill' : 'bi-question-circle-fill'"></i>
+                            </div>
+                            <h6 class="mb-2">{{ finalConfirmTitle }}</h6>
+                            <p class="text-muted small mb-0">{{ finalConfirmMessage }}</p>
+                        </div>
+
+                        <template v-else-if="status === 'CANCELLED'">
                             <p class="text-muted small mb-3">
                                 Please enter when this trip was cancelled and why.
                             </p>
@@ -55,7 +66,7 @@
                             </div>
                         </template>
 
-                        <template v-else-if="status === 'COMPLETED'">
+                        <template v-else-if="!awaitingFinalConfirm && status === 'COMPLETED'">
                             <p class="text-muted small mb-3">
                                 Confirm trip completion dates before saving.
                             </p>
@@ -93,12 +104,25 @@
                         </template>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Back</button>
-                        <AppButton
-                            type="submit"
-                            :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
-                            :variant="status === 'CANCELLED' ? 'danger' : 'success'"
-                        />
+                        <template v-if="awaitingFinalConfirm">
+                            <button type="button" class="btn btn-secondary" @click="backToForm">
+                                No, Go Back
+                            </button>
+                            <AppButton
+                                type="button"
+                                label="OK"
+                                :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                                @click="finalConfirm"
+                            />
+                        </template>
+                        <template v-else>
+                            <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Back</button>
+                            <AppButton
+                                type="submit"
+                                :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
+                                :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                            />
+                        </template>
                     </div>
                 </form>
             </div>
@@ -129,17 +153,34 @@ const endAt = ref('');
 const actualArrivalAt = ref('');
 const formError = ref('');
 const fieldErrors = reactive({});
+const awaitingFinalConfirm = ref(false);
+const pendingConfirmPayload = ref(null);
 
 const modalTitle = computed(() => (props.status === 'CANCELLED' ? 'Cancel Trip' : 'Complete Trip'));
+
+const finalConfirmTitle = computed(() =>
+    props.status === 'CANCELLED' ? 'Cancel this trip?' : 'Mark trip as completed?',
+);
+
+const finalConfirmMessage = computed(() =>
+    props.status === 'CANCELLED'
+        ? 'This will save the trip as cancelled. Click OK to confirm.'
+        : 'This will save the trip as completed. Click OK to confirm.',
+);
 
 watch(
     () => props.show,
     (visible) => {
         if (!visible) {
+            awaitingFinalConfirm.value = false;
+            pendingConfirmPayload.value = null;
+
             return;
         }
 
         formError.value = '';
+        awaitingFinalConfirm.value = false;
+        pendingConfirmPayload.value = null;
         Object.keys(fieldErrors).forEach((key) => delete fieldErrors[key]);
 
         if (props.status === 'CANCELLED') {
@@ -202,6 +243,20 @@ function validate() {
     return Object.keys(fieldErrors).length === 0;
 }
 
+function buildConfirmPayload() {
+    if (props.status === 'CANCELLED') {
+        return {
+            cancelled_at: cancelledAt.value,
+            cancellation_reason: cancellationReason.value.trim(),
+        };
+    }
+
+    return {
+        end_at: endAt.value,
+        actual_arrival_at: actualArrivalAt.value,
+    };
+}
+
 function submit() {
     if (!validate()) {
         formError.value = 'Please fix the errors below.';
@@ -209,18 +264,30 @@ function submit() {
         return;
     }
 
-    if (props.status === 'CANCELLED') {
-        emit('confirm', {
-            cancelled_at: cancelledAt.value,
-            cancellation_reason: cancellationReason.value.trim(),
-        });
+    pendingConfirmPayload.value = buildConfirmPayload();
+    awaitingFinalConfirm.value = true;
+    formError.value = '';
+}
 
+function backToForm() {
+    awaitingFinalConfirm.value = false;
+    pendingConfirmPayload.value = null;
+}
+
+function finalConfirm() {
+    if (!pendingConfirmPayload.value) {
         return;
     }
 
-    emit('confirm', {
-        end_at: endAt.value,
-        actual_arrival_at: actualArrivalAt.value,
-    });
+    emit('confirm', pendingConfirmPayload.value);
+    awaitingFinalConfirm.value = false;
+    pendingConfirmPayload.value = null;
 }
 </script>
+
+<style scoped>
+.status-final-confirm__icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+</style>

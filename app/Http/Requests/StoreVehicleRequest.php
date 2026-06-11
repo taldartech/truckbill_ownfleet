@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\NormalizesVehicleRegistrationNumber;
 use App\Support\CurrentTenant;
 use App\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,13 +10,11 @@ use Illuminate\Validation\Rule;
 
 class StoreVehicleRequest extends FormRequest
 {
+    use NormalizesVehicleRegistrationNumber;
+
     protected function prepareForValidation(): void
     {
-        if ($this->has('registration_number') && $this->input('registration_number') !== null) {
-            $this->merge([
-                'registration_number' => strtoupper(trim((string) $this->input('registration_number'))),
-            ]);
-        }
+        $this->normalizeVehicleRegistrationInput();
     }
 
     public function authorize(): bool
@@ -30,14 +29,19 @@ class StoreVehicleRequest extends FormRequest
     {
         return [
             'registration_number' => [
-                'required',
-                'string',
-                'max:50',
+                ...$this->vehicleRegistrationNumberRules(),
                 Rule::unique('vehicles', 'registration_number')->where(
                     fn ($query) => $query->where('tenant_id', CurrentTenant::id()),
                 ),
             ],
-            'vehicle_type' => ['required', 'string', 'max:50'],
+            'vehicle_type' => [
+                'required',
+                'string',
+                'max:64',
+                Rule::exists('truck_types', 'code')->where(
+                    fn ($query) => $query->where('tenant_id', CurrentTenant::id())->where('is_active', true),
+                ),
+            ],
             'tyre_layout' => [
                 'nullable',
                 'string',
@@ -59,7 +63,8 @@ class StoreVehicleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'registration_number.unique' => 'This registration number is already in use.',
+            ...$this->vehicleRegistrationNumberMessages(),
+            'vehicle_type.exists' => 'Selected truck type is invalid.',
             'tyre_layout.exists' => 'Selected tyre layout is invalid or inactive.',
         ];
     }

@@ -17,186 +17,181 @@
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
                 <div class="modal-body">
-                    <div v-if="canManage" class="card mb-3">
-                        <div class="card-header">{{ editingDocument ? 'Edit Document' : 'Add Document' }}</div>
-                        <div class="card-body">
-                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                            <form class="row g-3" @submit.prevent="saveDocument">
-                                <div class="col-md-4">
-                                    <label class="form-label">Document Type *</label>
-                                    <select
-                                        v-model="docForm.document_type"
-                                        class="form-select"
-                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'document_type') }"
-                                        required
-                                    >
-                                        <option value="">Select</option>
-                                        <option
-                                            v-for="type in documentTypes"
-                                            :key="type.value"
-                                            :value="type.value"
-                                        >
-                                            {{ type.label }}
-                                        </option>
-                                    </select>
-                                    <div
-                                        v-if="fieldErrorMessage(fieldErrors, 'document_type')"
-                                        class="invalid-feedback d-block"
-                                    >
-                                        {{ fieldErrorMessage(fieldErrors, 'document_type') }}
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Issue Date</label>
-                                    <input
-                                        v-model="docForm.issue_date"
-                                        type="date"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'issue_date') }"
-                                    />
-                                    <div
-                                        v-if="fieldErrorMessage(fieldErrors, 'issue_date')"
-                                        class="invalid-feedback d-block"
-                                    >
-                                        {{ fieldErrorMessage(fieldErrors, 'issue_date') }}
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Expiry Date</label>
-                                    <input
-                                        v-model="docForm.expiry_date"
-                                        type="date"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'expiry_date') }"
-                                    />
-                                    <div
-                                        v-if="fieldErrorMessage(fieldErrors, 'expiry_date')"
-                                        class="invalid-feedback d-block"
-                                    >
-                                        {{ fieldErrorMessage(fieldErrors, 'expiry_date') }}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Upload File</label>
-                                    <input
-                                        type="file"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'file') }"
-                                        accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                        @change="onFileSelected"
-                                    />
-                                    <div
-                                        v-if="fieldErrorMessage(fieldErrors, 'file')"
-                                        class="invalid-feedback d-block"
-                                    >
-                                        {{ fieldErrorMessage(fieldErrors, 'file') }}
-                                    </div>
-                                    <small class="text-muted d-block mt-1">
-                                        Allowed: PDF/JPG/PNG/WEBP. Max size: 10 MB.
-                                    </small>
-                                    <p v-if="editingDocument?.original_filename" class="small mb-0 mt-1">
-                                        Current:
-                                        <a
-                                            v-if="editingDocument.download_url"
-                                            :href="editingDocument.download_url"
-                                            target="_blank"
-                                            rel="noopener"
-                                        >
-                                            {{ editingDocument.original_filename }}
-                                        </a>
-                                        <span v-else>{{ editingDocument.original_filename }}</span>
-                                    </p>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Reminder (days)</label>
-                                    <input
-                                        v-model="docForm.reminder_days_before"
-                                        v-no-scroll-change
-                                        type="number"
-                                        min="1"
-                                        max="90"
-                                        class="form-control"
-                                    />
-                                </div>
-                                <div class="col-md-3 d-flex align-items-end gap-2">
-                                    <button type="submit" class="btn btn-primary" :disabled="saving">
-                                        {{ saving ? 'Saving...' : editingDocument ? 'Update' : 'Add' }}
-                                    </button>
-                                    <button
-                                        v-if="editingDocument"
-                                        type="button"
-                                        class="btn btn-outline-secondary"
-                                        @click="resetDocForm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
 
-                    <div v-if="loading" class="text-muted text-center py-3">Loading documents…</div>
-                    <div v-else class="table-responsive">
-                        <table class="table table-bordered table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Issue</th>
-                                    <th>Expiry</th>
-                                    <th>Status</th>
-                                    <th>File</th>
-                                    <th v-if="canManage" style="width: 120px">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-if="documents.length === 0">
-                                    <td :colspan="canManage ? 6 : 5" class="text-center text-muted">
-                                        No documents added yet.
-                                    </td>
-                                </tr>
-                                <tr v-for="doc in documents" :key="doc.id">
-                                    <td>{{ doc.document_type_label ?? doc.document_type }}</td>
-                                    <td>{{ doc.issue_date ?? '-' }}</td>
-                                    <td>{{ doc.expiry_date ?? '-' }}</td>
-                                    <td>
-                                        <span
-                                            class="badge"
-                                            :class="doc.is_expired ? 'bg-danger' : 'bg-success'"
-                                        >
-                                            {{ doc.is_expired ? 'Expired' : 'Valid' }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div v-if="doc.download_url" class="d-flex align-items-center gap-2 flex-wrap">
-                                            <span class="small text-muted">{{ doc.original_filename ?? 'Document file' }}</span>
-                                            <a
-                                                v-if="doc.preview_url"
-                                                :href="doc.preview_url"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="btn btn-sm btn-outline-primary"
+                    <div class="card app-index-list-card vehicle-doc-table-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="card-title mb-0">Documents List</h3>
+                            <button
+                                v-if="canManage && !showDocForm"
+                                type="button"
+                                class="btn btn-primary btn-sm"
+                                title="Add document"
+                                @click="openAddForm"
+                            >
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div class="card-body table-responsive p-0">
+                            <div v-if="loading" class="text-muted text-center py-4">Loading documents…</div>
+                            <table v-else class="table table-hover align-middle mb-0 vehicle-doc-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th style="min-width: 150px">Issue Date</th>
+                                        <th style="min-width: 150px">Expiry Date</th>
+                                        <th style="width: 110px">Reminder</th>
+                                        <th style="width: 90px">Status</th>
+                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-if="canManage && showDocForm" class="vehicle-doc-form-row">
+                                        <td>
+                                            <div class="doc-type-picker">
+                                                <SearchableSelect
+                                                    v-model="docForm.document_type"
+                                                    :items="selectableDocumentTypes"
+                                                    placeholder="Select type"
+                                                    search-placeholder="Search document type…"
+                                                    :invalid="hasFieldError(fieldErrors, 'document_type')"
+                                                    :error-message="fieldErrorMessage(fieldErrors, 'document_type')"
+                                                    :disabled="Boolean(editingDocument)"
+                                                />
+                                                <button
+                                                    v-if="canManage"
+                                                    type="button"
+                                                    class="btn btn-outline-success btn-sm doc-type-picker__add"
+                                                    title="Quick add document type"
+                                                    @click="showTypeQuickAdd = true"
+                                                >
+                                                    <i class="bi bi-plus-lg"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input
+                                                v-model="docForm.issue_date"
+                                                type="date"
+                                                class="form-control form-control-sm"
+                                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'issue_date') }"
+                                                required
+                                            />
+                                            <div
+                                                v-if="fieldErrorMessage(fieldErrors, 'issue_date')"
+                                                class="invalid-feedback d-block"
                                             >
-                                                View
-                                            </a>
-                                            <a
-                                                :href="doc.download_url"
-                                                class="btn btn-sm btn-outline-secondary"
-                                                download
+                                                {{ fieldErrorMessage(fieldErrors, 'issue_date') }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input
+                                                v-model="docForm.expiry_date"
+                                                type="date"
+                                                class="form-control form-control-sm"
+                                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'expiry_date') }"
+                                                :min="docForm.issue_date || undefined"
+                                                required
+                                            />
+                                            <div
+                                                v-if="fieldErrorMessage(fieldErrors, 'expiry_date')"
+                                                class="invalid-feedback d-block"
                                             >
-                                                Download
-                                            </a>
-                                        </div>
-                                        <span v-else class="text-muted">—</span>
-                                    </td>
-                                    <td v-if="canManage">
-                                        <AppTableActions>
-                                            <AppCrudActionButton action="edit" @click="editDocument(doc)" />
-                                            <AppCrudActionButton action="delete" @click="removeDocument(doc)" />
-                                        </AppTableActions>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                                {{ fieldErrorMessage(fieldErrors, 'expiry_date') }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input
+                                                v-model="docForm.reminder_days_before"
+                                                v-no-scroll-change
+                                                type="number"
+                                                min="1"
+                                                max="90"
+                                                class="form-control form-control-sm"
+                                            />
+                                        </td>
+                                        <td>
+                                            <span class="badge text-bg-light border">New</span>
+                                        </td>
+                                        <td class="app-index-actions-cell">
+                                            <div class="d-flex gap-1">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-success"
+                                                    title="Save"
+                                                    :disabled="saving"
+                                                    @click="saveDocument"
+                                                >
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    title="Cancel"
+                                                    :disabled="saving"
+                                                    @click="resetDocForm"
+                                                >
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <tr v-if="!loading && documents.length === 0 && !showDocForm">
+                                        <td :colspan="canManage ? 6 : 5" class="text-center text-muted py-4">
+                                            No documents added yet.
+                                            <button
+                                                v-if="canManage"
+                                                type="button"
+                                                class="btn btn-link btn-sm"
+                                                @click="openAddForm"
+                                            >
+                                                Add document
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    <tr
+                                        v-for="doc in documents"
+                                        v-show="!(showDocForm && editingDocument?.id === doc.id)"
+                                        :key="doc.id"
+                                        :class="{ 'vehicle-doc-row--expired': doc.is_expired }"
+                                    >
+                                        <td>
+                                            <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
+                                            <small class="text-muted">{{ doc.document_type }}</small>
+                                        </td>
+                                        <td>{{ formatDate(doc.issue_date) }}</td>
+                                        <td>{{ formatDate(doc.expiry_date) }}</td>
+                                        <td>{{ doc.reminder_days_before ?? 7 }} days</td>
+                                        <td>
+                                            <span
+                                                class="badge"
+                                                :class="doc.is_expired ? 'bg-danger' : 'bg-success'"
+                                            >
+                                                {{ doc.is_expired ? 'Expired' : 'Valid' }}
+                                            </span>
+                                        </td>
+                                        <td v-if="canManage" class="app-index-actions-cell">
+                                            <AppTableActions>
+                                                <AppCrudActionButton
+                                                    action="edit"
+                                                    title="Edit document"
+                                                    @click="editDocument(doc)"
+                                                />
+                                                <AppCrudActionButton
+                                                    action="delete"
+                                                    title="Delete document"
+                                                    @click="removeDocument(doc)"
+                                                />
+                                            </AppTableActions>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -204,22 +199,30 @@
                 </div>
             </div>
         </div>
+
+        <DocumentTypeQuickAddModal
+            :show="showTypeQuickAdd"
+            @close="showTypeQuickAdd = false"
+            @created="onDocumentTypeCreated"
+        />
     </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { listAllDocumentTypes } from '../../api/documentTypes';
 import {
     createVehicleDocument,
     deleteVehicleDocument,
     listVehicleDocuments,
     updateVehicleDocument,
-    vehicleDocumentTypes,
 } from '../../api/vehicleDocuments';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
+import DocumentTypeQuickAddModal from './DocumentTypeQuickAddModal.vue';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -239,13 +242,30 @@ let bootstrapModal = null;
 const documents = ref([]);
 const loading = ref(false);
 const saving = ref(false);
+const showDocForm = ref(false);
+const showTypeQuickAdd = ref(false);
 const editingDocument = ref(null);
-const documentTypes = vehicleDocumentTypes;
+const documentTypes = ref([]);
 const vehicleLabel = ref('');
 
+const documentTypeOptions = computed(() =>
+    documentTypes.value.map((type) => ({
+        id: type.code,
+        label: type.name,
+    })),
+);
+
+const selectableDocumentTypes = computed(() => {
+    if (editingDocument.value) {
+        return documentTypeOptions.value;
+    }
+
+    const usedTypes = new Set(documents.value.map((doc) => doc.document_type));
+
+    return documentTypeOptions.value.filter((type) => !usedTypes.has(type.id));
+});
+
 const docForm = ref(emptyDocForm());
-const selectedFile = ref(null);
-const maxFileBytes = 10 * 1024 * 1024;
 
 function emptyDocForm() {
     return {
@@ -256,27 +276,51 @@ function emptyDocForm() {
     };
 }
 
+function formatDate(value) {
+    if (!value) {
+        return '—';
+    }
+
+    const [year, month, day] = String(value).split('-');
+
+    if (!year || !month || !day) {
+        return value;
+    }
+
+    return `${month}/${day}/${year}`;
+}
+
+function openAddForm() {
+    editingDocument.value = null;
+    clearErrors();
+    docForm.value = emptyDocForm();
+    showDocForm.value = true;
+}
+
 function resetDocForm() {
     editingDocument.value = null;
-    selectedFile.value = null;
+    showDocForm.value = false;
     clearErrors();
     docForm.value = emptyDocForm();
 }
 
-function onFileSelected(event) {
-    const [file] = event.target.files ?? [];
+async function loadDocumentTypes() {
+    try {
+        documentTypes.value = await listAllDocumentTypes();
+    } catch {
+        documentTypes.value = [];
+    }
+}
 
-    if (file && file.size > maxFileBytes) {
-        formError.value = 'File size is too large. Please select a file up to 10 MB.';
-        event.target.value = '';
-        selectedFile.value = null;
-
+function onDocumentTypeCreated(documentType) {
+    if (!documentType?.code) {
         return;
     }
 
-    formError.value = '';
-
-    selectedFile.value = file ?? null;
+    documentTypes.value = [...documentTypes.value, documentType].sort((a, b) =>
+        String(a.name).localeCompare(String(b.name)),
+    );
+    docForm.value.document_type = documentType.code;
 }
 
 async function loadDocuments() {
@@ -287,6 +331,7 @@ async function loadDocuments() {
     loading.value = true;
 
     try {
+        await loadDocumentTypes();
         documents.value = await listVehicleDocuments(props.vehicle.id);
         openInitialDocumentIfNeeded();
     } catch (error) {
@@ -337,7 +382,7 @@ function close() {
 
 function editDocument(doc) {
     editingDocument.value = doc;
-    selectedFile.value = null;
+    showDocForm.value = true;
     clearErrors();
     docForm.value = {
         document_type: doc.document_type,
@@ -352,29 +397,34 @@ async function saveDocument() {
         return;
     }
 
+    if (!docForm.value.document_type) {
+        formError.value = 'Document type is required.';
+
+        return;
+    }
+
+    if (!docForm.value.issue_date || !docForm.value.expiry_date) {
+        formError.value = 'Issue date and expiry date are required.';
+
+        return;
+    }
+
     saving.value = true;
     clearErrors();
 
     const payload = {
         vehicle_id: props.vehicle.id,
         document_type: docForm.value.document_type,
-        issue_date: docForm.value.issue_date || null,
-        expiry_date: docForm.value.expiry_date || null,
+        issue_date: docForm.value.issue_date,
+        expiry_date: docForm.value.expiry_date,
         reminder_days_before: Number(docForm.value.reminder_days_before) || 7,
     };
 
     try {
         if (editingDocument.value?.id) {
-            await updateVehicleDocument(editingDocument.value.id, payload, selectedFile.value);
+            await updateVehicleDocument(editingDocument.value.id, payload);
         } else {
-            if (!selectedFile.value) {
-                formError.value = 'Please choose a file to upload.';
-                saving.value = false;
-
-                return;
-            }
-
-            await createVehicleDocument(payload, selectedFile.value);
+            await createVehicleDocument(payload);
         }
 
         resetDocForm();
@@ -396,6 +446,9 @@ async function removeDocument(doc) {
 
     try {
         await deleteVehicleDocument(doc.id);
+        if (editingDocument.value?.id === doc.id) {
+            resetDocForm();
+        }
         await loadDocuments();
         emit('saved');
     } catch (error) {
@@ -404,19 +457,48 @@ async function removeDocument(doc) {
 }
 
 function showRequestError(error, fallbackMessage) {
-    const status = error?.response?.status;
     const message = error?.response?.data?.message;
     const validationErrors = error?.response?.data?.errors;
     const firstValidationMessage = validationErrors
         ? Object.values(validationErrors).flat().find(Boolean)
         : null;
 
-    if (status === 413) {
-        window.alert('File is too large for upload. Please choose a smaller file (max 10 MB).');
-
-        return;
-    }
-
     window.alert(firstValidationMessage || message || fallbackMessage);
 }
 </script>
+
+<style scoped>
+.vehicle-doc-table-card > .card-body {
+    padding: 0;
+}
+
+.vehicle-doc-form-row > td {
+    background: rgba(13, 110, 253, 0.06);
+    vertical-align: middle;
+}
+
+.vehicle-doc-row--expired > td {
+    background: rgba(220, 53, 69, 0.04);
+}
+
+.doc-type-picker {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+.doc-type-picker :deep(.searchable-select) {
+    flex: 1;
+    min-width: 0;
+}
+
+.doc-type-picker__add {
+    height: 31px;
+    width: 31px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+</style>

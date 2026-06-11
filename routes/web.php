@@ -168,6 +168,12 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
 
             Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
 
+            Route::get('/truck-types', [\App\Http\Controllers\Api\TruckTypeController::class, 'index'])->name('truck-types.index');
+            Route::post('/truck-types', [\App\Http\Controllers\Api\TruckTypeController::class, 'store'])->name('truck-types.store');
+            Route::get('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'show'])->name('truck-types.show');
+            Route::put('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'update'])->name('truck-types.update');
+            Route::delete('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'destroy'])->name('truck-types.destroy');
+
             Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
             Route::get('/vehicles/for-trip-selection', [\App\Http\Controllers\Api\VehicleController::class, 'forTripSelection'])
                 ->name('vehicles.for-trip-selection');
@@ -197,6 +203,12 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::put('/document-alert-settings', [\App\Http\Controllers\Api\DocumentAlertSettingController::class, 'update'])
                 ->middleware('permission:users.manage')
                 ->name('document-alert-settings.update');
+
+            Route::get('/document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index'])->name('document-types.index');
+            Route::post('/document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'store'])->name('document-types.store');
+            Route::get('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'show'])->name('document-types.show');
+            Route::put('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'update'])->name('document-types.update');
+            Route::delete('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy'])->name('document-types.destroy');
 
             Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
             Route::post('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'store'])->name('vehicle-documents.store');
@@ -246,6 +258,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
 
             Route::get('/trips/next-number', [\App\Http\Controllers\Api\TripController::class, 'nextTripNumber'])
                 ->name('trips.next-number');
+            Route::get('/trips/check-window', [\App\Http\Controllers\Api\TripController::class, 'checkTripWindow'])
+                ->name('trips.check-window');
             Route::get('/vehicles/{vehicle}/primary-driver', [\App\Http\Controllers\Api\TripController::class, 'vehiclePrimaryDriver'])
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
@@ -265,6 +279,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::post('/tyres/{tyre}/install', [\App\Http\Controllers\Api\TyreController::class, 'install'])->name('tyres.install');
             Route::post('/tyre-installations/{tyre_installation}/remove', [\App\Http\Controllers\Api\TyreController::class, 'removeInstallation'])
                 ->name('tyre-installations.remove');
+            Route::patch('/tyre-installations/{tyre_installation}/stint-km', [\App\Http\Controllers\Api\TyreController::class, 'updateStintKm'])
+                ->name('tyre-installations.update-stint-km');
             Route::post('/tyres/{tyre}/rotate', [\App\Http\Controllers\Api\TyreController::class, 'rotate'])->name('tyres.rotate');
             Route::post('/tyres/{tyre}/retread', [\App\Http\Controllers\Api\TyreController::class, 'retread'])->name('tyres.retread');
             Route::post('/tyres/{tyre}/damage', [\App\Http\Controllers\Api\TyreController::class, 'damage'])->name('tyres.damage');
@@ -304,6 +320,10 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
                 ->name('reports.trips.pending-freight');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
+            Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])
+                ->name('reports.fleet-monthly');
+            Route::get('/reports/fleet-monthly/export', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'export'])
+                ->name('reports.fleet-monthly.export');
         });
     });
 

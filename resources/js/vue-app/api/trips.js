@@ -53,6 +53,44 @@ export async function deleteTrip(id) {
     await api.delete(`${tripsBase}/${id}`);
 }
 
+export async function checkTripWindowOverlap({
+    vehicleId,
+    driverId = null,
+    startAt,
+    endAt = null,
+    ignoreTripId = null,
+} = {}) {
+    const { data } = await api.get(`${tripsBase}/check-window`, {
+        params: {
+            vehicle_id: vehicleId,
+            start_at: startAt,
+            ...(driverId ? { driver_id: driverId } : {}),
+            ...(endAt ? { end_at: endAt } : {}),
+            ...(ignoreTripId ? { ignore_trip_id: ignoreTripId } : {}),
+        },
+    });
+
+    return data;
+}
+
+export function tripWindowConflictErrors(result) {
+    if (result?.available !== false) {
+        return {};
+    }
+
+    const messages = result.messages ?? {};
+
+    return Object.fromEntries(
+        Object.entries(messages).filter(([, value]) => Array.isArray(value) && value.length > 0),
+    );
+}
+
+export async function validateTripWindowOverlap(params) {
+    const result = await checkTripWindowOverlap(params);
+
+    return tripWindowConflictErrors(result);
+}
+
 export const ROUTE_TYPES = [
     { value: 'LOADED', label: 'Full Load', badge: 'bg-success' },
     { value: 'HALF_LOADED', label: 'Half Load', badge: 'bg-warning text-dark' },
@@ -111,6 +149,14 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
 
         if (!payload.driver_id) {
             errors.driver_id = ['Primary driver could not be resolved for the selected truck.'];
+        }
+
+        if (
+            payload.substitute_driver_id
+            && payload.driver_id
+            && String(payload.substitute_driver_id) === String(payload.driver_id)
+        ) {
+            errors.substitute_driver_id = ['Substitute driver must be different from the primary driver.'];
         }
     }
 
@@ -202,20 +248,88 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         errors.route_legs = ['At least one full load or half load stop is required.'];
     }
 
+    if (mode === 'create' && legs.length > 0) {
+        const freightTotal = legs.reduce((sum, leg) => sum + parseNumeric(leg.freight_amount), 0);
+
+        if (freightTotal <= 0) {
+            errors.route_legs = ['Total freight must be greater than zero before creating a trip.'];
+        }
+    }
+
+    Object.assign(
+        errors,
+        validateExpenseDates(payload.expenses ?? [], {
+            startAt: payload.start_at || null,
+            endAt: payload.end_at || null,
+        }),
+    );
+
     return errors;
 }
 
-export function emptyExpense() {
+export function emptyExpense({ defaultDate = '' } = {}) {
     return {
         expense_type: 'DIESEL',
+        expense_date: defaultDate || '',
         amount: 0,
         fuel_liters: '',
         fuel_rate: '',
+        distance_km: '',
         odometer_start: '',
         odometer_end: '',
         route_leg_sequence: '',
         notes: '',
     };
+}
+
+export function clampExpenseDate(expenseDate, tripStartDate, tripEndDate = '') {
+    if (!expenseDate || !tripStartDate) {
+        return expenseDate || tripStartDate || '';
+    }
+
+    let clamped = expenseDate;
+
+    if (clamped < tripStartDate) {
+        clamped = tripStartDate;
+    }
+
+    if (tripEndDate && clamped > tripEndDate) {
+        clamped = tripEndDate;
+    }
+
+    return clamped;
+}
+
+export function validateExpenseDates(expenses, { startAt = null, endAt = null } = {}) {
+    const errors = {};
+
+    if (!startAt) {
+        return errors;
+    }
+
+    (expenses ?? []).forEach((expense, index) => {
+        if (Number(expense.amount ?? 0) <= 0) {
+            return;
+        }
+
+        const expenseDate = expense.expense_date || '';
+
+        if (!expenseDate) {
+            errors[`expenses.${index}.expense_date`] = ['Expense date is required.'];
+
+            return;
+        }
+
+        if (expenseDate < startAt) {
+            errors[`expenses.${index}.expense_date`] = ['Expense date cannot be before the trip start date.'];
+        }
+
+        if (endAt && expenseDate > endAt) {
+            errors[`expenses.${index}.expense_date`] = ['Expense date cannot be after the trip end date.'];
+        }
+    });
+
+    return errors;
 }
 
 export function isDieselExpenseType(type) {

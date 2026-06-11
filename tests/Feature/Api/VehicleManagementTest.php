@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Driver;
 use App\DriverAssignment;
 use App\Support\SelectedCompanySession;
+use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\User;
@@ -124,10 +125,49 @@ class VehicleManagementTest extends TestCase
             ->assertJsonPath('data.0.registration_number', $unassignedVehicle->registration_number);
     }
 
+    public function test_admin_can_create_vehicle_with_lowercase_registration_normalized(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'rj27av5055',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.registration_number', 'RJ27AV5055');
+
+        $this->assertDatabaseHas('vehicles', [
+            'tenant_id' => $tenant->id,
+            'registration_number' => 'RJ27AV5055',
+        ]);
+    }
+
+    public function test_admin_cannot_create_vehicle_with_invalid_registration_number(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'INVALID123',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['registration_number'])
+            ->assertJsonPath(
+                'errors.registration_number.0',
+                'Please enter a valid vehicle registration number (e.g. RJ27AV5055).',
+            );
+    }
+
     public function test_admin_cannot_create_vehicle_with_duplicate_registration_number(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
-        TyreLayoutDefaults::seedForTenant($tenant->id);
+        $this->seedTenantLookups($tenant);
         $this->createVehicle($tenant, 'MH12AB1001');
 
         $this->actingAs($admin)
@@ -147,7 +187,7 @@ class VehicleManagementTest extends TestCase
     public function test_admin_cannot_update_vehicle_to_duplicate_registration_number(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
-        TyreLayoutDefaults::seedForTenant($tenant->id);
+        $this->seedTenantLookups($tenant);
         $this->createVehicle($tenant, 'MH12AB1001');
         $otherVehicle = $this->createVehicle($tenant, 'MH12AB2002');
 
@@ -235,12 +275,20 @@ class VehicleManagementTest extends TestCase
         ]);
     }
 
+    private function seedTenantLookups(Tenant $tenant): void
+    {
+        TyreLayoutDefaults::seedForTenant($tenant->id);
+        TruckTypeDefaults::seedForTenant($tenant->id);
+    }
+
     private function createVehicle(
         Tenant $tenant,
         ?string $registration = null,
         bool $isActive = true,
         string $vehicleType = 'TRUCK',
     ): Vehicle {
+        $this->seedTenantLookups($tenant);
+
         return Vehicle::query()->create([
             'tenant_id' => $tenant->id,
             'registration_number' => $registration ?? strtoupper(fake()->bothify('??##??####')),

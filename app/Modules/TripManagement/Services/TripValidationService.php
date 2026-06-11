@@ -69,7 +69,11 @@ class TripValidationService
 
         return $query
             ->whereRaw('DATE(start_at) <= ?', [$windowEnd])
-            ->whereRaw('COALESCE(DATE(end_at), DATE(start_at)) >= ?', [$windowStart])
+            ->where(function ($overlapQuery) use ($windowStart): void {
+                $overlapQuery
+                    ->whereNull('end_at')
+                    ->orWhereRaw('DATE(end_at) >= ?', [$windowStart]);
+            })
             ->first();
     }
 
@@ -97,7 +101,6 @@ class TripValidationService
         }
     }
 
-
     public function assertDriverIsActive(string $driverId): void
     {
         $driver = Driver::query()->find($driverId);
@@ -105,6 +108,27 @@ class TripValidationService
         if ($driver === null || ! $driver->is_active) {
             throw ValidationException::withMessages([
                 'driver_id' => ['Selected driver is inactive or not found.'],
+            ]);
+        }
+    }
+
+    public function assertSubstituteDriverIsValid(?string $substituteDriverId, string $primaryDriverId): void
+    {
+        if ($substituteDriverId === null || $substituteDriverId === '') {
+            return;
+        }
+
+        if ((string) $substituteDriverId === (string) $primaryDriverId) {
+            throw ValidationException::withMessages([
+                'substitute_driver_id' => ['Substitute driver must be different from the primary driver.'],
+            ]);
+        }
+
+        $driver = Driver::query()->find($substituteDriverId);
+
+        if ($driver === null || ! $driver->is_active) {
+            throw ValidationException::withMessages([
+                'substitute_driver_id' => ['Selected substitute driver is inactive or not found.'],
             ]);
         }
     }
@@ -194,6 +218,71 @@ class TripValidationService
 
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $routeLegs
+     */
+    /**
+     * @param  list<array<string, mixed>>  $expenses
+     */
+    public function assertExpensesAreValid(array $expenses, ?string $tripStartAt, ?string $tripEndAt = null): void
+    {
+        if ($expenses === []) {
+            return;
+        }
+
+        if ($tripStartAt === null) {
+            throw ValidationException::withMessages([
+                'start_at' => ['Trip start date is required to validate expense dates.'],
+            ]);
+        }
+
+        $tripStart = Carbon::parse($tripStartAt)->toDateString();
+        $tripEnd = $tripEndAt !== null && $tripEndAt !== ''
+            ? Carbon::parse($tripEndAt)->toDateString()
+            : null;
+
+        $errors = [];
+
+        foreach ($expenses as $index => $expense) {
+            $expenseDate = $expense['expense_date'] ?? null;
+
+            if ($expenseDate === null || $expenseDate === '') {
+                $errors["expenses.{$index}.expense_date"] = ['Expense date is required.'];
+
+                continue;
+            }
+
+            $expenseDay = Carbon::parse($expenseDate)->toDateString();
+
+            if ($expenseDay < $tripStart) {
+                $errors["expenses.{$index}.expense_date"] = ['Expense date cannot be before the trip start date.'];
+            }
+
+            if ($tripEnd !== null && $expenseDay > $tripEnd) {
+                $errors["expenses.{$index}.expense_date"] = ['Expense date cannot be after the trip end date.'];
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    public function assertPositiveFreightTotal(array $routeLegs): void
+    {
+        $freightTotal = 0.0;
+
+        foreach ($routeLegs as $leg) {
+            $freightTotal += (float) ($leg['freight_amount'] ?? 0);
+        }
+
+        if ($freightTotal <= 0) {
+            throw ValidationException::withMessages([
+                'route_legs' => ['Total freight must be greater than zero before creating a trip.'],
+            ]);
         }
     }
 

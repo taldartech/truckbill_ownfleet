@@ -27,6 +27,19 @@ export async function createDriverAssignment(payload) {
     return unwrapResource(data);
 }
 
+export async function updateDriverAssignment(assignmentId, payload) {
+    const { data } = await api.put(`${base}/${assignmentId}`, {
+        ...payload,
+        is_primary: payload.is_primary ?? true,
+    });
+
+    return unwrapResource(data);
+}
+
+export async function deleteDriverAssignment(assignmentId) {
+    await api.delete(`${base}/${assignmentId}`);
+}
+
 export async function removeVehiclePrimaryDriver(vehicleId) {
     const { data } = await api.post(`/app/api/vehicles/${vehicleId}/remove-primary-driver`);
 

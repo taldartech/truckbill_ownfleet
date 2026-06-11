@@ -122,6 +122,13 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Monthly Fleet Report',
+                icon: 'bi bi-truck nav-icon',
+                to: '/reports/fleet-monthly',
+                permission: 'fleet_monthly_report.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'Attendance Reports',
                 icon: 'bi bi-file-earmark-bar-graph nav-icon',
                 to: '/reports/attendance',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\DriverAssignment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDriverAssignmentRequest;
+use App\Http\Requests\UpdateDriverAssignmentRequest;
 use App\Http\Resources\DriverAssignmentResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use Illuminate\Http\Request;
@@ -45,7 +46,7 @@ class DriverAssignmentController extends Controller
         return new DriverAssignmentResource($driverAssignment->load('driver'));
     }
 
-    public function update(StoreDriverAssignmentRequest $request, DriverAssignment $driverAssignment): DriverAssignmentResource
+    public function update(UpdateDriverAssignmentRequest $request, DriverAssignment $driverAssignment): DriverAssignmentResource
     {
         $driverAssignment = $this->driverAssignmentService->update($driverAssignment, [
             ...$request->validated(),

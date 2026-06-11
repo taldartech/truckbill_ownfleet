@@ -22,6 +22,18 @@
                 />
             </div>
             <div>
+                <label class="form-label" for="tyresIndex_vehicle">Truck</label>
+                <SearchableSelect
+                    input-id="tyresIndex_vehicle"
+                    v-model="vehicleFilter"
+                    :items="vehicleSelectOptions"
+                    placeholder="All trucks"
+                    search-placeholder="Search truck number…"
+                    empty-message="No truck found."
+                    :disabled="loading"
+                />
+            </div>
+            <div>
                 <label class="form-label">Status</label>
                 <select v-model="statusFilter" class="form-select" :disabled="loading">
                     <option value="">All statuses</option>
@@ -131,6 +143,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Tyre Number *</label>
                                 <input
+                                    ref="serialNumberInputRef"
                                     v-model="form.serial_number"
                                     type="text"
                                     class="form-control"
@@ -193,6 +206,18 @@
                                 <input v-model.number="form.expected_life_km" v-no-scroll-change type="number" min="1000" class="form-control" placeholder="40000" />
                             </div>
                             <div class="col-md-4">
+                                <label class="form-label">KM already used</label>
+                                <input
+                                    v-model.number="form.current_km"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    class="form-control"
+                                    placeholder="0"
+                                />
+                                <div class="form-text">0 = new tyre. Enter prior KM for used tyres.</div>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">Warranty Valid Until</label>
                                 <input
                                     v-model="form.warranty_valid_until"
@@ -238,6 +263,15 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
+                            <AppButton
+                                v-if="!editing"
+                                type="button"
+                                variant="primary"
+                                outline
+                                label="Save & Next"
+                                :loading="saving"
+                                @click="saveAndNext"
+                            />
                             <AppButton type="submit" label="Save" :loading="saving" />
                         </div>
                     </form>
@@ -248,10 +282,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
+import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -289,8 +325,17 @@ const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('');
+const vehicleFilter = ref('');
+const vehicles = ref([]);
+const vehicleSelectOptions = computed(() =>
+    vehicles.value.map((vehicle) => ({
+        id: vehicle.id,
+        label: vehicle.registration_number,
+    })),
+);
 const showModal = ref(false);
 const editing = ref(null);
+const serialNumberInputRef = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta } = useListPagination(15);
 
@@ -302,17 +347,21 @@ const form = reactive({
     purchase_date: '',
     purchase_cost: 0,
     expected_life_km: 40000,
+    current_km: 0,
     warranty_valid_until: '',
     warranty_km: null,
     warranty_details: '',
     notes: '',
 });
 
-const filtersActive = computed(() => search.value.trim() !== '' || statusFilter.value !== '');
+const filtersActive = computed(
+    () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
+);
 
 function clearFilters() {
     search.value = '';
     statusFilter.value = '';
+    vehicleFilter.value = '';
     loadTyres(1);
 }
 
@@ -325,6 +374,7 @@ function resetForm() {
         purchase_date: '',
         purchase_cost: 0,
         expected_life_km: 40000,
+        current_km: 0,
         warranty_valid_until: '',
         warranty_km: null,
         warranty_details: '',
@@ -350,6 +400,7 @@ function openEdit(tyre) {
         purchase_date: tyre.purchase_date ?? '',
         purchase_cost: tyre.purchase_cost ?? 0,
         expected_life_km: tyre.expected_life_km ?? 40000,
+        current_km: tyre.current_km ?? 0,
         warranty_valid_until: tyre.warranty_valid_until ?? '',
         warranty_km: tyre.warranty_km ?? null,
         warranty_details: tyre.warranty_details ?? '',
@@ -384,6 +435,7 @@ async function loadTyres(page = 1) {
             perPage: pagination.perPage,
             search: search.value || undefined,
             status: statusFilter.value || undefined,
+            vehicleId: vehicleFilter.value || undefined,
         });
         tyres.value = response.data;
         syncFromMeta(response.meta, tyres.value.length);
@@ -392,24 +444,55 @@ async function loadTyres(page = 1) {
     }
 }
 
+function buildPayload() {
+    return {
+        ...form,
+        tyre_type: form.tyre_type || null,
+        warranty_valid_until: form.warranty_valid_until || null,
+        warranty_km: form.warranty_km === '' || form.warranty_km == null ? null : form.warranty_km,
+    };
+}
+
+async function persistTyre() {
+    const payload = buildPayload();
+
+    if (editing.value) {
+        await updateTyre(editing.value.id, payload);
+        return;
+    }
+
+    await createTyre(payload);
+}
+
 async function save() {
     saving.value = true;
     clearErrors();
 
     try {
-        const payload = {
-            ...form,
-            tyre_type: form.tyre_type || null,
-            warranty_valid_until: form.warranty_valid_until || null,
-            warranty_km: form.warranty_km === '' || form.warranty_km == null ? null : form.warranty_km,
-        };
-        if (editing.value) {
-            await updateTyre(editing.value.id, payload);
-        } else {
-            await createTyre(payload);
-        }
+        await persistTyre();
         closeModal();
         await loadTyres(pagination.currentPage);
+    } catch (error) {
+        applyApiError(error, 'Please check the highlighted fields.');
+    } finally {
+        saving.value = false;
+    }
+}
+
+async function saveAndNext() {
+    if (editing.value) {
+        return;
+    }
+
+    saving.value = true;
+    clearErrors();
+
+    try {
+        await persistTyre();
+        await loadTyres(pagination.currentPage);
+        form.serial_number = '';
+        await nextTick();
+        serialNumberInputRef.value?.focus();
     } catch (error) {
         applyApiError(error, 'Please check the highlighted fields.');
     } finally {
@@ -429,8 +512,9 @@ function applyRouteFilters() {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
     applyRouteFilters();
-    loadTyres();
+    vehicles.value = await listAllVehicles();
+    await loadTyres();
 });
 </script>

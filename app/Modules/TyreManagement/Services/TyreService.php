@@ -28,9 +28,9 @@ class TyreService
         private readonly TyrePositionCatalog $positionCatalog,
     ) {}
 
-    public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $search = null, ?string $status = null, ?string $vehicleId = null): LengthAwarePaginator
     {
-        return $this->tyreRepository->paginate($perPage, $search, $status);
+        return $this->tyreRepository->paginate($perPage, $search, $status, $vehicleId);
     }
 
     public function show(string $id): Tyre
@@ -94,7 +94,8 @@ class TyreService
                 'vehicle_id' => $vehicle->id,
                 'position_code' => $positionCode,
                 'installed_at' => $data['installed_at'],
-                'km_at_installation' => $data['km_at_installation'] ?? $vehicle->odometer_km ?? 0,
+                'km_at_installation' => $data['km_at_installation'] ?? 0,
+                'stint_km' => 0,
             ]);
 
             $tyre->update(['status' => TyreStatus::Installed]);
@@ -110,14 +111,13 @@ class TyreService
                 throw ValidationException::withMessages(['installation' => 'Tyre is already removed from this truck.']);
             }
 
-            $kmAtRemoval = $data['km_at_removal'] ?? $installation->vehicle?->odometer_km ?? $installation->km_at_installation;
-            $runningKm = max(0, (float) $kmAtRemoval - (float) $installation->km_at_installation);
+            $runningKm = max(0, (float) ($data['stint_km'] ?? $installation->stint_km ?? 0));
             $tyre = $installation->tyre;
             $recommendation = $this->lifeCalculator->removalRecommendation($tyre, $runningKm);
 
             $installation->update([
                 'removed_at' => $data['removed_at'] ?? now()->toDateString(),
-                'km_at_removal' => $kmAtRemoval,
+                'stint_km' => $runningKm,
                 'running_km' => $runningKm,
                 'removal_recommendation' => $recommendation['message'] ?? null,
             ]);
@@ -173,6 +173,7 @@ class TyreService
                 ->first();
 
             $rotationCost = (float) ($data['cost'] ?? 0);
+            $stintKm = max(0, (float) $data['stint_km']);
 
             $rotation = TyreRotation::query()->create([
                 'tyre_id' => $tyre->id,
@@ -182,7 +183,7 @@ class TyreService
                 'new_position' => $newPositionCode,
                 'reason' => $data['reason'] ?? null,
                 'cost' => $rotationCost,
-                'km_at_rotation' => $data['km_at_rotation'] ?? null,
+                'km_at_rotation' => $stintKm,
             ]);
 
             if ($conflictingInstallation !== null) {
@@ -194,7 +195,7 @@ class TyreService
                     'new_position' => $previousCode,
                     'reason' => $data['reason'] ?? null,
                     'cost' => null,
-                    'km_at_rotation' => $data['km_at_rotation'] ?? null,
+                    'km_at_rotation' => $stintKm,
                 ]);
 
                 $swapBufferPosition = '__SWAP__'.$installation->id;
@@ -202,7 +203,10 @@ class TyreService
                 $conflictingInstallation->update(['position_code' => $previousCode]);
             }
 
-            $installation->update(['position_code' => $newPositionCode]);
+            $installation->update([
+                'position_code' => $newPositionCode,
+                'stint_km' => $stintKm,
+            ]);
 
             if ($rotationCost > 0) {
                 $this->recordExpense(
@@ -280,13 +284,12 @@ class TyreService
                 throw ValidationException::withMessages(['old_tyre_id' => 'Old tyre is not installed on the selected truck.']);
             }
 
-            $kmAtReplace = (float) ($data['km_at_replacement'] ?? $vehicle->odometer_km);
-            $stintKm = max(0, $kmAtReplace - (float) $active->km_at_installation);
+            $stintKm = max(0, (float) $data['stint_km']);
             $advice = $this->lifeCalculator->removalRecommendation($oldTyre, $stintKm);
 
             $this->removeInstallation($active, [
                 'removed_at' => $data['replaced_at'],
-                'km_at_removal' => $kmAtReplace,
+                'stint_km' => $stintKm,
             ]);
 
             $oldTyre->refresh();
@@ -297,7 +300,6 @@ class TyreService
                     'vehicle_id' => $vehicle->id,
                     'position_code' => $positionCode,
                     'installed_at' => $data['replaced_at'],
-                    'km_at_installation' => $kmAtReplace,
                 ]);
             }
 
@@ -308,7 +310,7 @@ class TyreService
                 'new_tyre_id' => $newTyre?->id,
                 'replaced_at' => $data['replaced_at'],
                 'reason' => $data['reason'] ?? null,
-                'km_at_replacement' => $kmAtReplace,
+                'km_at_replacement' => $stintKm,
                 'old_tyre_stint_km' => $stintKm,
                 'old_tyre_remaining_life_km' => $remainingAfter,
                 'recommendation' => $advice['message'] ?? null,
@@ -377,13 +379,27 @@ class TyreService
     /**
      * @return array{level: string, message: string, remaining_life_km: float, stint_km: float}|null
      */
-    public function previewRemoval(TyreInstallation $installation, ?float $kmAtRemoval = null): ?array
+    public function previewRemoval(TyreInstallation $installation, ?float $stintKm = null): ?array
     {
         $installation->loadMissing(['tyre', 'vehicle']);
-        $km = $kmAtRemoval ?? (float) ($installation->vehicle?->odometer_km ?? $installation->km_at_installation);
-        $stintKm = max(0, $km - (float) $installation->km_at_installation);
+        $km = $stintKm ?? (float) ($installation->stint_km ?? 0);
 
-        return $this->lifeCalculator->removalRecommendation($installation->tyre, $stintKm);
+        return $this->lifeCalculator->removalRecommendation($installation->tyre, max(0, $km));
+    }
+
+    public function updateStintKm(TyreInstallation $installation, array $data): TyreInstallation
+    {
+        return DB::transaction(function () use ($installation, $data): TyreInstallation {
+            if ($installation->removed_at !== null) {
+                throw ValidationException::withMessages(['installation' => 'Cannot update KM for a removed installation.']);
+            }
+
+            $installation->update([
+                'stint_km' => max(0, (float) $data['stint_km']),
+            ]);
+
+            return $installation->fresh(['vehicle', 'tyre']);
+        });
     }
 
     public function recordMaintenanceExpense(Tyre $tyre, array $data): TyreExpense

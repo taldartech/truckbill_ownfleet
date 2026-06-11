@@ -57,7 +57,11 @@ class DocumentAlertNotifier
             return;
         }
 
-        $documentTypeLabel = $document->document_type?->label() ?? (string) $document->document_type;
+        $code = (string) $document->document_type;
+        $enumType = \App\Enums\VehicleDocumentType::tryFrom($code);
+        $documentTypeLabel = \App\Support\DocumentTypeDefaults::labelFor($tenantId, $code)
+            ?? $enumType?->label()
+            ?? $code;
         $vehicleRegistration = $document->vehicle?->registration_number ?? 'Unknown truck';
         $status = $isExpired ? 'expired' : 'expiring';
         $daysRemaining = (int) $today->diffInDays($expiryDate, false);
@@ -76,7 +80,7 @@ class DocumentAlertNotifier
             'document_id' => $document->id,
             'vehicle_id' => $document->vehicle_id,
             'vehicle_registration' => $vehicleRegistration,
-            'document_type' => $document->document_type?->value ?? (string) $document->document_type,
+            'document_type' => $code,
             'document_type_label' => $documentTypeLabel,
             'expiry_date' => $expiryDate->toDateString(),
             'status' => $status,

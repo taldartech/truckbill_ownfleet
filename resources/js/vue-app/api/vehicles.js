@@ -2,13 +2,6 @@ import api from '../api';
 
 const vehiclesBase = '/app/api/vehicles';
 
-export const VEHICLE_TYPES = [
-    { value: 'TRUCK', label: 'Truck' },
-    { value: 'TRAILER', label: 'Trailer' },
-    { value: 'TANKER', label: 'Tanker' },
-    { value: 'CONTAINER', label: 'Container' },
-];
-
 export function defaultVehicleListFilters() {
     return {
         search: '',

@@ -1,5 +1,5 @@
-import { reactive } from 'vue';
-import { emptyExpense, emptyRouteStop } from '../api/trips';
+import { reactive, watch } from 'vue';
+import { clampExpenseDate, emptyExpense, emptyRouteStop } from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -7,6 +7,7 @@ export function useTripForm() {
         trip_number: '',
         vehicle_id: '',
         driver_id: '',
+        substitute_driver_id: '',
         customer_id: '',
         broker_id: '',
         start_station_id: '',
@@ -24,6 +25,7 @@ export function useTripForm() {
         form.trip_number = '';
         form.vehicle_id = '';
         form.driver_id = '';
+        form.substitute_driver_id = '';
         form.customer_id = '';
         form.broker_id = '';
         form.start_station_id = '';
@@ -101,6 +103,7 @@ export function useTripForm() {
         form.trip_number = trip.trip_number ?? '';
         form.vehicle_id = trip.vehicle_id ?? '';
         form.driver_id = trip.driver_id ?? '';
+        form.substitute_driver_id = trip.substitute_driver_id ?? '';
         form.start_station_id = trip.start_station_id ?? '';
         form.customer_id = trip.customer_id ?? '';
         form.broker_id = trip.broker_id ?? '';
@@ -124,9 +127,15 @@ export function useTripForm() {
 
         form.expenses = (trip.expenses ?? []).map((expense) => ({
             expense_type: expense.expense_type ?? 'DIESEL',
+            expense_date: clampExpenseDate(
+                toDateInputFromIso(expense.expense_date) || form.start_at,
+                form.start_at,
+                form.end_at,
+            ),
             amount: Number(expense.amount ?? 0),
             fuel_liters: expense.fuel_liters != null && expense.fuel_liters !== '' ? Number(expense.fuel_liters) : '',
             fuel_rate: expense.fuel_rate != null && expense.fuel_rate !== '' ? Number(expense.fuel_rate) : '',
+            distance_km: expense.distance_km != null && expense.distance_km !== '' ? Number(expense.distance_km) : '',
             odometer_start:
                 expense.odometer_start != null && expense.odometer_start !== ''
                     ? Number(expense.odometer_start)
@@ -141,7 +150,7 @@ export function useTripForm() {
     }
 
     function addExpense({ routeLegSequence = '', expenseType = 'DIESEL' } = {}) {
-        const expense = emptyExpense();
+        const expense = emptyExpense({ defaultDate: form.start_at });
         expense.expense_type = expenseType;
         expense.route_leg_sequence =
             routeLegSequence === '' || routeLegSequence == null ? '' : Number(routeLegSequence);
@@ -188,6 +197,7 @@ export function useTripForm() {
         rebuildLegChain();
 
         const payload = {
+            substitute_driver_id: form.substitute_driver_id || null,
             customer_id: form.customer_id || null,
             broker_id: form.broker_id || null,
             start_station_id: form.start_station_id,
@@ -211,9 +221,11 @@ export function useTripForm() {
                 .filter((e) => Number(e.amount) > 0)
                 .map((e) => ({
                     expense_type: e.expense_type,
+                    expense_date: e.expense_date || form.start_at || null,
                     amount: e.amount,
                     fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
                     fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
+                    distance_km: e.distance_km === '' || e.distance_km == null ? null : Number(e.distance_km),
                     odometer_start:
                         e.odometer_start === '' || e.odometer_start == null ? null : Number(e.odometer_start),
                     odometer_end: e.odometer_end === '' || e.odometer_end == null ? null : Number(e.odometer_end),
@@ -231,6 +243,23 @@ export function useTripForm() {
 
         return payload;
     }
+
+    watch(
+        () => [form.start_at, form.end_at],
+        () => {
+            if (!form.start_at) {
+                return;
+            }
+
+            form.expenses.forEach((expense) => {
+                expense.expense_date = clampExpenseDate(
+                    expense.expense_date || form.start_at,
+                    form.start_at,
+                    form.end_at,
+                );
+            });
+        },
+    );
 
     return {
         form,

@@ -26,13 +26,19 @@
                                     :id="`${modalId}_registration`"
                                     v-model="form.registration_number"
                                     type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.registration_number }"
+                                    class="form-control text-uppercase"
+                                    :class="{ 'is-invalid': registrationError }"
+                                    :placeholder="VEHICLE_REGISTRATION_HINT"
+                                    maxlength="12"
+                                    autocomplete="off"
+                                    spellcheck="false"
                                     required
+                                    @input="onRegistrationInput"
                                 />
-                                <div v-if="props.fieldErrors.registration_number" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.registration_number[0] }}
+                                <div v-if="registrationError" class="invalid-feedback d-block">
+                                    {{ registrationError }}
                                 </div>
+                                <div v-else class="form-text">Letters and numbers only. Saved as uppercase (e.g. RJ27AV5055).</div>
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_layout`" class="form-label">Tyre layout *</label>
@@ -47,33 +53,55 @@
                                         {{ opt.name }} ({{ opt.position_count }} positions)
                                     </option>
                                 </select>
-            
+
                                 <div v-if="props.fieldErrors.tyre_layout" class="invalid-feedback d-block">
                                     {{ props.fieldErrors.tyre_layout[0] }}
                                 </div>
                             </div>
                         </div>
+
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_type`" class="form-label">Truck Type *</label>
-                                <select
-                                    :id="`${modalId}_type`"
-                                    v-model="form.vehicle_type"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': props.fieldErrors.vehicle_type }"
-                                    required
-                                >
-                                    <option value="">Select type</option>
-                                    <option value="TRUCK">Truck</option>
-                                    <option value="TRAILER">Trailer</option>
-                                    <option value="TANKER">Tanker</option>
-                                    <option value="CONTAINER">Container</option>
-                                </select>
-                                <div v-if="props.fieldErrors.vehicle_type" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.vehicle_type[0] }}
+                                <div class="truck-type-picker">
+                                    <SearchableSelect
+                                        :input-id="`${modalId}_type`"
+                                        v-model="form.vehicle_type"
+                                        :items="truckTypeOptions"
+                                        placeholder="Select type"
+                                        search-placeholder="Search truck type…"
+                                        :invalid="Boolean(props.fieldErrors.vehicle_type)"
+                                        :error-message="props.fieldErrors.vehicle_type?.[0] ?? ''"
+                                    />
+                                    <button
+                                        v-if="canManageTypes"
+                                        type="button"
+                                        class="btn btn-outline-success btn-sm truck-type-picker__add"
+                                        title="Quick add truck type"
+                                        @click="showTypeQuickAdd = true"
+                                    >
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_odometer`" class="form-label">Odometer (KM)</label>
+                                <input
+                                    :id="`${modalId}_odometer`"
+                                    v-model="form.odometer_km"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.odometer_km }"
+                                />
+                                <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.odometer_km[0] }}
                                 </div>
                             </div>
                         </div>
+
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label :for="`${modalId}_make`" class="form-label">Make</label>
@@ -117,20 +145,19 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label :for="`${modalId}_odometer`" class="form-label">Odometer (KM)</label>
-                            <input
-                                :id="`${modalId}_odometer`"
-                                v-model="form.odometer_km"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                class="form-control"
-                                :class="{ 'is-invalid': props.fieldErrors.odometer_km }"
-                            />
-                            <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
-                                {{ props.fieldErrors.odometer_km[0] }}
+
+                        <div v-if="isEdit && auditInfo" class="vehicle-audit-card border rounded px-3 py-2 bg-light">
+                            <div class="row g-2 small text-muted">
+                                <div class="col-md-6">
+                                    <span class="fw-medium text-body">Created by:</span>
+                                    {{ auditInfo.createdBy }}
+                                    <span v-if="auditInfo.createdAt">· {{ auditInfo.createdAt }}</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="fw-medium text-body">Updated by:</span>
+                                    {{ auditInfo.updatedBy }}
+                                    <span v-if="auditInfo.updatedAt">· {{ auditInfo.updatedAt }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -143,14 +170,30 @@
                 </form>
             </div>
         </div>
+
+        <TruckTypeQuickAddModal
+            :show="showTypeQuickAdd"
+            @close="showTypeQuickAdd = false"
+            @created="onTruckTypeCreated"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { listAllTyreLayouts } from '../../api/tyreLayouts';
+import { listAllTruckTypes } from '../../api/truckTypes';
+import {
+    VEHICLE_REGISTRATION_ERROR,
+    VEHICLE_REGISTRATION_HINT,
+    isValidVehicleRegistration,
+    normalizeVehicleRegistration,
+} from '../../utils/vehicleRegistration';
+import SearchableSelect from '../ui/SearchableSelect.vue';
+import TruckTypeQuickAddModal from './TruckTypeQuickAddModal.vue';
 
 const DEFAULT_TYRE_LAYOUT = 'TYRES_10';
+const DEFAULT_TRUCK_TYPE = 'TRUCK';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -160,6 +203,7 @@ const props = defineProps({
     fieldErrors: { type: Object, default: () => ({}) },
     formError: { type: String, default: '' },
     modalId: { type: String, required: true },
+    canManageTypes: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['close', 'submit']);
@@ -169,12 +213,58 @@ let bootstrapModal = null;
 const isEdit = computed(() => props.mode === 'edit');
 const form = ref(emptyForm());
 const tyreLayoutOptions = ref([]);
-const loadingLayouts = ref(false);
+const truckTypes = ref([]);
+const showTypeQuickAdd = ref(false);
+const localRegistrationError = ref('');
+
+const truckTypeOptions = computed(() =>
+    truckTypes.value.map((type) => ({
+        id: type.code,
+        name: type.name,
+    })),
+);
+
+const registrationError = computed(() => {
+    return props.fieldErrors.registration_number?.[0] ?? localRegistrationError.value;
+});
+
+const auditInfo = computed(() => {
+    if (!isEdit.value || !props.vehicle) {
+        return null;
+    }
+
+    return {
+        createdBy: props.vehicle.created_by_name ?? '—',
+        updatedBy: props.vehicle.updated_by_name ?? '—',
+        createdAt: formatAuditDate(props.vehicle.created_at),
+        updatedAt: formatAuditDate(props.vehicle.updated_at),
+    };
+});
+
+function formatAuditDate(value) {
+    if (!value) {
+        return '';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
 
 function emptyForm() {
     return {
         registration_number: '',
-        vehicle_type: 'TRUCK',
+        vehicle_type: DEFAULT_TRUCK_TYPE,
         tyre_layout: DEFAULT_TYRE_LAYOUT,
         make: '',
         model: '',
@@ -183,10 +273,15 @@ function emptyForm() {
     };
 }
 
+function onRegistrationInput(event) {
+    form.value.registration_number = normalizeVehicleRegistration(event.target.value);
+    localRegistrationError.value = '';
+}
+
 function fillForm(vehicle) {
     form.value = {
-        registration_number: vehicle?.registration_number ?? '',
-        vehicle_type: vehicle?.vehicle_type ?? 'TRUCK',
+        registration_number: normalizeVehicleRegistration(vehicle?.registration_number ?? ''),
+        vehicle_type: vehicle?.vehicle_type ?? DEFAULT_TRUCK_TYPE,
         tyre_layout: vehicle?.tyre_layout ?? DEFAULT_TYRE_LAYOUT,
         make: vehicle?.make ?? '',
         model: vehicle?.model ?? '',
@@ -196,7 +291,6 @@ function fillForm(vehicle) {
 }
 
 async function loadTyreLayoutOptions() {
-    loadingLayouts.value = true;
     try {
         tyreLayoutOptions.value = await listAllTyreLayouts({ activeOnly: true });
         if (!form.value.tyre_layout && tyreLayoutOptions.value.length) {
@@ -204,9 +298,25 @@ async function loadTyreLayoutOptions() {
         }
     } catch {
         tyreLayoutOptions.value = [];
-    } finally {
-        loadingLayouts.value = false;
     }
+}
+
+async function loadTruckTypes() {
+    try {
+        truckTypes.value = await listAllTruckTypes();
+        if (!form.value.vehicle_type && truckTypes.value.length) {
+            form.value.vehicle_type = truckTypes.value[0].code;
+        }
+    } catch {
+        truckTypes.value = [];
+    }
+}
+
+function onTruckTypeCreated(truckType) {
+    truckTypes.value = [...truckTypes.value, truckType].sort((left, right) =>
+        left.name.localeCompare(right.name),
+    );
+    form.value.vehicle_type = truckType.code;
 }
 
 watch(
@@ -221,10 +331,14 @@ watch(
         }
 
         if (visible) {
+            localRegistrationError.value = '';
+            showTypeQuickAdd.value = false;
             fillForm(props.vehicle);
-            await loadTyreLayoutOptions();
+            await Promise.all([loadTyreLayoutOptions(), loadTruckTypes()]);
             bootstrapModal.show();
         } else {
+            localRegistrationError.value = '';
+            showTypeQuickAdd.value = false;
             bootstrapModal.hide();
         }
     },
@@ -235,8 +349,16 @@ function close() {
 }
 
 function submit() {
+    const registrationNumber = normalizeVehicleRegistration(form.value.registration_number);
+
+    if (!isValidVehicleRegistration(registrationNumber)) {
+        localRegistrationError.value = VEHICLE_REGISTRATION_ERROR;
+
+        return;
+    }
+
     emit('submit', {
-        registration_number: form.value.registration_number.trim().toUpperCase(),
+        registration_number: registrationNumber,
         vehicle_type: form.value.vehicle_type,
         tyre_layout: form.value.tyre_layout,
         make: form.value.make || null,
@@ -246,3 +368,31 @@ function submit() {
     });
 }
 </script>
+
+<style scoped>
+.truck-type-picker {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.truck-type-picker :deep(.searchable-select) {
+    flex: 1;
+    min-width: 0;
+}
+
+.truck-type-picker__add {
+    margin-top: 0;
+    height: 38px;
+    width: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.vehicle-audit-card {
+    font-size: 0.85rem;
+}
+</style>

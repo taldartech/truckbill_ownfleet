@@ -67,7 +67,11 @@ class VehicleController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
         $query = Vehicle::query()
-            ->with(['currentPrimaryAssignment.driver'])
+            ->with([
+                'currentPrimaryAssignment.driver',
+                'createdBy:id,name',
+                'updatedBy:id,name',
+            ])
             ->latest();
 
         if ($request->filled('status')) {
@@ -114,7 +118,10 @@ class VehicleController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
-        return new VehicleResource($vehicle);
+        return new VehicleResource($vehicle->load([
+            'createdBy:id,name',
+            'updatedBy:id,name',
+        ]));
     }
 
     public function show(Vehicle $vehicle): VehicleResource
@@ -124,6 +131,8 @@ class VehicleController extends Controller
         return new VehicleResource($vehicle->load([
             'documents',
             'currentPrimaryAssignment.driver',
+            'createdBy:id,name',
+            'updatedBy:id,name',
         ]));
     }
 
@@ -160,7 +169,10 @@ class VehicleController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
-        return new VehicleResource($vehicle->fresh());
+        return new VehicleResource($vehicle->fresh([
+            'createdBy:id,name',
+            'updatedBy:id,name',
+        ]));
     }
 
     public function toggleStatus(ToggleVehicleStatusRequest $request, Vehicle $vehicle): VehicleResource

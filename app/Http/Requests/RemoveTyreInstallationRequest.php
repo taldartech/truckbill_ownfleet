@@ -22,7 +22,7 @@ class RemoveTyreInstallationRequest extends FormRequest
     {
         return [
             'removed_at' => ['nullable', 'date'],
-            'km_at_removal' => ['nullable', 'numeric', 'min:0'],
+            'stint_km' => ['required', 'numeric', 'min:0'],
         ];
     }
 }

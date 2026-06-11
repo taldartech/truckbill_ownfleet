@@ -21,6 +21,7 @@ class TyreInstallation extends Model
         'removed_at',
         'km_at_installation',
         'km_at_removal',
+        'stint_km',
         'running_km',
         'removal_recommendation',
     ];
@@ -32,6 +33,7 @@ class TyreInstallation extends Model
             'removed_at' => 'date',
             'km_at_installation' => 'decimal:2',
             'km_at_removal' => 'decimal:2',
+            'stint_km' => 'decimal:2',
             'running_km' => 'decimal:2',
         ];
     }

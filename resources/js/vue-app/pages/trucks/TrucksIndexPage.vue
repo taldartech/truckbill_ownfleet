@@ -89,7 +89,7 @@
                                     {{ vehicle.registration_number }}
                                 </RouterLink>
                             </td>
-                            <td>{{ vehicle.vehicle_type }}</td>
+                            <td>{{ vehicle.vehicle_type_label ?? vehicle.vehicle_type }}</td>
                             <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td>
                             <td>{{ formatMakeModel(vehicle) }}</td>
                             <td class="primary-driver-cell">
@@ -214,6 +214,7 @@
             :saving="saving"
             :field-errors="fieldErrors"
             :form-error="vehicleFormError"
+            :can-manage-types="canManage"
             @close="closeForm"
             @submit="handleSubmit"
         />
@@ -248,8 +249,8 @@ import {
     listVehicles,
     toggleVehicleStatus,
     updateVehicle,
-    VEHICLE_TYPES,
 } from '../../api/vehicles';
+import { listAllTruckTypes } from '../../api/truckTypes';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
@@ -295,7 +296,14 @@ const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
 const flash = reactive({ success: '', error: '' });
 const togglingId = ref(null);
-const vehicleTypes = VEHICLE_TYPES;
+const truckTypes = ref([]);
+
+const vehicleTypes = computed(() =>
+    truckTypes.value.map((type) => ({
+        value: type.code,
+        label: type.name,
+    })),
+);
 const filters = reactive(defaultVehicleListFilters());
 const defaultFilters = defaultVehicleListFilters();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
@@ -318,6 +326,20 @@ function formatMakeModel(vehicle) {
 function showToast(message, type = 'success') {
     flash.success = type === 'success' ? message : '';
     flash.error = type === 'error' ? message : '';
+}
+
+async function loadTruckTypes() {
+    if (needsCompanySelection.value) {
+        truckTypes.value = [];
+
+        return;
+    }
+
+    try {
+        truckTypes.value = await listAllTruckTypes();
+    } catch {
+        truckTypes.value = [];
+    }
 }
 
 async function loadVehicles(page = pagination.currentPage) {
@@ -524,7 +546,7 @@ onMounted(async () => {
 
     if (ok === true) {
         await resolveVehicleSearchFromRoute();
-        await loadVehicles();
+        await Promise.all([loadTruckTypes(), loadVehicles()]);
     }
 });
 

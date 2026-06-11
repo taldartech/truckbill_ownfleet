@@ -23,10 +23,8 @@
                                 </RouterLink>
                             </div>
                             <div class="text-muted">{{ slot.tyre.brand || '—' }}</div>
-                            <div class="mt-2">
-                                Installed: {{ slot.tyre.installed_at }} @ {{ slot.tyre.km_at_installation }} km
-                            </div>
-                            <div>Running on truck: <strong>{{ slot.tyre.stint_km }} km</strong></div>
+                            <div class="mt-2">Installed: {{ slot.tyre.installed_at }}</div>
+                            <div>KM on truck: <strong>{{ slot.tyre.stint_km }} km</strong></div>
                             <div v-if="slot.tyre.remaining_life_km != null" class="mt-1">
                                 Life left: <strong>{{ slot.tyre.remaining_life_km }} km</strong>
                                 ({{ slot.tyre.life_used_percent }}% used)

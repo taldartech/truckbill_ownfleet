@@ -12,6 +12,7 @@ use App\Station;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Trip;
+use App\TripExpense;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -82,15 +83,18 @@ class TripManagementTest extends TestCase
                 'expenses' => [
                     [
                         'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-02',
                         'amount' => 8500,
                         'fuel_liters' => 100,
                         'fuel_rate' => 85,
+                        'distance_km' => 450,
                         'odometer_start' => 12000,
                         'odometer_end' => 12450,
                         'route_leg_sequence' => 1,
                     ],
                     [
                         'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-01',
                         'amount' => 1200,
                     ],
                 ],
@@ -113,14 +117,120 @@ class TripManagementTest extends TestCase
 
         $this->assertDatabaseCount('trip_route_legs', 3);
         $this->assertDatabaseCount('trip_expenses', 2);
-        $this->assertDatabaseHas('trip_expenses', [
-            'expense_type' => TripExpenseType::Diesel->value,
-            'amount' => '8500.00',
-            'fuel_liters' => '100.00',
-            'fuel_rate' => '85.00',
-            'odometer_start' => '12000.00',
-            'odometer_end' => '12450.00',
+        $dieselExpense = TripExpense::query()->where('expense_type', TripExpenseType::Diesel->value)->first();
+        $this->assertNotNull($dieselExpense);
+        $this->assertSame('2026-06-02', $dieselExpense->expense_date?->toDateString());
+        $this->assertSame('450.00', (string) $dieselExpense->distance_km);
+    }
+
+    public function test_expense_date_must_stay_within_trip_window(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'start_at' => '2026-06-01 08:00:00',
+            'end_at' => '2026-06-05 20:00:00',
+            'route_legs' => [
+                [
+                    'from_station_id' => $stations['home']->id,
+                    'to_station_id' => $stations['b']->id,
+                    'route_type' => RouteType::Loaded->value,
+                    'sequence_no' => 1,
+                    'distance_km' => 150,
+                    'freight_amount' => 25000,
+                ],
+                [
+                    'from_station_id' => $stations['b']->id,
+                    'to_station_id' => $stations['home']->id,
+                    'route_type' => RouteType::Empty->value,
+                    'sequence_no' => 2,
+                    'distance_km' => 150,
+                ],
+            ],
+            'expenses' => [
+                [
+                    'expense_type' => TripExpenseType::Toll->value,
+                    'expense_date' => '2026-05-31',
+                    'amount' => 500,
+                ],
+            ],
+        ];
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.expense_date']);
+
+        $payload['expenses'][0]['expense_date'] = '2026-06-06';
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.expense_date']);
+    }
+
+    public function test_trip_can_store_substitute_driver_on_create_and_update(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $substitute = Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Substitute Driver',
+            'phone' => '9876543211',
+            'daily_wage' => 800,
+            'is_active' => true,
         ]);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'substitute_driver_id' => $substitute->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'route_type' => RouteType::Loaded->value,
+                        'sequence_no' => 1,
+                        'distance_km' => 150,
+                        'freight_amount' => 25000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'route_type' => RouteType::Empty->value,
+                        'sequence_no' => 2,
+                        'distance_km' => 150,
+                    ],
+                ],
+            ]);
+
+        $createResponse->assertCreated();
+        $createResponse->assertJsonPath('data.substitute_driver_id', $substitute->id);
+        $createResponse->assertJsonPath('data.substitute_driver.name', 'Substitute Driver');
+
+        $tripId = $createResponse->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'substitute_driver_id' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.substitute_driver_id', null);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'substitute_driver_id' => $driver->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['substitute_driver_id']);
     }
 
     public function test_trip_search_ignores_date_range(): void
@@ -235,6 +345,38 @@ class TripManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonCount(0, 'data');
+    }
+
+    public function test_create_trip_requires_positive_total_freight(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'route_type' => RouteType::Loaded->value,
+                        'distance_km' => 100,
+                        'freight_amount' => 0,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'route_type' => RouteType::Empty->value,
+                        'distance_km' => 100,
+                    ],
+                ],
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['route_legs']);
     }
 
     public function test_create_trip_always_stores_created_status(): void
@@ -415,6 +557,195 @@ class TripManagementTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_check_trip_window_reports_vehicle_overlap_for_open_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $existingTrip = app(TripService::class)->create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'start_at' => '2026-05-01 08:00:00',
+            'end_at' => '2026-05-10 20:00:00',
+            'route_legs' => [
+                [
+                    'from_station_id' => $stations['home']->id,
+                    'to_station_id' => $stations['b']->id,
+                    'route_type' => RouteType::Loaded->value,
+                    'sequence_no' => 1,
+                    'distance_km' => 100,
+                    'freight_amount' => 5000,
+                ],
+                [
+                    'from_station_id' => $stations['b']->id,
+                    'to_station_id' => $stations['home']->id,
+                    'route_type' => RouteType::Empty->value,
+                    'sequence_no' => 2,
+                    'distance_km' => 100,
+                ],
+            ],
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/check-window?'.http_build_query([
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_at' => '2026-05-05',
+                'end_at' => '2026-05-15',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('conflict_type', 'vehicle')
+            ->assertJsonPath('trip_number', $existingTrip->trip_number);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/check-window?'.http_build_query([
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_at' => '2026-05-05',
+                'end_at' => '2026-05-15',
+                'ignore_trip_id' => $existingTrip->id,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('available', true);
+    }
+
+    public function test_check_trip_window_allows_dates_after_open_trip_ends(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        app(TripService::class)->create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'start_at' => '2026-05-01 08:00:00',
+            'end_at' => '2026-05-10 20:00:00',
+            'route_legs' => [
+                [
+                    'from_station_id' => $stations['home']->id,
+                    'to_station_id' => $stations['b']->id,
+                    'route_type' => RouteType::Loaded->value,
+                    'sequence_no' => 1,
+                    'distance_km' => 100,
+                    'freight_amount' => 5000,
+                ],
+                [
+                    'from_station_id' => $stations['b']->id,
+                    'to_station_id' => $stations['home']->id,
+                    'route_type' => RouteType::Empty->value,
+                    'sequence_no' => 2,
+                    'distance_km' => 100,
+                ],
+            ],
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/check-window?'.http_build_query([
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_at' => '2026-05-11',
+                'end_at' => '2026-05-20',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('available', true);
+    }
+
+    public function test_check_trip_window_blocks_future_dates_when_open_trip_has_no_end_date(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $openTrip = app(TripService::class)->create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'start_at' => '2026-07-06 08:00:00',
+            'route_legs' => [
+                [
+                    'from_station_id' => $stations['home']->id,
+                    'to_station_id' => $stations['b']->id,
+                    'route_type' => RouteType::Loaded->value,
+                    'sequence_no' => 1,
+                    'distance_km' => 100,
+                    'freight_amount' => 5000,
+                ],
+                [
+                    'from_station_id' => $stations['b']->id,
+                    'to_station_id' => $stations['home']->id,
+                    'route_type' => RouteType::Empty->value,
+                    'sequence_no' => 2,
+                    'distance_km' => 100,
+                ],
+            ],
+        ]);
+
+        $openTrip->update(['status' => 'IN_PROGRESS']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/check-window?'.http_build_query([
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_at' => '2026-08-01',
+                'end_at' => '2026-11-01',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('trip_number', $openTrip->trip_number);
+    }
+
+    public function test_check_trip_window_ignores_cancelled_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $cancelledTrip = app(TripService::class)->create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'start_at' => '2026-05-01 08:00:00',
+            'end_at' => '2026-05-10 20:00:00',
+            'route_legs' => [
+                [
+                    'from_station_id' => $stations['home']->id,
+                    'to_station_id' => $stations['b']->id,
+                    'route_type' => RouteType::Loaded->value,
+                    'sequence_no' => 1,
+                    'distance_km' => 100,
+                    'freight_amount' => 5000,
+                ],
+                [
+                    'from_station_id' => $stations['b']->id,
+                    'to_station_id' => $stations['home']->id,
+                    'route_type' => RouteType::Empty->value,
+                    'sequence_no' => 2,
+                    'distance_km' => 100,
+                ],
+            ],
+        ]);
+
+        $cancelledTrip->update([
+            'status' => 'CANCELLED',
+            'cancelled_at' => '2026-05-02 10:00:00',
+            'cancellation_reason' => 'Customer cancelled',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/check-window?'.http_build_query([
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_at' => '2026-05-05',
+                'end_at' => '2026-05-15',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('available', true);
+    }
+
     public function test_new_trip_allowed_when_previous_trip_is_completed(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
@@ -560,6 +891,7 @@ class TripManagementTest extends TestCase
             'expenses' => [
                 [
                     'expense_type' => TripExpenseType::Diesel->value,
+                    'expense_date' => '2026-06-10',
                     'amount' => 6000,
                 ],
             ],

@@ -6,13 +6,14 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function listTyres({ page = 1, perPage = 15, search, status } = {}) {
+export async function listTyres({ page = 1, perPage = 15, search, status, vehicleId } = {}) {
     const { data } = await api.get(base, {
         params: {
             page,
             per_page: perPage,
             ...(search ? { search } : {}),
             ...(status ? { status } : {}),
+            ...(vehicleId ? { vehicle_id: vehicleId } : {}),
         },
     });
 
@@ -31,11 +32,16 @@ export async function getTyre(id) {
     };
 }
 
-export async function previewTyreRemoval(installationId, kmAtRemoval) {
+export async function previewTyreRemoval(installationId, stintKm) {
     const { data } = await api.get(`/app/api/tyre-installations/${installationId}/removal-preview`, {
-        params: kmAtRemoval != null ? { km_at_removal: kmAtRemoval } : {},
+        params: stintKm != null ? { stint_km: stintKm } : {},
     });
     return data;
+}
+
+export async function updateTyreInstallationStintKm(installationId, payload) {
+    const { data } = await api.patch(`/app/api/tyre-installations/${installationId}/stint-km`, payload);
+    return unwrapResource(data);
 }
 
 export async function addTyreExpense(id, payload) {

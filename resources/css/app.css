@@ -282,8 +282,10 @@
 .card-header.bg-success :is(h1, h2, h3, h4, h5, h6, .card-title),
 .modal-header.bg-success :is(h1, h2, h3, h4, h5, h6, .modal-title),
 .modal-header.bg-primary :is(h1, h2, h3, h4, h5, h6, .modal-title),
+.modal-header.bg-danger :is(h1, h2, h3, h4, h5, h6, .modal-title),
 .bg-success:not(.badge):not(.bg-success-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .bg-primary:not(.badge) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
+.bg-danger:not(.badge):not(.bg-danger-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, .modal-title),
 .trip-expenses-card__header,
 .trip-expenses-card__header :is(h1, h2, h3, h4, h5, h6, .card-title),
 .stop-expense-card__header,
@@ -294,6 +296,7 @@
 .card-header.bg-success :is(i, .bi),
 .modal-header.bg-success :is(i, .bi),
 .modal-header.bg-primary :is(i, .bi),
+.modal-header.bg-danger :is(i, .bi),
 .trip-expenses-card__header :is(i, .bi),
 .stop-expense-card__header :is(i, .bi) {
     color: #fff !important;

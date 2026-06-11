@@ -94,6 +94,12 @@
                                         :style="{ width: Math.min(100, lifeSummary.life_used_percent) + '%' }"
                                     ></div>
                                 </div>
+                                <div class="small text-muted mt-2">
+                                    <div>Prior usage (stock): {{ lifeSummary.stock_km ?? 0 }} km</div>
+                                    <div v-if="tyre.active_installation">
+                                        Current truck stint: {{ lifeSummary.active_stint_km ?? 0 }} km
+                                    </div>
+                                </div>
                                 <div v-if="lifeSummary.is_early_wear_risk" class="alert alert-warning py-2 mt-2 mb-0 small">
                                     Tyre has most of its life left — avoid early scrap; check tread before removing.
                                 </div>
@@ -134,17 +140,19 @@
                                 <div>{{ tyre.active_installation.vehicle_registration }}</div>
                                 <div class="text-muted">{{ tyre.active_installation.position_label }}</div>
                                 <div class="small">
-                                    Since {{ tyre.active_installation.installed_at }} @
-                                    {{ tyre.active_installation.km_at_installation ?? '—' }} km
+                                    Since {{ tyre.active_installation.installed_at }}
                                 </div>
-                                <button
-                                    v-if="canManage"
-                                    type="button"
-                                    class="btn btn-sm btn-warning mt-2"
-                                    @click="handleRemove"
-                                >
-                                    Remove from truck
-                                </button>
+                                <div class="small mt-1">
+                                    KM on truck: <strong>{{ tyre.active_installation.stint_km ?? 0 }}</strong>
+                                </div>
+                                <div v-if="canManage" class="d-flex flex-wrap gap-2 mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="openUpdateKm">
+                                        Update KM
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-warning" @click="openRemove">
+                                        Remove from truck
+                                    </button>
+                                </div>
                             </template>
                             <span v-else class="text-muted">Not installed</span>
                         </div>
@@ -179,9 +187,12 @@
                 <div v-if="activeTab === 'timeline'" class="card-body">
                     <ul v-if="timeline.length" class="list-group list-group-flush">
                         <li v-for="(event, i) in timeline" :key="i" class="list-group-item px-0">
-                            <div class="d-flex justify-content-between">
-                                <strong>{{ event.title }}</strong>
-                                <span class="text-muted small">{{ event.date }}</span>
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <strong>
+                                    <span class="text-muted fw-normal me-1">Step {{ i + 1 }}.</span>
+                                    {{ event.title }}
+                                </strong>
+                                <span class="text-muted small text-nowrap">{{ event.date }}</span>
                             </div>
                             <div class="small text-muted">{{ event.detail }}</div>
                         </li>
@@ -217,11 +228,15 @@
             @submit="submitInstall"
         >
             <div class="mb-2">
-                <label class="form-label">Truck</label>
-                <select v-model="actionForm.vehicle_id" class="form-select" required>
-                    <option value="">Select</option>
-                    <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
-                </select>
+                <label class="form-label" for="installTyre_vehicle">Truck</label>
+                <SearchableSelect
+                    input-id="installTyre_vehicle"
+                    v-model="actionForm.vehicle_id"
+                    :items="vehicleSelectOptions"
+                    placeholder="Select truck"
+                    search-placeholder="Search truck number…"
+                    empty-message="No truck found."
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Position</label>
@@ -244,13 +259,13 @@
                     </option>
                 </select>
             </div>
+            <div v-if="lifeSummary" class="alert alert-info small py-2">
+                <strong>{{ installLifeLabel }}</strong> — {{ lifeSummary.stock_km ?? 0 }} km used
+                ({{ lifeSummary.life_used_percent }}% of {{ lifeSummary.expected_life_km }} km life)
+            </div>
             <div class="mb-2">
                 <label class="form-label">Installation Date</label>
                 <input v-model="actionForm.installed_at" type="date" class="form-control" required />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Truck odometer (KM) at install *</label>
-                <input v-model.number="actionForm.km_at_installation" v-no-scroll-change type="number" min="0" class="form-control" required />
             </div>
         </TyreActionModal>
 
@@ -278,12 +293,14 @@
                 <input v-model="actionForm.replaced_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Truck KM at replace</label>
+                <label class="form-label">KM on truck *</label>
                 <input
-                    v-model.number="actionForm.km_at_replacement"
-                    v-no-scroll-change type="number"
+                    v-model.number="actionForm.stint_km"
+                    v-no-scroll-change
+                    type="number"
                     min="0"
                     class="form-control"
+                    required
                     @input="loadReplacePreview"
                 />
             </div>
@@ -333,23 +350,37 @@
                 Will swap with <strong>{{ selectedRotateTarget.tyre_serial }}</strong> currently at
                 {{ selectedRotateTarget.label }}.
             </div>
-            <div class="mb-2">
-                <label class="form-label">Rotation Date</label>
-                <input v-model="actionForm.rotation_date" type="date" class="form-control" required />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Rotation Cost (₹) *</label>
-                <input
-                    v-model.number="actionForm.rotation_cost"
-                    v-no-scroll-change type="number"
-                    min="0"
-                    step="0.01"
-                    class="form-control"
-                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'cost') }"
-                    required
-                />
-                <div v-if="fieldErrorMessage(fieldErrors, 'cost')" class="invalid-feedback d-block">
-                    {{ fieldErrorMessage(fieldErrors, 'cost') }}
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label">KM on truck *</label>
+                    <input
+                        v-model.number="actionForm.stint_km"
+                        v-no-scroll-change
+                        type="number"
+                        min="0"
+                        class="form-control"
+                        required
+                    />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Rotation Date</label>
+                    <input v-model="actionForm.rotation_date" type="date" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Rotation Cost (₹) *</label>
+                    <input
+                        v-model.number="actionForm.rotation_cost"
+                        v-no-scroll-change
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="form-control"
+                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'cost') }"
+                        required
+                    />
+                    <div v-if="fieldErrorMessage(fieldErrors, 'cost')" class="invalid-feedback d-block">
+                        {{ fieldErrorMessage(fieldErrors, 'cost') }}
+                    </div>
                 </div>
             </div>
             <div class="mb-2">
@@ -381,6 +412,61 @@
         </TyreActionModal>
 
         <TyreActionModal
+            v-if="showRemove"
+            title="Remove Tyre from Truck"
+            :form-error="formError"
+            :saving="actionSaving"
+            @close="closeRemove"
+            @submit="submitRemove"
+        >
+            <div class="mb-2">
+                <label class="form-label">Remove date</label>
+                <input v-model="actionForm.removed_at" type="date" class="form-control" required />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">KM on truck *</label>
+                <input
+                    v-model.number="actionForm.stint_km"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    class="form-control"
+                    required
+                    @input="loadRemovePreview"
+                />
+            </div>
+            <div v-if="removePreview" class="alert py-2 small" :class="removePreview.level === 'warning' ? 'alert-warning' : 'alert-info'">
+                {{ removePreview.message }}
+            </div>
+        </TyreActionModal>
+
+        <TyreActionModal
+            v-if="showUpdateKm"
+            title="Update KM on Truck"
+            :form-error="formError"
+            :saving="actionSaving"
+            @close="closeUpdateKm"
+            @submit="submitUpdateKm"
+        >
+            <div class="mb-2">
+                <label class="form-label">KM on truck *</label>
+                <input
+                    v-model.number="actionForm.stint_km"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    class="form-control"
+                    required
+                />
+            </div>
+            <div v-if="lifeSummary" class="alert alert-info small py-2 mb-0">
+                Life will update to about
+                <strong>{{ previewLifePercent(actionForm.stint_km) }}%</strong>
+                after saving.
+            </div>
+        </TyreActionModal>
+
+        <TyreActionModal
             v-if="showScrap"
             title="Scrap / Sell Tyre"
             :form-error="formError"
@@ -388,6 +474,11 @@
             @close="closeScrap"
             @submit="submitScrap"
         >
+            <div v-if="lifeSummary" class="alert alert-secondary small py-2">
+                <div><strong>Total KM used:</strong> {{ lifeSummary.total_km_used }} km</div>
+                <div><strong>Life used:</strong> {{ lifeSummary.life_used_percent }}%</div>
+                <div><strong>Remaining:</strong> {{ lifeSummary.remaining_life_km }} km</div>
+            </div>
             <div class="mb-2">
                 <label class="form-label">Scrap date</label>
                 <input v-model="actionForm.scrapped_at" type="date" class="form-control" required />
@@ -469,6 +560,7 @@ import {
     previewTyreRemoval,
     recordTyreDamage,
     removeTyreInstallation,
+    updateTyreInstallationStintKm,
     replaceTyre,
     retreadTyre,
     rotateTyre,
@@ -477,6 +569,7 @@ import {
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
+import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
     formatDamageType,
@@ -515,14 +608,23 @@ const timeline = ref([]);
 const loading = ref(true);
 const activeTab = ref('timeline');
 const vehicles = ref([]);
+const vehicleSelectOptions = computed(() =>
+    vehicles.value.map((vehicle) => ({
+        id: vehicle.id,
+        label: vehicle.registration_number,
+    })),
+);
 const stockTyres = ref([]);
 const showInstall = ref(false);
 const showRotate = ref(false);
 const showRetread = ref(false);
 const showDamage = ref(false);
 const showReplace = ref(false);
+const showRemove = ref(false);
+const showUpdateKm = ref(false);
 const showScrap = ref(false);
 const replacePreview = ref(null);
+const removePreview = ref(null);
 
 const vehiclePositionSlots = ref([]);
 const loadingVehiclePositions = ref(false);
@@ -550,6 +652,12 @@ const selectedRotateTarget = computed(() =>
     rotatePositionOptions.value.find((option) => option.value === actionForm.new_position) ?? null,
 );
 
+const installLifeLabel = computed(() => {
+    const stockKm = lifeSummary.value?.stock_km ?? 0;
+
+    return stockKm > 0 ? 'Used tyre' : 'New tyre';
+});
+
 function todayIsoDate() {
     return new Date().toISOString().slice(0, 10);
 }
@@ -571,10 +679,10 @@ function createActionFormDefaults() {
         repair_cost: null,
         damage_description: '',
         km_at_occurrence: null,
-        km_at_installation: null,
+        stint_km: 0,
+        removed_at: todayIsoDate(),
         new_tyre_id: '',
         replaced_at: todayIsoDate(),
-        km_at_replacement: null,
         replace_reason: '',
         scrapped_at: todayIsoDate(),
         scrap_sale_amount: null,
@@ -604,7 +712,7 @@ const activeRows = computed(() => {
         return (tyre.value.installations ?? []).map((r) => [
             r.vehicle_registration,
             r.position_label,
-            `${r.installed_at} @ ${r.km_at_installation} km`,
+            r.installed_at,
             r.removed_at ?? '—',
             r.running_km ?? '—',
             r.removal_recommendation ?? '—',
@@ -638,7 +746,7 @@ const activeRows = computed(() => {
 
 const activeColumns = computed(() => {
     const map = {
-        installations: ['Truck', 'Position', 'Installed @ KM', 'Removed', 'Ran KM', 'Advice'],
+        installations: ['Truck', 'Position', 'Installed', 'Removed', 'Ran KM', 'Advice'],
         rotations: ['Truck', 'Date', 'From', 'To', 'Cost', 'Reason'],
         retreads: ['Date', 'Vendor', 'Cost', 'Condition'],
         damages: ['Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
@@ -688,7 +796,24 @@ function openDamage() {
 function openReplace() {
     clearErrors();
     resetActionForm();
+    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
     showReplace.value = true;
+}
+
+function openRemove() {
+    clearErrors();
+    resetActionForm();
+    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    removePreview.value = null;
+    showRemove.value = true;
+    loadRemovePreview();
+}
+
+function openUpdateKm() {
+    clearErrors();
+    resetActionForm();
+    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
+    showUpdateKm.value = true;
 }
 
 function openScrap() {
@@ -715,6 +840,15 @@ function closeDamage() {
 
 function closeReplace() {
     closeActionModal(showReplace);
+}
+
+function closeRemove() {
+    closeActionModal(showRemove);
+    removePreview.value = null;
+}
+
+function closeUpdateKm() {
+    closeActionModal(showUpdateKm);
 }
 
 function closeScrap() {
@@ -777,6 +911,18 @@ function lifeBarClass(percent) {
     return 'bg-success';
 }
 
+function previewLifePercent(stintKm) {
+    const expected = lifeSummary.value?.expected_life_km ?? tyre.value?.expected_life_km ?? 40000;
+    const stockKm = lifeSummary.value?.stock_km ?? 0;
+    const total = stockKm + (Number(stintKm) || 0);
+
+    if (expected <= 0) {
+        return 0;
+    }
+
+    return Math.min(100, Math.round((total / expected) * 1000) / 10);
+}
+
 async function loadTyre() {
     loading.value = true;
     try {
@@ -789,7 +935,6 @@ async function loadTyre() {
             const firstTarget = rotatePositionOptions.value[0];
             actionForm.new_position = firstTarget?.value ?? '';
         }
-        actionForm.km_at_replacement = null;
     } finally {
         loading.value = false;
     }
@@ -800,8 +945,17 @@ async function loadReplacePreview() {
     if (!instId) {
         return;
     }
-    const res = await previewTyreRemoval(instId, actionForm.km_at_replacement);
+    const res = await previewTyreRemoval(instId, actionForm.stint_km);
     replacePreview.value = res.data ?? null;
+}
+
+async function loadRemovePreview() {
+    const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
+    if (!instId) {
+        return;
+    }
+    const res = await previewTyreRemoval(instId, actionForm.stint_km);
+    removePreview.value = res.data ?? null;
 }
 
 async function loadVehiclePositions(vehicleId) {
@@ -837,6 +991,7 @@ watch(showRotate, async (open) => {
     }
 
     clearErrors();
+    actionForm.stint_km = tyre.value?.active_installation?.stint_km ?? 0;
 
     if (tyre.value?.active_installation?.vehicle_id) {
         await loadVehiclePositions(tyre.value.active_installation.vehicle_id);
@@ -856,7 +1011,6 @@ async function submitInstall() {
             vehicle_id: actionForm.vehicle_id,
             position_code: actionForm.position_code,
             installed_at: actionForm.installed_at,
-            km_at_installation: actionForm.km_at_installation,
         });
         finishTyreAction(showInstall);
         await loadTyre();
@@ -870,6 +1024,7 @@ async function submitRotate() {
             previous_position: tyre.value.active_installation.position,
             new_position: actionForm.new_position,
             cost: actionForm.rotation_cost,
+            stint_km: actionForm.stint_km,
             reason: actionForm.reason || null,
         });
         finishTyreAction(showRotate);
@@ -914,7 +1069,7 @@ async function submitReplace() {
             old_tyre_id: tyre.value.id,
             new_tyre_id: actionForm.new_tyre_id || null,
             replaced_at: actionForm.replaced_at,
-            km_at_replacement: actionForm.km_at_replacement,
+            stint_km: actionForm.stint_km,
             reason: actionForm.replace_reason || null,
         });
         finishTyreAction(showReplace);
@@ -922,13 +1077,34 @@ async function submitReplace() {
     });
 }
 
-async function handleRemove() {
+async function submitRemove() {
     const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
     if (!instId) {
         return;
     }
-    await removeTyreInstallation(instId, { removed_at: new Date().toISOString().slice(0, 10) });
-    await loadTyre();
+
+    await runTyreAction(async () => {
+        await removeTyreInstallation(instId, {
+            removed_at: actionForm.removed_at,
+            stint_km: actionForm.stint_km,
+        });
+        finishTyreAction(showRemove);
+        removePreview.value = null;
+        await loadTyre();
+    });
+}
+
+async function submitUpdateKm() {
+    const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
+    if (!instId) {
+        return;
+    }
+
+    await runTyreAction(async () => {
+        await updateTyreInstallationStintKm(instId, { stint_km: actionForm.stint_km });
+        finishTyreAction(showUpdateKm);
+        await loadTyre();
+    });
 }
 
 async function submitScrap() {

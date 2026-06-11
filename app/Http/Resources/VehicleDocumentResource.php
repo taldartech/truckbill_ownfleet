@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\VehicleDocumentType;
+use App\Support\DocumentTypeDefaults;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,16 +14,18 @@ class VehicleDocumentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $type = $this->document_type instanceof VehicleDocumentType
-            ? $this->document_type
-            : VehicleDocumentType::tryFrom((string) $this->document_type);
+        $code = (string) $this->document_type;
+        $enumType = VehicleDocumentType::tryFrom($code);
+        $label = DocumentTypeDefaults::labelFor((string) $this->tenant_id, $code)
+            ?? $enumType?->label()
+            ?? $code;
 
         return [
             'id' => $this->id,
             'tenant_id' => $this->tenant_id,
             'vehicle_id' => $this->vehicle_id,
-            'document_type' => $type?->value ?? $this->document_type,
-            'document_type_label' => $type?->label() ?? $this->document_type,
+            'document_type' => $code,
+            'document_type_label' => $label,
             'issue_date' => $this->issue_date?->toDateString(),
             'expiry_date' => $this->expiry_date?->toDateString(),
             'has_file' => $this->hasStoredFile(),

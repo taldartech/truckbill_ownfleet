@@ -17,6 +17,7 @@
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
                 <div class="modal-body">
+                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
                     <div v-if="hasActivePrimary" class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <div>
                             <strong>Current driver:</strong> {{ currentDriverName }}
@@ -40,10 +41,19 @@
                     </div>
 
                     <div v-if="canManage" class="card mb-3">
-                        <div class="card-header">Assign New Driver</div>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>{{ editingAssignment ? 'Edit Assignment' : 'Assign New Driver' }}</span>
+                            <button
+                                v-if="editingAssignment"
+                                type="button"
+                                class="btn btn-sm btn-link text-decoration-none"
+                                @click="cancelEdit"
+                            >
+                                Cancel edit
+                            </button>
+                        </div>
                         <div class="card-body">
-                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                            <form class="row g-3" @submit.prevent="assignDriver">
+                            <form class="row g-3" @submit.prevent="saveAssignment">
                                 <div class="col-md-6">
                                     <label class="form-label" for="assign_driver_id">Driver *</label>
                                     <div
@@ -104,7 +114,7 @@
                                         {{ fieldErrorMessage(fieldErrors, 'driver_id') }}
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div :class="editingClosedAssignment ? 'col-md-4' : 'col-md-6'">
                                     <label class="form-label" for="assign_from">Effective From *</label>
                                     <input
                                         id="assign_from"
@@ -131,14 +141,35 @@
                                         }}
                                     </div>
                                 </div>
-                                <div class="col-12">
+                                <div v-if="editingClosedAssignment" class="col-md-4">
+                                    <label class="form-label" for="assign_to">Effective To</label>
+                                    <input
+                                        id="assign_to"
+                                        v-model="assignForm.assigned_to"
+                                        type="date"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'assigned_to') }"
+                                    />
+                                    <div
+                                        v-if="fieldErrorMessage(fieldErrors, 'assigned_to')"
+                                        class="invalid-feedback d-block"
+                                    >
+                                        {{ fieldErrorMessage(fieldErrors, 'assigned_to') }}
+                                    </div>
+                                </div>
+                                <div v-if="!editingAssignment" class="col-12">
                                     <p class="small text-muted mb-0">
                                         The current primary driver on this truck will be closed automatically one day
                                         before the new effective date.
                                     </p>
                                 </div>
                                 <div class="col-12">
-                                    <AppButton type="submit" icon="bi bi-check-lg" label="Save Assignment" :disabled="saving" />
+                                    <AppButton
+                                        type="submit"
+                                        icon="bi bi-check-lg"
+                                        :label="editingAssignment ? 'Save Changes' : 'Save Assignment'"
+                                        :disabled="saving"
+                                    />
                                 </div>
                             </form>
                         </div>
@@ -154,16 +185,45 @@
                                         <th>Driver</th>
                                         <th>From</th>
                                         <th>To</th>
+                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 100px">
+                                            Actions
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="assignments.length === 0">
-                                        <td colspan="3" class="text-center text-muted">No assignment history.</td>
+                                        <td :colspan="canManage ? 4 : 3" class="text-center text-muted">
+                                            No assignment history.
+                                        </td>
                                     </tr>
                                     <tr v-for="row in assignments" :key="row.id">
                                         <td>{{ row.driver?.name ?? '—' }}</td>
                                         <td>{{ row.assigned_from ?? '—' }}</td>
                                         <td>{{ assignmentToLabel(row) }}</td>
+                                        <td v-if="canManage" class="app-index-actions-cell">
+                                            <AppTableActions>
+                                                <AppCrudActionButton
+                                                    action="edit"
+                                                    :disabled="row.has_paid_attendance || deletingId === row.id"
+                                                    :title="
+                                                        row.has_paid_attendance
+                                                            ? 'Cannot edit — wage payment recorded in attendance'
+                                                            : 'Edit assignment'
+                                                    "
+                                                    @click="startEdit(row)"
+                                                />
+                                                <AppCrudActionButton
+                                                    action="delete"
+                                                    :disabled="row.has_paid_attendance || deletingId === row.id"
+                                                    :title="
+                                                        row.has_paid_attendance
+                                                            ? 'Cannot delete — wage payment recorded in attendance'
+                                                            : 'Delete assignment'
+                                                    "
+                                                    @click="deleteAssignment(row)"
+                                                />
+                                            </AppTableActions>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -180,13 +240,17 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { listAllDrivers } from '../../api/drivers';
 import {
     createDriverAssignment,
+    deleteDriverAssignment,
     listDriverAssignments,
     removeVehiclePrimaryDriver,
+    updateDriverAssignment,
 } from '../../api/driverAssignments';
 import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppButton from '../ui/AppButton.vue';
+import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
+import AppTableActions from '../ui/AppTableActions.vue';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -205,6 +269,8 @@ let bootstrapModal = null;
 const loading = ref(false);
 const saving = ref(false);
 const removing = ref(false);
+const deletingId = ref(null);
+const editingAssignment = ref(null);
 const assignments = ref([]);
 const primarySummary = ref({
     as_of_date: '',
@@ -221,7 +287,12 @@ const driverPickerRef = ref(null);
 const assignForm = ref({
     driver_id: '',
     assigned_from: '',
+    assigned_to: '',
 });
+
+const editingClosedAssignment = computed(
+    () => editingAssignment.value !== null && Boolean(editingAssignment.value.assigned_to),
+);
 
 const asOfDate = computed(() => primarySummary.value.as_of_date || '');
 
@@ -235,14 +306,26 @@ const unassignedDrivers = computed(() =>
     drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),
 );
 
+const selectableDrivers = computed(() => {
+    const editingDriverId = editingAssignment.value?.driver_id;
+
+    if (!editingDriverId) {
+        return unassignedDrivers.value;
+    }
+
+    return drivers.value.filter(
+        (driver) => !isDriverPrimaryElsewhere(driver.id) || driver.id === editingDriverId,
+    );
+});
+
 const filteredDrivers = computed(() => {
     const query = driverSearch.value.toLowerCase();
 
     if (!query) {
-        return unassignedDrivers.value;
+        return selectableDrivers.value;
     }
 
-    return unassignedDrivers.value.filter((driver) => {
+    return selectableDrivers.value.filter((driver) => {
         const name = String(driver.name ?? '').toLowerCase();
         const phone = String(driver.phone ?? '').toLowerCase();
 
@@ -255,7 +338,7 @@ const selectedDriverLabel = computed(() => {
         return 'Select driver';
     }
 
-    const selected = unassignedDrivers.value.find((driver) => driver.id === assignForm.value.driver_id);
+    const selected = selectableDrivers.value.find((driver) => driver.id === assignForm.value.driver_id);
 
     if (!selected) {
         return 'Select driver';
@@ -366,7 +449,49 @@ async function loadActivePrimaryAssignments() {
 }
 
 function isDriverPrimaryElsewhere(driverId) {
-    return Boolean(activePrimaryByDriver.value[driverId]);
+    const conflict = activePrimaryByDriver.value[driverId];
+
+    if (!conflict) {
+        return false;
+    }
+
+    if (editingAssignment.value && conflict.vehicleId === props.vehicle?.id) {
+        return false;
+    }
+
+    return true;
+}
+
+function resetAssignForm() {
+    editingAssignment.value = null;
+    assignForm.value = {
+        driver_id: '',
+        assigned_from: asOfDate.value || new Date().toISOString().slice(0, 10),
+        assigned_to: '',
+    };
+}
+
+function cancelEdit() {
+    driverSearch.value = '';
+    isDriverDropdownOpen.value = false;
+    clearErrors();
+    resetAssignForm();
+}
+
+function startEdit(row) {
+    if (row.has_paid_attendance) {
+        return;
+    }
+
+    clearErrors();
+    editingAssignment.value = row;
+    assignForm.value = {
+        driver_id: row.driver_id ?? '',
+        assigned_from: row.assigned_from ?? '',
+        assigned_to: row.assigned_to ?? '',
+    };
+    driverSearch.value = '';
+    isDriverDropdownOpen.value = false;
 }
 
 function toggleDriverDropdown() {
@@ -411,10 +536,7 @@ watch(
             driverSearch.value = '';
             isDriverDropdownOpen.value = false;
             await loadPrimaryAssignment();
-            assignForm.value = {
-                driver_id: '',
-                assigned_from: asOfDate.value || new Date().toISOString().slice(0, 10),
-            };
+            resetAssignForm();
             await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
             bootstrapModal.show();
         } else {
@@ -435,7 +557,7 @@ function close() {
     emit('close');
 }
 
-async function assignDriver() {
+async function saveAssignment() {
     if (!props.vehicle?.id || !assignForm.value.driver_id) {
         return;
     }
@@ -443,24 +565,70 @@ async function assignDriver() {
     saving.value = true;
     clearErrors();
 
+    const payload = {
+        vehicle_id: props.vehicle.id,
+        driver_id: assignForm.value.driver_id,
+        assigned_from: assignForm.value.assigned_from,
+        is_primary: true,
+    };
+
+    if (editingClosedAssignment.value) {
+        payload.assigned_to = assignForm.value.assigned_to || null;
+    }
+
     try {
-        await createDriverAssignment({
-            vehicle_id: props.vehicle.id,
-            driver_id: assignForm.value.driver_id,
-            assigned_from: assignForm.value.assigned_from,
-            is_primary: true,
-        });
-        assignForm.value.driver_id = '';
+        if (editingAssignment.value) {
+            await updateDriverAssignment(editingAssignment.value.id, payload);
+        } else {
+            await createDriverAssignment(payload);
+        }
+
         driverSearch.value = '';
         clearErrors();
+        resetAssignForm();
         await refreshAssignmentState();
         emit('assigned');
     } catch (error) {
         if (!applyApiError(error)) {
-            formError.value = 'Could not save driver assignment. Please try again.';
+            formError.value = editingAssignment.value
+                ? 'Could not update driver assignment. Please try again.'
+                : 'Could not save driver assignment. Please try again.';
         }
     } finally {
         saving.value = false;
+    }
+}
+
+async function deleteAssignment(row) {
+    if (!row?.id || row.has_paid_attendance) {
+        return;
+    }
+
+    const driverName = row.driver?.name ?? 'this driver';
+    const confirmed = window.confirm(`Delete assignment for ${driverName}? This cannot be undone.`);
+
+    if (!confirmed) {
+        return;
+    }
+
+    deletingId.value = row.id;
+    clearErrors();
+
+    try {
+        await deleteDriverAssignment(row.id);
+
+        if (editingAssignment.value?.id === row.id) {
+            resetAssignForm();
+        }
+
+        await refreshAssignmentState();
+        emit('assigned');
+    } catch (error) {
+        if (!applyApiError(error)) {
+            formError.value = 'Could not delete driver assignment. Please try again.';
+        }
+    } finally {
+        deletingId.value = null;
     }
 }
 

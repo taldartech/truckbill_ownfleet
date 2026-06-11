@@ -24,6 +24,7 @@ class TyreInstallationResource extends JsonResource
             'removed_at' => $this->removed_at?->toDateString(),
             'km_at_installation' => (float) $this->km_at_installation,
             'km_at_removal' => $this->km_at_removal !== null ? (float) $this->km_at_removal : null,
+            'stint_km' => (float) ($this->stint_km ?? 0),
             'running_km' => $this->running_km !== null ? (float) $this->running_km : null,
             'removal_recommendation' => $this->removal_recommendation,
             'removal_advice' => $this->when(isset($this->removal_advice), $this->removal_advice),

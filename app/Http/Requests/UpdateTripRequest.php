@@ -25,6 +25,7 @@ class UpdateTripRequest extends FormRequest
         return [
             'vehicle_id' => ['prohibited'],
             'driver_id' => ['prohibited'],
+            'substitute_driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
             'trip_number' => ['prohibited'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'broker_id' => ['nullable', 'integer', 'exists:brokers,id'],
@@ -47,7 +48,9 @@ class UpdateTripRequest extends FormRequest
             'route_legs.*.remarks' => ['nullable', 'string', 'max:1000'],
             'expenses' => ['nullable', 'array'],
             'expenses.*.expense_type' => ['required_with:expenses', Rule::enum(TripExpenseType::class)],
-            'expenses.*.amount' => ['required_with:expenses', 'numeric', 'min:0'],
+            'expenses.*.expense_date' => ['required_with:expenses', 'date'],
+            'expenses.*.amount' => ['required_with:expenses', 'numeric', 'gt:0'],
+            'expenses.*.distance_km' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.fuel_liters' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.fuel_rate' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.odometer_start' => ['nullable', 'numeric', 'min:0'],

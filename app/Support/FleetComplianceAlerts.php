@@ -82,14 +82,18 @@ class FleetComplianceAlerts
     {
         $expiryDate = $document->expiry_date?->copy()->startOfDay();
         $isExpired = $expiryDate !== null && $expiryDate->lt($today);
-        $type = $document->document_type;
+        $code = (string) $document->document_type;
+        $enumType = \App\Enums\VehicleDocumentType::tryFrom($code);
+        $label = \App\Support\DocumentTypeDefaults::labelFor((string) $document->tenant_id, $code)
+            ?? $enumType?->label()
+            ?? $code;
 
         return [
             'id' => $document->id,
             'vehicle_id' => $document->vehicle_id,
             'vehicle_registration' => $document->vehicle?->registration_number,
-            'document_type' => $type?->value ?? (string) $document->document_type,
-            'document_type_label' => $type?->label() ?? (string) $document->document_type,
+            'document_type' => $code,
+            'document_type_label' => $label,
             'expiry_date' => $expiryDate?->toDateString(),
             'status' => $isExpired ? 'expired' : 'expiring',
             'days_remaining' => $expiryDate !== null ? (int) $today->diffInDays($expiryDate, false) : null,

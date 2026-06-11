@@ -18,6 +18,7 @@ class Trip extends Model
         'tenant_id',
         'vehicle_id',
         'driver_id',
+        'substitute_driver_id',
         'trip_number',
         'customer_id',
         'customer_name',
@@ -65,6 +66,11 @@ class Trip extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class);
+    }
+
+    public function substituteDriver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class, 'substitute_driver_id');
     }
 
     public function customer(): BelongsTo

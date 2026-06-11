@@ -87,6 +87,12 @@ class TripService
             $this->tripValidation->assertDriverIsActive($driverId);
             $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
             $this->tripValidation->assertRouteLegsAreValid($routeLegs, isset($data['start_station_id']) ? (int) $data['start_station_id'] : null);
+            $this->tripValidation->assertPositiveFreightTotal($routeLegs);
+            $this->tripValidation->assertExpensesAreValid(
+                $expenses,
+                $data['start_at'] ?? null,
+                $data['end_at'] ?? null,
+            );
             $this->tripValidation->assertNoDuplicateTripWindow(
                 $vehicleId,
                 $data['start_at'] ?? null,
@@ -97,6 +103,11 @@ class TripService
                 $data['start_at'] ?? null,
                 $data['end_at'] ?? null,
             );
+
+            if (array_key_exists('substitute_driver_id', $data)) {
+                $this->tripValidation->assertSubstituteDriverIsValid($data['substitute_driver_id'] ?? null, $driverId);
+                $data['substitute_driver_id'] = $data['substitute_driver_id'] ?: null;
+            }
 
             $tenantId = CurrentTenant::id() ?? $data['tenant_id'] ?? null;
             $tripNumber = $this->tripNumberGenerator->generate($tenantId);
@@ -156,6 +167,14 @@ class TripService
                 $this->tripValidation->assertRouteLegsAreValid($routeLegs, $startStationId ?: null);
             }
 
+            if ($expenses !== null) {
+                $this->tripValidation->assertExpensesAreValid(
+                    $expenses,
+                    $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
+                    $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
+                );
+            }
+
             $this->tripValidation->assertNoDuplicateTripWindow(
                 $vehicleId,
                 $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
@@ -168,6 +187,11 @@ class TripService
                 $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
                 $trip->id,
             );
+
+            if (array_key_exists('substitute_driver_id', $data)) {
+                $this->tripValidation->assertSubstituteDriverIsValid($data['substitute_driver_id'] ?? null, $driverId);
+                $data['substitute_driver_id'] = $data['substitute_driver_id'] ?: null;
+            }
 
             if (array_key_exists('customer_id', $data) || array_key_exists('broker_id', $data)) {
                 $data = $this->normalizeBrokerCustomerFields($data);
@@ -323,11 +347,13 @@ class TripService
                 'trip_id' => $trip->id,
                 'trip_route_leg_id' => $legId,
                 'expense_type' => strtoupper((string) $expense['expense_type']),
+                'expense_date' => $expense['expense_date'] ?? null,
                 'amount' => (float) ($expense['amount'] ?? 0),
                 'fuel_liters' => isset($expense['fuel_liters']) ? (float) $expense['fuel_liters'] : null,
                 'fuel_rate' => isset($expense['fuel_rate']) ? (float) $expense['fuel_rate'] : null,
                 'odometer_start' => isset($expense['odometer_start']) ? (float) $expense['odometer_start'] : null,
                 'odometer_end' => isset($expense['odometer_end']) ? (float) $expense['odometer_end'] : null,
+                'distance_km' => isset($expense['distance_km']) ? (float) $expense['distance_km'] : null,
                 'currency' => $expense['currency'] ?? 'INR',
                 'notes' => $expense['notes'] ?? null,
                 'created_by' => $userId,

@@ -4,6 +4,7 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use App\Support\VehicleRegistrationNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,9 +39,24 @@ class Vehicle extends Model
         ];
     }
 
+    public function setRegistrationNumberAttribute(?string $value): void
+    {
+        $this->attributes['registration_number'] = VehicleRegistrationNumber::normalize($value) ?? '';
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function assignments(): HasMany

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\FleetMonthlyReportController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StateController;
@@ -55,6 +56,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::post('monthly-driver-wages/{monthlyDriverWage}/mark-paid', [AttendanceController::class, 'markMonthlyWagePaid']);
     Route::apiResource('attendances', AttendanceController::class);
     Route::get('trips/next-number', [TripController::class, 'nextTripNumber']);
+    Route::get('trips/check-window', [TripController::class, 'checkTripWindow']);
     Route::get('vehicles/{vehicle}/primary-driver', [TripController::class, 'vehiclePrimaryDriver']);
     Route::apiResource('trips', TripController::class);
     Route::get('locations/countries', [LocationController::class, 'countries']);
@@ -70,6 +72,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::apiResource('tyres', TyreController::class);
     Route::post('tyres/{tyre}/install', [TyreController::class, 'install']);
     Route::post('tyre-installations/{tyre_installation}/remove', [TyreController::class, 'removeInstallation']);
+    Route::patch('tyre-installations/{tyre_installation}/stint-km', [TyreController::class, 'updateStintKm']);
     Route::post('tyres/{tyre}/rotate', [TyreController::class, 'rotate']);
     Route::post('tyres/{tyre}/retread', [TyreController::class, 'retread']);
     Route::post('tyres/{tyre}/damage', [TyreController::class, 'damage']);
@@ -83,6 +86,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('/reports/tyres/retread-history', [TyreReportController::class, 'retreadHistory']);
     Route::get('/reports/tyres/vehicle-wise', [TyreReportController::class, 'vehicleWiseUsage']);
     Route::get('/reports/tyres/expense-summary', [TyreReportController::class, 'expenseSummary']);
+    Route::get('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index']);
+    Route::post('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'store']);
+    Route::get('document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'show']);
+    Route::put('document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'update']);
+    Route::delete('document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy']);
+
     Route::get('vehicle-documents/{vehicle_document}/preview', [VehicleDocumentController::class, 'preview']);
     Route::get('vehicle-documents/{vehicle_document}/download', [VehicleDocumentController::class, 'download']);
     Route::apiResource('vehicle-documents', VehicleDocumentController::class);
@@ -98,6 +107,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('/reports/trips/route-profitability', [TripReportController::class, 'routeProfitability']);
     Route::get('/reports/trips/pending-freight', [TripReportController::class, 'pendingFreight']);
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
+    Route::get('/reports/fleet-monthly', [FleetMonthlyReportController::class, 'show']);
+    Route::get('/reports/fleet-monthly/export', [FleetMonthlyReportController::class, 'export']);
 
     Route::get('/compliance', [ComplianceController::class, 'index']);
     Route::apiResource('challans', ChallanController::class);

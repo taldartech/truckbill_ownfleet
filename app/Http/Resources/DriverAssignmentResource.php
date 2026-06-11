@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,8 @@ class DriverAssignmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $hasPaidAttendance = app(DriverAssignmentService::class)->hasPaidAttendanceInPeriod($this->resource);
+
         return [
             'id' => $this->id,
             'tenant_id' => $this->tenant_id,
@@ -22,6 +25,7 @@ class DriverAssignmentResource extends JsonResource
             'assigned_from' => $this->assigned_from?->toDateString(),
             'assigned_to' => $this->assigned_to?->toDateString(),
             'is_primary' => (bool) $this->is_primary,
+            'has_paid_attendance' => $hasPaidAttendance,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'driver' => new DriverResource($this->whenLoaded('driver')),

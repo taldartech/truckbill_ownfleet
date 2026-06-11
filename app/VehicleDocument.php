@@ -4,7 +4,6 @@ namespace App;
 
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
-use App\Enums\VehicleDocumentType;
 use App\Support\FleetDocumentStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,7 +32,6 @@ class VehicleDocument extends Model
     protected function casts(): array
     {
         return [
-            'document_type' => VehicleDocumentType::class,
             'issue_date' => 'date',
             'expiry_date' => 'date',
         ];
