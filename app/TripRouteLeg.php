@@ -19,6 +19,7 @@ class TripRouteLeg extends Model
     protected $fillable = [
         'tenant_id',
         'trip_id',
+        'customer_id',
         'from_station_id',
         'to_station_id',
         'from_location',
@@ -63,6 +64,11 @@ class TripRouteLeg extends Model
     public function trip(): BelongsTo
     {
         return $this->belongsTo(Trip::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function expenses(): HasMany

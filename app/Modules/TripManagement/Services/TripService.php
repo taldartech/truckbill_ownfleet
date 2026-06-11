@@ -292,6 +292,9 @@ class TripService
             TripRouteLeg::query()->create([
                 'tenant_id' => $trip->tenant_id,
                 'trip_id' => $trip->id,
+                'customer_id' => isset($leg['customer_id']) && $leg['customer_id'] !== '' && $leg['customer_id'] !== null
+                    ? (int) $leg['customer_id']
+                    : null,
                 'from_station_id' => $fromStationId,
                 'to_station_id' => $toStationId,
                 'from_city' => $fromCity ?: null,

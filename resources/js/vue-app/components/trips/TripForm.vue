@@ -88,7 +88,7 @@
                             :invalid="Boolean(fieldErrors.customer_id)"
                             :error-message="fieldErrorMessage('customer_id')"
                             :can-quick-add="canQuickAddCustomer"
-                            @quick-add="showCustomerQuickAdd = true"
+                            @quick-add="openQuickAddForTripCustomer"
                         />
                         <input
                             v-else
@@ -298,6 +298,7 @@
                                 <th>#</th>
                                 <th>From</th>
                                 <th>To Station *</th>
+                                <th style="min-width: 200px">Customer</th>
                                 <th>Load Type</th>
                                 <th>KM *</th>
                                 <th>Freight ₹</th>
@@ -322,6 +323,39 @@
                                         @quick-add="openQuickAddForLeg(index)"
                                     />
                                     <span v-else>{{ stationLabel(leg.to_station_id) }}</span>
+                                </td>
+                                <td>
+                                    <div v-if="!readonly" class="leg-customer-cell">
+                                        <div class="form-check mb-1">
+                                            <input
+                                                :id="`same-customer-${index}`"
+                                                v-model="leg.use_same_customer"
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                @change="onLegSameCustomerChange(index)"
+                                            />
+                                            <label
+                                                class="form-check-label small text-muted"
+                                                :for="`same-customer-${index}`"
+                                            >
+                                                Same customer
+                                            </label>
+                                        </div>
+                                        <SearchablePicker
+                                            v-model="leg.customer_id"
+                                            :items="customers"
+                                            :placeholder="leg.use_same_customer ? 'Uses trip customer' : 'Select customer'"
+                                            attach-dropdown-to-body
+                                            view-title="Customer details"
+                                            quick-add-title="Quick add customer"
+                                            :disabled="leg.use_same_customer"
+                                            :invalid="Boolean(legFieldError(index, 'customer_id'))"
+                                            :error-message="legFieldError(index, 'customer_id')"
+                                            :can-quick-add="canQuickAddCustomer && !leg.use_same_customer"
+                                            @quick-add="openQuickAddForLegCustomer(index)"
+                                        />
+                                    </div>
+                                    <span v-else>{{ partyLabel(customers, leg.customer_id) }}</span>
                                 </td>
                                 <td>
                                     <select
@@ -543,6 +577,7 @@ const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
 const quickAddLegIndex = ref(null);
+const quickAddCustomerLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
 
@@ -827,9 +862,27 @@ function onStatusModalConfirm(data) {
     });
 }
 
+function onLegSameCustomerChange(index) {
+    const leg = props.form.route_legs[index];
+
+    if (leg?.use_same_customer) {
+        leg.customer_id = props.form.customer_id ?? '';
+    }
+}
+
 function openQuickAddForLeg(index) {
     quickAddLegIndex.value = index;
     showStationQuickAdd.value = true;
+}
+
+function openQuickAddForTripCustomer() {
+    quickAddCustomerLegIndex.value = null;
+    showCustomerQuickAdd.value = true;
+}
+
+function openQuickAddForLegCustomer(index) {
+    quickAddCustomerLegIndex.value = index;
+    showCustomerQuickAdd.value = true;
 }
 
 function onStationCreated(station) {
@@ -842,7 +895,8 @@ function onBrokerCreated(broker) {
 }
 
 function onCustomerCreated(customer) {
-    emit('customer-created', customer);
+    emit('customer-created', { customer, legIndex: quickAddCustomerLegIndex.value });
+    quickAddCustomerLegIndex.value = null;
 }
 
 const routeTypes = ROUTE_TYPES;

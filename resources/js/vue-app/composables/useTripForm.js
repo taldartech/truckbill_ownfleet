@@ -39,6 +39,16 @@ export function useTripForm() {
         form.expenses = [];
     }
 
+    function syncLegCustomersFromTrip() {
+        const customerId = form.customer_id ?? '';
+
+        form.route_legs.forEach((leg) => {
+            if (leg.use_same_customer) {
+                leg.customer_id = customerId;
+            }
+        });
+    }
+
     function rebuildLegChain() {
         form.route_legs.forEach((leg, index) => {
             leg.sequence_no = index + 1;
@@ -57,7 +67,9 @@ export function useTripForm() {
                 ? form.start_station_id
                 : form.route_legs[form.route_legs.length - 1]?.to_station_id ?? '';
 
-        form.route_legs.push(emptyRouteStop(form.route_legs.length + 1, fromStationId, defaultType));
+        form.route_legs.push(
+            emptyRouteStop(form.route_legs.length + 1, fromStationId, defaultType),
+        );
     }
 
     function addReturnToStart() {
@@ -72,7 +84,12 @@ export function useTripForm() {
         }
 
         form.route_legs.push(
-            emptyRouteStop(form.route_legs.length + 1, lastLeg.to_station_id, 'EMPTY', form.start_station_id),
+            emptyRouteStop(
+                form.route_legs.length + 1,
+                lastLeg.to_station_id,
+                'EMPTY',
+                form.start_station_id,
+            ),
         );
     }
 
@@ -113,17 +130,26 @@ export function useTripForm() {
         form.cancelled_at = toDateInputFromIso(trip.cancelled_at);
         form.cancellation_reason = trip.cancellation_reason ?? '';
         form.actual_arrival_at = toDateInputFromIso(trip.actual_arrival_at);
-        form.route_legs = (trip.route_legs ?? []).map((leg) => ({
-            from_station_id: leg.from_station_id ?? '',
-            to_station_id: leg.to_station_id ?? '',
-            from_city: leg.from_city ?? leg.from_location ?? '',
-            to_city: leg.to_city ?? leg.to_location ?? '',
-            route_type: leg.route_type ?? 'LOADED',
-            sequence_no: leg.sequence_no ?? 1,
-            distance_km: Number(leg.distance_km ?? 0),
-            freight_amount: Number(leg.freight_amount ?? 0),
-            remarks: leg.remarks ?? '',
-        }));
+        const tripCustomerId = trip.customer_id ?? '';
+
+        form.route_legs = (trip.route_legs ?? []).map((leg) => {
+            const customerId = leg.customer_id ?? '';
+
+            return {
+                from_station_id: leg.from_station_id ?? '',
+                to_station_id: leg.to_station_id ?? '',
+                customer_id: customerId,
+                use_same_customer:
+                    tripCustomerId !== '' && String(customerId) === String(tripCustomerId),
+                from_city: leg.from_city ?? leg.from_location ?? '',
+                to_city: leg.to_city ?? leg.to_location ?? '',
+                route_type: leg.route_type ?? 'LOADED',
+                sequence_no: leg.sequence_no ?? 1,
+                distance_km: Number(leg.distance_km ?? 0),
+                freight_amount: Number(leg.freight_amount ?? 0),
+                remarks: leg.remarks ?? '',
+            };
+        });
 
         form.expenses = (trip.expenses ?? []).map((expense) => ({
             expense_type: expense.expense_type ?? 'DIESEL',
@@ -209,6 +235,7 @@ export function useTripForm() {
             route_legs: form.route_legs.map((leg, index) => ({
                 from_station_id: leg.from_station_id,
                 to_station_id: leg.to_station_id,
+                customer_id: leg.customer_id || null,
                 from_city: stationName(stations, leg.from_station_id),
                 to_city: stationName(stations, leg.to_station_id),
                 route_type: leg.route_type,
@@ -245,6 +272,13 @@ export function useTripForm() {
     }
 
     watch(
+        () => form.customer_id,
+        () => {
+            syncLegCustomersFromTrip();
+        },
+    );
+
+    watch(
         () => [form.start_at, form.end_at],
         () => {
             if (!form.start_at) {
@@ -276,5 +310,6 @@ export function useTripForm() {
         buildPayload,
         stationName,
         applyLegacyPartyLookups,
+        syncLegCustomersFromTrip,
     };
 }

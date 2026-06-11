@@ -41,6 +41,7 @@ class StoreTripRequest extends FormRequest
             'route_legs' => ['required', 'array', 'min:1'],
             'route_legs.*.from_station_id' => ['required', 'integer', 'exists:stations,id'],
             'route_legs.*.to_station_id' => ['required', 'integer', 'exists:stations,id'],
+            'route_legs.*.customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'route_legs.*.from_city' => ['nullable', 'string', 'max:120'],
             'route_legs.*.to_city' => ['nullable', 'string', 'max:120'],
             'route_legs.*.route_type' => ['required', Rule::enum(RouteType::class)],

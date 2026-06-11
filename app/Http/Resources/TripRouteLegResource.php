@@ -15,6 +15,8 @@ class TripRouteLegResource extends JsonResource
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
+            'customer_id' => $this->customer_id,
+            'customer_name' => $this->whenLoaded('customer', fn () => $this->customer?->name),
             'from_station_id' => $this->from_station_id,
             'to_station_id' => $this->to_station_id,
             'from_location' => $this->from_location,

@@ -101,6 +101,14 @@
                     </div>
                 </div>
             </form>
+
+            <TripSaveConfirmModal
+                :show="showSaveConfirm"
+                :summary="saveConfirmSummary"
+                :saving="saving"
+                @cancel="cancelSaveConfirm"
+                @confirm="confirmSave"
+            />
         </template>
     </div>
 </template>
@@ -114,6 +122,7 @@ import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
 import { fetchTrip, updateTrip, validateTripPayload } from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
+import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -121,6 +130,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useTripForm } from '../../composables/useTripForm';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import { scrollToFirstFormError } from '../../utils/formErrors';
+import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
 
 const route = useRoute();
 const router = useRouter();
@@ -165,6 +175,10 @@ const snapshotSubstituteDriverName = ref('');
 const snapshotCustomerName = ref('');
 const snapshotBrokerName = ref('');
 const originalStatus = ref('');
+const originalConfirmPayload = ref(null);
+const showSaveConfirm = ref(false);
+const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
+const pendingPayload = ref(null);
 
 const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
@@ -200,9 +214,14 @@ function onBrokerCreated(broker) {
     form.broker_id = broker.id;
 }
 
-function onCustomerCreated(customer) {
+function onCustomerCreated({ customer, legIndex = null }) {
     customers.value = [customer, ...customers.value.filter((item) => item.id !== customer.id)];
-    form.customer_id = customer.id;
+
+    if (legIndex !== null && form.route_legs[legIndex]) {
+        form.route_legs[legIndex].customer_id = customer.id;
+    } else {
+        form.customer_id = customer.id;
+    }
 }
 
 function handleAddStop() {
@@ -256,6 +275,7 @@ async function loadTrip() {
         snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
         snapshotCustomerName.value = trip.customer_name ?? '';
         snapshotBrokerName.value = trip.broker_name ?? '';
+        refreshOriginalConfirmPayload();
     } catch (error) {
         applyApiError(error, 'Failed to load trip.');
         toast.error(tripFormError.value);
@@ -265,13 +285,40 @@ async function loadTrip() {
     }
 }
 
-async function handleStatusUpdated() {
-    await saveTrip({ successMessage: `Trip marked as ${form.status === 'COMPLETED' ? 'completed' : form.status === 'CANCELLED' ? 'cancelled' : 'in progress'}.` });
+function refreshOriginalConfirmPayload() {
+    originalConfirmPayload.value = JSON.parse(JSON.stringify(buildPayload(stations.value, { mode: 'edit' })));
 }
 
-async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) {
+function substituteDriverLabel() {
+    if (snapshotSubstituteDriverName.value) {
+        return snapshotSubstituteDriverName.value;
+    }
+
+    if (!form.substitute_driver_id) {
+        return '—';
+    }
+
+    return drivers.value.find((driver) => String(driver.id) === String(form.substitute_driver_id))?.name ?? '—';
+}
+
+function buildConfirmSummary() {
+    return buildTripSaveConfirmViewModel(form, {
+        mode: 'edit',
+        stations: stations.value,
+        customers: customers.value,
+        brokers: brokers.value,
+        drivers: drivers.value,
+        originalPayload: originalConfirmPayload.value,
+        vehicleLabel: snapshotVehicleLabel.value || '—',
+        driverLabel: snapshotDriverName.value || '—',
+        substituteDriverLabel: substituteDriverLabel(),
+        tripNumber: form.trip_number,
+    });
+}
+
+async function prepareSave() {
     if (isTerminalStatus.value && ['COMPLETED', 'CANCELLED'].includes(String(originalStatus.value).toUpperCase())) {
-        return;
+        return null;
     }
 
     clearErrors();
@@ -288,7 +335,7 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
         toast.error(tripFormError.value);
         scrollToFirstFormError();
 
-        return;
+        return null;
     }
 
     try {
@@ -299,7 +346,7 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
             toast.error(tripFormError.value);
             scrollToFirstFormError();
 
-            return;
+            return null;
         }
     } catch (error) {
         if (!applyApiError(error, 'Could not verify trip dates for this truck.')) {
@@ -309,9 +356,13 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
         toast.error(tripFormError.value);
         scrollToFirstFormError();
 
-        return;
+        return null;
     }
 
+    return payload;
+}
+
+async function executeSave(payload, { successMessage = 'Trip updated successfully.' } = {}) {
     saving.value = true;
 
     try {
@@ -325,6 +376,7 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
         snapshotCustomerName.value = trip.customer_name ?? snapshotCustomerName.value;
         snapshotBrokerName.value = trip.broker_name ?? snapshotBrokerName.value;
         applyLegacyPartyLookups(trip, customers.value, brokers.value);
+        refreshOriginalConfirmPayload();
         toast.success(successMessage);
     } catch (error) {
         if (!applyApiError(error, 'Failed to update trip.')) {
@@ -333,8 +385,41 @@ async function saveTrip({ successMessage = 'Trip updated successfully.' } = {}) 
 
         toast.error(tripFormError.value);
         scrollToFirstFormError();
+
+        throw error;
     } finally {
         saving.value = false;
+    }
+}
+
+async function handleStatusUpdated() {
+    const payload = await prepareSave();
+
+    if (!payload) {
+        return;
+    }
+
+    await executeSave(payload, {
+        successMessage: `Trip marked as ${form.status === 'COMPLETED' ? 'completed' : form.status === 'CANCELLED' ? 'cancelled' : 'in progress'}.`,
+    });
+}
+
+function cancelSaveConfirm() {
+    showSaveConfirm.value = false;
+    pendingPayload.value = null;
+}
+
+async function confirmSave() {
+    if (!pendingPayload.value) {
+        return;
+    }
+
+    try {
+        await executeSave(pendingPayload.value);
+        showSaveConfirm.value = false;
+        pendingPayload.value = null;
+    } catch {
+        showSaveConfirm.value = false;
     }
 }
 
@@ -343,7 +428,15 @@ async function handleSubmit() {
         return;
     }
 
-    await saveTrip();
+    const payload = await prepareSave();
+
+    if (!payload) {
+        return;
+    }
+
+    pendingPayload.value = payload;
+    saveConfirmSummary.value = buildConfirmSummary();
+    showSaveConfirm.value = true;
 }
 
 onMounted(async () => {

@@ -117,10 +117,12 @@ export const EXPENSE_TYPES = [
     { value: 'OTHER', label: 'Other Expenses' },
 ];
 
-export function emptyRouteStop(sequence = 1, fromStationId = '', routeType = 'LOADED', toStationId = '') {
+export function emptyRouteStop(sequence = 1, fromStationId = '', routeType = 'LOADED', toStationId = '', customerId = '') {
     return {
         from_station_id: fromStationId,
         to_station_id: toStationId,
+        customer_id: customerId,
+        use_same_customer: false,
         route_type: routeType,
         sequence_no: sequence,
         distance_km: 0,

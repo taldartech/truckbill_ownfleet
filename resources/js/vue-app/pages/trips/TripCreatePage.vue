@@ -56,6 +56,14 @@
                 </div>
             </div>
         </form>
+
+        <TripSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -69,6 +77,7 @@ import { listAllStations } from '../../api/stations';
 import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/trips';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import TripForm from '../../components/trips/TripForm.vue';
+import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -77,6 +86,7 @@ import { useTripForm } from '../../composables/useTripForm';
 import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
 import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
+import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
 
 const router = useRouter();
 const toast = useAppToast();
@@ -113,6 +123,10 @@ const customers = ref([]);
 const drivers = ref([]);
 const saving = ref(false);
 const previewTripNumber = ref('');
+const showSaveConfirm = ref(false);
+const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
+const pendingPayload = ref(null);
+const selectedVehicleLabel = ref('');
 
 const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
 const { applyWindowValidation } = useTripWindowValidation(form, {
@@ -122,6 +136,7 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
 
 function onVehicleSelected(vehicle) {
     setPrimaryDriverFromSelection(vehicle);
+    selectedVehicleLabel.value = vehicle?.registration_number ?? '—';
 }
 
 function onStationCreated({ station, legIndex }) {
@@ -141,9 +156,14 @@ function onBrokerCreated(broker) {
     form.broker_id = broker.id;
 }
 
-function onCustomerCreated(customer) {
+function onCustomerCreated({ customer, legIndex = null }) {
     customers.value = [customer, ...customers.value.filter((item) => item.id !== customer.id)];
-    form.customer_id = customer.id;
+
+    if (legIndex !== null && form.route_legs[legIndex]) {
+        form.route_legs[legIndex].customer_id = customer.id;
+    } else {
+        form.customer_id = customer.id;
+    }
 }
 
 function handleAddStop() {
@@ -182,7 +202,29 @@ async function loadLookups() {
     drivers.value = driverList;
 }
 
-async function handleSubmit() {
+function substituteDriverLabel() {
+    if (!form.substitute_driver_id) {
+        return '—';
+    }
+
+    return drivers.value.find((driver) => String(driver.id) === String(form.substitute_driver_id))?.name ?? '—';
+}
+
+function buildConfirmSummary() {
+    return buildTripSaveConfirmViewModel(form, {
+        mode: 'create',
+        stations: stations.value,
+        customers: customers.value,
+        brokers: brokers.value,
+        drivers: drivers.value,
+        vehicleLabel: selectedVehicleLabel.value || '—',
+        driverLabel: primaryDriverName.value || '—',
+        substituteDriverLabel: substituteDriverLabel(),
+        tripNumber: previewTripNumber.value,
+    });
+}
+
+async function prepareSave() {
     clearErrors();
 
     const payload = buildPayload(stations.value, { mode: 'create' });
@@ -194,7 +236,7 @@ async function handleSubmit() {
         toast.error(tripFormError.value);
         scrollToFirstFormError();
 
-        return;
+        return null;
     }
 
     try {
@@ -205,7 +247,7 @@ async function handleSubmit() {
             toast.error(tripFormError.value);
             scrollToFirstFormError();
 
-            return;
+            return null;
         }
     } catch (error) {
         if (!applyApiError(error, 'Could not verify trip dates for this truck.')) {
@@ -215,15 +257,44 @@ async function handleSubmit() {
         toast.error(tripFormError.value);
         scrollToFirstFormError();
 
+        return null;
+    }
+
+    return payload;
+}
+
+async function handleSubmit() {
+    const payload = await prepareSave();
+
+    if (!payload) {
+        return;
+    }
+
+    pendingPayload.value = payload;
+    saveConfirmSummary.value = buildConfirmSummary();
+    showSaveConfirm.value = true;
+}
+
+function cancelSaveConfirm() {
+    showSaveConfirm.value = false;
+    pendingPayload.value = null;
+}
+
+async function confirmSave() {
+    if (!pendingPayload.value) {
         return;
     }
 
     saving.value = true;
 
     try {
-        await createTrip(payload);
+        await createTrip(pendingPayload.value);
+        showSaveConfirm.value = false;
+        pendingPayload.value = null;
         await router.push({ name: 'trips.index', query: { created: '1' } });
     } catch (error) {
+        showSaveConfirm.value = false;
+
         if (!applyApiError(error, 'Failed to create trip.')) {
             tripFormError.value = error?.response?.data?.message ?? 'Failed to create trip.';
         }
