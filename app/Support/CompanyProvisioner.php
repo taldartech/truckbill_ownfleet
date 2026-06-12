@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PayrollPayDaysMode;
 use App\Tenant;
 use App\User;
 use Illuminate\Support\Str;
@@ -35,6 +36,9 @@ class CompanyProvisioner
             'plan_end_date' => now()->addDays(14)->toDateString(),
             'lr_credits' => 150,
             'truck_credits' => 0,
+            'payroll_pay_days_mode' => isset($attributes['payroll_pay_days_mode'])
+                ? (PayrollPayDaysMode::tryFrom((string) $attributes['payroll_pay_days_mode']) ?? PayrollPayDaysMode::Calendar)
+                : PayrollPayDaysMode::Calendar,
         ]);
 
         TyreLayoutDefaults::seedForTenant($tenant->id);

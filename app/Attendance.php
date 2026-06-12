@@ -65,6 +65,11 @@ class Attendance extends Model
         return $this->belongsTo(Driver::class, 'wage_owner_driver_id');
     }
 
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function isWagePaid(): bool
     {
         return $this->wage_payment_status === WagePaymentStatus::Paid;

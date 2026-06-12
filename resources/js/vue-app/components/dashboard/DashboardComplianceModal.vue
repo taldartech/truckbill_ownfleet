@@ -116,6 +116,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { fetchComplianceAlerts } from '../../api/dashboard';
+import { formatDate } from '../../utils/datetime';
 
 const props = defineProps({
     show: {
@@ -213,17 +214,6 @@ function statusLabel(item) {
     return `Expires in ${days}d`;
 }
 
-function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(`${value}T00:00:00`).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
 </script>
 
 <style scoped>

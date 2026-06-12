@@ -1,10 +1,12 @@
+import { formatDate } from './datetime';
+
 export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
 
 export const DATE_RANGE_PRESETS = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
-    { key: 'last_7_days', label: 'Last 7 Days' },
-    { key: 'last_30_days', label: 'Last 30 Days' },
+    // { key: 'last_7_days', label: 'Last 7 Days' },
+    // { key: 'last_30_days', label: 'Last 30 Days' },
     { key: 'this_month', label: 'This Month' },
     { key: 'last_month', label: 'Last Month' },
     { key: 'custom', label: 'Custom Range' },
@@ -115,20 +117,13 @@ export function defaultDashboardTripRange(referenceDate = new Date()) {
 }
 
 export function formatDateRangeLabel(fromDate, toDate) {
-    const format = (iso) =>
-        new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
-
     if (!fromDate || !toDate) {
         return 'Select date range';
     }
 
     if (fromDate === toDate) {
-        return format(fromDate);
+        return formatDate(fromDate);
     }
 
-    return `${format(fromDate)} - ${format(toDate)}`;
+    return `${formatDate(fromDate)} - ${formatDate(toDate)}`;
 }

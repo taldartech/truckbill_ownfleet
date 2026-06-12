@@ -167,6 +167,25 @@ class CompanyManagementTest extends TestCase
             ->assertJsonPath('data.is_blocked', true);
     }
 
+    public function test_master_admin_can_set_company_payroll_pay_days_mode(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Pay Days Co');
+        $masterAdmin = $this->createMasterAdmin();
+
+        $this->actingAs($masterAdmin)
+            ->putJson('/app/api/companies/'.$tenant->id, [
+                'payroll_pay_days_mode' => 'fixed_30',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.payroll_pay_days_mode', 'fixed_30');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->id,
+            'payroll_pay_days_mode' => 'fixed_30',
+        ]);
+    }
+
     public function test_tenant_id_and_company_id_alias_match_on_driver(): void
     {
         [$tenant, $admin] = $this->createTenantAdmin();

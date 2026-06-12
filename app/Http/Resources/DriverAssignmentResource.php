@@ -16,6 +16,7 @@ class DriverAssignmentResource extends JsonResource
     public function toArray(Request $request): array
     {
         $hasPaidAttendance = app(DriverAssignmentService::class)->hasPaidAttendanceInPeriod($this->resource);
+        $isPeriodLocked = app(DriverAssignmentService::class)->isAssignmentPeriodLocked($this->resource);
 
         return [
             'id' => $this->id,
@@ -25,7 +26,8 @@ class DriverAssignmentResource extends JsonResource
             'assigned_from' => $this->assigned_from?->toDateString(),
             'assigned_to' => $this->assigned_to?->toDateString(),
             'is_primary' => (bool) $this->is_primary,
-            'has_paid_attendance' => $hasPaidAttendance,
+            'has_paid_attendance' => $hasPaidAttendance || $isPeriodLocked,
+            'is_period_locked' => $isPeriodLocked,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'driver' => new DriverResource($this->whenLoaded('driver')),

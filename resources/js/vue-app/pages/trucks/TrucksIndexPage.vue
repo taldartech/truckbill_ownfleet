@@ -79,12 +79,9 @@
                         <tr v-for="vehicle in vehicles" :key="vehicle.id">
                             <td>
                                 <RouterLink
-                                    :to="{
-                                        name: 'trucks.index',
-                                        query: { search: vehicle.registration_number },
-                                    }"
+                                    :to="{ name: 'trucks.show', params: { vehicleId: vehicle.id } }"
                                     class="truck-registration-link"
-                                    title="Find this truck"
+                                    title="View truck details"
                                 >
                                     {{ vehicle.registration_number }}
                                 </RouterLink>

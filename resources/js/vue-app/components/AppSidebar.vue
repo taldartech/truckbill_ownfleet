@@ -88,12 +88,30 @@ function isItemActive(item) {
     return false;
 }
 
-function isChildActive(child) {
+function childPath(child) {
     if (!child.to) {
-        return false;
+        return '';
     }
 
-    return route.path === child.to || route.path.startsWith(`${child.to}/`);
+    if (typeof child.to === 'string') {
+        return child.to;
+    }
+
+    if (typeof child.to === 'object' && child.to.path) {
+        return child.to.path;
+    }
+
+    return '';
+}
+
+function isChildActive(child) {
+    const path = childPath(child);
+
+    if (!path) {
+        return route.name === child.to?.name;
+    }
+
+    return route.path === path || route.path.startsWith(`${path}/`);
 }
 
 function hasActiveChild(item) {

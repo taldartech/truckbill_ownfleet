@@ -75,6 +75,12 @@ export async function listVehicles({
     };
 }
 
+export async function fetchVehicle(id) {
+    const { data } = await api.get(`${vehiclesBase}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function createVehicle(payload) {
     const { data } = await api.post(vehiclesBase, payload);
 

@@ -8,7 +8,7 @@
                     size="sm"
                     icon="bi bi-table"
                     label="Monthly Settlement"
-                    :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
+                    @click="goToMonthlySettlement"
                 />
                 <AppButton
                     v-if="canManageAttendance && canEditDay"
@@ -95,55 +95,6 @@
                     :disabled="overviewLoading || tableLoading"
                 />
             </div>
-            <div>
-                <label class="form-label" for="detail_vehicle">Truck</label>
-                <select
-                    id="detail_vehicle"
-                    v-model="detailFilters.vehicle_id"
-                    class="form-select"
-                    :disabled="tableLoading"
-                >
-                    <option value="">All trucks</option>
-                    <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                        {{ vehicle.registration_number }}
-                    </option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label" for="detail_driver">Driver</label>
-                <select
-                    id="detail_driver"
-                    v-model="detailFilters.primary_driver_id"
-                    class="form-select"
-                    :disabled="tableLoading"
-                >
-                    <option value="">All drivers</option>
-                    <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                        {{ driver.is_active === false ? `${driver.name} (Inactive)` : driver.name }}
-                    </option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label" for="detail_status">Status</label>
-                <select id="detail_status" v-model="detailFilters.status" class="form-select" :disabled="tableLoading">
-                    <option value="">All statuses</option>
-                    <option value="ABSENT">Absent</option>
-                    <option value="NO_WORK_DAY">No working day</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label" for="detail_payment">Payment</label>
-                <select
-                    id="detail_payment"
-                    v-model="detailFilters.wage_payment_status"
-                    class="form-select"
-                    :disabled="tableLoading"
-                >
-                    <option value="">All payments</option>
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                </select>
-            </div>
         </AppIndexFiltersCard>
 
         <div
@@ -158,6 +109,7 @@
                     :vehicles="vehicles"
                     :drivers="drivers"
                     :overview-rows="dayOverview.rows"
+                    :substitute-busy-by-date="dayOverview.substitute_busy_by_date ?? {}"
                     :loading="dayOverviewLoading"
                     :saving="dailySaving"
                     :can-edit="canEditDay"
@@ -315,15 +267,23 @@
             :field-errors="attendanceFieldErrors"
             :form-error="attendanceFormError"
             @close="closeForm"
-            @submit="handleSubmit"
-            @delete="handleDeleteException"
+            @submit="requestFormSave"
+            @delete="requestFormDelete"
+        />
+
+        <AttendanceSaveConfirmModal
+            :show="showFormSaveConfirm"
+            :summary="formSaveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelFormSaveConfirm"
+            @confirm="confirmFormSave"
         />
     </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { listAllDrivers } from '../../api/drivers';
 import {
     bulkMarkAttendance,
@@ -339,6 +299,8 @@ import { listAllVehicles } from '../../api/vehicles';
 import AttendanceDayPanel from '../../components/attendance/AttendanceDayPanel.vue';
 import AttendanceFormModal from '../../components/attendance/AttendanceFormModal.vue';
 import AttendanceMonthGrid from '../../components/attendance/AttendanceMonthGrid.vue';
+import AttendanceSaveConfirmModal from '../../components/attendance/AttendanceSaveConfirmModal.vue';
+import { buildFormModalConfirmSummary } from '../../utils/attendanceSaveConfirm';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -350,6 +312,7 @@ import { usePermissions } from '../../composables/usePermissions';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
 
 const route = useRoute();
+const router = useRouter();
 const { canInCompany } = usePermissions();
 
 const canManageAttendance = computed(() => canInCompany('attendances.manage'));
@@ -409,6 +372,10 @@ const bulkFormError = ref('');
 const showForm = ref(false);
 const formMode = ref('create');
 const editingRecord = ref(null);
+const showFormSaveConfirm = ref(false);
+const formSaveConfirmSummary = ref(null);
+const pendingFormPayload = ref(null);
+const pendingFormDeleteRecord = ref(null);
 const flash = reactive({ success: '', error: '' });
 const filters = reactive({
     month: currentMonth(),
@@ -420,14 +387,7 @@ const detailFilters = reactive({
     wage_payment_status: '',
 });
 
-const listFiltersActive = computed(
-    () =>
-        filters.month !== currentMonth() ||
-        detailFilters.vehicle_id !== '' ||
-        detailFilters.primary_driver_id !== '' ||
-        detailFilters.status !== '' ||
-        detailFilters.wage_payment_status !== '',
-);
+const listFiltersActive = computed(() => filters.month !== currentMonth());
 
 const selectedTruckLabel = computed(() => {
     const vehicle = vehicles.value.find((item) => item.id === detailFilters.vehicle_id);
@@ -458,6 +418,21 @@ function currentMonth() {
     const now = new Date();
 
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function settlementMonth() {
+    if (activeView.value === 'day' && dayDate.value) {
+        return dayDate.value.slice(0, 7);
+    }
+
+    return filters.month || currentMonth();
+}
+
+function goToMonthlySettlement() {
+    router.push({
+        name: 'attendance.settlement',
+        query: { month: settlementMonth() },
+    });
 }
 
 function monthDateRange(month) {
@@ -681,10 +656,6 @@ function applyListFilters() {
 
 function clearListFilters() {
     filters.month = currentMonth();
-    detailFilters.vehicle_id = '';
-    detailFilters.primary_driver_id = '';
-    detailFilters.status = '';
-    detailFilters.wage_payment_status = '';
     pagination.current_page = 1;
     reloadAll();
 }
@@ -871,23 +842,87 @@ function closeForm() {
     attendanceFormError.value = '';
 }
 
-async function handleSubmit(payload) {
+function stripFormPayload(payload) {
+    const { exception_type: _exceptionType, ...apiPayload } = payload;
+
+    return apiPayload;
+}
+
+function requestFormSave(payload) {
+    formSaveConfirmSummary.value = buildFormModalConfirmSummary({
+        record: editingRecord.value,
+        payload,
+        drivers: drivers.value,
+        vehicles: vehicles.value,
+    });
+    pendingFormPayload.value = payload;
+    pendingFormDeleteRecord.value = null;
+    showFormSaveConfirm.value = true;
+}
+
+function requestFormDelete({ record }) {
+    if (!record?.id) {
+        return;
+    }
+
+    formSaveConfirmSummary.value = buildFormModalConfirmSummary({
+        record,
+        payload: {
+            attendance_date: record.attendance_date,
+            vehicle_id: record.vehicle_id,
+            primary_driver_id: record.primary_driver_id,
+            exception_type: 'BLANK',
+        },
+        drivers: drivers.value,
+        vehicles: vehicles.value,
+    });
+    pendingFormDeleteRecord.value = record;
+    pendingFormPayload.value = null;
+    showFormSaveConfirm.value = true;
+}
+
+function cancelFormSaveConfirm() {
+    showFormSaveConfirm.value = false;
+    formSaveConfirmSummary.value = null;
+    pendingFormPayload.value = null;
+    pendingFormDeleteRecord.value = null;
+}
+
+async function confirmFormSave() {
+    if (pendingFormDeleteRecord.value?.id) {
+        await executeFormDelete(pendingFormDeleteRecord.value);
+
+        return;
+    }
+
+    if (!pendingFormPayload.value) {
+        return;
+    }
+
+    await executeFormSave(pendingFormPayload.value);
+}
+
+async function executeFormSave(payload) {
     saving.value = true;
     attendanceFieldErrors.value = {};
     attendanceFormError.value = '';
 
+    const apiPayload = stripFormPayload(payload);
+
     try {
         if (formMode.value === 'edit' && editingRecord.value?.id) {
-            await updateAttendance(editingRecord.value.id, payload);
+            await updateAttendance(editingRecord.value.id, apiPayload);
             showToast('Attendance updated successfully.');
         } else {
-            await markAttendance(payload);
+            await markAttendance(apiPayload);
             showToast('Attendance saved successfully.');
         }
 
+        cancelFormSaveConfirm();
         closeForm();
         await reloadAll();
     } catch (error) {
+        cancelFormSaveConfirm();
         const { fieldErrors, message } = extractValidationErrors(error);
 
         attendanceFieldErrors.value = fieldErrors;
@@ -906,7 +941,7 @@ async function handleSubmit(payload) {
     }
 }
 
-async function handleDeleteException(record) {
+async function executeFormDelete(record) {
     if (!record?.id) {
         return;
     }
@@ -915,10 +950,12 @@ async function handleDeleteException(record) {
 
     try {
         await deleteAttendance(record.id);
+        cancelFormSaveConfirm();
         closeForm();
         showToast('Mark cleared — day is default present.');
         await reloadAll();
     } catch {
+        cancelFormSaveConfirm();
         showToast('Unable to change attendance.', 'error');
     } finally {
         saving.value = false;

@@ -3,10 +3,13 @@
         :is="tag"
         :type="tag === 'button' ? type : undefined"
         :href="tag === 'a' ? href : undefined"
-        :to="tag === 'router-link' ? to : undefined"
+        :to="isRouterLink ? to : undefined"
         :class="buttonClasses"
-        :disabled="disabled || loading"
+        :disabled="tag === 'button' ? disabled || loading : undefined"
+        :aria-disabled="isRouterLink && (disabled || loading) ? 'true' : undefined"
+        :tabindex="isRouterLink && (disabled || loading) ? -1 : undefined"
         v-bind="$attrs"
+        @click="handleClick"
     >
         <span v-if="loading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
         <i v-if="icon && !loading" :class="[icon, label ? 'me-1' : '']"></i>
@@ -66,6 +69,8 @@ const props = defineProps({
     },
 });
 
+const isRouterLink = computed(() => Boolean(props.to));
+
 const tag = computed(() => {
     if (props.to) {
         return RouterLink;
@@ -77,6 +82,13 @@ const tag = computed(() => {
 
     return 'button';
 });
+
+function handleClick(event) {
+    if (isRouterLink.value && (props.disabled || props.loading)) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}
 
 const buttonClasses = computed(() =>
     appButtonClasses({

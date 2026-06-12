@@ -33,6 +33,7 @@
                     v-model:from-date="filters.from_date"
                     v-model:to-date="filters.to_date"
                     label="Period"
+                    panel-align="start"
                     :preset-keys="tripDatePresetKeys"
                     @change="onDateRangeChange"
                 />
@@ -434,7 +435,7 @@ onMounted(async () => {
 .trips-filter-period {
     position: relative;
     z-index: 1;
-    min-width: min(100%, 280px);
+    min-width: 0;
 }
 
 .trip-number-link {

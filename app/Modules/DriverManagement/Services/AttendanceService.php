@@ -7,15 +7,16 @@ use App\AttendanceMonthLock;
 use App\Driver;
 use App\DriverAdvanceEntry;
 use App\DriverAssignment;
-use App\Enums\DriverAdvanceEntryType;
 use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceMonthStatus;
 use App\Enums\AttendanceStatus;
+use App\Enums\DriverAdvanceEntryType;
 use App\Enums\WagePaymentStatus;
 use App\Modules\DriverManagement\Repositories\AttendanceRepository;
 use App\MonthlyDriverWage;
 use App\Support\CurrentTenant;
 use App\Support\MonthlyWageAccrual;
+use App\Support\PayrollPayDays;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -57,6 +58,7 @@ class AttendanceService
         $overview = $this->attendanceCalendar->buildOverview($fromDate, $toDate, $paidDriverIds);
         $overview['month_lock'] = $this->monthLockService->summaryForMonth($month);
         $overview['summary']['marked'] = $overview['summary']['exceptions'];
+        $overview['substitute_busy_by_date'] = $this->substituteDriverAvailability->openTripBusyByDate($fromDate, $toDate);
 
         return $overview;
     }
@@ -92,6 +94,7 @@ class AttendanceService
 
             $driverStats = $this->attendanceCalendar->driverPrimaryDayStats($monthStart, $monthEnd);
             $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
+            $substituteLiabilities = $this->attendanceCalendar->primarySubstituteLiabilities($monthStart, $monthEnd);
             $calendarDays = (int) Carbon::parse($monthStart)->daysInMonth;
             $driverIds = collect(array_keys($driverStats))
                 ->merge(array_keys($substituteEarnings))
@@ -102,6 +105,7 @@ class AttendanceService
             foreach ($driverIds as $driverId) {
                 $stats = $driverStats[$driverId] ?? ['present' => 0, 'absent' => 0, 'leave' => 0, 'payable_days' => 0];
                 $substitute = $substituteEarnings[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
+                $liability = $substituteLiabilities[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
 
                 if (((int) $stats['present'] + (int) $stats['absent'] + (int) $stats['leave']) === 0 && $substitute['days'] === 0) {
                     continue;
@@ -138,6 +142,7 @@ class AttendanceService
                         $stats,
                         $calendarDays,
                         $substitute,
+                        $liability,
                     );
                 }
 
@@ -220,6 +225,8 @@ class AttendanceService
                     'updated_by' => $actorId,
                 ]);
             }
+
+            $this->monthLockService->lockMonth($month, $actorId);
 
             return $this->listMonthlyWages($month);
         });
@@ -497,7 +504,11 @@ class AttendanceService
             return 0.0;
         }
 
-        return MonthlyWageAccrual::perDay((float) $primaryDriver->daily_wage, $attendanceDate);
+        return MonthlyWageAccrual::perDay(
+            (float) $primaryDriver->daily_wage,
+            $attendanceDate,
+            PayrollPayDays::divisorForDate($attendanceDate),
+        );
     }
 
     private function resolveSubstitutePaymentAmount(
@@ -515,7 +526,11 @@ class AttendanceService
             return 0.0;
         }
 
-        return MonthlyWageAccrual::perDay((float) $substitute->daily_wage, $attendanceDate);
+        return MonthlyWageAccrual::perDay(
+            (float) $substitute->daily_wage,
+            $attendanceDate,
+            PayrollPayDays::divisorForDate($attendanceDate),
+        );
     }
 
     private function resolvePrimaryDriverIdFromAssignment(string $vehicleId, string $attendanceDate): ?string

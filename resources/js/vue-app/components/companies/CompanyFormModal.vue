@@ -11,7 +11,7 @@
             <div class="modal-content">
                 <form @submit.prevent="$emit('submit', form)">
                     <div class="modal-header">
-                        <h5 class="modal-title">Register Company</h5>
+                        <h5 class="modal-title">{{ isEdit ? 'Edit Company' : 'Register Company' }}</h5>
                         <button type="button" class="btn-close" aria-label="Close" @click="$emit('close')" />
                     </div>
                     <div class="modal-body">
@@ -92,11 +92,29 @@
                                 />
                             </div>
                         </div>
+                        <div class="mb-0">
+                            <label class="form-label" for="payroll_pay_days_mode">Pay Days (default)</label>
+                            <select
+                                id="payroll_pay_days_mode"
+                                v-model="form.payroll_pay_days_mode"
+                                class="form-select"
+                                :class="{ 'is-invalid': fieldErrors.payroll_pay_days_mode }"
+                            >
+                                <option value="calendar">Calendar days (default)</option>
+                                <option value="fixed_30">Fixed 30 days</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Used for monthly wage settlement and per-day salary calculations.
+                            </small>
+                            <div v-if="fieldErrors.payroll_pay_days_mode" class="invalid-feedback d-block">
+                                {{ fieldErrors.payroll_pay_days_mode[0] }}
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
                         <button type="submit" class="btn btn-brand-primary" :disabled="saving">
-                            {{ saving ? 'Saving…' : 'Create' }}
+                            {{ saving ? 'Saving…' : isEdit ? 'Update' : 'Create' }}
                         </button>
                     </div>
                 </form>
@@ -107,17 +125,21 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 
 const props = defineProps({
     modalId: { type: String, default: 'companyFormModal' },
     show: { type: Boolean, default: false },
+    mode: { type: String, default: 'create' },
+    company: { type: Object, default: null },
     saving: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
     formError: { type: String, default: '' },
 });
 
 defineEmits(['close', 'submit']);
+
+const isEdit = computed(() => props.mode === 'edit');
 
 const form = reactive({
     name: '',
@@ -128,7 +150,32 @@ const form = reactive({
     address: '',
     contact_person: '',
     contact_number: '',
+    payroll_pay_days_mode: 'calendar',
 });
+
+function resetForm() {
+    form.name = '';
+    form.gst_number = '';
+    form.pan_number = '';
+    form.gst_scheme = '';
+    form.gst_type = '';
+    form.address = '';
+    form.contact_person = '';
+    form.contact_number = '';
+    form.payroll_pay_days_mode = 'calendar';
+}
+
+function fillForm(company) {
+    form.name = company?.name ?? '';
+    form.gst_number = company?.gst_number ?? '';
+    form.pan_number = company?.pan_number ?? '';
+    form.gst_scheme = company?.gst_scheme ?? '';
+    form.gst_type = company?.gst_type ?? '';
+    form.address = company?.address ?? '';
+    form.contact_person = company?.contact_person ?? '';
+    form.contact_number = company?.contact_number ?? '';
+    form.payroll_pay_days_mode = company?.payroll_pay_days_mode ?? 'calendar';
+}
 
 watch(
     () => props.show,
@@ -137,14 +184,12 @@ watch(
             return;
         }
 
-        form.name = '';
-        form.gst_number = '';
-        form.pan_number = '';
-        form.gst_scheme = '';
-        form.gst_type = '';
-        form.address = '';
-        form.contact_person = '';
-        form.contact_number = '';
+        if (isEdit.value && props.company) {
+            fillForm(props.company);
+            return;
+        }
+
+        resetForm();
     },
 );
 </script>

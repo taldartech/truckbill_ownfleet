@@ -204,6 +204,13 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
                 ->middleware('permission:users.manage')
                 ->name('document-alert-settings.update');
 
+            Route::get('/payroll-settings', [\App\Http\Controllers\Api\PayrollSettingController::class, 'show'])
+                ->middleware('permission:wages.manage')
+                ->name('payroll-settings.show');
+            Route::put('/payroll-settings', [\App\Http\Controllers\Api\PayrollSettingController::class, 'update'])
+                ->middleware('permission:wages.manage')
+                ->name('payroll-settings.update');
+
             Route::get('/document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index'])->name('document-types.index');
             Route::post('/document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'store'])->name('document-types.store');
             Route::get('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'show'])->name('document-types.show');

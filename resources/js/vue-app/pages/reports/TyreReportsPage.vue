@@ -41,7 +41,7 @@
                                 <td :colspan="columns.length || 1" class="text-center text-muted py-4">No data.</td>
                             </tr>
                             <tr v-for="(row, i) in rows" :key="i">
-                                <td v-for="col in columns" :key="col">{{ row[col] ?? '—' }}</td>
+                                <td v-for="col in columns" :key="col">{{ formatCell(row, col, i) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -86,16 +86,21 @@ const filtersActive = computed(() => filters.from !== '' || filters.to !== '');
 const currentLabel = computed(() => reportTypes.find((r) => r.value === reportType.value)?.label ?? 'Report');
 
 const COLUMN_LABELS = {
+    s_no: 'S.No',
     vehicle: 'Truck',
     vehicle_id: 'Truck ID',
 };
+
+const HIDDEN_COLUMNS = ['tyre_id'];
 
 const columns = computed(() => {
     if (rows.value.length === 0) {
         return [];
     }
 
-    return Object.keys(rows.value[0]);
+    const keys = Object.keys(rows.value[0]).filter((key) => !HIDDEN_COLUMNS.includes(key));
+
+    return ['s_no', ...keys];
 });
 
 function formatColumn(key) {
@@ -104,6 +109,14 @@ function formatColumn(key) {
     }
 
     return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatCell(row, col, rowIndex) {
+    if (col === 's_no') {
+        return rowIndex + 1;
+    }
+
+    return row[col] ?? '—';
 }
 
 async function loadReport() {

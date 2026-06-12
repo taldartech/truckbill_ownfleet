@@ -30,7 +30,7 @@
                                 <th>Contact</th>
                                 <th>Plan End</th>
                                 <th>LR Credits</th>
-                                <th class="app-index-actions-cell" style="width: 180px">Actions</th>
+                                <th class="app-index-actions-cell" style="width: 240px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -73,6 +73,14 @@
                                         @click="handleEnter(company)"
                                     />
                                     <AppButton
+                                        v-if="canUpdate"
+                                        size="sm"
+                                        variant="secondary"
+                                        label="Edit"
+                                        class="me-1"
+                                        @click="openEdit(company)"
+                                    />
+                                    <AppButton
                                         v-if="canBlock"
                                         size="sm"
                                         :variant="company.is_blocked ? 'success' : 'warning'"
@@ -88,12 +96,14 @@
         </div>
 
         <CompanyFormModal
-            :show="showCreate"
+            :show="showForm"
+            :mode="formMode"
+            :company="editingCompany"
             :saving="saving"
             :field-errors="fieldErrors"
             :form-error="companyFormError"
-            @close="closeCreate"
-            @submit="handleCreate"
+            @close="closeForm"
+            @submit="handleSubmit"
         />
     </div>
 </template>
@@ -121,13 +131,16 @@ const { can } = usePermissions();
 const companies = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showCreate = ref(false);
+const showForm = ref(false);
+const formMode = ref('create');
+const editingCompany = ref(null);
 const fieldErrors = ref({});
 const companyFormError = ref('');
 const flash = reactive({ success: '', error: '' });
 
 const canCreate = computed(() => can('companies.create'));
 const canEnter = computed(() => can('companies.enter'));
+const canUpdate = computed(() => can('companies.update'));
 const canBlock = computed(() => can('companies.block'));
 
 const activeCompanyId = computed(
@@ -160,26 +173,44 @@ async function loadCompanies() {
 }
 
 function openCreate() {
+    formMode.value = 'create';
+    editingCompany.value = null;
     fieldErrors.value = {};
     companyFormError.value = '';
-    showCreate.value = true;
+    showForm.value = true;
 }
 
-function closeCreate() {
-    showCreate.value = false;
+function openEdit(company) {
+    formMode.value = 'edit';
+    editingCompany.value = company;
+    fieldErrors.value = {};
+    companyFormError.value = '';
+    showForm.value = true;
+}
+
+function closeForm() {
+    showForm.value = false;
+    formMode.value = 'create';
+    editingCompany.value = null;
     fieldErrors.value = {};
     companyFormError.value = '';
 }
 
-async function handleCreate(payload) {
+async function handleSubmit(payload) {
     saving.value = true;
     fieldErrors.value = {};
     companyFormError.value = '';
 
     try {
-        await createCompany(payload);
-        closeCreate();
-        flash.success = 'Company created successfully.';
+        if (formMode.value === 'edit' && editingCompany.value) {
+            await updateCompany(editingCompany.value.id, payload);
+            flash.success = 'Company updated successfully.';
+        } else {
+            await createCompany(payload);
+            flash.success = 'Company created successfully.';
+        }
+
+        closeForm();
         await loadCompanies();
     } catch (error) {
         if (error.response?.status === 422) {
@@ -190,7 +221,9 @@ async function handleCreate(payload) {
             return;
         }
 
-        companyFormError.value = error.response?.data?.message ?? 'Could not create company.';
+        companyFormError.value =
+            error.response?.data?.message ??
+            (formMode.value === 'edit' ? 'Could not update company.' : 'Could not create company.');
     } finally {
         saving.value = false;
     }

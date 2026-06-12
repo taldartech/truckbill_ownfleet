@@ -6,8 +6,11 @@ use App\AttendanceMonthLock;
 use App\Driver;
 use App\DriverAdvanceEntry;
 use App\Enums\AttendanceStatus;
+use App\Enums\PayrollPayDaysMode;
 use App\MonthlyDriverWage;
+use App\Support\CurrentTenant;
 use App\Support\MonthlySettlementCalculator;
+use App\Support\PayrollPayDays;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -25,15 +28,15 @@ class MonthlySettlementService
     {
         [$monthStart, $monthEnd] = $this->monthBoundaries($month);
         $calendarDays = (int) Carbon::parse($monthStart)->daysInMonth;
+        $payrollPayDaysMode = PayrollPayDays::modeForCurrentTenant();
+        $payDaysDivisor = PayrollPayDays::divisor($calendarDays, $payrollPayDaysMode);
         $driverStats = $this->attendanceCalendar->driverPrimaryDayStats($monthStart, $monthEnd);
         $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
+        $substituteLiabilities = $this->attendanceCalendar->primarySubstituteLiabilities($monthStart, $monthEnd);
         $driverTotals = $this->attendanceCalendar->driverWageTotals($monthStart, $monthEnd);
         $overview = $this->attendanceCalendar->buildOverview($monthStart, $monthEnd);
         $lock = $this->findMonthLock($monthStart);
-
-        if ($lock !== null && $lock->status->value !== 'open') {
-            $this->refreshMonthCalculations($month);
-        }
+        $useSnapshot = $lock !== null && $lock->status !== \App\Enums\AttendanceMonthStatus::Open;
 
         $wages = MonthlyDriverWage::query()
             ->whereDate('month', $monthStart)
@@ -67,23 +70,27 @@ class MonthlySettlementService
 
             $wage = $wages->get($driverId);
             $stats = $driverStats[$driverId] ?? ['present' => 0, 'absent' => 0, 'leave' => 0, 'payable_days' => 0];
-            $substitute = $substituteEarnings[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
+            $substituteEarning = $substituteEarnings[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
+            $substituteLiability = $substituteLiabilities[$driverId] ?? ['days' => 0, 'total_wage' => 0.0];
 
-            if ($wage === null && ! isset($driverTotals[$driverId]) && $substitute['days'] === 0) {
+            if ($wage === null && ! isset($driverTotals[$driverId]) && $substituteEarning['days'] === 0) {
                 continue;
             }
 
             $serial++;
             $isSubstituteOnly = ((int) $stats['present'] + (int) $stats['absent'] + (int) $stats['leave']) === 0
-                && (int) ($substitute['days'] ?? 0) > 0;
+                && (int) ($substituteEarning['days'] ?? 0) > 0;
             $payrollLines[] = $this->formatPayrollLine(
                 $serial,
                 $driver,
                 $wage,
                 $stats,
                 $calendarDays,
-                $substitute,
+                $payDaysDivisor,
+                $substituteEarning,
+                $substituteLiability,
                 $isSubstituteOnly,
+                $useSnapshot,
             );
         }
 
@@ -91,6 +98,8 @@ class MonthlySettlementService
             'month' => Carbon::parse($monthStart)->format('Y-m'),
             'month_label' => Carbon::parse($monthStart)->format('F Y'),
             'calendar_days' => $calendarDays,
+            'pay_days' => PayrollPayDays::displayPayDays($calendarDays, $payrollPayDaysMode),
+            'payroll_pay_days_mode' => $payrollPayDaysMode->value,
             'month_lock' => $this->monthLockService->summaryForMonth($month),
             'vehicle_settlement' => $lock?->vehicle_settlement ?? [],
             'payroll_lines' => $payrollLines,
@@ -119,13 +128,16 @@ class MonthlySettlementService
             'esi' => $payload['esi'] ?? $monthlyDriverWage->esi,
             'other_deduction' => $payload['other_deduction'] ?? $monthlyDriverWage->other_deduction,
             'gross_earning' => $payload['gross_earning'] ?? $monthlyDriverWage->gross_earning,
+            'bonus' => $payload['bonus'] ?? $monthlyDriverWage->bonus,
             'remarks' => array_key_exists('remarks', $payload) ? $payload['remarks'] : $monthlyDriverWage->remarks,
             'round_net' => $payload['round_net'] ?? $monthlyDriverWage->round_net,
             'advance_deducted' => $payload['advance_deducted'] ?? $monthlyDriverWage->advance_deducted,
+            'diesel_deduction' => $payload['diesel_deduction'] ?? $monthlyDriverWage->diesel_deduction,
             'updated_by' => $actorId,
         ]);
 
-        $monthlyDriverWage->net_salary = MonthlySettlementCalculator::netSalary($monthlyDriverWage);
+        $substitutePay = $this->substitutePayForWage($monthlyDriverWage);
+        $monthlyDriverWage->net_salary = MonthlySettlementCalculator::netSalary($monthlyDriverWage, $substitutePay);
         $monthlyDriverWage->total_wage = $monthlyDriverWage->gross_earning;
         $monthlyDriverWage->save();
 
@@ -170,7 +182,8 @@ class MonthlySettlementService
 
     /**
      * @param  array{present: int, absent: int, leave: int, payable_days: int}  $stats
-     * @param  array{days: int, total_wage: float}  $substitute
+     * @param  array{days: int, total_wage: float}  $substituteEarnings
+     * @param  array{days: int, total_wage: float}  $substituteLiability
      * @return array<string, mixed>
      */
     public function formatPayrollLine(
@@ -179,23 +192,51 @@ class MonthlySettlementService
         ?MonthlyDriverWage $wage,
         array $stats,
         int $calendarDays,
-        array $substitute = ['days' => 0, 'total_wage' => 0.0],
+        int $payDaysDivisor,
+        array $substituteEarnings = ['days' => 0, 'total_wage' => 0.0],
+        array $substituteLiability = ['days' => 0, 'total_wage' => 0.0],
         bool $isSubstituteOnly = false,
+        bool $useSnapshot = false,
     ): array {
         $monthlyBase = (float) $driver->daily_wage;
-        $dailyRate = MonthlySettlementCalculator::dailyRate($monthlyBase, $calendarDays);
+        $dailyRate = MonthlySettlementCalculator::dailyRate($monthlyBase, $payDaysDivisor);
+
+        if ($useSnapshot && $wage !== null) {
+            return $this->formatPayrollLineFromSnapshot(
+                $serial,
+                $driver,
+                $wage,
+                $calendarDays,
+                $payDaysDivisor,
+                $dailyRate,
+                $monthlyBase,
+            );
+        }
+
         $presentDays = (int) $stats['present'];
         $absentDays = (int) $stats['absent'];
         $leaveDays = (int) $stats['leave'];
-        $substituteDays = (int) ($substitute['days'] ?? 0);
-        $substitutePay = round((float) ($substitute['total_wage'] ?? 0), 2);
+        $earnedSubstituteDays = (int) ($substituteEarnings['days'] ?? 0);
+        $earnedSubstitutePay = round((float) ($substituteEarnings['total_wage'] ?? 0), 2);
+        $liabilityDays = (int) ($substituteLiability['days'] ?? 0);
+        $liabilityPay = round((float) ($substituteLiability['total_wage'] ?? 0), 2);
+        $substituteDays = $isSubstituteOnly ? $earnedSubstituteDays : $liabilityDays;
+        $substitutePay = $earnedSubstitutePay;
         $payableDays = (int) ($stats['payable_days'] ?? $presentDays);
-        $primaryGross = round($payableDays * $dailyRate, 2);
+        $primaryGross = MonthlySettlementCalculator::grossForPayableDays(
+            $monthlyBase,
+            $payableDays,
+            $presentDays,
+            $absentDays,
+            $calendarDays,
+            $payDaysDivisor,
+        );
         $gross = $isSubstituteOnly ? 0.0 : $primaryGross;
         $absentDeduction = MonthlySettlementCalculator::absentDeductionForDays(
             $absentDays,
             $monthlyBase,
             $calendarDays,
+            $payDaysDivisor,
         );
 
         $extraDeductions = $wage !== null ? MonthlySettlementCalculator::extraDeductions($wage) : 0.0;
@@ -203,9 +244,9 @@ class MonthlySettlementService
         if ($wage !== null) {
             $wage->absent_deduction = $absentDeduction;
             $wage->gross_earning = $gross;
-            $net = $isSubstituteOnly ? 0.0 : MonthlySettlementCalculator::netSalary($wage);
+            $net = MonthlySettlementCalculator::netSalary($wage, $earnedSubstitutePay);
         } else {
-            $net = $isSubstituteOnly ? 0.0 : max(0, $gross - $extraDeductions);
+            $net = max(0, $gross + $earnedSubstitutePay - $extraDeductions);
         }
 
         return [
@@ -220,17 +261,21 @@ class MonthlySettlementService
             'monthly_base' => $monthlyBase,
             'daily_rate' => $dailyRate,
             'calendar_days' => $wage?->calendar_days ?? $calendarDays,
-            'pay_days' => $calendarDays,
+            'pay_days' => $payDaysDivisor,
             'present_days' => $presentDays,
             'absent_days' => $absentDays,
             'leave_days' => $leaveDays,
             'substitute_days' => $substituteDays,
             'substitute_pay' => $substitutePay,
             'substitute_pay_record' => $substitutePay,
+            'substitute_liability_days' => $liabilityDays,
+            'substitute_liability_pay' => $liabilityPay,
             'primary_gross' => $primaryGross,
             'gross_earning' => $gross,
+            'bonus' => $wage?->bonus ?? 0,
             'total_advance' => $wage?->total_advance,
             'advance_deducted' => $wage?->advance_deducted,
+            'diesel_deduction' => $wage?->diesel_deduction ?? 0,
             'absent_deduction' => $absentDeduction,
             'base_salary' => $wage?->base_salary ?? $monthlyBase,
             'extra_deductions' => $extraDeductions,
@@ -241,6 +286,73 @@ class MonthlySettlementService
             'remarks' => $wage?->remarks,
             'payment_status' => $wage?->payment_status?->value ?? $wage?->payment_status ?? 'unpaid',
             'paid_at' => $wage?->paid_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatPayrollLineFromSnapshot(
+        int $serial,
+        Driver $driver,
+        MonthlyDriverWage $wage,
+        int $calendarDays,
+        int $payDaysDivisor,
+        float $dailyRate,
+        float $monthlyBase,
+    ): array {
+        $presentDays = (int) $wage->present_days;
+        $absentDays = (int) $wage->absent_days;
+        $leaveDays = (int) $wage->leave_days;
+        $earnedSubstituteDays = (int) $wage->substitute_days;
+        $earnedSubstitutePay = round((float) $wage->substitute_pay, 2);
+        $liabilityDays = (int) $wage->substitute_liability_days;
+        $liabilityPay = round((float) $wage->substitute_liability_pay, 2);
+        $isSubstituteOnly = $presentDays === 0 && $absentDays === 0 && $leaveDays === 0 && $earnedSubstituteDays > 0;
+        $substituteDays = $isSubstituteOnly ? $earnedSubstituteDays : $liabilityDays;
+        $substitutePay = $isSubstituteOnly ? $earnedSubstitutePay : 0.0;
+        $gross = round((float) $wage->gross_earning, 2);
+        $absentDeduction = round((float) $wage->absent_deduction, 2);
+        $extraDeductions = MonthlySettlementCalculator::extraDeductions($wage);
+        $primaryGross = $isSubstituteOnly ? 0.0 : $gross;
+
+        return [
+            'serial' => $serial,
+            'monthly_wage_id' => $wage->id,
+            'driver_id' => $driver->id,
+            'is_substitute' => $isSubstituteOnly,
+            'name' => $driver->name,
+            'aadhaar_number' => $driver->aadhaar_number,
+            'bank_account_number' => $driver->bank_account_number,
+            'bank_ifsc' => $driver->bank_ifsc,
+            'monthly_base' => $monthlyBase,
+            'daily_rate' => $dailyRate,
+            'calendar_days' => $wage->calendar_days ?: $calendarDays,
+            'pay_days' => $payDaysDivisor,
+            'present_days' => $presentDays,
+            'absent_days' => $absentDays,
+            'leave_days' => $leaveDays,
+            'substitute_days' => $substituteDays,
+            'substitute_pay' => $substitutePay,
+            'substitute_pay_record' => $substitutePay,
+            'substitute_liability_days' => $liabilityDays,
+            'substitute_liability_pay' => $liabilityPay,
+            'primary_gross' => $primaryGross,
+            'gross_earning' => $gross,
+            'bonus' => $wage->bonus ?? 0,
+            'total_advance' => $wage->total_advance,
+            'advance_deducted' => $wage->advance_deducted,
+            'diesel_deduction' => $wage->diesel_deduction ?? 0,
+            'absent_deduction' => $absentDeduction,
+            'base_salary' => $wage->base_salary ?? $monthlyBase,
+            'extra_deductions' => $extraDeductions,
+            'total_deduction' => MonthlySettlementCalculator::totalDeductions($wage),
+            'net_salary' => round((float) $wage->net_salary, 2),
+            'net_salary_payable' => round((float) $wage->net_salary, 2),
+            'round_net' => (bool) $wage->round_net,
+            'remarks' => $wage->remarks,
+            'payment_status' => $wage->payment_status?->value ?? $wage->payment_status ?? 'unpaid',
+            'paid_at' => $wage->paid_at?->toISOString(),
         ];
     }
 
@@ -539,8 +651,8 @@ class MonthlySettlementService
             return 'N';
         }
 
-        if (! empty($cell['temporary_driver_id'])) {
-            return 'A';
+        if (! empty($cell['temporary_driver_id']) || ! empty($cell['temporary_driver_name'])) {
+            return 'S';
         }
 
         return 'A';
@@ -551,17 +663,27 @@ class MonthlySettlementService
         Driver $driver,
         array $stats,
         int $calendarDays,
-        array $substitute = ['days' => 0, 'total_wage' => 0.0],
+        array $substituteEarnings = ['days' => 0, 'total_wage' => 0.0],
+        array $substituteLiability = ['days' => 0, 'total_wage' => 0.0],
+        ?PayrollPayDaysMode $payrollPayDaysMode = null,
     ): void {
         $monthlyBase = (float) $driver->daily_wage;
-        $dailyRate = MonthlySettlementCalculator::dailyRate($monthlyBase, $calendarDays);
+        $resolvedMode = $payrollPayDaysMode ?? PayrollPayDays::modeForTenant($monthlyWage->tenant_id ?? CurrentTenant::id());
+        $payDaysDivisor = PayrollPayDays::divisor($calendarDays, $resolvedMode);
         $presentDays = (int) $stats['present'];
         $absentDays = (int) $stats['absent'];
         $leaveDays = (int) $stats['leave'];
         $payableDays = (int) ($stats['payable_days'] ?? $presentDays);
-        $substituteDays = (int) ($substitute['days'] ?? 0);
-        $isSubstituteOnly = $presentDays === 0 && $absentDays === 0 && $leaveDays === 0 && $substituteDays > 0;
-        $primaryGross = round($payableDays * $dailyRate, 2);
+        $earnedSubstituteDays = (int) ($substituteEarnings['days'] ?? 0);
+        $isSubstituteOnly = $presentDays === 0 && $absentDays === 0 && $leaveDays === 0 && $earnedSubstituteDays > 0;
+        $primaryGross = MonthlySettlementCalculator::grossForPayableDays(
+            $monthlyBase,
+            $payableDays,
+            $presentDays,
+            $absentDays,
+            $calendarDays,
+            $payDaysDivisor,
+        );
         $gross = $isSubstituteOnly ? 0.0 : $primaryGross;
         $advanceBalance = DriverAdvanceEntry::balanceFor($driver);
 
@@ -570,6 +692,10 @@ class MonthlySettlementService
             'present_days' => $presentDays,
             'absent_days' => $absentDays,
             'leave_days' => $leaveDays,
+            'substitute_days' => $earnedSubstituteDays,
+            'substitute_pay' => round((float) ($substituteEarnings['total_wage'] ?? 0), 2),
+            'substitute_liability_days' => (int) ($substituteLiability['days'] ?? 0),
+            'substitute_liability_pay' => round((float) ($substituteLiability['total_wage'] ?? 0), 2),
             'payable_days' => $payableDays,
             'total_days' => $presentDays + $absentDays + $leaveDays,
             'gross_earning' => $gross,
@@ -580,6 +706,7 @@ class MonthlySettlementService
                 $absentDays,
                 $monthlyBase,
                 $calendarDays,
+                $payDaysDivisor,
             ),
             'hra' => 0,
             'holiday_allowance' => 0,
@@ -587,15 +714,24 @@ class MonthlySettlementService
             'esi' => 0,
         ]);
 
-        $monthlyWage->net_salary = MonthlySettlementCalculator::netSalary($monthlyWage);
+        $earnedSubstitutePay = round((float) ($substituteEarnings['total_wage'] ?? 0), 2);
+        $monthlyWage->net_salary = MonthlySettlementCalculator::netSalary($monthlyWage, $earnedSubstitutePay);
     }
 
     public function refreshMonthCalculations(string $month): int
     {
+        if (! $this->monthLockService->isMonthOpen($month)) {
+            throw ValidationException::withMessages([
+                'month' => ['Closed or locked months cannot be recalculated.'],
+            ]);
+        }
+
         [$monthStart, $monthEnd] = $this->monthBoundaries($month);
         $calendarDays = (int) Carbon::parse($monthStart)->daysInMonth;
+        $payrollPayDaysMode = PayrollPayDays::modeForCurrentTenant();
         $driverStats = $this->attendanceCalendar->driverPrimaryDayStats($monthStart, $monthEnd);
         $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
+        $substituteLiabilities = $this->attendanceCalendar->primarySubstituteLiabilities($monthStart, $monthEnd);
         $updated = 0;
 
         $wages = MonthlyDriverWage::query()
@@ -611,8 +747,17 @@ class MonthlySettlementService
             }
 
             $stats = $driverStats[$monthlyWage->driver_id] ?? ['present' => 0, 'absent' => 0, 'leave' => 0, 'payable_days' => 0];
-            $substitute = $substituteEarnings[$monthlyWage->driver_id] ?? ['days' => 0, 'total_wage' => 0.0];
-            $this->applySettlementDefaults($monthlyWage, $driver, $stats, $calendarDays, $substitute);
+            $substituteEarning = $substituteEarnings[$monthlyWage->driver_id] ?? ['days' => 0, 'total_wage' => 0.0];
+            $substituteLiability = $substituteLiabilities[$monthlyWage->driver_id] ?? ['days' => 0, 'total_wage' => 0.0];
+            $this->applySettlementDefaults(
+                $monthlyWage,
+                $driver,
+                $stats,
+                $calendarDays,
+                $substituteEarning,
+                $substituteLiability,
+                $payrollPayDaysMode,
+            );
             $monthlyWage->save();
             $updated++;
         }
@@ -620,11 +765,24 @@ class MonthlySettlementService
         return $updated;
     }
 
+    private function substitutePayForWage(MonthlyDriverWage $monthlyDriverWage): float
+    {
+        if ($monthlyDriverWage->month === null) {
+            return 0.0;
+        }
+
+        $month = Carbon::parse($monthlyDriverWage->month)->format('Y-m');
+        [$monthStart, $monthEnd] = $this->monthBoundaries($month);
+        $substituteEarnings = $this->attendanceCalendar->driverSubstituteEarnings($monthStart, $monthEnd);
+
+        return round((float) ($substituteEarnings[$monthlyDriverWage->driver_id]['total_wage'] ?? 0), 2);
+    }
+
     private function assertMonthNotLocked(MonthlyDriverWage $monthlyDriverWage): void
     {
         $month = Carbon::parse($monthlyDriverWage->month)->format('Y-m');
 
-        if ($this->monthLockService->statusForMonth($month)->value === 'paid') {
+        if ($this->monthLockService->statusForMonth($month) === \App\Enums\AttendanceMonthStatus::Paid) {
             throw ValidationException::withMessages([
                 'month' => ['This month is locked. Unlock it before editing settlement.'],
             ]);

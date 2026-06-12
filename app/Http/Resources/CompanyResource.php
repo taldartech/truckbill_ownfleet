@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\PayrollPayDaysMode;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
@@ -37,8 +38,20 @@ class CompanyResource extends JsonResource
                 : null,
             'lr_credits' => $this->lr_credits,
             'truck_credits' => $this->truck_credits,
+            'payroll_pay_days_mode' => $this->resolvePayrollPayDaysMode(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+    }
+
+    private function resolvePayrollPayDaysMode(): string
+    {
+        $mode = $this->payroll_pay_days_mode ?? PayrollPayDaysMode::Calendar;
+
+        if ($mode instanceof PayrollPayDaysMode) {
+            return $mode->value;
+        }
+
+        return PayrollPayDaysMode::tryFrom((string) $mode)?->value ?? PayrollPayDaysMode::Calendar->value;
     }
 }

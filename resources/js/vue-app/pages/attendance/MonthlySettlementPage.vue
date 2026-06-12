@@ -22,6 +22,9 @@
                     >
                         {{ monthLockLabel }}
                     </span>
+                    <span v-if="payDaysModeLabel" class="badge bg-light text-dark border">
+                        Pay days: {{ payDaysModeLabel }}
+                    </span>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <button
@@ -69,6 +72,15 @@
                     >
                         Reopen Month
                     </button>
+                    <button
+                        v-if="canManageWages && monthLock.status === 'paid'"
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        :disabled="unlocking"
+                        @click="handleUnlockMonth"
+                    >
+                        Unlock Month
+                    </button>
                 </div>
             </div>
         </div>
@@ -79,7 +91,49 @@
 
             <div v-if="loading" class="text-center py-5 text-muted">Loading settlement sheet…</div>
 
+            <div v-else-if="loadError" class="alert alert-danger">
+                <div>{{ loadError }}</div>
+                <button type="button" class="btn btn-outline-danger btn-sm mt-2" @click="loadSheet">
+                    Retry
+                </button>
+            </div>
+
             <template v-else>
+                <div
+                    v-if="monthLock.status === 'open'"
+                    class="alert alert-info py-2 mb-3"
+                >
+                    <strong>Step 1:</strong> Review attendance below, then click
+                    <strong>Close Month</strong> to generate payroll lines.
+                    <span v-if="!canManageWages" class="d-block mt-1 small mb-0">
+                        You need wage management permission to close the month.
+                    </span>
+                    <button
+                        v-else
+                        type="button"
+                        class="btn btn-primary btn-sm ms-2"
+                        :disabled="closing"
+                        @click="handleCloseMonth"
+                    >
+                        {{ closing ? 'Closing…' : 'Close Month' }}
+                    </button>
+                </div>
+
+                <div
+                    v-else-if="monthLock.status === 'closed'"
+                    class="alert alert-warning py-2 mb-3"
+                >
+                    <strong>Month closed.</strong> Review payroll, mark drivers paid, then lock the month.
+                </div>
+
+                <div
+                    v-else-if="monthLock.status === 'paid'"
+                    class="alert alert-secondary py-2 mb-3"
+                >
+                    <strong>Month locked.</strong> Attendance is frozen for this period. Unlock the month to
+                    adjust payments, or reopen it for attendance edits.
+                </div>
+
                 <ul class="nav nav-tabs mb-3">
                     <li class="nav-item">
                         <button
@@ -98,7 +152,7 @@
                             :class="{ active: activeTab === 'vehicles' }"
                             @click="activeTab = 'vehicles'"
                         >
-                            Truck Attendance (P / A)
+                            Truck Attendance (P / A / S)
                         </button>
                     </li>
                 </ul>
@@ -113,14 +167,16 @@
                                     <th>Pay Days</th>
                                     <th>P</th>
                                     <th>A</th>
-                                    <th>Sub.P</th>
-                                    <th>Sub.Pay</th>
+                                    <th title="Days a substitute worked on this driver's truck">Sub.P</th>
+                                    <th title="Substitute earnings (paid on substitute driver's row)">Sub.Pay</th>
                                     <th>Gross</th>
+                                    <th>Bonus</th>
                                     <th>Absent Ded.</th>
                                     <th>Base</th>
-                                    <th>Extra Ded.</th>
+                                    <th>Shortage Ded.</th>
                                     <th>Adv. Bal.</th>
                                     <th>Adv. Ded.</th>
+                                    <th>Diesel Ded.</th>
                                     <th>Net</th>
                                     <th>Rnd</th>
                                     <th>Remarks</th>
@@ -129,8 +185,20 @@
                             </thead>
                             <tbody>
                                 <tr v-if="payrollLines.length === 0">
-                                    <td colspan="17" class="text-center text-muted py-4">
-                                        Close the month to generate payroll lines.
+                                    <td colspan="19" class="text-center text-muted py-4">
+                                        <div>No payroll lines for {{ sheet.month_label || selectedMonth }}.</div>
+                                        <div class="small mt-1">
+                                            Assign primary drivers to trucks and mark attendance first.
+                                        </div>
+                                        <button
+                                            v-if="canManageWages && monthLock.status === 'open'"
+                                            type="button"
+                                            class="btn btn-primary btn-sm mt-2"
+                                            :disabled="closing"
+                                            @click="handleCloseMonth"
+                                        >
+                                            {{ closing ? 'Closing…' : 'Close Month' }}
+                                        </button>
                                     </td>
                                 </tr>
                                 <tr
@@ -154,6 +222,18 @@
                                     <td>{{ line.substitute_days ?? 0 }}</td>
                                     <td class="text-end">{{ formatMoney(line.substitute_pay) }}</td>
                                     <td class="text-end">{{ formatMoney(line.gross_earning) }}</td>
+                                    <td>
+                                        <input
+                                            v-model.number="line.bonus"
+                                            v-no-scroll-change
+                                            type="number"
+                                            step="0.01"
+                                            class="form-control form-control-sm settlement-input"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id"
+                                            title="Bonus — added to net"
+                                            @change="savePayrollLine(line)"
+                                        />
+                                    </td>
                                     <td>
                                         <input
                                             v-model.number="line.absent_deduction"
@@ -183,7 +263,7 @@
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
-                                            :disabled="!canEditSheet || !line.monthly_wage_id || line.is_substitute"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id"
                                             title="PF + ESI + other deductions"
                                             @change="savePayrollLine(line)"
                                         />
@@ -196,7 +276,19 @@
                                             type="number"
                                             step="0.01"
                                             class="form-control form-control-sm settlement-input"
-                                            :disabled="!canEditSheet || !line.monthly_wage_id || line.is_substitute"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id"
+                                            @change="savePayrollLine(line)"
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            v-model.number="line.diesel_deduction"
+                                            v-no-scroll-change
+                                            type="number"
+                                            step="0.01"
+                                            class="form-control form-control-sm settlement-input"
+                                            :disabled="!canEditSheet || !line.monthly_wage_id"
+                                            title="Diesel paid separately — deducted from net"
                                             @change="savePayrollLine(line)"
                                         />
                                     </td>
@@ -236,7 +328,9 @@
                                                 monthLock.status === 'closed' &&
                                                 line.monthly_wage_id &&
                                                 line.payment_status !== 'paid' &&
-                                                Number(line.gross_earning) > 0
+                                                (Number(line.gross_earning) > 0 ||
+                                                    Number(line.substitute_pay) > 0 ||
+                                                    Number(line.net_salary) > 0)
                                             "
                                             type="button"
                                             class="btn btn-success btn-sm ms-1"
@@ -336,12 +430,21 @@
                 </div>
             </template>
         </div>
+
+        <SettlementActionConfirmModal
+            :show="pendingAction !== null"
+            :config="settlementConfirmConfig"
+            :processing="settlementConfirmProcessing"
+            @cancel="pendingAction = null"
+            @confirm="confirmSettlementAction"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import SettlementActionConfirmModal from '../../components/attendance/SettlementActionConfirmModal.vue';
 import {
     closeMonthWages,
     fetchSettlementSheet,
@@ -349,11 +452,13 @@ import {
     markAllMonthlyWagesPaid,
     markMonthlyWagePaid,
     reopenMonthWages,
+    unlockMonthWages,
     settlementSheetExportUrl,
     updateSettlementLine,
     updateVehicleSettlementLine,
 } from '../../api/attendances';
 import { usePermissions } from '../../composables/usePermissions';
+import { friendlyApiErrorMessage } from '../../utils/formErrors';
 
 const route = useRoute();
 const { canInCompany } = usePermissions();
@@ -362,9 +467,12 @@ const canManageWages = computed(() => canInCompany('wages.manage'));
 const canEditSheet = computed(() => canManageWages.value && monthLock.value.status !== 'paid');
 
 const loading = ref(true);
+const loadError = ref('');
 const closing = ref(false);
+const pendingAction = ref(null);
 const locking = ref(false);
 const reopening = ref(false);
+const unlocking = ref(false);
 const markingAll = ref(false);
 const markingDriverId = ref(null);
 const activeTab = ref('payroll');
@@ -393,9 +501,183 @@ const monthLockLabel = computed(() => {
     return 'Open';
 });
 
+const payDaysModeLabel = computed(() => {
+    const mode = sheet.value.payroll_pay_days_mode ?? 'calendar';
+
+    return mode === 'fixed_30' ? 'Fixed 30 days' : 'Calendar days';
+});
+
 const unpaidCount = computed(
     () => payrollLines.value.filter((line) => line.payment_status !== 'paid').length,
 );
+
+const payrollDriverCount = computed(
+    () => payrollLines.value.filter((line) => !line.is_substitute).length,
+);
+
+const monthLabel = computed(() => {
+    if (sheet.value.month_label) {
+        return sheet.value.month_label;
+    }
+
+    if (!selectedMonth.value) {
+        return '—';
+    }
+
+    const date = new Date(`${selectedMonth.value}-01T12:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return selectedMonth.value;
+    }
+
+    return date.toLocaleDateString('en-IN', {
+        month: 'long',
+        year: 'numeric',
+    });
+});
+
+const settlementConfirmProcessing = computed(() => {
+    if (pendingAction.value === 'close') {
+        return closing.value;
+    }
+
+    if (pendingAction.value === 'lock') {
+        return locking.value;
+    }
+
+    if (pendingAction.value === 'reopen') {
+        return reopening.value;
+    }
+
+    if (pendingAction.value === 'markAllPaid') {
+        return markingAll.value;
+    }
+
+    if (pendingAction.value === 'unlock') {
+        return unlocking.value;
+    }
+
+    return false;
+});
+
+const settlementConfirmConfig = computed(() => {
+    if (!pendingAction.value) {
+        return null;
+    }
+
+    const baseStats = [
+        { label: 'Pay days', value: payDaysModeLabel.value },
+        { label: 'Drivers on payroll', value: String(payrollLines.value.length) },
+    ];
+
+    if (pendingAction.value === 'close') {
+        const stats = [
+            ...baseStats,
+            { label: 'Trucks in attendance', value: String(vehicleMatrix.value.length) },
+        ];
+
+        return {
+            title: 'Confirm Close Month',
+            message: `Review ${monthLabel.value} before closing. This freezes attendance and generates payroll lines.`,
+            banner: 'Attendance for this month will be frozen and payroll register lines will be created.',
+            bannerIcon: 'bi-lock',
+            bannerTone: 'success',
+            icon: 'bi-question-circle',
+            iconTone: 'info',
+            monthLabel: monthLabel.value,
+            stats,
+            emptyNote:
+                vehicleMatrix.value.length === 0 && payrollLines.value.length === 0
+                    ? 'No attendance rows yet. Closing will still lock the month and create payroll when drivers are assigned.'
+                    : '',
+            confirmLabel: 'Yes, Close Month',
+            confirmIcon: 'bi-check-lg',
+            confirmClass: 'btn-success',
+        };
+    }
+
+    if (pendingAction.value === 'markAllPaid') {
+        return {
+            title: 'Confirm Mark All Paid',
+            message: `Mark all unpaid drivers as paid for ${monthLabel.value}.`,
+            banner: 'This records payment for every unpaid driver and locks the month automatically.',
+            bannerIcon: 'bi-cash-coin',
+            bannerTone: 'success',
+            icon: 'bi-question-circle',
+            iconTone: 'info',
+            monthLabel: monthLabel.value,
+            stats: [
+                ...baseStats,
+                { label: 'Unpaid drivers', value: String(unpaidCount.value) },
+            ],
+            emptyNote: unpaidCount.value === 0 ? 'All drivers are already marked paid.' : '',
+            confirmLabel: 'Yes, Mark All Paid',
+            confirmIcon: 'bi-check-lg',
+            confirmClass: 'btn-success',
+        };
+    }
+
+    if (pendingAction.value === 'lock') {
+        return {
+            title: 'Confirm Lock Month',
+            message: `Lock ${monthLabel.value} after payroll review and payment.`,
+            banner: 'Attendance exceptions cannot be changed after the month is locked.',
+            bannerIcon: 'bi-lock-fill',
+            bannerTone: 'warning',
+            icon: 'bi-shield-lock',
+            iconTone: 'warning',
+            monthLabel: monthLabel.value,
+            stats: [
+                ...baseStats,
+                { label: 'Unpaid drivers', value: String(unpaidCount.value) },
+            ],
+            emptyNote: unpaidCount.value > 0
+                ? 'Some drivers are still unpaid. You can lock anyway, but review payroll first.'
+                : '',
+            confirmLabel: 'Yes, Lock Month',
+            confirmIcon: 'bi-lock-fill',
+            confirmClass: 'btn-dark',
+        };
+    }
+
+    if (pendingAction.value === 'unlock') {
+        return {
+            title: 'Confirm Unlock Month',
+            message: `Unlock ${monthLabel.value} to adjust payroll before locking again.`,
+            banner: 'Unlocking returns the month to closed status so payments can still be edited.',
+            bannerIcon: 'bi-unlock',
+            bannerTone: 'warning',
+            icon: 'bi-unlock',
+            iconTone: 'warning',
+            monthLabel: monthLabel.value,
+            stats: baseStats,
+            emptyNote: '',
+            confirmLabel: 'Yes, Unlock Month',
+            confirmIcon: 'bi-unlock',
+            confirmClass: 'btn-warning',
+        };
+    }
+
+    if (pendingAction.value === 'reopen') {
+        return {
+            title: 'Confirm Reopen Month',
+            message: `Reopen ${monthLabel.value} for attendance edits and payroll recalculation.`,
+            banner: 'Reopening allows attendance exceptions to be changed again before the next close.',
+            bannerIcon: 'bi-unlock',
+            bannerTone: 'warning',
+            icon: 'bi-arrow-counterclockwise',
+            iconTone: 'warning',
+            monthLabel: monthLabel.value,
+            stats: baseStats,
+            emptyNote: '',
+            confirmLabel: 'Yes, Reopen Month',
+            confirmIcon: 'bi-arrow-counterclockwise',
+            confirmClass: 'btn-warning',
+        };
+    }
+
+    return null;
+});
 
 function currentMonth() {
     const now = new Date();
@@ -416,6 +698,10 @@ function dayCellClass(mark) {
 
     if (mark === 'A') {
         return 'bg-danger-subtle';
+    }
+
+    if (mark === 'S') {
+        return 'bg-warning-subtle';
     }
 
     if (mark === 'N') {
@@ -439,18 +725,29 @@ function downloadExcel() {
 }
 
 async function loadSheet() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
     loading.value = true;
+    loadError.value = '';
     flash.error = '';
 
     try {
         sheet.value = await fetchSettlementSheet(selectedMonth.value);
         payrollLines.value = (sheet.value.payroll_lines ?? []).map((line) => ({ ...line }));
         vehicleMatrix.value = (sheet.value.vehicle_matrix ?? []).map((row) => ({ ...row }));
-    } catch {
+
+        if (payrollLines.value.length === 0 && vehicleMatrix.value.length > 0 && activeTab.value === 'payroll') {
+            activeTab.value = 'vehicles';
+        }
+    } catch (error) {
         sheet.value = {};
         payrollLines.value = [];
         vehicleMatrix.value = [];
-        showToast('Unable to load settlement sheet.', 'error');
+        const message = friendlyApiErrorMessage(error, 'Unable to load settlement sheet.');
+        loadError.value = message;
+        showToast(message, 'error');
     } finally {
         loading.value = false;
     }
@@ -465,8 +762,10 @@ async function savePayrollLine(line) {
         const updated = await updateSettlementLine(line.monthly_wage_id, {
             absent_deduction: line.absent_deduction,
             base_salary: line.base_salary,
+            bonus: line.bonus,
             extra_deductions: line.extra_deductions,
             advance_deducted: line.advance_deducted,
+            diesel_deduction: line.diesel_deduction,
             round_net: line.round_net,
             remarks: line.remarks,
         });
@@ -475,6 +774,8 @@ async function savePayrollLine(line) {
         line.gross_earning = updated.gross_earning;
         line.total_advance = updated.total_advance;
         line.advance_deducted = updated.advance_deducted;
+        line.diesel_deduction = updated.diesel_deduction;
+        line.bonus = updated.bonus;
         line.extra_deductions =
             Number(updated.pf ?? 0) + Number(updated.esi ?? 0) + Number(updated.other_deduction ?? 0);
     } catch (error) {
@@ -501,31 +802,172 @@ async function saveVehicleLine(row) {
     }
 }
 
-async function handleCloseMonth() {
-    closing.value = true;
-
-    try {
-        await closeMonthWages(selectedMonth.value);
-        await loadSheet();
-        showToast('Month closed. Review payroll and truck sheets.');
-    } catch {
-        showToast('Unable to close month.', 'error');
-    } finally {
-        closing.value = false;
+async function refreshSheetForAction() {
+    if (!selectedMonth.value) {
+        return false;
     }
+
+    await loadSheet();
+
+    return true;
+}
+
+function handleCloseMonth() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    pendingAction.value = 'close';
 }
 
 async function handleMarkAllPaid() {
-    markingAll.value = true;
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    if (!(await refreshSheetForAction())) {
+        return;
+    }
+
+    if (monthLock.value.status === 'paid') {
+        showToast('This month is already locked.', 'error');
+
+        return;
+    }
+
+    if (unpaidCount.value === 0) {
+        showToast('All drivers are already marked paid.', 'error');
+
+        return;
+    }
+
+    pendingAction.value = 'markAllPaid';
+}
+
+async function handleLockMonth() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    if (!(await refreshSheetForAction())) {
+        return;
+    }
+
+    if (monthLock.value.status === 'paid') {
+        showToast('This month is already locked.', 'error');
+
+        return;
+    }
+
+    if (monthLock.value.status !== 'closed') {
+        showToast('Close the month before locking.', 'error');
+
+        return;
+    }
+
+    pendingAction.value = 'lock';
+}
+
+async function handleReopenMonth() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    if (!(await refreshSheetForAction())) {
+        return;
+    }
+
+    if (monthLock.value.status === 'paid') {
+        showToast('Unlock the month before reopening attendance.', 'error');
+
+        return;
+    }
+
+    if (monthLock.value.status !== 'closed') {
+        showToast('This month is not closed.', 'error');
+
+        return;
+    }
+
+    pendingAction.value = 'reopen';
+}
+
+async function handleUnlockMonth() {
+    if (!selectedMonth.value) {
+        return;
+    }
+
+    if (!(await refreshSheetForAction())) {
+        return;
+    }
+
+    if (monthLock.value.status !== 'paid') {
+        showToast('This month is not locked.', 'error');
+
+        return;
+    }
+
+    pendingAction.value = 'unlock';
+}
+
+async function confirmSettlementAction() {
+    if (!selectedMonth.value || !pendingAction.value) {
+        return;
+    }
+
+    const action = pendingAction.value;
+
+    if (action === 'close') {
+        closing.value = true;
+    } else if (action === 'lock') {
+        locking.value = true;
+    } else if (action === 'reopen') {
+        reopening.value = true;
+    } else if (action === 'markAllPaid') {
+        markingAll.value = true;
+    } else if (action === 'unlock') {
+        unlocking.value = true;
+    }
 
     try {
-        await markAllMonthlyWagesPaid(selectedMonth.value, {});
+        if (action === 'close') {
+            await closeMonthWages(selectedMonth.value);
+            activeTab.value = 'payroll';
+            showToast('Month closed. Review payroll and truck sheets.');
+        } else if (action === 'markAllPaid') {
+            await markAllMonthlyWagesPaid(selectedMonth.value, {});
+            showToast('All drivers marked paid. Month is now locked.');
+        } else if (action === 'lock') {
+            await lockMonthWages(selectedMonth.value);
+            showToast('Month locked.');
+        } else if (action === 'unlock') {
+            await unlockMonthWages(selectedMonth.value);
+            showToast('Month unlocked.');
+        } else if (action === 'reopen') {
+            await reopenMonthWages(selectedMonth.value);
+            showToast('Month reopened.');
+        }
+
+        pendingAction.value = null;
         await loadSheet();
-        showToast('All drivers marked paid.');
     } catch (error) {
-        showToast(error.response?.data?.message ?? 'Unable to mark all paid.', 'error');
+        const fallback = {
+            close: 'Unable to close month.',
+            markAllPaid: 'Unable to mark all paid.',
+            lock: 'Unable to lock month.',
+            unlock: 'Unable to unlock month.',
+            reopen: 'Unable to reopen.',
+        }[action];
+
+        pendingAction.value = null;
+        showToast(friendlyApiErrorMessage(error, fallback), 'error');
+        await loadSheet();
     } finally {
+        closing.value = false;
+        locking.value = false;
+        reopening.value = false;
         markingAll.value = false;
+        unlocking.value = false;
     }
 }
 
@@ -554,42 +996,6 @@ async function handleMarkDriverPaid(line) {
         showToast(error.response?.data?.message ?? 'Unable to mark driver paid.', 'error');
     } finally {
         markingDriverId.value = null;
-    }
-}
-
-async function handleLockMonth() {
-    if (!window.confirm('Lock this month? Attendance exceptions cannot be changed after lock.')) {
-        return;
-    }
-
-    locking.value = true;
-
-    try {
-        await lockMonthWages(selectedMonth.value);
-        await loadSheet();
-        showToast('Month locked.');
-    } catch (error) {
-        showToast(error.response?.data?.message ?? 'Unable to lock month.', 'error');
-    } finally {
-        locking.value = false;
-    }
-}
-
-async function handleReopenMonth() {
-    if (!window.confirm('Reopen month for attendance edits?')) {
-        return;
-    }
-
-    reopening.value = true;
-
-    try {
-        await reopenMonthWages(selectedMonth.value);
-        await loadSheet();
-        showToast('Month reopened.');
-    } catch (error) {
-        showToast(error.response?.data?.message ?? 'Unable to reopen.', 'error');
-    } finally {
-        reopening.value = false;
     }
 }
 

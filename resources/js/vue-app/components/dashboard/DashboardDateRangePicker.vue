@@ -1,6 +1,13 @@
 <template>
-    <div ref="rootElement" class="dashboard-date-range" :class="{ 'dashboard-date-range--open': isOpen }">
-        <label class="dashboard-date-range__label">{{ label }}</label>
+    <div
+        ref="rootElement"
+        class="dashboard-date-range"
+        :class="{
+            'dashboard-date-range--open': isOpen,
+            'dashboard-date-range--field': panelAlign === 'start',
+        }"
+    >
+        <label v-if="label" class="dashboard-date-range__label">{{ label }}</label>
 
         <button
             type="button"
@@ -10,7 +17,10 @@
             @click="toggleDropdown"
         >
             <i class="fas fa-calendar-days dashboard-date-range__icon" aria-hidden="true"></i>
-            <span class="dashboard-date-range__value">{{ appliedRangeLabel }}</span>
+            <span class="dashboard-date-range__value">
+                <span v-if="!label" class="dashboard-date-range__prefix">Period:</span>
+                {{ appliedRangeLabel }}
+            </span>
             <i
                 class="fas fa-chevron-down dashboard-date-range__chevron"
                 :class="{ 'dashboard-date-range__chevron--open': isOpen }"
@@ -18,7 +28,14 @@
             ></i>
         </button>
 
-        <div v-if="isOpen" class="dashboard-date-range__panel">
+        <div
+            v-if="isOpen"
+            class="dashboard-date-range__panel"
+            :class="{
+                'dashboard-date-range__panel--custom': draftPreset === 'custom',
+                'dashboard-date-range__panel--align-start': panelAlign === 'start',
+            }"
+        >
             <div class="dashboard-date-range__presets" role="listbox" aria-label="Date range presets">
                 <button
                     v-for="preset in selectablePresets"
@@ -104,6 +121,11 @@ const props = defineProps({
     presetKeys: {
         type: Array,
         default: null,
+    },
+    panelAlign: {
+        type: String,
+        default: 'end',
+        validator: (value) => ['start', 'end'].includes(value),
     },
 });
 
@@ -230,9 +252,21 @@ onUnmounted(() => {
 <style scoped>
 .dashboard-date-range {
     position: relative;
-    width: 100%;
+    width: auto;
     max-width: none;
     margin-left: auto;
+}
+
+.dashboard-date-range--field {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+}
+
+.dashboard-date-range__prefix {
+    color: #64748b;
+    font-weight: 600;
+    margin-right: 0.35rem;
 }
 
 .dashboard-date-range--open {
@@ -304,6 +338,16 @@ onUnmounted(() => {
     border-radius: 0.65rem;
     background: #fff;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    box-sizing: border-box;
+}
+
+.dashboard-date-range__panel--custom {
+    width: 20rem;
+}
+
+.dashboard-date-range__panel--align-start {
+    right: auto;
+    left: 0;
 }
 
 .dashboard-date-range__presets {
@@ -335,11 +379,21 @@ onUnmounted(() => {
 
 .dashboard-date-range__custom {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0.65rem;
     margin-top: 0.75rem;
     padding-top: 0.75rem;
     border-top: 1px solid #e2e8f0;
+}
+
+.dashboard-date-range__custom > div {
+    min-width: 0;
+}
+
+.dashboard-date-range__custom input[type='date'] {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .dashboard-date-range__actions {

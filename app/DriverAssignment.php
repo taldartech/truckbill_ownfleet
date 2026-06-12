@@ -47,6 +47,27 @@ class DriverAssignment extends Model
     /**
      * @param  Builder<DriverAssignment>  $query
      */
+    public function scopeOverlappingPrimaryPeriod(
+        Builder $query,
+        string $periodFrom,
+        ?string $periodTo = null,
+    ): void {
+        $query->where('is_primary', true)
+            ->where(function (Builder $overlap) use ($periodFrom, $periodTo): void {
+                if ($periodTo !== null) {
+                    $overlap->whereDate('assigned_from', '<=', $periodTo);
+                }
+
+                $overlap->where(function (Builder $endBound) use ($periodFrom): void {
+                    $endBound->whereNull('assigned_to')
+                        ->orWhereDate('assigned_to', '>=', $periodFrom);
+                });
+            });
+    }
+
+    /**
+     * @param  Builder<DriverAssignment>  $query
+     */
     public function scopeActivePrimaryOn(Builder $query, ?string $asOfDate = null): void
     {
         $asOf = $asOfDate ?? Carbon::today()->toDateString();

@@ -39,6 +39,94 @@ class AttendanceMonthLockService
         }
     }
 
+    public function isMonthOpen(string $month): bool
+    {
+        return $this->statusForMonth($month) === AttendanceMonthStatus::Open;
+    }
+
+    public function periodHasNonOpenMonth(string $from, ?string $to = null): bool
+    {
+        return $this->lockedMonthsInPeriod($from, $to) !== [];
+    }
+
+    /**
+     * @return list<array{month: string, label: string, status: string}>
+     */
+    public function lockedMonthsInPeriod(string $from, ?string $to = null): array
+    {
+        $locked = [];
+
+        foreach ($this->monthsInPeriod($from, $to) as $month) {
+            $status = $this->statusForMonth($month);
+
+            if ($status === AttendanceMonthStatus::Open) {
+                continue;
+            }
+
+            $locked[] = [
+                'month' => $month,
+                'label' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),
+                'status' => $status->value,
+            ];
+        }
+
+        return $locked;
+    }
+
+    public function formatLockedMonthsList(string $from, ?string $to = null): string
+    {
+        return collect($this->lockedMonthsInPeriod($from, $to))
+            ->map(function (array $month): string {
+                $statusLabel = $month['status'] === AttendanceMonthStatus::Paid->value ? 'Locked' : 'Closed';
+
+                return "{$month['label']} ({$statusLabel})";
+            })
+            ->join(', ');
+    }
+
+    public function assertPeriodIsOpen(string $from, ?string $to = null, ?string $truckLabel = null): void
+    {
+        $lockedMonths = $this->lockedMonthsInPeriod($from, $to);
+
+        if ($lockedMonths === []) {
+            return;
+        }
+
+        $periodLabel = $this->formatDateRangeLabel($from, $to);
+        $monthsLabel = $this->formatLockedMonthsList($from, $to);
+        $truckPrefix = $truckLabel !== null ? "Truck {$truckLabel}: " : '';
+
+        throw ValidationException::withMessages([
+            'assigned_from' => [
+                "{$truckPrefix}Assignment period {$periodLabel} overlaps closed/locked payroll month(s): {$monthsLabel}.",
+            ],
+        ]);
+    }
+
+    private function formatDateRangeLabel(string $from, ?string $to): string
+    {
+        $fromLabel = Carbon::parse($from)->format('d M, Y');
+        $toLabel = $to !== null ? Carbon::parse($to)->format('d M, Y') : 'Current';
+
+        return "{$fromLabel} to {$toLabel}";
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function monthsInPeriod(string $from, ?string $to): array
+    {
+        $start = Carbon::parse($from)->startOfMonth();
+        $end = Carbon::parse($to ?? Carbon::today()->toDateString())->endOfMonth();
+        $months = [];
+
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addMonth()) {
+            $months[] = $cursor->format('Y-m');
+        }
+
+        return $months;
+    }
+
     public function closeMonth(string $month, ?string $actorId = null): AttendanceMonthLock
     {
         [$monthStart] = $this->monthBoundaries($month);

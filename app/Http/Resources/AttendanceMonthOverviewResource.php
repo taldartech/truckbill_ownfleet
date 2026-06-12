@@ -26,6 +26,7 @@ class AttendanceMonthOverviewResource extends JsonResource
         return [
             'summary' => $payload['summary'],
             'rows' => $payload['rows'],
+            'substitute_busy_by_date' => $payload['substitute_busy_by_date'] ?? [],
             'month_lock' => $payload['month_lock'] ?? [
                 'status' => 'open',
                 'closed_at' => null,

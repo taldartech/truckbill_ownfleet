@@ -111,6 +111,8 @@ class DriverAdvanceLedgerTest extends TestCase
 
         $this->assertIsArray($line);
         $this->assertArrayHasKey('advance_deducted', $line);
+        $this->assertArrayHasKey('diesel_deduction', $line);
+        $this->assertArrayHasKey('bonus', $line);
         $this->assertArrayHasKey('total_advance', $line);
     }
 
@@ -142,6 +144,77 @@ class DriverAdvanceLedgerTest extends TestCase
             'id' => $wageId,
             'driver_id' => $driver->id,
             'advance_deducted' => 9999,
+        ]);
+    }
+
+    public function test_settlement_patch_bonus_increases_net_salary(): void
+    {
+        [$tenant, $user, , $driver] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        $sheet = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/settlement-sheet?month=2026-06');
+
+        $line = $sheet->json('data.payroll_lines.0');
+        $wageId = $line['monthly_wage_id'];
+        $gross = (float) $line['gross_earning'];
+
+        $patch = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson("/api/monthly-driver-wages/{$wageId}/settlement", [
+                'bonus' => 1500,
+                'extra_deductions' => 0,
+                'advance_deducted' => 0,
+                'diesel_deduction' => 0,
+            ]);
+
+        $patch->assertOk();
+        $patch->assertJsonPath('data.bonus', '1500.00');
+        $patch->assertJsonPath('data.net_salary', number_format($gross + 1500, 2, '.', ''));
+
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'id' => $wageId,
+            'driver_id' => $driver->id,
+            'bonus' => 1500,
+        ]);
+    }
+
+    public function test_settlement_patch_diesel_deduction_reduces_net_salary(): void
+    {
+        [$tenant, $user, , $driver] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        $sheet = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/settlement-sheet?month=2026-06');
+
+        $line = $sheet->json('data.payroll_lines.0');
+        $wageId = $line['monthly_wage_id'];
+        $gross = (float) $line['gross_earning'];
+
+        $patch = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson("/api/monthly-driver-wages/{$wageId}/settlement", [
+                'diesel_deduction' => 2500,
+                'extra_deductions' => 0,
+                'advance_deducted' => 0,
+            ]);
+
+        $patch->assertOk();
+        $patch->assertJsonPath('data.diesel_deduction', '2500.00');
+        $patch->assertJsonPath('data.net_salary', number_format($gross - 2500, 2, '.', ''));
+
+        $this->assertDatabaseHas('monthly_driver_wages', [
+            'id' => $wageId,
+            'driver_id' => $driver->id,
+            'diesel_deduction' => 2500,
         ]);
     }
 

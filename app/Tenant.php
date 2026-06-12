@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Concerns\UsesUuid;
+use App\Enums\PayrollPayDaysMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,6 +31,14 @@ class Tenant extends Model
         'plan_end_date',
         'lr_credits',
         'truck_credits',
+        'payroll_pay_days_mode',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'payroll_pay_days_mode' => 'calendar',
     ];
 
     protected function casts(): array
@@ -40,6 +49,7 @@ class Tenant extends Model
             'plan_end_date' => 'date',
             'lr_credits' => 'integer',
             'truck_credits' => 'integer',
+            'payroll_pay_days_mode' => PayrollPayDaysMode::class,
         ];
     }
 

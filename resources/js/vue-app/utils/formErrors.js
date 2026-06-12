@@ -7,7 +7,7 @@ function sanitizeApiMessage(message) {
         return 'Database update required. Run: php artisan migrate';
     }
 
-    if (message.length > 280) {
+    if (message.length > 400) {
         return 'Something went wrong. Please try again.';
     }
 
@@ -19,9 +19,14 @@ export function extractValidationErrors(error) {
     const data = error?.response?.data;
 
     if (status === 422) {
+        const fieldErrors = data?.errors ?? {};
+        const firstFieldMessage = Object.values(fieldErrors)
+            .flat()
+            .find((value) => typeof value === 'string' && value.length > 0);
+
         return {
-            fieldErrors: data?.errors ?? {},
-            message: sanitizeApiMessage(data?.message),
+            fieldErrors,
+            message: firstFieldMessage ?? sanitizeApiMessage(data?.message),
         };
     }
 
@@ -44,6 +49,12 @@ export function extractValidationErrors(error) {
  * User-facing message for non-validation API failures.
  */
 export function friendlyApiErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
+    const { message } = extractValidationErrors(error);
+
+    if (message) {
+        return message;
+    }
+
     const raw = error?.response?.data?.message;
 
     if (typeof raw === 'string' && raw.includes('Column not found')) {

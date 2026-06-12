@@ -17,7 +17,7 @@
                     <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
                 </div>
                 <div class="modal-body">
-                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+                    <div v-if="assignmentErrorMessage" class="alert alert-danger py-2">{{ assignmentErrorMessage }}</div>
                     <div v-if="hasActivePrimary" class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <div>
                             <strong>Current driver:</strong> {{ currentDriverName }}
@@ -207,7 +207,9 @@
                                                     :disabled="row.has_paid_attendance || deletingId === row.id"
                                                     :title="
                                                         row.has_paid_attendance
-                                                            ? 'Cannot edit — wage payment recorded in attendance'
+                                                            ? row.is_period_locked
+                                                                ? 'Cannot edit — payroll month is closed or locked'
+                                                                : 'Cannot edit — wage payment recorded in attendance'
                                                             : 'Edit assignment'
                                                     "
                                                     @click="startEdit(row)"
@@ -217,7 +219,9 @@
                                                     :disabled="row.has_paid_attendance || deletingId === row.id"
                                                     :title="
                                                         row.has_paid_attendance
-                                                            ? 'Cannot delete — wage payment recorded in attendance'
+                                                            ? row.is_period_locked
+                                                                ? 'Cannot delete — payroll month is closed or locked'
+                                                                : 'Cannot delete — wage payment recorded in attendance'
                                                             : 'Delete assignment'
                                                     "
                                                     @click="deleteAssignment(row)"
@@ -301,6 +305,14 @@ const hasActivePrimary = computed(() => Boolean(primarySummary.value.has_active_
 const currentDriverName = computed(() => primarySummary.value.assignment?.driver?.name ?? null);
 
 const currentAssignedFrom = computed(() => primarySummary.value.assignment?.assigned_from ?? null);
+
+const assignmentErrorMessage = computed(
+    () =>
+        fieldErrorMessage(fieldErrors.value, 'driver_assignment')
+        || fieldErrorMessage(fieldErrors.value, 'assigned_from')
+        || formError.value
+        || '',
+);
 
 const unassignedDrivers = computed(() =>
     drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),

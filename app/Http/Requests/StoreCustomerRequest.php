@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\City;
 use App\Customer;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
+use App\Http\Requests\Concerns\ValidatesPartyIdentity;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,10 +14,12 @@ use Illuminate\Validation\Validator;
 class StoreCustomerRequest extends FormRequest
 {
     use NormalizesContactNumber;
+    use ValidatesPartyIdentity;
 
     protected function prepareForValidation(): void
     {
         $this->normalizeContactNumberInput();
+        $this->normalizePartyIdentityFields();
     }
 
     public function authorize(): bool
@@ -45,10 +48,10 @@ class StoreCustomerRequest extends FormRequest
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'agency_id' => ['nullable', 'integer', 'min:1'],
-            'gst_number' => ['nullable', 'string', 'max:255'],
-            'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
+            'gst_number' => $this->partyGstNumberRules('customers'),
+            'pan_number' => $this->partyPanNumberRules('customers'),
             'address' => ['nullable', 'string', 'max:2000'],
-            'contact_number' => $this->contactNumberRules(),
+            'contact_number' => $this->partyContactNumberRules('customers'),
         ];
     }
 
@@ -57,7 +60,10 @@ class StoreCustomerRequest extends FormRequest
      */
     public function messages(): array
     {
-        return $this->contactNumberMessages();
+        return [
+            ...$this->contactNumberMessages(),
+            ...$this->partyIdentityMessages(),
+        ];
     }
 
     public function withValidator(Validator $validator): void

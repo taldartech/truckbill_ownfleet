@@ -45,41 +45,16 @@
 
                         <div v-if="form.exception_type === 'ABSENT_SUBSTITUTE'" class="mb-3">
                             <label :for="`${modalId}_temp`" class="form-label">Substitute Driver *</label>
-                            <select
-                                :id="`${modalId}_temp`"
+                            <SearchableSelect
+                                :input-id="`${modalId}_temp`"
                                 v-model="form.temporary_driver_id"
-                                class="form-select"
-                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'temporary_driver_id') }"
-                                required
-                            >
-                                <option value="">Select substitute</option>
-                                <optgroup v-if="availableSubstituteDrivers.length" label="Available">
-                                    <option
-                                        v-for="driver in availableSubstituteDrivers"
-                                        :key="driver.id"
-                                        :value="driver.id"
-                                    >
-                                        {{ driverLabel(driver) }}
-                                    </option>
-                                </optgroup>
-                                <optgroup v-if="busySubstituteDrivers.length" label="Already assigned on this date">
-                                    <option
-                                        v-for="entry in busySubstituteDrivers"
-                                        :key="entry.driver.id"
-                                        :value="entry.driver.id"
-                                        disabled
-                                        class="substitute-option-busy"
-                                    >
-                                        {{ driverLabel(entry.driver) }} — {{ entry.busyLabel }}
-                                    </option>
-                                </optgroup>
-                            </select>
-                            <div
-                                v-if="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
-                                class="invalid-feedback d-block"
-                            >
-                                {{ fieldErrorMessage(fieldErrors, 'temporary_driver_id') }}
-                            </div>
+                                :items="substituteSelectItems"
+                                placeholder="Select substitute"
+                                search-placeholder="Search driver name…"
+                                empty-message="No matching drivers."
+                                :invalid="hasFieldError(fieldErrors, 'temporary_driver_id')"
+                                :error-message="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
+                            />
                         </div>
 
                         <div class="mb-0">
@@ -116,6 +91,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
     buildBusySubstituteDriversByDate,
@@ -156,7 +132,6 @@ const busySubstituteDriversByDate = computed(() =>
     buildBusySubstituteDriversByDate({
         date: form.value.attendance_date,
         monthOverview: props.monthOverview,
-        vehicles: props.vehicles,
         excludeAttendanceId: props.attendance?.id ?? null,
     }),
 );
@@ -196,6 +171,22 @@ const busySubstituteDrivers = computed(() =>
         }))
         .sort((left, right) => left.driver.name.localeCompare(right.driver.name)),
 );
+
+const substituteSelectItems = computed(() => {
+    const available = availableSubstituteDrivers.value.map((driver) => ({
+        id: driver.id,
+        name: driverLabel(driver),
+    }));
+
+    const busy = busySubstituteDrivers.value.map((entry) => ({
+        id: entry.driver.id,
+        name: driverLabel(entry.driver),
+        hint: `Busy — ${entry.busyLabel}`,
+        disabled: true,
+    }));
+
+    return [...available, ...busy];
+});
 
 function driverLabel(driver) {
     const name = driver?.name ?? '—';
@@ -373,11 +364,10 @@ function submit() {
     }
 
     if (isEdit.value && form.value.exception_type === 'BLANK') {
-        if (!window.confirm('Clear this mark? Day will go back to default present (P).')) {
-            return;
-        }
-
-        emit('delete', props.attendance);
+        emit('delete', {
+            record: props.attendance,
+            exception_type: 'BLANK',
+        });
 
         return;
     }
@@ -400,6 +390,7 @@ function submit() {
         marked_via: 'admin_panel',
         temporary_assignment_remarks: form.value.temporary_assignment_remarks || null,
         temporary_driver_id: statusPayload.temporary_driver_id,
+        exception_type: form.value.exception_type,
     });
 }
 </script>

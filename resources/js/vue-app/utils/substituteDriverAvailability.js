@@ -1,12 +1,14 @@
 /**
- * @typedef {{ driverId: string, kind: 'primary' | 'substitute', vehicleLabel: string }} BusySubstituteEntry
+ * @typedef {{ driverId: string, kind: 'trip' | 'substitute', vehicleLabel: string, tripNumber?: string|null }} BusySubstituteEntry
  */
 
 /**
  * @param {{
  *   date: string,
- *   monthOverview?: { rows?: Array<{ vehicle_id?: string, vehicle_label?: string, days?: Record<string, object> }> },
- *   vehicles?: Array<object>,
+ *   monthOverview?: {
+ *     rows?: Array<{ vehicle_id?: string, vehicle_label?: string, days?: Record<string, object> }>,
+ *     substitute_busy_by_date?: Record<string, Record<string, BusySubstituteEntry>>,
+ *   },
  *   excludeAttendanceId?: string | null,
  * }} context
  * @returns {Map<string, BusySubstituteEntry>}
@@ -14,7 +16,6 @@
 export function buildBusySubstituteDriversByDate({
     date,
     monthOverview = { rows: [] },
-    vehicles = [],
     excludeAttendanceId = null,
 }) {
     /** @type {Map<string, BusySubstituteEntry>} */
@@ -29,16 +30,6 @@ export function buildBusySubstituteDriversByDate({
 
         if (!cell) {
             continue;
-        }
-
-        const primaryId = cell.primary_driver_id;
-
-        if (primaryId) {
-            busy.set(String(primaryId), {
-                driverId: String(primaryId),
-                kind: 'primary',
-                vehicleLabel: row.vehicle_label ?? '—',
-            });
         }
 
         const substituteId = cell.temporary_driver_id;
@@ -58,31 +49,19 @@ export function buildBusySubstituteDriversByDate({
         });
     }
 
-    for (const vehicle of vehicles) {
-        const row = (monthOverview.rows ?? []).find((item) => item.vehicle_id === vehicle.id);
+    const tripBusy = monthOverview.substitute_busy_by_date?.[date] ?? {};
 
-        if (row?.days?.[date]) {
+    for (const [driverId, entry] of Object.entries(tripBusy)) {
+        if (busy.has(driverId)) {
             continue;
         }
 
-        const primaryId =
-            vehicle.primary_driver_id ??
-            vehicle.current_primary_assignment?.driver_id ??
-            vehicle.current_primary_assignment?.driver?.id;
-
-        if (!primaryId) {
-            continue;
-        }
-
-        const key = String(primaryId);
-
-        if (!busy.has(key)) {
-            busy.set(key, {
-                driverId: key,
-                kind: 'primary',
-                vehicleLabel: vehicle.registration_number ?? '—',
-            });
-        }
+        busy.set(driverId, {
+            driverId,
+            kind: 'trip',
+            vehicleLabel: entry.vehicle_label ?? '—',
+            tripNumber: entry.trip_number ?? null,
+        });
     }
 
     return busy;
@@ -104,5 +83,9 @@ export function substituteBusyLabel(entry) {
         return `Already substitute on ${entry.vehicleLabel}`;
     }
 
-    return `Already primary on ${entry.vehicleLabel}`;
+    if (entry.tripNumber) {
+        return `On trip ${entry.tripNumber} (${entry.vehicleLabel})`;
+    }
+
+    return `On trip (${entry.vehicleLabel})`;
 }

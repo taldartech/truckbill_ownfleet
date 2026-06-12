@@ -12,6 +12,7 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -256,6 +257,63 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonValidationErrors(['driver_id']);
     }
 
+    public function test_backdated_open_assignment_is_blocked_when_driver_has_bounded_assignment_on_another_truck(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicleA = $this->createVehicle($tenant);
+        $vehicleB = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'jan 2', 700);
+
+        Sanctum::actingAs($user);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleA->id,
+            'assigned_from' => '2026-01-11',
+            'assigned_to' => '2026-01-20',
+            'is_primary' => true,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleB->id,
+                'assigned_from' => '2026-01-01',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_id']);
+    }
+
+    public function test_bounded_assignment_is_blocked_when_driver_has_open_assignment_on_another_truck(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicleA = $this->createVehicle($tenant);
+        $vehicleB = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'jan 2', 700);
+
+        Sanctum::actingAs($user);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleB->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleA->id,
+                'assigned_from' => '2026-01-11',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_id']);
+    }
+
     public function test_truck_replaces_existing_primary_driver_without_overlap_error(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
@@ -423,7 +481,7 @@ class AttendancePhaseOneTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.driver_id', $driver->id)
             ->assertJsonPath('data.0.payable_days', 2)
-            ->assertJsonPath('data.0.total_wage', '66.66');
+            ->assertJsonPath('data.0.total_wage', '66.67');
 
         $this->assertDatabaseHas('monthly_driver_wages', [
             'tenant_id' => $tenant->id,
@@ -588,6 +646,67 @@ class AttendancePhaseOneTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.vehicle.id', $vehicleA->id);
+    }
+
+    public function test_month_overview_shows_current_driver_when_truck_has_multiple_assignments(): void
+    {
+        Carbon::setTestNow('2026-06-25 10:00:00');
+
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driverA = $this->createDriver($tenant, 'Driver A', 700.00);
+        $driverB = $this->createDriver($tenant, 'Driver B', 800.00);
+        $driverC = $this->createDriver($tenant, 'Vikas', 900.00);
+
+        $month = now()->startOfMonth();
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverA->id,
+            'assigned_from' => $month->toDateString(),
+            'assigned_to' => $month->copy()->addDays(9)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverB->id,
+            'assigned_from' => $month->copy()->addDays(10)->toDateString(),
+            'assigned_to' => $month->copy()->addDays(19)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverC->id,
+            'assigned_from' => $month->copy()->addDays(20)->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/month-overview?from_date='.$month->toDateString().'&to_date='.$month->copy()->endOfMonth()->toDateString());
+
+        $response->assertOk();
+        $response->assertJsonPath('data.rows.0.driver_name', 'Vikas');
+        $response->assertJsonPath(
+            'data.rows.0.days.'.$month->copy()->addDays(5)->toDateString().'.primary_driver_name',
+            'Driver A',
+        );
+        $response->assertJsonPath(
+            'data.rows.0.days.'.$month->copy()->addDays(15)->toDateString().'.primary_driver_name',
+            'Driver B',
+        );
+        $response->assertJsonPath(
+            'data.rows.0.days.'.$month->copy()->addDays(25)->toDateString().'.primary_driver_name',
+            'Vikas',
+        );
+
+        Carbon::setTestNow();
     }
 
     /**

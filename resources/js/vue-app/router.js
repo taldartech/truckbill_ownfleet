@@ -150,6 +150,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'tyres.view' },
                 },
                 {
+                    path: 'trucks/:vehicleId',
+                    name: 'trucks.show',
+                    component: () => import('./pages/trucks/TruckDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'vehicles.view' },
+                },
+                {
                     path: 'tyres/:id',
                     name: 'tyres.show',
                     component: () => import('./pages/tyres/TyreDetailPage.vue'),

@@ -46,9 +46,12 @@
                         :key="item.id"
                         type="button"
                         class="dropdown-item picker-option"
+                        :class="{ 'picker-option-disabled': item.disabled }"
+                        :disabled="item.disabled"
                         @click="selectItem(item)"
                     >
-                        {{ item.name ?? item.label }}
+                        <span>{{ item.name ?? item.label }}</span>
+                        <span v-if="item.hint" class="picker-option-hint"> — {{ item.hint }}</span>
                     </button>
                     <div v-if="filteredItems.length === 0" class="px-3 py-2 text-muted small">
                         {{ emptyMessage }}
@@ -108,8 +111,9 @@ const filteredItems = computed(() => {
 
     return props.items.filter((item) => {
         const label = String(item.name ?? item.label ?? '').toLowerCase();
+        const hint = String(item.hint ?? '').toLowerCase();
 
-        return label.includes(query);
+        return label.includes(query) || hint.includes(query);
     });
 });
 
@@ -157,6 +161,10 @@ function clearSelection() {
 }
 
 function selectItem(item) {
+    if (item.disabled) {
+        return;
+    }
+
     emit('update:modelValue', item.id);
     isOpen.value = false;
 }
@@ -255,5 +263,15 @@ watch(
     width: 100%;
     text-align: left;
     white-space: normal;
+}
+
+.picker-option-disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.picker-option-hint {
+    color: #6c757d;
+    font-size: 0.85em;
 }
 </style>

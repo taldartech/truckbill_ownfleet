@@ -5,20 +5,21 @@
                 <i class="fas fa-shield-halved me-2 text-warning"></i>
                 Compliance Alerts
             </h6>
-            <button
-                v-if="hasMore"
-                type="button"
-                class="btn btn-link dashboard-panel__link p-0"
+            <AppButton
+                v-if="showViewAll"
+                size="sm"
+                outline
+                variant="primary"
+                label="View all"
+                icon="fas fa-list-ul"
                 @click="$emit('view-all')"
-            >
-                View all
-            </button>
+            />
         </div>
 
         <div v-if="loading" class="dashboard-panel__empty text-muted">Loading alerts…</div>
         <div v-else-if="isEmpty" class="dashboard-panel__empty text-muted">No compliance alerts right now.</div>
 
-        <template v-else>
+        <div v-else class="dashboard-panel__body">
             <div v-if="documents.length" class="mb-3">
                 <div class="dashboard-panel__subtitle">Vehicle documents</div>
                 <div class="table-responsive">
@@ -93,12 +94,14 @@
                     </table>
                 </div>
             </div>
-        </template>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import AppButton from '../ui/AppButton.vue';
+import { formatDate } from '../../utils/datetime';
 
 const props = defineProps({
     documents: {
@@ -127,23 +130,7 @@ defineEmits(['view-all', 'edit-document', 'edit-license']);
 
 const isEmpty = computed(() => props.documents.length === 0 && props.licenses.length === 0);
 
-const hasMore = computed(() => {
-    const shown = props.documents.length + props.licenses.length;
-
-    return props.totalCount > shown;
-});
-
-function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(`${value}T00:00:00`).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
+const showViewAll = computed(() => !props.loading && props.totalCount > 0);
 
 function statusBadgeClass(status) {
     return status === 'expired' ? 'text-bg-danger' : 'text-bg-warning';
@@ -170,10 +157,14 @@ function statusLabel(item) {
 
 <style scoped>
 .dashboard-panel {
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--brand-border, #e2e8f0);
-    border-radius: 0.85rem;
-    background: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.25rem;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 1.25rem;
+    background: linear-gradient(185deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.02);
 }
 
 .dashboard-panel__head {
@@ -181,14 +172,21 @@ function statusLabel(item) {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.85rem;
+    flex-shrink: 0;
 }
 
 .dashboard-panel__title {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     font-weight: 700;
     color: #0f172a;
+}
+
+.dashboard-panel__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .dashboard-panel__subtitle {
@@ -198,12 +196,6 @@ function statusLabel(item) {
     color: var(--brand-text-muted, #64748b);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-}
-
-.dashboard-panel__link {
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
 }
 
 .dashboard-panel__empty {

@@ -64,6 +64,7 @@ class VehicleResource extends JsonResource
                         : null,
                 ],
             ),
+            'documents' => VehicleDocumentResource::collection($this->whenLoaded('documents')),
         ];
     }
 

@@ -19,6 +19,7 @@ class UpdateMonthlySettlementLineRequest extends FormRequest
     {
         return [
             'gross_earning' => ['nullable', 'numeric', 'min:0'],
+            'bonus' => ['nullable', 'numeric', 'min:0'],
             'absent_deduction' => ['nullable', 'numeric', 'min:0'],
             'base_salary' => ['nullable', 'numeric', 'min:0'],
             'extra_deductions' => ['nullable', 'numeric', 'min:0'],
@@ -29,6 +30,7 @@ class UpdateMonthlySettlementLineRequest extends FormRequest
             'other_deduction' => ['nullable', 'numeric', 'min:0'],
             'round_net' => ['nullable', 'boolean'],
             'advance_deducted' => ['nullable', 'numeric', 'min:0'],
+            'diesel_deduction' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ];
     }

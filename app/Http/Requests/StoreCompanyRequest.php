@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\PayrollPayDaysMode;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCompanyRequest extends FormRequest
 {
@@ -26,6 +28,19 @@ class StoreCompanyRequest extends FormRequest
             'contact_person' => ['nullable', 'string', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:30'],
             'timezone' => ['nullable', 'string', 'max:64'],
+            'payroll_pay_days_mode' => ['nullable', Rule::enum(PayrollPayDaysMode::class)],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (
+            ! $this->filled('payroll_pay_days_mode')
+            || $this->input('payroll_pay_days_mode') === ''
+        ) {
+            $this->merge([
+                'payroll_pay_days_mode' => PayrollPayDaysMode::Calendar->value,
+            ]);
+        }
     }
 }

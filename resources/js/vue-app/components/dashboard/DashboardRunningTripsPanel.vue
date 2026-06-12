@@ -48,6 +48,7 @@
 <script setup>
 import { computed } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
+import { formatDateTime } from '../../utils/datetime';
 
 const props = defineProps({
     trips: {
@@ -74,18 +75,6 @@ function openTrip(tripId) {
     router.push({ name: 'trips.edit', params: { id: tripId } });
 }
 
-function formatDateTime(value) {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
 </script>
 
 <style scoped>

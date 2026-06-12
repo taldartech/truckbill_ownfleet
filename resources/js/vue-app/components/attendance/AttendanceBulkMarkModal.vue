@@ -25,18 +25,16 @@
 
                         <div class="mb-3">
                             <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
-                            <select
-                                :id="`${modalId}_vehicle`"
+                            <SearchableSelect
+                                :input-id="`${modalId}_vehicle`"
                                 v-model="form.vehicle_id"
-                                class="form-select"
-                                :class="{ 'is-invalid': fieldErrors.vehicle_id }"
-                                required
-                            >
-                                <option value="">Select truck</option>
-                                <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                                    {{ vehicle.registration_number }}
-                                </option>
-                            </select>
+                                :items="vehicleSelectItems"
+                                placeholder="Select truck"
+                                search-placeholder="Search truck or driver…"
+                                empty-message="No matching trucks."
+                                :invalid="Boolean(fieldErrors.vehicle_id)"
+                                :error-message="fieldErrors.vehicle_id"
+                            />
                         </div>
 
                         <div class="row mb-3">
@@ -74,17 +72,14 @@
 
                         <div v-if="form.attendance_type === 'ABSENT_SUBSTITUTE'" class="mb-3">
                             <label :for="`${modalId}_sub`" class="form-label">Substitute Driver *</label>
-                            <select
-                                :id="`${modalId}_sub`"
+                            <SearchableSelect
+                                :input-id="`${modalId}_sub`"
                                 v-model="form.temporary_driver_id"
-                                class="form-select"
-                                required
-                            >
-                                <option value="">Select substitute</option>
-                                <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                                    {{ driver.name }}
-                                </option>
-                            </select>
+                                :items="substituteSelectItems"
+                                placeholder="Select substitute"
+                                search-placeholder="Search driver name…"
+                                empty-message="No matching drivers."
+                            />
                         </div>
 
                         <div class="mb-3">
@@ -112,6 +107,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -141,6 +137,71 @@ const form = ref({
     temporary_assignment_remarks: '',
 });
 
+const selectedVehicle = computed(() =>
+    props.vehicles.find((vehicle) => vehicle.id === form.value.vehicle_id) ?? null,
+);
+
+const selectedPrimaryDriverId = computed(() => resolveVehiclePrimaryDriverId(selectedVehicle.value));
+
+const vehicleSelectItems = computed(() =>
+    [...props.vehicles]
+        .sort((left, right) =>
+            String(left.registration_number ?? '').localeCompare(String(right.registration_number ?? '')),
+        )
+        .map((vehicle) => ({
+            id: vehicle.id,
+            name: vehicleOptionLabel(vehicle),
+        })),
+);
+
+const substituteSelectItems = computed(() =>
+    props.drivers
+        .filter(
+            (driver) =>
+                driver.is_active !== false && String(driver.id) !== String(selectedPrimaryDriverId.value ?? ''),
+        )
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((driver) => ({
+            id: driver.id,
+            name: driverLabel(driver),
+        })),
+);
+
+function resolveVehiclePrimaryDriverId(vehicle) {
+    if (!vehicle) {
+        return '';
+    }
+
+    return (
+        vehicle.primary_driver_id ??
+        vehicle.current_primary_assignment?.driver_id ??
+        vehicle.current_primary_assignment?.driver?.id ??
+        ''
+    );
+}
+
+function vehicleDriverName(vehicle) {
+    return (
+        vehicle?.current_primary_assignment?.driver?.name ??
+        vehicle?.primary_driver?.name ??
+        props.drivers.find((driver) => driver.id === resolveVehiclePrimaryDriverId(vehicle))?.name ??
+        'No driver'
+    );
+}
+
+function vehicleOptionLabel(vehicle) {
+    const truck = vehicle?.registration_number ?? '—';
+    const driver = vehicleDriverName(vehicle);
+
+    return `${truck} — ${driver}`;
+}
+
+function driverLabel(driver) {
+    const name = driver?.name ?? '—';
+
+    return driver?.is_active === false ? `${name} (Inactive)` : name;
+}
+
 watch(
     () => props.show,
     (visible) => {
@@ -159,6 +220,27 @@ watch(
             bootstrapModal.show();
         } else {
             bootstrapModal.hide();
+        }
+    },
+);
+
+watch(
+    () => form.value.vehicle_id,
+    () => {
+        if (
+            form.value.temporary_driver_id &&
+            String(form.value.temporary_driver_id) === String(selectedPrimaryDriverId.value)
+        ) {
+            form.value.temporary_driver_id = '';
+        }
+    },
+);
+
+watch(
+    () => form.value.attendance_type,
+    (type) => {
+        if (type !== 'ABSENT_SUBSTITUTE') {
+            form.value.temporary_driver_id = '';
         }
     },
 );

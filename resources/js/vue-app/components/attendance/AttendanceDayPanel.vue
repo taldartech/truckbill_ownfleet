@@ -79,8 +79,8 @@
                 <thead class="table-light">
                     <tr>
                         <th>Truck</th>
-                        <th>Primary Driver</th>
                         <th style="width: 9rem">Status</th>
+                        <th style="min-width: 8rem">Marked by</th>
                         <th style="min-width: 11rem">Substitute</th>
                         <th style="min-width: 10rem">Remark</th>
                         <th v-if="canEdit" style="width: 6rem">Action</th>
@@ -101,8 +101,10 @@
                             </td>
                         </tr>
                         <tr v-for="row in attendanceRows" :key="row.vehicle_id">
-                        <td class="fw-semibold">{{ row.vehicle_label }}</td>
-                        <td>{{ row.driver_name }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ row.vehicle_label }}</div>
+                            <div class="text-muted small">{{ row.driver_name }}</div>
+                        </td>
                         <td>
                             <select
                                 v-if="canEdit && row.editable"
@@ -115,7 +117,7 @@
                                 <option value="ABSENT">Absent</option>
                                 <option value="SUBSTITUTE">Substitute</option>
                             </select>
-                            <span v-else class="mark" :class="markClass(displayMark(row))">
+                            <span v-else class="mark" :class="markClass(row)">
                                 {{ displayMark(row) }}
                             </span>
                             <div v-if="row.statusError" class="invalid-feedback d-block">
@@ -123,25 +125,22 @@
                             </div>
                         </td>
                         <td>
-                            <select
+                            <span class="marked-by" :class="markedByClass(row)">
+                                {{ markedByLabel(row) }}
+                            </span>
+                        </td>
+                        <td>
+                            <SearchableSelect
                                 v-if="canEdit && row.editable && row.statusType === 'SUBSTITUTE'"
                                 v-model="row.temporary_driver_id"
-                                class="form-select form-select-sm"
-                                :class="{ 'is-invalid': row.substituteError }"
-                            >
-                                <option value="">Select substitute</option>
-                                <option
-                                    v-for="driver in substituteOptions(row)"
-                                    :key="driver.id"
-                                    :value="driver.id"
-                                >
-                                    {{ driverLabel(driver) }}
-                                </option>
-                            </select>
+                                :items="substituteSelectItems(row)"
+                                placeholder="Select substitute"
+                                search-placeholder="Search driver…"
+                                empty-message="No matching drivers."
+                                :invalid="Boolean(row.substituteError)"
+                                :error-message="row.substituteError"
+                            />
                             <span v-else class="text-muted small">{{ row.substitute_name || '—' }}</span>
-                            <div v-if="row.substituteError" class="invalid-feedback d-block">
-                                {{ row.substituteError }}
-                            </div>
                         </td>
                         <td>
                             <input
@@ -172,9 +171,12 @@
                         </td>
                     </tr>
                     <tr v-for="row in unassignedRows" :key="`unassigned-${row.vehicle_id}`" class="row-unassigned">
-                        <td class="fw-semibold text-muted">{{ row.vehicle_label }}</td>
-                        <td class="text-muted">—</td>
+                        <td>
+                            <div class="fw-semibold text-muted">{{ row.vehicle_label }}</div>
+                            <div class="text-muted small">—</div>
+                        </td>
                         <td><span class="mark mark-none">—</span></td>
+                        <td class="text-muted small">—</td>
                         <td class="text-muted small">—</td>
                         <td class="text-muted small">—</td>
                         <td v-if="canEdit" class="text-muted small">—</td>
@@ -183,12 +185,23 @@
                 </tbody>
             </table>
         </div>
+        <AttendanceSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import AttendanceSaveConfirmModal from './AttendanceSaveConfirmModal.vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
+import { buildDayPanelConfirmSummary } from '../../utils/attendanceSaveConfirm';
 import {
+    isPresentConfirmed,
     loadSavedVehicleIds,
     markVehiclesSavedForDate,
     persistSavedVehicleIds,
@@ -215,6 +228,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    substituteBusyByDate: {
+        type: Object,
+        default: () => ({}),
+    },
     loading: {
         type: Boolean,
         default: false,
@@ -239,6 +256,9 @@ const formRows = ref([]);
 const formError = ref('');
 const savingRowId = ref('');
 const savedVehicleIds = ref(new Set());
+const showSaveConfirm = ref(false);
+const saveConfirmSummary = ref(null);
+const pendingSavePayload = ref(null);
 
 const today = computed(() => new Date().toISOString().slice(0, 10));
 
@@ -392,6 +412,9 @@ function buildFormRow(vehicle, overviewRow, date) {
         remarks: cell?.temporary_assignment_remarks ?? '',
         initialRemarks: cell?.temporary_assignment_remarks ?? '',
         substitute_name: cell?.temporary_driver_name ?? '',
+        marked_source: cell?.marked_source ?? null,
+        marked_by_name: cell?.marked_by_name ?? null,
+        is_implicit: cell?.is_implicit ?? false,
         editable,
         statusError: '',
         substituteError: '',
@@ -471,9 +494,23 @@ function displayMark(row) {
     return 'P';
 }
 
-function markClass(mark) {
+function isAdminMarkedPresent(row) {
+    if (row.statusType !== 'PRESENT') {
+        return false;
+    }
+
+    if (!row.is_implicit) {
+        return true;
+    }
+
+    return isPresentConfirmed(props.selectedDate, row.vehicle_id);
+}
+
+function markClass(row) {
+    const mark = displayMark(row);
+
     if (mark === 'P') {
-        return 'mark-p';
+        return isAdminMarkedPresent(row) ? 'mark-p mark-admin' : 'mark-p mark-system';
     }
 
     if (mark === 'S') {
@@ -487,11 +524,47 @@ function markClass(mark) {
     return 'mark-none';
 }
 
+function markedByLabel(row) {
+    if (!row.has_primary_driver || !row.statusType) {
+        return '—';
+    }
+
+    if (row.statusType === 'PRESENT') {
+        if (isAdminMarkedPresent(row)) {
+            return row.marked_by_name ?? 'Admin';
+        }
+
+        return 'System';
+    }
+
+    if (row.marked_source === 'system') {
+        return 'System';
+    }
+
+    return row.marked_by_name ?? 'Admin';
+}
+
+function markedByClass(row) {
+    const label = markedByLabel(row);
+
+    if (label === 'System') {
+        return 'marked-by-system';
+    }
+
+    if (label === '—') {
+        return 'text-muted';
+    }
+
+    return 'marked-by-admin';
+}
+
 function substituteOptions(row) {
     const busy = buildBusySubstituteDriversByDate({
         date: props.selectedDate,
-        monthOverview: { rows: props.overviewRows },
-        vehicles: props.vehicles,
+        monthOverview: {
+            rows: props.overviewRows,
+            substitute_busy_by_date: props.substituteBusyByDate,
+        },
         excludeAttendanceId: row.attendance_id,
     });
 
@@ -515,6 +588,39 @@ function substituteOptions(row) {
     return available;
 }
 
+function substituteSelectItems(row) {
+    const busy = buildBusySubstituteDriversByDate({
+        date: props.selectedDate,
+        monthOverview: {
+            rows: props.overviewRows,
+            substitute_busy_by_date: props.substituteBusyByDate,
+        },
+        excludeAttendanceId: row.attendance_id,
+    });
+
+    const available = substituteOptions(row).map((driver) => ({
+        id: driver.id,
+        name: driverLabel(driver),
+    }));
+
+    const busyItems = props.drivers
+        .filter(
+            (driver) =>
+                driver.is_active !== false &&
+                driver.id !== row.primary_driver_id &&
+                isSubstituteDriverBusy(busy, driver.id),
+        )
+        .map((driver) => ({
+            id: driver.id,
+            name: driverLabel(driver),
+            hint: 'Busy on this date',
+            disabled: true,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name));
+
+    return [...available, ...busyItems];
+}
+
 function onStatusChange(row) {
     row.statusError = '';
     row.substituteError = '';
@@ -530,6 +636,18 @@ function rowHasChanges(row) {
         String(row.temporary_driver_id ?? '') !== String(row.initialTemporaryDriverId ?? '') ||
         String(row.remarks ?? '').trim() !== String(row.initialRemarks ?? '').trim()
     );
+}
+
+function rowNeedsSave(row) {
+    if (rowHasChanges(row)) {
+        return true;
+    }
+
+    if (row.statusType === 'PRESENT' && !row.attendance_id) {
+        return !savedVehicleIds.value.has(row.vehicle_id);
+    }
+
+    return false;
 }
 
 function isRowFilled(row) {
@@ -609,6 +727,41 @@ function buildSaveEntry(row) {
     };
 }
 
+function requestSave(rows) {
+    const summary = buildDayPanelConfirmSummary(rows, {
+        date: props.selectedDate,
+        drivers: props.drivers,
+    });
+
+    if (!summary) {
+        formError.value = 'No changes to save.';
+
+        return;
+    }
+
+    pendingSavePayload.value = buildSavePayload(rows);
+    saveConfirmSummary.value = summary;
+    showSaveConfirm.value = true;
+}
+
+function cancelSaveConfirm() {
+    showSaveConfirm.value = false;
+    saveConfirmSummary.value = null;
+    pendingSavePayload.value = null;
+    savingRowId.value = '';
+}
+
+function confirmSave() {
+    if (!pendingSavePayload.value) {
+        return;
+    }
+
+    emit('save', pendingSavePayload.value);
+    showSaveConfirm.value = false;
+    saveConfirmSummary.value = null;
+    pendingSavePayload.value = null;
+}
+
 function saveRow(row) {
     formError.value = '';
 
@@ -623,7 +776,7 @@ function saveRow(row) {
     }
 
     savingRowId.value = row.vehicle_id;
-    emit('save', buildSavePayload([row]));
+    requestSave([row]);
 }
 
 function saveAll() {
@@ -647,7 +800,15 @@ function saveAll() {
         return;
     }
 
-    emit('save', buildSavePayload(editableRows.value));
+    const rowsToSave = editableRows.value.filter((row) => rowNeedsSave(row));
+
+    if (rowsToSave.length === 0) {
+        formError.value = 'No changes to save.';
+
+        return;
+    }
+
+    requestSave(rowsToSave);
 }
 
 function onDateInput(event) {
@@ -703,9 +864,28 @@ defineExpose({ clearSavingState, syncFormRows, markVehiclesSaved, commitRowSaved
     line-height: 1;
 }
 
-.mark-p {
-    background: var(--brand-primary);
+.mark-p.mark-system {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.mark-p.mark-admin {
+    background: #146c43;
     color: #fff;
+}
+
+.marked-by {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.marked-by-system {
+    color: #0f5132;
+}
+
+.marked-by-admin {
+    color: #146c43;
 }
 
 .mark-a {

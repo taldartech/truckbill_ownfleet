@@ -1,10 +1,11 @@
 <template>
-    <div class="attendance-month-grid">
+    <div class="attendance-month-grid" :class="{ 'is-fullscreen': isFullscreen }">
         <div class="grid-toolbar">
             <span class="grid-title">Month Overview</span>
             <span class="month-label">{{ monthLabel }}</span>
             <span class="legend">
-                <span class="lg lg-p">P</span> Present
+                <span class="lg lg-system">P</span> System
+                <span class="lg lg-admin">P</span> Admin
                 <span class="lg lg-a">A</span> Absent
                 <span class="lg lg-s">S</span> Substitute
                 <span class="lg lg-day">9</span> Day filled
@@ -12,23 +13,30 @@
             <span v-if="summary.present > 0 || summary.exceptions > 0" class="summary">
                 {{ summary.present }} present · {{ summary.exceptions ?? summary.marked ?? 0 }} marked
             </span>
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary fullscreen-btn"
+                :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+                :aria-label="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+                @click="toggleFullscreen"
+            >
+                <i class="bi" :class="isFullscreen ? 'bi-fullscreen-exit' : 'bi-arrows-fullscreen'"></i>
+            </button>
         </div>
 
-        <div v-if="rows.length === 0" class="text-center text-muted py-2 small">
+        <div v-if="rows.length === 0" class="text-center text-muted py-2">
             No driver assignments for this month. Assign primary drivers to trucks first.
         </div>
 
         <div v-else class="table-wrap">
-            <table class="table table-sm table-bordered mb-0 grid-table">
+            <table class="table table-bordered mb-0 grid-table">
                 <colgroup>
                     <col class="col-vehicle" />
-                    <col class="col-driver" />
                     <col v-for="day in days" :key="`col-${day}`" class="col-day" />
                 </colgroup>
                 <thead>
                     <tr>
                         <th class="sticky-col vehicle-col">Truck</th>
-                        <th class="sticky-col driver-col">Driver</th>
                         <th
                             v-for="day in days"
                             :key="day"
@@ -45,18 +53,16 @@
                 </thead>
                 <tbody>
                     <tr v-for="row in rows" :key="row.vehicle_id">
-                        <td class="sticky-col vehicle-col fw-semibold">
+                        <td class="sticky-col vehicle-col">
                             <RouterLink
                                 v-if="linkTrucks"
                                 :to="truckRoute(row)"
-                                class="truck-link"
+                                class="truck-link truck-number"
                                 @click.stop
                             >
                                 {{ row.vehicle_label }}
                             </RouterLink>
-                            <span v-else>{{ row.vehicle_label }}</span>
-                        </td>
-                        <td class="sticky-col driver-col text-muted small">
+                            <span v-else class="truck-number fw-semibold">{{ row.vehicle_label }}</span>
                             <span class="driver-name">{{ row.driver_name }}</span>
                         </td>
                         <td
@@ -86,7 +92,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { isPresentConfirmed } from '../../utils/dailyAttendanceStorage';
 
 const props = defineProps({
@@ -112,6 +118,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['select']);
+
+const isFullscreen = ref(false);
 
 const summary = computed(() => props.overview.summary ?? {});
 const rows = computed(() => props.overview.rows ?? []);
@@ -168,6 +176,18 @@ function hasSubstitute(record) {
     return Boolean(record?.temporary_driver_id || record?.temporary_driver_name);
 }
 
+function isAdminMarkedPresent(record, row, day) {
+    if (!record || record.status !== 'PRESENT') {
+        return false;
+    }
+
+    if (!record.is_implicit) {
+        return true;
+    }
+
+    return isPresentConfirmed(dateKey(day), row.vehicle_id);
+}
+
 function isRowAssignable(row, day) {
     const record = cellRecord(row, day);
 
@@ -213,6 +233,26 @@ function dayHeaderTitle(day) {
     return date;
 }
 
+function markedByLabel(record, row, day) {
+    if (!record) {
+        return null;
+    }
+
+    if (record.status === 'PRESENT') {
+        if (isAdminMarkedPresent(record, row, day)) {
+            return record.marked_by_name ?? 'Admin';
+        }
+
+        return 'System';
+    }
+
+    if (record.marked_source === 'system') {
+        return 'System';
+    }
+
+    return record.marked_by_name ?? 'Admin';
+}
+
 function cellClass(row, day) {
     const record = cellRecord(row, day);
 
@@ -229,7 +269,7 @@ function cellClass(row, day) {
     }
 
     if (record.status === 'PRESENT') {
-        return record.is_implicit ? 'mark-p mark-implicit' : 'mark-p';
+        return isAdminMarkedPresent(record, row, day) ? 'mark-p mark-admin' : 'mark-p mark-system';
     }
 
     if (hasSubstitute(record)) {
@@ -282,13 +322,19 @@ function cellTitle(row, day) {
         statusLabel = 'Substitute on duty';
     } else if (record.status !== 'PRESENT') {
         statusLabel = 'Absent';
-    } else if (record.is_implicit) {
-        statusLabel = isPresentConfirmed(dateKey(day), row.vehicle_id)
-            ? 'Present (daily saved)'
-            : 'Present (default)';
+    } else if (isAdminMarkedPresent(record, row, day)) {
+        statusLabel = 'Present (admin marked)';
+    } else {
+        statusLabel = 'Present (system default)';
     }
 
     const parts = [`${dateKey(day)}: ${statusLabel}`, `Primary: ${record.primary_driver_name ?? '—'}`];
+
+    const marker = markedByLabel(record, row, day);
+
+    if (marker) {
+        parts.push(`Marked by: ${marker}`);
+    }
 
     if (alternate) {
         parts.push(`Substitute: ${alternate}`);
@@ -317,6 +363,30 @@ function handleCellSelect(row, day) {
     });
 }
 
+function toggleFullscreen() {
+    isFullscreen.value = !isFullscreen.value;
+}
+
+function onFullscreenKeydown(event) {
+    if (event.key === 'Escape' && isFullscreen.value) {
+        isFullscreen.value = false;
+    }
+}
+
+watch(isFullscreen, (active) => {
+    document.body.style.overflow = active ? 'hidden' : '';
+
+    if (active) {
+        window.addEventListener('keydown', onFullscreenKeydown);
+    } else {
+        window.removeEventListener('keydown', onFullscreenKeydown);
+    }
+});
+
+onBeforeUnmount(() => {
+    document.body.style.overflow = '';
+    window.removeEventListener('keydown', onFullscreenKeydown);
+});
 </script>
 
 <style scoped>
@@ -324,17 +394,29 @@ function handleCellSelect(row, day) {
     width: 100%;
 }
 
+.attendance-month-grid.is-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    background: #fff;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .grid-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 0.35rem;
-    font-size: 0.72rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    flex-shrink: 0;
 }
 
 .grid-title {
-    font-size: 0.9rem;
+    font-size: 1.05rem;
     font-weight: 600;
     color: #212529;
 }
@@ -348,25 +430,47 @@ function handleCellSelect(row, day) {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.75rem;
     color: #6c757d;
 }
 
 .lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.2rem;
+    border-radius: 0.2rem;
     font-weight: 700;
-    margin-right: 0.15rem;
+    font-size: 0.75rem;
+    margin-right: 0.2rem;
 }
 
-.lg-p {
-    color: var(--brand-primary);
+.lg-system {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.lg-admin {
+    background: #146c43;
+    color: #fff;
 }
 
 .lg-a {
-    color: #dc3545;
+    background: #f8d7da;
+    color: #842029;
 }
 
 .lg-s {
-    color: #fd7e14;
+    background: #ffe5cc;
+    color: #984c0c;
+}
+
+.lg-day {
+    background: #146c43;
+    color: #fff;
+    font-size: 0.7rem;
 }
 
 .summary {
@@ -374,14 +478,29 @@ function handleCellSelect(row, day) {
     color: #6c757d;
 }
 
+.fullscreen-btn {
+    margin-left: 0.25rem;
+}
+
+.is-fullscreen .fullscreen-btn {
+    margin-left: auto;
+}
+
+.is-fullscreen .summary {
+    margin-left: 0;
+}
+
 .mark-btn {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     min-width: 0;
-    padding: 0;
+    min-height: 1.65rem;
+    padding: 0.1rem 0;
     border: none;
-    background: none;
-    font-size: 0.62rem;
+    border-radius: 0.2rem;
+    font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.1;
     cursor: pointer;
@@ -392,39 +511,29 @@ function handleCellSelect(row, day) {
     cursor: default;
 }
 
-.mark-p {
-    color: var(--brand-primary);
+.mark-p.mark-system {
+    background: #d1e7dd;
+    color: #0f5132;
 }
 
-.mark-p.mark-implicit {
-    color: rgba(var(--brand-primary-rgb), 0.45);
+.mark-p.mark-admin {
+    background: #146c43;
+    color: #fff;
 }
 
 .mark-a {
-    color: #dc3545;
+    background: #f8d7da;
+    color: #842029;
 }
 
 .mark-s {
-    color: #fd7e14;
-}
-
-.lg-day {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1rem;
-    height: 1rem;
-    padding: 0 0.15rem;
-    border-radius: 0.15rem;
-    background: #146c43;
-    color: #fff;
-    font-size: 0.58rem;
-    margin-right: 0.15rem;
+    background: #ffe5cc;
+    color: #984c0c;
 }
 
 .mark-empty {
     color: #ced4da;
-    font-size: 0.62rem;
+    font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.1;
 }
@@ -434,8 +543,7 @@ function handleCellSelect(row, day) {
 }
 
 .mark-btn:not(:disabled):hover {
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    filter: brightness(0.95);
 }
 
 .table-wrap {
@@ -446,30 +554,32 @@ function handleCellSelect(row, day) {
     -webkit-overflow-scrolling: touch;
 }
 
+.is-fullscreen .table-wrap {
+    flex: 1;
+    max-height: none;
+    min-height: 0;
+}
+
 .grid-table {
     table-layout: fixed;
     width: 100%;
     min-width: 100% !important;
-    font-size: 0.68rem;
+    font-size: 0.85rem;
     border-collapse: collapse;
     border-spacing: 0;
 }
 
 .grid-table :is(th, td) {
-    padding: 0.2rem 0 !important;
+    padding: 0.3rem 0.05rem !important;
 }
 
 .grid-table .sticky-col {
-    padding-left: 0.35rem !important;
-    padding-right: 0.35rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
 }
 
 .col-vehicle {
-    width: 5rem;
-}
-
-.col-driver {
-    width: 6.5rem;
+    width: 8rem;
 }
 
 .col-day {
@@ -484,11 +594,11 @@ function handleCellSelect(row, day) {
 }
 
 .grid-table .day-col {
-    padding: 0.2rem 0 !important;
-    font-size: 0.62rem;
+    padding: 0.35rem 0 !important;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #6c757d;
-    line-height: 1.1;
+    line-height: 1.2;
 }
 
 .day-cell {
@@ -520,22 +630,23 @@ function handleCellSelect(row, day) {
 .vehicle-col {
     left: 0;
     box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-    font-size: 0.65rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
+}
+
+.truck-number {
+    display: block;
+    font-weight: 600;
+    color: #212529;
 }
 
 .truck-link {
     color: var(--brand-primary);
     text-decoration: none;
-    font-weight: 600;
 }
 
 .truck-link:hover {
     text-decoration: underline;
-}
-
-.driver-col {
-    left: 5rem;
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
 }
 
 thead .sticky-col {
@@ -549,8 +660,10 @@ tbody tr:nth-of-type(even) .sticky-col {
 
 .driver-name {
     display: block;
-    color: #212529;
-    font-size: 0.62rem;
+    margin-top: 0.15rem;
+    color: #6c757d;
+    font-size: 0.75rem;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -558,25 +671,17 @@ tbody tr:nth-of-type(even) .sticky-col {
 
 @media (max-width: 1400px) {
     .col-vehicle {
-        width: 4.5rem;
-    }
-
-    .col-driver {
-        width: 5.5rem;
-    }
-
-    .driver-col {
-        left: 4.5rem;
+        width: 7rem;
     }
 
     .grid-table {
-        font-size: 0.62rem;
+        font-size: 0.8rem;
     }
 
-    .grid-table .day-col,
     .mark-btn,
     .mark-empty {
-        font-size: 0.58rem;
+        font-size: 0.75rem;
+        min-height: 1.5rem;
     }
 }
 </style>

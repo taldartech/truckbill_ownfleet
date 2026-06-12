@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FleetMonthlyReportController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\PayrollSettingController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\StationController;
@@ -43,6 +44,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::apiResource('driver-assignments', DriverAssignmentController::class);
     Route::get('attendances/month-overview', [AttendanceController::class, 'monthOverview']);
     Route::get('attendances/monthly-wages', [AttendanceController::class, 'monthlyWages']);
+    Route::get('payroll-settings', [PayrollSettingController::class, 'show']);
+    Route::put('payroll-settings', [PayrollSettingController::class, 'update']);
     Route::get('attendances/settlement-sheet', [AttendanceController::class, 'settlementSheet']);
     Route::get('attendances/settlement-sheet/export', [AttendanceController::class, 'exportSettlementSheet']);
     Route::patch('monthly-driver-wages/{monthlyDriverWage}/settlement', [AttendanceController::class, 'updateSettlementLine']);

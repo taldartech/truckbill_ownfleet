@@ -5,9 +5,11 @@ namespace App\Modules\DriverManagement\Services;
 use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
+use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceStatus;
 use App\Support\CurrentTenant;
 use App\Support\MonthlyWageAccrual;
+use App\Support\PayrollPayDays;
 use App\Tenant;
 use App\Vehicle;
 use Illuminate\Support\Carbon;
@@ -61,10 +63,18 @@ class AttendanceCalendarService
                     continue;
                 }
 
-                $this->addCellToGrouped($grouped, $vehicles, (string) $vehicleId, $date, $cell, $assignment);
+                $this->addCellToGrouped($grouped, $vehicles, (string) $vehicleId, $date, $cell);
                 $this->incrementSummary($summary, $cell);
             }
         }
+
+        $referenceDate = $this->referenceDateForDriverLabel($fromDate, $toDate);
+
+        foreach ($grouped as $vehicleId => &$row) {
+            $assignment = $this->assignmentForDate($assignments, (string) $vehicleId, $referenceDate);
+            $row['driver_name'] = $assignment?->driver?->name ?? '—';
+        }
+        unset($row);
 
         $rows = array_values($grouped);
 
@@ -192,15 +202,11 @@ class AttendanceCalendarService
                 }
 
                 $counted[$key] = true;
-                $pay = round((float) ($cell['substitute_payment_amount'] ?? 0), 2);
-
-                if ($pay <= 0) {
-                    $pay = $this->substituteWageForCell(
-                        $cell,
-                        (string) $date,
-                        $substituteBases[$substituteId] ?? 0.0,
-                    );
-                }
+                $pay = $this->substituteWageForCell(
+                    $cell,
+                    (string) $date,
+                    $substituteBases[$substituteId] ?? 0.0,
+                );
 
                 if (! isset($earnings[$substituteId])) {
                     $earnings[$substituteId] = ['days' => 0, 'total_wage' => 0.0];
@@ -219,6 +225,82 @@ class AttendanceCalendarService
     }
 
     /**
+     * Days and reference amounts when a substitute worked on the primary driver's truck.
+     * Shown on the payroll register for reference only — not deducted from primary net pay.
+     *
+     * @return array<string, array{days: int, total_wage: float}>
+     */
+    public function primarySubstituteLiabilities(string $fromDate, string $toDate): array
+    {
+        $overview = $this->buildOverview($fromDate, $toDate);
+        /** @var array<string, array{days: int, total_wage: float}> $liabilities */
+        $liabilities = [];
+        /** @var array<string, bool> $counted */
+        $counted = [];
+        /** @var array<string, bool> $substituteIds */
+        $substituteIds = [];
+
+        foreach ($overview['rows'] as $row) {
+            foreach ($row['days'] as $cell) {
+                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
+
+                if ($substituteId !== '') {
+                    $substituteIds[$substituteId] = true;
+                }
+            }
+        }
+
+        /** @var array<string, float> $substituteBases */
+        $substituteBases = Driver::query()
+            ->whereIn('id', array_keys($substituteIds))
+            ->pluck('daily_wage', 'id')
+            ->map(fn ($base): float => (float) $base)
+            ->all();
+
+        foreach ($overview['rows'] as $row) {
+            foreach ($row['days'] as $date => $cell) {
+                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
+
+                if ($substituteId === '') {
+                    continue;
+                }
+
+                $ownerId = (string) ($cell['wage_owner_driver_id'] ?? $cell['primary_driver_id'] ?? '');
+
+                if ($ownerId === '') {
+                    continue;
+                }
+
+                $key = $ownerId.'|'.$date;
+
+                if (isset($counted[$key])) {
+                    continue;
+                }
+
+                $counted[$key] = true;
+                $pay = $this->substituteWageForCell(
+                    $cell,
+                    (string) $date,
+                    $substituteBases[$substituteId] ?? 0.0,
+                );
+
+                if (! isset($liabilities[$ownerId])) {
+                    $liabilities[$ownerId] = ['days' => 0, 'total_wage' => 0.0];
+                }
+
+                $liabilities[$ownerId]['days']++;
+                $liabilities[$ownerId]['total_wage'] += $pay;
+            }
+        }
+
+        foreach ($liabilities as $driverId => $values) {
+            $liabilities[$driverId]['total_wage'] = round($values['total_wage'], 2);
+        }
+
+        return $liabilities;
+    }
+
+    /**
      * @param  array<string, mixed>  $cell
      */
     public function substituteWageForCell(array $cell, string $date, float $substituteMonthlyBase): float
@@ -234,7 +316,11 @@ class AttendanceCalendarService
             return (float) $cell['wage_amount'];
         }
 
-        return MonthlyWageAccrual::perDay($substituteMonthlyBase, $date);
+        return MonthlyWageAccrual::perDay(
+            $substituteMonthlyBase,
+            $date,
+            PayrollPayDays::divisorForDate($date),
+        );
     }
 
     /**
@@ -345,6 +431,7 @@ class AttendanceCalendarService
                 'vehicle:id,registration_number',
                 'primaryDriver:id,name,daily_wage',
                 'temporaryDriver:id,name,daily_wage',
+                'createdBy:id,name',
             ])
             ->get()
             ->keyBy(fn (Attendance $attendance): string => $attendance->vehicle_id.'|'.$attendance->attendance_date->toDateString());
@@ -442,6 +529,7 @@ class AttendanceCalendarService
             'wage_owner_driver_id' => null,
             'wage_amount' => 0,
             'wage_payment_status' => null,
+            ...$this->markerFieldsForSystem(),
         ];
     }
 
@@ -452,7 +540,11 @@ class AttendanceCalendarService
     private function cellFromImplicitPresent(DriverAssignment $assignment, string $date, array $paidDriverIds): array
     {
         $driver = $assignment->driver;
-        $accrual = MonthlyWageAccrual::perDay((float) $driver->daily_wage, $date);
+        $accrual = MonthlyWageAccrual::perDay(
+            (float) $driver->daily_wage,
+            $date,
+            PayrollPayDays::divisorForDate($date),
+        );
         $paymentStatus = in_array($driver->id, $paidDriverIds, true) ? 'paid' : 'unpaid';
 
         return [
@@ -467,6 +559,7 @@ class AttendanceCalendarService
             'wage_amount' => $accrual,
             'substitute_payment_amount' => 0,
             'wage_payment_status' => $paymentStatus,
+            ...$this->markerFieldsForSystem(),
         ];
     }
 
@@ -482,8 +575,13 @@ class AttendanceCalendarService
 
         if ($status === AttendanceStatus::Present) {
             $driver = $exception->wageOwnerDriver ?? $exception->primaryDriver;
+            $attendanceDate = $exception->attendance_date->toDateString();
             $accrual = $driver !== null
-                ? MonthlyWageAccrual::perDay((float) $driver->daily_wage, $exception->attendance_date->toDateString())
+                ? MonthlyWageAccrual::perDay(
+                    (float) $driver->daily_wage,
+                    $attendanceDate,
+                    PayrollPayDays::divisorForDate($attendanceDate),
+                )
                 : (float) $exception->wage_amount;
 
             $ownerId = $exception->wage_owner_driver_id ?? $exception->primary_driver_id;
@@ -501,6 +599,7 @@ class AttendanceCalendarService
                 'wage_amount' => $accrual,
                 'substitute_payment_amount' => 0,
                 'wage_payment_status' => $paymentStatus,
+                ...$this->markerFieldsForException($exception),
             ];
         }
 
@@ -521,6 +620,35 @@ class AttendanceCalendarService
             'wage_amount' => (float) $exception->wage_amount,
             'substitute_payment_amount' => (float) $exception->substitute_payment_amount,
             'wage_payment_status' => $paymentStatus,
+            ...$this->markerFieldsForException($exception),
+        ];
+    }
+
+    /**
+     * @return array{marked_source: string, marked_by_name: ?string, marked_via: ?string}
+     */
+    private function markerFieldsForSystem(): array
+    {
+        return [
+            'marked_source' => 'system',
+            'marked_by_name' => null,
+            'marked_via' => null,
+        ];
+    }
+
+    /**
+     * @return array{marked_source: string, marked_by_name: ?string, marked_via: ?string}
+     */
+    private function markerFieldsForException(Attendance $exception): array
+    {
+        $markedVia = $exception->marked_via instanceof AttendanceMarkedVia
+            ? $exception->marked_via->value
+            : $exception->marked_via;
+
+        return [
+            'marked_source' => 'admin',
+            'marked_by_name' => $exception->createdBy?->name,
+            'marked_via' => is_string($markedVia) ? $markedVia : null,
         ];
     }
 
@@ -535,22 +663,32 @@ class AttendanceCalendarService
         string $vehicleId,
         string $date,
         array $cell,
-        ?DriverAssignment $assignment,
     ): void {
         if (! isset($grouped[$vehicleId])) {
             $grouped[$vehicleId] = [
                 'vehicle_id' => $vehicleId,
                 'vehicle_label' => $vehicles->get($vehicleId)?->registration_number ?? '—',
-                'driver_name' => $cell['primary_driver_name'] ?? $assignment?->driver?->name ?? '—',
+                'driver_name' => '—',
                 'days' => [],
             ];
         }
 
-        if (! empty($cell['primary_driver_name'])) {
-            $grouped[$vehicleId]['driver_name'] = $cell['primary_driver_name'];
+        $grouped[$vehicleId]['days'][$date] = $cell;
+    }
+
+    private function referenceDateForDriverLabel(string $fromDate, string $toDate): string
+    {
+        $today = $this->todayInTenantTimezone();
+
+        if ($today < $fromDate) {
+            return $fromDate;
         }
 
-        $grouped[$vehicleId]['days'][$date] = $cell;
+        if ($today > $toDate) {
+            return $toDate;
+        }
+
+        return $today;
     }
 
     /**

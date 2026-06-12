@@ -83,6 +83,64 @@ class DriverManagementModuleTest extends TestCase
         ]);
     }
 
+    public function test_cannot_create_driver_with_duplicate_identity_in_same_tenant(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'name' => 'Jan Driver',
+            'phone' => '9983921134',
+            'license_number' => 'DL-1420110012345',
+            'aadhaar_number' => '232323232323',
+            'pan_number' => 'ABCDE1234F',
+            'joining_date' => '2026-01-01',
+            'daily_wage' => 30000,
+            'is_active' => true,
+        ];
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/drivers', $payload)
+            ->assertCreated();
+
+        $duplicate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/drivers', [
+                ...$payload,
+                'name' => 'Jan 2 Driver',
+            ]);
+
+        $duplicate->assertUnprocessable();
+        $duplicate->assertJsonValidationErrors(['phone', 'license_number', 'aadhaar_number', 'pan_number']);
+    }
+
+    public function test_same_driver_identity_allowed_in_different_tenants(): void
+    {
+        [$tenantA, $userA] = $this->createTenantUser('admin');
+        [$tenantB, $userB] = $this->createTenantUser('admin');
+        Sanctum::actingAs($userA);
+
+        $payload = [
+            'name' => 'Shared Identity Driver',
+            'phone' => '9983921134',
+            'license_number' => 'DL-1420110012345',
+            'aadhaar_number' => '232323232323',
+            'pan_number' => 'ABCDE1234F',
+            'joining_date' => '2026-01-01',
+            'daily_wage' => 30000,
+            'is_active' => true,
+        ];
+
+        $this->withHeader('X-Tenant-Id', $tenantA->id)
+            ->postJson('/api/drivers', $payload)
+            ->assertCreated();
+
+        Sanctum::actingAs($userB);
+
+        $this->withHeader('X-Tenant-Id', $tenantB->id)
+            ->postJson('/api/drivers', $payload)
+            ->assertCreated();
+    }
+
     public function test_driver_index_supports_pagination_and_search(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');

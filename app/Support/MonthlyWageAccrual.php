@@ -6,14 +6,18 @@ use Illuminate\Support\Carbon;
 
 class MonthlyWageAccrual
 {
-    public static function perDay(float $monthlyBase, string $date): float
+    public static function perDay(float $monthlyBase, string $date, ?int $payDaysDivisor = null): float
     {
         if ($monthlyBase <= 0) {
             return 0.0;
         }
 
-        $daysInMonth = Carbon::parse($date)->daysInMonth;
+        $divisor = $payDaysDivisor ?? (int) Carbon::parse($date)->daysInMonth;
 
-        return round($monthlyBase / $daysInMonth, 2);
+        if ($divisor <= 0) {
+            return 0.0;
+        }
+
+        return round($monthlyBase / $divisor, 2);
     }
 }
