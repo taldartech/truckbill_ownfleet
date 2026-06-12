@@ -12,9 +12,6 @@ class DatabaseSeeder extends Seeder
             UserRoleSeeder::class,
             PermissionSeeder::class,
             IndiaLocationSeeder::class,
-            TestUserSeeder::class,
-            DemoFleetDataSeeder::class,
-            DemoTripDataSeeder::class,
         ]);
     }
 }
