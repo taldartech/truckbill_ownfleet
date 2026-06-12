@@ -15,6 +15,7 @@ use App\Tenant;
 use App\Trip;
 use App\User;
 use App\Vehicle;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -299,95 +300,100 @@ class DemoTripDataSeeder extends Seeder
             return;
         }
 
-        $admin = User::query()->where('email', self::ADMIN_EMAIL)->first();
+        TenantContext::setTenantId($tenant->id);
 
-        if ($admin === null) {
-            $this->command?->error('Admin user not found. Run TestUserSeeder first.');
+        try {
+            $admin = User::query()->where('email', self::ADMIN_EMAIL)->first();
 
-            return;
-        }
+            if ($admin === null) {
+                $this->command?->error('Admin user not found. Run TestUserSeeder first.');
 
-        $vehicles = Vehicle::query()
-            ->where('tenant_id', $tenant->id)
-            ->orderBy('registration_number')
-            ->get();
+                return;
+            }
 
-        if ($vehicles->isEmpty()) {
-            $this->command?->warn('No vehicles found. Running DemoFleetDataSeeder…');
-            $this->call(DemoFleetDataSeeder::class);
             $vehicles = Vehicle::query()
                 ->where('tenant_id', $tenant->id)
                 ->orderBy('registration_number')
                 ->get();
-        }
 
-        if ($vehicles->count() < count(self::TRIP_DEFINITIONS)) {
-            $this->command?->error('Not enough vehicles for demo trips. Run DemoFleetDataSeeder.');
-
-            return;
-        }
-
-        TenantContext::setTenantId($tenant->id);
-
-        $tripService = app(TripService::class);
-        $created = 0;
-        $skipped = 0;
-
-        foreach (self::TRIP_DEFINITIONS as $index => $definition) {
-            $vehicle = $vehicles->get($index);
-
-            if ($vehicle === null) {
-                break;
+            if ($vehicles->isEmpty()) {
+                $this->command?->warn('No vehicles found. Running DemoFleetDataSeeder…');
+                $this->call(DemoFleetDataSeeder::class);
+                $vehicles = Vehicle::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->orderBy('registration_number')
+                    ->get();
             }
 
-            $driverId = $this->resolveDriverId($tenant->id, $vehicle->id);
+            if ($vehicles->count() < count(self::TRIP_DEFINITIONS)) {
+                $this->command?->error('Not enough vehicles for demo trips. Run DemoFleetDataSeeder.');
 
-            if ($driverId === null) {
-                $this->command?->warn("Skipping trip {$index}: no driver for {$vehicle->registration_number}");
-                $skipped++;
-
-                continue;
+                return;
             }
 
-            if ($this->tripAlreadySeeded($tenant->id, $vehicle->id, (string) $definition['start_at'])) {
-                $skipped++;
+            $tripService = app(TripService::class);
+            $created = 0;
+            $skipped = 0;
 
-                continue;
+            foreach (self::TRIP_DEFINITIONS as $index => $definition) {
+                $vehicle = $vehicles->get($index);
+
+                if ($vehicle === null) {
+                    break;
+                }
+
+                $driverId = $this->resolveDriverId($tenant->id, $vehicle->id);
+
+                if ($driverId === null) {
+                    $this->command?->warn("Skipping trip {$index}: no driver for {$vehicle->registration_number}");
+                    $skipped++;
+
+                    continue;
+                }
+
+                if ($this->tripAlreadySeeded($tenant->id, $vehicle->id, (string) $definition['start_at'])) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                [$startStationId, $routeLegs] = $this->buildRouteLegsWithStations(
+                    $tenant->id,
+                    $definition['route_legs'],
+                );
+
+                $payload = [
+                    'tenant_id' => $tenant->id,
+                    'vehicle_id' => $vehicle->id,
+                    'driver_id' => $driverId,
+                    'customer_name' => $definition['customer_name'],
+                    'broker_name' => $definition['broker_name'] ?? null,
+                    'start_station_id' => $startStationId,
+                    'start_at' => $definition['start_at'],
+                    'end_at' => $definition['end_at'],
+                    'status' => $definition['status']->value,
+                    'route_legs' => $routeLegs,
+                    'expenses' => $this->normalizeExpenses(
+                        $definition['expenses'] ?? [],
+                        (string) $definition['start_at'],
+                    ),
+                ];
+
+                $tripService->create($payload, $admin->id);
+                $created++;
             }
 
-            [$startStationId, $routeLegs] = $this->buildRouteLegsWithStations(
-                $tenant->id,
-                $definition['route_legs'],
+            $this->command?->info("Demo trips ready for [{$tenant->name}] (admin: ".self::ADMIN_EMAIL.')');
+            $this->command?->table(
+                ['Item', 'Count'],
+                [
+                    ['Trips created', (string) $created],
+                    ['Trips skipped (already present)', (string) $skipped],
+                ],
             );
-
-            $payload = [
-                'tenant_id' => $tenant->id,
-                'vehicle_id' => $vehicle->id,
-                'driver_id' => $driverId,
-                'customer_name' => $definition['customer_name'],
-                'broker_name' => $definition['broker_name'] ?? null,
-                'start_station_id' => $startStationId,
-                'start_at' => $definition['start_at'],
-                'end_at' => $definition['end_at'],
-                'status' => $definition['status']->value,
-                'route_legs' => $routeLegs,
-                'expenses' => $this->normalizeExpenses($definition['expenses'] ?? []),
-            ];
-
-            $tripService->create($payload, $admin->id);
-            $created++;
+        } finally {
+            TenantContext::setTenantId(null);
         }
-
-        TenantContext::setTenantId(null);
-
-        $this->command?->info("Demo trips ready for [{$tenant->name}] (admin: ".self::ADMIN_EMAIL.')');
-        $this->command?->table(
-            ['Item', 'Count'],
-            [
-                ['Trips created', (string) $created],
-                ['Trips skipped (already present)', (string) $skipped],
-            ],
-        );
     }
 
     private function tripAlreadySeeded(string $tenantId, string $vehicleId, string $startAt): bool
@@ -522,16 +528,22 @@ class DemoTripDataSeeder extends Seeder
      * @param  list<array<string, mixed>>  $expenses
      * @return list<array<string, mixed>>
      */
-    private function normalizeExpenses(array $expenses): array
+    private function normalizeExpenses(array $expenses, string $tripStartAt): array
     {
+        $defaultExpenseDate = Carbon::parse($tripStartAt)->toDateString();
+
         return collect($expenses)
-            ->map(function (array $expense): array {
+            ->map(function (array $expense) use ($defaultExpenseDate): array {
                 $normalized = $expense;
                 $type = $expense['expense_type'] ?? TripExpenseType::Other;
 
                 $normalized['expense_type'] = $type instanceof TripExpenseType
                     ? $type->value
                     : (string) $type;
+
+                if (! isset($normalized['expense_date']) || $normalized['expense_date'] === '') {
+                    $normalized['expense_date'] = $defaultExpenseDate;
+                }
 
                 return $normalized;
             })

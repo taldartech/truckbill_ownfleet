@@ -8,6 +8,7 @@ use App\DriverAssignment;
 use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceStatus;
 use App\Enums\WagePaymentStatus;
+use App\Support\TenantContext;
 use App\Tenant;
 use App\Vehicle;
 use Carbon\Carbon;
@@ -85,27 +86,33 @@ class DemoFleetDataSeeder extends Seeder
             return;
         }
 
-        $from = $attendanceFrom ?? self::ATTENDANCE_FROM;
-        $to = $attendanceTo ?? self::ATTENDANCE_TO;
+        TenantContext::setTenantId($tenant->id);
 
-        $drivers = $this->seedDrivers($tenant->id);
-        $vehicles = $this->seedVehicles($tenant->id);
-        $this->seedAssignments($tenant->id, $drivers, $vehicles, $from);
+        try {
+            $from = $attendanceFrom ?? self::ATTENDANCE_FROM;
+            $to = $attendanceTo ?? self::ATTENDANCE_TO;
 
-        $attendanceCount = $this->seedAttendances($tenant->id, $drivers, $vehicles, $from, $to);
+            $drivers = $this->seedDrivers($tenant->id);
+            $vehicles = $this->seedVehicles($tenant->id);
+            $this->seedAssignments($tenant->id, $drivers, $vehicles, $from);
 
-        $fromLabel = Carbon::parse($from)->format('M Y');
-        $toLabel = Carbon::parse($to)->format('M Y');
+            $attendanceCount = $this->seedAttendances($tenant->id, $drivers, $vehicles, $from, $to);
 
-        $this->command?->info("Demo fleet data ready for [{$tenant->name}] ({$slug})");
-        $this->command?->table(
-            ['Item', 'Count'],
-            [
-                ['Drivers', (string) $drivers->count()],
-                ['Vehicles', (string) $vehicles->count()],
-                ['Attendance rows ('.$fromLabel.' – '.$toLabel.')', (string) $attendanceCount],
-            ],
-        );
+            $fromLabel = Carbon::parse($from)->format('M Y');
+            $toLabel = Carbon::parse($to)->format('M Y');
+
+            $this->command?->info("Demo fleet data ready for [{$tenant->name}] ({$slug})");
+            $this->command?->table(
+                ['Item', 'Count'],
+                [
+                    ['Drivers', (string) $drivers->count()],
+                    ['Vehicles', (string) $vehicles->count()],
+                    ['Attendance rows ('.$fromLabel.' – '.$toLabel.')', (string) $attendanceCount],
+                ],
+            );
+        } finally {
+            TenantContext::setTenantId(null);
+        }
     }
 
     /**
