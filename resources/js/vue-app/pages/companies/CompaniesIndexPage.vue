@@ -29,13 +29,12 @@
                                 <th>PAN Number</th>
                                 <th>Contact</th>
                                 <th>Plan End</th>
-                                <th>LR Credits</th>
                                 <th class="app-index-actions-cell" style="width: 240px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="companies.length === 0">
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="7" class="text-center text-muted py-4">
                                     <span v-if="canCreate">
                                         No companies yet. Use the Create button to register your first company.
                                     </span>
@@ -62,7 +61,6 @@
                                     <span v-if="!company.contact_person && !company.contact_number">—</span>
                                 </td>
                                 <td>{{ company.plan_end_date_formatted || '—' }}</td>
-                                <td>{{ company.lr_credits ?? '—' }}</td>
                                 <td class="app-index-actions-cell text-nowrap">
                                     <AppButton
                                         v-if="canEnter"

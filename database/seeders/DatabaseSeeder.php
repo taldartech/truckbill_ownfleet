@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             UserRoleSeeder::class,
             PermissionSeeder::class,
             IndiaLocationSeeder::class,
+            MasterAdminSeeder::class,
         ]);
     }
 }

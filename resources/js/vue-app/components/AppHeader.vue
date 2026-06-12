@@ -189,13 +189,6 @@ const showNotifications = computed(
     () => Boolean(props.user?.can_access_company_panel) && !needsCompanySelection.value,
 );
 const displayName = computed(() => props.user?.name || props.user?.email || '');
-const planExpiryLabel = computed(() => props.user?.company?.plan_end_date_formatted ?? 'N/A');
-const lrCreditsLabel = computed(() => {
-    const credits = props.user?.company?.lr_credits;
-
-    return credits !== null && credits !== undefined ? String(credits) : 'N/A';
-});
-
 const memberSince = computed(() => {
     if (!props.user?.created_at) {
         return '';
