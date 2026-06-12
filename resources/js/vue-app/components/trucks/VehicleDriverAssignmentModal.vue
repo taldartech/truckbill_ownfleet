@@ -70,15 +70,16 @@
                                             >
                                                 {{ selectedDriverLabel }}
                                             </button>
-                                            <button
-                                                v-if="assignForm.driver_id"
-                                                type="button"
-                                                class="btn btn-link driver-clear-btn"
-                                                title="Clear selected driver"
-                                                @click="clearSelectedDriver"
-                                            >
-                                                <i class="bi bi-x-circle-fill"></i>
-                                            </button>
+                                            <div v-if="assignForm.driver_id" class="driver-trigger-icons">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-link driver-clear-btn"
+                                                    title="Clear selected driver"
+                                                    @click.stop="clearSelectedDriver"
+                                                >
+                                                    <i class="bi bi-x-circle-fill"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div v-if="isDriverDropdownOpen" class="driver-dropdown-menu shadow-sm">
                                             <div class="driver-search-wrap">
@@ -692,23 +693,41 @@ async function removePrimaryDriver() {
     padding-right: 2.4rem;
 }
 
+.driver-trigger-wrap:has(.driver-trigger-icons) .driver-trigger {
+    padding-right: 3.6rem;
+}
+
 .driver-trigger-wrap {
     position: relative;
 }
 
-.driver-clear-btn {
+.driver-trigger-icons {
     position: absolute;
-    right: 0.4rem;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
+    right: 2rem;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.driver-clear-btn {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
     color: #6c757d;
     text-decoration: none;
     padding: 0;
     line-height: 1;
+    border: none;
 }
 
-.driver-clear-btn:hover {
+.driver-clear-btn:hover,
+.driver-clear-btn:focus {
     color: #dc3545;
+    text-decoration: none;
 }
 
 .driver-dropdown-menu {

@@ -10,15 +10,16 @@
             >
                 {{ displayLabel }}
             </button>
-            <button
-                v-if="modelValue && !disabled"
-                type="button"
-                class="btn btn-link select-clear-btn"
-                title="Clear"
-                @click="clearSelection"
-            >
-                <i class="bi bi-x-circle-fill"></i>
-            </button>
+            <div v-if="modelValue && !disabled" class="select-trigger-icons">
+                <button
+                    type="button"
+                    class="btn btn-link select-clear-btn"
+                    title="Clear"
+                    @click.stop="clearSelection"
+                >
+                    <i class="bi bi-x-circle-fill"></i>
+                </button>
+            </div>
         </div>
         <div v-if="errorMessage" class="invalid-feedback d-block">{{ errorMessage }}</div>
 
@@ -219,17 +220,37 @@ watch(
     padding-right: 2.4rem;
     --bs-form-select-bg-icon: none;
 }
+.select-trigger-wrap:has(.select-trigger-icons) .select-trigger {
+    padding-right: 3.6rem;
+}
 .select-trigger-wrap {
     position: relative;
 }
-.select-clear-btn {
+.select-trigger-icons {
     position: absolute;
-    right: 0.4rem;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
+    right: 2rem;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+.select-clear-btn {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
     color: #6c757d;
     text-decoration: none;
     padding: 0;
+    line-height: 1;
+    border: none;
+}
+.select-clear-btn:hover,
+.select-clear-btn:focus {
+    color: #dc3545;
+    text-decoration: none;
 }
 </style>
 

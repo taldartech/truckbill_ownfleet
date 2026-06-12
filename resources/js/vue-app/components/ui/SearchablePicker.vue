@@ -13,15 +13,16 @@
                     >
                         {{ displayLabel }}
                     </button>
-                    <button
-                        v-if="modelValue && !disabled"
-                        type="button"
-                        class="btn btn-link picker-clear-btn"
-                        title="Clear"
-                        @click="clearSelection"
-                    >
-                        <i class="bi bi-x-circle-fill"></i>
-                    </button>
+                    <div v-if="modelValue && !disabled" class="picker-trigger-icons">
+                        <button
+                            type="button"
+                            class="btn btn-link picker-clear-btn"
+                            title="Clear"
+                            @click.stop="clearSelection"
+                        >
+                            <i class="bi bi-x-circle-fill"></i>
+                        </button>
+                    </div>
                 </div>
                 <div v-if="errorMessage" class="invalid-feedback d-block">{{ errorMessage }}</div>
 
@@ -422,17 +423,37 @@ watch(
     padding: 8px 2.4rem 8px 12px;
     --bs-form-select-bg-icon: none;
 }
+.picker-trigger-wrap:has(.picker-trigger-icons) .picker-trigger {
+    padding-right: 3.6rem;
+}
 .picker-trigger-wrap {
     position: relative;
 }
-.picker-clear-btn {
+.picker-trigger-icons {
     position: absolute;
-    right: 0.4rem;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
+    right: 2rem;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+.picker-clear-btn {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
     color: #6c757d;
     text-decoration: none;
     padding: 0;
+    line-height: 1;
+    border: none;
+}
+.picker-clear-btn:hover,
+.picker-clear-btn:focus {
+    color: #dc3545;
+    text-decoration: none;
 }
 </style>
 
