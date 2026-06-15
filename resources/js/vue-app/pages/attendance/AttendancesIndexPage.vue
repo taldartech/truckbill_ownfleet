@@ -3,6 +3,7 @@
         <AppIndexPageHeader title="Driver Attendance & Wages">
             <template #actions>
                 <AppButton
+                    v-if="canViewSettlement"
                     variant="secondary"
                     outline
                     size="sm"
@@ -11,7 +12,7 @@
                     @click="goToMonthlySettlement"
                 />
                 <AppButton
-                    v-if="canManageAttendance && canEditDay"
+                    v-if="canBulkManageAttendance && canEditDay"
                     variant="secondary"
                     outline
                     size="sm"
@@ -32,7 +33,7 @@
         >
             <strong>{{ monthLockLabel }} for {{ monthLabel() }}</strong>
             <template v-if="monthLock.status === 'closed'">
-                <p class="mb-0 mt-2 small">
+                <p v-if="canViewSettlement" class="mb-0 mt-2 small">
                     Step 1 done — attendance is frozen. Open
                     <RouterLink
                         :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
@@ -42,8 +43,11 @@
                     </RouterLink>
                     to mark payments and lock the month.
                 </p>
+                <p v-else class="mb-0 mt-2 small">
+                    Step 1 done — attendance is frozen. Contact an admin to complete monthly settlement.
+                </p>
             </template>
-            <p v-else class="mb-0 mt-2 small">
+            <p v-else-if="canViewSettlement" class="mb-0 mt-2 small">
                 Month is locked. Use
                 <RouterLink
                     :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
@@ -51,7 +55,10 @@
                 >
                     Monthly Settlement
                 </RouterLink>
-                to unlock or reopen the month.
+                to reopen the month (super admin can unlock from settlement).
+            </p>
+            <p v-else class="mb-0 mt-2 small">
+                Month is locked. Contact an admin to reopen the month.
             </p>
         </div>
 
@@ -158,7 +165,7 @@
                                 <th>Alternate</th>
                                 <th>Wage</th>
                                 <th>Payment</th>
-                                <th v-if="canManageAttendance || canManageWages" class="app-index-actions-cell" style="width: 160px">Actions</th>
+                                <th v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell" style="width: 160px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -208,10 +215,10 @@
                                     </span>
                                     <span v-else class="text-muted">—</span>
                                 </td>
-                                <td v-if="canManageAttendance || canManageWages" class="app-index-actions-cell">
+                                <td v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell">
                                     <AppTableActions>
                                         <AppCrudActionButton
-                                            v-if="canManageAttendance"
+                                            v-if="canEditAttendanceRecords"
                                             action="edit"
                                             @click="openEdit(row)"
                                         />
@@ -316,11 +323,13 @@ const router = useRouter();
 const { canInCompany } = usePermissions();
 
 const canManageAttendance = computed(() => canInCompany('attendances.manage'));
+const canBulkManageAttendance = computed(() => canInCompany('attendances.bulk_manage'));
+const canViewSettlement = computed(() => canInCompany('wages.view'));
 const canManageWages = computed(() => canInCompany('wages.manage'));
-const actionColspan = computed(() => (canManageAttendance.value || canManageWages.value ? 8 : 7));
+const actionColspan = computed(() => (canEditAttendanceRecords.value || canManageWages.value ? 8 : 7));
 const monthLock = computed(() => monthOverview.value.month_lock ?? { status: 'open' });
 const isMonthEditable = computed(() => monthLock.value.status === 'open');
-const canEditGrid = computed(() => canManageAttendance.value && isMonthEditable.value);
+const canEditGrid = computed(() => canBulkManageAttendance.value && isMonthEditable.value);
 const activeView = ref('day');
 const dayDate = ref(new Date().toISOString().slice(0, 10));
 const dayOverview = ref({
@@ -332,6 +341,17 @@ const dayOverviewLoading = ref(false);
 const dayMonthLock = computed(() => dayOverview.value.month_lock ?? { status: 'open' });
 const isDayMonthEditable = computed(() => dayMonthLock.value.status === 'open');
 const canEditDay = computed(() => canManageAttendance.value && isDayMonthEditable.value);
+const canEditAttendanceRecords = computed(() => {
+    if (!canManageAttendance.value) {
+        return false;
+    }
+
+    if (activeView.value === 'day') {
+        return isDayMonthEditable.value;
+    }
+
+    return canBulkManageAttendance.value && isMonthEditable.value;
+});
 const monthLockLabel = computed(() => {
     if (monthLock.value.status === 'paid') {
         return 'Month locked';

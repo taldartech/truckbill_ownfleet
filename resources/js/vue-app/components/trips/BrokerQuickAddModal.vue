@@ -9,7 +9,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="bi bi-person-badge"></i> Quick Add Broker</h5>
+                    <h5 class="modal-title"><i class="bi bi-person-badge"></i> Quick Add Reference</h5>
                     <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
                 </div>
                 <form @submit.prevent="submit">
@@ -17,7 +17,7 @@
                         <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
 
                         <PartyQuickAddFields
-                            name-label="Broker Name"
+                            name-label="Reference Name"
                             v-model:name="name"
                             v-model:gst-number="gstNumber"
                             v-model:pan-number="panNumber"
@@ -117,7 +117,7 @@ async function submit() {
         emit('created', broker);
         emit('close');
     } catch (error) {
-        applyApiError(error, 'Failed to add broker.');
+        applyApiError(error, 'Failed to add reference.');
     } finally {
         saving.value = false;
     }

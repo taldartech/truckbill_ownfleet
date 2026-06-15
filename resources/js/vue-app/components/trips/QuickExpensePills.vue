@@ -26,6 +26,12 @@ const pills = [
     { value: 'UNLOADING_CHARGES', label: 'Unloading', icon: 'bi-box-arrow-up', className: 'pill-unloading' },
     { value: 'FOOD_EXPENSE', label: 'Food', icon: 'bi-cup-hot', className: 'pill-food' },
     { value: 'RTO_EXPENSE', label: 'RTO', icon: 'bi-shield-check', className: 'pill-rto' },
+    {
+        value: 'PERMIT_BORDER_TAX',
+        label: 'Permit',
+        icon: 'bi-passport',
+        className: 'pill-permit',
+    },
     { value: 'OTHER', label: 'Other', icon: 'bi-plus-lg', className: 'pill-other' },
 ];
 </script>
@@ -99,6 +105,14 @@ const pills = [
 .pill-rto:hover {
     background: #cffafe;
     border-color: #67e8f9;
+}
+.pill-permit {
+    background: #eef2ff;
+    color: #4338ca;
+}
+.pill-permit:hover {
+    background: #e0e7ff;
+    border-color: #a5b4fc;
 }
 .pill-other {
     background: #f9fafb;

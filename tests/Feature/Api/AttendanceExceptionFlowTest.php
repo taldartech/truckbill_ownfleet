@@ -6,6 +6,7 @@ use App\AttendanceMonthLock;
 use App\DriverAssignment;
 use App\Enums\AttendanceMonthStatus;
 use App\Enums\TripStatus;
+use App\Support\SelectedCompanySession;
 use App\Tenant;
 use App\Trip;
 use App\User;
@@ -560,8 +561,25 @@ class AttendanceExceptionFlowTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
+            ->assertForbidden();
+
+        $superAdmin = User::query()->create([
+            'tenant_id' => null,
+            'name' => 'Super Admin',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        SelectedCompanySession::set($tenant->id);
+        Sanctum::actingAs($superAdmin);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
             ->assertOk()
             ->assertJsonPath('data.status', AttendanceMonthStatus::Closed->value);
+
+        Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/reopen-month', ['month' => '2026-06'])

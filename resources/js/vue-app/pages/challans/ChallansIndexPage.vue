@@ -131,6 +131,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
+import { formatDate } from '../../utils/datetime';
 
 const pageId = 'challansIndex';
 
@@ -171,20 +172,6 @@ function clearFilters() {
     searchQuery.value = '';
     statusFilter.value = '';
     applyFilters();
-}
-
-function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const [year, month, day] = String(value).split('-');
-
-    if (!year || !month || !day) {
-        return value;
-    }
-
-    return `${day}/${month}/${year}`;
 }
 
 function formatAmount(amount) {

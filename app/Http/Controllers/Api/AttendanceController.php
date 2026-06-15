@@ -14,6 +14,7 @@ use App\Http\Requests\MarkAttendanceRequest;
 use App\Http\Requests\MarkMonthlyWagePaidRequest;
 use App\Http\Requests\MarkWagePaidRequest;
 use App\Http\Requests\ReopenAttendanceMonthRequest;
+use App\Http\Requests\UnlockAttendanceMonthRequest;
 use App\Http\Requests\UpdateMonthlySettlementLineRequest;
 use App\Http\Requests\UpdateVehicleSettlementLineRequest;
 use App\Http\Resources\AttendanceMonthOverviewResource;
@@ -62,7 +63,7 @@ class AttendanceController extends Controller
 
     public function monthlyWages(Request $request): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', Attendance::class);
+        $this->authorize('viewSettlement', Attendance::class);
 
         $validated = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
@@ -75,7 +76,7 @@ class AttendanceController extends Controller
 
     public function settlementSheet(Request $request): \Illuminate\Http\JsonResponse
     {
-        $this->authorize('viewAny', Attendance::class);
+        $this->authorize('viewSettlement', Attendance::class);
 
         $validated = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
@@ -88,7 +89,7 @@ class AttendanceController extends Controller
 
     public function exportSettlementSheet(Request $request): BinaryFileResponse
     {
-        $this->authorize('viewAny', Attendance::class);
+        $this->authorize('exportSettlement', Attendance::class);
 
         $validated = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
@@ -150,7 +151,7 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function unlockMonth(ReopenAttendanceMonthRequest $request): \Illuminate\Http\JsonResponse
+    public function unlockMonth(UnlockAttendanceMonthRequest $request): \Illuminate\Http\JsonResponse
     {
         return response()->json([
             'data' => $this->monthLockPayload(

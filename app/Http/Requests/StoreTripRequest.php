@@ -59,6 +59,7 @@ class StoreTripRequest extends FormRequest
             'expenses.*.odometer_start' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.odometer_end' => ['nullable', 'numeric', 'min:0'],
             'expenses.*.route_leg_sequence' => ['nullable', 'integer', 'min:1'],
+            'expenses.*.other_type' => ['nullable', 'string', 'max:120'],
             'expenses.*.notes' => ['nullable', 'string', 'max:500'],
         ];
     }

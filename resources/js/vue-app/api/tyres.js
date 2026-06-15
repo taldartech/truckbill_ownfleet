@@ -105,3 +105,16 @@ export async function getVehicleTyrePositions(vehicleId) {
     const { data } = await api.get(`/app/api/vehicles/${vehicleId}/tyre-positions`);
     return data.data ?? [];
 }
+
+export async function getVehicleTyreHistory(vehicleId) {
+    const { data } = await api.get(`/app/api/vehicles/${vehicleId}/tyre-history`);
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return { summary: {}, history: [] };
+    }
+
+    return {
+        summary: data.summary ?? {},
+        history: data.history ?? [],
+    };
+}

@@ -10,7 +10,8 @@ class BrokerPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('brokers.view')
+        return ($user->hasPermission('brokers.view')
+            || $user->hasPermission('trips.manage'))
             && $user->canAccessCompanyPanel();
     }
 

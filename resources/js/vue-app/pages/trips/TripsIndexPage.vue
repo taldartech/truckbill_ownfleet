@@ -57,14 +57,14 @@
                 />
             </div>
             <div>
-                <label class="form-label">Broker</label>
+                <label class="form-label">Reference</label>
                 <SearchablePicker
                     v-model="filters.broker_id"
                     :items="brokers"
-                    placeholder="All brokers"
-                    search-placeholder="Search broker…"
-                    empty-message="No broker found."
-                    view-title="Broker details"
+                    placeholder="All references"
+                    search-placeholder="Search reference…"
+                    empty-message="No reference found."
+                    view-title="Reference details"
                 />
             </div>
         </AppIndexFiltersCard>
@@ -113,8 +113,8 @@
                                     {{ statusBadge(trip.status).label }}
                                 </span>
                             </td>
-                            <td>{{ formatDate(trip.start_at) }}</td>
-                            <td>{{ formatDate(trip.end_at) }}</td>
+                            <td>{{ formatDateTime(trip.start_at) }}</td>
+                            <td>{{ formatDateTime(trip.end_at) }}</td>
                             <td class="small">{{ formatRoute(trip) }}</td>
                             <td>₹{{ formatMoney(trip.total_freight_amount) }}</td>
                             <td>₹{{ formatMoney(trip.total_expense_amount) }}</td>
@@ -136,7 +136,7 @@
                                         @click="goToEdit(trip)"
                                     />
                                     <AppCrudActionButton
-                                        v-if="canManage"
+                                        v-if="canDelete"
                                         action="delete"
                                         @click="handleDelete(trip)"
                                     />
@@ -186,13 +186,15 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
+import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
-const { canInCompany } = usePermissions();
+const { canInCompany, canDeleteRecords } = usePermissions();
 const canManage = computed(() => canInCompany('trips.manage'));
+const canDelete = computed(() => canManage.value && canDeleteRecords.value);
 const canView = computed(() => canInCompany('trips.view'));
 const canOpenTrip = computed(() => canView.value || canManage.value);
 const showActions = computed(() => canOpenTrip.value);
@@ -228,14 +230,6 @@ const filtersActive = computed(() => {
 
 function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString('en-IN');
 }
 
 function statusBadge(status) {

@@ -116,14 +116,14 @@ class LocationManagementTest extends TestCase
         ]);
     }
 
-    public function test_moderator_can_view_but_not_manage_locations(): void
+    public function test_moderator_cannot_access_location_master_data(): void
     {
         [$tenant, $user] = $this->createFixtures('moderator');
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/states')
-            ->assertOk();
+            ->assertForbidden();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/states', [

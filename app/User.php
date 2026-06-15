@@ -167,6 +167,7 @@ class User extends Authenticatable
         if (in_array($this->user_role_id, [
             UserRole::ADMIN,
             UserRole::MODERATOR,
+            UserRole::ACCOUNTANT,
         ], true)) {
             return true;
         }
@@ -177,6 +178,11 @@ class User extends Authenticatable
     public function requiresCompanySelection(): bool
     {
         return $this->user_role_id === UserRole::SUPER_ADMIN && $this->effectiveTenantId() === null;
+    }
+
+    public function canDeleteOperationalRecords(): bool
+    {
+        return ! $this->hasAnyRole(['moderator', 'accountant']);
     }
 
     private function matchesRole(string $role): bool

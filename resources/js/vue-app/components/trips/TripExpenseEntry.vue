@@ -16,6 +16,7 @@
             <div class="trip-expense-entry__field trip-expense-entry__field--type">
                 <label class="trip-expense-entry__label">Type</label>
                 <select
+                    v-if="!isOther"
                     v-model="expense.expense_type"
                     class="form-control form-control-sm"
                     :disabled="disabled"
@@ -25,6 +26,14 @@
                         {{ type.label }}
                     </option>
                 </select>
+                <input
+                    v-else
+                    v-model="expense.other_type"
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Enter expense type"
+                    :disabled="disabled"
+                />
             </div>
 
             <template v-if="isDiesel">
@@ -141,11 +150,13 @@ const expenseTypes = [
     { value: 'DRIVER_EXPENSE', label: 'Driver cash / misc' },
     { value: 'REPAIR', label: 'Breakdown' },
     { value: 'PARKING', label: 'Parking fee' },
-    { value: 'RTO_EXPENSE', label: 'Permit / border tax' },
-    { value: 'OTHER', label: 'Other + note' },
+    { value: 'RTO_EXPENSE', label: 'RTO' },
+    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
+    { value: 'OTHER', label: 'Other' },
 ];
 
 const isDiesel = computed(() => props.expense.expense_type === 'DIESEL');
+const isOther = computed(() => props.expense.expense_type === 'OTHER');
 
 function recalculateDieselAmount() {
     const liters = Number(props.expense.fuel_liters) || 0;
@@ -155,6 +166,12 @@ function recalculateDieselAmount() {
 }
 
 function onTypeChange() {
+    if (props.expense.expense_type === 'OTHER') {
+        props.expense.other_type = props.expense.other_type || '';
+    } else {
+        props.expense.other_type = '';
+    }
+
     if (props.expense.expense_type !== 'DIESEL') {
         props.expense.fuel_liters = '';
         props.expense.fuel_rate = '';

@@ -10,7 +10,7 @@ class BulkMarkAttendanceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', Attendance::class) ?? false;
+        return $this->user()?->can('bulkMark', Attendance::class) ?? false;
     }
 
     /**

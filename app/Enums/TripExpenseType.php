@@ -13,5 +13,6 @@ enum TripExpenseType: string
     case FoodExpense = 'FOOD_EXPENSE';
     case Parking = 'PARKING';
     case RtoExpense = 'RTO_EXPENSE';
+    case PermitBorderTax = 'PERMIT_BORDER_TAX';
     case Other = 'OTHER';
 }

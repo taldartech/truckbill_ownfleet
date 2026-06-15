@@ -69,7 +69,7 @@ const router = createRouter({
                     path: 'attendance/settlement',
                     name: 'attendance.settlement',
                     component: () => import('./pages/attendance/MonthlySettlementPage.vue'),
-                    meta: { requiresTenant: true, permission: 'attendances.view' },
+                    meta: { requiresTenant: true, permission: 'wages.view' },
                 },
                 {
                     path: 'trips',
@@ -96,10 +96,14 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'stations.view' },
                 },
                 {
-                    path: 'brokers',
-                    name: 'brokers.index',
+                    path: 'references',
+                    name: 'references.index',
                     component: () => import('./pages/brokers/BrokersIndexPage.vue'),
                     meta: { requiresTenant: true, permission: 'brokers.view' },
+                },
+                {
+                    path: 'brokers',
+                    redirect: { name: 'references.index' },
                 },
                 {
                     path: 'customers',

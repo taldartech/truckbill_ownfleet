@@ -101,13 +101,13 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('fleet.exceptions_today_count', 1);
     }
 
-    public function test_moderator_can_view_reports_but_not_export(): void
+    public function test_moderator_cannot_access_attendance_reports(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/reports/attendance')
-            ->assertOk();
+            ->assertForbidden();
 
         $this->actingAs($user)
             ->get('/app/api/reports/attendance/export')

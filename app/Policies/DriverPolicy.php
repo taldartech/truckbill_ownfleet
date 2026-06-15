@@ -10,7 +10,9 @@ class DriverPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('drivers.view')
+        return ($user->hasPermission('drivers.view')
+            || $user->hasPermission('trips.manage')
+            || $user->hasPermission('attendances.manage'))
             && $user->canAccessCompanyPanel();
     }
 

@@ -1,6 +1,6 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Brokers">
+        <AppIndexPageHeader title="References">
             <template v-if="canManage" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
@@ -19,7 +19,7 @@
             </div>
         </AppIndexFiltersCard>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading brokers…">
+        <AppIndexListCard :loading="loading" loading-text="Loading references…">
             <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -34,7 +34,7 @@
                     </thead>
                     <tbody>
                         <tr v-if="brokers.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 7 : 6" class="text-center text-muted py-4">No brokers found.</td>
+                            <td :colspan="canManage ? 7 : 6" class="text-center text-muted py-4">No references found.</td>
                         </tr>
                         <tr v-for="broker in brokers" :key="broker.id">
                             <td>{{ broker.name }}</td>
@@ -64,7 +64,7 @@
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title">{{ editing ? 'Edit Broker' : 'Add Broker' }}</h5>
+                        <h5 class="modal-title">{{ editing ? 'Edit Reference' : 'Add Reference' }}</h5>
                         <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                     </div>
                     <form novalidate @submit.prevent="save">
@@ -101,7 +101,7 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Broker Name *</label>
+                                <label class="form-label">Reference Name *</label>
                                 <input
                                     v-model="form.name"
                                     type="text"
@@ -315,7 +315,7 @@ async function save() {
 }
 
 async function handleDelete(broker) {
-    if (!window.confirm(`Delete broker "${broker.name}"?`)) {
+    if (!window.confirm(`Delete reference "${broker.name}"?`)) {
         return;
     }
 

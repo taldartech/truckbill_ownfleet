@@ -170,6 +170,7 @@ export function useTripForm() {
                 expense.odometer_end != null && expense.odometer_end !== '' ? Number(expense.odometer_end) : '',
             route_leg_sequence: expense.route_leg_sequence ?? '',
             notes: expense.notes ?? '',
+            other_type: expense.other_type ?? '',
         }));
 
         rebuildLegChain();
@@ -257,6 +258,7 @@ export function useTripForm() {
                         e.odometer_start === '' || e.odometer_start == null ? null : Number(e.odometer_start),
                     odometer_end: e.odometer_end === '' || e.odometer_end == null ? null : Number(e.odometer_end),
                     route_leg_sequence: e.route_leg_sequence || null,
+                    other_type: e.expense_type === 'OTHER' ? e.other_type || null : null,
                     notes: e.notes || null,
                 })),
         };

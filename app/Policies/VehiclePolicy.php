@@ -10,7 +10,9 @@ class VehiclePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('vehicles.view')
+        return ($user->hasPermission('vehicles.view')
+            || $user->hasPermission('trips.manage')
+            || $user->hasPermission('attendances.manage'))
             && $user->canAccessCompanyPanel();
     }
 

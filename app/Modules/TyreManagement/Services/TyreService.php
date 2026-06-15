@@ -366,6 +366,60 @@ class TyreService
         });
     }
 
+    /**
+     * @return array{summary: array<string, int|float>, history: list<array<string, mixed>>}
+     */
+    public function vehicleTyreHistory(string $vehicleId): array
+    {
+        $vehicle = Vehicle::query()->findOrFail($vehicleId);
+        $positions = $this->vehiclePositions($vehicleId);
+
+        $installations = TyreInstallation::query()
+            ->where('vehicle_id', $vehicleId)
+            ->with('tyre')
+            ->orderByDesc('installed_at')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $history = $installations->map(function (TyreInstallation $installation): array {
+            $tyre = $installation->tyre;
+            $stintKm = $this->lifeCalculator->activeStintKm($installation);
+
+            return [
+                'id' => $installation->id,
+                'tyre_id' => $installation->tyre_id,
+                'tyre_serial_number' => $tyre?->serial_number,
+                'tyre_brand' => $tyre?->brand,
+                'tyre_status' => $tyre?->status?->value,
+                'position' => $installation->position_code,
+                'position_label' => $this->positionCatalog->labelFor($installation->position_code),
+                'installed_at' => $installation->installed_at?->toDateString(),
+                'removed_at' => $installation->removed_at?->toDateString(),
+                'km_at_installation' => (float) $installation->km_at_installation,
+                'km_at_removal' => $installation->km_at_removal !== null ? (float) $installation->km_at_removal : null,
+                'stint_km' => round($stintKm, 2),
+                'is_active' => $installation->removed_at === null,
+                'removal_recommendation' => $installation->removal_recommendation,
+            ];
+        })->all();
+
+        $totalKm = $installations->sum(
+            fn (TyreInstallation $installation): float => $this->lifeCalculator->activeStintKm($installation)
+        );
+
+        return [
+            'summary' => [
+                'unique_tyres_used' => $installations->pluck('tyre_id')->unique()->count(),
+                'total_stints' => $installations->count(),
+                'currently_installed' => $installations->whereNull('removed_at')->count(),
+                'empty_positions' => collect($positions)->where('is_empty', true)->count(),
+                'total_positions' => count($positions),
+                'total_km_on_truck' => round($totalKm, 2),
+            ],
+            'history' => $history,
+        ];
+    }
+
     public function vehiclePositions(string $vehicleId): array
     {
         $vehicle = Vehicle::query()->findOrFail($vehicleId);

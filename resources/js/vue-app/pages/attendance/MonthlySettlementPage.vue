@@ -28,6 +28,7 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <button
+                        v-if="canViewSettlement"
                         type="button"
                         class="btn btn-outline-success btn-sm"
                         :disabled="loading"
@@ -73,7 +74,7 @@
                         Reopen Month
                     </button>
                     <button
-                        v-if="canManageWages && monthLock.status === 'paid'"
+                        v-if="canUnlockMonth && monthLock.status === 'paid'"
                         type="button"
                         class="btn btn-outline-secondary btn-sm"
                         :disabled="unlocking"
@@ -100,6 +101,14 @@
 
             <template v-else>
                 <div
+                    v-if="canViewSettlement && !canManageWages"
+                    class="alert alert-light border py-2 mb-3"
+                >
+                    <strong>View only.</strong> You can review payroll and download Excel. Contact an admin to
+                    close the month, edit lines, or mark payments.
+                </div>
+
+                <div
                     v-if="monthLock.status === 'open'"
                     class="alert alert-info py-2 mb-3"
                 >
@@ -123,15 +132,24 @@
                     v-else-if="monthLock.status === 'closed'"
                     class="alert alert-warning py-2 mb-3"
                 >
-                    <strong>Month closed.</strong> Review payroll, mark drivers paid, then lock the month.
+                    <strong>Month closed.</strong>
+                    <template v-if="canManageWages">
+                        Review payroll, mark drivers paid, then lock the month.
+                    </template>
+                    <template v-else> Payroll is ready for review. Download Excel or contact an admin to process payments. </template>
                 </div>
 
                 <div
                     v-else-if="monthLock.status === 'paid'"
                     class="alert alert-secondary py-2 mb-3"
                 >
-                    <strong>Month locked.</strong> Attendance is frozen for this period. Unlock the month to
-                    adjust payments, or reopen it for attendance edits.
+                    <strong>Month locked.</strong> Attendance is frozen for this period.
+                    <template v-if="canUnlockMonth">
+                        Unlock the month to adjust payments, or reopen it for attendance edits.
+                    </template>
+                    <template v-else>
+                        Contact a super admin to unlock the month, or reopen it for attendance edits.
+                    </template>
                 </div>
 
                 <ul class="nav nav-tabs mb-3">
@@ -461,9 +479,15 @@ import { usePermissions } from '../../composables/usePermissions';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 
 const route = useRoute();
-const { canInCompany } = usePermissions();
+const { canInCompany, user } = usePermissions();
 
 const canManageWages = computed(() => canInCompany('wages.manage'));
+const canViewSettlement = computed(() => canInCompany('wages.view') || canManageWages.value);
+const canUnlockMonth = computed(
+    () =>
+        user.value?.role === 'super_admin' &&
+        !(user.value?.requires_company_selection ?? false),
+);
 const canEditSheet = computed(() => canManageWages.value && monthLock.value.status !== 'paid');
 
 const loading = ref(true);

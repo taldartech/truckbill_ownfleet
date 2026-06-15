@@ -40,11 +40,14 @@ export function usePermissions(explicitUserRef = null) {
         return tenantId != null;
     }
 
+    const canDeleteRecords = computed(() => user.value?.can_delete_records === true);
+
     return {
         user,
         permissions,
         can,
         canAny,
         canInCompany,
+        canDeleteRecords,
     };
 }

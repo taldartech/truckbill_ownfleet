@@ -37,6 +37,7 @@ class TyrePolicy
 
     public function delete(User $user, Tyre $tyre): bool
     {
-        return $this->update($user, $tyre);
+        return $user->canDeleteOperationalRecords()
+            && $this->update($user, $tyre);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\RoleHierarchy;
 use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -36,12 +37,17 @@ class UserResource extends JsonResource
             'tenant_name' => $activeTenant?->name,
             'user_role_id' => $this->user_role_id,
             'role' => $this->userRole?->name,
+            'role_label' => $this->user_role_id
+                ? RoleHierarchy::roleLabel((int) $this->user_role_id)
+                : null,
             'permissions' => $this->permissionSlugs(),
+            'can_delete_records' => $this->canDeleteOperationalRecords(),
             'can_access_company_panel' => $this->canAccessCompanyPanel(),
             'requires_company_selection' => $this->requiresCompanySelection(),
             'show_plan_badges' => in_array($this->user_role_id, [
                 UserRole::ADMIN,
                 UserRole::MODERATOR,
+                UserRole::ACCOUNTANT,
             ], true) || ($this->userRole?->name === 'super_admin' && $this->canAccessCompanyPanel()),
             'company' => [
                 'id' => $effectiveTenantId,

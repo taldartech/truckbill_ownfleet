@@ -18,6 +18,7 @@ class TripExpense extends Model
         'trip_id',
         'trip_route_leg_id',
         'expense_type',
+        'other_type',
         'expense_date',
         'amount',
         'fuel_liters',

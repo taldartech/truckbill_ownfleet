@@ -10,7 +10,8 @@ class CustomerPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('customers.view')
+        return ($user->hasPermission('customers.view')
+            || $user->hasPermission('trips.manage'))
             && $user->canAccessCompanyPanel();
     }
 

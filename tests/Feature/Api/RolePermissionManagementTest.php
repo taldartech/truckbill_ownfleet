@@ -29,8 +29,8 @@ class RolePermissionManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonFragment(['name' => 'admin']);
-        $response->assertJsonCount(4, 'data');
-        $response->assertJsonMissing(['name' => 'accountant']);
+        $response->assertJsonFragment(['name' => 'accountant']);
+        $response->assertJsonCount(5, 'data');
         $response->assertJsonMissing(['name' => 'transporter']);
         $response->assertJsonMissing(['name' => 'customer']);
 

@@ -124,6 +124,57 @@ class TripManagementTest extends TestCase
         $this->assertSame('450.00', (string) $dieselExpense->distance_km);
     }
 
+    public function test_other_expense_stores_custom_type_and_notes_separately(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'end_at' => '2026-06-05 20:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'route_type' => RouteType::Loaded->value,
+                        'sequence_no' => 1,
+                        'distance_km' => 150,
+                        'freight_amount' => 25000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'route_type' => RouteType::Empty->value,
+                        'sequence_no' => 2,
+                        'distance_km' => 150,
+                    ],
+                ],
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Other->value,
+                        'other_type' => 'Vehicle washing',
+                        'notes' => 'Paid at highway stop',
+                        'expense_date' => '2026-06-02',
+                        'amount' => 500,
+                    ],
+                ],
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('trip_expenses', [
+            'tenant_id' => $tenant->id,
+            'expense_type' => TripExpenseType::Other->value,
+            'other_type' => 'Vehicle washing',
+            'notes' => 'Paid at highway stop',
+            'amount' => '500.00',
+        ]);
+    }
+
     public function test_expense_date_must_stay_within_trip_window(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
@@ -256,11 +307,11 @@ class TripManagementTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_moderator_can_view_but_not_create_trips(): void
+    public function test_moderator_can_create_trips_but_not_delete(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
         Sanctum::actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips')
@@ -271,7 +322,7 @@ class TripManagementTest extends TestCase
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
-                'start_at' => '2026-06-01 08:00:00',
+                'start_at' => '2026-06-02 08:00:00',
                 'route_legs' => [
                     [
                         'from_station_id' => $stations['home']->id,
@@ -288,12 +339,16 @@ class TripManagementTest extends TestCase
                     ],
                 ],
             ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson('/api/trips/'.$trip->id)
             ->assertForbidden();
     }
 
     public function test_trip_profitability_report_returns_calculated_rows(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -310,7 +365,7 @@ class TripManagementTest extends TestCase
 
     public function test_vehicle_wise_trip_report_includes_trip_count(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -324,7 +379,7 @@ class TripManagementTest extends TestCase
 
     public function test_expense_summary_report_includes_trip_count(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 

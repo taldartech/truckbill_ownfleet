@@ -17,6 +17,8 @@ class UserRole extends Model
 
     public const MODERATOR = 4;
 
+    public const ACCOUNTANT = 5;
+
     /**
      * @var array<int, string>
      */
@@ -25,6 +27,7 @@ class UserRole extends Model
         self::SUPER_ADMIN => 'super_admin',
         self::ADMIN => 'admin',
         self::MODERATOR => 'moderator',
+        self::ACCOUNTANT => 'accountant',
     ];
 
     protected $fillable = [

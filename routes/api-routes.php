@@ -42,6 +42,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
     Route::apiResource('drivers', DriverController::class);
     Route::apiResource('driver-assignments', DriverAssignmentController::class);
+    Route::post('attendances/bulk-mark', [AttendanceController::class, 'bulkMark']);
     Route::get('attendances/month-overview', [AttendanceController::class, 'monthOverview']);
     Route::get('attendances/monthly-wages', [AttendanceController::class, 'monthlyWages']);
     Route::get('payroll-settings', [PayrollSettingController::class, 'show']);
@@ -83,6 +84,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('tyre-installations/{tyre_installation}/removal-preview', [TyreController::class, 'removalPreview']);
     Route::post('tyres/{tyre}/scrap', [TyreController::class, 'scrap']);
     Route::get('vehicles/{vehicle}/tyre-positions', [TyreController::class, 'vehiclePositions']);
+    Route::get('vehicles/{vehicle}/tyre-history', [TyreController::class, 'vehicleTyreHistory']);
     Route::get('/reports/tyres/life', [TyreReportController::class, 'tyreLife']);
     Route::get('/reports/tyres/cost-per-km', [TyreReportController::class, 'costPerKm']);
     Route::get('/reports/tyres/replacements', [TyreReportController::class, 'replacements']);

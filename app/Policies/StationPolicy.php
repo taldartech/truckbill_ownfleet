@@ -37,6 +37,7 @@ class StationPolicy
 
     public function delete(User $user, Station $station): bool
     {
-        return $this->update($user, $station);
+        return $user->canDeleteOperationalRecords()
+            && $this->update($user, $station);
     }
 }

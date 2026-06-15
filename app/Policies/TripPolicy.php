@@ -35,6 +35,7 @@ class TripPolicy
 
     public function delete(User $user, Trip $trip): bool
     {
-        return $this->update($user, $trip);
+        return $user->canDeleteOperationalRecords()
+            && $this->update($user, $trip);
     }
 }

@@ -63,7 +63,7 @@
                                 </span>
                             </div>
                             <div class="col-md-4">
-                                <span class="text-muted">Purchase</span><br />{{ tyre.purchase_date || '—' }} /
+                                <span class="text-muted">Purchase</span><br />{{ formatDate(tyre.purchase_date) }} /
                                 ₹{{ tyre.purchase_cost }}
                             </div>
                             <div class="col-md-4"><span class="text-muted">Total KM used</span><br />{{ lifeSummary?.total_km_used ?? tyre.current_km }}</div>
@@ -119,7 +119,7 @@
                             </div>
                             <template v-if="tyre.status === 'SCRAPPED'">
                                 <div class="col-md-4">
-                                    <span class="text-muted">Scrapped on</span><br />{{ tyre.scrapped_at || '—' }}
+                                    <span class="text-muted">Scrapped on</span><br />{{ formatDate(tyre.scrapped_at) }}
                                 </div>
                                 <div class="col-md-4">
                                     <span class="text-muted">Scrap sale amount</span><br />
@@ -140,7 +140,7 @@
                                 <div>{{ tyre.active_installation.vehicle_registration }}</div>
                                 <div class="text-muted">{{ tyre.active_installation.position_label }}</div>
                                 <div class="small">
-                                    Since {{ tyre.active_installation.installed_at }}
+                                    Since {{ formatDate(tyre.active_installation.installed_at) }}
                                 </div>
                                 <div class="small mt-1">
                                     Odometer at install: <strong>{{ tyre.active_installation.km_at_installation ?? 0 }}</strong> km
@@ -171,7 +171,7 @@
                         :class="{ active: activeTab === 'timeline' }"
                         @click="activeTab = 'timeline'"
                     >
-                        Full History (Timeline)
+                        Full History
                     </button>
                 </li>
                 <li v-for="tab in tabs" :key="tab.key" class="nav-item">
@@ -188,19 +188,78 @@
 
             <div class="card">
                 <div v-if="activeTab === 'timeline'" class="card-body">
-                    <ul v-if="timeline.length" class="list-group list-group-flush">
-                        <li v-for="(event, i) in timeline" :key="i" class="list-group-item px-0">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
-                                <strong>
-                                    <span class="text-muted fw-normal me-1">Step {{ i + 1 }}.</span>
-                                    {{ event.title }}
-                                </strong>
-                                <span class="text-muted small text-nowrap">{{ event.date }}</span>
-                            </div>
-                            <div class="small text-muted">{{ event.detail }}</div>
-                        </li>
-                    </ul>
-                    <p v-else class="text-muted mb-0">No history yet.</p>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-sm-4 col-md-3">
+                            <label class="form-label small mb-1" for="historyFromDate">From date</label>
+                            <input
+                                id="historyFromDate"
+                                v-model="historyFromDate"
+                                type="date"
+                                class="form-control form-control-sm"
+                            />
+                        </div>
+                        <div class="col-sm-4 col-md-3">
+                            <label class="form-label small mb-1" for="historyToDate">To date</label>
+                            <input
+                                id="historyToDate"
+                                v-model="historyToDate"
+                                type="date"
+                                class="form-control form-control-sm"
+                            />
+                        </div>
+                        <div class="col-sm-4 col-md-3">
+                            <label class="form-label small mb-1" for="historyTypeFilter">Event type</label>
+                            <select id="historyTypeFilter" v-model="historyTypeFilter" class="form-select form-select-sm">
+                                <option value="">All types</option>
+                                <option v-for="option in historyTypeOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button
+                                v-if="historyFromDate || historyToDate || historyTypeFilter"
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                @click="clearHistoryFilters"
+                            >
+                                Clear filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 120px">Date</th>
+                                    <th style="width: 90px">Time</th>
+                                    <th style="width: 100px">Type</th>
+                                    <th>Event</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-if="filteredTimeline.length === 0">
+                                    <td colspan="5" class="text-center text-muted py-4">No history found.</td>
+                                </tr>
+                                <tr v-for="(event, i) in filteredTimeline" :key="`${event.sort_at}-${event.type}-${i}`">
+                                    <td class="text-nowrap">{{ formatEventParts(event).date }}</td>
+                                    <td class="text-nowrap text-muted">{{ formatEventParts(event).time }}</td>
+                                    <td>
+                                        <span class="badge" :class="historyTypeBadgeClass(event.type)">
+                                            {{ event.type_label || formatHistoryType(event.type) }}
+                                        </span>
+                                    </td>
+                                    <td class="fw-semibold">{{ event.title }}</td>
+                                    <td class="text-muted small">{{ event.detail }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div v-if="filteredTimeline.length" class="small text-muted mt-2">
+                        Showing {{ filteredTimeline.length }} of {{ timeline.length }} events · newest first
+                    </div>
                 </div>
                 <div v-else class="card-body table-responsive">
                     <table class="table table-sm table-striped mb-0">
@@ -239,13 +298,14 @@
                     placeholder="Select truck"
                     search-placeholder="Search truck number…"
                     empty-message="No truck found."
+                    item-icon-class="bi bi-truck"
                 />
             </div>
             <div class="mb-2">
                 <label class="form-label">Position</label>
                 <select
                     v-model="actionForm.position_code"
-                    class="form-select"
+                    class="form-select position-select"
                     required
                     :disabled="!actionForm.vehicle_id || loadingVehiclePositions"
                 >
@@ -257,10 +317,14 @@
                         :key="p.value"
                         :value="p.value"
                         :disabled="p.occupied"
+                        :class="p.occupied ? 'position-option--occupied' : 'position-option--free'"
                     >
-                        {{ p.label }}{{ p.occupied ? ' (occupied)' : '' }}
+                        {{ p.occupied ? '○' : '●' }} {{ p.label }}{{ p.occupied ? ' (occupied)' : ' (free)' }}
                     </option>
                 </select>
+                <div v-if="actionForm.vehicle_id && !loadingVehiclePositions" class="form-text">
+                    ● Free position · ○ Already has a tyre
+                </div>
             </div>
             <div v-if="lifeSummary" class="alert alert-info small py-2">
                 <strong>{{ installLifeLabel }}</strong> — {{ lifeSummary.stock_km ?? 0 }} km used
@@ -607,6 +671,7 @@ import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
 import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { calculateTyreStintKm, resolveVehicleOdometer } from '../../utils/tyreStint';
+import { formatDate, formatEventParts } from '../../utils/datetime';
 import {
     formatDamageType,
     formatTyreStatus,
@@ -617,15 +682,7 @@ import {
 } from '../../utils/tyreDisplay';
 
 function formatWarrantyDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
+    return formatDate(value);
 }
 
 function formatWarrantyKm(value) {
@@ -641,6 +698,9 @@ const actionSaving = ref(false);
 const tyre = ref(null);
 const lifeSummary = ref(null);
 const timeline = ref([]);
+const historyFromDate = ref('');
+const historyToDate = ref('');
+const historyTypeFilter = ref('');
 const loading = ref(true);
 const activeTab = ref('timeline');
 const vehicles = ref([]);
@@ -648,6 +708,10 @@ const vehicleSelectOptions = computed(() =>
     vehicles.value.map((vehicle) => ({
         id: vehicle.id,
         label: vehicle.registration_number,
+        hint: [vehicle.vehicle_type_label ?? vehicle.vehicle_type, vehicle.make, vehicle.model]
+            .filter(Boolean)
+            .join(' · '),
+        icon: 'bi bi-truck',
     })),
 );
 const stockTyres = ref([]);
@@ -773,24 +837,84 @@ const tabs = [
     { key: 'expenses', label: 'Expenses' },
 ];
 
+const historyTypeOptions = [
+    { value: 'installed', label: 'Install' },
+    { value: 'removed', label: 'Remove' },
+    { value: 'rotation', label: 'Rotation' },
+    { value: 'retread', label: 'Retread' },
+    { value: 'damage', label: 'Damage' },
+    { value: 'replacement', label: 'Replace' },
+    { value: 'scrapped', label: 'Scrap' },
+    { value: 'expense', label: 'Expense' },
+];
+
+const filteredTimeline = computed(() => {
+    return timeline.value.filter((event) => {
+        if (historyFromDate.value && (event.date ?? '') < historyFromDate.value) {
+            return false;
+        }
+        if (historyToDate.value && (event.date ?? '') > historyToDate.value) {
+            return false;
+        }
+        if (historyTypeFilter.value && event.type !== historyTypeFilter.value) {
+            return false;
+        }
+
+        return true;
+    });
+});
+
+function clearHistoryFilters() {
+    historyFromDate.value = '';
+    historyToDate.value = '';
+    historyTypeFilter.value = '';
+}
+
+function formatHistoryType(type) {
+    if (!type) {
+        return '—';
+    }
+
+    return type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function historyTypeBadgeClass(type) {
+    const map = {
+        installed: 'bg-success',
+        removed: 'bg-secondary',
+        rotation: 'bg-warning text-dark',
+        retread: 'bg-info text-dark',
+        damage: 'bg-danger',
+        replacement: 'bg-primary',
+        scrapped: 'bg-dark',
+        expense: 'bg-light text-dark border',
+    };
+
+    return map[type] ?? 'bg-secondary';
+}
+
+function sortByDateField(items, field) {
+    return [...items].sort((a, b) => String(b[field] ?? '').localeCompare(String(a[field] ?? '')));
+}
+
 const activeRows = computed(() => {
     if (!tyre.value) {
         return [];
     }
     if (activeTab.value === 'installations') {
-        return (tyre.value.installations ?? []).map((r) => [
+        return sortByDateField(tyre.value.installations ?? [], 'installed_at').map((r) => [
             r.vehicle_registration,
             r.position_label,
-            r.installed_at,
-            r.removed_at ?? '—',
+            formatDate(r.installed_at),
+            formatDate(r.removed_at),
             r.running_km ?? '—',
             r.removal_recommendation ?? '—',
         ]);
     }
     if (activeTab.value === 'rotations') {
-        return (tyre.value.rotations ?? []).map((r) => [
+        return sortByDateField(tyre.value.rotations ?? [], 'rotation_date').map((r) => [
             r.vehicle_registration,
-            r.rotation_date,
+            formatDate(r.rotation_date),
             r.previous_position_label ?? r.previous_position,
             r.new_position_label ?? r.new_position,
             r.cost != null ? `₹${r.cost}` : '—',
@@ -798,10 +922,16 @@ const activeRows = computed(() => {
         ]);
     }
     if (activeTab.value === 'retreads') {
-        return (tyre.value.retreads ?? []).map((r) => [r.retread_date, r.vendor, r.cost, r.condition_after ?? '—']);
+        return sortByDateField(tyre.value.retreads ?? [], 'retread_date').map((r) => [
+            formatDate(r.retread_date),
+            r.vendor,
+            r.cost,
+            r.condition_after ?? '—',
+        ]);
     }
     if (activeTab.value === 'damages') {
-        return (tyre.value.damages ?? []).map((r) => [
+        return sortByDateField(tyre.value.damages ?? [], 'occurred_at').map((r) => [
+            formatDate(r.occurred_at),
             formatDamageType(r.damage_type),
             r.vehicle_registration ?? '—',
             r.position_label ?? '—',
@@ -810,7 +940,12 @@ const activeRows = computed(() => {
             r.is_repaired ? 'Yes' : 'No',
         ]);
     }
-    return (tyre.value.expenses ?? []).map((r) => [r.expense_type, r.expense_date, r.amount, r.notes ?? '—']);
+    return sortByDateField(tyre.value.expenses ?? [], 'expense_date').map((r) => [
+        r.expense_type,
+        formatDate(r.expense_date),
+        r.amount,
+        r.notes ?? '—',
+    ]);
 });
 
 const activeColumns = computed(() => {
@@ -818,7 +953,7 @@ const activeColumns = computed(() => {
         installations: ['Truck', 'Position', 'Installed', 'Removed', 'Ran KM', 'Advice'],
         rotations: ['Truck', 'Date', 'From', 'To', 'Cost', 'Reason'],
         retreads: ['Date', 'Vendor', 'Cost', 'Condition'],
-        damages: ['Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
+        damages: ['Date', 'Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
         expenses: ['Type', 'Date', 'Amount', 'Notes'],
     };
     return map[activeTab.value] ?? [];

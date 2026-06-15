@@ -31,7 +31,11 @@ function lookupName(items, id, fallback = '—') {
     return items.find((item) => String(item.id) === String(id))?.name ?? fallback;
 }
 
-function expenseTypeLabel(type) {
+function expenseTypeLabel(type, otherType = '') {
+    if (type === 'OTHER') {
+        return otherType || 'Other';
+    }
+
     return EXPENSE_TYPES.find((item) => item.value === type)?.label ?? type ?? 'Expense';
 }
 
@@ -55,6 +59,7 @@ function normalizePayloadExpenses(expenses = []) {
             amount: Number(expense.amount ?? 0),
             route_leg_sequence: expense.route_leg_sequence ?? null,
             notes: expense.notes ?? '',
+            other_type: expense.other_type ?? '',
         }));
 }
 
@@ -65,6 +70,7 @@ function expenseSignature(expense) {
         expense.amount,
         expense.route_leg_sequence,
         expense.notes,
+        expense.other_type,
     ].join('|');
 }
 
@@ -139,7 +145,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             previousValue: lookupName(customers, originalPayload?.customer_id, '—'),
         },
         {
-            label: 'Broker',
+            label: 'Reference by (not recommended)',
             compareValue: form.broker_id,
             comparePrevious: originalPayload?.broker_id,
             value: lookupName(brokers, form.broker_id, '—'),
@@ -220,7 +226,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             mode === 'edit' && originalExpense && expenseSignature(originalExpense) !== expenseSignature(expense);
 
         return {
-            type: expenseTypeLabel(expense.expense_type),
+            type: expenseTypeLabel(expense.expense_type, expense.other_type),
             date: formatDisplayDate(expense.expense_date),
             leg: expense.route_leg_sequence ? `Stop ${expense.route_leg_sequence}` : 'General',
             amount: formatMoney(expense.amount),
@@ -267,7 +273,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                   ? 'Please review what you are updating. Changed items are marked — save only if everything is correct.'
                   : 'Please review the trip details below before saving.',
         basicInfoFields: pickFields('Trip Number', 'Start Date', 'End Date', 'Status'),
-        partyFields: pickFields('Customer', 'Broker', 'Start Station'),
+        partyFields: pickFields('Customer', 'Reference by (not recommended)', 'Start Station'),
         transportFields: pickFields('Truck', 'Primary Driver', 'Substitute Driver'),
         routePreview: routePreviewParts.filter(Boolean).join(' → ') || '—',
         detailFields,

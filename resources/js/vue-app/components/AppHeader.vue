@@ -123,13 +123,9 @@
                                 <i class="fas fa-user-circle fa-3x text-white mb-2"></i>
                                 <p class="text-white mb-0">
                                     {{ displayName }}
-                                    <small v-if="memberSince" class="d-block mt-1">Member since {{ memberSince }}</small>
+                                    <small v-if="displayRole" class="d-block mt-1">{{ displayRole }}</small>
                                 </p>
                             </div>
-                            <a class="dropdown-item" href="/password/change" @click="userMenuOpen = false">
-                                <i class="fas fa-user me-2"></i>Profile
-                            </a>
-                            <div class="dropdown-divider"></div>
                             <button type="button" class="dropdown-item text-danger" @click="signOut">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </button>
@@ -189,15 +185,18 @@ const showNotifications = computed(
     () => Boolean(props.user?.can_access_company_panel) && !needsCompanySelection.value,
 );
 const displayName = computed(() => props.user?.name || props.user?.email || '');
-const memberSince = computed(() => {
-    if (!props.user?.created_at) {
+const displayRole = computed(() => {
+    if (props.user?.role_label) {
+        return props.user.role_label;
+    }
+
+    const role = props.user?.role;
+
+    if (!role) {
         return '';
     }
 
-    return new Date(props.user.created_at).toLocaleDateString('en-US', {
-        month: 'short',
-        year: 'numeric',
-    });
+    return role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 });
 
 watch(

@@ -54,16 +54,10 @@ export function formatWarrantyLabel(tyre) {
     return hasTyreWarranty(tyre) ? 'Yes' : 'No';
 }
 
-function formatWarrantyDate(value) {
-    if (!value) {
-        return null;
-    }
+import { formatDate } from './datetime';
 
-    return new Date(value).toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
+function formatWarrantyDate(value) {
+    return formatDate(value, null);
 }
 
 function formatWarrantyKm(value) {

@@ -26,6 +26,7 @@ class TestUserSeeder extends Seeder
         $tenantRoles = [
             UserRole::ADMIN,
             UserRole::MODERATOR,
+            UserRole::ACCOUNTANT,
         ];
 
         foreach ($platformRoles as $roleId) {

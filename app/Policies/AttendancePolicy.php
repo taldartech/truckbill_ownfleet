@@ -35,7 +35,15 @@ class AttendancePolicy
 
     public function delete(User $user, Attendance $attendance): bool
     {
-        return $this->update($user, $attendance);
+        return $user->canDeleteOperationalRecords()
+            && $this->update($user, $attendance);
+    }
+
+    public function bulkMark(User $user): bool
+    {
+        return $user->hasPermission('attendances.bulk_manage')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 
     public function markWagePaid(User $user, Attendance $attendance): bool
@@ -43,6 +51,17 @@ class AttendancePolicy
         return CurrentTenant::id() === $attendance->tenant_id
             && $user->hasPermission('wages.manage')
             && $user->canAccessCompanyPanel();
+    }
+
+    public function viewSettlement(User $user): bool
+    {
+        return ($user->hasPermission('wages.view') || $user->hasPermission('wages.manage'))
+            && $user->canAccessCompanyPanel();
+    }
+
+    public function exportSettlement(User $user): bool
+    {
+        return $this->viewSettlement($user);
     }
 
     public function closeMonth(User $user): bool
@@ -54,5 +73,11 @@ class AttendancePolicy
     public function markMonthlyWagePaid(User $user): bool
     {
         return $this->closeMonth($user);
+    }
+
+    public function unlockMonth(User $user): bool
+    {
+        return $user->hasRole('super_admin')
+            && $user->canAccessCompanyPanel();
     }
 }

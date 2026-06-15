@@ -297,6 +297,8 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::post('/tyres/{tyre}/scrap', [\App\Http\Controllers\Api\TyreController::class, 'scrap'])->name('tyres.scrap');
             Route::get('/vehicles/{vehicle}/tyre-positions', [\App\Http\Controllers\Api\TyreController::class, 'vehiclePositions'])
                 ->name('vehicles.tyre-positions');
+            Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])
+                ->name('vehicles.tyre-history');
 
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
                 ->name('reports.tyres.life');

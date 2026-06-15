@@ -223,6 +223,7 @@ import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
 import DocumentTypeQuickAddModal from './DocumentTypeQuickAddModal.vue';
+import { formatDate } from '../../utils/datetime';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -274,20 +275,6 @@ function emptyDocForm() {
         expiry_date: '',
         reminder_days_before: 7,
     };
-}
-
-function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const [year, month, day] = String(value).split('-');
-
-    if (!year || !month || !day) {
-        return value;
-    }
-
-    return `${month}/${day}/${year}`;
 }
 
 function openAddForm() {

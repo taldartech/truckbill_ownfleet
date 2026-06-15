@@ -53,52 +53,6 @@
                         <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
                     </div>
                     <div>
-                        <label class="form-label">Truck *</label>
-                        <template v-if="mode === 'create'">
-                            <AsyncVehicleTripPicker
-                                v-model="form.vehicle_id"
-                                :as-of-date="tripStartDate"
-                                :trip-end-date="tripEndDate"
-                                :driver-label="primaryDriverName"
-                                :invalid="Boolean(fieldErrors.vehicle_id)"
-                                :error-message="fieldErrorMessage('vehicle_id')"
-                                @vehicle-selected="$emit('vehicle-selected', $event)"
-                            />
-                        </template>
-                        <template v-else>
-                            <input
-                                :value="snapshotVehicleLabel"
-                                type="text"
-                                class="form-control bg-light"
-                                readonly
-                            />
-                        </template>
-                    </div>
-                    <div>
-                        <label class="form-label">Customer</label>
-                        <SearchablePicker
-                            v-if="!readonly"
-                            v-model="form.customer_id"
-                            :items="customers"
-                            placeholder="Select customer"
-                            search-placeholder="Search customer…"
-                            empty-message="No customer found."
-                            view-title="Customer details"
-                            quick-add-title="Quick add customer"
-                            :invalid="Boolean(fieldErrors.customer_id)"
-                            :error-message="fieldErrorMessage('customer_id')"
-                            :can-quick-add="canQuickAddCustomer"
-                            @quick-add="openQuickAddForTripCustomer"
-                        />
-                        <input
-                            v-else
-                            :value="partyLabel(customers, form.customer_id, snapshotCustomerName)"
-                            type="text"
-                            class="form-control form-input bg-light"
-                            readonly
-                        />
-                    </div>
-                    <div>
                         <label class="form-label">Start Date *</label>
                         <input
                             v-model="form.start_at"
@@ -124,18 +78,29 @@
                             {{ fieldErrors.end_at[0] }}
                         </div>
                     </div>
-                    <div v-if="form.status === 'COMPLETED' && form.actual_arrival_at">
-                        <label class="form-label">Actual Arrival Date</label>
-                        <input
-                            :value="formatDisplayDate(form.actual_arrival_at)"
-                            type="text"
-                            class="form-control bg-light"
-                            readonly
-                        />
+                    <div>
+                        <label class="form-label">Truck *</label>
+                        <template v-if="mode === 'create'">
+                            <AsyncVehicleTripPicker
+                                v-model="form.vehicle_id"
+                                :as-of-date="tripStartDate"
+                                :trip-end-date="tripEndDate"
+                                :driver-label="primaryDriverName"
+                                :invalid="Boolean(fieldErrors.vehicle_id)"
+                                :error-message="fieldErrorMessage('vehicle_id')"
+                                @vehicle-selected="$emit('vehicle-selected', $event)"
+                            />
+                        </template>
+                        <template v-else>
+                            <input
+                                :value="snapshotVehicleLabel"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                        </template>
                     </div>
-                </div>
-                <div class="driver-broker-grid mb-3">
-                    <div class="driver-broker-grid__primary">
+                    <div>
                         <div class="driver-field-header">
                             <label class="form-label mb-0">
                                 Primary Driver
@@ -168,10 +133,7 @@
                             {{ fieldErrorMessage('driver_id') }}
                         </div>
                     </div>
-                    <div
-                        v-if="showSubstituteDriverColumn"
-                        class="driver-broker-grid__substitute"
-                    >
+                    <div v-if="showSubstituteDriverColumn" class="trip-details-grid__substitute">
                         <label class="form-label">Substitute Driver</label>
                         <SearchablePicker
                             v-if="!readonly"
@@ -193,17 +155,68 @@
                             readonly
                         />
                     </div>
-                    <div class="driver-broker-grid__broker">
-                        <label class="form-label">Broker</label>
+                    <div>
+                        <label class="form-label">Customer</label>
+                        <SearchablePicker
+                            v-if="!readonly"
+                            v-model="form.customer_id"
+                            :items="customers"
+                            placeholder="Select customer"
+                            search-placeholder="Search customer…"
+                            empty-message="No customer found."
+                            view-title="Customer details"
+                            quick-add-title="Quick add customer"
+                            :invalid="Boolean(fieldErrors.customer_id)"
+                            :error-message="fieldErrorMessage('customer_id')"
+                            :can-quick-add="canQuickAddCustomer"
+                            @quick-add="openQuickAddForTripCustomer"
+                        />
+                        <input
+                            v-else
+                            :value="partyLabel(customers, form.customer_id, snapshotCustomerName)"
+                            type="text"
+                            class="form-control form-input bg-light"
+                            readonly
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label d-flex align-items-center gap-2">
+                            <span>Actual Arrival Date</span>
+                            <span
+                                v-if="arrivalTiming === 'early'"
+                                class="arrival-timing arrival-timing--early"
+                                title="Arrived before planned end date"
+                            >
+                                <i class="bi bi-arrow-down-circle-fill" aria-hidden="true"></i>
+                                <span>Early</span>
+                            </span>
+                            <span
+                                v-else-if="arrivalTiming === 'late'"
+                                class="arrival-timing arrival-timing--late"
+                                title="Arrived after planned end date"
+                            >
+                                <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
+                                <span>Late</span>
+                            </span>
+                        </label>
+                        <input
+                            :value="form.actual_arrival_at ? formatDate(form.actual_arrival_at) : '—'"
+                            type="text"
+                            class="form-control bg-light"
+                            readonly
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label">Reference by (not recommended)</label>
                         <SearchablePicker
                             v-if="!readonly"
                             v-model="form.broker_id"
                             :items="brokers"
-                            placeholder="Select broker"
-                            search-placeholder="Search broker…"
-                            empty-message="No broker found."
-                            view-title="Broker details"
-                            quick-add-title="Quick add broker"
+                            placeholder="Select reference"
+                            search-placeholder="Search reference…"
+                            empty-message="No reference found."
+                            view-title="Reference details"
+                            quick-add-title="Quick add reference"
                             :invalid="Boolean(fieldErrors.broker_id)"
                             :error-message="fieldErrorMessage('broker_id')"
                             :can-quick-add="canQuickAddBroker"
@@ -221,7 +234,7 @@
                 <div v-if="form.status === 'CANCELLED'" class="mb-3">
                     <div class="alert alert-danger mb-0 py-2">
                         <div class="small">
-                            <strong>Cancelled:</strong> {{ formatDisplayDate(form.cancelled_at) }}
+                            <strong>Cancelled:</strong> {{ formatDate(form.cancelled_at) }}
                         </div>
                         <div v-if="form.cancellation_reason" class="small mt-1">
                             <strong>Reason:</strong> {{ form.cancellation_reason }}
@@ -520,7 +533,7 @@ import {
     summarizeTripForm,
     tripStatusMeta,
 } from '../../api/trips';
-import { dateOnlyFromDatetimeLocal } from '../../utils/datetime';
+import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
 import SearchablePicker from '../ui/SearchablePicker.vue';
 import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
 import TripExpensesPanel from './TripExpensesPanel.vue';
@@ -585,6 +598,25 @@ const summary = computed(() => summarizeTripForm(props.form));
 
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
 const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
+
+const arrivalTiming = computed(() => {
+    const endDate = tripEndDate.value;
+    const arrivalDate = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at);
+
+    if (!endDate || !arrivalDate) {
+        return null;
+    }
+
+    if (endDate === arrivalDate) {
+        return null;
+    }
+
+    if (endDate > arrivalDate) {
+        return 'early';
+    }
+
+    return 'late';
+});
 
 const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
 
@@ -798,27 +830,6 @@ function formatNum(value) {
 
 function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDisplayDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const dateOnly = String(value).slice(0, 10);
-    const parts = dateOnly.split('-');
-
-    if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return date.toLocaleDateString('en-IN');
 }
 
 function onStatusChange(newStatus) {
@@ -1040,26 +1051,23 @@ defineExpose({
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
 }
-@media (max-width: 768px) {
-    .trip-details-grid {
-        grid-template-columns: 1fr;
-    }
+.arrival-timing {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.2rem 0.45rem;
+    border-radius: 999px;
 }
-.driver-broker-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    align-items: start;
+.arrival-timing--early {
+    color: #0f5132;
+    background: #d1e7dd;
 }
-.driver-broker-grid__primary {
-    grid-column: 1;
-}
-.driver-broker-grid__substitute {
-    grid-column: 2;
-    animation: substitute-field-in 0.2s ease-out;
-}
-.driver-broker-grid__broker {
-    grid-column: 3;
+.arrival-timing--late {
+    color: #842029;
+    background: #f8d7da;
 }
 .driver-field-header {
     display: flex;
@@ -1068,6 +1076,9 @@ defineExpose({
     gap: 0.5rem;
     min-height: 1.5rem;
     margin-bottom: 0.5rem;
+}
+.trip-details-grid__substitute {
+    animation: substitute-field-in 0.2s ease-out;
 }
 .substitute-toggle {
     display: inline-flex;
@@ -1093,9 +1104,10 @@ defineExpose({
 .substitute-toggle .form-check-input:checked + .form-check-label {
     color: #146c43;
 }
-.driver-broker-grid__substitute :deep(.searchable-picker),
-.driver-broker-grid__broker :deep(.searchable-picker) {
-    width: 100%;
+@media (max-width: 768px) {
+    .trip-details-grid {
+        grid-template-columns: 1fr;
+    }
 }
 @keyframes substitute-field-in {
     from {
@@ -1105,16 +1117,6 @@ defineExpose({
     to {
         opacity: 1;
         transform: translateY(0);
-    }
-}
-@media (max-width: 768px) {
-    .driver-broker-grid {
-        grid-template-columns: 1fr;
-    }
-    .driver-broker-grid__primary,
-    .driver-broker-grid__substitute,
-    .driver-broker-grid__broker {
-        grid-column: auto;
     }
 }
 </style>

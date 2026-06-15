@@ -162,4 +162,11 @@ class TyreController extends Controller
             'data' => $this->tyreService->vehiclePositions($vehicle),
         ]);
     }
+
+    public function vehicleTyreHistory(Request $request, string $vehicle): JsonResponse
+    {
+        $this->authorize('viewAny', Tyre::class);
+
+        return response()->json($this->tyreService->vehicleTyreHistory($vehicle));
+    }
 }

@@ -113,8 +113,9 @@ export const EXPENSE_TYPES = [
     { value: 'REPAIR', label: 'Repair' },
     { value: 'FOOD_EXPENSE', label: 'Food Expense' },
     { value: 'PARKING', label: 'Parking' },
-    { value: 'RTO_EXPENSE', label: 'RTO Expense' },
-    { value: 'OTHER', label: 'Other Expenses' },
+    { value: 'RTO_EXPENSE', label: 'RTO' },
+    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
+    { value: 'OTHER', label: 'Other' },
 ];
 
 export function emptyRouteStop(sequence = 1, fromStationId = '', routeType = 'LOADED', toStationId = '', customerId = '') {
@@ -281,6 +282,7 @@ export function emptyExpense({ defaultDate = '' } = {}) {
         odometer_end: '',
         route_leg_sequence: '',
         notes: '',
+        other_type: '',
     };
 }
 

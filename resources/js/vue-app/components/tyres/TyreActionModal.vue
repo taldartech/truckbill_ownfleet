@@ -6,7 +6,7 @@
         @click.self="$emit('close')"
     >
         <div class="modal-dialog">
-            <div class="modal-content">
+            <div class="modal-content tyre-action-modal">
                 <div class="modal-header">
                     <h5 class="modal-title">{{ title }}</h5>
                     <button type="button" class="btn-close" @click="$emit('close')"></button>
@@ -39,3 +39,13 @@ defineProps({
 
 defineEmits(['close', 'submit']);
 </script>
+
+<style scoped>
+.tyre-action-modal {
+    overflow: visible;
+}
+
+.tyre-action-modal .modal-body {
+    overflow: visible;
+}
+</style>

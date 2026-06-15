@@ -6,6 +6,7 @@ use App\Broker;
 use App\Customer;
 use App\Enums\FreightPaymentStatus;
 use App\Enums\RouteType;
+use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Station;
@@ -350,6 +351,9 @@ class TripService
                 'trip_id' => $trip->id,
                 'trip_route_leg_id' => $legId,
                 'expense_type' => strtoupper((string) $expense['expense_type']),
+                'other_type' => strtoupper((string) $expense['expense_type']) === TripExpenseType::Other->value
+                    ? ($expense['other_type'] ?? null)
+                    : null,
                 'expense_date' => $expense['expense_date'] ?? null,
                 'amount' => (float) ($expense['amount'] ?? 0),
                 'fuel_liters' => isset($expense['fuel_liters']) ? (float) $expense['fuel_liters'] : null,

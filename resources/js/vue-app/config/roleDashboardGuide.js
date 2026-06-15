@@ -35,6 +35,13 @@ export const ROLE_DASHBOARD_GUIDE = [
         tenant_id: 'fixed UUID',
         effective_tenant_id: 'same as tenant_id',
         dashboard_view: true,
-        screen: 'Full KPI dashboard',
+        screen: 'Full KPI dashboard — trips, daily attendance, tyres; Master menu is stations only',
+    },
+    {
+        role: 'accountant',
+        tenant_id: 'fixed UUID',
+        effective_tenant_id: 'same as tenant_id',
+        dashboard_view: true,
+        screen: 'View-only across modules; settlement view + Excel download only',
     },
 ];
