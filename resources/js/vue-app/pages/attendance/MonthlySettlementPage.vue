@@ -477,6 +477,7 @@ import {
 } from '../../api/attendances';
 import { usePermissions } from '../../composables/usePermissions';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
+import { formatMonthYear } from '../../utils/datetime';
 
 const route = useRoute();
 const { canInCompany, user } = usePermissions();
@@ -548,16 +549,7 @@ const monthLabel = computed(() => {
         return '—';
     }
 
-    const date = new Date(`${selectedMonth.value}-01T12:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return selectedMonth.value;
-    }
-
-    return date.toLocaleDateString('en-IN', {
-        month: 'long',
-        year: 'numeric',
-    });
+    return formatMonthYear(selectedMonth.value);
 });
 
 const settlementConfirmProcessing = computed(() => {

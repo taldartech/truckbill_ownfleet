@@ -1,4 +1,5 @@
 import { EXPENSE_TYPES, routeTypeMeta, summarizeTripForm } from '../api/trips';
+import { formatDate } from './datetime';
 
 function formatNum(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -6,21 +7,6 @@ function formatNum(value) {
 
 function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDisplayDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const dateOnly = String(value).slice(0, 10);
-    const parts = dateOnly.split('-');
-
-    if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    return value;
 }
 
 function lookupName(items, id, fallback = '—') {
@@ -162,15 +148,15 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             label: 'Start Date',
             compareValue: form.start_at,
             comparePrevious: originalPayload?.start_at,
-            value: formatDisplayDate(form.start_at),
-            previousValue: formatDisplayDate(originalPayload?.start_at),
+            value: formatDate(form.start_at),
+            previousValue: formatDate(originalPayload?.start_at),
         },
         {
             label: 'End Date',
             compareValue: form.end_at,
             comparePrevious: originalPayload?.end_at,
-            value: formatDisplayDate(form.end_at),
-            previousValue: formatDisplayDate(originalPayload?.end_at),
+            value: formatDate(form.end_at),
+            previousValue: formatDate(originalPayload?.end_at),
         },
         {
             label: 'Status',
@@ -227,7 +213,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
 
         return {
             type: expenseTypeLabel(expense.expense_type, expense.other_type),
-            date: formatDisplayDate(expense.expense_date),
+            date: formatDate(expense.expense_date),
             leg: expense.route_leg_sequence ? `Stop ${expense.route_leg_sequence}` : 'General',
             amount: formatMoney(expense.amount),
             isNew,

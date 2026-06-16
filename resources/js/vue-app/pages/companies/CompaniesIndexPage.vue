@@ -60,7 +60,7 @@
                                     }}</small>
                                     <span v-if="!company.contact_person && !company.contact_number">—</span>
                                 </td>
-                                <td>{{ company.plan_end_date_formatted || '—' }}</td>
+                                <td>{{ formatDate(company.plan_end_date) }}</td>
                                 <td class="app-index-actions-cell text-nowrap">
                                     <AppButton
                                         v-if="canEnter"
@@ -119,6 +119,7 @@ import {
 import CompanyFormModal from '../../components/companies/CompanyFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import { formatDate } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
 
 const router = useRouter();

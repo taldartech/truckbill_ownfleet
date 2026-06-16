@@ -207,9 +207,9 @@ import {
     persistSavedVehicleIds,
 } from '../../utils/dailyAttendanceStorage';
 import {
-    buildBusySubstituteDriversByDate,
     isSubstituteDriverBusy,
 } from '../../utils/substituteDriverAvailability';
+import { formatDateHeading } from '../../utils/datetime';
 
 const props = defineProps({
     selectedDate: {
@@ -267,14 +267,7 @@ const dayLabel = computed(() => {
         return '';
     }
 
-    const date = new Date(`${props.selectedDate}T12:00:00`);
-
-    return date.toLocaleDateString('en-IN', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    });
+    return formatDateHeading(props.selectedDate);
 });
 
 const overviewByVehicle = computed(() => {

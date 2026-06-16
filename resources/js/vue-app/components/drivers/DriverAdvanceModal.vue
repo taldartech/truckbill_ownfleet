@@ -117,7 +117,7 @@
                                     <td colspan="4" class="text-center text-muted py-3">No entries yet.</td>
                                 </tr>
                                 <tr v-for="entry in entries" :key="entry.id">
-                                    <td>{{ entry.entry_date }}</td>
+                                    <td>{{ formatDate(entry.entry_date) }}</td>
                                     <td>
                                         <span
                                             class="badge"
@@ -144,6 +144,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { fetchDriverAdvanceLedger } from '../../api/driverAdvances';
+import { formatDate } from '../../utils/datetime';
 import { useAppToast } from '../../composables/useAppToast';
 
 const toast = useAppToast();

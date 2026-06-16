@@ -126,6 +126,7 @@ import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { formatMonthYear } from '../../utils/datetime';
 
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
@@ -153,12 +154,8 @@ const pageTitle = computed(() => {
     }
 
     const [year, month] = filters.month.split('-');
-    const label = new Date(Number(year), Number(month) - 1, 1).toLocaleDateString('en-IN', {
-        month: 'long',
-        year: 'numeric',
-    });
 
-    return `Monthly Fleet Report — ${label}`;
+    return `Monthly Fleet Report — ${formatMonthYear(`${year}-${month}`)}`;
 });
 
 function formatNumber(value, maximumFractionDigits = 2) {

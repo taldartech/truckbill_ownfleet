@@ -94,6 +94,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { isPresentConfirmed } from '../../utils/dailyAttendanceStorage';
+import { formatMonthYear } from '../../utils/datetime';
 
 const props = defineProps({
     month: {
@@ -130,9 +131,8 @@ const monthLabel = computed(() => {
     }
 
     const [year, monthNumber] = props.month.split('-').map(Number);
-    const date = new Date(year, monthNumber - 1, 1);
 
-    return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    return formatMonthYear(`${year}-${String(monthNumber).padStart(2, '0')}`);
 });
 
 const days = computed(() => {

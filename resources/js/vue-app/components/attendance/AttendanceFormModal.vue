@@ -98,6 +98,7 @@ import {
     isSubstituteDriverBusy,
     substituteBusyLabel,
 } from '../../utils/substituteDriverAvailability';
+import { formatDate } from '../../utils/datetime';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -206,13 +207,7 @@ const contextSummary = computed(() => {
         vehicle?.primary_driver ??
         vehicle?.current_primary_assignment?.driver;
     const driverLabelText = driver ? driverLabel(driver) : '—';
-    const dateLabel = form.value.attendance_date
-        ? new Date(`${form.value.attendance_date}T12:00:00`).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-          })
-        : '—';
+    const dateLabel = formatDate(form.value.attendance_date);
 
     return `${vehicleLabel} · ${dateLabel} · ${driverLabelText}`;
 });

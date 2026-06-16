@@ -189,6 +189,7 @@ import {
     isValidVehicleRegistration,
     normalizeVehicleRegistration,
 } from '../../utils/vehicleRegistration';
+import { formatDateTime } from '../../utils/datetime';
 import SearchableSelect from '../ui/SearchableSelect.vue';
 import TruckTypeQuickAddModal from './TruckTypeQuickAddModal.vue';
 
@@ -236,30 +237,10 @@ const auditInfo = computed(() => {
     return {
         createdBy: props.vehicle.created_by_name ?? '—',
         updatedBy: props.vehicle.updated_by_name ?? '—',
-        createdAt: formatAuditDate(props.vehicle.created_at),
-        updatedAt: formatAuditDate(props.vehicle.updated_at),
+        createdAt: formatDateTime(props.vehicle.created_at, ''),
+        updatedAt: formatDateTime(props.vehicle.updated_at, ''),
     };
 });
-
-function formatAuditDate(value) {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    return date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
 
 function emptyForm() {
     return {

@@ -72,7 +72,7 @@
                             </p>
                             <div class="mb-3">
                                 <label class="form-label">Start Date</label>
-                                <input :value="formatDisplayDate(startAt)" type="text" class="form-control bg-light" readonly />
+                                <input :value="formatDate(startAt)" type="text" class="form-control bg-light" readonly />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">End Date *</label>
@@ -132,7 +132,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
-import { toDateInputFromIso, toDateInputValue } from '../../utils/datetime';
+import { toDateInputFromIso, toDateInputValue, formatDate } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
 
 const props = defineProps({
@@ -192,21 +192,6 @@ watch(
         }
     },
 );
-
-function formatDisplayDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const dateOnly = toDateInputFromIso(value);
-    const parts = dateOnly.split('-');
-
-    if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    return value;
-}
 
 function validate() {
     formError.value = '';

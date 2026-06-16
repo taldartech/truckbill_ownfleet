@@ -1,3 +1,5 @@
+import { formatDate } from './datetime';
+
 const STATUS_LABELS = {
     PRESENT: 'Present (P)',
     ABSENT: 'Absent (A)',
@@ -11,16 +13,7 @@ const EXCEPTION_LABELS = {
 };
 
 function formatAttendanceDate(date) {
-    if (!date) {
-        return '—';
-    }
-
-    return new Date(`${date}T12:00:00`).toLocaleDateString('en-IN', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
+    return formatDate(date);
 }
 
 function driverNameById(drivers, driverId) {

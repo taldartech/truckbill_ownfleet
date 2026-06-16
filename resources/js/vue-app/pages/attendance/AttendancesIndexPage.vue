@@ -179,7 +179,7 @@
                                 </td>
                             </tr>
                             <tr v-for="row in attendances" :key="row.id">
-                                <td>{{ row.attendance_date }}</td>
+                                <td>{{ formatDate(row.attendance_date) }}</td>
                                 <td>{{ row.vehicle?.registration_number ?? '-' }}</td>
                                 <td>{{ row.primary_driver?.name ?? '-' }}</td>
                                 <td>
@@ -317,6 +317,7 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
+import { formatDate, formatMonthYear } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
@@ -516,10 +517,7 @@ function monthLabel() {
         return filters.month;
     }
 
-    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(undefined, {
-        month: 'long',
-        year: 'numeric',
-    });
+    return formatMonthYear(`${year}-${month}`);
 }
 
 function hasSubstitute(row) {

@@ -149,6 +149,7 @@ import {
     markAllNotificationsRead,
     markNotificationRead,
 } from '../api/notifications';
+import { formatDisplay } from '../utils/datetime';
 const props = defineProps({
     user: {
         type: Object,
@@ -313,16 +314,7 @@ async function handleMarkAllRead() {
 }
 
 function formatNotificationTime(value) {
-    if (!value) {
-        return '';
-    }
-
-    return new Date(value).toLocaleString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return formatDisplay(value, 'datetime', '');
 }
 
 onMounted(() => {

@@ -66,7 +66,7 @@
                                 </td>
                             </tr>
                             <tr v-for="(row, index) in rows" :key="index">
-                                <td v-for="col in columns" :key="col">{{ formatCell(row[col]) }}</td>
+                                <td v-for="col in columns" :key="col">{{ formatCell(col, row[col]) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -86,6 +86,7 @@ import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import { formatTableCell } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 
@@ -147,16 +148,8 @@ function formatColumn(key) {
     return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatCell(value) {
-    if (value === null || value === undefined || value === '') {
-        return '—';
-    }
-
-    if (typeof value === 'number') {
-        return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-    }
-
-    return value;
+function formatCell(columnKey, value) {
+    return formatTableCell(columnKey, value);
 }
 
 function buildFilterParams() {

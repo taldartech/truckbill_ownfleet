@@ -75,7 +75,7 @@
                                 <td colspan="7" class="text-center text-muted py-4">No records for selected filters.</td>
                             </tr>
                             <tr v-for="row in rows" :key="row.id">
-                                <td>{{ row.attendance_date }}</td>
+                                <td>{{ formatDate(row.attendance_date) }}</td>
                                 <td>{{ row.vehicle?.registration_number ?? '—' }}</td>
                                 <td>{{ row.primary_driver?.name ?? '—' }}</td>
                                 <td>{{ row.temporary_driver?.name ?? '—' }}</td>
@@ -121,6 +121,7 @@ import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import { formatDate } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 

@@ -63,6 +63,7 @@ import {
 } from '../../api/tyreReports';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import { formatTableCell } from '../../utils/datetime';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 
 const { needsCompanySelection } = useRequireCompanyContext();
@@ -116,7 +117,7 @@ function formatCell(row, col, rowIndex) {
         return rowIndex + 1;
     }
 
-    return row[col] ?? '—';
+    return formatTableCell(col, row[col]);
 }
 
 async function loadReport() {
