@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\OnboardingProvisioningLog;
-use App\Support\CompanyProvisioner;
-use App\Tenant;
 use App\User;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
@@ -46,22 +44,11 @@ class OnboardingProvisioningService
                 'policy_version' => $payload['policy_version'] ?? null,
             ]);
 
-            $tenantId = null;
-
-            if (! empty($payload['company_name'])) {
-                $tenant = CompanyProvisioner::create([
-                    'name' => $payload['company_name'],
-                    'contact_number' => $payload['mobile'] ?? null,
-                ], $user);
-                $tenantId = $tenant->id;
-            }
-
             $response = [
                 'status' => 'created',
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'role' => 'super_admin',
-                'tenant_id' => $tenantId,
             ];
 
             OnboardingProvisioningLog::query()->updateOrCreate(
@@ -103,22 +90,6 @@ class OnboardingProvisioningService
 
         if ($updates !== []) {
             $user->update($updates);
-        }
-
-        if (! empty($payload['company_name'])) {
-            $tenant = $user->ownedTenants()->orderBy('created_at')->first();
-
-            if ($tenant !== null) {
-                $tenant->update(array_filter([
-                    'name' => $payload['company_name'],
-                    'contact_number' => $payload['mobile'] ?? null,
-                ], fn ($value) => $value !== null));
-            } else {
-                CompanyProvisioner::create([
-                    'name' => $payload['company_name'],
-                    'contact_number' => $payload['mobile'] ?? null,
-                ], $user);
-            }
         }
 
         return $this->statusFor($user->fresh(['userRole', 'ownedTenants']));
