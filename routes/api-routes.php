@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FleetMonthlyReportController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\PayrollSettingController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StateController;
@@ -25,6 +26,14 @@ use App\Http\Controllers\Api\TyreReportController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\VehicleDocumentController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('onboarding')
+    ->middleware(['onboarding.signature'])
+    ->group(function (): void {
+        Route::post('create-user', [OnboardingController::class, 'createUser']);
+        Route::post('update-user', [OnboardingController::class, 'updateUser']);
+        Route::get('status', [OnboardingController::class, 'status']);
+    });
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 

@@ -32,6 +32,8 @@ class User extends Authenticatable
         'user_role_id',
         'document_alerts_live',
         'document_alerts_email',
+        'policy_accepted_at',
+        'policy_version',
         'created_by',
         'updated_by',
     ];
@@ -45,6 +47,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'policy_accepted_at' => 'datetime',
             'password' => 'hashed',
             'user_role_id' => 'integer',
             'document_alerts_live' => 'boolean',

@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader :title="pageTitle">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreateUsers" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -188,6 +188,9 @@ const managesSuperAdmins = computed(() => can('super_admins.view'));
 const managesTenantUsers = computed(() => can('users.view'));
 const canManage = computed(
     () => can('super_admins.manage') || can('users.manage'),
+);
+const canCreateUsers = computed(
+    () => canManage.value && assignableRoles.value.length > 0,
 );
 const pageTitle = computed(() =>
     managesSuperAdmins.value ? 'Super Admin Management' : 'User Management',

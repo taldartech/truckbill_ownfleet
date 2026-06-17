@@ -586,12 +586,6 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="/leads" class="nav-link{{ Request::is('leads*') ? ' active' : '' }}">
-                                    <i class="fas fa-user-check"></i>
-                                    <p>Leads</p>
-                                </a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link{{ Request::is('company') || Request::is('company/create') ? ' active' : '' }}"
                                     href="#companyMenu">
                                     <i class="fas fa-building"></i>

@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
             'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
+            'onboarding.signature' => \App\Http\Middleware\VerifyOnboardingSignature::class,
         ]);
 
         $middleware->priority([

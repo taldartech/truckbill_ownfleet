@@ -53,6 +53,10 @@ class ManagedUserController extends Controller
         $validated = $request->validated();
         $roleId = (int) $validated['user_role_id'];
 
+        if ($roleId === UserRole::SUPER_ADMIN) {
+            abort(422, 'Super Admin accounts must be provisioned through the central onboarding API.');
+        }
+
         $user = User::query()->create([
             'name' => $validated['name'],
             'email' => $validated['email'],

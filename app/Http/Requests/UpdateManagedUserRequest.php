@@ -29,6 +29,12 @@ class UpdateManagedUserRequest extends FormRequest
         $assignable = $actor !== null ? RoleHierarchy::assignableRoleIds($actor) : [];
         $ownedTenantIds = $actor !== null ? RoleHierarchy::ownedTenantIds($actor) : [];
 
+        if ($actor !== null
+            && RoleHierarchy::managesSuperAdmins($actor)
+            && RoleHierarchy::isSuperAdminRole((int) $managedUser->user_role_id)) {
+            $assignable = [UserRole::SUPER_ADMIN];
+        }
+
         if (RoleHierarchy::isProtectedRole((int) $managedUser->user_role_id)) {
             $assignable = [(int) $managedUser->user_role_id];
         }
