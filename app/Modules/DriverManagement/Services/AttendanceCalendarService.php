@@ -505,7 +505,7 @@ class AttendanceCalendarService
     private function todayInTenantTimezone(): string
     {
         $tenant = Tenant::query()->find(CurrentTenant::requireId());
-        $timezone = $tenant?->timezone ?? config('app.timezone', 'UTC');
+        $timezone = $tenant?->timezone ?? config('app.timezone', 'Asia/Kolkata');
 
         return Carbon::now($timezone)->toDateString();
     }
