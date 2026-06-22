@@ -41,7 +41,6 @@ class OnboardingProvisioningService
                 'user_role_id' => UserRole::SUPER_ADMIN,
                 'email_verified_at' => $payload['email_verified_at'] ?? null,
                 'policy_accepted_at' => $payload['policy_accepted_at'] ?? null,
-                'policy_version' => $payload['policy_version'] ?? null,
             ]);
 
             $response = [
@@ -80,7 +79,7 @@ class OnboardingProvisioningService
         }
 
         $updates = collect($payload)
-            ->only(['name', 'email_verified_at', 'policy_accepted_at', 'policy_version'])
+            ->only(['name', 'email_verified_at', 'policy_accepted_at'])
             ->filter(fn ($value) => $value !== null)
             ->all();
 
@@ -111,7 +110,6 @@ class OnboardingProvisioningService
             'role' => $user->userRole?->name,
             'email_verified' => $user->email_verified_at !== null,
             'policy_accepted' => $user->policy_accepted_at !== null,
-            'policy_version' => $user->policy_version,
             'tenant_count' => $user->ownedTenants()->count(),
             'status' => $this->resolveStatus($user),
         ];

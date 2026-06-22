@@ -34,7 +34,6 @@ class User extends Authenticatable
         'document_alerts_live',
         'document_alerts_email',
         'policy_accepted_at',
-        'policy_version',
         'created_by',
         'updated_by',
     ];
