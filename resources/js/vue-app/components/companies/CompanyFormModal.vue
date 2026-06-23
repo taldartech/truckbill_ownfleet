@@ -86,10 +86,20 @@
                                 <label class="form-label" for="contact_number">Contact Number</label>
                                 <input
                                     id="contact_number"
-                                    v-model="form.contact_number"
-                                    type="text"
+                                    :value="form.contact_number"
+                                    type="tel"
+                                    inputmode="numeric"
+                                    maxlength="10"
+                                    autocomplete="tel"
                                     class="form-control"
+                                    placeholder="10-digit mobile"
+                                    :class="{ 'is-invalid': fieldErrors.contact_number }"
+                                    @keydown="allowNumericKeydown"
+                                    @input="onContactNumberInput"
                                 />
+                                <div v-if="fieldErrors.contact_number" class="invalid-feedback d-block">
+                                    {{ fieldErrors.contact_number[0] }}
+                                </div>
                             </div>
                         </div>
                         <div class="mb-0">
@@ -126,6 +136,11 @@
 
 <script setup>
 import { computed, reactive, watch } from 'vue';
+import { allowNumericKeydown, normalizeMobile } from '../../utils/phone';
+
+function onContactNumberInput(event) {
+    form.contact_number = normalizeMobile(event.target.value);
+}
 
 const props = defineProps({
     modalId: { type: String, default: 'companyFormModal' },
@@ -173,7 +188,7 @@ function fillForm(company) {
     form.gst_type = company?.gst_type ?? '';
     form.address = company?.address ?? '';
     form.contact_person = company?.contact_person ?? '';
-    form.contact_number = company?.contact_number ?? '';
+    form.contact_number = normalizeMobile(company?.contact_number ?? '');
     form.payroll_pay_days_mode = company?.payroll_pay_days_mode ?? 'calendar';
 }
 

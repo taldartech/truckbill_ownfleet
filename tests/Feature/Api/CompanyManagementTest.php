@@ -207,6 +207,100 @@ class CompanyManagementTest extends TestCase
         $this->assertSame($admin->company_id, $tenant->id);
     }
 
+    public function test_cannot_create_company_with_duplicate_gst_or_pan(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'First Transport',
+                'gst_number' => '27AAAAA0000A1Z5',
+                'pan_number' => 'ABCDE1234F',
+            ])
+            ->assertCreated();
+
+        $duplicate = $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'Second Transport',
+                'gst_number' => '27aaaaa0000a1z5',
+                'pan_number' => 'abcde1234f',
+            ]);
+
+        $duplicate->assertUnprocessable();
+        $duplicate->assertJsonValidationErrors(['gst_number', 'pan_number']);
+    }
+
+    public function test_company_can_keep_its_own_gst_and_pan_on_update(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Update Co');
+
+        $tenant->update([
+            'gst_number' => '27AAAAA0000A1Z5',
+            'pan_number' => 'ABCDE1234F',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$tenant->id, [
+                'name' => 'Updated Co',
+                'gst_number' => '27AAAAA0000A1Z5',
+                'pan_number' => 'ABCDE1234F',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Updated Co');
+    }
+
+    public function test_cannot_update_company_to_use_another_companys_gst_or_pan(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $this->createOwnedTenant($superAdmin, 'Existing Co', [
+            'gst_number' => '27AAAAA0000A1Z5',
+            'pan_number' => 'ABCDE1234F',
+        ]);
+
+        $otherTenant = $this->createOwnedTenant($superAdmin, 'Other Co');
+
+        $response = $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$otherTenant->id, [
+                'gst_number' => '27AAAAA0000A1Z5',
+                'pan_number' => 'ABCDE1234F',
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['gst_number', 'pan_number']);
+    }
+
+    public function test_cannot_create_company_with_invalid_or_duplicate_contact_number(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'Contact Co',
+                'contact_number' => '9876543210',
+            ])
+            ->assertCreated();
+
+        $invalidFormat = $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'Bad Contact Co',
+                'contact_number' => '12345',
+            ]);
+
+        $invalidFormat->assertUnprocessable();
+        $invalidFormat->assertJsonValidationErrors(['contact_number']);
+
+        $duplicate = $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'Duplicate Contact Co',
+                'contact_number' => '98765 43210',
+            ]);
+
+        $duplicate->assertUnprocessable();
+        $duplicate->assertJsonValidationErrors(['contact_number']);
+    }
+
     private function createSuperAdmin(): User
     {
         return User::query()->create([
@@ -252,7 +346,7 @@ class CompanyManagementTest extends TestCase
         return [$tenant, $admin];
     }
 
-    private function createOwnedTenant(User $owner, string $name): Tenant
+    private function createOwnedTenant(User $owner, string $name, array $attributes = []): Tenant
     {
         return Tenant::query()->create([
             'owner_user_id' => $owner->id,
@@ -261,6 +355,7 @@ class CompanyManagementTest extends TestCase
             'short_name' => Tenant::ensureUniqueShortName($name),
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
+            ...$attributes,
         ]);
     }
 }
