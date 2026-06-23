@@ -1,5 +1,9 @@
 <template>
-    <div ref="pickerRef" class="searchable-picker" :class="{ 'is-invalid-picker': invalid }">
+    <div
+        ref="pickerRef"
+        class="searchable-picker"
+        :class="{ 'is-invalid-picker': invalid, 'is-open': isOpen }"
+    >
         <div class="picker-row">
             <div ref="pickerMainRef" class="picker-main">
                 <div class="picker-trigger-wrap">
@@ -463,11 +467,20 @@ watch(
     border: 1px solid #dee2e6;
     border-radius: 0.375rem;
 }
+.picker-dropdown-menu--fixed {
+    z-index: 2100;
+}
+
 .picker-dropdown-menu:not(.picker-dropdown-menu--fixed) {
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
     width: 100%;
+    z-index: 1060;
+}
+
+.searchable-picker.is-open .picker-main {
+    position: relative;
     z-index: 1060;
 }
 .picker-search-wrap {

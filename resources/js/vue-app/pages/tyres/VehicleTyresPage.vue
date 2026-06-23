@@ -230,8 +230,8 @@
                                 </td>
                                 <td class="text-end fw-semibold">{{ formatKm(row.stint_km) }}</td>
                                 <td>
-                                    <span class="badge" :class="tyreStatusBadgeClass(row.tyre_status)">
-                                        {{ formatTyreStatus(row.tyre_status) }}
+                                    <span class="badge" :class="tyreStatusBadgeClass(row.stint_status ?? row.tyre_status)">
+                                        {{ formatTyreStatus(row.stint_status ?? row.tyre_status) }}
                                     </span>
                                 </td>
                             </tr>

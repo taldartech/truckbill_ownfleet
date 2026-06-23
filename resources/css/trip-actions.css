@@ -2,6 +2,13 @@
     overflow: hidden;
 }
 
+.trip-section-card:has(.searchable-picker.is-open),
+.trip-section-card:has(.searchable-select.is-open) {
+    overflow: visible;
+    position: relative;
+    z-index: 20;
+}
+
 .trip-section-card__header,
 .trip-route-card__header {
     display: flex;

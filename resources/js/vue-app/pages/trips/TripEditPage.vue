@@ -49,7 +49,7 @@
                 >
                     <template #trip-nav-actions>
                         <RouterLink
-                            :to="{ name: 'trips.show', params: { id: route.params.id } }"
+                            :to="{ name: 'trips.index' }"
                             class="btn btn-sm trip-header-btn trip-header-btn--back"
                         >
                             <i class="bi bi-arrow-left me-1"></i>Back
@@ -97,7 +97,7 @@
                             size="sm"
                             icon="bi bi-arrow-left"
                             label="Back"
-                            :to="{ name: 'trips.show', params: { id: route.params.id } }"
+                            :to="{ name: 'trips.index' }"
                         />
                         <AppButton
                             v-if="!isTerminalStatus"

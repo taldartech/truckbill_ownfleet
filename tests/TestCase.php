@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Support\PayrollPayDays;
 use App\Support\TenantContext;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -27,6 +28,7 @@ abstract class TestCase extends BaseTestCase
     protected function tearDown(): void
     {
         TenantContext::setTenantId(null);
+        PayrollPayDays::clearCache();
 
         parent::tearDown();
     }

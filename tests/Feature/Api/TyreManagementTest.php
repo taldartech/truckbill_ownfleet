@@ -156,13 +156,94 @@ class TyreManagementTest extends TestCase
             'tyre_id' => $activeTyreId,
             'tyre_serial_number' => 'TYRE-ACTIVE',
             'is_active' => true,
+            'stint_status' => 'INSTALLED',
         ]);
         $response->assertJsonFragment([
             'tyre_id' => $removedTyreId,
             'tyre_serial_number' => 'TYRE-REMOVED',
             'is_active' => false,
             'stint_km' => 2500,
+            'stint_status' => 'IN_STOCK',
         ]);
+    }
+
+    public function test_vehicle_tyre_history_shows_scrapped_only_on_last_stint(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SCRAP-HIST', TyrePosition::FrontLeft->value);
+
+        $firstInstall = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}")
+            ->json('data.active_installation.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyre-installations/{$firstInstall}/remove", [
+                'removed_at' => '2026-01-15',
+                'stint_km' => 1000,
+            ])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontRight->value,
+                'installed_at' => '2026-02-01',
+                'km_at_installation' => 5000,
+            ])
+            ->assertCreated();
+
+        $secondInstall = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}")
+            ->json('data.active_installation.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyre-installations/{$secondInstall}/remove", [
+                'removed_at' => '2026-03-01',
+                'stint_km' => 1500,
+            ])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyres/{$tyreId}/scrap", [
+                'scrapped_at' => '2026-03-02',
+            ])
+            ->assertOk();
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/vehicles/{$vehicle->id}/tyre-history");
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'tyre_serial_number' => 'TYRE-SCRAP-HIST',
+            'installed_at' => '2026-02-01',
+            'stint_status' => 'SCRAPPED',
+        ]);
+        $response->assertJsonFragment([
+            'tyre_serial_number' => 'TYRE-SCRAP-HIST',
+            'installed_at' => '2026-03-01',
+            'stint_status' => 'IN_STOCK',
+        ]);
+    }
+
+    public function test_remove_rejects_unrealistic_same_day_stint(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SAME-DAY', TyrePosition::FrontLeft->value);
+        $installationId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/tyres/{$tyreId}")
+            ->json('data.active_installation.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/tyre-installations/{$installationId}/remove", [
+                'removed_at' => '2026-03-01',
+                'stint_km' => 20000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['odometer_km']);
     }
 
     public function test_tyre_timeline_returns_newest_events_first_in_logical_order(): void

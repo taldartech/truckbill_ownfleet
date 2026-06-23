@@ -160,6 +160,7 @@
                             v-if="!readonly"
                             v-model="form.substitute_driver_id"
                             :items="substituteDriverOptions"
+                            attach-dropdown-to-body
                             placeholder="Select substitute driver"
                             search-placeholder="Search driver…"
                             empty-message="No driver found."
@@ -182,6 +183,7 @@
                             v-if="!readonly"
                             v-model="form.customer_id"
                             :items="customers"
+                            attach-dropdown-to-body
                             placeholder="Select customer"
                             search-placeholder="Search customer…"
                             empty-message="No customer found."
@@ -233,6 +235,7 @@
                             v-if="!readonly"
                             v-model="form.broker_id"
                             :items="brokers"
+                            attach-dropdown-to-body
                             placeholder="Select reference"
                             search-placeholder="Search reference…"
                             empty-message="No reference found."
@@ -299,6 +302,7 @@
                             v-if="!readonly"
                             v-model="form.start_station_id"
                             :items="stations"
+                            attach-dropdown-to-body
                             placeholder="Select start station"
                             :invalid="Boolean(fieldErrors.start_station_id)"
                             :error-message="fieldErrorMessage('start_station_id')"

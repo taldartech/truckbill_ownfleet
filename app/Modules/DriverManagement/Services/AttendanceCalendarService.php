@@ -7,6 +7,7 @@ use App\Driver;
 use App\DriverAssignment;
 use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceStatus;
+use App\Enums\PayrollPayDaysMode;
 use App\Support\CurrentTenant;
 use App\Support\MonthlyWageAccrual;
 use App\Support\PayrollPayDays;
@@ -17,12 +18,28 @@ use Illuminate\Support\Collection;
 
 class AttendanceCalendarService
 {
+    /** @var array<string, array<string, mixed>> */
+    private array $overviewCache = [];
+
+    private ?string $todayInTenantTimezone = null;
+
+    /** @var array<string, array<string, float>> */
+    private array $substituteDailyWageCache = [];
+
+    private ?PayrollPayDaysMode $payrollPayDaysMode = null;
+
     /**
      * @param  list<string>  $paidDriverIds
      * @return array{summary: array{exceptions: int, present: int, absent: int, no_work: int, paid: int, unpaid: int}, rows: list<array<string, mixed>>}
      */
     public function buildOverview(string $fromDate, string $toDate, array $paidDriverIds = []): array
     {
+        $cacheKey = $fromDate.'|'.$toDate.'|'.implode(',', $paidDriverIds);
+
+        if (isset($this->overviewCache[$cacheKey])) {
+            return $this->overviewCache[$cacheKey];
+        }
+
         $exceptions = $this->loadExceptions($fromDate, $toDate);
         $assignments = $this->loadAssignments($fromDate, $toDate);
 
@@ -31,10 +48,7 @@ class AttendanceCalendarService
             ->unique()
             ->values();
 
-        $vehicles = Vehicle::query()
-            ->whereIn('id', $vehicleIds)
-            ->get(['id', 'registration_number'])
-            ->keyBy('id');
+        $vehicles = $this->vehiclesForOverview($assignments, $exceptions, $vehicleIds);
 
         /** @var array<string, array<string, mixed>> $grouped */
         $grouped = [];
@@ -80,7 +94,7 @@ class AttendanceCalendarService
 
         usort($rows, fn (array $left, array $right): int => strcmp($left['vehicle_label'], $right['vehicle_label']));
 
-        return [
+        return $this->overviewCache[$cacheKey] = [
             'summary' => $summary,
             'rows' => $rows,
         ];
@@ -167,25 +181,7 @@ class AttendanceCalendarService
         $earnings = [];
         /** @var array<string, bool> $counted */
         $counted = [];
-        /** @var array<string, bool> $substituteIds */
-        $substituteIds = [];
-
-        foreach ($overview['rows'] as $row) {
-            foreach ($row['days'] as $cell) {
-                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
-
-                if ($substituteId !== '') {
-                    $substituteIds[$substituteId] = true;
-                }
-            }
-        }
-
-        /** @var array<string, float> $substituteBases */
-        $substituteBases = Driver::query()
-            ->whereIn('id', array_keys($substituteIds))
-            ->pluck('daily_wage', 'id')
-            ->map(fn ($base): float => (float) $base)
-            ->all();
+        $substituteBases = $this->substituteDailyWagesForRange($fromDate, $toDate, $overview);
 
         foreach ($overview['rows'] as $row) {
             foreach ($row['days'] as $date => $cell) {
@@ -237,25 +233,7 @@ class AttendanceCalendarService
         $liabilities = [];
         /** @var array<string, bool> $counted */
         $counted = [];
-        /** @var array<string, bool> $substituteIds */
-        $substituteIds = [];
-
-        foreach ($overview['rows'] as $row) {
-            foreach ($row['days'] as $cell) {
-                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
-
-                if ($substituteId !== '') {
-                    $substituteIds[$substituteId] = true;
-                }
-            }
-        }
-
-        /** @var array<string, float> $substituteBases */
-        $substituteBases = Driver::query()
-            ->whereIn('id', array_keys($substituteIds))
-            ->pluck('daily_wage', 'id')
-            ->map(fn ($base): float => (float) $base)
-            ->all();
+        $substituteBases = $this->substituteDailyWagesForRange($fromDate, $toDate, $overview);
 
         foreach ($overview['rows'] as $row) {
             foreach ($row['days'] as $date => $cell) {
@@ -319,7 +297,7 @@ class AttendanceCalendarService
         return MonthlyWageAccrual::perDay(
             $substituteMonthlyBase,
             $date,
-            PayrollPayDays::divisorForDate($date),
+            $this->payrollDivisorForDate($date),
         );
     }
 
@@ -504,10 +482,96 @@ class AttendanceCalendarService
 
     private function todayInTenantTimezone(): string
     {
-        $tenant = Tenant::query()->find(CurrentTenant::requireId());
-        $timezone = $tenant?->timezone ?? config('app.timezone', 'Asia/Kolkata');
+        if ($this->todayInTenantTimezone !== null) {
+            return $this->todayInTenantTimezone;
+        }
 
-        return Carbon::now($timezone)->toDateString();
+        $timezone = Tenant::query()
+            ->whereKey(CurrentTenant::requireId())
+            ->value('timezone') ?? config('app.timezone', 'Asia/Kolkata');
+
+        return $this->todayInTenantTimezone = Carbon::now($timezone)->toDateString();
+    }
+
+    private function payrollPayDaysMode(): PayrollPayDaysMode
+    {
+        return $this->payrollPayDaysMode ??= PayrollPayDays::modeForCurrentTenant();
+    }
+
+    private function payrollDivisorForDate(string $date): int
+    {
+        return PayrollPayDays::divisorForDate($date, $this->payrollPayDaysMode());
+    }
+
+    /**
+     * @param  array{rows: list<array<string, mixed>>}  $overview
+     * @return array<string, float>
+     */
+    private function substituteDailyWagesForRange(string $fromDate, string $toDate, array $overview): array
+    {
+        $cacheKey = $fromDate.'|'.$toDate;
+
+        if (isset($this->substituteDailyWageCache[$cacheKey])) {
+            return $this->substituteDailyWageCache[$cacheKey];
+        }
+
+        /** @var array<string, bool> $substituteIds */
+        $substituteIds = [];
+
+        foreach ($overview['rows'] as $row) {
+            foreach ($row['days'] as $cell) {
+                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
+
+                if ($substituteId !== '') {
+                    $substituteIds[$substituteId] = true;
+                }
+            }
+        }
+
+        if ($substituteIds === []) {
+            return $this->substituteDailyWageCache[$cacheKey] = [];
+        }
+
+        return $this->substituteDailyWageCache[$cacheKey] = Driver::query()
+            ->whereIn('id', array_keys($substituteIds))
+            ->pluck('daily_wage', 'id')
+            ->map(fn ($base): float => (float) $base)
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, DriverAssignment>  $assignments
+     * @param  Collection<string, Attendance>  $exceptions
+     * @param  Collection<int|string, string>  $vehicleIds
+     * @return Collection<string, Vehicle>
+     */
+    private function vehiclesForOverview(Collection $assignments, Collection $exceptions, Collection $vehicleIds): Collection
+    {
+        /** @var Collection<string, Vehicle> $vehicles */
+        $vehicles = collect();
+
+        foreach ($assignments as $assignment) {
+            if ($assignment->vehicle !== null) {
+                $vehicles->put($assignment->vehicle_id, $assignment->vehicle);
+            }
+        }
+
+        foreach ($exceptions as $exception) {
+            if ($exception->vehicle !== null) {
+                $vehicles->put($exception->vehicle_id, $exception->vehicle);
+            }
+        }
+
+        $missingIds = $vehicleIds->diff($vehicles->keys());
+
+        if ($missingIds->isNotEmpty()) {
+            Vehicle::query()
+                ->whereIn('id', $missingIds)
+                ->get(['id', 'registration_number'])
+                ->each(fn (Vehicle $vehicle) => $vehicles->put($vehicle->id, $vehicle));
+        }
+
+        return $vehicles;
     }
 
     /**
@@ -543,7 +607,7 @@ class AttendanceCalendarService
         $accrual = MonthlyWageAccrual::perDay(
             (float) $driver->daily_wage,
             $date,
-            PayrollPayDays::divisorForDate($date),
+            $this->payrollDivisorForDate($date),
         );
         $paymentStatus = in_array($driver->id, $paidDriverIds, true) ? 'paid' : 'unpaid';
 
@@ -580,7 +644,7 @@ class AttendanceCalendarService
                 ? MonthlyWageAccrual::perDay(
                     (float) $driver->daily_wage,
                     $attendanceDate,
-                    PayrollPayDays::divisorForDate($attendanceDate),
+                    $this->payrollDivisorForDate($attendanceDate),
                 )
                 : (float) $exception->wage_amount;
 

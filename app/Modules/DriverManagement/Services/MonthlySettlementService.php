@@ -12,6 +12,7 @@ use App\Support\CurrentTenant;
 use App\Support\MonthlySettlementCalculator;
 use App\Support\PayrollPayDays;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class MonthlySettlementService
@@ -52,11 +53,19 @@ class MonthlySettlementService
             ->unique()
             ->values();
 
-        $drivers = Driver::query()
-            ->whereIn('id', $driverIds)
-            ->orderBy('name')
-            ->get()
-            ->keyBy('id');
+        /** @var Collection<string, Driver> $drivers */
+        $drivers = $wages
+            ->filter(fn (MonthlyDriverWage $wage): bool => $wage->driver !== null)
+            ->mapWithKeys(fn (MonthlyDriverWage $wage): array => [$wage->driver_id => $wage->driver]);
+
+        $missingDriverIds = $driverIds->diff($drivers->keys());
+
+        if ($missingDriverIds->isNotEmpty()) {
+            Driver::query()
+                ->whereIn('id', $missingDriverIds)
+                ->get()
+                ->each(fn (Driver $driver) => $drivers->put($driver->id, $driver));
+        }
 
         $payrollLines = [];
         $serial = 0;
@@ -100,10 +109,16 @@ class MonthlySettlementService
             'calendar_days' => $calendarDays,
             'pay_days' => PayrollPayDays::displayPayDays($calendarDays, $payrollPayDaysMode),
             'payroll_pay_days_mode' => $payrollPayDaysMode->value,
-            'month_lock' => $this->monthLockService->summaryForMonth($month),
+            'month_lock' => $this->monthLockService->summaryForMonth($month, $lock),
             'vehicle_settlement' => $lock?->vehicle_settlement ?? [],
             'payroll_lines' => $payrollLines,
-            'vehicle_matrix' => $this->buildVehicleMatrix($overview, $monthStart, $calendarDays, $lock),
+            'vehicle_matrix' => $this->buildVehicleMatrix(
+                $overview,
+                $monthStart,
+                $calendarDays,
+                $lock,
+                $this->substituteDailyWagesFromOverview($overview),
+            ),
         ];
     }
 
@@ -360,15 +375,20 @@ class MonthlySettlementService
      * @param  array{summary: array<string, int>, rows: list<array<string, mixed>>}  $overview
      * @return list<array<string, mixed>>
      */
-    private function buildVehicleMatrix(array $overview, string $monthStart, int $calendarDays, ?AttendanceMonthLock $lock): array
-    {
+    private function buildVehicleMatrix(
+        array $overview,
+        string $monthStart,
+        int $calendarDays,
+        ?AttendanceMonthLock $lock,
+        array $substituteBases = [],
+    ): array {
         /** @var array<string, array<string, mixed>> $vehicleSettlement */
         $vehicleSettlement = $lock?->vehicle_settlement ?? [];
         $matrix = [];
         $serial = 0;
 
         foreach ($overview['rows'] as $row) {
-            $expandedRows = $this->expandVehicleDriverRows($row, $monthStart, $calendarDays);
+            $expandedRows = $this->expandVehicleDriverRows($row, $monthStart, $calendarDays, $substituteBases);
 
             if ($expandedRows === []) {
                 continue;
@@ -418,15 +438,17 @@ class MonthlySettlementService
      * @param  array<string, mixed>  $sourceRow
      * @return list<array<string, mixed>>
      */
-    private function expandVehicleDriverRows(array $sourceRow, string $monthStart, int $calendarDays): array
-    {
+    private function expandVehicleDriverRows(
+        array $sourceRow,
+        string $monthStart,
+        int $calendarDays,
+        array $substituteBases = [],
+    ): array {
         /** @var array<string, array<string, mixed>> $perDriver */
         $perDriver = [];
         $primaryName = trim((string) ($sourceRow['driver_name'] ?? ''));
         /** @var array<string, mixed> $daysByDate */
         $daysByDate = $sourceRow['days'] ?? [];
-        /** @var array<string, float> $substituteBases */
-        $substituteBases = [];
 
         $ensureRowKey = function (string $driverName, ?string $driverId, bool $isSubstitute) use ($sourceRow, &$perDriver): ?string {
             $normalizedName = trim($driverName);
@@ -506,7 +528,7 @@ class MonthlySettlementService
                         $perDriver[$substituteKey]['salary'] += $this->attendanceCalendar->substituteWageForCell(
                             $cell,
                             (string) $date,
-                            $this->substituteMonthlyBase($substituteId, $substituteBases),
+                            $substituteBases[$substituteId] ?? 0.0,
                         );
                     }
                 }
@@ -621,15 +643,33 @@ class MonthlySettlementService
     }
 
     /**
-     * @param  array<string, float>  $cache
+     * @param  array{rows: list<array<string, mixed>>}  $overview
+     * @return array<string, float>
      */
-    private function substituteMonthlyBase(string $driverId, array &$cache): float
+    private function substituteDailyWagesFromOverview(array $overview): array
     {
-        if (! array_key_exists($driverId, $cache)) {
-            $cache[$driverId] = (float) (Driver::query()->find($driverId)?->daily_wage ?? 0);
+        /** @var array<string, bool> $substituteIds */
+        $substituteIds = [];
+
+        foreach ($overview['rows'] as $row) {
+            foreach ($row['days'] as $cell) {
+                $substituteId = (string) ($cell['temporary_driver_id'] ?? '');
+
+                if ($substituteId !== '') {
+                    $substituteIds[$substituteId] = true;
+                }
+            }
         }
 
-        return $cache[$driverId];
+        if ($substituteIds === []) {
+            return [];
+        }
+
+        return Driver::query()
+            ->whereIn('id', array_keys($substituteIds))
+            ->pluck('daily_wage', 'id')
+            ->map(fn ($wage): float => (float) $wage)
+            ->all();
     }
 
     /**

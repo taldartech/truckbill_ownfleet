@@ -21,9 +21,9 @@ class AttendanceMonthLockService
     /**
      * @return array{status: string, closed_at: string|null, locked_at: string|null}
      */
-    public function summaryForMonth(string $month): array
+    public function summaryForMonth(string $month, ?AttendanceMonthLock $lock = null): array
     {
-        $lock = $this->findForMonth($month);
+        $lock ??= $this->findForMonth($month);
         $status = $lock?->status ?? AttendanceMonthStatus::Open;
 
         return [

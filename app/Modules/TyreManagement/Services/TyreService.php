@@ -130,6 +130,9 @@ class TyreService
             $tyre = $installation->tyre;
             $recommendation = $this->lifeCalculator->removalRecommendation($tyre, $runningKm);
 
+            $installation->loadMissing('vehicle');
+            $this->assertReasonableRemovalStint($installation, $runningKm, $data['removed_at'] ?? null, $odometerReading);
+
             $installation->update([
                 'removed_at' => $data['removed_at'] ?? now()->toDateString(),
                 'stint_km' => $runningKm,
@@ -373,16 +376,20 @@ class TyreService
             ->orderByDesc('created_at')
             ->get();
 
-        $history = $installations->map(function (TyreInstallation $installation): array {
+        $lastStintIdByTyre = $this->lastStintIdByTyre($installations);
+
+        $history = $installations->map(function (TyreInstallation $installation) use ($lastStintIdByTyre): array {
             $tyre = $installation->tyre;
             $stintKm = $this->lifeCalculator->activeStintKm($installation);
+            $stintStatus = $this->stintStatusFor($installation, $tyre, $lastStintIdByTyre);
 
             return [
                 'id' => $installation->id,
                 'tyre_id' => $installation->tyre_id,
                 'tyre_serial_number' => $tyre?->serial_number,
                 'tyre_brand' => $tyre?->brand,
-                'tyre_status' => $tyre?->status?->value,
+                'tyre_status' => $stintStatus,
+                'stint_status' => $stintStatus,
                 'position' => $installation->position_code,
                 'position_label' => $this->positionCatalog->labelFor($installation->position_code),
                 'installed_at' => $installation->installed_at?->toDateString(),
@@ -517,6 +524,76 @@ class TyreService
         if ($newValue < $minimumFromStints) {
             throw ValidationException::withMessages([
                 'current_km' => "KM already used cannot be less than {$minimumFromStints} km recorded from truck usage.",
+            ]);
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, TyreInstallation>  $installations
+     * @return array<string, string>
+     */
+    private function lastStintIdByTyre($installations): array
+    {
+        return $installations
+            ->groupBy('tyre_id')
+            ->mapWithKeys(function ($tyreInstallations, string $tyreId): array {
+                $last = $tyreInstallations
+                    ->sortByDesc(fn (TyreInstallation $installation): string => sprintf(
+                        '%s|%s',
+                        $installation->removed_at?->toDateString() ?? '9999-99-99',
+                        $installation->created_at?->toIso8601String() ?? '',
+                    ))
+                    ->first();
+
+                return [$tyreId => $last?->id];
+            })
+            ->filter()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, string>  $lastStintIdByTyre
+     */
+    private function stintStatusFor(TyreInstallation $installation, ?Tyre $tyre, array $lastStintIdByTyre): string
+    {
+        if ($installation->removed_at === null) {
+            return TyreStatus::Installed->value;
+        }
+
+        if (
+            $tyre?->status === TyreStatus::Scrapped
+            && ($lastStintIdByTyre[$installation->tyre_id] ?? null) === $installation->id
+        ) {
+            return TyreStatus::Scrapped->value;
+        }
+
+        return TyreStatus::InStock->value;
+    }
+
+    private function assertReasonableRemovalStint(
+        TyreInstallation $installation,
+        float $stintKm,
+        ?string $removedAt,
+        ?float $odometerReading,
+    ): void {
+        $removedDate = $removedAt ?? now()->toDateString();
+        $installedDate = $installation->installed_at?->toDateString();
+
+        if ($installedDate !== null && $installedDate === $removedDate && $stintKm > 1000) {
+            throw ValidationException::withMessages([
+                'odometer_km' => "Recorded KM on truck ({$stintKm} km) is not realistic for same-day install and removal. Check the meter reading.",
+            ]);
+        }
+
+        if ($odometerReading === null || $installation->vehicle === null) {
+            return;
+        }
+
+        $vehicleOdometer = max(0, (float) ($installation->vehicle->odometer_km ?? 0));
+
+        if ($vehicleOdometer > 0 && $odometerReading > $vehicleOdometer + 5000) {
+            throw ValidationException::withMessages([
+                'odometer_km' => "Current meter reading ({$odometerReading} km) is much higher than the truck's last recorded reading ({$vehicleOdometer} km). Please verify.",
             ]);
         }
     }

@@ -352,6 +352,10 @@ watch(
 </style>
 
 <style>
+.searchable-select .picker-dropdown-menu--fixed {
+    z-index: 2100;
+}
+
 .searchable-select .picker-dropdown-menu:not(.picker-dropdown-menu--fixed) {
     position: absolute;
     top: calc(100% + 4px);

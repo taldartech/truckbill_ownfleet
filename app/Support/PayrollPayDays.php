@@ -9,19 +9,31 @@ class PayrollPayDays
 {
     public const FIXED_DAYS = 30;
 
+    /** @var array<string, PayrollPayDaysMode> */
+    private static array $modeCache = [];
+
+    public static function clearCache(): void
+    {
+        self::$modeCache = [];
+    }
+
     public static function modeForTenant(?string $tenantId): PayrollPayDaysMode
     {
         if ($tenantId === null) {
             return PayrollPayDaysMode::Calendar;
         }
 
+        if (isset(self::$modeCache[$tenantId])) {
+            return self::$modeCache[$tenantId];
+        }
+
         $mode = Tenant::query()->whereKey($tenantId)->value('payroll_pay_days_mode');
 
         if ($mode instanceof PayrollPayDaysMode) {
-            return $mode;
+            return self::$modeCache[$tenantId] = $mode;
         }
 
-        return PayrollPayDaysMode::tryFrom((string) $mode) ?? PayrollPayDaysMode::Calendar;
+        return self::$modeCache[$tenantId] = PayrollPayDaysMode::tryFrom((string) $mode) ?? PayrollPayDaysMode::Calendar;
     }
 
     public static function modeForCurrentTenant(): PayrollPayDaysMode
