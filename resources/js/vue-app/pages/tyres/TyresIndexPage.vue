@@ -1,8 +1,27 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Tyre Management">
-            <template v-if="canManage" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+        <AppIndexPageHeader
+            title="Tyre Management"
+            :subtitle="selectedTruckLabel ? `Truck: ${selectedTruckLabel}` : ''"
+        >
+            <template #actions>
+                <AppButton
+                    v-if="vehicleFilter && truckFilterApplicable"
+                    variant="secondary"
+                    outline
+                    size="sm"
+                    icon="bi bi-truck"
+                    label="Change truck"
+                    @click="openTruckPicker"
+                />
+                <RouterLink
+                    v-if="vehicleFilter && truckFilterApplicable"
+                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
+                    class="btn btn-outline-success btn-sm"
+                >
+                    <i class="bi bi-grid-3x3-gap"></i> Positions
+                </RouterLink>
+                <AppButton v-if="canManage" icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
 
@@ -10,7 +29,8 @@
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadTyres(1)" @clear="clearFilters">
+        <template v-if="truckContextReady">
+        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
             <div>
                 <label class="form-label">Search</label>
                 <AppIndexSearchInput
@@ -21,7 +41,7 @@
                     :disabled="loading"
                 />
             </div>
-            <div>
+            <div v-if="truckFilterApplicable">
                 <label class="form-label" for="tyresIndex_vehicle">Truck</label>
                 <SearchableSelect
                     input-id="tyresIndex_vehicle"
@@ -30,8 +50,11 @@
                     placeholder="All trucks"
                     search-placeholder="Search truck number…"
                     empty-message="No truck found."
-                    :disabled="loading"
+                    :disabled="loading || Boolean(vehicleFilter)"
                 />
+                <div v-if="vehicleFilter" class="form-text">
+                    Use <strong>Change truck</strong> above to pick a different truck.
+                </div>
             </div>
             <div>
                 <label class="form-label">Status</label>
@@ -121,6 +144,51 @@
                 />
             </template>
         </AppIndexListCard>
+        </template>
+
+        <div
+            v-if="showTruckPicker"
+            class="modal fade show d-block"
+            tabindex="-1"
+            style="background: rgba(0, 0, 0, 0.45)"
+        >
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-truck me-1"></i>
+                            Select Truck
+                        </h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">
+                            Choose a truck to view tyres installed on it, or open the full inventory list.
+                        </p>
+                        <label class="form-label" for="tyresTruckPicker_vehicle">Truck</label>
+                        <SearchableSelect
+                            input-id="tyresTruckPicker_vehicle"
+                            v-model="pickerVehicleId"
+                            :items="vehicleSelectOptions"
+                            placeholder="Search and select truck…"
+                            search-placeholder="Search truck number…"
+                            empty-message="No truck found."
+                            :disabled="vehiclesLoading"
+                        />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @click="viewAllTrucks">
+                            All tyres (inventory)
+                        </button>
+                        <AppButton
+                            label="View truck tyres"
+                            icon="bi bi-arrow-right"
+                            :disabled="!pickerVehicleId"
+                            @click="confirmTruckSelection"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div
             v-if="showModal"
@@ -289,7 +357,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
@@ -333,13 +401,28 @@ const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('');
 const vehicleFilter = ref('');
+const truckFilterApplicable = computed(
+    () => statusFilter.value !== 'IN_STOCK' && statusFilter.value !== 'SCRAPPED',
+);
 const vehicles = ref([]);
+const vehiclesLoading = ref(true);
 const vehicleSelectOptions = computed(() =>
     vehicles.value.map((vehicle) => ({
         id: vehicle.id,
         label: vehicle.registration_number,
     })),
 );
+const showTruckPicker = ref(false);
+const truckContextReady = ref(false);
+const pickerVehicleId = ref('');
+const selectedTruckLabel = computed(() => {
+    if (!vehicleFilter.value) {
+        return '';
+    }
+
+    const match = vehicles.value.find((vehicle) => String(vehicle.id) === String(vehicleFilter.value));
+    return match?.registration_number ?? '';
+});
 const showModal = ref(false);
 const editing = ref(null);
 const serialNumberInputRef = ref(null);
@@ -367,10 +450,74 @@ const filtersActive = computed(
 
 const minimumRecordedKm = computed(() => Number(editing.value?.minimum_recorded_km ?? 0));
 
+function clearTruckFilterIfNeeded() {
+    if (truckFilterApplicable.value) {
+        return;
+    }
+
+    if (vehicleFilter.value) {
+        vehicleFilter.value = '';
+        syncVehicleQuery();
+    }
+
+    truckContextReady.value = true;
+}
+
+function applyFilters() {
+    clearTruckFilterIfNeeded();
+    syncVehicleQuery();
+    loadTyres(1);
+}
+
 function clearFilters() {
     search.value = '';
     statusFilter.value = '';
+    if (!vehicleFilter.value) {
+        loadTyres(1);
+        return;
+    }
+
     vehicleFilter.value = '';
+    syncVehicleQuery();
+    openTruckPicker();
+}
+
+function syncVehicleQuery() {
+    const query = { ...route.query };
+
+    if (vehicleFilter.value) {
+        query.vehicle_id = String(vehicleFilter.value);
+    } else {
+        delete query.vehicle_id;
+    }
+
+    router.replace({ query });
+}
+
+function openTruckPicker() {
+    pickerVehicleId.value = vehicleFilter.value;
+    truckContextReady.value = false;
+    showTruckPicker.value = true;
+}
+
+function confirmTruckSelection() {
+    if (!pickerVehicleId.value) {
+        return;
+    }
+
+    vehicleFilter.value = String(pickerVehicleId.value);
+    statusFilter.value = '';
+    showTruckPicker.value = false;
+    truckContextReady.value = true;
+    syncVehicleQuery();
+    loadTyres(1);
+}
+
+function viewAllTrucks() {
+    vehicleFilter.value = '';
+    showTruckPicker.value = false;
+    truckContextReady.value = true;
+    syncVehicleQuery();
     loadTyres(1);
 }
 
@@ -455,7 +602,7 @@ async function loadTyres(page = 1) {
             perPage: pagination.perPage,
             search: search.value || undefined,
             status: statusFilter.value || undefined,
-            vehicleId: vehicleFilter.value || undefined,
+            vehicleId: truckFilterApplicable.value && vehicleFilter.value ? vehicleFilter.value : undefined,
         });
         tyres.value = response.data;
         syncFromMeta(response.meta, tyres.value.length);
@@ -525,16 +672,47 @@ function formatMoney(amount) {
 }
 
 function applyRouteFilters() {
-    const { status } = route.query;
+    const { status, vehicle_id: vehicleId } = route.query;
 
     if (typeof status === 'string' && status !== '') {
         statusFilter.value = status;
     }
+
+    const skipTruckFilter = statusFilter.value === 'IN_STOCK' || statusFilter.value === 'SCRAPPED';
+
+    if (!skipTruckFilter && typeof vehicleId === 'string' && vehicleId !== '') {
+        vehicleFilter.value = vehicleId;
+        pickerVehicleId.value = vehicleId;
+        truckContextReady.value = true;
+    }
 }
+
+watch(statusFilter, () => {
+    clearTruckFilterIfNeeded();
+});
 
 onMounted(async () => {
     applyRouteFilters();
-    vehicles.value = await listAllVehicles();
-    await loadTyres();
+    vehiclesLoading.value = true;
+
+    try {
+        vehicles.value = await listAllVehicles();
+    } finally {
+        vehiclesLoading.value = false;
+    }
+
+    if (truckContextReady.value) {
+        await loadTyres();
+        return;
+    }
+
+    if (statusFilter.value === 'IN_STOCK' || statusFilter.value === 'SCRAPPED') {
+        truckContextReady.value = true;
+        await loadTyres();
+        return;
+    }
+
+    loading.value = false;
+    showTruckPicker.value = !needsCompanySelection.value;
 });
 </script>

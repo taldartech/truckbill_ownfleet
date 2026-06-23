@@ -8,39 +8,60 @@
         </div>
         <div v-if="driverWarning" class="alert alert-warning">{{ driverWarning }}</div>
 
-        <div class="card mb-4 trip-details-card">
-            <div class="card-header trip-details-card__header bg-success text-white">
-                <div class="trip-details-card__row trip-details-card__row--main">
-                    <h3 class="card-title mb-0 trip-details-card__title">
-                        <span>{{ tripDetailsHeaderTitle }}</span>
-                        <template v-if="mode === 'edit'">
-                            <span v-if="tripNumberDisplay" class="trip-details-card__sep">{{ tripNumberDisplay }}</span>
-                            <span v-if="snapshotVehicleLabel" class="trip-details-card__sep">{{ snapshotVehicleLabel }}</span>
-                            <span class="trip-details-card__sep">
-                                <span class="badge" :class="currentStatusBadge.badge">{{ currentStatusBadge.label }}</span>
-                            </span>
-                        </template>
+        <div class="card mb-4 trip-section-card trip-details-card">
+            <div class="card-header bg-success text-white trip-section-card__header">
+                <div class="trip-section-card__info">
+                    <h3 class="card-title mb-0 trip-section-card__title">
+                        <i class="bi bi-signpost-split me-2" aria-hidden="true"></i>{{ tripDetailsHeaderTitle }}
                     </h3>
-                    <div
-                        v-if="showHeaderActions"
-                        class="trip-details-card__actions"
+                    <p
+                        v-if="headerMetaText || mode === 'create' || mode === 'edit'"
+                        class="trip-section-card__meta mb-0 mt-1 d-flex flex-wrap align-items-center gap-2"
                     >
-                        <template v-if="mode === 'edit' && !readonly && !statusLocked">
-                            <button
-                                v-for="next in allowedNextStatuses"
-                                :key="next.value"
-                                type="button"
-                                class="btn btn-sm trip-details-action-btn"
-                                :class="statusActionButtonClass(next.value)"
-                                @click="onStatusChange(next.value)"
-                            >
-                                {{ next.label }}
-                            </button>
-                        </template>
-                        <slot name="trip-details-actions" />
+                        <span v-if="headerMetaText">{{ headerMetaText }}</span>
+                        <span
+                            class="badge"
+                            :class="mode === 'create' ? 'bg-light text-dark' : statusBadgeOnGreen"
+                        >
+                            {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
+                        </span>
+                    </p>
+                </div>
+                <div
+                    v-if="showHeaderActions"
+                    class="trip-header-actions"
+                >
+                    <div
+                        v-if="hasNavActions"
+                        class="trip-header-actions__group"
+                    >
+                        <slot name="trip-nav-actions" />
+                    </div>
+                    <div
+                        v-if="mode === 'edit' && !readonly && !statusLocked && allowedNextStatuses.length > 0"
+                        class="trip-header-actions__group"
+                    >
+                        <button
+                            v-for="next in allowedNextStatuses"
+                            :key="next.value"
+                            type="button"
+                            class="btn btn-sm trip-header-btn"
+                            :class="statusActionButtonClass(next.value)"
+                            @click="onStatusChange(next.value)"
+                        >
+                            <i :class="[statusActionIcon(next.value), 'me-1']" aria-hidden="true"></i>
+                            {{ next.label }}
+                        </button>
+                    </div>
+                    <div
+                        v-if="hasSaveActions"
+                        class="trip-header-actions__group"
+                    >
+                        <slot name="trip-save-actions" />
                     </div>
                 </div>
             </div>
+
             <div class="card-body trip-form-fields">
                 <div class="trip-details-grid mb-3">
                     <div>
@@ -244,26 +265,30 @@
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h3 class="card-title mb-0"><i class="bi bi-arrow-repeat me-1"></i> Round Trip Route</h3>
-                <div v-if="!readonly" class="d-flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-light"
-                        :disabled="!form.start_station_id"
-                        @click="$emit('add-stop')"
-                    >
-                        <i class="bi bi-plus"></i> Add Stop
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-light"
-                        :disabled="!canReturnToStart"
-                        @click="$emit('return-to-start')"
-                    >
-                        <i class="bi bi-house"></i> Return to Start
-                    </button>
+        <div class="card mb-4 trip-section-card trip-route-card">
+            <div class="card-header bg-success text-white trip-section-card__header trip-route-card__header">
+                <h3 class="card-title mb-0 trip-section-card__title">
+                    <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>Round Trip Route
+                </h3>
+                <div v-if="!readonly" class="trip-header-actions">
+                    <div class="trip-header-actions__group">
+                        <button
+                            type="button"
+                            class="btn btn-sm trip-header-btn trip-header-btn--add-stop"
+                            :disabled="!form.start_station_id"
+                            @click="$emit('add-stop')"
+                        >
+                            <i class="bi bi-plus-lg me-1"></i>Add Stop
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm trip-header-btn trip-header-btn--return"
+                            :disabled="!canReturnToStart"
+                            @click="$emit('return-to-start')"
+                        >
+                            <i class="bi bi-arrow-return-left me-1"></i>Return to Start
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -426,10 +451,8 @@
                     </table>
                 </div>
             </div>
-        </div>
 
-        <div class="card mb-4 border-primary">
-            <div class="card-body p-0">
+            <div class="card-body p-0 border-top">
                 <div class="km-summary-bar">
                     <div>
                         <div class="small text-muted">Full Load KM</div>
@@ -451,16 +474,6 @@
                         <div class="small text-muted">Freight</div>
                         <strong>₹{{ formatMoney(summary.freightTotal) }}</strong>
                     </div>
-                    <div>
-                        <div class="small text-muted">Expenses</div>
-                        <strong>₹{{ formatMoney(summary.expenseTotal) }}</strong>
-                    </div>
-                </div>
-                <div class="text-center mt-2">
-                    <span class="small text-muted me-2">Profit:</span>
-                    <strong :class="summary.profit >= 0 ? 'text-success' : 'text-danger'">
-                        ₹{{ formatMoney(summary.profit) }}
-                    </strong>
                 </div>
             </div>
         </div>
@@ -622,14 +635,36 @@ const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
 
 const tripDetailsHeaderTitle = computed(() => {
     if (props.mode === 'create') {
-        return 'Create - Trip';
+        return 'Create Trip';
     }
 
     if (props.readonly || props.statusLocked) {
-        return 'View - Trip';
+        return 'View Trip';
     }
 
-    return 'Edit - Trip';
+    return 'Edit Trip';
+});
+
+const headerMetaText = computed(() => {
+    if (props.mode === 'edit') {
+        const parts = [];
+
+        if (props.tripNumberDisplay) {
+            parts.push(props.tripNumberDisplay);
+        }
+
+        if (props.snapshotVehicleLabel) {
+            parts.push(props.snapshotVehicleLabel);
+        }
+
+        return parts.join(' · ');
+    }
+
+    if (props.mode === 'create' && props.tripNumberDisplay) {
+        return props.tripNumberDisplay;
+    }
+
+    return '';
 });
 
 const driverDisplayName = computed(() => {
@@ -719,26 +754,67 @@ const allowedNextStatuses = computed(() => {
     return [];
 });
 
+const hasNavActions = computed(() => Boolean(slots['trip-nav-actions']));
+const hasSaveActions = computed(() => Boolean(slots['trip-save-actions']));
+
 const showHeaderActions = computed(
-    () => Boolean(slots['trip-details-actions']) || (props.mode === 'edit' && !props.readonly && !props.statusLocked && allowedNextStatuses.value.length > 0),
+    () => hasNavActions.value
+        || hasSaveActions.value
+        || (props.mode === 'edit' && !props.readonly && !props.statusLocked && allowedNextStatuses.value.length > 0),
 );
+
+const statusBadgeOnGreen = computed(() => {
+    const normalized = String(props.form.status ?? '').toUpperCase();
+
+    if (normalized === 'IN_PROGRESS') {
+        return 'bg-warning text-dark';
+    }
+
+    if (normalized === 'COMPLETED') {
+        return 'bg-light text-dark';
+    }
+
+    if (normalized === 'CANCELLED') {
+        return 'bg-danger';
+    }
+
+    return 'bg-light text-dark';
+});
 
 function statusActionButtonClass(status) {
     const normalized = String(status ?? '').toUpperCase();
 
     if (normalized === 'COMPLETED') {
-        return 'trip-details-action-btn--completed';
+        return 'trip-header-btn--completed';
     }
 
     if (normalized === 'CANCELLED') {
-        return 'trip-details-action-btn--cancelled';
+        return 'trip-header-btn--cancelled';
     }
 
     if (normalized === 'IN_PROGRESS') {
-        return 'trip-details-action-btn--progress';
+        return 'trip-header-btn--progress';
     }
 
-    return 'trip-details-action-btn--neutral';
+    return 'trip-header-btn--back';
+}
+
+function statusActionIcon(status) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    if (normalized === 'COMPLETED') {
+        return 'bi bi-check-circle-fill';
+    }
+
+    if (normalized === 'CANCELLED') {
+        return 'bi bi-x-circle-fill';
+    }
+
+    if (normalized === 'IN_PROGRESS') {
+        return 'bi bi-hourglass-split';
+    }
+
+    return 'bi bi-circle';
 }
 
 const validationMessages = computed(() => {
@@ -938,107 +1014,6 @@ defineExpose({
 .trip-expenses-card__body {
     padding: 16px;
     background: #f9fafb;
-}
-.trip-details-card__header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 14px 18px;
-}
-.trip-details-card__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-}
-.trip-details-card__row--main {
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-@media (max-width: 768px) {
-    .trip-details-card__actions {
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        width: 100%;
-    }
-}
-.trip-details-card__actions {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.35rem;
-    margin-left: auto;
-}
-.trip-details-card__actions :deep(.trip-details-action-btn),
-.trip-details-action-btn {
-    white-space: nowrap;
-    font-weight: 600;
-    padding: 0.3rem 0.7rem;
-    border-radius: 0.375rem;
-    line-height: 1.2;
-}
-.trip-details-action-btn--completed {
-    background: #fff;
-    color: #157347;
-    border: 1px solid #157347;
-}
-.trip-details-action-btn--completed:hover {
-    background: #d1e7dd;
-    color: #146c43;
-}
-.trip-details-action-btn--cancelled {
-    background: #dc3545;
-    color: #fff;
-    border: 1px solid #bb2d3b;
-}
-.trip-details-action-btn--cancelled:hover {
-    background: #bb2d3b;
-    color: #fff;
-}
-.trip-details-action-btn--progress {
-    background: #0d6efd;
-    color: #fff;
-    border: 1px solid #0a58ca;
-}
-.trip-details-action-btn--progress:hover {
-    background: #0b5ed7;
-    color: #fff;
-}
-.trip-details-action-btn--back {
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.55);
-}
-.trip-details-action-btn--back:hover {
-    background: rgba(255, 255, 255, 0.24);
-    color: #fff;
-}
-.trip-details-action-btn--update {
-    background: #fff;
-    color: #146c43;
-    border: 1px solid #fff;
-}
-.trip-details-action-btn--update:hover {
-    background: #f8f9fa;
-    color: #146c43;
-}
-.trip-details-action-btn--neutral {
-    background: #fff;
-    color: #495057;
-    border: 1px solid #dee2e6;
-}
-.trip-details-card__title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    min-width: 0;
-}
-.trip-details-card__sep::before {
-    content: '–';
-    margin-right: 0.5rem;
-    opacity: 0.75;
-    font-weight: 400;
 }
 .trip-number-label {
     display: flex;

@@ -24,7 +24,6 @@
                 >
                     Rotate
                 </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" @click="openRetread">Retread</button>
                 <button
                     v-if="tyre.active_installation"
                     type="button"
@@ -143,14 +142,14 @@
                                     Since {{ formatDate(tyre.active_installation.installed_at) }}
                                 </div>
                                 <div class="small mt-1">
-                                    Odometer at install: <strong>{{ tyre.active_installation.km_at_installation ?? 0 }}</strong> km
+                                    Meter Reading at Install: <strong>{{ tyre.active_installation.km_at_installation ?? 0 }}</strong> km
                                 </div>
                                 <div class="small">
                                     KM on truck: <strong>{{ lifeSummary?.active_stint_km ?? tyre.active_installation.stint_km ?? 0 }}</strong> km
                                 </div>
                                 <div v-if="canManage" class="d-flex flex-wrap gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-primary" @click="openUpdateKm">
-                                        Update odometer
+                                        Update Meter Reading
                                     </button>
                                     <button type="button" class="btn btn-sm btn-warning" @click="openRemove">
                                         Remove from truck
@@ -335,7 +334,7 @@
                 <input v-model="actionForm.installed_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Odometer at install (km)</label>
+                <label class="form-label">Meter Reading at Install (km)</label>
                 <input
                     v-model.number="actionForm.km_at_installation"
                     v-no-scroll-change
@@ -345,7 +344,7 @@
                     class="form-control"
                     required
                 />
-                <div class="form-text">Truck odometer when this tyre is fitted. Stint KM is calculated from this reading.</div>
+                <div class="form-text">Truck meter reading when this tyre is fitted. Stint KM is calculated from this reading.</div>
             </div>
         </TyreActionModal>
 
@@ -373,7 +372,7 @@
                 <input v-model="actionForm.replaced_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current truck odometer (km) *</label>
+                <label class="form-label">Current Meter Reading (km) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -439,7 +438,7 @@
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
-                    <label class="form-label">Current truck odometer (km) *</label>
+                    <label class="form-label">Current Meter Reading (km) *</label>
                     <input
                         v-model.number="actionForm.odometer_km"
                         v-no-scroll-change
@@ -483,28 +482,6 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showRetread"
-            title="Record Retread"
-            :form-error="formError"
-            :saving="actionSaving"
-            @close="closeRetread"
-            @submit="submitRetread"
-        >
-            <div class="mb-2">
-                <label class="form-label">Vendor</label>
-                <input v-model="actionForm.vendor" type="text" class="form-control" required />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Cost</label>
-                <input v-model.number="actionForm.cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" required />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Date</label>
-                <input v-model="actionForm.retread_date" type="date" class="form-control" required />
-            </div>
-        </TyreActionModal>
-
-        <TyreActionModal
             v-if="showRemove"
             title="Remove Tyre from Truck"
             :form-error="formError"
@@ -517,7 +494,7 @@
                 <input v-model="actionForm.removed_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current truck odometer (km) *</label>
+                <label class="form-label">Current Meter Reading (km) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -539,14 +516,14 @@
 
         <TyreActionModal
             v-if="showUpdateKm"
-            title="Update from Odometer"
+            title="Update from Meter Reading"
             :form-error="formError"
             :saving="actionSaving"
             @close="closeUpdateKm"
             @submit="submitUpdateKm"
         >
             <div class="mb-2">
-                <label class="form-label">Current truck odometer (km) *</label>
+                <label class="form-label">Current Meter Reading (km) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -620,6 +597,7 @@
                     <option value="BURST">Burst</option>
                     <option value="CUT">Cut</option>
                     <option value="SIDEWALL">Sidewall</option>
+                    <option value="RECAPPED">Recapped</option>
                     <option value="OTHER">Other</option>
                 </select>
             </div>
@@ -632,8 +610,16 @@
                 <input v-model="actionForm.occurred_at" type="date" class="form-control" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">KM when damage happened</label>
-                <input v-model.number="actionForm.km_at_occurrence" v-no-scroll-change type="number" min="0" class="form-control" />
+                <label class="form-label">Current Meter Reading (km) *</label>
+                <input
+                    v-model.number="actionForm.odometer_km"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    required
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Description</label>
@@ -661,7 +647,6 @@ import {
     removeTyreInstallation,
     updateTyreInstallationStintKm,
     replaceTyre,
-    retreadTyre,
     rotateTyre,
     scrapTyre,
 } from '../../api/tyres';
@@ -717,7 +702,6 @@ const vehicleSelectOptions = computed(() =>
 const stockTyres = ref([]);
 const showInstall = ref(false);
 const showRotate = ref(false);
-const showRetread = ref(false);
 const showDamage = ref(false);
 const showReplace = ref(false);
 const showRemove = ref(false);
@@ -802,14 +786,10 @@ function createActionFormDefaults() {
         rotation_date: todayIsoDate(),
         rotation_cost: 0,
         reason: '',
-        vendor: '',
-        cost: 0,
-        retread_date: todayIsoDate(),
         damage_type: 'PUNCTURE',
         occurred_at: todayIsoDate(),
         repair_cost: null,
         damage_description: '',
-        km_at_occurrence: null,
         km_at_installation: 0,
         odometer_km: 0,
         stint_km: 0,
@@ -832,7 +812,6 @@ function resetActionForm() {
 const tabs = [
     { key: 'installations', label: 'Installation History' },
     { key: 'rotations', label: 'Rotations' },
-    { key: 'retreads', label: 'Retreads' },
     { key: 'damages', label: 'Damage' },
     { key: 'expenses', label: 'Expenses' },
 ];
@@ -841,7 +820,6 @@ const historyTypeOptions = [
     { value: 'installed', label: 'Install' },
     { value: 'removed', label: 'Remove' },
     { value: 'rotation', label: 'Rotation' },
-    { value: 'retread', label: 'Retread' },
     { value: 'damage', label: 'Damage' },
     { value: 'replacement', label: 'Replace' },
     { value: 'scrapped', label: 'Scrap' },
@@ -883,7 +861,6 @@ function historyTypeBadgeClass(type) {
         installed: 'bg-success',
         removed: 'bg-secondary',
         rotation: 'bg-warning text-dark',
-        retread: 'bg-info text-dark',
         damage: 'bg-danger',
         replacement: 'bg-primary',
         scrapped: 'bg-dark',
@@ -921,14 +898,6 @@ const activeRows = computed(() => {
             r.reason ?? '—',
         ]);
     }
-    if (activeTab.value === 'retreads') {
-        return sortByDateField(tyre.value.retreads ?? [], 'retread_date').map((r) => [
-            formatDate(r.retread_date),
-            r.vendor,
-            r.cost,
-            r.condition_after ?? '—',
-        ]);
-    }
     if (activeTab.value === 'damages') {
         return sortByDateField(tyre.value.damages ?? [], 'occurred_at').map((r) => [
             formatDate(r.occurred_at),
@@ -952,7 +921,6 @@ const activeColumns = computed(() => {
     const map = {
         installations: ['Truck', 'Position', 'Installed', 'Removed', 'Ran KM', 'Advice'],
         rotations: ['Truck', 'Date', 'From', 'To', 'Cost', 'Reason'],
-        retreads: ['Date', 'Vendor', 'Cost', 'Condition'],
         damages: ['Date', 'Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
         expenses: ['Type', 'Date', 'Amount', 'Notes'],
     };
@@ -986,15 +954,10 @@ function openRotate() {
     showRotate.value = true;
 }
 
-function openRetread() {
-    clearErrors();
-    resetActionForm();
-    showRetread.value = true;
-}
-
 function openDamage() {
     clearErrors();
     resetActionForm();
+    prefillActiveVehicleOdometer();
     showDamage.value = true;
 }
 
@@ -1033,10 +996,6 @@ function closeInstall() {
 
 function closeRotate() {
     closeActionModal(showRotate);
-}
-
-function closeRetread() {
-    closeActionModal(showRetread);
 }
 
 function closeDamage() {
@@ -1242,19 +1201,6 @@ async function submitRotate() {
     });
 }
 
-async function submitRetread() {
-    await runTyreAction(async () => {
-        await retreadTyre(tyre.value.id, {
-            vendor: actionForm.vendor,
-            cost: actionForm.cost,
-            retread_date: actionForm.retread_date,
-        });
-        finishTyreAction(showRetread);
-        activeTab.value = 'retreads';
-        await loadTyre();
-    });
-}
-
 async function submitDamage() {
     await runTyreAction(async () => {
         await recordTyreDamage(tyre.value.id, {
@@ -1262,7 +1208,7 @@ async function submitDamage() {
             occurred_at: actionForm.occurred_at,
             repair_cost: actionForm.repair_cost || null,
             description: actionForm.damage_description || null,
-            km_at_occurrence: actionForm.km_at_occurrence || null,
+            odometer_km: actionForm.odometer_km,
         });
         finishTyreAction(showDamage);
         activeTab.value = 'damages';

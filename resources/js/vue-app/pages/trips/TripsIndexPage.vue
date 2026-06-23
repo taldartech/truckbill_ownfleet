@@ -99,7 +99,7 @@
                             <td>
                                 <RouterLink
                                     v-if="canOpenTrip"
-                                    :to="{ name: 'trips.edit', params: { id: trip.id } }"
+                                    :to="{ name: 'trips.show', params: { id: trip.id } }"
                                     class="trip-number-link fw-semibold text-decoration-none"
                                 >
                                     {{ trip.trip_number || '—' }}
@@ -109,9 +109,11 @@
                             <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
                             <td>{{ trip.driver?.name ?? '—' }}</td>
                             <td>
-                                <span class="badge" :class="statusBadge(trip.status).badge">
-                                    {{ statusBadge(trip.status).label }}
-                                </span>
+                                <TripInlineStatusActions
+                                    :trip="trip"
+                                    :can-manage="canManage"
+                                    @updated="onTripStatusUpdated(trip, $event)"
+                                />
                             </td>
                             <td>{{ formatDateTime(trip.start_at) }}</td>
                             <td>{{ formatDateTime(trip.end_at) }}</td>
@@ -170,7 +172,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
-import { deleteTrip, defaultTripListFilters, listTrips, TRIP_STATUSES, tripStatusMeta } from '../../api/trips';
+import { deleteTrip, defaultTripListFilters, isTerminalTripStatus, listTrips, TRIP_STATUSES } from '../../api/trips';
+import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import SearchablePicker from '../../components/ui/SearchablePicker.vue';
@@ -232,12 +235,16 @@ function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function statusBadge(status) {
-    return tripStatusMeta(status);
+function isTerminalTrip(trip) {
+    return isTerminalTripStatus(trip.status);
 }
 
-function isTerminalTrip(trip) {
-    return ['COMPLETED', 'CANCELLED'].includes(String(trip.status ?? '').toUpperCase());
+function onTripStatusUpdated(trip, updated) {
+    const index = trips.value.findIndex((item) => item.id === trip.id);
+
+    if (index !== -1) {
+        trips.value[index] = { ...trips.value[index], ...updated };
+    }
 }
 
 function formatRoute(trip) {
@@ -353,7 +360,7 @@ async function loadTrips(page = 1) {
 }
 
 function goToView(trip) {
-    router.push({ name: 'trips.edit', params: { id: trip.id } });
+    router.push({ name: 'trips.show', params: { id: trip.id } });
 }
 
 function goToEdit(trip) {

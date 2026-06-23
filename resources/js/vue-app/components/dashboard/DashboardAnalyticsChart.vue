@@ -573,7 +573,6 @@ const substituteStartAngle = computed(() => {
 const tyreTotalCount = computed(() => Number(props.tyreStats?.total_count ?? 0));
 const tyreInStockCount = computed(() => Number(props.tyreStats?.in_stock_count ?? 0));
 const tyreInstalledCount = computed(() => Number(props.tyreStats?.installed_count ?? 0));
-const tyreDamagedCount = computed(() => Number(props.tyreStats?.damaged_count ?? 0));
 const tyreScrappedCount = computed(() => Number(props.tyreStats?.scrapped_count ?? 0));
 
 function tyreStatusPct(count) {
@@ -598,13 +597,6 @@ const tyreStatusItems = computed(() => [
         count: tyreInstalledCount.value,
         pct: tyreStatusPct(tyreInstalledCount.value),
         barClass: 'trip-status-card__bar--completed',
-    },
-    {
-        key: 'damaged',
-        label: 'Damaged',
-        count: tyreDamagedCount.value,
-        pct: tyreStatusPct(tyreDamagedCount.value),
-        barClass: 'trip-status-card__bar--cancelled',
     },
     {
         key: 'scrapped',

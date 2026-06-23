@@ -7,7 +7,6 @@ use App\Tyre;
 use App\TyreExpense;
 use App\TyreInstallation;
 use App\TyreReplacement;
-use App\TyreRetread;
 use Illuminate\Support\Facades\DB;
 
 class TyreReportService
@@ -88,28 +87,6 @@ class TyreReportService
                 'old_serial' => $row->oldTyre?->serial_number,
                 'new_serial' => $row->newTyre?->serial_number,
                 'reason' => $row->reason,
-            ])
-            ->all();
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    public function retreadHistory(array $filters = []): array
-    {
-        return TyreRetread::query()
-            ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('retread_date', '>=', $from))
-            ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('retread_date', '<=', $to))
-            ->with('tyre')
-            ->orderByDesc('retread_date')
-            ->get()
-            ->map(fn (TyreRetread $row) => [
-                'id' => $row->id,
-                'retread_date' => $row->retread_date?->toDateString(),
-                'serial_number' => $row->tyre?->serial_number,
-                'vendor' => $row->vendor,
-                'cost' => (float) $row->cost,
-                'condition_after' => $row->condition_after,
             ])
             ->all();
     }

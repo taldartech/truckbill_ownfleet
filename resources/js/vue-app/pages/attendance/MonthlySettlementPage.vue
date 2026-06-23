@@ -38,13 +38,13 @@
                         Download Excel
                     </button>
                     <button
-                        v-if="canManageWages && monthLock.status === 'open'"
+                        v-if="canManageWages && monthLock.status === 'open' && canLockSelectedMonth"
                         type="button"
-                        class="btn btn-outline-primary btn-sm"
-                        :disabled="closing"
-                        @click="handleCloseMonth"
+                        class="btn btn-dark btn-sm"
+                        :disabled="locking"
+                        @click="handleLockMonth"
                     >
-                        {{ closing ? 'Closing…' : 'Close Month' }}
+                        {{ locking ? 'Locking…' : 'Lock Month' }}
                     </button>
                     <button
                         v-if="canManageWages && monthLock.status === 'closed' && unpaidCount > 0"
@@ -58,29 +58,11 @@
                     <button
                         v-if="canManageWages && monthLock.status === 'closed'"
                         type="button"
-                        class="btn btn-dark btn-sm"
-                        :disabled="locking"
-                        @click="handleLockMonth"
-                    >
-                        Lock Month
-                    </button>
-                    <button
-                        v-if="canManageWages && monthLock.status === 'closed'"
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm"
-                        :disabled="reopening"
-                        @click="handleReopenMonth"
-                    >
-                        Reopen Month
-                    </button>
-                    <button
-                        v-if="canUnlockMonth && monthLock.status === 'paid'"
-                        type="button"
                         class="btn btn-outline-secondary btn-sm"
                         :disabled="unlocking"
                         @click="handleUnlockMonth"
                     >
-                        Unlock Month
+                        {{ unlocking ? 'Unlocking…' : 'Unlock Month' }}
                     </button>
                 </div>
             </div>
@@ -105,51 +87,47 @@
                     class="alert alert-light border py-2 mb-3"
                 >
                     <strong>View only.</strong> You can review payroll and download Excel. Contact an admin to
-                    close the month, edit lines, or mark payments.
+                    lock the month, edit lines, or mark payments.
                 </div>
 
                 <div
-                    v-if="monthLock.status === 'open'"
+                    v-if="monthLock.status === 'open' && canLockSelectedMonth"
                     class="alert alert-info py-2 mb-3"
                 >
                     <strong>Step 1:</strong> Review attendance below, then click
-                    <strong>Close Month</strong> to generate payroll lines.
+                    <strong>Lock Month</strong> to freeze attendance and generate payroll lines.
                     <span v-if="!canManageWages" class="d-block mt-1 small mb-0">
-                        You need wage management permission to close the month.
+                        You need wage management permission to lock the month.
                     </span>
-                    <button
-                        v-else
-                        type="button"
-                        class="btn btn-primary btn-sm ms-2"
-                        :disabled="closing"
-                        @click="handleCloseMonth"
-                    >
-                        {{ closing ? 'Closing…' : 'Close Month' }}
-                    </button>
+                </div>
+
+                <div
+                    v-else-if="monthLock.status === 'open'"
+                    class="alert alert-light border py-2 mb-3"
+                >
+                    <strong>Month still in progress.</strong>
+                    Lock Month is available only after this month ends. Review attendance below and return
+                    next month to lock payroll.
                 </div>
 
                 <div
                     v-else-if="monthLock.status === 'closed'"
                     class="alert alert-warning py-2 mb-3"
                 >
-                    <strong>Month closed.</strong>
+                    <strong>Attendance locked.</strong>
                     <template v-if="canManageWages">
-                        Review payroll, mark drivers paid, then lock the month.
+                        Review payroll, mark all paid when ready, or unlock to edit attendance again.
                     </template>
-                    <template v-else> Payroll is ready for review. Download Excel or contact an admin to process payments. </template>
+                    <template v-else>
+                        Payroll is ready for review. Download Excel or contact an admin to process payments.
+                    </template>
                 </div>
 
                 <div
                     v-else-if="monthLock.status === 'paid'"
                     class="alert alert-secondary py-2 mb-3"
                 >
-                    <strong>Month locked.</strong> Attendance is frozen for this period.
-                    <template v-if="canUnlockMonth">
-                        Unlock the month to adjust payments, or reopen it for attendance edits.
-                    </template>
-                    <template v-else>
-                        Contact a super admin to unlock the month, or reopen it for attendance edits.
-                    </template>
+                    <strong>Month finalized.</strong> All payments are recorded and no further changes are allowed.
                 </div>
 
                 <ul class="nav nav-tabs mb-3">
@@ -206,17 +184,8 @@
                                     <td colspan="19" class="text-center text-muted py-4">
                                         <div>No payroll lines for {{ sheet.month_label || selectedMonth }}.</div>
                                         <div class="small mt-1">
-                                            Assign primary drivers to trucks and mark attendance first.
+                                            Assign primary drivers to trucks and mark attendance first, then lock the month.
                                         </div>
-                                        <button
-                                            v-if="canManageWages && monthLock.status === 'open'"
-                                            type="button"
-                                            class="btn btn-primary btn-sm mt-2"
-                                            :disabled="closing"
-                                            @click="handleCloseMonth"
-                                        >
-                                            {{ closing ? 'Closing…' : 'Close Month' }}
-                                        </button>
                                     </td>
                                 </tr>
                                 <tr
@@ -466,10 +435,8 @@ import SettlementActionConfirmModal from '../../components/attendance/Settlement
 import {
     closeMonthWages,
     fetchSettlementSheet,
-    lockMonthWages,
     markAllMonthlyWagesPaid,
     markMonthlyWagePaid,
-    reopenMonthWages,
     unlockMonthWages,
     settlementSheetExportUrl,
     updateSettlementLine,
@@ -480,23 +447,23 @@ import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatMonthYear } from '../../utils/datetime';
 
 const route = useRoute();
-const { canInCompany, user } = usePermissions();
+const { canInCompany } = usePermissions();
 
 const canManageWages = computed(() => canInCompany('wages.manage'));
 const canViewSettlement = computed(() => canInCompany('wages.view') || canManageWages.value);
-const canUnlockMonth = computed(
-    () =>
-        user.value?.role === 'super_admin' &&
-        !(user.value?.requires_company_selection ?? false),
-);
 const canEditSheet = computed(() => canManageWages.value && monthLock.value.status !== 'paid');
+const canLockSelectedMonth = computed(() => {
+    if (!selectedMonth.value) {
+        return false;
+    }
+
+    return selectedMonth.value < currentMonth();
+});
 
 const loading = ref(true);
 const loadError = ref('');
-const closing = ref(false);
 const pendingAction = ref(null);
 const locking = ref(false);
-const reopening = ref(false);
 const unlocking = ref(false);
 const markingAll = ref(false);
 const markingDriverId = ref(null);
@@ -516,11 +483,11 @@ const calendarDayNumbers = computed(() =>
 
 const monthLockLabel = computed(() => {
     if (monthLock.value.status === 'paid') {
-        return 'Locked';
+        return 'Finalized';
     }
 
     if (monthLock.value.status === 'closed') {
-        return 'Closed';
+        return 'Attendance Locked';
     }
 
     return 'Open';
@@ -553,16 +520,8 @@ const monthLabel = computed(() => {
 });
 
 const settlementConfirmProcessing = computed(() => {
-    if (pendingAction.value === 'close') {
-        return closing.value;
-    }
-
     if (pendingAction.value === 'lock') {
         return locking.value;
-    }
-
-    if (pendingAction.value === 'reopen') {
-        return reopening.value;
     }
 
     if (pendingAction.value === 'markAllPaid') {
@@ -586,29 +545,29 @@ const settlementConfirmConfig = computed(() => {
         { label: 'Drivers on payroll', value: String(payrollLines.value.length) },
     ];
 
-    if (pendingAction.value === 'close') {
+    if (pendingAction.value === 'lock') {
         const stats = [
             ...baseStats,
             { label: 'Trucks in attendance', value: String(vehicleMatrix.value.length) },
         ];
 
         return {
-            title: 'Confirm Close Month',
-            message: `Review ${monthLabel.value} before closing. This freezes attendance and generates payroll lines.`,
+            title: 'Confirm Lock Month',
+            message: `Review ${monthLabel.value} before locking. This freezes attendance and generates payroll lines.`,
             banner: 'Attendance for this month will be frozen and payroll register lines will be created.',
-            bannerIcon: 'bi-lock',
+            bannerIcon: 'bi-lock-fill',
             bannerTone: 'success',
-            icon: 'bi-question-circle',
+            icon: 'bi-shield-lock',
             iconTone: 'info',
             monthLabel: monthLabel.value,
             stats,
             emptyNote:
                 vehicleMatrix.value.length === 0 && payrollLines.value.length === 0
-                    ? 'No attendance rows yet. Closing will still lock the month and create payroll when drivers are assigned.'
+                    ? 'No attendance rows yet. Locking will still freeze the month and create payroll when drivers are assigned.'
                     : '',
-            confirmLabel: 'Yes, Close Month',
-            confirmIcon: 'bi-check-lg',
-            confirmClass: 'btn-success',
+            confirmLabel: 'Yes, Lock Month',
+            confirmIcon: 'bi-lock-fill',
+            confirmClass: 'btn-dark',
         };
     }
 
@@ -616,7 +575,7 @@ const settlementConfirmConfig = computed(() => {
         return {
             title: 'Confirm Mark All Paid',
             message: `Mark all unpaid drivers as paid for ${monthLabel.value}.`,
-            banner: 'This records payment for every unpaid driver and locks the month automatically.',
+            banner: 'This finalizes the month permanently. No further attendance or payment changes will be allowed.',
             bannerIcon: 'bi-cash-coin',
             bannerTone: 'success',
             icon: 'bi-question-circle',
@@ -633,34 +592,11 @@ const settlementConfirmConfig = computed(() => {
         };
     }
 
-    if (pendingAction.value === 'lock') {
-        return {
-            title: 'Confirm Lock Month',
-            message: `Lock ${monthLabel.value} after payroll review and payment.`,
-            banner: 'Attendance exceptions cannot be changed after the month is locked.',
-            bannerIcon: 'bi-lock-fill',
-            bannerTone: 'warning',
-            icon: 'bi-shield-lock',
-            iconTone: 'warning',
-            monthLabel: monthLabel.value,
-            stats: [
-                ...baseStats,
-                { label: 'Unpaid drivers', value: String(unpaidCount.value) },
-            ],
-            emptyNote: unpaidCount.value > 0
-                ? 'Some drivers are still unpaid. You can lock anyway, but review payroll first.'
-                : '',
-            confirmLabel: 'Yes, Lock Month',
-            confirmIcon: 'bi-lock-fill',
-            confirmClass: 'btn-dark',
-        };
-    }
-
     if (pendingAction.value === 'unlock') {
         return {
             title: 'Confirm Unlock Month',
-            message: `Unlock ${monthLabel.value} to adjust payroll before locking again.`,
-            banner: 'Unlocking returns the month to closed status so payments can still be edited.',
+            message: `Unlock ${monthLabel.value} to edit attendance and recalculate payroll.`,
+            banner: 'Unlocking reopens attendance for this month. Lock again after your changes.',
             bannerIcon: 'bi-unlock',
             bannerTone: 'warning',
             icon: 'bi-unlock',
@@ -670,24 +606,6 @@ const settlementConfirmConfig = computed(() => {
             emptyNote: '',
             confirmLabel: 'Yes, Unlock Month',
             confirmIcon: 'bi-unlock',
-            confirmClass: 'btn-warning',
-        };
-    }
-
-    if (pendingAction.value === 'reopen') {
-        return {
-            title: 'Confirm Reopen Month',
-            message: `Reopen ${monthLabel.value} for attendance edits and payroll recalculation.`,
-            banner: 'Reopening allows attendance exceptions to be changed again before the next close.',
-            bannerIcon: 'bi-unlock',
-            bannerTone: 'warning',
-            icon: 'bi-arrow-counterclockwise',
-            iconTone: 'warning',
-            monthLabel: monthLabel.value,
-            stats: baseStats,
-            emptyNote: '',
-            confirmLabel: 'Yes, Reopen Month',
-            confirmIcon: 'bi-arrow-counterclockwise',
             confirmClass: 'btn-warning',
         };
     }
@@ -828,12 +746,18 @@ async function refreshSheetForAction() {
     return true;
 }
 
-function handleCloseMonth() {
+function handleLockMonth() {
     if (!selectedMonth.value) {
         return;
     }
 
-    pendingAction.value = 'close';
+    if (!canLockSelectedMonth.value || monthLock.value.status !== 'open') {
+        showToast('Only completed past months can be locked.', 'error');
+
+        return;
+    }
+
+    pendingAction.value = 'lock';
 }
 
 async function handleMarkAllPaid() {
@@ -846,7 +770,13 @@ async function handleMarkAllPaid() {
     }
 
     if (monthLock.value.status === 'paid') {
-        showToast('This month is already locked.', 'error');
+        showToast('This month is already finalized.', 'error');
+
+        return;
+    }
+
+    if (monthLock.value.status !== 'closed') {
+        showToast('Lock the month before marking payments.', 'error');
 
         return;
     }
@@ -860,54 +790,6 @@ async function handleMarkAllPaid() {
     pendingAction.value = 'markAllPaid';
 }
 
-async function handleLockMonth() {
-    if (!selectedMonth.value) {
-        return;
-    }
-
-    if (!(await refreshSheetForAction())) {
-        return;
-    }
-
-    if (monthLock.value.status === 'paid') {
-        showToast('This month is already locked.', 'error');
-
-        return;
-    }
-
-    if (monthLock.value.status !== 'closed') {
-        showToast('Close the month before locking.', 'error');
-
-        return;
-    }
-
-    pendingAction.value = 'lock';
-}
-
-async function handleReopenMonth() {
-    if (!selectedMonth.value) {
-        return;
-    }
-
-    if (!(await refreshSheetForAction())) {
-        return;
-    }
-
-    if (monthLock.value.status === 'paid') {
-        showToast('Unlock the month before reopening attendance.', 'error');
-
-        return;
-    }
-
-    if (monthLock.value.status !== 'closed') {
-        showToast('This month is not closed.', 'error');
-
-        return;
-    }
-
-    pendingAction.value = 'reopen';
-}
-
 async function handleUnlockMonth() {
     if (!selectedMonth.value) {
         return;
@@ -917,7 +799,13 @@ async function handleUnlockMonth() {
         return;
     }
 
-    if (monthLock.value.status !== 'paid') {
+    if (monthLock.value.status === 'paid') {
+        showToast('This month is finalized and cannot be unlocked.', 'error');
+
+        return;
+    }
+
+    if (monthLock.value.status !== 'closed') {
         showToast('This month is not locked.', 'error');
 
         return;
@@ -933,12 +821,8 @@ async function confirmSettlementAction() {
 
     const action = pendingAction.value;
 
-    if (action === 'close') {
-        closing.value = true;
-    } else if (action === 'lock') {
+    if (action === 'lock') {
         locking.value = true;
-    } else if (action === 'reopen') {
-        reopening.value = true;
     } else if (action === 'markAllPaid') {
         markingAll.value = true;
     } else if (action === 'unlock') {
@@ -946,42 +830,32 @@ async function confirmSettlementAction() {
     }
 
     try {
-        if (action === 'close') {
+        if (action === 'lock') {
             await closeMonthWages(selectedMonth.value);
             activeTab.value = 'payroll';
-            showToast('Month closed. Review payroll and truck sheets.');
+            showToast('Month locked. Review payroll and truck sheets.');
         } else if (action === 'markAllPaid') {
             await markAllMonthlyWagesPaid(selectedMonth.value, {});
-            showToast('All drivers marked paid. Month is now locked.');
-        } else if (action === 'lock') {
-            await lockMonthWages(selectedMonth.value);
-            showToast('Month locked.');
+            showToast('All drivers marked paid. This month is now finalized.');
         } else if (action === 'unlock') {
             await unlockMonthWages(selectedMonth.value);
-            showToast('Month unlocked.');
-        } else if (action === 'reopen') {
-            await reopenMonthWages(selectedMonth.value);
-            showToast('Month reopened.');
+            showToast('Month unlocked. Attendance can be edited again.');
         }
 
         pendingAction.value = null;
         await loadSheet();
     } catch (error) {
         const fallback = {
-            close: 'Unable to close month.',
-            markAllPaid: 'Unable to mark all paid.',
             lock: 'Unable to lock month.',
+            markAllPaid: 'Unable to mark all paid.',
             unlock: 'Unable to unlock month.',
-            reopen: 'Unable to reopen.',
         }[action];
 
         pendingAction.value = null;
         showToast(friendlyApiErrorMessage(error, fallback), 'error');
         await loadSheet();
     } finally {
-        closing.value = false;
         locking.value = false;
-        reopening.value = false;
         markingAll.value = false;
         unlocking.value = false;
     }

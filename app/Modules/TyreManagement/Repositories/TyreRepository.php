@@ -23,7 +23,6 @@ class TyreRepository
                 'activeInstallation.vehicle',
                 'installations.vehicle',
                 'rotations.vehicle',
-                'retreads',
                 'damages.vehicle',
                 'expenses',
             ])

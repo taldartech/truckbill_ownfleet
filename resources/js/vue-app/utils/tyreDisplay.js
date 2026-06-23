@@ -1,8 +1,6 @@
 export const TYRE_STATUSES = [
     { value: 'IN_STOCK', label: 'In Stock' },
     { value: 'INSTALLED', label: 'Installed' },
-    { value: 'RETREADED', label: 'Retreaded' },
-    { value: 'DAMAGED', label: 'Damaged' },
     { value: 'SCRAPPED', label: 'Scrapped' },
 ];
 
@@ -26,8 +24,6 @@ export function tyreStatusBadgeClass(status) {
     const map = {
         IN_STOCK: 'bg-primary',
         INSTALLED: 'bg-success',
-        RETREADED: 'bg-warning text-dark',
-        DAMAGED: 'bg-danger',
         SCRAPPED: 'bg-secondary',
     };
 
@@ -109,6 +105,7 @@ const DAMAGE_TYPE_LABELS = {
     BURST: 'Burst',
     CUT: 'Cut',
     SIDEWALL: 'Sidewall',
+    RECAPPED: 'Recapped',
     OTHER: 'Other',
 };
 

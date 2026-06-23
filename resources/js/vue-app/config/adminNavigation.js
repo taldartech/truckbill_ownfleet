@@ -39,23 +39,9 @@ export const adminNavigation = [
     {
         label: 'Tyres',
         icon: 'bi bi-circle nav-icon',
+        to: '/tyres',
+        permission: 'tyres.view',
         requiresTenant: true,
-        children: [
-            {
-                label: 'Tyre List',
-                icon: 'bi bi-list-ul nav-icon',
-                to: '/tyres',
-                permission: 'tyres.view',
-                requiresTenant: true,
-            },
-            {
-                label: 'Tyre Layouts',
-                icon: 'bi bi-diagram-3 nav-icon',
-                to: '/tyre-layouts',
-                permission: 'tyre_layouts.view',
-                requiresTenant: true,
-            },
-        ],
     },
     {
         label: 'Reports',
@@ -106,6 +92,13 @@ export const adminNavigation = [
                 icon: 'fas fa-user-tie nav-icon',
                 to: '/drivers',
                 permission: 'drivers.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Tyre Layouts',
+                icon: 'bi bi-diagram-3 nav-icon',
+                to: '/tyre-layouts',
+                permission: 'tyre_layouts.view',
                 requiresTenant: true,
             },
             {

@@ -87,7 +87,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::post('tyre-installations/{tyre_installation}/remove', [TyreController::class, 'removeInstallation']);
     Route::patch('tyre-installations/{tyre_installation}/stint-km', [TyreController::class, 'updateStintKm']);
     Route::post('tyres/{tyre}/rotate', [TyreController::class, 'rotate']);
-    Route::post('tyres/{tyre}/retread', [TyreController::class, 'retread']);
     Route::post('tyres/{tyre}/damage', [TyreController::class, 'damage']);
     Route::post('tyres/{tyre}/expenses', [TyreController::class, 'expense']);
     Route::get('tyre-installations/{tyre_installation}/removal-preview', [TyreController::class, 'removalPreview']);
@@ -97,7 +96,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.context'])->group(function 
     Route::get('/reports/tyres/life', [TyreReportController::class, 'tyreLife']);
     Route::get('/reports/tyres/cost-per-km', [TyreReportController::class, 'costPerKm']);
     Route::get('/reports/tyres/replacements', [TyreReportController::class, 'replacements']);
-    Route::get('/reports/tyres/retread-history', [TyreReportController::class, 'retreadHistory']);
     Route::get('/reports/tyres/vehicle-wise', [TyreReportController::class, 'vehicleWiseUsage']);
     Route::get('/reports/tyres/expense-summary', [TyreReportController::class, 'expenseSummary']);
     Route::get('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index']);

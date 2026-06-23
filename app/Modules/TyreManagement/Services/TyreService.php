@@ -13,7 +13,6 @@ use App\TyreDamage;
 use App\TyreExpense;
 use App\TyreInstallation;
 use App\TyreReplacement;
-use App\TyreRetread;
 use App\TyreRotation;
 use App\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -249,45 +248,38 @@ class TyreService
         });
     }
 
-    public function recordRetread(Tyre $tyre, array $data): TyreRetread
-    {
-        return DB::transaction(function () use ($tyre, $data): TyreRetread {
-            $retread = TyreRetread::query()->create([
-                'tyre_id' => $tyre->id,
-                'vendor' => $data['vendor'],
-                'cost' => $data['cost'],
-                'retread_date' => $data['retread_date'],
-                'condition_after' => $data['condition_after'] ?? null,
-                'notes' => $data['notes'] ?? null,
-            ]);
-
-            $tyre->update(['status' => TyreStatus::Retreaded]);
-
-            $this->recordExpense($tyre, TyreExpenseType::Retread, (float) $data['cost'], $data['retread_date'], $data['notes'] ?? 'Retreading');
-
-            return $retread;
-        });
-    }
-
     public function recordDamage(Tyre $tyre, array $data): TyreDamage
     {
         return DB::transaction(function () use ($tyre, $data): TyreDamage {
             $active = $tyre->activeInstallation;
+            $odometerReading = $this->stintCalculator->resolveOdometerReading($data);
+
+            if ($odometerReading === null) {
+                throw ValidationException::withMessages([
+                    'odometer_km' => 'Current meter reading is required.',
+                ]);
+            }
+
+            if ($active !== null) {
+                $this->stintCalculator->stintFromInstallationOdometer($active, $odometerReading);
+                $active->loadMissing('vehicle');
+
+                if ($active->vehicle !== null) {
+                    $this->stintCalculator->syncVehicleOdometer($active->vehicle, $odometerReading);
+                }
+            }
+
             $damage = TyreDamage::query()->create([
                 'tyre_id' => $tyre->id,
                 'vehicle_id' => $data['vehicle_id'] ?? $active?->vehicle_id,
                 'position_code' => $data['position_code'] ?? $active?->position_code,
                 'damage_type' => $data['damage_type'],
                 'occurred_at' => $data['occurred_at'],
-                'km_at_occurrence' => $data['km_at_occurrence']
-                    ?? $active?->vehicle?->odometer_km
-                    ?? null,
+                'km_at_occurrence' => $odometerReading,
                 'description' => $data['description'] ?? null,
                 'repair_cost' => $data['repair_cost'] ?? null,
                 'is_repaired' => $data['is_repaired'] ?? false,
             ]);
-
-            $tyre->update(['status' => TyreStatus::Damaged]);
 
             if (! empty($data['repair_cost']) && (float) $data['repair_cost'] > 0) {
                 $this->recordExpense($tyre, TyreExpenseType::Repair, (float) $data['repair_cost'], $data['occurred_at'], $data['description'] ?? 'Tyre repair');

@@ -25,6 +25,17 @@
                             {{ formError || contextError }}
                         </div>
 
+                        <div v-if="isFutureDate" class="alert alert-info py-2 small mb-3">
+                            <template v-if="isEdit">
+                                Future date: <strong>P — Present</strong> removes a planned Absent/Substitute.
+                                Present is applied automatically when this day arrives.
+                            </template>
+                            <template v-else>
+                                Future dates become <strong>Present</strong> automatically on that day.
+                                Mark only planned <strong>Absent</strong> or <strong>Substitute</strong> here.
+                            </template>
+                        </div>
+
                         <div class="mb-3">
                             <label :for="`${modalId}_exception`" class="form-label">Attendance Type *</label>
                             <select
@@ -34,7 +45,7 @@
                                 :class="{ 'is-invalid': hasFieldError(fieldErrors, 'status') }"
                                 required
                             >
-                                <option v-if="isEdit" value="BLANK">· — Blank (clear mark)</option>
+                                <option v-if="isEdit" value="BLANK">P — Present</option>
                                 <option value="ABSENT">A — Absent</option>
                                 <option value="ABSENT_SUBSTITUTE">S — Substitute</option>
                             </select>
@@ -121,6 +132,14 @@ const modalElement = ref(null);
 let bootstrapModal = null;
 
 const isEdit = computed(() => props.mode === 'edit');
+
+const today = computed(() => new Date().toISOString().slice(0, 10));
+
+const isFutureDate = computed(() => {
+    const date = form.value.attendance_date;
+
+    return Boolean(date && date > today.value);
+});
 
 const form = ref(emptyForm());
 const contextError = ref('');

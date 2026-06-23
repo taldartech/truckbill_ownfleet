@@ -2,6 +2,7 @@
 
 namespace App\Modules\TripManagement\Services;
 
+use App\Enums\TripExpenseType;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Trip;
 use App\TripExpense;
@@ -151,7 +152,7 @@ class TripReportService
             ->get()
             ->groupBy(fn (TripExpense $expense) => $expense->expense_type->value ?? (string) $expense->expense_type)
             ->map(fn (Collection $items, string $type): array => [
-                'expense_type' => $type,
+                'expense_type' => TripExpenseType::tryFrom($type)?->label() ?? str_replace('_', ' ', $type),
                 'trip_count' => $items->pluck('trip_id')->unique()->count(),
                 'entry_count' => $items->count(),
                 'total_amount' => (float) $items->sum('amount'),

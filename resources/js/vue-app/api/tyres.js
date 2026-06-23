@@ -81,11 +81,6 @@ export async function rotateTyre(id, payload) {
     return unwrapResource(data);
 }
 
-export async function retreadTyre(id, payload) {
-    const { data } = await api.post(`${base}/${id}/retread`, payload);
-    return unwrapResource(data);
-}
-
 export async function recordTyreDamage(id, payload) {
     const { data } = await api.post(`${base}/${id}/damage`, payload);
     return unwrapResource(data);

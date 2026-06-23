@@ -52,7 +52,6 @@ class TyreResource extends JsonResource
             ),
             'installations' => TyreInstallationResource::collection($this->whenLoaded('installations')),
             'rotations' => TyreRotationResource::collection($this->whenLoaded('rotations')),
-            'retreads' => TyreRetreadResource::collection($this->whenLoaded('retreads')),
             'damages' => TyreDamageResource::collection($this->whenLoaded('damages')),
             'expenses' => TyreExpenseResource::collection($this->whenLoaded('expenses')),
             'created_at' => $this->created_at?->toIso8601String(),

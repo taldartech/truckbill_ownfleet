@@ -200,7 +200,7 @@ function toggleDropdown() {
         searchQuery.value = '';
         nextTick(() => {
             updateDropdownPosition();
-            searchInputRef.value?.focus();
+            searchInputRef.value?.focus({ preventScroll: true });
         });
     }
 }

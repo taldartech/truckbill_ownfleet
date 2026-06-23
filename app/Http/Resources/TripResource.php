@@ -24,6 +24,7 @@ class TripResource extends JsonResource
             'broker_id' => $this->broker_id,
             'broker_name' => $this->broker_name,
             'start_station_id' => $this->start_station_id,
+            'start_station' => new StationResource($this->whenLoaded('startStation')),
             'status' => $this->status?->value ?? $this->status,
             'start_at' => $this->start_at?->toISOString(),
             'end_at' => $this->end_at?->toISOString(),
@@ -42,6 +43,13 @@ class TripResource extends JsonResource
             'substitute_driver' => new DriverResource($this->whenLoaded('substituteDriver')),
             'route_legs' => TripRouteLegResource::collection($this->whenLoaded('routeLegs')),
             'expenses' => TripExpenseResource::collection($this->whenLoaded('expenses')),
+            'status_histories' => $this->whenLoaded('statusHistories', fn () => $this->statusHistories->map(fn ($history) => [
+                'id' => $history->id,
+                'from_status' => $history->from_status,
+                'to_status' => $history->to_status,
+                'changed_at' => $history->changed_at?->toISOString(),
+                'remarks' => $history->remarks,
+            ])),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

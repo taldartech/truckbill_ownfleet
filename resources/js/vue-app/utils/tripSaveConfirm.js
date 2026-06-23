@@ -1,4 +1,4 @@
-import { EXPENSE_TYPES, routeTypeMeta, summarizeTripForm } from '../api/trips';
+import { expenseTypeLabel, routeTypeMeta, summarizeTripForm } from '../api/trips';
 import { formatDate } from './datetime';
 
 function formatNum(value) {
@@ -15,14 +15,6 @@ function lookupName(items, id, fallback = '—') {
     }
 
     return items.find((item) => String(item.id) === String(id))?.name ?? fallback;
-}
-
-function expenseTypeLabel(type, otherType = '') {
-    if (type === 'OTHER') {
-        return otherType || 'Other';
-    }
-
-    return EXPENSE_TYPES.find((item) => item.value === type)?.label ?? type ?? 'Expense';
 }
 
 function legSignature(leg) {

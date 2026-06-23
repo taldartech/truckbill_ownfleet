@@ -86,6 +86,11 @@ class Trip extends Model
         return $this->belongsTo(Broker::class);
     }
 
+    public function startStation(): BelongsTo
+    {
+        return $this->belongsTo(Station::class, 'start_station_id');
+    }
+
     public function routeLegs(): HasMany
     {
         return $this->hasMany(TripRouteLeg::class)->orderBy('sequence_no');

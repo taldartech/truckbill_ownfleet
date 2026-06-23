@@ -8,5 +8,6 @@ enum TyreDamageType: string
     case Burst = 'BURST';
     case Cut = 'CUT';
     case Sidewall = 'SIDEWALL';
+    case Recapped = 'RECAPPED';
     case Other = 'OTHER';
 }

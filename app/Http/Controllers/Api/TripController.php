@@ -146,7 +146,15 @@ class TripController extends Controller
     {
         $this->authorize('view', $trip);
 
-        $trip->load(['vehicle', 'driver', 'substituteDriver', 'routeLegs', 'expenses.routeLeg']);
+        $trip->load([
+            'vehicle',
+            'driver',
+            'substituteDriver',
+            'startStation.city',
+            'routeLegs.customer',
+            'expenses.routeLeg',
+            'statusHistories' => fn ($query) => $query->latest('changed_at'),
+        ]);
 
         return new TripResource($trip);
     }

@@ -298,7 +298,6 @@ function tyreStatusBadgeClass(status) {
         INSTALLED: 'bg-success',
         IN_STOCK: 'bg-secondary',
         SCRAPPED: 'bg-dark',
-        DAMAGED: 'bg-danger',
     };
     return map[status] ?? 'bg-secondary';
 }

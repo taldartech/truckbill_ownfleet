@@ -17,11 +17,6 @@ export async function fetchTyreReplacementsReport(params = {}) {
     return data.data ?? [];
 }
 
-export async function fetchTyreRetreadHistoryReport(params = {}) {
-    const { data } = await api.get(`${reportBase}/retread-history`, { params });
-    return data.data ?? [];
-}
-
 export async function fetchTyreVehicleWiseReport(params = {}) {
     const { data } = await api.get(`${reportBase}/vehicle-wise`, { params });
     return data.data ?? [];

@@ -22,7 +22,6 @@ class TyreTimelineService
         $tyre->loadMissing([
             'installations.vehicle',
             'rotations.vehicle',
-            'retreads',
             'damages.vehicle',
             'expenses',
         ]);
@@ -131,16 +130,6 @@ class TyreTimelineService
                     .($rotation->cost !== null && (float) $rotation->cost > 0 ? ' · ₹'.number_format((float) $rotation->cost, 2) : '')
                     .($rotation->reason ? " ({$rotation->reason})" : ''),
                 extra: ['vehicle_registration' => $vehicle],
-            ));
-        }
-
-        foreach ($tyre->retreads as $retread) {
-            $events->push($this->event(
-                type: 'retread',
-                sortAt: $retread->created_at ?? $retread->retread_date,
-                date: $retread->retread_date?->toDateString(),
-                title: 'Retread',
-                detail: "{$retread->vendor} · ₹{$retread->cost}",
             ));
         }
 
@@ -299,7 +288,6 @@ class TyreTimelineService
             'installed' => 'Install',
             'removed' => 'Remove',
             'rotation' => 'Rotation',
-            'retread' => 'Retread',
             'damage' => 'Damage',
             'replacement' => 'Replace',
             'scrapped' => 'Scrap',

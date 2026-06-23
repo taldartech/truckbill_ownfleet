@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './trip-actions.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -173,21 +174,29 @@
 /* FIX 4 — KM summary bar */
 .km-summary-bar {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
     padding: 16px 20px;
+    width: 100%;
     text-align: center;
+}
+
+.km-summary-bar > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 @media (max-width: 768px) {
     .km-summary-bar {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 480px) {
     .km-summary-bar {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -239,10 +248,10 @@
     box-sizing: border-box;
 }
 
-/* FIX 8 — sidebar mobile */
+/* FIX 8 — sidebar mobile (legacy Blade layout only; Vue shell uses AdminLTE push menu) */
 @media (max-width: 768px) {
-    .sidebar,
-    .app-sidebar {
+    body:not(:has(.vue-app-shell)) .sidebar,
+    body:not(:has(.vue-app-shell)) .app-sidebar {
         position: fixed;
         left: -260px;
         top: 0;
@@ -252,9 +261,9 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
-    .sidebar.open,
-    body.sidebar-open .app-sidebar,
-    body.sidebar-open .sidebar {
+    body:not(:has(.vue-app-shell)) .sidebar.open,
+    body:not(:has(.vue-app-shell)).sidebar-open .app-sidebar,
+    body:not(:has(.vue-app-shell)).sidebar-open .sidebar {
         left: 0;
     }
 

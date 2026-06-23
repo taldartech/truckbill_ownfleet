@@ -9,7 +9,7 @@ class UnlockAttendanceMonthRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('unlockMonth', Attendance::class) ?? false;
+        return $this->user()?->can('closeMonth', Attendance::class) ?? false;
     }
 
     /**

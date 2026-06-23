@@ -4,7 +4,10 @@ namespace App\Modules\DriverManagement\Services;
 
 use App\AttendanceMonthLock;
 use App\Enums\AttendanceMonthStatus;
+use App\Enums\WagePaymentStatus;
+use App\MonthlyDriverWage;
 use App\Support\CurrentTenant;
+use App\Tenant;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -127,6 +130,24 @@ class AttendanceMonthLockService
         return $months;
     }
 
+    public function canCloseMonth(string $month): bool
+    {
+        [$monthStart] = $this->monthBoundaries($month);
+
+        return Carbon::parse($monthStart)->lt($this->currentMonthStartInTenantTimezone());
+    }
+
+    public function assertMonthCanBeClosed(string $month): void
+    {
+        if ($this->canCloseMonth($month)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'month' => ['Only completed past months can be locked. The current month and future months cannot be locked.'],
+        ]);
+    }
+
     public function closeMonth(string $month, ?string $actorId = null): AttendanceMonthLock
     {
         [$monthStart] = $this->monthBoundaries($month);
@@ -196,9 +217,15 @@ class AttendanceMonthLockService
 
         if ($lock->status === AttendanceMonthStatus::Paid) {
             throw ValidationException::withMessages([
-                'month' => ['Unlock the month first before reopening it for attendance changes.'],
+                'month' => ['This month is finalized after payment and cannot be reopened.'],
             ]);
         }
+
+        MonthlyDriverWage::query()
+            ->where('tenant_id', CurrentTenant::requireId())
+            ->whereDate('month', $monthStart)
+            ->where('payment_status', WagePaymentStatus::Unpaid->value)
+            ->delete();
 
         $lock->fill([
             'status' => AttendanceMonthStatus::Open,
@@ -213,27 +240,21 @@ class AttendanceMonthLockService
 
     public function unlockMonth(string $month): AttendanceMonthLock
     {
-        [$monthStart] = $this->monthBoundaries($month);
+        $lock = $this->findForMonth($month);
 
-        $lock = AttendanceMonthLock::query()
-            ->whereDate('month', $monthStart)
-            ->first();
-
-        if ($lock === null || $lock->status !== AttendanceMonthStatus::Paid) {
+        if ($lock === null || $lock->status === AttendanceMonthStatus::Open) {
             throw ValidationException::withMessages([
                 'month' => ['This month is not locked.'],
             ]);
         }
 
-        $lock->fill([
-            'status' => AttendanceMonthStatus::Closed,
-            'locked_at' => null,
-            'locked_by' => null,
-        ]);
+        if ($lock->status === AttendanceMonthStatus::Paid) {
+            throw ValidationException::withMessages([
+                'month' => ['This month is finalized after payment and cannot be unlocked.'],
+            ]);
+        }
 
-        $lock->save();
-
-        return $lock;
+        return $this->reopenMonth($month);
     }
 
     private function findForMonth(string $month): ?AttendanceMonthLock
@@ -258,5 +279,13 @@ class AttendanceMonthLockService
         $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
 
         return [$monthStart->toDateString()];
+    }
+
+    private function currentMonthStartInTenantTimezone(): Carbon
+    {
+        $tenant = Tenant::query()->find(CurrentTenant::requireId());
+        $timezone = $tenant?->timezone ?? config('app.timezone', 'UTC');
+
+        return Carbon::now($timezone)->startOfMonth();
     }
 }

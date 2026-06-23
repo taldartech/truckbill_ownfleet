@@ -32,13 +32,6 @@ class TyreReportController extends Controller
         return response()->json(['data' => $this->tyreReportService->replacements($this->filters($request))]);
     }
 
-    public function retreadHistory(Request $request): JsonResponse
-    {
-        $this->authorize('tyre_reports.view');
-
-        return response()->json(['data' => $this->tyreReportService->retreadHistory($this->filters($request))]);
-    }
-
     public function vehicleWiseUsage(Request $request): JsonResponse
     {
         $this->authorize('tyre_reports.view');

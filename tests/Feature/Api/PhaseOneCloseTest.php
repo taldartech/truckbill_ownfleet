@@ -319,8 +319,9 @@ class PhaseOneCloseTest extends TestCase
         Tyre::query()->create([
             'tenant_id' => $tenant->id,
             'serial_number' => 'TYRE-DASH-3',
-            'status' => TyreStatus::Damaged,
+            'status' => TyreStatus::Scrapped,
             'purchase_cost' => 9000,
+            'scrapped_at' => now()->toDateString(),
         ]);
 
         $this->actingAs($user)
@@ -329,8 +330,7 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('tyres.total_count', 3)
             ->assertJsonPath('tyres.in_stock_count', 1)
             ->assertJsonPath('tyres.installed_count', 1)
-            ->assertJsonPath('tyres.damaged_count', 1)
-            ->assertJsonPath('tyres.scrapped_count', 0);
+            ->assertJsonPath('tyres.scrapped_count', 1);
     }
 
     public function test_dashboard_stats_include_running_trips_list(): void

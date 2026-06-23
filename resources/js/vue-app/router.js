@@ -84,6 +84,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.manage' },
                 },
                 {
+                    path: 'trips/:id',
+                    name: 'trips.show',
+                    component: () => import('./pages/trips/TripDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.view' },
+                },
+                {
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
                     component: () => import('./pages/trips/TripEditPage.vue'),

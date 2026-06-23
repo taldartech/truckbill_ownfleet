@@ -1,5 +1,5 @@
 <template>
-    <div class="container mt-4 pb-5">
+    <div class="container mt-4 pb-5 app-index-page trip-edit-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before editing trips.
         </div>
@@ -47,57 +47,68 @@
                     @status-updated="handleStatusUpdated"
                     @clear-field-error="clearFieldError"
                 >
-                    <template #trip-details-actions>
+                    <template #trip-nav-actions>
                         <RouterLink
-                            :to="{ name: 'trips.index' }"
-                            class="btn btn-sm trip-details-action-btn trip-details-action-btn--back"
+                            :to="{ name: 'trips.show', params: { id: route.params.id } }"
+                            class="btn btn-sm trip-header-btn trip-header-btn--back"
                         >
-                            Back
+                            <i class="bi bi-arrow-left me-1"></i>Back
                         </RouterLink>
+                    </template>
+                    <template #trip-save-actions>
                         <button
                             v-if="!isTerminalStatus"
                             type="submit"
-                            class="btn btn-sm trip-details-action-btn trip-details-action-btn--update"
+                            class="btn btn-sm trip-header-btn trip-header-btn--update"
                             :disabled="saving"
                         >
-                            <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                            <i v-else class="bi bi-check-lg me-1"></i>
-                            Update
+                            <span
+                                v-if="saving"
+                                class="spinner-border spinner-border-sm me-1"
+                                role="status"
+                                aria-hidden="true"
+                            ></span>
+                            <i v-else class="bi bi-floppy-fill me-1"></i>Update
                         </button>
                     </template>
                 </TripForm>
 
-                <div class="trip-form-actions sticky-bottom-bar card shadow-sm mt-3">
+                <div class="trip-form-actions trip-form-actions--duplicate sticky-bottom-bar card shadow-sm mt-3">
                     <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
                         <template v-if="showStatusFooterActions">
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-success"
+                            <AppButton
+                                variant="success"
+                                size="sm"
+                                icon="bi bi-check-circle-fill"
+                                label="Completed"
                                 @click="handleFooterStatusChange('COMPLETED')"
-                            >
-                                Completed
-                            </button>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-danger"
+                            />
+                            <AppButton
+                                variant="danger"
+                                size="sm"
+                                icon="bi bi-x-circle-fill"
+                                label="Cancelled"
                                 @click="handleFooterStatusChange('CANCELLED')"
-                            >
-                                Cancelled
-                            </button>
+                            />
                         </template>
-                        <RouterLink :to="{ name: 'trips.index' }" class="btn btn-sm btn-outline-secondary">
-                            Back
-                        </RouterLink>
-                        <button
+                        <AppButton
+                            variant="secondary"
+                            outline
+                            size="sm"
+                            icon="bi bi-arrow-left"
+                            label="Back"
+                            :to="{ name: 'trips.show', params: { id: route.params.id } }"
+                        />
+                        <AppButton
                             v-if="!isTerminalStatus"
                             type="submit"
-                            class="btn btn-sm btn-primary"
+                            variant="primary"
+                            size="sm"
+                            icon="bi bi-floppy-fill"
+                            label="Update"
+                            :loading="saving"
                             :disabled="saving"
-                        >
-                            <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                            <i v-else class="bi bi-check-lg me-1"></i>
-                            Update
-                        </button>
+                        />
                     </div>
                 </div>
             </form>
@@ -123,6 +134,7 @@ import { listAllStations } from '../../api/stations';
 import { fetchTrip, updateTrip, validateTripPayload } from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
+import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';

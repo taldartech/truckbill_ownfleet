@@ -188,7 +188,6 @@ class FleetDashboardStats
             'total_count' => Tyre::query()->count(),
             'in_stock_count' => Tyre::query()->where('status', TyreStatus::InStock->value)->count(),
             'installed_count' => Tyre::query()->where('status', TyreStatus::Installed->value)->count(),
-            'damaged_count' => Tyre::query()->where('status', TyreStatus::Damaged->value)->count(),
             'scrapped_count' => Tyre::query()->where('status', TyreStatus::Scrapped->value)->count(),
         ];
     }

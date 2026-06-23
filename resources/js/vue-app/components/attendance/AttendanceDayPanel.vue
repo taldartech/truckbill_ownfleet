@@ -207,6 +207,7 @@ import {
     persistSavedVehicleIds,
 } from '../../utils/dailyAttendanceStorage';
 import {
+    buildBusySubstituteDriversByDate,
     isSubstituteDriverBusy,
 } from '../../utils/substituteDriverAvailability';
 import { formatDateHeading } from '../../utils/datetime';

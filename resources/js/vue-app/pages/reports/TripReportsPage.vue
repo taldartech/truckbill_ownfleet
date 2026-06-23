@@ -81,7 +81,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
-import { thisMonthDateRange } from '../../api/trips';
+import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
@@ -149,6 +149,10 @@ function formatColumn(key) {
 }
 
 function formatCell(columnKey, value) {
+    if (columnKey === 'expense_type') {
+        return expenseTypeLabel(value);
+    }
+
     return formatTableCell(columnKey, value);
 }
 

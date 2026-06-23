@@ -2,7 +2,7 @@
     <div class="vue-app-shell layout-fixed sidebar-expand-lg bg-body-tertiary">
         <div class="app-wrapper">
             <AppHeader :user="user" @user-updated="onUserUpdated" />
-            <AppSidebar :items="navigationItems" />
+            <AppSidebar :items="navigationItems" :user="user" />
             <main class="app-main">
                 <div class="app-content-header main-content">
                     <div class="container-fluid">

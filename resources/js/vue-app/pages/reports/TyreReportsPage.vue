@@ -58,7 +58,6 @@ import {
     fetchTyreExpenseSummary,
     fetchTyreLifeReport,
     fetchTyreReplacementsReport,
-    fetchTyreRetreadHistoryReport,
     fetchTyreVehicleWiseReport,
 } from '../../api/tyreReports';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
@@ -72,7 +71,6 @@ const reportTypes = [
     { value: 'life', label: 'Tyre Life Report', loader: fetchTyreLifeReport },
     { value: 'cost', label: 'Cost per KM', loader: fetchTyreCostPerKmReport },
     { value: 'replacements', label: 'Replacement Report', loader: fetchTyreReplacementsReport },
-    { value: 'retread', label: 'Retread History', loader: fetchTyreRetreadHistoryReport },
     { value: 'vehicle', label: 'Truck-wise Usage', loader: fetchTyreVehicleWiseReport },
     { value: 'expenses', label: 'Expense Summary', loader: fetchTyreExpenseSummary },
 ];
@@ -89,10 +87,9 @@ const currentLabel = computed(() => reportTypes.find((r) => r.value === reportTy
 const COLUMN_LABELS = {
     s_no: 'S.No',
     vehicle: 'Truck',
-    vehicle_id: 'Truck ID',
 };
 
-const HIDDEN_COLUMNS = ['tyre_id'];
+const HIDDEN_COLUMNS = ['tyre_id', 'vehicle_id'];
 
 const columns = computed(() => {
     if (rows.value.length === 0) {

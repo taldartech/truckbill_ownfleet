@@ -99,10 +99,11 @@ class FleetMonthlyReportTest extends TestCase
             ->assertCreated();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/api/tyres/{$tyreId}/retread", [
-                'vendor' => 'MRF Vendor',
-                'cost' => 2500,
-                'retread_date' => '2026-06-20',
+            ->postJson("/api/tyres/{$tyreId}/expenses", [
+                'expense_type' => 'MAINTENANCE',
+                'amount' => 2500,
+                'expense_date' => '2026-06-20',
+                'notes' => 'Tyre maintenance',
             ])
             ->assertCreated();
 

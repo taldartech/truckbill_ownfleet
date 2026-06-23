@@ -24,7 +24,7 @@ class DriverAdvanceLedgerTest extends TestCase
 
         $this->seedRolesAndPermissions();
 
-        Carbon::setTestNow('2026-06-30 12:00:00', 'Asia/Kolkata');
+        Carbon::setTestNow('2026-07-01 12:00:00', 'Asia/Kolkata');
     }
 
     protected function tearDown(): void

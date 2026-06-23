@@ -65,7 +65,7 @@
                             <th>Tyre layout</th>
                             <th>Make / Model</th>
                             <th>Primary Driver</th>
-                            <th>Odometer (KM)</th>
+                            <th>Meter Reading (KM)</th>
                             <th>Status</th>
                             <th class="app-index-actions-cell" style="width: 160px">Actions</th>
                         </tr>

@@ -27,7 +27,7 @@ class AttendanceExceptionFlowTest extends TestCase
 
         $this->seedRolesAndPermissions();
 
-        Carbon::setTestNow('2026-06-30 12:00:00', 'Asia/Kolkata');
+        Carbon::setTestNow('2026-07-01 12:00:00', 'Asia/Kolkata');
     }
 
     protected function tearDown(): void
@@ -113,6 +113,27 @@ class AttendanceExceptionFlowTest extends TestCase
         $june->assertJsonPath('data.summary.present', 3);
         $june->assertJsonPath('data.rows.0.days.2026-06-03.is_implicit', true);
         $june->assertJsonPath('data.rows.0.days.2026-06-04.is_future', true);
+    }
+
+    public function test_close_month_rejects_current_and_future_months(): void
+    {
+        [$tenant, $user] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-08'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['month']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-07'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['month']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
     }
 
     public function test_present_status_cannot_be_posted_manually(): void
@@ -546,6 +567,15 @@ class AttendanceExceptionFlowTest extends TestCase
             ->assertOk();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
+            ->assertOk()
+            ->assertJsonPath('data.status', AttendanceMonthStatus::Open->value);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/mark-all-monthly-paid', ['month' => '2026-06'])
             ->assertOk()
             ->assertJsonPath('data.0.payment_status', 'paid');
@@ -556,12 +586,12 @@ class AttendanceExceptionFlowTest extends TestCase
             ->assertJsonPath('data.month_lock.status', AttendanceMonthStatus::Paid->value);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/attendances/lock-month', ['month' => '2026-06'])
+            ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
             ->assertStatus(422);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
-            ->assertForbidden();
+            ->postJson('/api/attendances/reopen-month', ['month' => '2026-06'])
+            ->assertStatus(422);
 
         $superAdmin = User::query()->create([
             'tenant_id' => null,
@@ -576,19 +606,11 @@ class AttendanceExceptionFlowTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/unlock-month', ['month' => '2026-06'])
-            ->assertOk()
-            ->assertJsonPath('data.status', AttendanceMonthStatus::Closed->value);
-
-        Sanctum::actingAs($user);
-
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/attendances/reopen-month', ['month' => '2026-06'])
-            ->assertOk()
-            ->assertJsonPath('data.status', AttendanceMonthStatus::Open->value);
+            ->assertStatus(422);
 
         $this->assertDatabaseHas('attendance_month_locks', [
             'tenant_id' => $tenant->id,
-            'status' => AttendanceMonthStatus::Open->value,
+            'status' => AttendanceMonthStatus::Paid->value,
         ]);
     }
 

@@ -24,7 +24,7 @@ class PayrollPayDaysSettingTest extends TestCase
 
         $this->seedRolesAndPermissions();
 
-        Carbon::setTestNow('2026-01-31 12:00:00', 'Asia/Kolkata');
+        Carbon::setTestNow('2026-02-01 12:00:00', 'Asia/Kolkata');
     }
 
     protected function tearDown(): void

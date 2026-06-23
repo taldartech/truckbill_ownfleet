@@ -29,7 +29,7 @@ class TyreStintCalculator
 
         if ($currentOdometer < $atInstall) {
             throw ValidationException::withMessages([
-                'odometer_km' => "Current odometer ({$currentOdometer} km) cannot be less than odometer at installation ({$atInstall} km).",
+                'odometer_km' => "Current meter reading ({$currentOdometer} km) cannot be less than meter reading at installation ({$atInstall} km).",
             ]);
         }
 
@@ -49,7 +49,7 @@ class TyreStintCalculator
 
         if (! array_key_exists('stint_km', $data) || $data['stint_km'] === null || $data['stint_km'] === '') {
             throw ValidationException::withMessages([
-                'odometer_km' => 'Provide current truck odometer or KM on truck.',
+                'odometer_km' => 'Provide current meter reading or KM on truck.',
             ]);
         }
 

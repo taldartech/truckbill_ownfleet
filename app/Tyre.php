@@ -66,11 +66,6 @@ class Tyre extends Model
         return $this->hasMany(TyreRotation::class);
     }
 
-    public function retreads(): HasMany
-    {
-        return $this->hasMany(TyreRetread::class);
-    }
-
     public function damages(): HasMany
     {
         return $this->hasMany(TyreDamage::class);

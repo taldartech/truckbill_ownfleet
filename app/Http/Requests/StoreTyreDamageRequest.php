@@ -31,7 +31,7 @@ class StoreTyreDamageRequest extends FormRequest
                 new TyrePositionAllowedOnVehicle($this->input('vehicle_id')),
             ],
             'damage_type' => ['required', Rule::enum(TyreDamageType::class)],
-            'km_at_occurrence' => ['nullable', 'numeric', 'min:0'],
+            'odometer_km' => ['required', 'numeric', 'min:0'],
             'occurred_at' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:2000'],
             'repair_cost' => ['nullable', 'numeric', 'min:0'],

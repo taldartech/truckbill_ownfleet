@@ -44,7 +44,15 @@ class TripRepository
     public function findWithDetails(string $id): ?Trip
     {
         return Trip::query()
-            ->with(['vehicle', 'driver', 'substituteDriver', 'routeLegs.customer', 'expenses.routeLeg'])
+            ->with([
+                'vehicle',
+                'driver',
+                'substituteDriver',
+                'startStation.city',
+                'routeLegs.customer',
+                'expenses.routeLeg',
+                'statusHistories' => fn ($query) => $query->latest('changed_at'),
+            ])
             ->find($id);
     }
 

@@ -1,5 +1,5 @@
 <template>
-    <div class="container mt-4 pb-5 trip-create-page">
+    <div class="container mt-4 pb-5 app-index-page trip-create-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before creating trips.
         </div>
@@ -34,25 +34,50 @@
                 @vehicle-selected="onVehicleSelected"
                 @clear-field-error="clearFieldError"
             >
-                <template #trip-details-actions>
-                    <button type="submit" class="btn btn-sm btn-light fw-semibold px-3" :disabled="saving">
-                        <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        <i v-else class="bi bi-check-lg me-1"></i>
-                        Create Trip
+                <template #trip-nav-actions>
+                    <RouterLink
+                        :to="{ name: 'trips.index' }"
+                        class="btn btn-sm trip-header-btn trip-header-btn--back"
+                    >
+                        <i class="bi bi-arrow-left me-1"></i>Cancel
+                    </RouterLink>
+                </template>
+                <template #trip-save-actions>
+                    <button
+                        type="submit"
+                        class="btn btn-sm trip-header-btn trip-header-btn--update"
+                        :disabled="saving"
+                    >
+                        <span
+                            v-if="saving"
+                            class="spinner-border spinner-border-sm me-1"
+                            role="status"
+                            aria-hidden="true"
+                        ></span>
+                        <i v-else class="bi bi-floppy-fill me-1"></i>Create Trip
                     </button>
                 </template>
             </TripForm>
 
-            <div class="trip-form-actions sticky-bottom-bar card shadow-sm mt-3">
+            <div class="trip-form-actions trip-form-actions--duplicate sticky-bottom-bar card shadow-sm mt-3">
                 <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
-                    <RouterLink :to="{ name: 'trips.index' }" class="btn btn-sm btn-outline-secondary">
-                        Cancel
-                    </RouterLink>
-                    <button type="submit" class="btn btn-sm btn-primary" :disabled="saving">
-                        <span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        <i v-else class="bi bi-check-lg me-1"></i>
-                        Create Trip
-                    </button>
+                    <AppButton
+                        variant="secondary"
+                        outline
+                        size="sm"
+                        icon="bi bi-arrow-left"
+                        label="Cancel"
+                        :to="{ name: 'trips.index' }"
+                    />
+                    <AppButton
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        icon="bi bi-floppy-fill"
+                        label="Create Trip"
+                        :loading="saving"
+                        :disabled="saving"
+                    />
                 </div>
             </div>
         </form>
@@ -78,6 +103,7 @@ import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import TripForm from '../../components/trips/TripForm.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
+import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';

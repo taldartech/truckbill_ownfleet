@@ -336,6 +336,14 @@ export function validateExpenseDates(expenses, { startAt = null, endAt = null } 
     return errors;
 }
 
+export function expenseTypeLabel(type, otherType = '') {
+    if (type === 'OTHER') {
+        return otherType || 'Other';
+    }
+
+    return EXPENSE_TYPES.find((item) => item.value === type)?.label ?? (String(type ?? '').replace(/_/g, ' ') || 'Expense');
+}
+
 export function isDieselExpenseType(type) {
     return String(type ?? '').toUpperCase() === 'DIESEL';
 }
@@ -362,6 +370,27 @@ export function tripStatusMeta(status) {
     };
 
     return map[normalized] ?? { label: normalized || '—', badge: 'bg-secondary' };
+}
+
+export function tripAllowedNextStatuses(status) {
+    const current = String(status ?? '').toUpperCase();
+
+    if (current === 'CREATED') {
+        return [{ value: 'IN_PROGRESS', label: 'In Progress' }];
+    }
+
+    if (current === 'IN_PROGRESS') {
+        return [
+            { value: 'COMPLETED', label: 'Completed' },
+            { value: 'CANCELLED', label: 'Cancelled' },
+        ];
+    }
+
+    return [];
+}
+
+export function isTerminalTripStatus(status) {
+    return ['COMPLETED', 'CANCELLED'].includes(String(status ?? '').toUpperCase());
 }
 
 export function thisMonthDateRange(referenceDate = new Date()) {

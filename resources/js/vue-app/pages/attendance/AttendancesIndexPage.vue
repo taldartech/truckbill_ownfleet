@@ -34,31 +34,24 @@
             <strong>{{ monthLockLabel }} for {{ monthLabel() }}</strong>
             <template v-if="monthLock.status === 'closed'">
                 <p v-if="canViewSettlement" class="mb-0 mt-2 small">
-                    Step 1 done — attendance is frozen. Open
+                    Attendance is frozen. Open
                     <RouterLink
                         :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
                         class="alert-link"
                     >
                         Monthly Settlement
                     </RouterLink>
-                    to mark payments and lock the month.
+                    to mark all paid or unlock the month.
                 </p>
                 <p v-else class="mb-0 mt-2 small">
-                    Step 1 done — attendance is frozen. Contact an admin to complete monthly settlement.
+                    Attendance is frozen. Contact an admin to complete monthly settlement.
                 </p>
             </template>
             <p v-else-if="canViewSettlement" class="mb-0 mt-2 small">
-                Month is locked. Use
-                <RouterLink
-                    :to="{ name: 'attendance.settlement', query: { month: filters.month } }"
-                    class="alert-link"
-                >
-                    Monthly Settlement
-                </RouterLink>
-                to reopen the month (super admin can unlock from settlement).
+                Month is finalized. No further attendance changes are allowed.
             </p>
             <p v-else class="mb-0 mt-2 small">
-                Month is locked. Contact an admin to reopen the month.
+                Month is finalized. Contact an admin if you need help reviewing payroll.
             </p>
         </div>
 
@@ -355,11 +348,11 @@ const canEditAttendanceRecords = computed(() => {
 });
 const monthLockLabel = computed(() => {
     if (monthLock.value.status === 'paid') {
-        return 'Month locked';
+        return 'Month finalized';
     }
 
     if (monthLock.value.status === 'closed') {
-        return 'Month closed';
+        return 'Attendance locked';
     }
 
     return 'Month open';

@@ -195,13 +195,13 @@ class AttendancePhaseOneTest extends TestCase
             'tenant_id' => $tenant->id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'assigned_from' => now()->startOfMonth()->toDateString(),
+            'assigned_from' => now()->subMonth()->startOfMonth()->toDateString(),
             'is_primary' => true,
         ]);
 
         Sanctum::actingAs($admin);
 
-        $month = now()->format('Y-m');
+        $month = now()->subMonth()->format('Y-m');
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/close-month', ['month' => $month])
@@ -549,6 +549,8 @@ class AttendancePhaseOneTest extends TestCase
 
     public function test_close_month_creates_monthly_wage_summary_from_attendance(): void
     {
+        Carbon::setTestNow('2026-07-01 12:00:00', 'Asia/Kolkata');
+
         [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Monthly Driver', 1000.00);
@@ -595,6 +597,8 @@ class AttendancePhaseOneTest extends TestCase
             'payable_days' => 2,
             'payment_status' => 'unpaid',
         ]);
+
+        Carbon::setTestNow();
     }
 
     public function test_close_month_credits_primary_for_substitute_days_and_records_substitute_reference(): void

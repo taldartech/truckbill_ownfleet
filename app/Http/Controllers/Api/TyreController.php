@@ -10,7 +10,6 @@ use App\Http\Requests\StoreTyreDamageRequest;
 use App\Http\Requests\StoreTyreExpenseRequest;
 use App\Http\Requests\StoreTyreReplacementRequest;
 use App\Http\Requests\StoreTyreRequest;
-use App\Http\Requests\StoreTyreRetreadRequest;
 use App\Http\Requests\StoreTyreRotationRequest;
 use App\Http\Requests\UpdateTyreRequest;
 use App\Http\Requests\UpdateTyreStintRequest;
@@ -18,7 +17,6 @@ use App\Http\Resources\TyreDamageResource;
 use App\Http\Resources\TyreExpenseResource;
 use App\Http\Resources\TyreInstallationResource;
 use App\Http\Resources\TyreResource;
-use App\Http\Resources\TyreRetreadResource;
 use App\Http\Resources\TyreRotationResource;
 use App\Modules\TyreManagement\Services\TyreService;
 use App\Tyre;
@@ -109,13 +107,6 @@ class TyreController extends Controller
         $rotation = $this->tyreService->rotate($tyre, $request->validated());
 
         return new TyreRotationResource($rotation);
-    }
-
-    public function retread(StoreTyreRetreadRequest $request, Tyre $tyre): TyreRetreadResource
-    {
-        $retread = $this->tyreService->recordRetread($tyre, $request->validated());
-
-        return new TyreRetreadResource($retread);
     }
 
     public function damage(StoreTyreDamageRequest $request, Tyre $tyre): TyreDamageResource

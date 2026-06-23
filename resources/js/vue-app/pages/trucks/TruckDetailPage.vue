@@ -98,7 +98,7 @@
                                 <div>{{ vehicle.manufacture_year || '—' }}</div>
                             </div>
                             <div class="col-md-4">
-                                <span class="text-muted">Odometer (KM)</span>
+                                <span class="text-muted">Meter Reading (KM)</span>
                                 <div class="fw-semibold">{{ formatOdometer(vehicle.odometer_km) }}</div>
                             </div>
                             <div class="col-md-4">

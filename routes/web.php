@@ -289,7 +289,6 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
             Route::patch('/tyre-installations/{tyre_installation}/stint-km', [\App\Http\Controllers\Api\TyreController::class, 'updateStintKm'])
                 ->name('tyre-installations.update-stint-km');
             Route::post('/tyres/{tyre}/rotate', [\App\Http\Controllers\Api\TyreController::class, 'rotate'])->name('tyres.rotate');
-            Route::post('/tyres/{tyre}/retread', [\App\Http\Controllers\Api\TyreController::class, 'retread'])->name('tyres.retread');
             Route::post('/tyres/{tyre}/damage', [\App\Http\Controllers\Api\TyreController::class, 'damage'])->name('tyres.damage');
             Route::post('/tyres/{tyre}/expenses', [\App\Http\Controllers\Api\TyreController::class, 'expense'])->name('tyres.expenses');
             Route::get('/tyre-installations/{tyre_installation}/removal-preview', [\App\Http\Controllers\Api\TyreController::class, 'removalPreview'])
@@ -306,8 +305,6 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
                 ->name('reports.tyres.cost-per-km');
             Route::get('/reports/tyres/replacements', [\App\Http\Controllers\Api\TyreReportController::class, 'replacements'])
                 ->name('reports.tyres.replacements');
-            Route::get('/reports/tyres/retread-history', [\App\Http\Controllers\Api\TyreReportController::class, 'retreadHistory'])
-                ->name('reports.tyres.retread-history');
             Route::get('/reports/tyres/vehicle-wise', [\App\Http\Controllers\Api\TyreReportController::class, 'vehicleWiseUsage'])
                 ->name('reports.tyres.vehicle-wise');
             Route::get('/reports/tyres/expense-summary', [\App\Http\Controllers\Api\TyreReportController::class, 'expenseSummary'])

@@ -82,6 +82,8 @@ class AttendanceService
      */
     public function closeMonth(string $month, ?string $actorId = null): Collection
     {
+        $this->monthLockService->assertMonthCanBeClosed($month);
+
         return DB::transaction(function () use ($month, $actorId): Collection {
             [$monthStart, $monthEnd] = $this->monthBoundaries($month);
             $tenantId = CurrentTenant::requireId();
@@ -113,17 +115,22 @@ class AttendanceService
 
                 $activeDriverIds[] = $driverId;
 
-                $monthlyWage = MonthlyDriverWage::query()->firstOrNew([
-                    'tenant_id' => $tenantId,
-                    'driver_id' => $driverId,
-                    'month' => $monthStart,
-                ]);
+                $monthlyWage = MonthlyDriverWage::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('driver_id', $driverId)
+                    ->whereDate('month', $monthStart)
+                    ->first();
+
+                if ($monthlyWage === null) {
+                    $monthlyWage = new MonthlyDriverWage([
+                        'tenant_id' => $tenantId,
+                        'driver_id' => $driverId,
+                        'month' => $monthStart,
+                        'created_by' => $actorId,
+                    ]);
+                }
 
                 $isPaid = $monthlyWage->exists && $monthlyWage->payment_status === WagePaymentStatus::Paid;
-
-                if (! $monthlyWage->exists) {
-                    $monthlyWage->created_by = $actorId;
-                }
 
                 if (! $isPaid) {
                     $monthlyWage->payment_status = WagePaymentStatus::Unpaid->value;
@@ -191,7 +198,7 @@ class AttendanceService
 
             if ($status === AttendanceMonthStatus::Open) {
                 throw ValidationException::withMessages([
-                    'month' => ['Close the month before marking monthly payments.'],
+                    'month' => ['Lock the month before marking monthly payments.'],
                 ]);
             }
 

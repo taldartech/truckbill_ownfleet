@@ -167,6 +167,16 @@ function updateDropdownPosition() {
     };
 }
 
+function focusWithoutScroll(element) {
+    element?.focus({ preventScroll: true });
+}
+
+function focusTrigger() {
+    const trigger = pickerRef.value?.querySelector('.picker-trigger');
+
+    focusWithoutScroll(trigger);
+}
+
 function toggleDropdown() {
     if (props.disabled) {
         return;
@@ -180,20 +190,24 @@ function toggleDropdown() {
         highlightedIndex.value = -1;
         nextTick(() => {
             updateDropdownPosition();
-            searchInputRef.value?.focus();
+            focusWithoutScroll(searchInputRef.value);
         });
     }
 }
 
-function closeDropdown() {
+function closeDropdown({ restoreTriggerFocus = false } = {}) {
     isOpen.value = false;
+
+    if (restoreTriggerFocus) {
+        nextTick(focusTrigger);
+    }
 }
 
 function clearSelection() {
     selectedVehicle.value = null;
     emit('update:modelValue', '');
     emit('vehicle-selected', null);
-    closeDropdown();
+    closeDropdown({ restoreTriggerFocus: true });
 }
 
 function selectItem(item) {
@@ -204,7 +218,7 @@ function selectItem(item) {
     selectedVehicle.value = item;
     emit('update:modelValue', item.vehicle_id);
     emit('vehicle-selected', item);
-    closeDropdown();
+    closeDropdown({ restoreTriggerFocus: true });
 }
 
 function moveHighlight(delta) {
