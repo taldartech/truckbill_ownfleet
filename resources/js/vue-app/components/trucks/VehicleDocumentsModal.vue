@@ -56,6 +56,7 @@
                                                     :items="selectableDocumentTypes"
                                                     placeholder="Select type"
                                                     search-placeholder="Search document type…"
+                                                    attach-dropdown-to-body
                                                     :invalid="hasFieldError(fieldErrors, 'document_type')"
                                                     :error-message="fieldErrorMessage(fieldErrors, 'document_type')"
                                                     :disabled="Boolean(editingDocument)"
