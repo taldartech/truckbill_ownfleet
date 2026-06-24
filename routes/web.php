@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BranchController as ApiBranchController;
 use App\Http\Controllers\Api\CompanyController as ApiCompanyController;
 use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverController;
@@ -107,6 +108,12 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
         Route::put('/companies/{company}', [ApiCompanyController::class, 'update'])->name('companies.update');
         Route::post('/companies/{company}/enter', [ApiCompanyController::class, 'enter'])->name('companies.enter');
         Route::post('/companies/exit', [ApiCompanyController::class, 'exit'])->name('companies.exit');
+
+        Route::get('/branches', [ApiBranchController::class, 'index'])->name('branches.index');
+        Route::post('/branches', [ApiBranchController::class, 'store'])->name('branches.store');
+        Route::get('/branches/{branch}', [ApiBranchController::class, 'show'])->name('branches.show');
+        Route::put('/branches/{branch}', [ApiBranchController::class, 'update'])->name('branches.update');
+        Route::delete('/branches/{branch}', [ApiBranchController::class, 'destroy'])->name('branches.destroy');
 
         Route::get('/user-roles', [UserRoleController::class, 'index'])
             ->middleware('permission:roles.view')

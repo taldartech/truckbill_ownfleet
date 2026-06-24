@@ -81,6 +81,12 @@ export const adminNavigation = [
                 permission: 'companies.view',
             },
             {
+                label: 'Branches',
+                icon: 'fas fa-sitemap nav-icon',
+                to: '/branches',
+                permission: 'branches.view',
+            },
+            {
                 label: 'Truck List',
                 icon: 'fas fa-truck-moving nav-icon',
                 to: '/trucks',

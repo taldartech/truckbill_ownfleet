@@ -35,6 +35,12 @@ const router = createRouter({
                     meta: { allowWithoutTenant: true, permission: 'companies.view' },
                 },
                 {
+                    path: 'branches',
+                    name: 'branches.index',
+                    component: () => import('./pages/branches/BranchesIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'branches.view' },
+                },
+                {
                     path: 'trucks',
                     name: 'trucks.index',
                     component: () => import('./pages/trucks/TrucksIndexPage.vue'),

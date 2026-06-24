@@ -63,6 +63,11 @@ class Tenant extends Model
         return $this->hasMany(User::class);
     }
 
+    public function branches(): HasMany
+    {
+        return $this->hasMany(Branch::class, 'company_id');
+    }
+
     public static function ensureUniqueShortName(string $base): string
     {
         $candidate = Str::upper(Str::limit(preg_replace('/[^A-Za-z0-9]/', '', $base) ?: 'CO', 12, ''));
