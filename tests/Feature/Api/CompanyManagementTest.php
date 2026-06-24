@@ -207,6 +207,50 @@ class CompanyManagementTest extends TestCase
         $this->assertSame($admin->company_id, $tenant->id);
     }
 
+    public function test_cannot_create_company_without_gst_pan_or_contact_number(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'No Identity Co',
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['gst_number', 'pan_number', 'contact_number']);
+    }
+
+    public function test_can_create_company_with_only_pan_number(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'PAN Only Co',
+                'pan_number' => 'ABCDE1234F',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.pan_number', 'ABCDE1234F');
+    }
+
+    public function test_cannot_update_company_to_remove_all_identity_fields(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Identity Co', [
+            'gst_number' => '27AAAAA0000A1Z5',
+        ]);
+
+        $response = $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$tenant->id, [
+                'gst_number' => '',
+                'pan_number' => '',
+                'contact_number' => '',
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['gst_number', 'pan_number', 'contact_number']);
+    }
+
     public function test_cannot_create_company_with_duplicate_gst_or_pan(): void
     {
         $superAdmin = $this->createSuperAdmin();

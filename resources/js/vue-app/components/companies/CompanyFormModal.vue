@@ -30,6 +30,9 @@
                                 {{ fieldErrors.name[0] }}
                             </div>
                         </div>
+                        <p class="form-text text-muted mb-3">
+                            Provide at least one of GST number, PAN number, or contact number.
+                        </p>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="gst_number">GST Number</label>

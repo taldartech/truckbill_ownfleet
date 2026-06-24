@@ -6,6 +6,7 @@ use App\Enums\PayrollPayDaysMode;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
 use App\Http\Requests\Concerns\ValidatesCompanyIdentity;
 use App\Tenant;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,13 +30,13 @@ class UpdateCompanyRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'gst_number' => $this->companyGstNumberRules($company?->id),
-            'pan_number' => $this->companyPanNumberRules($company?->id),
+            'gst_number' => $this->companyGstNumberRules($company?->id, requireAtLeastOneIdentity: false),
+            'pan_number' => $this->companyPanNumberRules($company?->id, requireAtLeastOneIdentity: false),
             'gst_scheme' => ['nullable', 'string', 'max:50'],
             'gst_type' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_person' => ['nullable', 'string', 'max:255'],
-            'contact_number' => $this->companyContactNumberRules($company?->id),
+            'contact_number' => $this->companyContactNumberRules($company?->id, requireAtLeastOneIdentity: false),
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['sometimes', Rule::enum(PayrollPayDaysMode::class)],
             'is_blocked' => ['sometimes', 'boolean'],
@@ -57,5 +58,13 @@ class UpdateCompanyRequest extends FormRequest
     {
         $this->normalizeCompanyIdentityFields();
         $this->normalizeContactNumberInput();
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        /** @var Tenant|null $company */
+        $company = $this->route('company');
+
+        $this->validateCompanyRetainsIdentity($validator, $company);
     }
 }
