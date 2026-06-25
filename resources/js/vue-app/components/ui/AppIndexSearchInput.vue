@@ -10,6 +10,7 @@
             :aria-label="ariaLabel || placeholder"
             :disabled="disabled"
             @input="$emit('update:modelValue', $event.target.value)"
+            @search="$emit('update:modelValue', $event.target.value)"
         />
     </div>
 </template>

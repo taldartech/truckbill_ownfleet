@@ -15,19 +15,25 @@
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
-            <div class="trips-filter-search">
-                <label class="form-label" for="trips_search">Search</label>
-                <input
-                    id="trips_search"
-                    v-model="filters.search"
-                    type="search"
-                    class="form-control"
-                    placeholder="Trip #, truck registration, driver name…"
-                    @keydown.enter.prevent="loadTrips(1)"
-                />
-                <div v-if="searchIgnoresDateRange" class="form-text">Search looks across all trips and ignores the date range.</div>
+        <div class="card mb-3 trips-top-search">
+            <div class="card-body py-3">
+                <label class="form-label mb-2" for="trips_search">Search</label>
+                <div class="trips-top-search__row">
+                    <AppIndexSearchInput
+                        v-model="filters.search"
+                        input-id="trips_search"
+                        placeholder="Trip #, truck registration, driver name…"
+                        max-width="100%"
+                        :disabled="loading"
+                    />
+                </div>
+                <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-2">
+                    Search looks across all trips and ignores the date range.
+                </div>
             </div>
+        </div>
+
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
             <div class="trips-filter-period">
                 <DashboardDateRangePicker
                     v-model:from-date="filters.from_date"
@@ -168,7 +174,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
@@ -176,6 +182,7 @@ import { deleteTrip, defaultTripListFilters, isTerminalTripStatus, listTrips, TR
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import SearchablePicker from '../../components/ui/SearchablePicker.vue';
 import { TRIP_LIST_DATE_PRESET_KEYS } from '../../utils/dateRangePresets';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -217,6 +224,9 @@ const filters = reactive(defaultTripListFilters());
 const { pagination, syncFromMeta } = useListPagination(15);
 
 const defaultFilters = defaultTripListFilters();
+const searchAutoLoadReady = ref(false);
+let searchDebounceTimer = null;
+let skipNextSearchWatch = false;
 
 const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
@@ -314,8 +324,17 @@ function goToCreate() {
 }
 
 function clearFilters() {
+    clearTimeout(searchDebounceTimer);
+    skipNextSearchWatch = true;
     Object.assign(filters, defaultTripListFilters());
     loadTrips(1);
+}
+
+function scheduleSearchLoad() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        loadTrips(1);
+    }, 350);
 }
 
 function onPerPageUpdate(perPage) {
@@ -324,9 +343,7 @@ function onPerPageUpdate(perPage) {
 }
 
 function onDateRangeChange() {
-    if (!searchIgnoresDateRange.value) {
-        loadTrips(1);
-    }
+    loadTrips(1);
 }
 
 async function loadTrips(page = 1) {
@@ -394,6 +411,23 @@ watch(
     { immediate: true },
 );
 
+watch(
+    () => filters.search,
+    () => {
+        if (!searchAutoLoadReady.value) {
+            return;
+        }
+
+        if (skipNextSearchWatch) {
+            skipNextSearchWatch = false;
+
+            return;
+        }
+
+        scheduleSearchLoad();
+    },
+);
+
 async function loadFilterLookups() {
     const [customerList, brokerList] = await Promise.all([listAllCustomers(), listAllBrokers()]);
 
@@ -425,17 +459,33 @@ onMounted(async () => {
     }
 
     await loadTrips();
+    searchAutoLoadReady.value = true;
+});
+
+onBeforeUnmount(() => {
+    clearTimeout(searchDebounceTimer);
 });
 </script>
 
 <style scoped>
-.trips-filter-search {
-    grid-column: 1 / -1;
+.trips-top-search {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.trips-top-search__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.trips-top-search__row :deep(.app-index-search) {
+    flex: 1 1 16rem;
+    max-width: none;
 }
 
 .trips-filter-period {
-    position: relative;
-    z-index: 1;
     min-width: 0;
 }
 
