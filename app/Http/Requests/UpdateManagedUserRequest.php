@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesManagedUserBranch;
 use App\Support\RoleHierarchy;
 use App\User;
 use App\UserRole;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateManagedUserRequest extends FormRequest
 {
+    use ValidatesManagedUserBranch;
+
     public function authorize(): bool
     {
         $managedUser = $this->route('managed_user');
@@ -51,6 +54,7 @@ class UpdateManagedUserRequest extends FormRequest
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'user_role_id' => ['sometimes', 'required', 'integer', Rule::in($assignable)],
             'tenant_id' => [
+                'sometimes',
                 Rule::requiredIf(fn (): bool => $this->requiresTenant($managedUser)),
                 'nullable',
                 'uuid',
@@ -62,7 +66,34 @@ class UpdateManagedUserRequest extends FormRequest
             ],
             'document_alerts_live' => ['sometimes', 'boolean'],
             'document_alerts_email' => ['sometimes', 'boolean'],
+            'branch_id' => $this->managedUserBranchRulesForUpdate(),
         ];
+    }
+
+    public function requiresBranch(): bool
+    {
+        /** @var User|null $managedUser */
+        $managedUser = $this->route('managed_user');
+        $roleId = (int) ($this->input('user_role_id') ?? $managedUser?->user_role_id);
+
+        return RoleHierarchy::requiresBranchAssignment($roleId);
+    }
+
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
+            if ($validator->errors()->isNotEmpty() || ! $this->requiresBranch()) {
+                return;
+            }
+
+            /** @var User $managedUser */
+            $managedUser = $this->route('managed_user');
+            $branchId = $this->input('branch_id', $managedUser->branch_id);
+
+            if ($branchId === null || $branchId === '') {
+                $validator->errors()->add('branch_id', 'Branch is required for this role.');
+            }
+        });
     }
 
     public function requiresTenant(?User $managedUser = null): bool
@@ -82,6 +113,7 @@ class UpdateManagedUserRequest extends FormRequest
             'user_role_id.in' => 'You are not allowed to assign this role.',
             'tenant_id.required' => 'Company is required for this role.',
             'tenant_id.in' => 'You can only assign users to your own companies.',
+            ...$this->managedUserBranchMessages(),
         ];
     }
 }

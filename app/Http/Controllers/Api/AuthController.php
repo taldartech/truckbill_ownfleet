@@ -29,6 +29,12 @@ class AuthController
             ]);
         }
 
+        if (! $user->canLoginWithCurrentBranchAssignment()) {
+            throw ValidationException::withMessages([
+                'email' => ['No branch is assigned to your account. Please contact your Super Admin.'],
+            ]);
+        }
+
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([

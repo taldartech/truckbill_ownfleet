@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Support\FleetDocumentStorage;
@@ -11,10 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class VehicleDocument extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'vehicle_id',
         'document_type',
         'issue_date',

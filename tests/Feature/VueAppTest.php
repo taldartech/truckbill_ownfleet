@@ -186,12 +186,14 @@ class VueAppTest extends TestCase
             'is_active' => true,
         ]);
 
-        return User::query()->create([
+        $user = User::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Test User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'user_role_id' => UserRole::idFor($roleName),
         ]);
+
+        return $this->assignBranchIfRequired($user, $tenant);
     }
 }

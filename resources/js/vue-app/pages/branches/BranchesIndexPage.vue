@@ -6,6 +6,7 @@
             </template>
         </AppIndexPageHeader>
 
+        <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
         <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
         <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
@@ -41,12 +42,12 @@
                         <th>Contact</th>
                         <th>Address</th>
                         <th>Head Office</th>
-                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                        <th class="app-index-actions-cell" style="width: 220px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="branches.length === 0" class="app-index-empty-row">
-                        <td :colspan="canManage ? 7 : 6" class="text-center text-muted py-4">
+                        <td :colspan="7" class="text-center text-muted py-4">
                             <span v-if="canManage">
                                 No branches yet. Use Add Branch to register your first branch.
                             </span>
@@ -57,6 +58,7 @@
                         <td>{{ rowNumber(index) }}</td>
                         <td>
                             <strong>{{ branch.branch_name }}</strong>
+                            <span v-if="isActiveBranch(branch.id)" class="badge bg-success ms-1">Active</span>
                         </td>
                         <td>{{ branch.company?.name || branch.company_name || '—' }}</td>
                         <td>{{ branch.branch_contact_number || '—' }}</td>
@@ -65,10 +67,26 @@
                             <span v-if="branch.head_office" class="badge bg-primary">Head Office</span>
                             <span v-else class="text-muted">—</span>
                         </td>
-                        <td v-if="canManage" class="app-index-actions-cell">
+                        <td class="app-index-actions-cell">
                             <AppTableActions>
-                                <AppCrudActionButton action="edit" @click="openEdit(branch)" />
-                                <AppCrudActionButton action="delete" @click="handleDelete(branch)" />
+                                <AppButton
+                                    v-if="canEnter"
+                                    size="sm"
+                                    variant="success"
+                                    label="Enter"
+                                    :disabled="isActiveBranch(branch.id)"
+                                    @click="handleEnter(branch)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canManage"
+                                    action="edit"
+                                    @click="openEdit(branch)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canManage"
+                                    action="delete"
+                                    @click="handleDelete(branch)"
+                                />
                             </AppTableActions>
                         </td>
                     </tr>
@@ -106,9 +124,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, inject, onMounted, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { fetchCurrentUser } from '../../api';
 import { listAllCompanies } from '../../api/companies';
-import { createBranch, deleteBranch, listBranches, updateBranch } from '../../api/branches';
+import { createBranch, deleteBranch, enterBranch, fetchBranchDeletionImpact, listBranches, updateBranch } from '../../api/branches';
 import BranchFormModal from '../../components/branches/BranchFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -123,8 +143,22 @@ import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 
 const pageId = 'branchesIndex';
+const router = useRouter();
+const route = useRoute();
+const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 const canManage = computed(() => can('branches.manage'));
+const canEnter = computed(() => can('branches.enter'));
+
+const activeBranchId = computed(
+    () => currentUser.value?.effective_branch_id ?? currentUser.value?.branch_id ?? null,
+);
+
+const routeNotice = computed(() => route.query.notice ?? '');
+
+function isActiveBranch(id) {
+    return Number(activeBranchId.value) === Number(id);
+}
 
 const companies = ref([]);
 const branches = ref([]);
@@ -244,20 +278,92 @@ async function handleSubmit(payload) {
     }
 }
 
-async function handleDelete(branch) {
-    if (!window.confirm(`Delete branch "${branch.branch_name}"?`)) {
-        return;
-    }
-
+async function handleEnter(branch) {
     flash.error = '';
 
     try {
-        await deleteBranch(branch.id);
+        const data = await enterBranch(branch.id);
+
+        if (data?.user) {
+            currentUser.value = data.user;
+            window.__AUTH_USER__ = data.user;
+        } else {
+            const user = await fetchCurrentUser();
+            currentUser.value = user;
+            window.__AUTH_USER__ = user;
+        }
+
+        flash.success = `Entered ${branch.branch_name}.`;
+        await router.push({ name: 'dashboard' });
+    } catch (error) {
+        flash.error = error.response?.data?.message ?? 'Could not enter branch.';
+    }
+}
+
+async function handleDelete(branch) {
+    flash.error = '';
+
+    let impact;
+
+    try {
+        impact = await fetchBranchDeletionImpact(branch.id);
+    } catch (error) {
+        flash.error = error.response?.data?.message ?? 'Could not load branch delete details.';
+
+        return;
+    }
+
+    if (!window.confirm(buildBranchDeleteMessage(branch.branch_name, impact))) {
+        return;
+    }
+
+    try {
+        const data = await deleteBranch(branch.id);
+
+        if (data?.user) {
+            currentUser.value = data.user;
+            window.__AUTH_USER__ = data.user;
+        } else if (isActiveBranch(branch.id)) {
+            const user = await fetchCurrentUser();
+            currentUser.value = user;
+            window.__AUTH_USER__ = user;
+            await router.push({ name: 'branches.index' });
+        }
+
         flash.success = 'Branch deleted successfully.';
         await loadBranches();
     } catch (error) {
         flash.error = error.response?.data?.message ?? 'Could not delete branch.';
     }
+}
+
+function buildBranchDeleteMessage(branchName, impact) {
+    const lines = [`Delete branch "${branchName}"?`, ''];
+    const resourceParts = [];
+
+    if ((impact?.trucks_count ?? 0) > 0) {
+        resourceParts.push(`${impact.trucks_count} truck(s)`);
+    }
+
+    if ((impact?.drivers_count ?? 0) > 0) {
+        resourceParts.push(`${impact.drivers_count} driver(s)`);
+    }
+
+    if (resourceParts.length > 0) {
+        lines.push(`This branch has ${resourceParts.join(' and ')}.`);
+    } else {
+        lines.push('This branch has no trucks or drivers.');
+    }
+
+    if ((impact?.users_count ?? 0) > 0) {
+        lines.push(
+            `${impact.users_count} assigned user(s) will be unassigned and cannot log in until reassigned.`,
+        );
+    }
+
+    lines.push('Operational data stays in the system but will not show under any active branch.');
+
+    return lines.join('\n');
 }
 
 onMounted(async () => {

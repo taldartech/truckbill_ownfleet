@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\PayrollPayDaysMode;
+use App\Support\DocumentTypeDefaults;
 use App\Tenant;
 use App\User;
 use Illuminate\Support\Str;
@@ -42,6 +43,8 @@ class CompanyProvisioner
         ]);
 
         TyreLayoutDefaults::seedForTenant($tenant->id);
+        TruckTypeDefaults::seedForTenant($tenant->id);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
 
         return $tenant;
     }

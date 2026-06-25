@@ -13,9 +13,9 @@ export function useRequireCompanyContext() {
 
     const hasCompanyContext = computed(() => !needsCompanySelection.value);
 
-    function redirectToCompanySelection(message = 'Select a company before continuing.') {
+    function redirectToCompanySelection(message = 'Select a branch before continuing.') {
         return router.push({
-            name: 'companies.index',
+            name: 'branches.index',
             query: { notice: message },
         });
     }

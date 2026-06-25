@@ -141,7 +141,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Contact Number</label>
+                                    <label class="form-label">Contact Number *</label>
                                     <input
                                         :value="form.contact_number"
                                         type="text"
@@ -149,6 +149,7 @@
                                         maxlength="10"
                                         class="form-control"
                                         placeholder="10-digit mobile"
+                                        required
                                         :class="{ 'is-invalid': fieldErrors.contact_number }"
                                         @input="form.contact_number = normalizeMobile($event.target.value)"
                                     />
@@ -294,7 +295,7 @@ async function save() {
         city_id: cityId.value,
         gst_number: form.gst_number.trim() || null,
         pan_number: form.pan_number.trim().toUpperCase() || null,
-        contact_number: normalizeMobile(form.contact_number) || null,
+        contact_number: normalizeMobile(form.contact_number),
         address: form.address.trim() || null,
     };
 

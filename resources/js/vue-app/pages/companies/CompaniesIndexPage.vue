@@ -63,14 +63,6 @@
                                 <td>{{ formatDate(company.plan_end_date) }}</td>
                                 <td class="app-index-actions-cell text-nowrap">
                                     <AppButton
-                                        v-if="canEnter"
-                                        size="sm"
-                                        label="Enter"
-                                        class="me-1"
-                                        :disabled="company.is_blocked"
-                                        @click="handleEnter(company)"
-                                    />
-                                    <AppButton
                                         v-if="canUpdate"
                                         size="sm"
                                         variant="secondary"
@@ -112,7 +104,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import {
     createCompany,
-    enterCompany,
     listAllCompanies,
     updateCompany,
 } from '../../api/companies';
@@ -138,7 +129,6 @@ const companyFormError = ref('');
 const flash = reactive({ success: '', error: '' });
 
 const canCreate = computed(() => can('companies.create'));
-const canEnter = computed(() => can('companies.enter'));
 const canUpdate = computed(() => can('companies.update'));
 const canBlock = computed(() => can('companies.block'));
 
@@ -225,24 +215,6 @@ async function handleSubmit(payload) {
             (formMode.value === 'edit' ? 'Could not update company.' : 'Could not create company.');
     } finally {
         saving.value = false;
-    }
-}
-
-async function handleEnter(company) {
-    flash.error = '';
-
-    try {
-        const data = await enterCompany(company.id);
-        if (data?.user) {
-            currentUser.value = data.user;
-            window.__AUTH_USER__ = data.user;
-        } else {
-            await refreshUser();
-        }
-        flash.success = `Entered ${company.name}.`;
-        await router.push({ name: 'dashboard' });
-    } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Could not enter company.';
     }
 }
 

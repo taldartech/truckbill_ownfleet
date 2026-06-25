@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\TripExpenseType;
@@ -11,10 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TripExpense extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'trip_id',
         'trip_route_leg_id',
         'expense_type',

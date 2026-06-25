@@ -12,6 +12,12 @@ export async function listBranches(params = {}) {
     return data;
 }
 
+export async function listAllBranches(params = {}) {
+    const { data } = await api.get(base, { params: { per_page: 500, ...params } });
+
+    return data.data ?? [];
+}
+
 export async function createBranch(payload) {
     const { data } = await api.post(base, payload);
 
@@ -25,5 +31,31 @@ export async function updateBranch(id, payload) {
 }
 
 export async function deleteBranch(id) {
-    await api.delete(`${base}/${id}`);
+    const { data } = await api.delete(`${base}/${id}`);
+
+    return data ?? null;
+}
+
+export async function fetchBranchDeletionImpact(id) {
+    const { data } = await api.get(`${base}/${id}/deletion-impact`);
+
+    return data;
+}
+
+export async function enterBranch(id) {
+    const { data } = await api.post(`${base}/${id}/enter`);
+
+    return data;
+}
+
+export async function switchBranch(branchId) {
+    const { data } = await api.post(`${base}/switch`, { branch_id: branchId });
+
+    return data;
+}
+
+export async function exitBranch() {
+    const { data } = await api.post(`${base}/exit`);
+
+    return data;
 }

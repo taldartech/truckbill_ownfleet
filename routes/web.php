@@ -87,9 +87,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
 });
 
-Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(function () {
+Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->group(function () {
     Route::get('/user', function () {
-        $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant']);
+        $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant', 'branch']);
 
         return response()->json([
             'user' => $user !== null ? new UserResource($user) : null,
@@ -108,6 +108,11 @@ Route::middleware(['auth', 'tenant'])->prefix('app')->name('app.')->group(functi
         Route::put('/companies/{company}', [ApiCompanyController::class, 'update'])->name('companies.update');
         Route::post('/companies/{company}/enter', [ApiCompanyController::class, 'enter'])->name('companies.enter');
         Route::post('/companies/exit', [ApiCompanyController::class, 'exit'])->name('companies.exit');
+
+        Route::post('/branches/{branch}/enter', [ApiBranchController::class, 'enter'])->name('branches.enter');
+        Route::get('/branches/{branch}/deletion-impact', [ApiBranchController::class, 'deletionImpact'])->name('branches.deletion-impact');
+        Route::post('/branches/switch', [ApiBranchController::class, 'switch'])->name('branches.switch');
+        Route::post('/branches/exit', [ApiBranchController::class, 'exit'])->name('branches.exit');
 
         Route::get('/branches', [ApiBranchController::class, 'index'])->name('branches.index');
         Route::post('/branches', [ApiBranchController::class, 'store'])->name('branches.store');

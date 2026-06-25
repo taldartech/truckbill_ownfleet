@@ -51,6 +51,15 @@ class RoleHierarchy
         return $actor->user_role_id === UserRole::SUPER_ADMIN;
     }
 
+    public static function requiresBranchAssignment(int $roleId): bool
+    {
+        return in_array($roleId, [
+            UserRole::ADMIN,
+            UserRole::MODERATOR,
+            UserRole::ACCOUNTANT,
+        ], true);
+    }
+
     /**
      * @return list<string>
      */

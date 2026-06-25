@@ -16,6 +16,7 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $effectiveTenantId = $this->effectiveTenantId();
+        $effectiveBranchId = $this->effectiveBranchId();
         $activeTenant = $effectiveTenantId !== null
             ? ($this->tenant ?? $this->ownedTenants->firstWhere('id', $effectiveTenantId))
             : null;
@@ -23,6 +24,10 @@ class UserResource extends JsonResource
         if ($activeTenant === null && $effectiveTenantId !== null) {
             $activeTenant = \App\Tenant::query()->find($effectiveTenantId);
         }
+
+        $activeBranch = $effectiveBranchId !== null
+            ? \App\Branch::query()->find($effectiveBranchId)
+            : $this->branch;
 
         $planEndDate = $activeTenant?->plan_end_date;
 
@@ -35,6 +40,9 @@ class UserResource extends JsonResource
             'effective_tenant_id' => $effectiveTenantId,
             'effective_company_id' => $effectiveTenantId,
             'tenant_name' => $activeTenant?->name,
+            'branch_id' => $effectiveBranchId ?? $this->branch_id,
+            'effective_branch_id' => $effectiveBranchId,
+            'branch_name' => $activeBranch?->branch_name,
             'user_role_id' => $this->user_role_id,
             'role' => $this->userRole?->name,
             'role_label' => $this->user_role_id
@@ -44,6 +52,7 @@ class UserResource extends JsonResource
             'can_delete_records' => $this->canDeleteOperationalRecords(),
             'can_access_company_panel' => $this->canAccessCompanyPanel(),
             'requires_company_selection' => $this->requiresCompanySelection(),
+            'requires_branch_selection' => $this->requiresBranchSelection(),
             'show_plan_badges' => in_array($this->user_role_id, [
                 UserRole::ADMIN,
                 UserRole::MODERATOR,

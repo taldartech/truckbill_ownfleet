@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Broker;
 use App\City;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
+use App\Http\Requests\Concerns\ValidatesPartyIdentity;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,10 +14,12 @@ use Illuminate\Validation\Validator;
 class StoreBrokerRequest extends FormRequest
 {
     use NormalizesContactNumber;
+    use ValidatesPartyIdentity;
 
     protected function prepareForValidation(): void
     {
         $this->normalizeContactNumberInput();
+        $this->normalizePartyIdentityFields();
     }
 
     public function authorize(): bool
@@ -38,17 +41,18 @@ class StoreBrokerRequest extends FormRequest
                     return $query
                         ->where('tenant_id', CurrentTenant::id())
                         ->where('state_id', $this->input('state_id'))
-                        ->where('city_id', $this->input('city_id'));
+                        ->where('city_id', $this->input('city_id'))
+                        ->whereNull('deleted_at');
                 }),
             ],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'agency_id' => ['nullable', 'integer', 'min:1'],
-            'gst_number' => ['nullable', 'string', 'max:255'],
-            'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
+            'gst_number' => $this->partyGstNumberRules('brokers'),
+            'pan_number' => $this->partyPanNumberRules('brokers'),
             'address' => ['nullable', 'string', 'max:2000'],
-            'contact_number' => $this->contactNumberRules(),
+            'contact_number' => $this->partyContactNumberRules('brokers', required: true),
         ];
     }
 
@@ -57,7 +61,11 @@ class StoreBrokerRequest extends FormRequest
      */
     public function messages(): array
     {
-        return $this->contactNumberMessages();
+        return [
+            'name.unique' => 'This name is already used for another reference in the selected city.',
+            ...$this->contactNumberMessages(),
+            ...$this->partyIdentityMessages('reference'),
+        ];
     }
 
     public function withValidator(Validator $validator): void

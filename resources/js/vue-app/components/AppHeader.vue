@@ -8,26 +8,39 @@
                     </a>
                 </li>
                 <li
-                    v-if="needsCompanySelection || companyName"
+                    v-if="needsBranchSelection || companyName || branchName"
                     class="nav-item d-none d-md-flex align-items-center app-header-company-nav"
                 >
                     <div class="app-header-company-context">
                         <RouterLink
-                            v-if="needsCompanySelection"
+                            v-if="needsBranchSelection"
                             class="app-header-company-context__select"
-                            :to="{ name: 'companies.index' }"
+                            :to="{ name: 'branches.index' }"
                         >
-                            <i class="fas fa-building"></i>Select company
+                            <i class="fas fa-code-branch"></i>Select branch
                         </RouterLink>
                         <template v-else>
-                            <span class="app-header-company-context__name">
+                            <span v-if="companyName" class="app-header-company-context__name">
                                 <i class="fas fa-building"></i>{{ companyName }}
                             </span>
+                            <span v-if="branchName" class="app-header-company-context__name ms-2">
+                                <i class="fas fa-code-branch"></i>{{ branchName }}
+                            </span>
+                            <select
+                                v-if="showBranchSwitcher"
+                                v-model="selectedBranchId"
+                                class="form-select form-select-sm ms-2 app-header-branch-switch"
+                                @change="handleBranchSwitch"
+                            >
+                                <option v-for="branch in switchableBranches" :key="branch.id" :value="branch.id">
+                                    {{ branch.branch_name }}
+                                </option>
+                            </select>
                             <button
                                 v-if="showExitCompany"
                                 type="button"
                                 class="app-header-company-context__exit"
-                                title="Exit company context"
+                                title="Exit branch context"
                                 @click="handleExitCompany"
                             >
                                 <i class="fas fa-sign-out-alt"></i>Exit
@@ -143,6 +156,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../api';
 import { exitCompany } from '../api/companies';
+import { listAllBranches, switchBranch } from '../api/branches';
 import {
     fetchNotifications,
     fetchUnreadNotificationCount,
@@ -168,12 +182,22 @@ const notificationMenuRef = ref(null);
 const notifications = ref([]);
 const notificationsLoading = ref(false);
 const unreadCount = ref(0);
+const switchableBranches = ref([]);
+const selectedBranchId = ref('');
 let pollTimer = null;
 
-const needsCompanySelection = computed(() => Boolean(props.user?.requires_company_selection));
+const needsBranchSelection = computed(
+    () =>
+        Boolean(props.user?.requires_branch_selection) ||
+        Boolean(props.user?.requires_company_selection),
+);
 const companyName = computed(() => props.user?.tenant_name ?? props.user?.company?.name ?? '');
+const branchName = computed(() => props.user?.branch_name ?? '');
 const showExitCompany = computed(
-    () => props.user?.role === 'super_admin' && (props.user?.effective_company_id ?? props.user?.company_id),
+    () => props.user?.role === 'super_admin' && (props.user?.effective_branch_id ?? props.user?.branch_id),
+);
+const showBranchSwitcher = computed(
+    () => props.user?.role === 'super_admin' && switchableBranches.value.length > 1 && !needsBranchSelection.value,
 );
 const showPlanBadges = computed(() => {
     if (!props.user) {
@@ -183,7 +207,7 @@ const showPlanBadges = computed(() => {
     return props.user.show_plan_badges === true || props.user.can_access_company_panel === true;
 });
 const showNotifications = computed(
-    () => Boolean(props.user?.can_access_company_panel) && !needsCompanySelection.value,
+    () => Boolean(props.user?.can_access_company_panel) && !needsBranchSelection.value,
 );
 const displayName = computed(() => props.user?.name || props.user?.email || '');
 const displayRole = computed(() => {
@@ -199,6 +223,26 @@ const displayRole = computed(() => {
 
     return role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 });
+
+watch(
+    () => [props.user?.effective_company_id, props.user?.effective_branch_id],
+    async () => {
+        selectedBranchId.value = String(props.user?.effective_branch_id ?? props.user?.branch_id ?? '');
+
+        if (props.user?.role === 'super_admin' && props.user?.effective_company_id) {
+            try {
+                switchableBranches.value = await listAllBranches({
+                    company_id: props.user.effective_company_id,
+                });
+            } catch {
+                switchableBranches.value = [];
+            }
+        } else {
+            switchableBranches.value = [];
+        }
+    },
+    { immediate: true },
+);
 
 watch(
     () => showNotifications.value,
@@ -326,13 +370,28 @@ onBeforeUnmount(() => {
     stopPolling();
 });
 
+async function handleBranchSwitch() {
+    if (!selectedBranchId.value) {
+        return;
+    }
+
+    try {
+        const data = await switchBranch(Number(selectedBranchId.value));
+        const user = data?.user ?? (await fetchCurrentUser());
+        window.__AUTH_USER__ = user;
+        emit('user-updated', user);
+    } catch {
+        selectedBranchId.value = String(props.user?.effective_branch_id ?? props.user?.branch_id ?? '');
+    }
+}
+
 async function handleExitCompany() {
     try {
         const data = await exitCompany();
         const user = data?.user ?? (await fetchCurrentUser());
         window.__AUTH_USER__ = user;
         emit('user-updated', user);
-        await router.push({ name: 'companies.index' });
+        await router.push({ name: 'branches.index' });
     } catch {
         window.location.href = '/company/exit';
     }

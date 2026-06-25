@@ -22,7 +22,7 @@ class CustomerIdentityValidationTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_customer_identity_fields_allow_null_values(): void
+    public function test_cannot_create_customer_without_contact_number(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
         Sanctum::actingAs($user);
@@ -31,14 +31,50 @@ class CustomerIdentityValidationTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/customers', [
-                'name' => 'Null Identity Customer',
+                'name' => 'Customer Without Contact',
                 'state_id' => $stateId,
                 'city_id' => $cityId,
-                'gst_number' => null,
-                'pan_number' => null,
-                'contact_number' => null,
+                'contact_number' => '',
             ])
-            ->assertCreated();
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['contact_number']);
+    }
+
+    public function test_cannot_create_customer_with_invalid_contact_number(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        [$stateId, $cityId] = $this->locationIds();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/customers', [
+                'name' => 'Customer Invalid Contact',
+                'state_id' => $stateId,
+                'city_id' => $cityId,
+                'contact_number' => '12345',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['contact_number']);
+    }
+
+    public function test_cannot_create_customer_with_invalid_pan_number(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        [$stateId, $cityId] = $this->locationIds();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/customers', [
+                'name' => 'Customer Invalid PAN',
+                'state_id' => $stateId,
+                'city_id' => $cityId,
+                'contact_number' => '9876543210',
+                'pan_number' => 'INVALID',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['pan_number']);
     }
 
     public function test_cannot_create_customer_with_duplicate_identity_in_same_tenant(): void
@@ -119,7 +155,7 @@ class CustomerIdentityValidationTest extends TestCase
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
 
-        return [$tenant, $user];
+        return [$tenant, $this->assignBranchIfRequired($user, $tenant)];
     }
 
     /**

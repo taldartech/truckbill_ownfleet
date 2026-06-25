@@ -84,6 +84,7 @@
                             <th>Email</th>
                             <th>Role</th>
                             <th v-if="showCompanyColumn">Company</th>
+                            <th v-if="showBranchColumn">Branch</th>
                             <th v-if="showDocumentAlertsColumn">Document Alerts</th>
                             <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
@@ -105,6 +106,7 @@
                             <td>{{ user.email }}</td>
                             <td>{{ user.role_label }}</td>
                             <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
+                            <td v-if="showBranchColumn">{{ user.branch_name ?? '—' }}</td>
                             <td v-if="showDocumentAlertsColumn">
                                 <span v-if="user.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
                                     Live
@@ -199,6 +201,7 @@ const listTitle = computed(() =>
     managesSuperAdmins.value ? 'Super Admins List' : 'Company Users List',
 );
 const showCompanyColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
+const showBranchColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
 const showDocumentAlertsColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
 const hasCompanyContext = computed(() => !user.value?.requires_company_selection);
 const showCompanyAlertSettings = computed(
@@ -211,6 +214,10 @@ const tableColspan = computed(() => {
     let cols = 3;
 
     if (showCompanyColumn.value) {
+        cols += 1;
+    }
+
+    if (showBranchColumn.value) {
         cols += 1;
     }
 

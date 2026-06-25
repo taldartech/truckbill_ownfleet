@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\AttendanceMonthStatus;
@@ -10,10 +11,12 @@ use Illuminate\Database\Eloquent\Model;
 class AttendanceMonthLock extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'month',
         'status',
         'closed_at',

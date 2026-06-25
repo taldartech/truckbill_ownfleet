@@ -87,6 +87,33 @@
                                     {{ fieldErrors.tenant_id[0] }}
                                 </div>
                             </div>
+                            <div v-if="requiresBranch" class="col-md-6">
+                                <label :for="`${modalId}_branch`" class="form-label">Branch *</label>
+                                <select
+                                    :id="`${modalId}_branch`"
+                                    v-model="form.branch_id"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': fieldErrors.branch_id }"
+                                    :disabled="!form.tenant_id || branchesLoading"
+                                    required
+                                >
+                                    <option value="">
+                                        {{ branchesLoading ? 'Loading branches…' : 'Select branch' }}
+                                    </option>
+                                    <option v-for="branch in companyBranches" :key="branch.id" :value="branch.id">
+                                        {{ branch.branch_name }}
+                                    </option>
+                                </select>
+                                <div v-if="fieldErrors.branch_id" class="invalid-feedback d-block">
+                                    {{ fieldErrors.branch_id[0] }}
+                                </div>
+                                <div
+                                    v-else-if="form.tenant_id && !branchesLoading && companyBranches.length === 0"
+                                    class="form-text text-danger"
+                                >
+                                    No branches for this company. Create a branch first.
+                                </div>
+                            </div>
                         </div>
                         <div v-if="showDocumentAlertPreferences" class="border rounded p-3 mb-3 bg-light">
                             <h6 class="fw-bold mb-2">
@@ -173,9 +200,11 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { listAllBranches } from '../../api/branches';
 
 const SUPER_ADMIN_ROLE_ID = 2;
 const MASTER_ADMIN_ROLE_ID = 1;
+const BRANCH_REQUIRED_ROLE_IDS = [3, 4, 5];
 
 const props = defineProps({
     modalId: { type: String, default: 'userFormModal' },
@@ -203,6 +232,23 @@ const requiresCompany = computed(() => {
     return roleId > 0 && roleId !== SUPER_ADMIN_ROLE_ID && roleId !== MASTER_ADMIN_ROLE_ID;
 });
 
+const requiresBranch = computed(() => {
+    const roleId = Number(form.value.user_role_id);
+
+    return BRANCH_REQUIRED_ROLE_IDS.includes(roleId);
+});
+
+const branches = ref([]);
+const branchesLoading = ref(false);
+
+const companyBranches = computed(() => {
+    if (!form.value.tenant_id) {
+        return [];
+    }
+
+    return branches.value.filter((branch) => branch.company_id === form.value.tenant_id);
+});
+
 const showDocumentAlertPreferences = computed(
     () => requiresCompany.value || Boolean(props.user?.tenant_id),
 );
@@ -212,11 +258,24 @@ const form = ref({
     email: '',
     user_role_id: '',
     tenant_id: '',
+    branch_id: '',
     document_alerts_live: false,
     document_alerts_email: false,
     password: '',
     password_confirmation: '',
 });
+
+async function loadBranches() {
+    branchesLoading.value = true;
+
+    try {
+        branches.value = await listAllBranches();
+    } catch {
+        branches.value = [];
+    } finally {
+        branchesLoading.value = false;
+    }
+}
 
 function resetForm() {
     if (props.user) {
@@ -225,6 +284,7 @@ function resetForm() {
             email: props.user.email ?? '',
             user_role_id: props.user.user_role_id ?? '',
             tenant_id: props.user.tenant_id ?? '',
+            branch_id: props.user.branch_id ?? '',
             document_alerts_live: Boolean(props.user.document_alerts_live),
             document_alerts_email: Boolean(props.user.document_alerts_email),
             password: '',
@@ -236,6 +296,7 @@ function resetForm() {
             email: '',
             user_role_id: '',
             tenant_id: '',
+            branch_id: '',
             document_alerts_live: false,
             document_alerts_email: false,
             password: '',
@@ -259,6 +320,10 @@ function submit() {
         payload.tenant_id = form.value.tenant_id;
         payload.document_alerts_live = form.value.document_alerts_live;
         payload.document_alerts_email = form.value.document_alerts_email;
+    }
+
+    if (requiresBranch.value) {
+        payload.branch_id = Number(form.value.branch_id);
     }
 
     if (form.value.password) {
@@ -285,6 +350,7 @@ watch(
 
         if (visible) {
             resetForm();
+            loadBranches();
             modalInstance.show();
         } else {
             modalInstance.hide();
@@ -297,6 +363,24 @@ watch(
     () => {
         if (props.show) {
             resetForm();
+        }
+    },
+);
+
+watch(
+    () => form.value.tenant_id,
+    (tenantId, previousTenantId) => {
+        if (tenantId !== previousTenantId) {
+            form.value.branch_id = '';
+        }
+    },
+);
+
+watch(
+    () => form.value.user_role_id,
+    (roleId) => {
+        if (!BRANCH_REQUIRED_ROLE_IDS.includes(Number(roleId))) {
+            form.value.branch_id = '';
         }
     },
 );

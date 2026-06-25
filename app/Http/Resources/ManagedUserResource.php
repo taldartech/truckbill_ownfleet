@@ -19,6 +19,8 @@ class ManagedUserResource extends JsonResource
             'email' => $this->email,
             'tenant_id' => $this->tenant_id,
             'tenant_name' => $this->tenant?->name,
+            'branch_id' => $this->branch_id,
+            'branch_name' => $this->branch?->branch_name,
             'user_role_id' => $this->user_role_id,
             'role' => $this->userRole?->name,
             'role_label' => $this->user_role_id

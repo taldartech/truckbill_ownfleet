@@ -374,7 +374,7 @@ async function prepareSave() {
     return payload;
 }
 
-async function executeSave(payload, { successMessage = 'Trip updated successfully.' } = {}) {
+async function executeSave(payload, { successMessage = 'Trip updated successfully.', showToast = true } = {}) {
     saving.value = true;
 
     try {
@@ -389,7 +389,9 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
         snapshotBrokerName.value = trip.broker_name ?? snapshotBrokerName.value;
         applyLegacyPartyLookups(trip, customers.value, brokers.value);
         refreshOriginalConfirmPayload();
-        toast.success(successMessage);
+        if (showToast) {
+            toast.success(successMessage);
+        }
     } catch (error) {
         if (!applyApiError(error, 'Failed to update trip.')) {
             tripFormError.value = error?.response?.data?.message ?? 'Failed to update trip.';
@@ -427,9 +429,10 @@ async function confirmSave() {
     }
 
     try {
-        await executeSave(pendingPayload.value);
+        await executeSave(pendingPayload.value, { showToast: false });
         showSaveConfirm.value = false;
         pendingPayload.value = null;
+        await router.push({ name: 'trips.index', query: { updated: '1' } });
     } catch {
         showSaveConfirm.value = false;
     }

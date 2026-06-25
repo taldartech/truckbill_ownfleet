@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\DriverAdvanceEntryType;
@@ -11,10 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DriverAdvanceEntry extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'driver_id',
         'entry_type',
         'amount',

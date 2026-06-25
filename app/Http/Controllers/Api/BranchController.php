@@ -7,8 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
+use App\Support\BranchDeletionImpact;
 use App\Support\RoleHierarchy;
+use App\Support\SelectedBranchSession;
+use App\Support\SelectedCompanySession;
 use App\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -105,11 +109,110 @@ class BranchController extends Controller
         return new BranchResource($branch->load('company'));
     }
 
-    public function destroy(Branch $branch): Response
+    public function destroy(Request $request, Branch $branch): Response|JsonResponse
     {
         $this->authorize('delete', $branch);
-        $branch->delete();
+
+        DB::transaction(function () use ($branch, $request): void {
+            User::query()
+                ->where('branch_id', $branch->id)
+                ->update(['branch_id' => null]);
+
+            if (SelectedBranchSession::id() === $branch->id) {
+                SelectedBranchSession::forget();
+            }
+
+            $branch->delete();
+        });
+
+        $request->user()?->loadMissing(['userRole', 'tenant', 'branch']);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Branch deleted.',
+                'user' => $request->user() !== null
+                    ? new \App\Http\Resources\UserResource($request->user())
+                    : null,
+            ]);
+        }
 
         return response()->noContent();
+    }
+
+    public function deletionImpact(Branch $branch): JsonResponse
+    {
+        $this->authorize('delete', $branch);
+
+        return response()->json([
+            'branch_id' => $branch->id,
+            'branch_name' => $branch->branch_name,
+            ...BranchDeletionImpact::forBranch($branch),
+        ]);
+    }
+
+    public function enter(Request $request, Branch $branch): JsonResponse
+    {
+        $this->authorize('enter', $branch);
+
+        SelectedCompanySession::set((string) $branch->company_id);
+        SelectedBranchSession::set((int) $branch->id);
+
+        $request->user()?->loadMissing(['userRole', 'tenant', 'branch']);
+
+        return response()->json([
+            'message' => 'Branch selected.',
+            'selected_branch_id' => $branch->id,
+            'selected_tenant_id' => $branch->company_id,
+            'selected_company_id' => $branch->company_id,
+            'user' => $request->user() !== null
+                ? new \App\Http\Resources\UserResource($request->user())
+                : null,
+        ]);
+    }
+
+    public function switch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+        ]);
+
+        /** @var Branch $branch */
+        $branch = Branch::query()->findOrFail($validated['branch_id']);
+
+        $this->authorize('enter', $branch);
+
+        SelectedCompanySession::set((string) $branch->company_id);
+        SelectedBranchSession::set((int) $branch->id);
+
+        $request->user()?->loadMissing(['userRole', 'tenant', 'branch']);
+
+        return response()->json([
+            'message' => 'Branch switched.',
+            'selected_branch_id' => $branch->id,
+            'selected_tenant_id' => $branch->company_id,
+            'selected_company_id' => $branch->company_id,
+            'user' => $request->user() !== null
+                ? new \App\Http\Resources\UserResource($request->user())
+                : null,
+        ]);
+    }
+
+    public function exit(Request $request): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if ($user === null || ! $user->hasRole('super_admin')) {
+            abort(403);
+        }
+
+        SelectedBranchSession::forget();
+
+        $user->loadMissing(['userRole', 'tenant', 'branch']);
+
+        return response()->json([
+            'message' => 'Branch context cleared.',
+            'user' => new \App\Http\Resources\UserResource($user),
+        ]);
     }
 }

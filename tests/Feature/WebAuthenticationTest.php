@@ -77,7 +77,24 @@ class WebAuthenticationTest extends TestCase
                 'password' => 'wrong-password',
             ])
             ->assertRedirect('/app/login')
-            ->assertSessionHasErrors('email');
+            ->assertSessionHasErrors([
+                'email' => 'Incorrect password.',
+            ]);
+
+        $this->assertGuest();
+    }
+
+    public function test_login_with_unknown_email_shows_email_does_not_exist_error(): void
+    {
+        $this->from('/app/login')
+            ->post('/login', [
+                'email' => 'unknown@example.com',
+                'password' => 'password',
+            ])
+            ->assertRedirect('/app/login')
+            ->assertSessionHasErrors([
+                'email' => 'Email does not exist.',
+            ]);
 
         $this->assertGuest();
     }
@@ -91,12 +108,14 @@ class WebAuthenticationTest extends TestCase
             'is_active' => true,
         ]);
 
-        return User::query()->create([
+        $user = User::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Test User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'user_role_id' => UserRole::idFor($roleName),
         ]);
+
+        return $this->assignBranchIfRequired($user, $tenant);
     }
 }

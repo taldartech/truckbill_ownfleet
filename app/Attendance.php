@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\AttendanceMarkedVia;
@@ -12,10 +13,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Attendance extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'vehicle_id',
         'primary_driver_id',
         'temporary_driver_id',

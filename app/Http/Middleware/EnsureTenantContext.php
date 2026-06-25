@@ -15,15 +15,15 @@ class EnsureTenantContext
     {
         $user = $request->user();
 
-        if ($user !== null && $user->requiresCompanySelection()) {
+        if ($user !== null && $user->requiresBranchSelection()) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Select a company before continuing.',
-                    'redirect' => '/app/companies',
+                    'message' => 'Select a branch before continuing.',
+                    'redirect' => '/app/branches',
                 ], 403);
             }
 
-            return redirect('/app/companies');
+            return redirect('/app/branches');
         }
 
         return $next($request);

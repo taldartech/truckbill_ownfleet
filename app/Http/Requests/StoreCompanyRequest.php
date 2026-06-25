@@ -26,12 +26,12 @@ class StoreCompanyRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'gst_number' => $this->companyGstNumberRules(),
-            'pan_number' => $this->companyPanNumberRules(),
+            'pan_number' => $this->companyPanNumberRules(required: true),
             'gst_scheme' => ['nullable', 'string', 'max:50'],
             'gst_type' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_person' => ['nullable', 'string', 'max:255'],
-            'contact_number' => $this->companyContactNumberRules(),
+            'contact_number' => $this->companyContactNumberRules(required: true),
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['nullable', Rule::enum(PayrollPayDaysMode::class)],
         ];

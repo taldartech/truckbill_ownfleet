@@ -7,6 +7,7 @@ use App\Http\Requests\StoreCompanyRequest;
 use App\Http\Requests\UpdateCompanyRequest;
 use App\Http\Resources\CompanyResource;
 use App\Support\CompanyProvisioner;
+use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
 use App\Tenant;
 use App\User;
@@ -96,6 +97,7 @@ class CompanyController extends Controller
         }
 
         SelectedCompanySession::forget();
+        SelectedBranchSession::forget();
 
         $user->loadMissing(['userRole', 'tenant']);
 

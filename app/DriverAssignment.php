@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,10 +13,12 @@ use Illuminate\Support\Carbon;
 class DriverAssignment extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'driver_id',
         'vehicle_id',
         'assigned_from',

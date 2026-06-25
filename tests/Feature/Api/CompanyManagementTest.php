@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Branch;
 use App\Driver;
+use App\Support\BranchProvisioner;
+use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
 use App\Tenant;
 use App\User;
@@ -29,6 +32,8 @@ class CompanyManagementTest extends TestCase
             ->postJson('/app/api/companies', [
                 'name' => 'ABC Transport',
                 'gst_number' => '27AAAAA0000A1Z5',
+                'pan_number' => 'ABCDE1234F',
+                'contact_number' => '9876543211',
             ])
             ->assertCreated()
             ->assertJsonPath('data.name', 'ABC Transport')
@@ -38,14 +43,28 @@ class CompanyManagementTest extends TestCase
         $tenantId = Tenant::query()->where('owner_user_id', $superAdmin->id)->value('id');
 
         $this->assertNotNull($tenantId);
+        $this->assertNull(Branch::query()->where('company_id', $tenantId)->first());
+
+        $branchResponse = $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $tenantId,
+                'branch_name' => 'Main Branch',
+                'branch_contact_number' => '9876543210',
+                'head_office' => true,
+            ])
+            ->assertCreated();
+
+        $branchId = (int) $branchResponse->json('data.id');
 
         $this->actingAs($superAdmin)
-            ->postJson('/app/api/companies/'.$tenantId.'/enter')
+            ->postJson('/app/api/branches/'.$branchId.'/enter')
             ->assertOk()
             ->assertJsonPath('selected_company_id', $tenantId)
-            ->assertJsonPath('selected_tenant_id', $tenantId);
+            ->assertJsonPath('selected_tenant_id', $tenantId)
+            ->assertJsonPath('selected_branch_id', $branchId);
 
         $this->assertSame($tenantId, SelectedCompanySession::id());
+        $this->assertSame($branchId, SelectedBranchSession::id());
         $this->assertSame($tenantId, $superAdmin->fresh()->company_id);
 
         $this->actingAs($superAdmin)
@@ -69,15 +88,15 @@ class CompanyManagementTest extends TestCase
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Stats Co');
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
 
         $this->actingAs($superAdmin)
-            ->postJson('/app/api/companies/'.$tenant->id.'/enter')
+            ->postJson('/app/api/branches/'.$branch->id.'/enter')
             ->assertOk();
 
         $this->actingAs($superAdmin)
             ->getJson('/app/dashboard/stats')
             ->assertOk()
-            ->assertJsonPath('requires_company', null)
             ->assertJsonStructure([
                 'fleet' => [
                     'vehicles_count',
@@ -139,14 +158,16 @@ class CompanyManagementTest extends TestCase
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Exit Co');
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
 
-        SelectedCompanySession::set($tenant->id);
+        $this->enterBranchForSuperAdmin($superAdmin, $branch);
 
         $this->actingAs($superAdmin)
             ->postJson('/app/api/companies/exit')
             ->assertOk();
 
         $this->assertNull(SelectedCompanySession::id());
+        $this->assertNull(SelectedBranchSession::id());
         $this->assertNull($superAdmin->fresh()->company_id);
     }
 
@@ -191,7 +212,7 @@ class CompanyManagementTest extends TestCase
         [$tenant, $admin] = $this->createTenantAdmin();
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$this->operationalAttributesForTenant($tenant),
             'name' => 'Alias Driver',
             'phone' => '9000000001',
             'license_number' => 'DL-ALIAS',
@@ -207,48 +228,52 @@ class CompanyManagementTest extends TestCase
         $this->assertSame($admin->company_id, $tenant->id);
     }
 
-    public function test_cannot_create_company_without_gst_pan_or_contact_number(): void
+    public function test_cannot_create_company_without_pan_and_contact_number(): void
     {
         $superAdmin = $this->createSuperAdmin();
 
         $response = $this->actingAs($superAdmin)
             ->postJson('/app/api/companies', [
                 'name' => 'No Identity Co',
+                'gst_number' => '27AAAAA0000A1Z5',
             ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['gst_number', 'pan_number', 'contact_number']);
+        $response->assertJsonValidationErrors(['pan_number', 'contact_number']);
     }
 
-    public function test_can_create_company_with_only_pan_number(): void
+    public function test_cannot_create_company_with_only_pan_number(): void
     {
         $superAdmin = $this->createSuperAdmin();
 
-        $this->actingAs($superAdmin)
+        $response = $this->actingAs($superAdmin)
             ->postJson('/app/api/companies', [
                 'name' => 'PAN Only Co',
                 'pan_number' => 'ABCDE1234F',
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.pan_number', 'ABCDE1234F');
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['contact_number']);
     }
 
-    public function test_cannot_update_company_to_remove_all_identity_fields(): void
+    public function test_cannot_update_company_to_remove_pan_or_contact_number(): void
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Identity Co', [
             'gst_number' => '27AAAAA0000A1Z5',
+            'pan_number' => 'ABCDE1234F',
+            'contact_number' => '9876543210',
         ]);
 
         $response = $this->actingAs($superAdmin)
             ->putJson('/app/api/companies/'.$tenant->id, [
-                'gst_number' => '',
+                'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => '',
                 'contact_number' => '',
             ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['gst_number', 'pan_number', 'contact_number']);
+        $response->assertJsonValidationErrors(['pan_number', 'contact_number']);
     }
 
     public function test_cannot_create_company_with_duplicate_gst_or_pan(): void
@@ -260,6 +285,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'First Transport',
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => 'ABCDE1234F',
+                'contact_number' => '9876543212',
             ])
             ->assertCreated();
 
@@ -268,6 +294,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Second Transport',
                 'gst_number' => '27aaaaa0000a1z5',
                 'pan_number' => 'abcde1234f',
+                'contact_number' => '9876543213',
             ]);
 
         $duplicate->assertUnprocessable();
@@ -282,6 +309,7 @@ class CompanyManagementTest extends TestCase
         $tenant->update([
             'gst_number' => '27AAAAA0000A1Z5',
             'pan_number' => 'ABCDE1234F',
+            'contact_number' => '9876543214',
         ]);
 
         $this->actingAs($superAdmin)
@@ -289,6 +317,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Updated Co',
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => 'ABCDE1234F',
+                'contact_number' => '9876543214',
             ])
             ->assertOk()
             ->assertJsonPath('data.name', 'Updated Co');
@@ -322,6 +351,7 @@ class CompanyManagementTest extends TestCase
         $this->actingAs($superAdmin)
             ->postJson('/app/api/companies', [
                 'name' => 'Contact Co',
+                'pan_number' => 'ABCDE1234G',
                 'contact_number' => '9876543210',
             ])
             ->assertCreated();
@@ -329,6 +359,7 @@ class CompanyManagementTest extends TestCase
         $invalidFormat = $this->actingAs($superAdmin)
             ->postJson('/app/api/companies', [
                 'name' => 'Bad Contact Co',
+                'pan_number' => 'ABCDE1234H',
                 'contact_number' => '12345',
             ]);
 
@@ -338,6 +369,7 @@ class CompanyManagementTest extends TestCase
         $duplicate = $this->actingAs($superAdmin)
             ->postJson('/app/api/companies', [
                 'name' => 'Duplicate Contact Co',
+                'pan_number' => 'ABCDE1234I',
                 'contact_number' => '98765 43210',
             ]);
 
@@ -387,7 +419,7 @@ class CompanyManagementTest extends TestCase
             'user_role_id' => UserRole::ADMIN,
         ]);
 
-        return [$tenant, $admin];
+        return [$tenant, $this->assignBranchIfRequired($admin, $tenant)];
     }
 
     private function createOwnedTenant(User $owner, string $name, array $attributes = []): Tenant

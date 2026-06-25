@@ -150,6 +150,13 @@ class RolePermissionManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $ownedBranch = \App\Branch::query()->create([
+            'company_id' => $ownedTenant->id,
+            'branch_name' => 'Owned Co',
+            'branch_contact_number' => '9876543210',
+            'head_office' => true,
+        ]);
+
         $otherSuper = User::query()->create([
             'name' => 'Other Super',
             'email' => 'other-super@example.com',
@@ -173,6 +180,7 @@ class RolePermissionManagementTest extends TestCase
                 'password_confirmation' => 'password123',
                 'user_role_id' => UserRole::ADMIN,
                 'tenant_id' => $ownedTenant->id,
+                'branch_id' => $ownedBranch->id,
             ])
             ->assertCreated();
 

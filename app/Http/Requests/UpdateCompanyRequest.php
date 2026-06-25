@@ -30,13 +30,13 @@ class UpdateCompanyRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'gst_number' => $this->companyGstNumberRules($company?->id, requireAtLeastOneIdentity: false),
-            'pan_number' => $this->companyPanNumberRules($company?->id, requireAtLeastOneIdentity: false),
+            'gst_number' => $this->companyGstNumberRules($company?->id),
+            'pan_number' => $this->companyPanNumberRules($company?->id),
             'gst_scheme' => ['nullable', 'string', 'max:50'],
             'gst_type' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_person' => ['nullable', 'string', 'max:255'],
-            'contact_number' => $this->companyContactNumberRules($company?->id, requireAtLeastOneIdentity: false),
+            'contact_number' => $this->companyContactNumberRules($company?->id),
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['sometimes', Rule::enum(PayrollPayDaysMode::class)],
             'is_blocked' => ['sometimes', 'boolean'],
@@ -65,6 +65,6 @@ class UpdateCompanyRequest extends FormRequest
         /** @var Tenant|null $company */
         $company = $this->route('company');
 
-        $this->validateCompanyRetainsIdentity($validator, $company);
+        $this->validateCompanyRetainsPanAndContact($validator, $company);
     }
 }

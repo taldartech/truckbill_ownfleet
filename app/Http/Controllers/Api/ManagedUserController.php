@@ -24,7 +24,7 @@ class ManagedUserController extends Controller
         $actor = $request->user();
 
         $query = User::query()
-            ->with(['userRole', 'tenant'])
+            ->with(['userRole', 'tenant', 'branch'])
             ->when($request->filled('search'), function ($builder) use ($request): void {
                 $search = '%'.$request->string('search').'%';
                 $builder->where(function ($inner) use ($search): void {
@@ -65,6 +65,9 @@ class ManagedUserController extends Controller
             'tenant_id' => $roleId === UserRole::SUPER_ADMIN
                 ? null
                 : ($validated['tenant_id'] ?? null),
+            'branch_id' => RoleHierarchy::requiresBranchAssignment($roleId)
+                ? ($validated['branch_id'] ?? null)
+                : null,
             'document_alerts_live' => $roleId === UserRole::SUPER_ADMIN
                 ? false
                 : (bool) ($validated['document_alerts_live'] ?? false),
@@ -75,7 +78,7 @@ class ManagedUserController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
-        $user->load(['userRole', 'tenant']);
+        $user->load(['userRole', 'tenant', 'branch']);
 
         return new ManagedUserResource($user);
     }
@@ -84,7 +87,7 @@ class ManagedUserController extends Controller
     {
         $this->authorize('view', $managedUser);
 
-        $managedUser->load(['userRole', 'tenant']);
+        $managedUser->load(['userRole', 'tenant', 'branch']);
 
         return new ManagedUserResource($managedUser);
     }
@@ -102,7 +105,16 @@ class ManagedUserController extends Controller
 
             if ($roleId === UserRole::SUPER_ADMIN) {
                 $validated['tenant_id'] = null;
+                $validated['branch_id'] = null;
+            } elseif (! RoleHierarchy::requiresBranchAssignment($roleId)) {
+                $validated['branch_id'] = null;
             }
+        }
+
+        if (array_key_exists('tenant_id', $validated)
+            && $validated['tenant_id'] !== ($managedUser->tenant_id ?? null)
+            && ! array_key_exists('branch_id', $validated)) {
+            $validated['branch_id'] = null;
         }
 
         if (array_key_exists('password', $validated) && ($validated['password'] === null || $validated['password'] === '')) {
@@ -114,7 +126,7 @@ class ManagedUserController extends Controller
         $validated['updated_by'] = $request->user()?->id;
 
         $managedUser->update($validated);
-        $managedUser->load(['userRole', 'tenant']);
+        $managedUser->load(['userRole', 'tenant', 'branch']);
 
         return new ManagedUserResource($managedUser);
     }

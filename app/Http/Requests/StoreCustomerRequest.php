@@ -41,7 +41,8 @@ class StoreCustomerRequest extends FormRequest
                     return $query
                         ->where('tenant_id', CurrentTenant::id())
                         ->where('state_id', $this->input('state_id'))
-                        ->where('city_id', $this->input('city_id'));
+                        ->where('city_id', $this->input('city_id'))
+                        ->whereNull('deleted_at');
                 }),
             ],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
@@ -51,7 +52,7 @@ class StoreCustomerRequest extends FormRequest
             'gst_number' => $this->partyGstNumberRules('customers'),
             'pan_number' => $this->partyPanNumberRules('customers'),
             'address' => ['nullable', 'string', 'max:2000'],
-            'contact_number' => $this->partyContactNumberRules('customers'),
+            'contact_number' => $this->partyContactNumberRules('customers', required: true),
         ];
     }
 
@@ -61,6 +62,7 @@ class StoreCustomerRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'name.unique' => 'This name is already used for another customer in the selected city.',
             ...$this->contactNumberMessages(),
             ...$this->partyIdentityMessages(),
         ];

@@ -9,10 +9,6 @@ use Illuminate\Validation\Rules\Unique;
 
 trait ValidatesCompanyIdentity
 {
-    /**
-     * @var list<string>
-     */
-    private const COMPANY_IDENTITY_FIELDS = ['gst_number', 'pan_number', 'contact_number'];
     protected function normalizeCompanyIdentityFields(): void
     {
         foreach (['gst_number', 'pan_number'] as $field) {
@@ -35,10 +31,9 @@ trait ValidatesCompanyIdentity
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    protected function companyGstNumberRules(?string $ignoreTenantId = null, bool $requireAtLeastOneIdentity = true): array
+    protected function companyGstNumberRules(?string $ignoreTenantId = null): array
     {
         return [
-            ...$this->companyAtLeastOneIdentityRules('gst_number', $requireAtLeastOneIdentity),
             'nullable',
             'string',
             'max:50',
@@ -49,11 +44,10 @@ trait ValidatesCompanyIdentity
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    protected function companyPanNumberRules(?string $ignoreTenantId = null, bool $requireAtLeastOneIdentity = true): array
+    protected function companyPanNumberRules(?string $ignoreTenantId = null, bool $required = false): array
     {
         return [
-            ...$this->companyAtLeastOneIdentityRules('pan_number', $requireAtLeastOneIdentity),
-            'nullable',
+            $required ? 'required' : 'nullable',
             'string',
             'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i',
             $this->companyIdentityUniqueRule('pan_number', $ignoreTenantId),
@@ -63,78 +57,49 @@ trait ValidatesCompanyIdentity
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    protected function companyContactNumberRules(?string $ignoreTenantId = null, bool $requireAtLeastOneIdentity = true): array
+    protected function companyContactNumberRules(?string $ignoreTenantId = null, bool $required = false): array
     {
         return [
-            ...$this->companyAtLeastOneIdentityRules('contact_number', $requireAtLeastOneIdentity),
-            ...$this->contactNumberRules(),
+            $required ? 'required' : 'nullable',
+            ...$this->tenDigitPhoneRules(),
             $this->companyIdentityUniqueRule('contact_number', $ignoreTenantId),
         ];
     }
 
-    protected function validateCompanyRetainsIdentity(Validator $validator, ?Tenant $company = null): void
+    protected function validateCompanyRetainsPanAndContact(Validator $validator, ?Tenant $company = null): void
     {
         $validator->after(function (Validator $validator) use ($company): void {
-            if (! $this->requestTouchesCompanyIdentity()) {
+            if (! $this->requestTouchesCompanyForm()) {
                 return;
             }
 
-            if ($this->companyHasAtLeastOneIdentity($company)) {
-                return;
+            $pan = $this->has('pan_number')
+                ? $this->input('pan_number')
+                : $company?->pan_number;
+
+            if ($pan === null || trim((string) $pan) === '') {
+                $validator->errors()->add('pan_number', 'PAN number is required.');
             }
 
-            foreach (self::COMPANY_IDENTITY_FIELDS as $field) {
-                $validator->errors()->add($field, $this->companyAtLeastOneIdentityMessage());
+            $contact = $this->has('contact_number')
+                ? $this->input('contact_number')
+                : $company?->contact_number;
+
+            if ($contact === null || trim((string) $contact) === '') {
+                $validator->errors()->add('contact_number', 'Contact number is required.');
             }
         });
     }
 
-    private function requestTouchesCompanyIdentity(): bool
+    private function requestTouchesCompanyForm(): bool
     {
-        foreach (self::COMPANY_IDENTITY_FIELDS as $field) {
+        foreach (['name', 'pan_number', 'contact_number', 'gst_number'] as $field) {
             if ($this->has($field)) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
-     */
-    private function companyAtLeastOneIdentityRules(string $field, bool $requireAtLeastOneIdentity): array
-    {
-        if (! $requireAtLeastOneIdentity) {
-            return [];
-        }
-
-        $otherFields = array_values(array_filter(
-            self::COMPANY_IDENTITY_FIELDS,
-            static fn (string $candidate): bool => $candidate !== $field,
-        ));
-
-        return ['required_without_all:'.implode(',', $otherFields)];
-    }
-
-    private function companyHasAtLeastOneIdentity(?Tenant $company = null): bool
-    {
-        foreach (self::COMPANY_IDENTITY_FIELDS as $field) {
-            $value = $this->has($field)
-                ? $this->input($field)
-                : $company?->{$field};
-
-            if ($value !== null && trim((string) $value) !== '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function companyAtLeastOneIdentityMessage(): string
-    {
-        return 'Provide at least one of GST number, PAN number, or contact number.';
     }
 
     private function companyIdentityUniqueRule(string $column, ?string $ignoreTenantId = null): Unique
@@ -153,12 +118,9 @@ trait ValidatesCompanyIdentity
      */
     protected function companyIdentityMessages(): array
     {
-        $atLeastOneMessage = $this->companyAtLeastOneIdentityMessage();
-
         return [
-            'gst_number.required_without_all' => $atLeastOneMessage,
-            'pan_number.required_without_all' => $atLeastOneMessage,
-            'contact_number.required_without_all' => $atLeastOneMessage,
+            'pan_number.required' => 'PAN number is required.',
+            'contact_number.required' => 'Contact number is required.',
             'gst_number.unique' => 'This GST number is already registered for another company.',
             'pan_number.unique' => 'This PAN number is already registered for another company.',
             'contact_number.unique' => 'This contact number is already registered for another company.',

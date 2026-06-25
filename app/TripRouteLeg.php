@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\FreightBillingStatus;
@@ -14,10 +15,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class TripRouteLeg extends Model
 {
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'trip_id',
         'customer_id',
         'from_station_id',

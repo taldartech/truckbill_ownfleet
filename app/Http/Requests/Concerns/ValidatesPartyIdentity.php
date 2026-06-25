@@ -57,10 +57,15 @@ trait ValidatesPartyIdentity
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    protected function partyContactNumberRules(string $table, ?int $ignoreId = null, ?string $tenantId = null): array
-    {
+    protected function partyContactNumberRules(
+        string $table,
+        ?int $ignoreId = null,
+        ?string $tenantId = null,
+        bool $required = false,
+    ): array {
         return [
-            ...$this->contactNumberRules(),
+            $required ? 'required' : 'nullable',
+            ...$this->tenDigitPhoneRules(),
             $this->partyIdentityUniqueRule($table, 'contact_number', $ignoreId, $tenantId),
         ];
     }
@@ -89,12 +94,14 @@ trait ValidatesPartyIdentity
     /**
      * @return array<string, string>
      */
-    protected function partyIdentityMessages(): array
+    protected function partyIdentityMessages(string $entity = 'customer'): array
     {
         return [
-            'gst_number.unique' => 'This GST number is already registered for another customer in your company.',
-            'pan_number.unique' => 'This PAN number is already registered for another customer in your company.',
-            'contact_number.unique' => 'This contact number is already registered for another customer in your company.',
+            'gst_number.unique' => "This GST number is already registered for another {$entity} in your company.",
+            'pan_number.unique' => "This PAN number is already registered for another {$entity} in your company.",
+            'pan_number.regex' => 'Please enter a valid PAN number (e.g. ABCDE1234F).',
+            'contact_number.required' => 'Contact number is required.',
+            'contact_number.unique' => "This contact number is already registered for another {$entity} in your company.",
         ];
     }
 }

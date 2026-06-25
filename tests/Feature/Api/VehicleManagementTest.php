@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Driver;
 use App\DriverAssignment;
+use App\Support\BranchProvisioner;
 use App\Support\SelectedCompanySession;
 use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
@@ -63,9 +64,9 @@ class VehicleManagementTest extends TestCase
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Fleet Co');
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
+        $this->enterBranchForSuperAdmin($superAdmin, $branch);
         $vehicle = $this->createVehicle($tenant);
-
-        SelectedCompanySession::set($tenant->id);
 
         $this->actingAs($superAdmin)
             ->deleteJson("/app/api/vehicles/{$vehicle->id}")
@@ -249,7 +250,7 @@ class VehicleManagementTest extends TestCase
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
 
-        return [$tenant, $user];
+        return [$tenant, $this->assignBranchIfRequired($user, $tenant)];
     }
 
     private function createSuperAdmin(): User
@@ -290,7 +291,7 @@ class VehicleManagementTest extends TestCase
         $this->seedTenantLookups($tenant);
 
         return Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$this->operationalAttributesForTenant($tenant),
             'registration_number' => $registration ?? strtoupper(fake()->bothify('??##??####')),
             'vehicle_type' => $vehicleType,
             'make' => 'Tata',

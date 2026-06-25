@@ -30,9 +30,6 @@
                                 {{ fieldErrors.name[0] }}
                             </div>
                         </div>
-                        <p class="form-text text-muted mb-3">
-                            Provide at least one of GST number, PAN number, or contact number.
-                        </p>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="gst_number">GST Number</label>
@@ -48,12 +45,13 @@
                                 </div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label" for="pan_number">PAN Number</label>
+                                <label class="form-label" for="pan_number">PAN Number *</label>
                                 <input
                                     id="pan_number"
                                     v-model="form.pan_number"
                                     type="text"
                                     class="form-control"
+                                    required
                                     :class="{ 'is-invalid': fieldErrors.pan_number }"
                                 />
                                 <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
@@ -86,7 +84,7 @@
                                 />
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label" for="contact_number">Contact Number</label>
+                                <label class="form-label" for="contact_number">Contact Number *</label>
                                 <input
                                     id="contact_number"
                                     :value="form.contact_number"
@@ -96,6 +94,7 @@
                                     autocomplete="tel"
                                     class="form-control"
                                     placeholder="10-digit mobile"
+                                    required
                                     :class="{ 'is-invalid': fieldErrors.contact_number }"
                                     @keydown="allowNumericKeydown"
                                     @input="onContactNumberInput"

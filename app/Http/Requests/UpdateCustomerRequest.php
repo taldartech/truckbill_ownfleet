@@ -47,7 +47,8 @@ class UpdateCustomerRequest extends FormRequest
                         return $query
                             ->where('tenant_id', $customer->tenant_id)
                             ->where('state_id', $this->input('state_id'))
-                            ->where('city_id', $this->input('city_id'));
+                            ->where('city_id', $this->input('city_id'))
+                            ->whereNull('deleted_at');
                     })
                     ->ignore($customer->id),
             ],
@@ -58,7 +59,7 @@ class UpdateCustomerRequest extends FormRequest
             'gst_number' => $this->partyGstNumberRules('customers', $customer->id, $customer->tenant_id),
             'pan_number' => $this->partyPanNumberRules('customers', $customer->id, $customer->tenant_id),
             'address' => ['nullable', 'string', 'max:2000'],
-            'contact_number' => $this->partyContactNumberRules('customers', $customer->id, $customer->tenant_id),
+            'contact_number' => $this->partyContactNumberRules('customers', $customer->id, $customer->tenant_id, required: true),
         ];
     }
 
@@ -68,6 +69,7 @@ class UpdateCustomerRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'name.unique' => 'This name is already used for another customer in the selected city.',
             ...$this->contactNumberMessages(),
             ...$this->partyIdentityMessages(),
         ];

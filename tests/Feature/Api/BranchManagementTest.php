@@ -53,9 +53,81 @@ class BranchManagementTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->deleteJson('/app/api/branches/'.$branchId)
-            ->assertNoContent();
+            ->assertOk()
+            ->assertJsonPath('message', 'Branch deleted.');
 
         $this->assertSoftDeleted('branches', ['id' => $branchId]);
+    }
+
+    public function test_branch_deletion_impact_returns_truck_and_driver_counts(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Impact Co');
+        $branch = Branch::query()->create([
+            'company_id' => $tenant->id,
+            'branch_name' => 'Impact Branch',
+            'branch_contact_number' => '9876543211',
+            'head_office' => true,
+        ]);
+
+        \App\Vehicle::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'branch_id' => $branch->id,
+            'registration_number' => 'MH12IMPACT',
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 100,
+            'is_active' => true,
+        ]);
+
+        \App\Driver::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'branch_id' => $branch->id,
+            'name' => 'Impact Driver',
+            'phone' => '9888777666',
+            'license_number' => 'DL-IMPACT',
+            'daily_wage' => 500,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->getJson('/app/api/branches/'.$branch->id.'/deletion-impact')
+            ->assertOk()
+            ->assertJsonPath('trucks_count', 1)
+            ->assertJsonPath('drivers_count', 1)
+            ->assertJsonPath('users_count', 0);
+    }
+
+    public function test_deleting_branch_clears_assigned_user_branch_id(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'User Unassign Co');
+        $branch = Branch::query()->create([
+            'company_id' => $tenant->id,
+            'branch_name' => 'User Branch',
+            'branch_contact_number' => '9876543212',
+            'head_office' => true,
+        ]);
+
+        $admin = User::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
+            'name' => 'Branch Admin',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::ADMIN,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->deleteJson('/app/api/branches/'.$branch->id)
+            ->assertOk();
+
+        $this->assertSoftDeleted('branches', ['id' => $branch->id]);
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'branch_id' => null,
+        ]);
     }
 
     public function test_super_admin_cannot_manage_branches_for_other_companies(): void

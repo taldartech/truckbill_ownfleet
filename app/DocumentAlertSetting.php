@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DocumentAlertSetting extends Model
 {
     use TenantScoped;
+    use BranchScoped;
 
     protected $primaryKey = 'tenant_id';
 
@@ -18,6 +20,7 @@ class DocumentAlertSetting extends Model
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'notify_live',
         'notify_email',
         'recipient_user_ids',

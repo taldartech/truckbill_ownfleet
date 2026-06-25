@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
@@ -13,10 +14,12 @@ class Driver extends Model
 {
     use SoftDeletes;
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'name',
         'phone',
         'license_number',

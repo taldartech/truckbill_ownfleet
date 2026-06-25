@@ -6,7 +6,7 @@
             <main class="app-main">
                 <div class="app-content-header main-content">
                     <div class="container-fluid">
-                        <RouterView />
+                        <RouterView :key="branchContextKey" />
                     </div>
                 </div>
             </main>

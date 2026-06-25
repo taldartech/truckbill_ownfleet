@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
 use App\Support\TenantContext;
 use App\Support\UserSessionManager;
@@ -38,8 +39,19 @@ class LoginController extends Controller
             ->where('email', $email)
             ->first();
 
-        if ($user === null || ! Hash::check($password, $user->getAuthPassword())) {
-            return $this->failedLoginResponse($request);
+        if ($user === null) {
+            return $this->loginErrorResponse($request, 'Email does not exist.');
+        }
+
+        if (! Hash::check($password, $user->getAuthPassword())) {
+            return $this->loginErrorResponse($request, 'Incorrect password.');
+        }
+
+        if (! $user->canLoginWithCurrentBranchAssignment()) {
+            return $this->blockedLoginResponse(
+                $request,
+                'No branch is assigned to your account. Please contact your Super Admin.',
+            );
         }
 
         UserSessionManager::invalidateOtherSessions($user, $request->session()->getId());
@@ -68,6 +80,7 @@ class LoginController extends Controller
     {
         Auth::logout();
         SelectedCompanySession::forget();
+        SelectedBranchSession::forget();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -86,10 +99,13 @@ class LoginController extends Controller
             ->with('status', 'You have been signed out.');
     }
 
-    private function failedLoginResponse(LoginRequest $request): RedirectResponse|JsonResponse
+    private function blockedLoginResponse(LoginRequest $request, string $message): RedirectResponse|JsonResponse
     {
-        $message = 'These credentials do not match our records.';
+        return $this->loginErrorResponse($request, $message);
+    }
 
+    private function loginErrorResponse(LoginRequest $request, string $message): RedirectResponse|JsonResponse
+    {
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => $message,

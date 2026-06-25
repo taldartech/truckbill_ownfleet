@@ -5,6 +5,8 @@ namespace App;
 use App\Concerns\HasPermissions;
 use App\Concerns\UsesUuid;
 use App\Mail\ResetPasswordMail;
+use App\Support\RoleHierarchy;
+use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +28,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'name',
         'email',
         'password',
@@ -50,6 +53,7 @@ class User extends Authenticatable
             'policy_accepted_at' => 'datetime',
             'password' => 'hashed',
             'user_role_id' => 'integer',
+            'branch_id' => 'integer',
             'document_alerts_live' => 'boolean',
             'document_alerts_email' => 'boolean',
         ];
@@ -58,6 +62,11 @@ class User extends Authenticatable
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**
@@ -147,8 +156,8 @@ class User extends Authenticatable
 
     public function dashboardUrl(): string
     {
-        if ($this->hasRole('super_admin') && $this->effectiveTenantId() === null) {
-            return '/app/companies';
+        if ($this->hasRole('super_admin') && $this->effectiveBranchId() === null) {
+            return '/app/branches';
         }
 
         return '/app/dashboard';
@@ -175,12 +184,44 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->user_role_id === UserRole::SUPER_ADMIN && $this->effectiveTenantId() !== null;
+        return $this->user_role_id === UserRole::SUPER_ADMIN && $this->effectiveBranchId() !== null;
+    }
+
+    public function effectiveBranchId(): ?int
+    {
+        if ($this->requiresAssignedBranch()) {
+            return $this->branch_id !== null ? (int) $this->branch_id : null;
+        }
+
+        if ($this->hasRole('super_admin')) {
+            return SelectedBranchSession::id();
+        }
+
+        return null;
+    }
+
+    public function requiresBranchSelection(): bool
+    {
+        return $this->hasRole('super_admin') && $this->effectiveBranchId() === null;
     }
 
     public function requiresCompanySelection(): bool
     {
-        return $this->user_role_id === UserRole::SUPER_ADMIN && $this->effectiveTenantId() === null;
+        return $this->requiresBranchSelection();
+    }
+
+    public function requiresAssignedBranch(): bool
+    {
+        return RoleHierarchy::requiresBranchAssignment((int) $this->user_role_id);
+    }
+
+    public function canLoginWithCurrentBranchAssignment(): bool
+    {
+        if (! $this->requiresAssignedBranch()) {
+            return true;
+        }
+
+        return $this->branch_id !== null;
     }
 
     public function canDeleteOperationalRecords(): bool

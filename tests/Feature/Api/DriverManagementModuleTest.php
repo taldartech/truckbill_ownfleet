@@ -629,7 +629,7 @@ class DriverManagementModuleTest extends TestCase
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
 
-        return [$tenant, $user];
+        return [$tenant, $this->assignBranchIfRequired($user, $tenant)];
     }
 
     private function createVehicle(Tenant $tenant): Vehicle

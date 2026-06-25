@@ -29,6 +29,9 @@
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
+        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
+        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
+
         <template v-if="truckContextReady">
         <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
             <div>
@@ -263,11 +266,30 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Purchase Date</label>
-                                <input v-model="form.purchase_date" type="date" class="form-control" />
+                                <input
+                                    v-model="form.purchase_date"
+                                    type="date"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.purchase_date }"
+                                />
+                                <div v-if="fieldErrors.purchase_date" class="invalid-feedback d-block">
+                                    {{ fieldErrors.purchase_date[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Purchase Cost</label>
-                                <input v-model.number="form.purchase_cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" />
+                                <input
+                                    v-model.number="form.purchase_cost"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': fieldErrors.purchase_cost }"
+                                />
+                                <div v-if="fieldErrors.purchase_cost" class="invalid-feedback d-block">
+                                    {{ fieldErrors.purchase_cost[0] }}
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Expected life (KM)</label>
@@ -343,7 +365,7 @@
                                 type="button"
                                 variant="primary"
                                 outline
-                                label="Save & Next"
+                                label="Save & Add More"
                                 :loading="saving"
                                 @click="saveAndNext"
                             />
@@ -428,6 +450,12 @@ const editing = ref(null);
 const serialNumberInputRef = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta } = useListPagination(15);
+const flash = reactive({ success: '', error: '' });
+
+function showToast(message, type = 'success') {
+    flash.success = type === 'success' ? message : '';
+    flash.error = type === 'error' ? message : '';
+}
 
 const form = reactive({
     serial_number: '',
@@ -542,12 +570,16 @@ function openCreate() {
     editing.value = null;
     resetForm();
     clearErrors();
+    flash.success = '';
+    flash.error = '';
     showModal.value = true;
 }
 
 async function openEdit(tyre) {
     editing.value = tyre;
     clearErrors();
+    flash.success = '';
+    flash.error = '';
     Object.assign(form, {
         serial_number: tyre.serial_number,
         brand: tyre.brand ?? '',
@@ -615,6 +647,8 @@ function buildPayload() {
     return {
         ...form,
         tyre_type: form.tyre_type || null,
+        purchase_date: form.purchase_date || null,
+        purchase_cost: form.purchase_cost === '' || form.purchase_cost == null ? null : form.purchase_cost,
         warranty_valid_until: form.warranty_valid_until || null,
         warranty_km: form.warranty_km === '' || form.warranty_km == null ? null : form.warranty_km,
     };
@@ -637,6 +671,7 @@ async function save() {
 
     try {
         await persistTyre();
+        showToast(editing.value ? 'Tyre updated successfully.' : 'Tyre added successfully.');
         closeModal();
         await loadTyres(pagination.currentPage);
     } catch (error) {
@@ -656,6 +691,7 @@ async function saveAndNext() {
 
     try {
         await persistTyre();
+        showToast('Tyre added successfully.');
         await loadTyres(pagination.currentPage);
         form.serial_number = '';
         await nextTick();

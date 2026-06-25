@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ApiQueryExceptionMapper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
+            'branch' => \App\Http\Middleware\ResolveBranch::class,
             'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
             'onboarding.signature' => \App\Http\Middleware\VerifyOnboardingSignature::class,
@@ -36,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
             \Illuminate\Session\Middleware\AuthenticateSession::class,
             \App\Http\Middleware\ResolveTenant::class,
+            \App\Http\Middleware\ResolveBranch::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
 
@@ -68,6 +71,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (QueryException $exception, Request $request) {
             if (! $request->is('app/api/*') && ! $request->is('api/*')) {
                 return null;
+            }
+
+            $integrityResponse = ApiQueryExceptionMapper::toValidationResponse($exception);
+
+            if ($integrityResponse !== null) {
+                return $integrityResponse;
             }
 
             $message = 'Unable to save. Please try again.';

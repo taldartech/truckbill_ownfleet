@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesManagedUserBranch;
 use App\Support\RoleHierarchy;
 use App\User;
 use App\UserRole;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class StoreManagedUserRequest extends FormRequest
 {
+    use ValidatesManagedUserBranch;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', User::class) ?? false;
@@ -41,6 +44,7 @@ class StoreManagedUserRequest extends FormRequest
             ],
             'document_alerts_live' => ['sometimes', 'boolean'],
             'document_alerts_email' => ['sometimes', 'boolean'],
+            'branch_id' => $this->managedUserBranchRulesForStore(),
         ];
     }
 
@@ -60,6 +64,7 @@ class StoreManagedUserRequest extends FormRequest
             'user_role_id.in' => 'You are not allowed to assign this role.',
             'tenant_id.required' => 'Company is required for this role.',
             'tenant_id.in' => 'You can only assign users to your own companies.',
+            ...$this->managedUserBranchMessages(),
         ];
     }
 }

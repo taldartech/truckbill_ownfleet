@@ -34,4 +34,10 @@ class BranchPolicy
     {
         return $this->update($user, $branch);
     }
+
+    public function enter(User $user, Branch $branch): bool
+    {
+        return $user->hasPermission('branches.enter')
+            && RoleHierarchy::actorOwnsTenant($user, (string) $branch->company_id);
+    }
 }

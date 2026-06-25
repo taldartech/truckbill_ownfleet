@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\TripStatus;
@@ -14,10 +15,12 @@ class Trip extends Model
 {
     use SoftDeletes;
     use TenantScoped;
+    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'vehicle_id',
         'driver_id',
         'substitute_driver_id',
