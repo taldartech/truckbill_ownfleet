@@ -310,7 +310,7 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
-import { formatDate, formatMonthYear } from '../../utils/datetime';
+import { formatDate, formatMonthYear, toDateInputValue, currentMonthValue } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
@@ -325,7 +325,7 @@ const monthLock = computed(() => monthOverview.value.month_lock ?? { status: 'op
 const isMonthEditable = computed(() => monthLock.value.status === 'open');
 const canEditGrid = computed(() => canBulkManageAttendance.value && isMonthEditable.value);
 const activeView = ref('day');
-const dayDate = ref(new Date().toISOString().slice(0, 10));
+const dayDate = ref(toDateInputValue());
 const dayOverview = ref({
     summary: { marked: 0, present: 0, absent: 0, paid: 0, unpaid: 0, exceptions: 0, no_work: 0 },
     rows: [],
@@ -429,9 +429,7 @@ const pagination = reactive({
 });
 
 function currentMonth() {
-    const now = new Date();
-
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return currentMonthValue();
 }
 
 function settlementMonth() {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,8 +29,8 @@ class DriverAssignmentResource extends JsonResource
             'is_primary' => (bool) $this->is_primary,
             'has_paid_attendance' => $hasPaidAttendance || $isPeriodLocked,
             'is_period_locked' => $isPeriodLocked,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
             'driver' => new DriverResource($this->whenLoaded('driver')),
             'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),
         ];

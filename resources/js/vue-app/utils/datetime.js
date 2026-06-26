@@ -1,9 +1,13 @@
 /**
  * User-facing date/time display — change format HERE only; whole app follows.
  *
+ * All calendar dates and clock times use APP_TIMEZONE (Asia/Kolkata), not the browser locale.
+ *
  * Date: 15/Jun/2026
  * Time: 04:23 pm
  */
+
+export const APP_TIMEZONE = 'Asia/Kolkata';
 
 export const USER_DATE_TIME_DISPLAY = {
     monthLocale: 'en-GB',
@@ -11,16 +15,153 @@ export const USER_DATE_TIME_DISPLAY = {
     hour12: true,
 };
 
-export function toDateInputValue(date = new Date()) {
-    const value = date instanceof Date ? date : new Date(date);
+const formatterCache = new Map();
 
-    if (Number.isNaN(value.getTime())) {
+function getFormatter(options) {
+    const key = JSON.stringify(options);
+
+    if (!formatterCache.has(key)) {
+        formatterCache.set(
+            key,
+            new Intl.DateTimeFormat('en-US', {
+                timeZone: APP_TIMEZONE,
+                ...options,
+            }),
+        );
+    }
+
+    return formatterCache.get(key);
+}
+
+function getAppTimezoneParts(date) {
+    const formatter = getFormatter({
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+
+    const parts = Object.fromEntries(
+        formatter
+            .formatToParts(date)
+            .filter((part) => part.type !== 'literal')
+            .map((part) => [part.type, part.value]),
+    );
+
+    return {
+        year: parts.year,
+        month: parts.month,
+        day: parts.day,
+        hour: Number(parts.hour),
+        minute: Number(parts.minute),
+        second: Number(parts.second),
+    };
+}
+
+function toDateInputFromParts(parts) {
+    return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function parseInstant(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    const date = new Date(String(value).trim());
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function zonedDateTimeToUtc(year, month, day, hour = 0, minute = 0, second = 0) {
+    const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+    const guess = new Date(utcGuess);
+    const parts = getAppTimezoneParts(guess);
+    const formattedAsUtc = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        parts.hour,
+        parts.minute,
+        parts.second,
+    );
+    const offset = formattedAsUtc - utcGuess;
+
+    return new Date(utcGuess - offset);
+}
+
+function parseDateOnlyInAppTimezone(value) {
+    const raw = String(value).trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (!match) {
+        return null;
+    }
+
+    return zonedDateTimeToUtc(Number(match[1]), Number(match[2]), Number(match[3]), 0, 0, 0);
+}
+
+function parseNaiveDateTimeInAppTimezone(value) {
+    const match = String(value)
+        .trim()
+        .match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+
+    if (!match) {
+        return null;
+    }
+
+    return zonedDateTimeToUtc(
+        Number(match[1]),
+        Number(match[2]),
+        Number(match[3]),
+        Number(match[4]),
+        Number(match[5]),
+        Number(match[6] ?? 0),
+    );
+}
+
+export function toDateInputValue(date = new Date()) {
+    const value = parseInstant(date);
+
+    if (!value) {
         return '';
     }
 
+    return toDateInputFromParts(getAppTimezoneParts(value));
+}
+
+export function toAppTimezoneIso(date = new Date()) {
+    const value = parseInstant(date);
+
+    if (!value) {
+        return '';
+    }
+
+    const parts = getAppTimezoneParts(value);
     const pad = (part) => String(part).padStart(2, '0');
 
-    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    return `${parts.year}-${parts.month}-${parts.day}T${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}+05:30`;
+}
+
+export function addDaysToDateInput(dateInput, offsetDays) {
+    const match = String(dateInput ?? '')
+        .trim()
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (!match) {
+        return '';
+    }
+
+    const base = zonedDateTimeToUtc(Number(match[1]), Number(match[2]), Number(match[3]), 12, 0, 0);
+    const shifted = new Date(base.getTime() + offsetDays * 86_400_000);
+
+    return toDateInputFromParts(getAppTimezoneParts(shifted));
+}
+
+export function currentMonthValue(date = new Date()) {
+    return toDateInputValue(date).slice(0, 7);
 }
 
 export function toDateInputFromIso(value) {
@@ -28,29 +169,29 @@ export function toDateInputFromIso(value) {
         return '';
     }
 
-    return String(value).slice(0, 10);
+    const raw = String(value).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return raw;
+    }
+
+    const dateOnlyMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+
+    if (dateOnlyMatch && !raw.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(raw)) {
+        return dateOnlyMatch[1];
+    }
+
+    const date = parseInstant(raw);
+
+    if (!date) {
+        return raw.slice(0, 10);
+    }
+
+    return toDateInputFromParts(getAppTimezoneParts(date));
 }
 
 export function dateOnlyFromDatetimeLocal(value) {
     return toDateInputFromIso(value);
-}
-
-function parseDisplayDate(value) {
-    if (!value) {
-        return null;
-    }
-
-    const dateOnly = String(value).slice(0, 10);
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-        const date = new Date(`${dateOnly}T00:00:00`);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = value instanceof Date ? value : new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function parseDisplayDateTime(value) {
@@ -65,27 +206,29 @@ function parseDisplayDateTime(value) {
     const raw = String(value).trim();
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        return parseDisplayDate(raw);
+        return parseDateOnlyInAppTimezone(raw);
     }
 
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw)) {
-        const normalized = raw.replace(' ', 'T');
-        const date = new Date(normalized);
+    const naiveDateTime = parseNaiveDateTimeInAppTimezone(raw);
 
-        return Number.isNaN(date.getTime()) ? null : date;
+    if (naiveDateTime) {
+        return naiveDateTime;
     }
 
-    const date = new Date(raw);
-
-    return Number.isNaN(date.getTime()) ? null : date;
+    return parseInstant(raw);
 }
 
 function monthShortName(date) {
-    return date.toLocaleDateString(USER_DATE_TIME_DISPLAY.monthLocale, { month: 'short' });
+    return date.toLocaleDateString(USER_DATE_TIME_DISPLAY.monthLocale, {
+        month: 'short',
+        timeZone: APP_TIMEZONE,
+    });
 }
 
 function buildUserDate(date) {
-    return `${date.getDate()}/${monthShortName(date)}/${date.getFullYear()}`;
+    const parts = getAppTimezoneParts(date);
+
+    return `${Number(parts.day)}/${monthShortName(date)}/${parts.year}`;
 }
 
 function buildUserTime(date) {
@@ -93,11 +236,14 @@ function buildUserTime(date) {
         hour: '2-digit',
         minute: '2-digit',
         hour12: USER_DATE_TIME_DISPLAY.hour12,
+        timeZone: APP_TIMEZONE,
     });
 }
 
 function hasMeaningfulTime(date) {
-    return date.getHours() !== 0 || date.getMinutes() !== 0 || date.getSeconds() !== 0;
+    const parts = getAppTimezoneParts(date);
+
+    return parts.hour !== 0 || parts.minute !== 0 || parts.second !== 0;
 }
 
 function valueHasTimeHint(value) {
@@ -243,13 +389,13 @@ export function formatMonthYear(value, defaultValue = '—') {
         return formatDate(value, defaultValue);
     }
 
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+    const date = zonedDateTimeToUtc(Number(match[1]), Number(match[2]), 1, 12, 0, 0);
 
     if (Number.isNaN(date.getTime())) {
         return defaultValue;
     }
 
-    return `${monthShortName(date)}/${date.getFullYear()}`;
+    return `${monthShortName(date)}/${match[1]}`;
 }
 
 /**
@@ -262,7 +408,10 @@ export function formatDateHeading(value, defaultValue = '—') {
         return defaultValue;
     }
 
-    const weekday = date.toLocaleDateString(USER_DATE_TIME_DISPLAY.monthLocale, { weekday: 'long' });
+    const weekday = date.toLocaleDateString(USER_DATE_TIME_DISPLAY.monthLocale, {
+        weekday: 'long',
+        timeZone: APP_TIMEZONE,
+    });
 
     return `${weekday}, ${buildUserDate(date)}`;
 }

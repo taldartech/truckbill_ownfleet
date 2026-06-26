@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ApiDateTime;
 use App\Attendance;
 use App\AttendanceMonthLock;
 use App\Exports\SettlementSheetExport;
@@ -178,8 +179,8 @@ class AttendanceController extends Controller
     {
         return [
             'status' => $lock->status->value,
-            'closed_at' => $lock->closed_at?->toISOString(),
-            'locked_at' => $lock->locked_at?->toISOString(),
+            'closed_at' => ApiDateTime::toIso($lock->closed_at),
+            'locked_at' => ApiDateTime::toIso($lock->locked_at),
         ];
     }
 

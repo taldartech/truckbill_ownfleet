@@ -121,7 +121,8 @@ import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
-import { formatDate } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
+import { thisMonthDateRange } from '../../utils/dateRangePresets';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 
@@ -138,12 +139,11 @@ const loading = ref(false);
 const flash = reactive({ error: '' });
 
 function defaultFilters() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const { from_date } = thisMonthDateRange();
 
     return {
-        from_date: start.toISOString().slice(0, 10),
-        to_date: now.toISOString().slice(0, 10),
+        from_date,
+        to_date: toDateInputValue(),
         vehicle_id: '',
         driver_id: '',
         status: '',

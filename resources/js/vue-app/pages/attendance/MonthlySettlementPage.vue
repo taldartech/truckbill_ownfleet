@@ -444,7 +444,7 @@ import {
 } from '../../api/attendances';
 import { usePermissions } from '../../composables/usePermissions';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
-import { formatMonthYear } from '../../utils/datetime';
+import { formatMonthYear, currentMonthValue } from '../../utils/datetime';
 
 const route = useRoute();
 const { canInCompany } = usePermissions();
@@ -614,9 +614,7 @@ const settlementConfirmConfig = computed(() => {
 });
 
 function currentMonth() {
-    const now = new Date();
-
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return currentMonthValue();
 }
 
 function formatMoney(value) {

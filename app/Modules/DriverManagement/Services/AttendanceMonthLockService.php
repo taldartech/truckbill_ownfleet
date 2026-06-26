@@ -2,6 +2,7 @@
 
 namespace App\Modules\DriverManagement\Services;
 
+use App\Support\ApiDateTime;
 use App\AttendanceMonthLock;
 use App\Enums\AttendanceMonthStatus;
 use App\Enums\WagePaymentStatus;
@@ -28,8 +29,8 @@ class AttendanceMonthLockService
 
         return [
             'status' => $status->value,
-            'closed_at' => $lock?->closed_at?->toISOString(),
-            'locked_at' => $lock?->locked_at?->toISOString(),
+            'closed_at' => ApiDateTime::toIso($lock?->closed_at),
+            'locked_at' => ApiDateTime::toIso($lock?->locked_at),
         ];
     }
 
@@ -284,7 +285,7 @@ class AttendanceMonthLockService
     private function currentMonthStartInTenantTimezone(): Carbon
     {
         $tenant = Tenant::query()->find(CurrentTenant::requireId());
-        $timezone = $tenant?->timezone ?? config('app.timezone', 'UTC');
+        $timezone = $tenant?->timezone ?? config('app.timezone', 'Asia/Kolkata');
 
         return Carbon::now($timezone)->startOfMonth();
     }

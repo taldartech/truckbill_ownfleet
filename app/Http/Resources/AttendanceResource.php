@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,10 +27,10 @@ class AttendanceResource extends JsonResource
             'wage_amount' => $this->wage_amount,
             'substitute_payment_amount' => $this->substitute_payment_amount,
             'wage_payment_status' => $this->wage_payment_status?->value ?? $this->wage_payment_status,
-            'wage_paid_at' => $this->wage_paid_at?->toISOString(),
+            'wage_paid_at' => ApiDateTime::toIso($this->wage_paid_at),
             'wage_transfer_notes' => $this->wage_transfer_notes,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
             'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),
             'primary_driver' => new DriverResource($this->whenLoaded('primaryDriver')),
             'temporary_driver' => new DriverResource($this->whenLoaded('temporaryDriver')),

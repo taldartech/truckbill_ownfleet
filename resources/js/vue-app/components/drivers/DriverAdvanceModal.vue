@@ -144,7 +144,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { fetchDriverAdvanceLedger } from '../../api/driverAdvances';
-import { formatDate } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
 import { useAppToast } from '../../composables/useAppToast';
 
 const toast = useAppToast();
@@ -169,7 +169,7 @@ const entries = ref([]);
 const form = ref({
     entry_type: 'dr',
     amount: '',
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: toDateInputValue(),
     remarks: '',
 });
 
@@ -187,7 +187,7 @@ function resetForm() {
     form.value = {
         entry_type: 'dr',
         amount: '',
-        entry_date: new Date().toISOString().slice(0, 10),
+        entry_date: toDateInputValue(),
         remarks: '',
     };
 }

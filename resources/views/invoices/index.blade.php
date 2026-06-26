@@ -697,7 +697,7 @@
             $('#payment_amount').val('');
             $('#payment_mode').val('');
             $('#payment_remark').val('');
-            $('#payment_date').val(new Date().toISOString().split('T')[0]); // Set today's date
+            $('#payment_date').val(@json(now()->timezone(config('app.timezone'))->format('Y-m-d')));
             $('#payment_error').addClass('d-none').text('');
 
                 // Show modal - ensure Bootstrap is loaded

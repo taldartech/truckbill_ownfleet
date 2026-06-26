@@ -253,6 +253,7 @@ import {
 import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
+import { toDateInputValue } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
@@ -479,7 +480,7 @@ function resetAssignForm() {
     editingAssignment.value = null;
     assignForm.value = {
         driver_id: '',
-        assigned_from: asOfDate.value || new Date().toISOString().slice(0, 10),
+        assigned_from: asOfDate.value || toDateInputValue(),
         assigned_to: '',
     };
 }

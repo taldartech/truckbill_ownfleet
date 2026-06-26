@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Support\RoleHierarchy;
 use App\UserRole;
 use Illuminate\Http\Request;
@@ -59,8 +60,8 @@ class UserResource extends JsonResource
                     : null,
                 'lr_credits' => $activeTenant?->lr_credits,
             ],
-            'email_verified_at' => $this->email_verified_at?->toISOString(),
-            'created_at' => $this->created_at?->toISOString(),
+            'email_verified_at' => ApiDateTime::toIso($this->email_verified_at),
+            'created_at' => ApiDateTime::toIso($this->created_at),
         ];
     }
 }

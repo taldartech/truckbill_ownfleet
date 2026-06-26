@@ -801,7 +801,7 @@
                 $('#transporter_name_display').val(transporterName);
 
                 // Set today's date as default
-                var today = new Date().toISOString().split('T')[0];
+                var today = @json(now()->timezone(config('app.timezone'))->format('Y-m-d'));
                 $('#payment_date').val(today);
 
                 // Clear any previous validation states

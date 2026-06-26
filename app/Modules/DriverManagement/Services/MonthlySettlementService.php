@@ -2,6 +2,7 @@
 
 namespace App\Modules\DriverManagement\Services;
 
+use App\Support\ApiDateTime;
 use App\AttendanceMonthLock;
 use App\Driver;
 use App\DriverAdvanceEntry;
@@ -300,7 +301,7 @@ class MonthlySettlementService
             'round_net' => (bool) ($wage?->round_net ?? false),
             'remarks' => $wage?->remarks,
             'payment_status' => $wage?->payment_status?->value ?? $wage?->payment_status ?? 'unpaid',
-            'paid_at' => $wage?->paid_at?->toISOString(),
+            'paid_at' => ApiDateTime::toIso($wage?->paid_at),
         ];
     }
 
@@ -367,7 +368,7 @@ class MonthlySettlementService
             'round_net' => (bool) $wage->round_net,
             'remarks' => $wage->remarks,
             'payment_status' => $wage->payment_status?->value ?? $wage->payment_status ?? 'unpaid',
-            'paid_at' => $wage->paid_at?->toISOString(),
+            'paid_at' => ApiDateTime::toIso($wage->paid_at),
         ];
     }
 

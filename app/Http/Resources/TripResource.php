@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,11 +27,11 @@ class TripResource extends JsonResource
             'start_station_id' => $this->start_station_id,
             'start_station' => new StationResource($this->whenLoaded('startStation')),
             'status' => $this->status?->value ?? $this->status,
-            'start_at' => $this->start_at?->toISOString(),
-            'end_at' => $this->end_at?->toISOString(),
-            'cancelled_at' => $this->cancelled_at?->toISOString(),
+            'start_at' => ApiDateTime::toIso($this->start_at),
+            'end_at' => ApiDateTime::toIso($this->end_at),
+            'cancelled_at' => ApiDateTime::toIso($this->cancelled_at),
             'cancellation_reason' => $this->cancellation_reason,
-            'actual_arrival_at' => $this->actual_arrival_at?->toISOString(),
+            'actual_arrival_at' => ApiDateTime::toIso($this->actual_arrival_at),
             'total_distance_km' => $this->total_distance_km,
             'loaded_distance_km' => $this->loaded_distance_km,
             'half_loaded_distance_km' => $this->half_loaded_distance_km,
@@ -47,11 +48,11 @@ class TripResource extends JsonResource
                 'id' => $history->id,
                 'from_status' => $history->from_status,
                 'to_status' => $history->to_status,
-                'changed_at' => $history->changed_at?->toISOString(),
+                'changed_at' => ApiDateTime::toIso($history->changed_at),
                 'remarks' => $history->remarks,
             ])),
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 }

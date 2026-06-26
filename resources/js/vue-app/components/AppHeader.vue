@@ -149,7 +149,7 @@ import {
     markAllNotificationsRead,
     markNotificationRead,
 } from '../api/notifications';
-import { formatDisplay } from '../utils/datetime';
+import { formatDisplay, toAppTimezoneIso, toDateInputValue, addDaysToDateInput } from '../utils/datetime';
 const props = defineProps({
     user: {
         type: Object,
@@ -286,7 +286,7 @@ async function handleNotificationClick(notification) {
     if (!notification.read_at) {
         try {
             await markNotificationRead(notification.id);
-            notification.read_at = new Date().toISOString();
+            notification.read_at = toAppTimezoneIso();
             unreadCount.value = Math.max(0, unreadCount.value - 1);
         } catch {
             // ignore
@@ -305,7 +305,7 @@ async function handleMarkAllRead() {
         await markAllNotificationsRead();
         notifications.value = notifications.value.map((notification) => ({
             ...notification,
-            read_at: notification.read_at ?? new Date().toISOString(),
+            read_at: notification.read_at ?? toAppTimezoneIso(),
         }));
         unreadCount.value = 0;
     } catch {
