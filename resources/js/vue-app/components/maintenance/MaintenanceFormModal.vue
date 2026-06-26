@@ -198,7 +198,7 @@ import { computed, ref, watch } from 'vue';
 import { buildVehicleSelectOptions, listAllVehicles } from '../../api/vehicles';
 import { buildMaintenanceServiceTypeSelectOptions, listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
 import SearchableSelect from '../ui/SearchableSelect.vue';
-import { toDateInputValue } from '../../utils/datetime';
+import { addDaysToDateInput, toDateInputValue } from '../../utils/datetime';
 import { mergeLookupOption } from '../../utils/mergeLookupOption';
 
 const props = defineProps({
@@ -268,19 +268,7 @@ const displayFormError = computed(() => props.formError || clientFormError.value
 const form = ref(emptyForm());
 
 function dayAfter(dateString) {
-    if (!dateString) {
-        return '';
-    }
-
-    const date = new Date(`${dateString}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    date.setDate(date.getDate() + 1);
-
-    return toDateInputValue(date);
+    return addDaysToDateInput(dateString, 1);
 }
 
 function emptyForm() {
