@@ -1,4 +1,4 @@
-import { formatDate } from './datetime';
+import { addDaysToDateInput, formatDate, toDateInputValue } from './datetime';
 
 export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
 
@@ -17,7 +17,7 @@ function pad(value) {
 }
 
 export function toIsoDate(date) {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    return toDateInputValue(date);
 }
 
 export function todayDateRange(referenceDate = new Date()) {
@@ -27,21 +27,17 @@ export function todayDateRange(referenceDate = new Date()) {
 }
 
 export function yesterdayDateRange(referenceDate = new Date()) {
-    const yesterday = new Date(referenceDate);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const iso = toIsoDate(yesterday);
+    const iso = addDaysToDateInput(toIsoDate(referenceDate), -1);
 
     return { from_date: iso, to_date: iso };
 }
 
 export function lastDaysDateRange(days, referenceDate = new Date()) {
-    const end = new Date(referenceDate);
-    const start = new Date(referenceDate);
-    start.setDate(start.getDate() - (days - 1));
+    const toDate = toIsoDate(referenceDate);
 
     return {
-        from_date: toIsoDate(start),
-        to_date: toIsoDate(end),
+        from_date: addDaysToDateInput(toDate, -(days - 1)),
+        to_date: toDate,
     };
 }
 
@@ -54,25 +50,29 @@ export function lastThirtyDaysDateRange(referenceDate = new Date()) {
 }
 
 export function thisMonthDateRange(referenceDate = new Date()) {
-    const year = referenceDate.getFullYear();
-    const month = referenceDate.getMonth();
-    const lastDay = new Date(year, month + 1, 0).getDate();
+    const [year, month] = toIsoDate(referenceDate).split('-').map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
 
     return {
-        from_date: `${year}-${pad(month + 1)}-01`,
-        to_date: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
+        from_date: `${year}-${pad(month)}-01`,
+        to_date: `${year}-${pad(month)}-${pad(lastDay)}`,
     };
 }
 
 export function lastMonthDateRange(referenceDate = new Date()) {
-    const year = referenceDate.getFullYear();
-    const month = referenceDate.getMonth() - 1;
-    const anchor = new Date(year, month, 1);
-    const lastDay = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+    let [year, month] = toIsoDate(referenceDate).split('-').map(Number);
+    month -= 1;
+
+    if (month < 1) {
+        month = 12;
+        year -= 1;
+    }
+
+    const lastDay = new Date(year, month, 0).getDate();
 
     return {
-        from_date: `${anchor.getFullYear()}-${pad(anchor.getMonth() + 1)}-01`,
-        to_date: `${anchor.getFullYear()}-${pad(anchor.getMonth() + 1)}-${pad(lastDay)}`,
+        from_date: `${year}-${pad(month)}-01`,
+        to_date: `${year}-${pad(month)}-${pad(lastDay)}`,
     };
 }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ApiDateTime;
 use App\AppNotification;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -91,8 +92,8 @@ class AppNotificationController extends Controller
             'title' => $notification->title,
             'body' => $notification->body,
             'data' => $notification->data ?? [],
-            'read_at' => $notification->read_at?->toISOString(),
-            'created_at' => $notification->created_at?->toISOString(),
+            'read_at' => ApiDateTime::toIso($notification->read_at),
+            'created_at' => ApiDateTime::toIso($notification->created_at),
         ];
     }
 }

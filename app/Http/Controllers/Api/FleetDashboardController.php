@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ApiDateTime;
 use App\Http\Controllers\Controller;
 use App\Support\FleetComplianceAlerts;
 use App\Support\FleetDashboardStats;
@@ -20,7 +21,7 @@ class FleetDashboardController extends Controller
             return response()->json([
                 'fleet' => null,
                 'requires_company' => true,
-                'generated_at' => now()->toISOString(),
+                'generated_at' => ApiDateTime::toIso(now()),
             ]);
         }
 

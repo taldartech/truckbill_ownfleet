@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,7 +21,7 @@ class DriverAdvanceEntryResource extends JsonResource
             'amount' => $this->amount,
             'entry_date' => $this->entry_date?->toDateString(),
             'remarks' => $this->remarks,
-            'created_at' => $this->created_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,8 +18,8 @@ class DocumentTypeResource extends JsonResource
             'name' => $this->name,
             'code' => $this->code,
             'is_active' => (bool) $this->is_active,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 }

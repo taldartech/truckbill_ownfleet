@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Support\RoleHierarchy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -21,8 +22,8 @@ class UserRoleResource extends JsonResource
             'is_super_admin' => RoleHierarchy::isSuperAdminRole((int) $this->id),
             'permissions_count' => $this->whenCounted('permissions'),
             'permissions' => PermissionResource::collection($this->whenLoaded('permissions')),
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 }

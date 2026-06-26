@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Support\RoleHierarchy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -29,8 +30,8 @@ class ManagedUserResource extends JsonResource
             'is_protected' => RoleHierarchy::isProtectedRole((int) $this->user_role_id),
             'document_alerts_live' => (bool) $this->document_alerts_live,
             'document_alerts_email' => (bool) $this->document_alerts_email,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 }

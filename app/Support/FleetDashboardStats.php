@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Support\ApiDateTime;
 use App\Driver;
 use App\Enums\AttendanceStatus;
 use App\Enums\TripStatus;
@@ -69,7 +70,7 @@ class FleetDashboardStats
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
             ],
-            'generated_at' => now()->toISOString(),
+            'generated_at' => ApiDateTime::toIso(now()),
         ];
 
         if ($user->hasPermission('trips.view')) {
@@ -174,7 +175,7 @@ class FleetDashboardStats
                 'trip_number' => $trip->trip_number,
                 'vehicle_registration' => $trip->vehicle?->registration_number,
                 'driver_name' => $trip->driver?->name,
-                'start_at' => $trip->start_at?->toISOString(),
+                'start_at' => ApiDateTime::toIso($trip->start_at),
             ])
             ->all();
     }

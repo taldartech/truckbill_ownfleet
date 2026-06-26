@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Enums\PayrollPayDaysMode;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,8 +40,8 @@ class CompanyResource extends JsonResource
             'lr_credits' => $this->lr_credits,
             'truck_credits' => $this->truck_credits,
             'payroll_pay_days_mode' => $this->resolvePayrollPayDaysMode(),
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 

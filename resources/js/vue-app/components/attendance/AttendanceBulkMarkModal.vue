@@ -108,6 +108,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
+import { toDateInputValue } from '../../utils/datetime';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -126,7 +127,7 @@ const emit = defineEmits(['close', 'submit']);
 const modalElement = ref(null);
 let bootstrapModal = null;
 
-const today = computed(() => new Date().toISOString().slice(0, 10));
+const today = computed(() => toDateInputValue());
 
 const form = ref({
     vehicle_id: '',

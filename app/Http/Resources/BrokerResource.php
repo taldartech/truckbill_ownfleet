@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -48,8 +49,8 @@ class BrokerResource extends JsonResource
             'country_name' => $countryName,
             'state_name' => $stateName,
             'city_name' => $cityName,
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
     }
 }

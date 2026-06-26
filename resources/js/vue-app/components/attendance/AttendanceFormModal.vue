@@ -109,7 +109,7 @@ import {
     isSubstituteDriverBusy,
     substituteBusyLabel,
 } from '../../utils/substituteDriverAvailability';
-import { formatDate } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -133,7 +133,7 @@ let bootstrapModal = null;
 
 const isEdit = computed(() => props.mode === 'edit');
 
-const today = computed(() => new Date().toISOString().slice(0, 10));
+const today = computed(() => toDateInputValue());
 
 const isFutureDate = computed(() => {
     const date = form.value.attendance_date;
@@ -233,7 +233,7 @@ const contextSummary = computed(() => {
 
 function emptyForm() {
     return {
-        attendance_date: new Date().toISOString().slice(0, 10),
+        attendance_date: toDateInputValue(),
         vehicle_id: '',
         primary_driver_id: '',
         temporary_driver_id: '',
@@ -255,7 +255,7 @@ function fillForm(record) {
         attendance_date:
             record?.attendance_date ??
             props.prefilledDate ??
-            new Date().toISOString().slice(0, 10),
+            toDateInputValue(),
         vehicle_id: record?.vehicle_id ?? props.prefilledVehicleId ?? '',
         primary_driver_id: record?.primary_driver_id ?? '',
         temporary_driver_id: record?.temporary_driver_id ?? '',

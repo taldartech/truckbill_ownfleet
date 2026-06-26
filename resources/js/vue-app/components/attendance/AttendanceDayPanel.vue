@@ -210,7 +210,7 @@ import {
     buildBusySubstituteDriversByDate,
     isSubstituteDriverBusy,
 } from '../../utils/substituteDriverAvailability';
-import { formatDateHeading } from '../../utils/datetime';
+import { formatDateHeading, toDateInputValue, addDaysToDateInput } from '../../utils/datetime';
 
 const props = defineProps({
     selectedDate: {
@@ -261,7 +261,7 @@ const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(null);
 const pendingSavePayload = ref(null);
 
-const today = computed(() => new Date().toISOString().slice(0, 10));
+const today = computed(() => toDateInputValue());
 
 const dayLabel = computed(() => {
     if (!props.selectedDate) {
@@ -816,9 +816,7 @@ function onDateInput(event) {
 }
 
 function shiftDay(offset) {
-    const base = new Date(`${props.selectedDate}T12:00:00`);
-    base.setDate(base.getDate() + offset);
-    const next = base.toISOString().slice(0, 10);
+    const next = addDaysToDateInput(props.selectedDate, offset);
 
     if (next > today.value) {
         return;

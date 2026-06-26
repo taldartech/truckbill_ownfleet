@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,9 +41,9 @@ class MonthlyDriverWageResource extends JsonResource
             'round_net' => (bool) $this->round_net,
             'remarks' => $this->remarks,
             'payment_status' => $this->payment_status?->value ?? $this->payment_status,
-            'paid_at' => $this->paid_at?->toISOString(),
+            'paid_at' => ApiDateTime::toIso($this->paid_at),
             'payment_notes' => $this->payment_notes,
-            'closed_at' => $this->closed_at?->toISOString(),
+            'closed_at' => ApiDateTime::toIso($this->closed_at),
             'driver' => new DriverResource($this->whenLoaded('driver')),
         ];
     }

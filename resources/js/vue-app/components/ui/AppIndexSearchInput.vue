@@ -11,6 +11,7 @@
             :disabled="disabled"
             @input="$emit('update:modelValue', $event.target.value)"
             @keydown.enter="$emit('keydown.enter', $event)"
+            @search="$emit('update:modelValue', $event.target.value)"
         />
     </div>
 </template>

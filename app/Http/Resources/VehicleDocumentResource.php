@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ApiDateTime;
 use App\Enums\VehicleDocumentType;
 use App\Support\DocumentTypeDefaults;
 use Illuminate\Http\Request;
@@ -43,8 +44,8 @@ class VehicleDocumentResource extends JsonResource
             ),
             'reminder_days_before' => $this->reminder_days_before,
             'is_expired' => $this->expiry_date !== null && $this->expiry_date->isPast(),
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => ApiDateTime::toIso($this->created_at),
+            'updated_at' => ApiDateTime::toIso($this->updated_at),
             'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),
         ];
     }

@@ -399,7 +399,7 @@
                     mode: $('#payment_mode').val(),
                     amount: parseFloat($('#payment_amount').val()),
                     remark: $('#payment_remark').val(),
-                    payment_date: $('#payment_date').val() || new Date().toISOString().split('T')[0],
+                    payment_date: $('#payment_date').val() || @json(now()->timezone(config('app.timezone'))->format('Y-m-d')),
                     _token: '{{ csrf_token() }}'
                 };
 

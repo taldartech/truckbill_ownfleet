@@ -1,4 +1,5 @@
 import api from '../api';
+import { thisMonthDateRange } from '../utils/dateRangePresets';
 
 const tripsBase = '/app/api/trips';
 
@@ -391,17 +392,7 @@ export function isTerminalTripStatus(status) {
     return ['COMPLETED', 'CANCELLED'].includes(String(status ?? '').toUpperCase());
 }
 
-export function thisMonthDateRange(referenceDate = new Date()) {
-    const year = referenceDate.getFullYear();
-    const month = referenceDate.getMonth();
-    const pad = (value) => String(value).padStart(2, '0');
-    const lastDay = new Date(year, month + 1, 0).getDate();
-
-    return {
-        from_date: `${year}-${pad(month + 1)}-01`,
-        to_date: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
-    };
-}
+export { thisMonthDateRange };
 
 export function defaultTripListFilters() {
     return {

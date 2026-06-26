@@ -28,76 +28,80 @@
             ></i>
         </button>
 
-        <div
-            v-if="isOpen"
-            class="dashboard-date-range__panel"
-            :class="{
-                'dashboard-date-range__panel--custom': draftPreset === 'custom',
-                'dashboard-date-range__panel--align-start': panelAlign === 'start',
-            }"
-        >
-            <div class="dashboard-date-range__presets" role="listbox" aria-label="Date range presets">
-                <button
-                    v-for="preset in selectablePresets"
-                    :key="preset.key"
-                    type="button"
-                    class="dashboard-date-range__preset"
-                    :class="{ 'dashboard-date-range__preset--active': draftPreset === preset.key }"
-                    role="option"
-                    :aria-selected="draftPreset === preset.key"
-                    @click="selectPreset(preset.key)"
-                >
-                    {{ preset.label }}
-                </button>
+        <Teleport to="body">
+            <div
+                v-if="isOpen"
+                ref="panelRef"
+                class="dashboard-date-range__panel dashboard-date-range__panel--fixed"
+                :class="{
+                    'dashboard-date-range__panel--custom': draftPreset === 'custom',
+                    'dashboard-date-range__panel--align-start': panelAlign === 'start',
+                }"
+                :style="panelStyle"
+            >
+                <div class="dashboard-date-range__presets" role="listbox" aria-label="Date range presets">
+                    <button
+                        v-for="preset in selectablePresets"
+                        :key="preset.key"
+                        type="button"
+                        class="dashboard-date-range__preset"
+                        :class="{ 'dashboard-date-range__preset--active': draftPreset === preset.key }"
+                        role="option"
+                        :aria-selected="draftPreset === preset.key"
+                        @click="selectPreset(preset.key)"
+                    >
+                        {{ preset.label }}
+                    </button>
 
-                <button
-                    type="button"
-                    class="dashboard-date-range__preset"
-                    :class="{ 'dashboard-date-range__preset--active': draftPreset === 'custom' }"
-                    role="option"
-                    :aria-selected="draftPreset === 'custom'"
-                    @click="selectPreset('custom')"
-                >
-                    Custom Range
-                </button>
-            </div>
-
-            <div v-if="draftPreset === 'custom'" class="dashboard-date-range__custom">
-                <div>
-                    <label class="form-label small text-muted mb-1">From</label>
-                    <input
-                        v-model="draftFromDate"
-                        type="date"
-                        class="form-control form-control-sm"
-                        @change="onCustomDateChange"
-                    />
+                    <button
+                        type="button"
+                        class="dashboard-date-range__preset"
+                        :class="{ 'dashboard-date-range__preset--active': draftPreset === 'custom' }"
+                        role="option"
+                        :aria-selected="draftPreset === 'custom'"
+                        @click="selectPreset('custom')"
+                    >
+                        Custom Range
+                    </button>
                 </div>
-                <div>
-                    <label class="form-label small text-muted mb-1">To</label>
-                    <input
-                        v-model="draftToDate"
-                        type="date"
-                        class="form-control form-control-sm"
-                        :min="draftFromDate"
-                        @change="onCustomDateChange"
-                    />
+
+                <div v-if="draftPreset === 'custom'" class="dashboard-date-range__custom">
+                    <div>
+                        <label class="form-label small text-muted mb-1">From</label>
+                        <input
+                            v-model="draftFromDate"
+                            type="date"
+                            class="form-control form-control-sm"
+                            @change="onCustomDateChange"
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted mb-1">To</label>
+                        <input
+                            v-model="draftToDate"
+                            type="date"
+                            class="form-control form-control-sm"
+                            :min="draftFromDate"
+                            @change="onCustomDateChange"
+                        />
+                    </div>
+                </div>
+
+                <div class="dashboard-date-range__actions">
+                    <button type="button" class="btn btn-sm btn-primary px-4" @click="applyDraft">
+                        Apply
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary px-4" @click="cancelDraft">
+                        Cancel
+                    </button>
                 </div>
             </div>
-
-            <div class="dashboard-date-range__actions">
-                <button type="button" class="btn btn-sm btn-primary px-4" @click="applyDraft">
-                    Apply
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary px-4" @click="cancelDraft">
-                    Cancel
-                </button>
-            </div>
-        </div>
+        </Teleport>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     DATE_RANGE_PRESETS,
     detectDateRangePreset,
@@ -132,7 +136,12 @@ const props = defineProps({
 const emit = defineEmits(['update:fromDate', 'update:toDate', 'change']);
 
 const rootElement = ref(null);
+const panelRef = ref(null);
 const isOpen = ref(false);
+const panelStyle = ref({});
+
+const PANEL_WIDTH = 256;
+const PANEL_WIDTH_CUSTOM = 320;
 
 const appliedFromDate = ref(props.fromDate);
 const appliedToDate = ref(props.toDate);
@@ -171,6 +180,42 @@ function resetDraftFromApplied() {
     draftPreset.value = detectDateRangePreset(appliedFromDate.value, appliedToDate.value);
 }
 
+function panelWidth() {
+    return draftPreset.value === 'custom' ? PANEL_WIDTH_CUSTOM : PANEL_WIDTH;
+}
+
+function updatePanelPosition() {
+    const trigger = rootElement.value;
+
+    if (!trigger || !isOpen.value) {
+        return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const width = panelWidth();
+    const viewportPadding = 8;
+    let left = props.panelAlign === 'start' ? rect.left : rect.right - width;
+
+    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - width - viewportPadding));
+
+    panelStyle.value = {
+        position: 'fixed',
+        top: `${rect.bottom + 4}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        zIndex: '2100',
+    };
+}
+
+function openDropdown() {
+    resetDraftFromApplied();
+    isOpen.value = true;
+
+    nextTick(() => {
+        updatePanelPosition();
+    });
+}
+
 function toggleDropdown() {
     if (isOpen.value) {
         cancelDraft();
@@ -178,8 +223,7 @@ function toggleDropdown() {
         return;
     }
 
-    resetDraftFromApplied();
-    isOpen.value = true;
+    openDropdown();
 }
 
 function selectPreset(presetKey) {
@@ -223,13 +267,17 @@ function cancelDraft() {
 }
 
 function onDocumentClick(event) {
-    if (!isOpen.value || !rootElement.value) {
+    if (!isOpen.value) {
         return;
     }
 
-    if (!rootElement.value.contains(event.target)) {
-        cancelDraft();
+    const target = event.target;
+
+    if (rootElement.value?.contains(target) || panelRef.value?.contains(target)) {
+        return;
     }
+
+    cancelDraft();
 }
 
 function onDocumentKeydown(event) {
@@ -238,14 +286,32 @@ function onDocumentKeydown(event) {
     }
 }
 
+function onViewportChange() {
+    if (isOpen.value) {
+        updatePanelPosition();
+    }
+}
+
 onMounted(() => {
     document.addEventListener('click', onDocumentClick);
     document.addEventListener('keydown', onDocumentKeydown);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
     document.removeEventListener('click', onDocumentClick);
     document.removeEventListener('keydown', onDocumentKeydown);
+    window.removeEventListener('resize', onViewportChange);
+    window.removeEventListener('scroll', onViewportChange, true);
+});
+
+watch(draftPreset, () => {
+    if (isOpen.value) {
+        nextTick(() => {
+            updatePanelPosition();
+        });
+    }
 });
 </script>
 
@@ -270,7 +336,7 @@ onUnmounted(() => {
 }
 
 .dashboard-date-range--open {
-    z-index: 1060;
+    z-index: auto;
 }
 
 .dashboard-date-range__label {
@@ -325,14 +391,10 @@ onUnmounted(() => {
 .dashboard-date-range__chevron--open {
     transform: rotate(180deg);
 }
+</style>
 
+<style>
 .dashboard-date-range__panel {
-    position: absolute;
-    top: calc(100% + 0.35rem);
-    right: 0;
-    left: auto;
-    z-index: 1061;
-    width: 16rem;
     padding: 0.75rem;
     border: 1px solid #dbe3ef;
     border-radius: 0.65rem;
@@ -341,13 +403,8 @@ onUnmounted(() => {
     box-sizing: border-box;
 }
 
-.dashboard-date-range__panel--custom {
-    width: 20rem;
-}
-
-.dashboard-date-range__panel--align-start {
-    right: auto;
-    left: 0;
+.dashboard-date-range__panel--fixed {
+    z-index: 2100;
 }
 
 .dashboard-date-range__presets {

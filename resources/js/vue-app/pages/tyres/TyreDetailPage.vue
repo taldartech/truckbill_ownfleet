@@ -656,7 +656,7 @@ import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
 import SearchableSelect from '../../components/ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { calculateTyreStintKm, resolveVehicleOdometer } from '../../utils/tyreStint';
-import { formatDate, formatEventParts } from '../../utils/datetime';
+import { formatDate, formatEventParts, toDateInputValue } from '../../utils/datetime';
 import {
     formatDamageType,
     formatTyreStatus,
@@ -774,7 +774,7 @@ function prefillInstallOdometer(vehicleId) {
 }
 
 function todayIsoDate() {
-    return new Date().toISOString().slice(0, 10);
+    return toDateInputValue();
 }
 
 function createActionFormDefaults() {

@@ -1,4 +1,5 @@
 import api from '../api';
+import { currentMonthValue } from '../utils/datetime';
 
 const reportsBase = '/app/api/reports/fleet-monthly';
 
@@ -13,8 +14,4 @@ export function exportFleetMonthlyReport(month) {
     window.location.href = `${reportsBase}/export?${params.toString()}`;
 }
 
-export function currentMonthValue() {
-    const now = new Date();
-
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
+export { currentMonthValue };
