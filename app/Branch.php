@@ -17,12 +17,14 @@ class Branch extends Model
         'branch_address',
         'branch_contact_number',
         'head_office',
+        'trip_sequence_start',
     ];
 
     protected function casts(): array
     {
         return [
             'head_office' => 'boolean',
+            'trip_sequence_start' => 'integer',
         ];
     }
 

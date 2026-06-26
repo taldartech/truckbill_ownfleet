@@ -59,6 +59,24 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'challans.view' },
                 },
                 {
+                    path: 'maintenance/records',
+                    name: 'maintenance.records',
+                    component: () => import('./pages/maintenance/MaintenanceRecordsIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance.view' },
+                },
+                {
+                    path: 'maintenance/due',
+                    name: 'maintenance.due',
+                    component: () => import('./pages/maintenance/MaintenanceDueIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance.view' },
+                },
+                {
+                    path: 'maintenance/reports',
+                    name: 'maintenance.reports',
+                    component: () => import('./pages/maintenance/MaintenanceReportsPage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance_reports.view' },
+                },
+                {
                     path: 'attendance',
                     name: 'attendance.index',
                     component: () => import('./pages/attendance/AttendancesIndexPage.vue'),

@@ -26,9 +26,7 @@ class TripExpense extends Model
         'amount',
         'fuel_liters',
         'fuel_rate',
-        'odometer_start',
-        'odometer_end',
-        'distance_km',
+        'fuel_odometer_km',
         'currency',
         'notes',
         'created_by',
@@ -42,9 +40,7 @@ class TripExpense extends Model
             'amount' => 'decimal:2',
             'fuel_liters' => 'decimal:2',
             'fuel_rate' => 'decimal:2',
-            'odometer_start' => 'decimal:2',
-            'odometer_end' => 'decimal:2',
-            'distance_km' => 'decimal:2',
+            'fuel_odometer_km' => 'decimal:2',
             'expense_date' => 'date',
         ];
     }

@@ -222,6 +222,58 @@
                             </div>
                         </div>
                     </div>
+
+                    <div v-if="canViewMaintenance" class="card mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>Maintenance History</strong>
+                            <div class="d-flex gap-2">
+                                <RouterLink
+                                    :to="{ name: 'maintenance.records', query: { vehicle_id: vehicle.id } }"
+                                    class="btn btn-sm btn-outline-secondary"
+                                >
+                                    View All
+                                </RouterLink>
+                                <button
+                                    v-if="canCreateMaintenance"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    @click="openMaintenanceCreate"
+                                >
+                                    Add Service
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div v-if="maintenanceLoading" class="text-muted text-center py-4">
+                                Loading maintenance history…
+                            </div>
+                            <div v-else-if="maintenanceRecords.length === 0" class="text-muted text-center py-4">
+                                No service records for this truck.
+                            </div>
+                            <div v-else class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Service Type</th>
+                                            <th>Provider</th>
+                                            <th class="text-end">Meter Reading</th>
+                                            <th class="text-end">Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="record in maintenanceRecords" :key="record.id">
+                                            <td>{{ formatDate(record.service_date) }}</td>
+                                            <td>{{ record.service_type_label ?? record.service_type }}</td>
+                                            <td>{{ record.service_provider || '—' }}</td>
+                                            <td class="text-end">{{ formatOdometer(record.odometer_km) }}</td>
+                                            <td class="text-end">{{ formatMaintenanceCost(record.cost_amount) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-lg-4">
@@ -311,6 +363,19 @@
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
         />
+
+        <MaintenanceFormModal
+            modal-id="truckDetailMaintenanceModal"
+            :show="showMaintenanceCreate"
+            mode="create"
+            :preset-vehicle-id="vehicle?.id ?? ''"
+            lock-vehicle
+            :saving="maintenanceSaving"
+            :field-errors="maintenanceFieldErrors"
+            :form-error="maintenanceFormError"
+            @close="closeMaintenanceCreate"
+            @submit="handleMaintenanceCreate"
+        />
     </div>
 </template>
 
@@ -318,7 +383,9 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { listDriverAssignments } from '../../api/driverAssignments';
+import { createVehicleMaintenance, listVehicleMaintenanceHistory } from '../../api/vehicleMaintenances';
 import { fetchVehicle, updateVehicle } from '../../api/vehicles';
+import MaintenanceFormModal from '../../components/maintenance/MaintenanceFormModal.vue';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
@@ -339,16 +406,28 @@ const canViewAssignments = computed(() => canInCompany('driver_assignments.view'
 const canManageAssignments = computed(() => canInCompany('driver_assignments.manage'));
 const canViewDocuments = computed(() => canInCompany('vehicle_documents.view'));
 const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
+const canViewMaintenance = computed(() => canInCompany('maintenance.view'));
+const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
 
 const vehicle = ref(null);
 const assignments = ref([]);
+const maintenanceRecords = ref([]);
 const loading = ref(true);
+const maintenanceLoading = ref(false);
 const saving = ref(false);
+const maintenanceSaving = ref(false);
 const showForm = ref(false);
 const showDocuments = ref(false);
 const showAssignment = ref(false);
+const showMaintenanceCreate = ref(false);
 const flash = reactive({ success: '', error: '' });
 const { fieldErrors, formError: vehicleFormError, clearErrors, applyApiError } = useApiFormErrors();
+const {
+    fieldErrors: maintenanceFieldErrors,
+    formError: maintenanceFormError,
+    clearErrors: clearMaintenanceErrors,
+    applyApiError: applyMaintenanceApiError,
+} = useApiFormErrors();
 
 const documents = computed(() => vehicle.value?.documents ?? []);
 
@@ -367,6 +446,14 @@ function formatOdometer(value) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2,
     });
+}
+
+function formatMaintenanceCost(amount) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2,
+    }).format(Number(amount ?? 0));
 }
 
 function showToast(message, type = 'success') {
@@ -392,6 +479,25 @@ async function loadAssignments() {
     }
 }
 
+async function loadMaintenanceHistory() {
+    if (!vehicle.value?.id || !canViewMaintenance.value) {
+        maintenanceRecords.value = [];
+
+        return;
+    }
+
+    maintenanceLoading.value = true;
+
+    try {
+        const response = await listVehicleMaintenanceHistory(vehicle.value.id, { perPage: 10 });
+        maintenanceRecords.value = response.data ?? [];
+    } catch {
+        maintenanceRecords.value = [];
+    } finally {
+        maintenanceLoading.value = false;
+    }
+}
+
 async function loadVehicle() {
     const vehicleId = route.params.vehicleId;
 
@@ -408,10 +514,11 @@ async function loadVehicle() {
 
     try {
         vehicle.value = await fetchVehicle(vehicleId);
-        await loadAssignments();
+        await Promise.all([loadAssignments(), loadMaintenanceHistory()]);
     } catch (error) {
         vehicle.value = null;
         assignments.value = [];
+        maintenanceRecords.value = [];
 
         if (!handleCompanyContextError(error, 'Could not load truck details.')) {
             showToast('Could not load truck details.', 'error');
@@ -445,6 +552,36 @@ function openAssignment() {
 
 function closeAssignment() {
     showAssignment.value = false;
+}
+
+function openMaintenanceCreate() {
+    clearMaintenanceErrors();
+    showMaintenanceCreate.value = true;
+}
+
+function closeMaintenanceCreate() {
+    showMaintenanceCreate.value = false;
+    clearMaintenanceErrors();
+}
+
+async function handleMaintenanceCreate(payload) {
+    maintenanceSaving.value = true;
+    clearMaintenanceErrors();
+
+    try {
+        await createVehicleMaintenance(payload);
+        showToast('Service record added.');
+        closeMaintenanceCreate();
+        await Promise.all([loadVehicle(), loadMaintenanceHistory()]);
+    } catch (error) {
+        if (!applyMaintenanceApiError(error, 'Please check the highlighted fields.')) {
+            if (!handleCompanyContextError(error, 'Select a company before saving.')) {
+                showToast('Unable to save service record.', 'error');
+            }
+        }
+    } finally {
+        maintenanceSaving.value = false;
+    }
 }
 
 async function onAssignmentSaved() {

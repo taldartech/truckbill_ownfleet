@@ -10,6 +10,7 @@
             :aria-label="ariaLabel || placeholder"
             :disabled="disabled"
             @input="$emit('update:modelValue', $event.target.value)"
+            @keydown.enter="$emit('keydown.enter', $event)"
         />
     </div>
 </template>
@@ -44,7 +45,7 @@ const props = defineProps({
     },
 });
 
-defineEmits(['update:modelValue']);
+defineEmits(['update:modelValue', 'keydown.enter']);
 
 const wrapperStyle = computed(() => (props.maxWidth ? { maxWidth: props.maxWidth } : undefined));
 </script>

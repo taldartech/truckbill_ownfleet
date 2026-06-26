@@ -47,7 +47,7 @@
                     <i class="bi bi-search picker-search-icon"></i>
                     <input
                         ref="searchInputRef"
-                        v-model.trim="searchQuery"
+                        v-model="searchQuery"
                         type="text"
                         class="form-control form-control-sm picker-search-input"
                         :placeholder="searchPlaceholder"
@@ -115,6 +115,7 @@ const searchInputRef = ref(null);
 const isOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref({});
+const suspendedModalFocus = ref(null);
 
 const selectedItem = computed(() =>
     props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null,
@@ -162,8 +163,9 @@ const filteredItems = computed(() => {
     return props.items.filter((item) => {
         const label = String(itemLabel(item)).toLowerCase();
         const hint = String(itemHint(item)).toLowerCase();
+        const extra = String(item.searchText ?? item.code ?? '').toLowerCase();
 
-        return label.includes(query) || hint.includes(query);
+        return label.includes(query) || hint.includes(query) || extra.includes(query);
     });
 });
 
@@ -189,6 +191,36 @@ function updateDropdownPosition() {
     };
 }
 
+function suspendModalFocusTrap() {
+    if (!props.attachDropdownToBody) {
+        return;
+    }
+
+    const modalEl = selectRef.value?.closest('.modal');
+
+    if (!modalEl || typeof window.bootstrap === 'undefined') {
+        return;
+    }
+
+    const instance = window.bootstrap.Modal.getInstance(modalEl);
+
+    if (!instance || instance._config.focus === false) {
+        return;
+    }
+
+    suspendedModalFocus.value = instance;
+    instance._config.focus = false;
+}
+
+function resumeModalFocusTrap() {
+    if (!suspendedModalFocus.value) {
+        return;
+    }
+
+    suspendedModalFocus.value._config.focus = true;
+    suspendedModalFocus.value = null;
+}
+
 function toggleDropdown() {
     if (props.disabled) {
         return;
@@ -199,15 +231,19 @@ function toggleDropdown() {
     if (isOpen.value) {
         searchQuery.value = '';
         nextTick(() => {
+            suspendModalFocusTrap();
             updateDropdownPosition();
             searchInputRef.value?.focus({ preventScroll: true });
         });
+    } else {
+        resumeModalFocusTrap();
     }
 }
 
 function clearSelection() {
     emit('update:modelValue', '');
     isOpen.value = false;
+    resumeModalFocusTrap();
 }
 
 function selectItem(item) {
@@ -217,6 +253,7 @@ function selectItem(item) {
 
     emit('update:modelValue', item.id);
     isOpen.value = false;
+    resumeModalFocusTrap();
 }
 
 function handleDocumentClick(event) {
@@ -226,7 +263,10 @@ function handleDocumentClick(event) {
         return;
     }
 
-    isOpen.value = false;
+    if (isOpen.value) {
+        isOpen.value = false;
+        resumeModalFocusTrap();
+    }
 }
 
 function handleReposition() {
@@ -245,6 +285,7 @@ onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
     window.removeEventListener('resize', handleReposition);
     window.removeEventListener('scroll', handleReposition, true);
+    resumeModalFocusTrap();
 });
 
 watch(
@@ -252,6 +293,7 @@ watch(
     (disabled) => {
         if (disabled) {
             isOpen.value = false;
+            resumeModalFocusTrap();
         }
     },
 );

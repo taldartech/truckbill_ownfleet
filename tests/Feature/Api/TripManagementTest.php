@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Branch;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
@@ -10,6 +11,7 @@ use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
+use App\Support\BranchContext;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Trip;
@@ -18,7 +20,6 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class TripManagementTest extends TestCase
@@ -35,19 +36,119 @@ class TripManagementTest extends TestCase
     public function test_next_trip_number_preview_returns_sequential_format(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        $expectedTripNumber = $this->formatTripNumber($branchId);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips/next-number');
 
         $response->assertOk();
-        $response->assertJsonPath('trip_number', 'TRIP-2026-000001');
+        $response->assertJsonPath('trip_number', $expectedTripNumber);
+    }
+
+    public function test_trip_numbers_are_scoped_per_branch_within_same_company(): void
+    {
+        [$tenant, , $vehicle, $driver, $stations] = $this->createFixtures('admin');
+
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+        $firstBranchId = $operationalAttributes['branch_id'];
+
+        $superAdmin = User::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $secondBranch = $this->createBranchForTenant($tenant, [
+            'branch_name' => 'Second Branch',
+            'head_office' => false,
+        ]);
+
+        $secondVehicle = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $secondBranch->id,
+            'registration_number' => 'MH12TR0002',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
+        ]);
+
+        $secondDriver = Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $secondBranch->id,
+            'name' => 'Second Branch Driver',
+            'phone' => '9876543211',
+            'daily_wage' => 900,
+            'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $secondBranch->id,
+            'vehicle_id' => $secondVehicle->id,
+            'driver_id' => $secondDriver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $cityA = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+        $cityB = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Pune')->firstOrFail();
+
+        $secondBranchStations = [
+            'home' => Station::query()->create([
+                'tenant_id' => $tenant->id,
+                'branch_id' => $secondBranch->id,
+                'country_id' => $cityA->state->country_id,
+                'state_id' => $cityA->state_id,
+                'city_id' => $cityA->id,
+                'name' => 'Second Branch Station A',
+            ]),
+            'b' => Station::query()->create([
+                'tenant_id' => $tenant->id,
+                'branch_id' => $secondBranch->id,
+                'country_id' => $cityB->state->country_id,
+                'state_id' => $cityB->state_id,
+                'city_id' => $cityB->id,
+                'name' => 'Second Branch Station B',
+            ]),
+        ];
+
+        $firstTripNumber = $this->formatTripNumber($firstBranchId);
+
+        $this->actingAs($superAdmin);
+        $this->enterBranchForSuperAdmin($superAdmin, Branch::query()->findOrFail($firstBranchId));
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $firstBranchId)
+            ->postJson('/api/trips', $this->sampleTripPayload($vehicle, $driver, $stations))
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $firstTripNumber);
+
+        $this->enterBranchForSuperAdmin($superAdmin, $secondBranch);
+
+        $secondTripNumber = $this->formatTripNumber((int) $secondBranch->id);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $secondBranch->id)
+            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $secondDriver, $secondBranchStations, startAt: '2026-06-11 09:00:00'))
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $secondTripNumber);
+
+        $this->assertNotSame($firstTripNumber, $secondTripNumber);
+        $this->assertSame($firstTripNumber, $this->formatTripNumber($firstBranchId));
+        $this->assertSame($secondTripNumber, $this->formatTripNumber((int) $secondBranch->id));
     }
 
     public function test_admin_can_create_round_trip_with_route_legs_and_expenses(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        $expectedTripNumber = $this->formatTripNumber($branchId);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', [
@@ -88,9 +189,7 @@ class TripManagementTest extends TestCase
                         'amount' => 8500,
                         'fuel_liters' => 100,
                         'fuel_rate' => 85,
-                        'distance_km' => 450,
-                        'odometer_start' => 12000,
-                        'odometer_end' => 12450,
+                        'fuel_odometer_km' => 12450,
                         'route_leg_sequence' => 1,
                     ],
                     [
@@ -102,7 +201,7 @@ class TripManagementTest extends TestCase
             ]);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.trip_number', 'TRIP-2026-000001');
+        $response->assertJsonPath('data.trip_number', $expectedTripNumber);
         $response->assertJsonPath('data.loaded_distance_km', '150.00');
         $response->assertJsonPath('data.half_loaded_distance_km', '80.00');
         $response->assertJsonPath('data.empty_distance_km', '180.00');
@@ -112,7 +211,7 @@ class TripManagementTest extends TestCase
 
         $this->assertDatabaseHas('trips', [
             'tenant_id' => $tenant->id,
-            'trip_number' => 'TRIP-2026-000001',
+            'trip_number' => $expectedTripNumber,
             'start_station_id' => $stations['home']->id,
         ]);
 
@@ -121,13 +220,29 @@ class TripManagementTest extends TestCase
         $dieselExpense = TripExpense::query()->where('expense_type', TripExpenseType::Diesel->value)->first();
         $this->assertNotNull($dieselExpense);
         $this->assertSame('2026-06-02', $dieselExpense->expense_date?->toDateString());
-        $this->assertSame('450.00', (string) $dieselExpense->distance_km);
+        $this->assertSame('12450.00', (string) $dieselExpense->fuel_odometer_km);
+    }
+
+    public function test_trip_number_uses_branch_trip_sequence_start(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        Branch::query()->whereKey($branchId)->update(['trip_sequence_start' => 10000]);
+
+        $expectedTripNumber = $this->formatTripNumber($branchId, 10000);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $this->sampleTripPayload($vehicle, $driver, $stations))
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $expectedTripNumber);
     }
 
     public function test_other_expense_stores_custom_type_and_notes_separately(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', [
@@ -178,7 +293,7 @@ class TripManagementTest extends TestCase
     public function test_expense_date_must_stay_within_trip_window(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $payload = [
             'vehicle_id' => $vehicle->id,
@@ -228,7 +343,7 @@ class TripManagementTest extends TestCase
     public function test_trip_can_store_substitute_driver_on_create_and_update(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $substitute = Driver::query()->create([
             'tenant_id' => $tenant->id,
@@ -288,7 +403,7 @@ class TripManagementTest extends TestCase
     public function test_trip_search_ignores_date_range(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
         $trip->update([
@@ -310,7 +425,7 @@ class TripManagementTest extends TestCase
     public function test_moderator_can_create_trips_but_not_delete(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -349,7 +464,7 @@ class TripManagementTest extends TestCase
     public function test_trip_profitability_report_returns_calculated_rows(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -366,7 +481,7 @@ class TripManagementTest extends TestCase
     public function test_vehicle_wise_trip_report_includes_trip_count(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -380,7 +495,7 @@ class TripManagementTest extends TestCase
     public function test_expense_summary_report_includes_trip_count(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -393,7 +508,7 @@ class TripManagementTest extends TestCase
     public function test_trip_report_export_returns_excel_for_selected_filters(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -410,7 +525,7 @@ class TripManagementTest extends TestCase
     public function test_trip_report_export_excludes_trips_outside_date_range(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -423,7 +538,7 @@ class TripManagementTest extends TestCase
     public function test_create_trip_requires_positive_total_freight(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', [
@@ -455,7 +570,7 @@ class TripManagementTest extends TestCase
     public function test_create_trip_always_stores_created_status(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', [
@@ -488,7 +603,7 @@ class TripManagementTest extends TestCase
     public function test_vehicle_for_trip_selection_returns_eligibility_metadata(): void
     {
         [$tenant, $user, $vehicle, $driver] = array_slice($this->createFixtures('admin'), 0, 4);
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/vehicles/for-trip-selection?search=MH12');
@@ -502,7 +617,7 @@ class TripManagementTest extends TestCase
     public function test_update_trip_prohibits_vehicle_and_driver_changes(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $otherVehicle = Vehicle::query()->create([
@@ -524,7 +639,7 @@ class TripManagementTest extends TestCase
     public function test_update_trip_succeeds_when_driver_assignment_changed_but_start_date_unchanged(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $replacementDriver = Driver::query()->create([
@@ -561,7 +676,7 @@ class TripManagementTest extends TestCase
     public function test_update_trip_allows_start_date_change_without_driver_revalidation(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         TenantContext::setTenantId($tenant->id);
@@ -581,7 +696,7 @@ class TripManagementTest extends TestCase
     public function test_create_trip_resolves_primary_driver_on_trip_start_date(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         TenantContext::setTenantId($tenant->id);
         DriverAssignment::query()
@@ -617,7 +732,7 @@ class TripManagementTest extends TestCase
     public function test_created_trip_cannot_transition_directly_to_cancelled(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -633,7 +748,7 @@ class TripManagementTest extends TestCase
     public function test_check_trip_window_reports_vehicle_overlap_for_open_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         $existingTrip = app(TripService::class)->create([
@@ -688,7 +803,7 @@ class TripManagementTest extends TestCase
     public function test_check_trip_window_allows_dates_after_open_trip_ends(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         app(TripService::class)->create([
@@ -730,7 +845,7 @@ class TripManagementTest extends TestCase
     public function test_check_trip_window_blocks_future_dates_when_open_trip_has_no_end_date(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         $openTrip = app(TripService::class)->create([
@@ -774,7 +889,7 @@ class TripManagementTest extends TestCase
     public function test_check_trip_window_ignores_cancelled_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         $cancelledTrip = app(TripService::class)->create([
@@ -822,7 +937,7 @@ class TripManagementTest extends TestCase
     public function test_new_trip_allowed_when_previous_trip_is_completed(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $completedTrip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
         $completedTrip->update([
@@ -860,7 +975,7 @@ class TripManagementTest extends TestCase
     public function test_admin_can_soft_delete_created_trip_and_records_deleted_by(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -886,7 +1001,7 @@ class TripManagementTest extends TestCase
     public function test_admin_cannot_delete_completed_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -912,8 +1027,11 @@ class TripManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $operationalAttributes['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -921,14 +1039,14 @@ class TripManagementTest extends TestCase
         ]);
 
         $vehicle = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'registration_number' => 'MH12TR0001',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 1000,
         ]);
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'name' => 'Trip Driver',
             'phone' => '9876543210',
             'daily_wage' => 900,
@@ -936,7 +1054,7 @@ class TripManagementTest extends TestCase
         ]);
 
         DriverAssignment::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'assigned_from' => '2026-01-01',
@@ -949,21 +1067,21 @@ class TripManagementTest extends TestCase
 
         $stations = [
             'home' => Station::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'country_id' => $cityA->state->country_id,
                 'state_id' => $cityA->state_id,
                 'city_id' => $cityA->id,
                 'name' => 'Station A',
             ]),
             'b' => Station::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'country_id' => $cityB->state->country_id,
                 'state_id' => $cityB->state_id,
                 'city_id' => $cityB->id,
                 'name' => 'Station B',
             ]),
             'c' => Station::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'country_id' => $cityC->state->country_id,
                 'state_id' => $cityC->state_id,
                 'city_id' => $cityC->id,
@@ -976,16 +1094,21 @@ class TripManagementTest extends TestCase
 
     /**
      * @param  array<string, Station>  $stations
+     * @return array<string, mixed>
      */
-    private function createSampleTrip(Tenant $tenant, Vehicle $vehicle, Driver $driver, array $stations): Trip
-    {
-        TenantContext::setTenantId($tenant->id);
+    private function sampleTripPayload(
+        Vehicle $vehicle,
+        Driver $driver,
+        array $stations,
+        string $startAt = '2026-06-10 09:00:00',
+    ): array {
+        $expenseDate = \Illuminate\Support\Carbon::parse($startAt)->toDateString();
 
-        return app(TripService::class)->create([
+        return [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
-            'start_at' => '2026-06-10 09:00:00',
+            'start_at' => $startAt,
             'route_legs' => [
                 [
                     'from_station_id' => $stations['home']->id,
@@ -994,7 +1117,6 @@ class TripManagementTest extends TestCase
                     'sequence_no' => 1,
                     'distance_km' => 280,
                     'freight_amount' => 18000,
-                    'advance_received' => 5000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
@@ -1007,10 +1129,20 @@ class TripManagementTest extends TestCase
             'expenses' => [
                 [
                     'expense_type' => TripExpenseType::Diesel->value,
-                    'expense_date' => '2026-06-10',
+                    'expense_date' => $expenseDate,
                     'amount' => 6000,
                 ],
             ],
-        ]);
+        ];
+    }
+
+    /**
+     * @param  array<string, Station>  $stations
+     */
+    private function createSampleTrip(Tenant $tenant, Vehicle $vehicle, Driver $driver, array $stations): Trip
+    {
+        TenantContext::setTenantId($tenant->id);
+
+        return app(TripService::class)->create($this->sampleTripPayload($vehicle, $driver, $stations));
     }
 }

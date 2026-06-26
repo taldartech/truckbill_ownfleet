@@ -50,6 +50,25 @@ export async function listAllVehicles({ activeOnly = false } = {}) {
     return data.data ?? [];
 }
 
+/**
+ * @param {Array<{ id: string, registration_number?: string, vehicle_type?: string, vehicle_type_label?: string, make?: string, model?: string, is_active?: boolean }>} vehicles
+ */
+export function buildVehicleSelectOptions(vehicles) {
+    return (vehicles ?? []).map((vehicle) => {
+        const registration = vehicle.registration_number ?? '—';
+        const label = vehicle.is_active === false ? `${registration} (Inactive)` : registration;
+
+        return {
+            id: vehicle.id,
+            label,
+            hint: [vehicle.vehicle_type_label ?? vehicle.vehicle_type, vehicle.make, vehicle.model]
+                .filter(Boolean)
+                .join(' · '),
+            icon: 'bi bi-truck',
+        };
+    });
+}
+
 export async function listVehicles({
     page = 1,
     perPage = 10,

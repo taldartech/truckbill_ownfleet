@@ -23,9 +23,7 @@ class TripExpenseResource extends JsonResource
             'amount' => $this->amount,
             'fuel_liters' => $this->fuel_liters,
             'fuel_rate' => $this->fuel_rate,
-            'odometer_start' => $this->odometer_start,
-            'odometer_end' => $this->odometer_end,
-            'distance_km' => $this->distance_km,
+            'fuel_odometer_km' => $this->fuel_odometer_km,
             'currency' => $this->currency,
             'notes' => $this->notes,
         ];

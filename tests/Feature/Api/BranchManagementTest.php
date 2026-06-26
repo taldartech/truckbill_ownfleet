@@ -314,6 +314,70 @@ class BranchManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_branch_trip_sequence_start_can_be_set_on_create(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Sequence Co');
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $tenant->id,
+                'branch_name' => 'Sequence Branch',
+                'branch_contact_number' => '9876543212',
+                'head_office' => true,
+                'trip_sequence_start' => 10000,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.trip_sequence_start', 10000)
+            ->assertJsonPath('data.trip_sequence_start_locked', false);
+    }
+
+    public function test_branch_trip_sequence_start_cannot_change_after_trips_exist(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Locked Sequence Co');
+        $branch = Branch::query()->create([
+            'company_id' => $tenant->id,
+            'branch_name' => 'Locked Branch',
+            'branch_contact_number' => '9876543213',
+            'head_office' => true,
+            'trip_sequence_start' => 10000,
+        ]);
+
+        $vehicle = \App\Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
+            'registration_number' => 'MH12LOCKED',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
+        ]);
+
+        $driver = \App\Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
+            'name' => 'Locked Driver',
+            'phone' => '9876543299',
+            'daily_wage' => 900,
+            'is_active' => true,
+        ]);
+
+        \App\Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => sprintf('TRIP-BR%03d-2026-10000', $branch->id),
+            'status' => 'CREATED',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/branches/'.$branch->id, [
+                'trip_sequence_start' => 2000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['trip_sequence_start']);
+    }
+
     private function createSuperAdmin(): User
     {
         return User::query()->create([

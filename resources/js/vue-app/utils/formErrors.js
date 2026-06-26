@@ -1,3 +1,5 @@
+import { apiErrorToastMessage, parseApiError } from './apiError';
+
 function sanitizeApiMessage(message) {
     if (typeof message !== 'string' || message.length === 0) {
         return null;
@@ -14,23 +16,25 @@ function sanitizeApiMessage(message) {
     return message;
 }
 
+export { logApiError } from './apiError';
+
 export function extractValidationErrors(error) {
+    const parsed = parseApiError(error);
     const status = error?.response?.status;
-    const data = error?.response?.data;
 
     if (status === 422) {
-        const fieldErrors = data?.errors ?? {};
+        const fieldErrors = parsed.fieldErrors;
         const firstFieldMessage = Object.values(fieldErrors)
             .flat()
             .find((value) => typeof value === 'string' && value.length > 0);
 
         return {
             fieldErrors,
-            message: firstFieldMessage ?? sanitizeApiMessage(data?.message),
+            message: firstFieldMessage ?? sanitizeApiMessage(parsed.message),
         };
     }
 
-    const message = sanitizeApiMessage(data?.message);
+    const message = sanitizeApiMessage(parsed.message);
 
     if (message) {
         return {
@@ -49,31 +53,7 @@ export function extractValidationErrors(error) {
  * User-facing message for non-validation API failures.
  */
 export function friendlyApiErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
-    const { message } = extractValidationErrors(error);
-
-    if (message) {
-        return message;
-    }
-
-    const raw = error?.response?.data?.message;
-
-    if (typeof raw === 'string' && raw.includes('Column not found')) {
-        return 'Database update required. Run: php artisan migrate';
-    }
-
-    if (typeof raw === 'string' && raw.length > 0 && raw.length < 280) {
-        return raw;
-    }
-
-    if (error?.response?.status === 419) {
-        return 'Your session has expired. Please refresh the page and sign in again.';
-    }
-
-    if (error?.response?.status === 403) {
-        return 'You do not have permission to perform this action.';
-    }
-
-    return fallback;
+    return apiErrorToastMessage(error, fallback);
 }
 
 export function fieldErrorMessage(fieldErrors, field) {

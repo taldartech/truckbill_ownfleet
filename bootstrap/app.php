@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\ApiResponse;
 use App\Support\ApiQueryExceptionMapper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
@@ -8,7 +9,9 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -69,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (QueryException $exception, Request $request) {
-            if (! $request->is('app/api/*') && ! $request->is('api/*')) {
+            if (! ApiResponse::isApiRequest($request)) {
                 return null;
             }
 
@@ -79,14 +82,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $integrityResponse;
             }
 
-            $message = 'Unable to save. Please try again.';
+            return ApiResponse::fromQueryException($exception, $request);
+        });
 
-            if (str_contains($exception->getMessage(), 'Column not found')) {
-                $message = 'Database update required. Run: php artisan migrate';
+        $exceptions->render(function (\Throwable $exception, Request $request) {
+            if (! ApiResponse::isApiRequest($request)) {
+                return null;
             }
 
-            return response()->json([
-                'message' => $message,
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            if (
+                $exception instanceof ValidationException
+                || $exception instanceof HttpException
+                || $exception instanceof AuthorizationException
+                || $exception instanceof QueryException
+                || $exception instanceof PostTooLargeException
+            ) {
+                return null;
+            }
+
+            return ApiResponse::error($exception, request: $request);
         });
     })->create();

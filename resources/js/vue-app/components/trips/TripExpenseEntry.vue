@@ -37,10 +37,10 @@
             </div>
 
             <template v-if="isDiesel">
-                <div class="trip-expense-entry__field trip-expense-entry__field--km">
-                    <label class="trip-expense-entry__label">KM</label>
+                <div class="trip-expense-entry__field trip-expense-entry__field--odometer">
+                    <label class="trip-expense-entry__label">Meter Reading(KM)</label>
                     <input
-                        v-model.number="expense.distance_km"
+                        v-model.number="expense.fuel_odometer_km"
                         type="number"
                         min="0"
                         step="0.01"
@@ -175,7 +175,7 @@ function onTypeChange() {
     if (props.expense.expense_type !== 'DIESEL') {
         props.expense.fuel_liters = '';
         props.expense.fuel_rate = '';
-        props.expense.distance_km = '';
+        props.expense.fuel_odometer_km = '';
     }
 }
 </script>
@@ -197,7 +197,7 @@ function onTypeChange() {
     align-items: end;
 }
 
-.trip-expense-entry__row:not(:has(.trip-expense-entry__field--km)) {
+.trip-expense-entry__row:not(:has(.trip-expense-entry__field--odometer)) {
     grid-template-columns: 7.5rem 9rem minmax(5rem, 1fr) minmax(6rem, 1.5fr) auto;
 }
 
@@ -216,7 +216,7 @@ function onTypeChange() {
 
 @media (max-width: 992px) {
     .trip-expense-entry__row,
-    .trip-expense-entry__row:not(:has(.trip-expense-entry__field--km)) {
+    .trip-expense-entry__row:not(:has(.trip-expense-entry__field--odometer)) {
         grid-template-columns: 1fr 1fr;
     }
 

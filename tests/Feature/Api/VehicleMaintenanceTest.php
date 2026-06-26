@@ -82,6 +82,8 @@ class VehicleMaintenanceTest extends TestCase
                 'service_date' => '2026-06-02',
                 'odometer_km' => 18000,
                 'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'GENERAL_SERVICE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 1500,
             ])
             ->assertCreated();
 
@@ -191,6 +193,8 @@ class VehicleMaintenanceTest extends TestCase
                 'service_date' => '2026-06-01',
                 'odometer_km' => 15000,
                 'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 2500,
                 'next_service_due_date' => '2026-05-01',
             ])
             ->assertUnprocessable()
@@ -207,6 +211,8 @@ class VehicleMaintenanceTest extends TestCase
                 'service_date' => now()->addDay()->toDateString(),
                 'odometer_km' => 15000,
                 'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 2500,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['service_date']);
@@ -222,8 +228,37 @@ class VehicleMaintenanceTest extends TestCase
                 'service_date' => '2026-06-01',
                 'odometer_km' => 15000,
                 'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 2500,
             ])
             ->assertForbidden();
+    }
+
+    public function test_cannot_create_maintenance_without_service_provider_or_cost_amount(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+
+        $this->actingAs($user)
+            ->postJson('/app/api/vehicle-maintenances', [
+                'vehicle_id' => $vehicle->id,
+                'service_date' => '2026-06-01',
+                'odometer_km' => 15000,
+                'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['service_provider', 'cost_amount']);
+
+        $this->actingAs($user)
+            ->postJson('/app/api/vehicle-maintenances', [
+                'vehicle_id' => $vehicle->id,
+                'service_date' => '2026-06-01',
+                'odometer_km' => 15000,
+                'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 0,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cost_amount']);
     }
 
     public function test_maintenance_service_types_are_seeded_and_listed(): void

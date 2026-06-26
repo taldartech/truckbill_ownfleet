@@ -180,6 +180,14 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
 
             Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
 
+            Route::get('/maintenance-service-types', [\App\Http\Controllers\Api\MaintenanceServiceTypeController::class, 'index'])
+                ->name('maintenance-service-types.index');
+            Route::get('/vehicle-maintenances/due', [\App\Http\Controllers\Api\VehicleMaintenanceController::class, 'due'])
+                ->name('vehicle-maintenances.due');
+            Route::get('/vehicles/{vehicle}/maintenances', [\App\Http\Controllers\Api\VehicleMaintenanceController::class, 'forVehicle'])
+                ->name('vehicles.maintenances');
+            Route::apiResource('vehicle-maintenances', \App\Http\Controllers\Api\VehicleMaintenanceController::class);
+
             Route::get('/truck-types', [\App\Http\Controllers\Api\TruckTypeController::class, 'index'])->name('truck-types.index');
             Route::post('/truck-types', [\App\Http\Controllers\Api\TruckTypeController::class, 'store'])->name('truck-types.store');
             Route::get('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'show'])->name('truck-types.show');
@@ -321,6 +329,13 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.tyres.vehicle-wise');
             Route::get('/reports/tyres/expense-summary', [\App\Http\Controllers\Api\TyreReportController::class, 'expenseSummary'])
                 ->name('reports.tyres.expense-summary');
+
+            Route::get('/reports/maintenance/cost-summary', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'costSummary'])
+                ->name('reports.maintenance.cost-summary');
+            Route::get('/reports/maintenance/truck-wise', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'truckWise'])
+                ->name('reports.maintenance.truck-wise');
+            Route::get('/reports/maintenance/due-services', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'dueServices'])
+                ->name('reports.maintenance.due-services');
 
             Route::get('/reports/trips/profitability', [\App\Http\Controllers\Api\TripReportController::class, 'profitability'])
                 ->name('reports.trips.profitability');

@@ -10,7 +10,6 @@ use App\Support\RoleHierarchy;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\User;
-use App\UserRole;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -129,5 +128,13 @@ abstract class TestCase extends BaseTestCase
         \App\Support\SelectedBranchSession::set((int) $branch->id);
         TenantContext::setTenantId((string) $branch->company_id);
         BranchContext::setBranchId((int) $branch->id);
+    }
+
+    protected function formatTripNumber(int $branchId, int $sequence = 1, ?int $year = null): string
+    {
+        $year ??= (int) now()->format('Y');
+        $sequencePart = str_pad((string) $sequence, max(4, strlen((string) $sequence)), '0', STR_PAD_LEFT);
+
+        return sprintf('TRIP-BR%03d-%d-%s', $branchId, $year, $sequencePart);
     }
 }

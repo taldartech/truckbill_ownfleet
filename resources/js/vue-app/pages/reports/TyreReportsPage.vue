@@ -89,7 +89,7 @@ const COLUMN_LABELS = {
     vehicle: 'Truck',
 };
 
-const HIDDEN_COLUMNS = ['tyre_id', 'vehicle_id'];
+const HIDDEN_COLUMNS = ['id', 'tyre_id', 'vehicle_id'];
 
 const columns = computed(() => {
     if (rows.value.length === 0) {

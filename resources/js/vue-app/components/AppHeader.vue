@@ -376,10 +376,8 @@ async function handleBranchSwitch() {
     }
 
     try {
-        const data = await switchBranch(Number(selectedBranchId.value));
-        const user = data?.user ?? (await fetchCurrentUser());
-        window.__AUTH_USER__ = user;
-        emit('user-updated', user);
+        await switchBranch(Number(selectedBranchId.value));
+        window.location.reload();
     } catch {
         selectedBranchId.value = String(props.user?.effective_branch_id ?? props.user?.branch_id ?? '');
     }

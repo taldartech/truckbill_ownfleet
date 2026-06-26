@@ -267,10 +267,9 @@
                                                 <tr>
                                                     <th>Date</th>
                                                     <th>Type</th>
-                                                    <th>KM</th>
+                                                    <th>Meter Reading(KM)</th>
                                                     <th>Liters</th>
                                                     <th>Rate</th>
-                                                    <th>Meter Reading</th>
                                                     <th>Amount</th>
                                                     <th>Notes</th>
                                                 </tr>
@@ -279,10 +278,9 @@
                                                 <tr v-for="expense in group.items" :key="expense.id">
                                                     <td>{{ formatDate(expense.expense_date) }}</td>
                                                     <td>{{ expenseTypeLabel(expense.expense_type, expense.other_type) }}</td>
-                                                    <td>{{ expense.distance_km ? formatKm(expense.distance_km) : '—' }}</td>
+                                                    <td>{{ formatOdometerReading(expense.fuel_odometer_km) }}</td>
                                                     <td>{{ expense.fuel_liters ?? '—' }}</td>
                                                     <td>{{ expense.fuel_rate ?? '—' }}</td>
-                                                    <td>{{ formatOdometer(expense) }}</td>
                                                     <td>₹{{ formatMoney(expense.amount) }}</td>
                                                     <td class="text-muted">{{ expense.notes || '—' }}</td>
                                                 </tr>
@@ -614,19 +612,18 @@ function formatKm(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-function formatOdometer(expense) {
-    const start = expense.odometer_start;
-    const end = expense.odometer_end;
-
-    if (start == null && end == null) {
+function formatOdometerReading(value) {
+    if (value === null || value === undefined || value === '') {
         return '—';
     }
 
-    if (start != null && end != null) {
-        return `${formatKm(start)} → ${formatKm(end)}`;
+    const reading = Number(value);
+
+    if (Number.isNaN(reading)) {
+        return '—';
     }
 
-    return start != null ? formatKm(start) : formatKm(end);
+    return Number.isInteger(reading) ? String(reading) : reading.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function onTripUpdated(updated) {

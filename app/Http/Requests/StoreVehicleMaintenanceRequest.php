@@ -12,6 +12,15 @@ class StoreVehicleMaintenanceRequest extends FormRequest
 {
     use ValidatesVehicleMaintenanceDueFields;
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('service_provider') && is_string($this->input('service_provider'))) {
+            $this->merge([
+                'service_provider' => trim($this->input('service_provider')),
+            ]);
+        }
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', VehicleMaintenance::class) ?? false;
@@ -35,8 +44,8 @@ class StoreVehicleMaintenanceRequest extends FormRequest
                         ->where('is_active', true),
                 ),
             ],
-            'service_provider' => ['nullable', 'string', 'max:150'],
-            'cost_amount' => ['nullable', 'numeric', 'min:0'],
+            'service_provider' => ['required', 'string', 'max:150'],
+            'cost_amount' => ['required', 'numeric', 'gt:0'],
             'next_service_due_km' => ['nullable', 'numeric', 'min:0'],
             'next_service_due_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:2000'],
@@ -55,6 +64,9 @@ class StoreVehicleMaintenanceRequest extends FormRequest
             'odometer_km.required' => 'Meter reading is required.',
             'maintenance_service_type_id.required' => 'Service type is required.',
             'maintenance_service_type_id.exists' => 'Selected service type is invalid.',
+            'service_provider.required' => 'Service provider is required.',
+            'cost_amount.required' => 'Cost amount is required.',
+            'cost_amount.gt' => 'Cost amount must be greater than 0.',
         ];
     }
 }

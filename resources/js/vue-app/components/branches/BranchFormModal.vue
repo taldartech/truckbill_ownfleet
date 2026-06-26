@@ -96,6 +96,33 @@
                                 </div>
                                 <div class="form-text">Only one head office is allowed per company.</div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="trip_sequence_start">Trip Starting Number</label>
+                                <input
+                                    id="trip_sequence_start"
+                                    v-model="form.trip_sequence_start"
+                                    type="text"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    class="form-control"
+                                    placeholder="0001"
+                                    :class="{ 'is-invalid': fieldErrors.trip_sequence_start || tripSequenceClientError }"
+                                    :disabled="isTripSequenceStartLocked"
+                                    @input="onTripSequenceStartInput"
+                                />
+                                <div v-if="tripSequenceClientError" class="invalid-feedback d-block">
+                                    {{ tripSequenceClientError }}
+                                </div>
+                                <div v-if="fieldErrors.trip_sequence_start" class="invalid-feedback d-block">
+                                    {{ fieldErrors.trip_sequence_start[0] }}
+                                </div>
+                                <div v-if="isTripSequenceStartLocked" class="form-text">
+                                    This branch already has trips. The next trip will continue from the last number.
+                                </div>
+                                <div v-else class="form-text">
+                                    Default is 0001. Type any number such as 500, 1000, or 10000.
+                                </div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label" for="branch_address">Address</label>
                                 <textarea
@@ -141,6 +168,10 @@ const emit = defineEmits(['close', 'submit']);
 
 const isEdit = computed(() => props.mode === 'edit');
 
+const isTripSequenceStartLocked = computed(
+    () => isEdit.value && Boolean(props.branch?.trip_sequence_start_locked),
+);
+
 const selectedCompany = computed(() =>
     props.companies.find((company) => company.id === form.company_id) ?? null,
 );
@@ -152,6 +183,7 @@ const selectedCompanyContact = computed(() => {
 });
 
 const contactClientError = ref('');
+const tripSequenceClientError = ref('');
 
 const form = reactive({
     company_id: '',
@@ -159,7 +191,16 @@ const form = reactive({
     branch_contact_number: '',
     branch_address: '',
     head_office: false,
+    trip_sequence_start: '1',
 });
+
+function sanitizeTripSequenceStartInput(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    return String(value).replace(/\D/g, '');
+}
 
 function resetForm() {
     form.company_id = props.branch?.company_id ?? '';
@@ -167,6 +208,9 @@ function resetForm() {
     form.branch_contact_number = normalizeMobile(props.branch?.branch_contact_number ?? '');
     form.branch_address = props.branch?.branch_address ?? '';
     form.head_office = Boolean(props.branch?.head_office);
+    form.trip_sequence_start = props.branch
+        ? sanitizeTripSequenceStartInput(props.branch.trip_sequence_start === 0 ? 1 : props.branch.trip_sequence_start)
+        : '1';
 }
 
 watch(
@@ -174,6 +218,7 @@ watch(
     () => {
         if (props.show) {
             contactClientError.value = '';
+            tripSequenceClientError.value = '';
             resetForm();
         }
     },
@@ -200,6 +245,23 @@ function onContactNumberInput(event) {
     form.branch_contact_number = normalizeMobile(event.target.value);
 }
 
+function onTripSequenceStartInput(event) {
+    tripSequenceClientError.value = '';
+    form.trip_sequence_start = sanitizeTripSequenceStartInput(event.target.value);
+}
+
+function parseTripSequenceStart(value) {
+    const digits = sanitizeTripSequenceStartInput(value);
+
+    if (digits === '') {
+        return 1;
+    }
+
+    const parsed = Number.parseInt(digits, 10);
+
+    return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+}
+
 function handleSubmit() {
     const contactNumber = normalizeMobile(form.branch_contact_number);
 
@@ -217,12 +279,23 @@ function handleSubmit() {
 
     contactClientError.value = '';
 
+    const tripSequenceStart = parseTripSequenceStart(form.trip_sequence_start);
+
+    if (Number.isNaN(tripSequenceStart) || tripSequenceStart < 1) {
+        tripSequenceClientError.value = 'Trip starting number must be at least 1.';
+
+        return;
+    }
+
+    tripSequenceClientError.value = '';
+
     emit('submit', {
         company_id: form.company_id,
         branch_name: form.branch_name.trim(),
         branch_contact_number: contactNumber,
         branch_address: form.branch_address.trim() || null,
         head_office: form.head_office,
+        trip_sequence_start: tripSequenceStart,
     });
 }
 </script>

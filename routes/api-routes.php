@@ -25,6 +25,9 @@ use App\Http\Controllers\Api\TyreLayoutController;
 use App\Http\Controllers\Api\TyreReportController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\VehicleDocumentController;
+use App\Http\Controllers\Api\MaintenanceServiceTypeController;
+use App\Http\Controllers\Api\VehicleMaintenanceController;
+use App\Http\Controllers\Api\VehicleMaintenanceReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('onboarding')
@@ -120,6 +123,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
     Route::get('/reports/fleet-monthly', [FleetMonthlyReportController::class, 'show']);
     Route::get('/reports/fleet-monthly/export', [FleetMonthlyReportController::class, 'export']);
+    Route::get('/reports/maintenance/cost-summary', [VehicleMaintenanceReportController::class, 'costSummary']);
+    Route::get('/reports/maintenance/truck-wise', [VehicleMaintenanceReportController::class, 'truckWise']);
+    Route::get('/reports/maintenance/due-services', [VehicleMaintenanceReportController::class, 'dueServices']);
+    Route::get('maintenance-service-types', [MaintenanceServiceTypeController::class, 'index']);
+    Route::get('vehicle-maintenances/due', [VehicleMaintenanceController::class, 'due']);
+    Route::get('vehicles/{vehicle}/maintenances', [VehicleMaintenanceController::class, 'forVehicle']);
+    Route::apiResource('vehicle-maintenances', VehicleMaintenanceController::class);
 
     Route::get('/compliance', [ComplianceController::class, 'index']);
     Route::apiResource('challans', ChallanController::class);

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Branch;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
 use App\Http\Requests\Concerns\ValidatesBranchContactUniqueness;
+use App\Http\Requests\Concerns\ValidatesBranchTripSequenceStart;
 use App\Support\RoleHierarchy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,7 @@ class UpdateBranchRequest extends FormRequest
 {
     use NormalizesContactNumber;
     use ValidatesBranchContactUniqueness;
+    use ValidatesBranchTripSequenceStart;
 
     protected function prepareForValidation(): void
     {
@@ -59,6 +61,7 @@ class UpdateBranchRequest extends FormRequest
             ],
             'branch_address' => ['nullable', 'string', 'max:1000'],
             'head_office' => ['sometimes', 'boolean'],
+            'trip_sequence_start' => $this->tripSequenceStartRules(),
         ];
     }
 
@@ -94,19 +97,23 @@ class UpdateBranchRequest extends FormRequest
                 return;
             }
 
-            if (! $this->boolean('head_office')) {
+            if ($this->boolean('head_office')) {
+                $existingHeadOffice = Branch::query()
+                    ->where('company_id', $companyId)
+                    ->where('head_office', true)
+                    ->whereKeyNot($branch->id)
+                    ->exists();
+
+                if ($existingHeadOffice) {
+                    $validator->errors()->add('head_office', 'This company already has a head office branch.');
+                }
+            }
+
+            if ($validator->errors()->isNotEmpty()) {
                 return;
             }
 
-            $existingHeadOffice = Branch::query()
-                ->where('company_id', $companyId)
-                ->where('head_office', true)
-                ->whereKeyNot($branch->id)
-                ->exists();
-
-            if ($existingHeadOffice) {
-                $validator->errors()->add('head_office', 'This company already has a head office branch.');
-            }
+            $this->validateBranchTripSequenceStartChange($validator, $branch);
         });
     }
 }

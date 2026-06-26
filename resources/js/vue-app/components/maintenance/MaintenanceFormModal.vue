@@ -91,7 +91,7 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label :for="`${modalId}_service_provider`" class="form-label">Service Provider</label>
+                                <label :for="`${modalId}_service_provider`" class="form-label">Service Provider *</label>
                                 <input
                                     :id="`${modalId}_service_provider`"
                                     v-model="form.service_provider"
@@ -99,22 +99,24 @@
                                     class="form-control"
                                     :class="{ 'is-invalid': displayFieldErrors.service_provider }"
                                     placeholder="Garage / workshop name"
+                                    required
                                 />
                                 <div v-if="displayFieldErrors.service_provider" class="invalid-feedback d-block">
                                     {{ displayFieldErrors.service_provider[0] }}
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label :for="`${modalId}_cost_amount`" class="form-label">Cost Amount (₹)</label>
+                                <label :for="`${modalId}_cost_amount`" class="form-label">Cost Amount (₹) *</label>
                                 <input
                                     :id="`${modalId}_cost_amount`"
                                     v-model="form.cost_amount"
                                     v-no-scroll-change
                                     type="number"
-                                    min="0"
+                                    min="0.01"
                                     step="0.01"
                                     class="form-control"
                                     :class="{ 'is-invalid': displayFieldErrors.cost_amount }"
+                                    required
                                 />
                                 <div v-if="displayFieldErrors.cost_amount" class="invalid-feedback d-block">
                                     {{ displayFieldErrors.cost_amount[0] }}
@@ -378,6 +380,16 @@ watch(
 );
 
 watch(
+    () => form.value.service_provider,
+    () => clearClientFieldError('service_provider'),
+);
+
+watch(
+    () => form.value.cost_amount,
+    () => clearClientFieldError('cost_amount'),
+);
+
+watch(
     () => form.value.next_service_due_date,
     () => clearClientFieldError('next_service_due_date'),
 );
@@ -467,6 +479,20 @@ function validateClientForm() {
         errors.maintenance_service_type_id = ['Service type is required.'];
     }
 
+    if (!form.value.service_provider.trim()) {
+        errors.service_provider = ['Service provider is required.'];
+    }
+
+    if (form.value.cost_amount === '' || form.value.cost_amount === null || form.value.cost_amount === undefined) {
+        errors.cost_amount = ['Cost amount is required.'];
+    } else {
+        const costAmount = optionalNumber(form.value.cost_amount);
+
+        if (costAmount === null || costAmount <= 0) {
+            errors.cost_amount = ['Cost amount must be greater than 0.'];
+        }
+    }
+
     if (
         form.value.next_service_due_date &&
         form.value.service_date &&
@@ -491,14 +517,15 @@ function submit() {
     }
 
     const odometer = optionalNumber(form.value.odometer_km);
+    const costAmount = optionalNumber(form.value.cost_amount);
 
     emit('submit', {
         vehicle_id: form.value.vehicle_id,
         service_date: form.value.service_date,
         odometer_km: odometer,
         maintenance_service_type_id: Number(form.value.maintenance_service_type_id),
-        service_provider: form.value.service_provider.trim() || null,
-        cost_amount: optionalNumber(form.value.cost_amount) ?? 0,
+        service_provider: form.value.service_provider.trim(),
+        cost_amount: costAmount,
         next_service_due_km: optionalNumber(form.value.next_service_due_km),
         next_service_due_date: form.value.next_service_due_date || null,
         remarks: form.value.remarks.trim() || null,

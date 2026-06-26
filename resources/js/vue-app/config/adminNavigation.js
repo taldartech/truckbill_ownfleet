@@ -44,6 +44,33 @@ export const adminNavigation = [
         requiresTenant: true,
     },
     {
+        label: 'Maintenance',
+        icon: 'bi bi-wrench-adjustable nav-icon',
+        children: [
+            {
+                label: 'Service Records',
+                icon: 'bi bi-clipboard-check nav-icon',
+                to: '/maintenance/records',
+                permission: 'maintenance.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Due Services',
+                icon: 'bi bi-exclamation-triangle nav-icon',
+                to: '/maintenance/due',
+                permission: 'maintenance.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Reports',
+                icon: 'bi bi-bar-chart nav-icon',
+                to: '/maintenance/reports',
+                permission: 'maintenance_reports.view',
+                requiresTenant: true,
+            },
+        ],
+    },
+    {
         label: 'Reports',
         icon: 'bi bi-graph-up-arrow nav-icon',
         children: [

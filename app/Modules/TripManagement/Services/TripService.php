@@ -10,6 +10,7 @@ use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Station;
+use App\Support\BranchContext;
 use App\Support\CurrentTenant;
 use App\Support\RouteLegLocationFormatter;
 use App\Support\TripNumberGenerator;
@@ -40,7 +41,10 @@ class TripService
 
     public function previewNextTripNumber(): string
     {
-        return $this->tripNumberGenerator->preview(CurrentTenant::id());
+        return $this->tripNumberGenerator->preview(
+            CurrentTenant::id(),
+            BranchContext::branchId(),
+        );
     }
 
     /**
@@ -111,7 +115,8 @@ class TripService
             }
 
             $tenantId = CurrentTenant::id() ?? $data['tenant_id'] ?? null;
-            $tripNumber = $this->tripNumberGenerator->generate($tenantId);
+            $branchId = BranchContext::branchId() ?? (isset($data['branch_id']) ? (int) $data['branch_id'] : null);
+            $tripNumber = $this->tripNumberGenerator->generate($tenantId, $branchId);
             $data = $this->normalizeBrokerCustomerFields($data);
 
             $trip = $this->tripRepository->create([
@@ -358,9 +363,7 @@ class TripService
                 'amount' => (float) ($expense['amount'] ?? 0),
                 'fuel_liters' => isset($expense['fuel_liters']) ? (float) $expense['fuel_liters'] : null,
                 'fuel_rate' => isset($expense['fuel_rate']) ? (float) $expense['fuel_rate'] : null,
-                'odometer_start' => isset($expense['odometer_start']) ? (float) $expense['odometer_start'] : null,
-                'odometer_end' => isset($expense['odometer_end']) ? (float) $expense['odometer_end'] : null,
-                'distance_km' => isset($expense['distance_km']) ? (float) $expense['distance_km'] : null,
+                'fuel_odometer_km' => isset($expense['fuel_odometer_km']) ? (float) $expense['fuel_odometer_km'] : null,
                 'currency' => $expense['currency'] ?? 'INR',
                 'notes' => $expense['notes'] ?? null,
                 'created_by' => $userId,

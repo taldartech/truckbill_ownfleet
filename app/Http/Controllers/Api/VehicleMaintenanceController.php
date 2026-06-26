@@ -57,7 +57,6 @@ class VehicleMaintenanceController extends Controller
     public function store(StoreVehicleMaintenanceRequest $request): VehicleMaintenanceResource
     {
         $validated = $request->validated();
-        $validated['cost_amount'] = $validated['cost_amount'] ?? 0;
         $validated['created_by'] = $request->user()?->id;
         $validated['updated_by'] = $request->user()?->id;
 
@@ -82,11 +81,6 @@ class VehicleMaintenanceController extends Controller
     public function update(UpdateVehicleMaintenanceRequest $request, VehicleMaintenance $vehicleMaintenance): VehicleMaintenanceResource
     {
         $validated = $request->validated();
-
-        if (array_key_exists('cost_amount', $validated) && $validated['cost_amount'] === null) {
-            $validated['cost_amount'] = 0;
-        }
-
         $validated['updated_by'] = $request->user()?->id;
 
         $maintenance = $this->maintenanceService->update($vehicleMaintenance, $validated);

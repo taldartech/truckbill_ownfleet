@@ -161,13 +161,10 @@ export function useTripForm() {
             amount: Number(expense.amount ?? 0),
             fuel_liters: expense.fuel_liters != null && expense.fuel_liters !== '' ? Number(expense.fuel_liters) : '',
             fuel_rate: expense.fuel_rate != null && expense.fuel_rate !== '' ? Number(expense.fuel_rate) : '',
-            distance_km: expense.distance_km != null && expense.distance_km !== '' ? Number(expense.distance_km) : '',
-            odometer_start:
-                expense.odometer_start != null && expense.odometer_start !== ''
-                    ? Number(expense.odometer_start)
+            fuel_odometer_km:
+                expense.fuel_odometer_km != null && expense.fuel_odometer_km !== ''
+                    ? Number(expense.fuel_odometer_km)
                     : '',
-            odometer_end:
-                expense.odometer_end != null && expense.odometer_end !== '' ? Number(expense.odometer_end) : '',
             route_leg_sequence: expense.route_leg_sequence ?? '',
             notes: expense.notes ?? '',
             other_type: expense.other_type ?? '',
@@ -253,10 +250,8 @@ export function useTripForm() {
                     amount: e.amount,
                     fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
                     fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
-                    distance_km: e.distance_km === '' || e.distance_km == null ? null : Number(e.distance_km),
-                    odometer_start:
-                        e.odometer_start === '' || e.odometer_start == null ? null : Number(e.odometer_start),
-                    odometer_end: e.odometer_end === '' || e.odometer_end == null ? null : Number(e.odometer_end),
+                    fuel_odometer_km:
+                        e.fuel_odometer_km === '' || e.fuel_odometer_km == null ? null : Number(e.fuel_odometer_km),
                     route_leg_sequence: e.route_leg_sequence || null,
                     other_type: e.expense_type === 'OTHER' ? e.other_type || null : null,
                     notes: e.notes || null,

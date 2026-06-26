@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Branch;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
 use App\Http\Requests\Concerns\ValidatesBranchContactUniqueness;
+use App\Http\Requests\Concerns\ValidatesBranchTripSequenceStart;
 use App\Support\RoleHierarchy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,7 @@ class StoreBranchRequest extends FormRequest
 {
     use NormalizesContactNumber;
     use ValidatesBranchContactUniqueness;
+    use ValidatesBranchTripSequenceStart;
 
     protected function prepareForValidation(): void
     {
@@ -47,6 +49,7 @@ class StoreBranchRequest extends FormRequest
             'branch_contact_number' => $this->branchContactNumberRules(),
             'branch_address' => ['nullable', 'string', 'max:1000'],
             'head_office' => ['sometimes', 'boolean'],
+            'trip_sequence_start' => $this->tripSequenceStartRules(),
         ];
     }
 

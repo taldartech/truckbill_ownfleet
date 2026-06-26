@@ -15,9 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Vehicle extends Model
 {
+    use BranchScoped;
     use SoftDeletes;
     use TenantScoped;
-    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
@@ -107,5 +107,10 @@ class Vehicle extends Model
     public function trips(): HasMany
     {
         return $this->hasMany(Trip::class);
+    }
+
+    public function maintenances(): HasMany
+    {
+        return $this->hasMany(VehicleMaintenance::class);
     }
 }
