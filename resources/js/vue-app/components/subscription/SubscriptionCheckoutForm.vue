@@ -133,6 +133,10 @@
                                     <span>₹{{ formatMoney(Math.abs(item.amount)) }}</span>
                                 </div>
                             </template>
+                            <div v-if="!loadingQuote" class="d-flex justify-content-between py-1 border-top mt-2 pt-2">
+                                <span>GST ({{ gstRatePercent }}%)</span>
+                                <span>₹{{ gstAmount }}</span>
+                            </div>
                             <div class="d-flex justify-content-between fw-bold border-top pt-2 mt-2">
                                 <span>Total payable</span>
                                 <span>₹{{ quoteTotal }}</span>
@@ -181,6 +185,8 @@ const {
     promoMessage,
     quoteErrors,
     lineItems,
+    gstAmount,
+    gstRatePercent,
     quoteTotal,
     canCheckout,
     paying,
