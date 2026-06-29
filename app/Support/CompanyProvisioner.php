@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\PayrollPayDaysMode;
+use App\Services\SubscriptionPricingService;
 use App\Support\DocumentTypeDefaults;
 use App\Tenant;
 use App\User;
@@ -34,9 +35,6 @@ class CompanyProvisioner
             'address' => $attributes['address'] ?? null,
             'contact_person' => $attributes['contact_person'] ?? null,
             'contact_number' => $attributes['contact_number'] ?? null,
-            'plan_end_date' => now()->addDays(14)->toDateString(),
-            'lr_credits' => 150,
-            'truck_credits' => 0,
             'payroll_pay_days_mode' => isset($attributes['payroll_pay_days_mode'])
                 ? (PayrollPayDaysMode::tryFrom((string) $attributes['payroll_pay_days_mode']) ?? PayrollPayDaysMode::Calendar)
                 : PayrollPayDaysMode::Calendar,
@@ -45,6 +43,8 @@ class CompanyProvisioner
         TyreLayoutDefaults::seedForTenant($tenant->id);
         TruckTypeDefaults::seedForTenant($tenant->id);
         DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        app(SubscriptionPricingService::class)->createTrialSubscription($tenant);
 
         return $tenant;
     }

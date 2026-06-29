@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\Api\SubscriptionController as ApiSubscriptionController;
 use App\Http\Resources\UserResource;
 use App\Support\DashboardPreviewData;
 use Illuminate\Contracts\View\View;
@@ -87,6 +88,13 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
 });
 
+Route::middleware(['auth', 'super_admin'])->prefix('subscription')->name('subscription.')->group(function () {
+    Route::get('/', fn () => redirect('/app/subscription'))->name('index');
+    Route::get('/manage', fn (\Illuminate\Http\Request $request) => redirect('/app/subscription/manage?'.$request->getQueryString()))->name('show');
+    Route::get('/checkout', fn (\Illuminate\Http\Request $request) => redirect('/app/subscription/checkout?'.$request->getQueryString()))->name('checkout.form');
+    Route::get('/history', fn (\Illuminate\Http\Request $request) => redirect('/app/subscription/history?'.$request->getQueryString()))->name('history');
+});
+
 Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->group(function () {
     Route::get('/user', function () {
         $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant', 'branch']);
@@ -104,6 +112,17 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/companies', [ApiCompanyController::class, 'index'])->name('companies.index');
         Route::post('/companies', [ApiCompanyController::class, 'store'])->name('companies.store');
+
+        Route::middleware('super_admin')->prefix('subscription')->name('subscription.')->group(function () {
+            Route::get('/', [ApiSubscriptionController::class, 'index'])->name('index');
+            Route::get('/manage', [ApiSubscriptionController::class, 'show'])->name('show');
+            Route::get('/checkout', [ApiSubscriptionController::class, 'checkoutPage'])->name('checkout.page');
+            Route::get('/payments', [ApiSubscriptionController::class, 'history'])->name('history');
+            Route::post('/quote', [ApiSubscriptionController::class, 'quote'])->name('quote');
+            Route::post('/promo/validate', [ApiSubscriptionController::class, 'validatePromo'])->name('promo.validate');
+            Route::post('/checkout', [ApiSubscriptionController::class, 'checkout'])->name('checkout');
+            Route::post('/callback', [ApiSubscriptionController::class, 'callback'])->name('callback');
+        });
         Route::get('/companies/{company}', [ApiCompanyController::class, 'show'])->name('companies.show');
         Route::put('/companies/{company}', [ApiCompanyController::class, 'update'])->name('companies.update');
         Route::post('/companies/{company}/enter', [ApiCompanyController::class, 'enter'])->name('companies.enter');
@@ -165,7 +184,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             ->middleware('permission:users.manage,super_admins.manage')
             ->name('managed-users.destroy');
 
-        Route::middleware('tenant.context')->group(function () {
+        Route::middleware(['tenant.context', 'subscription.active'])->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');

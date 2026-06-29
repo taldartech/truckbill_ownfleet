@@ -10,6 +10,12 @@ export const adminNavigation = [
         permission: 'dashboard.view',
     },
     {
+        label: 'Subscription',
+        icon: 'bi bi-credit-card nav-icon',
+        to: '/subscription',
+        roles: ['super_admin'],
+    },
+    {
         label: 'Trips',
         icon: 'bi bi-signpost-split nav-icon',
         to: '/trips',

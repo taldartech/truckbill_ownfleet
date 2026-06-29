@@ -7,7 +7,9 @@ use App\Http\Requests\StoreManagedUserRequest;
 use App\Http\Requests\UpdateManagedUserRequest;
 use App\Http\Resources\ManagedUserResource;
 use App\Http\Resources\UserRoleResource;
+use App\Services\SubscriptionGuard;
 use App\Support\RoleHierarchy;
+use App\Tenant;
 use App\User;
 use App\UserRole;
 use Illuminate\Http\Request;
@@ -16,6 +18,10 @@ use Illuminate\Http\Response;
 
 class ManagedUserController extends Controller
 {
+    public function __construct(
+        private readonly SubscriptionGuard $subscriptionGuard,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', User::class);
@@ -55,6 +61,22 @@ class ManagedUserController extends Controller
 
         if ($roleId === UserRole::SUPER_ADMIN) {
             abort(422, 'Super Admin accounts must be provisioned through the central onboarding API.');
+        }
+
+        $tenantId = $roleId === UserRole::SUPER_ADMIN
+            ? null
+            : ($validated['tenant_id'] ?? $request->user()?->resolvedCompany()?->id);
+
+        if ($tenantId !== null) {
+            $tenant = Tenant::query()->with('subscription')->findOrFail($tenantId);
+            $this->subscriptionGuard->assertCanCreateUser($tenant);
+
+            if (RoleHierarchy::requiresBranchAssignment($roleId) && ! empty($validated['branch_id'])) {
+                $this->subscriptionGuard->assertCanAssignUserToBranch(
+                    $tenant,
+                    (string) $validated['branch_id'],
+                );
+            }
         }
 
         $user = User::query()->create([
@@ -122,6 +144,21 @@ class ManagedUserController extends Controller
         }
 
         unset($validated['password_confirmation']);
+
+        $roleId = (int) ($validated['user_role_id'] ?? $managedUser->user_role_id);
+        $tenantId = $validated['tenant_id'] ?? $managedUser->tenant_id;
+        $branchId = array_key_exists('branch_id', $validated)
+            ? $validated['branch_id']
+            : $managedUser->branch_id;
+
+        if ($tenantId !== null && $branchId !== null && RoleHierarchy::requiresBranchAssignment($roleId)) {
+            $tenant = Tenant::query()->with('subscription')->findOrFail($tenantId);
+            $this->subscriptionGuard->assertCanAssignUserToBranch(
+                $tenant,
+                (string) $branchId,
+                (string) $managedUser->id,
+            );
+        }
 
         $validated['updated_by'] = $request->user()?->id;
 

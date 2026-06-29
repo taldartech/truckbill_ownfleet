@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Branch;
+use App\Models\TenantSubscription;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -291,6 +292,38 @@ class BranchManagementTest extends TestCase
             ->assertJsonPath('data.branch_contact_number', '9983921134');
     }
 
+    public function test_branch_creation_is_blocked_when_subscription_branch_limit_reached(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Limited Co');
+        $tenant->subscription->update([
+            'included_branches' => 2,
+            'addon_branches' => 0,
+        ]);
+
+        Branch::query()->create([
+            'company_id' => $tenant->id,
+            'branch_name' => 'Branch One',
+            'branch_contact_number' => '9876543210',
+            'head_office' => true,
+        ]);
+
+        Branch::query()->create([
+            'company_id' => $tenant->id,
+            'branch_name' => 'Branch Two',
+            'branch_contact_number' => '9876543211',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $tenant->id,
+                'branch_name' => 'Branch Three',
+                'branch_contact_number' => '9876543212',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['company_id']);
+    }
+
     public function test_admin_cannot_access_branch_management(): void
     {
         $tenant = Tenant::query()->create([
@@ -391,13 +424,36 @@ class BranchManagementTest extends TestCase
 
     private function createOwnedTenant(User $owner, string $name, array $attributes = []): Tenant
     {
-        return Tenant::query()->create(array_merge([
+        $tenant = Tenant::query()->create(array_merge([
             'owner_user_id' => $owner->id,
             'name' => $name,
             'slug' => str($name)->slug()->toString(),
             'short_name' => str($name)->upper()->substr(0, 8)->toString(),
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
+        ], $attributes));
+
+        $this->createActiveSubscription($tenant);
+
+        return $tenant;
+    }
+
+    private function createActiveSubscription(Tenant $tenant, array $attributes = []): TenantSubscription
+    {
+        return TenantSubscription::query()->create(array_merge([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
         ], $attributes));
     }
 }

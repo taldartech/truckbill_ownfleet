@@ -13,13 +13,22 @@
                         <template v-for="(item, index) in items" :key="index">
                             <li v-if="!item.children" class="nav-item">
                                 <RouterLink
-                                    :to="item.to ?? item.href"
+                                    v-if="item.to"
+                                    :to="item.to"
                                     class="nav-link"
                                     :class="{ active: isItemActive(item) }"
                                 >
                                     <i :class="item.icon" class="nav-icon"></i>
                                     <p>{{ item.label }}</p>
                                 </RouterLink>
+                                <a
+                                    v-else-if="item.href"
+                                    :href="item.href"
+                                    class="nav-link"
+                                >
+                                    <i :class="item.icon" class="nav-icon"></i>
+                                    <p>{{ item.label }}</p>
+                                </a>
                             </li>
                             <li v-else class="nav-item" :class="{ 'menu-open': isSubmenuOpen(index) }">
                                 <a href="#" class="nav-link" @click.prevent="toggleSubmenu(index)">

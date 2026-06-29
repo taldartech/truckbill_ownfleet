@@ -40,7 +40,7 @@ Route::prefix('onboarding')
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 
-Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscription.active'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 

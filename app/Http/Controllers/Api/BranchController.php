@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
+use App\Services\SubscriptionGuard;
 use App\Support\BranchDeletionImpact;
 use App\Support\RoleHierarchy;
 use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
+use App\Tenant;
 use App\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +22,10 @@ use Illuminate\Support\Facades\DB;
 
 class BranchController extends Controller
 {
+    public function __construct(
+        private readonly SubscriptionGuard $subscriptionGuard,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Branch::class);
@@ -59,6 +65,10 @@ class BranchController extends Controller
 
     public function store(StoreBranchRequest $request): BranchResource
     {
+        $validated = $request->validated();
+        $tenant = Tenant::query()->with('subscription')->findOrFail($validated['company_id']);
+        $this->subscriptionGuard->assertCanCreateBranch($tenant);
+
         $branch = DB::transaction(function () use ($request): Branch {
             $validated = $request->validated();
             $validated['head_office'] = $request->boolean('head_office');

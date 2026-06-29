@@ -28,9 +28,6 @@ class Tenant extends Model
         'address',
         'contact_person',
         'contact_number',
-        'plan_end_date',
-        'lr_credits',
-        'truck_credits',
         'payroll_pay_days_mode',
     ];
 
@@ -46,11 +43,40 @@ class Tenant extends Model
         return [
             'is_active' => 'boolean',
             'is_blocked' => 'boolean',
-            'plan_end_date' => 'date',
-            'lr_credits' => 'integer',
-            'truck_credits' => 'integer',
             'payroll_pay_days_mode' => PayrollPayDaysMode::class,
         ];
+    }
+
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\TenantSubscription::class, 'tenant_id');
+    }
+
+    public function isPlanActive(): bool
+    {
+        if ($this->subscription?->isActive()) {
+            return true;
+        }
+
+        return $this->hasPendingUpcomingRenewal();
+    }
+
+    public function pendingUpcomingRenewals()
+    {
+        return $this->hasMany(\App\Models\UpcomingSubscription::class, 'tenant_id')->where('status', 'pending');
+    }
+
+    public function hasPendingUpcomingRenewal(): bool
+    {
+        return \App\Models\UpcomingSubscription::query()
+            ->where('tenant_id', $this->id)
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public function planEndsOn(): ?\Illuminate\Support\Carbon
+    {
+        return $this->subscription?->ends_on;
     }
 
     public function owner(): BelongsTo

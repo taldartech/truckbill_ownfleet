@@ -19,3 +19,10 @@ Schedule::command('compliance:check-emi-due --no-interaction')
 Schedule::command('compliance:check-challan-pending --no-interaction')
     ->dailyAt('08:10')
     ->timezone('Asia/Kolkata');
+
+Schedule::command('subscription:apply-upcoming')
+    ->dailyAt('00:15')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Apply pending upcoming subscriptions after term end');

@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Services;
+
+use App\Tenant;
+use App\Models\TenantSubscription;
+use App\Models\SubscriptionEvent;
+use App\Models\SubscriptionPayment;
+use App\Models\UpcomingSubscription;
+use App\Support\Money;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Razorpay\Api\Api;
+
+class SubscriptionCheckoutService
+{
+    public function __construct(
+        private readonly AdminApiClient $adminApi,
+        private readonly SubscriptionPricingService $pricingService,
+        private readonly SubscriptionUsageService $usageService
+    ) {}
+
+    public function createCheckoutOrder(Tenant $tenant, array $input, string $actorUserId): array
+    {
+        $quote = $this->pricingService->quote($tenant, $input);
+
+        if (! $quote['can_checkout']) {
+            throw new \InvalidArgumentException(implode(' ', $quote['blocking_errors'] ?: ['Checkout is not available.']));
+        }
+
+        $payment = SubscriptionPayment::create([
+            'tenant_id' => $tenant->id,
+            'type' => $input['purchase_type'],
+            'status' => 'pending',
+            'promo_code' => $input['promo_code'] ?? null,
+            'quantities' => $quote['quantities'],
+            'subtotal' => $quote['subtotal'],
+            'promo_discount' => $quote['promo_discount'],
+            'gst_amount' => $quote['gst_amount'],
+            'total_amount' => $quote['total_amount'],
+            'catalog_snapshot' => $quote['catalog_snapshot'],
+            'usage_snapshot_at_purchase' => $quote['current_usage'],
+        ]);
+
+        $api = new Api(config('subscription.razorpay_key'), config('subscription.razorpay_secret'));
+
+        try {
+            $order = $api->order->create([
+                'receipt' => 'sub_'.$payment->id.'_'.time(),
+                'amount' => Money::toPaise($quote['total_amount']),
+                'currency' => 'INR',
+            ]);
+        } catch (\Throwable $exception) {
+            $payment->delete();
+
+            throw $exception;
+        }
+
+        $payment->update(['razorpay_order_id' => $order['id']]);
+
+        SubscriptionEvent::create([
+            'tenant_id' => $tenant->id,
+            'event_type' => 'checkout_created',
+            'payment_id' => $payment->id,
+            'actor_user_id' => $actorUserId,
+            'metadata' => ['order_id' => $order['id']],
+        ]);
+
+        return [
+            'payment_id' => $payment->id,
+            'razorpay_order_id' => $order['id'],
+            'razorpay_key' => config('subscription.razorpay_key'),
+            'amount' => (float) $quote['total_amount'],
+            'razorpay_amount_paise' => Money::toPaise($quote['total_amount']),
+        ];
+    }
+
+    public function handleCallback(array $payload, string $actorUserId): SubscriptionPayment
+    {
+        $payment = SubscriptionPayment::query()
+            ->where('razorpay_order_id', $payload['razorpay_order_id'])
+            ->firstOrFail();
+
+        if ($payment->status === 'completed') {
+            return $payment;
+        }
+
+        $api = new Api(config('subscription.razorpay_key'), config('subscription.razorpay_secret'));
+        $api->utility->verifyPaymentSignature($payload);
+
+        return DB::transaction(function () use ($payment, $payload, $actorUserId) {
+            $payment->update([
+                'status' => 'completed',
+                'razorpay_payment_id' => $payload['razorpay_payment_id'],
+                'razorpay_signature' => $payload['razorpay_signature'],
+            ]);
+
+            $tenant = $payment->tenant;
+            $catalog = $payment->catalog_snapshot ?? [];
+
+            $subscription = $tenant->subscription ?? TenantSubscription::create([
+                'tenant_id' => $tenant->id,
+                'status' => 'expired',
+                'starts_on' => now()->toDateString(),
+                'ends_on' => now()->toDateString(),
+                'included_branches' => (int) ($catalog['included_branches'] ?? 0),
+                'users_per_branch' => (int) ($catalog['users_per_branch'] ?? 0),
+            ]);
+
+            $quantities = $payment->quantities ?? [];
+
+            if ($payment->type === 'addon') {
+                $subscription->update([
+                    'addon_branches' => $subscription->addon_branches + (int) ($quantities['addon_branches'] ?? 0),
+                    'addon_users' => $subscription->addon_users + (int) ($quantities['addon_users'] ?? 0),
+                    'addon_trucks' => $subscription->addon_trucks + (int) ($quantities['addon_trucks'] ?? 0),
+                ]);
+            } else {
+                $isActive = $subscription->isActive();
+
+                $snapshot = [
+                    'included_branches' => (int) $catalog['included_branches'],
+                    'users_per_branch' => (int) $catalog['users_per_branch'],
+                    'included_lr_credits' => 0,
+                    'included_trucks' => (int) ($catalog['included_trucks'] ?? 0),
+                    'addon_branches' => (int) ($quantities['addon_branches'] ?? 0),
+                    'addon_users' => (int) ($quantities['addon_users'] ?? 0),
+                    'addon_trucks' => (int) ($quantities['addon_trucks'] ?? 0),
+                    'addon_lr_credits' => 0,
+                ];
+
+                if ($isActive) {
+                    UpcomingSubscription::create([
+                        'tenant_id' => $tenant->id,
+                        'payment_id' => $payment->id,
+                        'status' => 'pending',
+                        'catalog_snapshot' => $catalog,
+                        'promo_snapshot' => $payment->promo_code ? ['code' => $payment->promo_code] : null,
+                        ...$snapshot,
+                    ]);
+                } else {
+                    $term = $this->renewalTermFollowing(
+                        $subscription->isActive()
+                            ? $subscription->ends_on
+                            : now()->subDay()->toDateString(),
+                    );
+
+                    $subscription->update([
+                        'status' => 'active',
+                        'starts_on' => $term['starts_on'],
+                        'ends_on' => $term['ends_on'],
+                        'trial_ends_on' => null,
+                        'included_branches' => $snapshot['included_branches'],
+                        'users_per_branch' => $snapshot['users_per_branch'],
+                        'included_lr_credits' => 0,
+                        'included_trucks' => $snapshot['included_trucks'],
+                        'addon_branches' => $snapshot['addon_branches'],
+                        'addon_users' => $snapshot['addon_users'],
+                        'addon_trucks' => $snapshot['addon_trucks'],
+                        'addon_lr_credits' => 0,
+                        'lr_credits_remaining' => 0,
+                        'last_renewed_at' => now(),
+                    ]);
+                }
+            }
+
+            if ($payment->promo_code) {
+                try {
+                    $this->adminApi->incrementPromoUse($payment->promo_code);
+                } catch (\Throwable) {
+                    // Promo increment failure should not block payment completion.
+                }
+            }
+
+            SubscriptionEvent::create([
+                'tenant_id' => $tenant->id,
+                'event_type' => 'payment_completed',
+                'payment_id' => $payment->id,
+                'actor_user_id' => $actorUserId,
+                'metadata' => ['type' => $payment->type],
+            ]);
+
+            return $payment->fresh();
+        });
+    }
+
+    public function applyDueUpcomingSubscriptions(): int
+    {
+        $applied = 0;
+        $today = now()->toDateString();
+
+        $subscriptions = TenantSubscription::query()
+            ->where('ends_on', '<=', $today)
+            ->whereIn('status', ['active', 'trial', 'expired'])
+            ->get();
+
+        foreach ($subscriptions as $subscription) {
+            $upcoming = UpcomingSubscription::query()
+                ->where('tenant_id', $subscription->tenant_id)
+                ->where('status', 'pending')
+                ->orderBy('id')
+                ->first();
+
+            if ($upcoming === null) {
+                if ($subscription->status !== 'expired') {
+                    $subscription->update(['status' => 'expired']);
+                }
+
+                continue;
+            }
+
+            $term = $this->renewalTermFollowing($subscription->ends_on);
+
+            $subscription->update([
+                'status' => 'active',
+                'starts_on' => $term['starts_on'],
+                'ends_on' => $term['ends_on'],
+                'trial_ends_on' => null,
+                'included_branches' => $upcoming->included_branches,
+                'users_per_branch' => $upcoming->users_per_branch,
+                'included_lr_credits' => 0,
+                'included_trucks' => $upcoming->included_trucks,
+                'addon_branches' => $upcoming->addon_branches,
+                'addon_users' => $upcoming->addon_users,
+                'addon_trucks' => $upcoming->addon_trucks,
+                'addon_lr_credits' => 0,
+                'lr_credits_remaining' => 0,
+                'last_renewed_at' => now(),
+            ]);
+
+            $upcoming->update(['status' => 'applied']);
+            $applied++;
+        }
+
+        return $applied;
+    }
+
+    /**
+     * @return array{starts_on: string, ends_on: string}
+     */
+    public function renewalTermFollowing(Carbon|string $previousEndsOn): array
+    {
+        $startsOn = Carbon::parse($previousEndsOn)->addDay()->toDateString();
+        $endsOn = Carbon::parse($startsOn)->addYear()->subDay()->toDateString();
+
+        return [
+            'starts_on' => $startsOn,
+            'ends_on' => $endsOn,
+        ];
+    }
+}

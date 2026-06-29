@@ -228,6 +228,30 @@ const router = createRouter({
                         permission: ['users.view', 'super_admins.view'],
                     },
                 },
+                {
+                    path: 'subscription',
+                    name: 'subscription.index',
+                    component: () => import('./pages/subscription/SubscriptionsIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/manage',
+                    name: 'subscription.manage',
+                    component: () => import('./pages/subscription/SubscriptionManagePage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/checkout',
+                    name: 'subscription.checkout',
+                    component: () => import('./pages/subscription/SubscriptionCheckoutPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/history',
+                    name: 'subscription.history',
+                    component: () => import('./pages/subscription/SubscriptionHistoryPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
             ],
         },
         {
@@ -299,6 +323,10 @@ router.beforeEach(async (to) => {
 
     if (user.role === 'master_admin' && to.meta.requiresTenant) {
         return { name: 'companies.index' };
+    }
+
+    if (to.meta.requiresSuperAdmin && user.role !== 'super_admin') {
+        return { name: 'dashboard', query: { denied: '1', from: to.name ?? to.path } };
     }
 
     if (to.meta.permission) {
