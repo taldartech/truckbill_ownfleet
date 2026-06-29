@@ -59,6 +59,14 @@ class TenantSubscription extends Model
         }
 
         if (in_array($this->status, ['trial', 'active'], true)) {
+            $tenant = $this->tenant;
+            if ($tenant !== null) {
+                $payload = app(\App\Services\SubscriptionAccessService::class)->accessPayloadForTenant($tenant);
+                if ($payload['is_in_grace_period'] ?? false) {
+                    return 'grace';
+                }
+            }
+
             return 'expired';
         }
 

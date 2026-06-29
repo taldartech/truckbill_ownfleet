@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Branch;
 use App\Models\TenantSubscription;
+use App\Support\SubscriptionExpiredResponse;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -15,17 +16,26 @@ class SubscriptionGuard
         private readonly SubscriptionUsageService $usageService,
     ) {}
 
+    public function assertCanMutate(Tenant $tenant): void
+    {
+        if (! $tenant->subscriptionCanWrite()) {
+            SubscriptionExpiredResponse::abortUnlessCanMutate(request(), $tenant);
+        }
+    }
+
     public function assertPlanActive(?TenantSubscription $subscription): void
     {
-        if ($subscription === null || ! $subscription->isActive()) {
-            abort(403, 'Your subscription has expired. Please renew to continue.');
+        if ($subscription === null) {
+            SubscriptionExpiredResponse::abortUnlessCanMutate(request());
         }
+
+        $this->assertCanMutate($subscription->tenant);
     }
 
     public function assertCanCreateBranch(Tenant $tenant): void
     {
         $subscription = $tenant->subscription;
-        $this->assertPlanActive($subscription);
+        $this->assertCanMutate($tenant);
 
         $count = Branch::query()->where('company_id', $tenant->id)->count();
         $max = $subscription->maxBranches();
@@ -40,7 +50,7 @@ class SubscriptionGuard
     public function assertCanCreateUser(Tenant $tenant): void
     {
         $subscription = $tenant->subscription;
-        $this->assertPlanActive($subscription);
+        $this->assertCanMutate($tenant);
 
         $totalUsers = User::query()
             ->where('tenant_id', $tenant->id)
@@ -55,7 +65,7 @@ class SubscriptionGuard
     public function assertCanAssignUserToBranch(Tenant $tenant, string $branchId, ?string $excludingUserId = null): void
     {
         $subscription = $tenant->subscription;
-        $this->assertPlanActive($subscription);
+        $this->assertCanMutate($tenant);
 
         $perBranch = $subscription->maxUsersInBranch();
         $addonUsers = (int) $subscription->addon_users;
@@ -87,7 +97,7 @@ class SubscriptionGuard
     public function assertCanCreateVehicle(Tenant $tenant): void
     {
         $subscription = $tenant->subscription;
-        $this->assertPlanActive($subscription);
+        $this->assertCanMutate($tenant);
 
         $count = $this->usageService->vehicleCountForTenant($tenant);
         $max = $subscription->maxTrucks();

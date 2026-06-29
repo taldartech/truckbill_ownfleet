@@ -350,6 +350,18 @@ router.beforeEach(async (to) => {
         }
     }
 
+    const subscriptionLocked = user.subscription?.access_mode === 'locked';
+    const isSubscriptionRoute = String(to.path).startsWith('/subscription');
+
+    if (
+        subscriptionLocked
+        && to.meta.requiresTenant
+        && !isSubscriptionRoute
+        && to.name !== 'dashboard'
+    ) {
+        return { name: 'dashboard', query: { subscription_locked: '1' } };
+    }
+
     return true;
 });
 

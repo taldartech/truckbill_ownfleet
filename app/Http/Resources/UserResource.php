@@ -30,7 +30,11 @@ class UserResource extends JsonResource
             ? \App\Branch::query()->find($effectiveBranchId)
             : $this->branch;
 
-        $planEndDate = $activeTenant?->plan_end_date;
+        if ($activeTenant !== null) {
+            $activeTenant->loadMissing('subscription');
+        }
+
+        $planEndDate = $activeTenant?->subscription?->ends_on;
 
         return [
             'id' => $this->id,
@@ -67,8 +71,9 @@ class UserResource extends JsonResource
                 'plan_end_date_formatted' => $planEndDate
                     ? Carbon::parse($planEndDate)->format('d M, Y')
                     : null,
-                'lr_credits' => $activeTenant?->lr_credits,
+                'lr_credits' => $activeTenant?->subscription?->lr_credits_remaining ?? 0,
             ],
+            'subscription' => $activeTenant?->subscriptionAccessPayload(),
             'email_verified_at' => ApiDateTime::toIso($this->email_verified_at),
             'created_at' => ApiDateTime::toIso($this->created_at),
         ];

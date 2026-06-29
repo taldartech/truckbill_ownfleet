@@ -54,11 +54,27 @@ class Tenant extends Model
 
     public function isPlanActive(): bool
     {
-        if ($this->subscription?->isActive()) {
-            return true;
-        }
+        return $this->subscription?->isActive() ?? false;
+    }
 
-        return $this->hasPendingUpcomingRenewal();
+    public function subscriptionAccessPayload(): array
+    {
+        return app(\App\Services\SubscriptionAccessService::class)->accessPayloadForTenant($this);
+    }
+
+    public function subscriptionCanWrite(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_write'] ?? false;
+    }
+
+    public function subscriptionCanExport(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_export'] ?? false;
+    }
+
+    public function subscriptionCanPrint(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_print'] ?? false;
     }
 
     public function pendingUpcomingRenewals()

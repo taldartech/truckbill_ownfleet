@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Tenant;
-use App\Models\TenantSubscription;
 use App\Models\SubscriptionEvent;
 use App\Models\SubscriptionPayment;
+use App\Models\TenantSubscription;
 use App\Models\UpcomingSubscription;
 use App\Support\Money;
+use App\Tenant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Razorpay\Api\Api;
@@ -184,6 +184,56 @@ class SubscriptionCheckoutService
         });
     }
 
+    public function applyUpcomingForTenant(string $tenantId): bool
+    {
+        $today = now()->toDateString();
+
+        $subscription = TenantSubscription::query()
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        if ($subscription === null || $subscription->ends_on->toDateString() > $today) {
+            return false;
+        }
+
+        $upcoming = UpcomingSubscription::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'pending')
+            ->orderBy('id')
+            ->first();
+
+        if ($upcoming === null) {
+            if ($subscription->status !== 'expired') {
+                $subscription->update(['status' => 'expired']);
+            }
+
+            return false;
+        }
+
+        $term = $this->renewalTermFollowing($subscription->ends_on);
+
+        $subscription->update([
+            'status' => 'active',
+            'starts_on' => $term['starts_on'],
+            'ends_on' => $term['ends_on'],
+            'trial_ends_on' => null,
+            'included_branches' => $upcoming->included_branches,
+            'users_per_branch' => $upcoming->users_per_branch,
+            'included_lr_credits' => 0,
+            'included_trucks' => $upcoming->included_trucks,
+            'addon_branches' => $upcoming->addon_branches,
+            'addon_users' => $upcoming->addon_users,
+            'addon_trucks' => $upcoming->addon_trucks,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
+            'last_renewed_at' => now(),
+        ]);
+
+        $upcoming->update(['status' => 'applied']);
+
+        return true;
+    }
+
     public function applyDueUpcomingSubscriptions(): int
     {
         $applied = 0;
@@ -195,41 +245,9 @@ class SubscriptionCheckoutService
             ->get();
 
         foreach ($subscriptions as $subscription) {
-            $upcoming = UpcomingSubscription::query()
-                ->where('tenant_id', $subscription->tenant_id)
-                ->where('status', 'pending')
-                ->orderBy('id')
-                ->first();
-
-            if ($upcoming === null) {
-                if ($subscription->status !== 'expired') {
-                    $subscription->update(['status' => 'expired']);
-                }
-
-                continue;
+            if ($this->applyUpcomingForTenant($subscription->tenant_id)) {
+                $applied++;
             }
-
-            $term = $this->renewalTermFollowing($subscription->ends_on);
-
-            $subscription->update([
-                'status' => 'active',
-                'starts_on' => $term['starts_on'],
-                'ends_on' => $term['ends_on'],
-                'trial_ends_on' => null,
-                'included_branches' => $upcoming->included_branches,
-                'users_per_branch' => $upcoming->users_per_branch,
-                'included_lr_credits' => 0,
-                'included_trucks' => $upcoming->included_trucks,
-                'addon_branches' => $upcoming->addon_branches,
-                'addon_users' => $upcoming->addon_users,
-                'addon_trucks' => $upcoming->addon_trucks,
-                'addon_lr_credits' => 0,
-                'lr_credits_remaining' => 0,
-                'last_renewed_at' => now(),
-            ]);
-
-            $upcoming->update(['status' => 'applied']);
-            $applied++;
         }
 
         return $applied;
