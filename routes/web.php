@@ -18,6 +18,8 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
+require __DIR__.'/api-admin.php';
+
 $previewData = static function (string $viewName): array {
     if (str_starts_with($viewName, 'dashboard.roles.')) {
         return DashboardPreviewData::defaults();
@@ -653,5 +655,5 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
         }
 
         abort(404);
-    })->where('path', '.*');
+    })->where('path', '^(?!api/admin(?:/|$)).*');
 });
