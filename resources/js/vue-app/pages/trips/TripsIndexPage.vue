@@ -135,12 +135,8 @@
                                     <AppCrudActionButton
                                         v-if="canManage"
                                         action="edit"
-                                        :disabled="isTerminalTrip(trip)"
-                                        :title="
-                                            isTerminalTrip(trip)
-                                                ? 'Completed or cancelled trips are read-only'
-                                                : 'Edit trip'
-                                        "
+                                        :disabled="!canEditTrip(trip)"
+                                        :title="tripEditTitle(trip)"
                                         @click="goToEdit(trip)"
                                     />
                                     <AppCrudActionButton
@@ -170,16 +166,24 @@
                 @update:per-page="onPerPageUpdate"
             />
         </div>
+
+        <TripTypeSelectModal
+            :show="showTripTypeModal"
+            @cancel="showTripTypeModal = false"
+            @confirm="onTripTypeSelected"
+        />
     </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { fetchCurrentUser } from '../../api';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
-import { deleteTrip, defaultTripListFilters, isTerminalTripStatus, listTrips, TRIP_STATUSES } from '../../api/trips';
+import { deleteTrip, defaultTripListFilters, isTerminalTripStatus, listTrips, resolveTripEditAccess, tripEditDisabledTitle, TRIP_STATUSES } from '../../api/trips';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
+import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -201,8 +205,9 @@ import { formatDateTime } from '../../utils/datetime';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const currentUser = inject('currentUser', ref(null));
 const { needsCompanySelection } = useRequireCompanyContext();
-const { canInCompany, canDeleteRecords } = usePermissions();
+const { canInCompany, canDeleteRecords, user } = usePermissions(currentUser);
 const canManage = computed(() => canInCompany('trips.manage'));
 const canDelete = computed(() => canManage.value && canDeleteRecords.value);
 const canView = computed(() => canInCompany('trips.view'));
@@ -216,6 +221,7 @@ const customers = ref([]);
 const brokers = ref([]);
 const loading = ref(true);
 const flash = reactive({ success: '', error: '' });
+const showTripTypeModal = ref(false);
 const tripStatuses = TRIP_STATUSES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
@@ -247,6 +253,14 @@ function formatMoney(value) {
 
 function isTerminalTrip(trip) {
     return isTerminalTripStatus(trip.status);
+}
+
+function canEditTrip(trip) {
+    return resolveTripEditAccess(trip.status, user.value).canEdit;
+}
+
+function tripEditTitle(trip) {
+    return tripEditDisabledTitle(trip.status, user.value);
 }
 
 function onTripStatusUpdated(trip, updated) {
@@ -310,17 +324,37 @@ function goToCreate() {
         flash.error = 'Select and enter a company before creating a trip.';
         toast.warning(flash.error);
 
-        return;
+        return false;
     }
 
     if (!canManage.value) {
         flash.error = 'You do not have permission to create trips.';
         toast.error(flash.error);
 
+        return false;
+    }
+
+    showTripTypeModal.value = true;
+
+    return true;
+}
+
+function openCreateModalFromRoute() {
+    if (route.query.create !== '1') {
         return;
     }
 
-    router.push({ name: 'trips.create' });
+    const { create, ...rest } = route.query;
+    router.replace({ query: rest });
+    goToCreate();
+}
+
+function onTripTypeSelected(tripType) {
+    showTripTypeModal.value = false;
+
+    const typeQuery = tripType === 'ONE_WAY' ? 'one_way' : 'round_trip';
+
+    router.push({ name: 'trips.create', query: { type: typeQuery } });
 }
 
 function clearFilters() {
@@ -381,7 +415,7 @@ function goToView(trip) {
 }
 
 function goToEdit(trip) {
-    if (isTerminalTrip(trip)) {
+    if (!canEditTrip(trip)) {
         return;
     }
 
@@ -407,8 +441,26 @@ async function handleDelete(trip) {
 
 watch(
     () => route.query,
-    () => showRouteFlash(),
+    () => {
+        showRouteFlash();
+        openCreateModalFromRoute();
+    },
     { immediate: true },
+);
+
+watch(
+    () => route.name,
+    async (name, previousName) => {
+        if (name !== 'trips.index' || !previousName || previousName === 'trips.index') {
+            return;
+        }
+
+        await refreshUserContext();
+
+        if (!needsCompanySelection.value) {
+            await loadTrips(pagination.currentPage);
+        }
+    },
 );
 
 watch(
@@ -451,7 +503,26 @@ function applyRouteFilters() {
     }
 }
 
+async function refreshUserContext() {
+    try {
+        const freshUser = await fetchCurrentUser();
+
+        if (!freshUser) {
+            return;
+        }
+
+        window.__AUTH_USER__ = freshUser;
+
+        if (currentUser.value) {
+            currentUser.value = freshUser;
+        }
+    } catch {
+        // Keep the existing client user when refresh fails.
+    }
+}
+
 onMounted(async () => {
+    await refreshUserContext();
     applyRouteFilters();
 
     if (!needsCompanySelection.value) {

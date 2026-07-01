@@ -85,7 +85,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label :for="`${modalId}_odometer`" class="form-label">Meter Reading (KM)</label>
+                                <label :for="`${modalId}_odometer`" class="form-label">Truck Running Meter Reading (KM)</label>
                                 <input
                                     :id="`${modalId}_odometer`"
                                     v-model="form.odometer_km"

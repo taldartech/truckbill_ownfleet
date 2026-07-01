@@ -71,6 +71,9 @@
             :actual-arrival-at-value="form.actual_arrival_at"
             :cancelled-at-value="form.cancelled_at"
             :cancellation-reason-value="form.cancellation_reason"
+            :start-meter-reading-km="form.start_meter_reading_km"
+            :truck-running-meter-km="truckRunningMeterKm"
+            :end-meter-reading-km-value="form.end_meter_reading_km"
             @cancel="onStatusModalCancel"
             @confirm="onStatusModalConfirm"
         />
@@ -109,6 +112,7 @@ const showStatusModal = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
 const stations = ref([]);
+const truckRunningMeterKm = ref('');
 
 const statusMeta = computed(() => tripStatusMeta(props.trip.status));
 const nextStatuses = computed(() => tripAllowedNextStatuses(props.trip.status));
@@ -157,16 +161,24 @@ async function ensureTripLoaded() {
     const fullTrip = await fetchTrip(props.trip.id);
     populateFromTrip(fullTrip);
     originalStatus.value = fullTrip.status ?? 'CREATED';
+    truckRunningMeterKm.value = fullTrip.vehicle?.odometer_km ?? '';
 
     return fullTrip;
 }
 
 async function saveStatusChange(successLabel) {
     const payload = buildPayload(stations.value, { mode: 'edit' });
-    const clientErrors = validateTripPayload(payload, {
-        mode: 'edit',
-        previousStatus: originalStatus.value,
-    });
+    const clientErrors = validateTripPayload(
+        {
+            ...payload,
+            start_meter_reading_km: form.start_meter_reading_km,
+            truck_running_meter_km: truckRunningMeterKm.value,
+        },
+        {
+            mode: 'edit',
+            previousStatus: originalStatus.value,
+        },
+    );
 
     if (Object.keys(clientErrors).length > 0) {
         const firstError = Object.values(clientErrors).flat()[0] ?? 'Could not update trip status.';
@@ -235,9 +247,11 @@ async function onStatusModalConfirm(data) {
     if (pendingStatus.value === 'CANCELLED') {
         form.cancelled_at = data.cancelled_at;
         form.cancellation_reason = data.cancellation_reason;
+        form.end_meter_reading_km = data.end_meter_reading_km;
     } else if (pendingStatus.value === 'COMPLETED') {
         form.end_at = data.end_at;
         form.actual_arrival_at = data.actual_arrival_at;
+        form.end_meter_reading_km = data.end_meter_reading_km;
     }
 
     showStatusModal.value = false;

@@ -343,8 +343,6 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.vehicle-wise');
             Route::get('/reports/trips/driver-wise', [\App\Http\Controllers\Api\TripReportController::class, 'driverWise'])
                 ->name('reports.trips.driver-wise');
-            Route::get('/reports/trips/empty-km', [\App\Http\Controllers\Api\TripReportController::class, 'emptyKm'])
-                ->name('reports.trips.empty-km');
             Route::get('/reports/trips/expense-summary', [\App\Http\Controllers\Api\TripReportController::class, 'expenseSummary'])
                 ->name('reports.trips.expense-summary');
             Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])

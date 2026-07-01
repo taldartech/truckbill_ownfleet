@@ -1,4 +1,4 @@
-import { expenseTypeLabel, routeTypeMeta, summarizeTripForm } from '../api/trips';
+import { expenseTypeLabel, legLoadCategoryMeta, summarizeTripForm } from '../api/trips';
 import { formatDate } from './datetime';
 
 function formatNum(value) {
@@ -22,9 +22,10 @@ function legSignature(leg) {
         leg.from_station_id,
         leg.to_station_id,
         leg.customer_id,
-        leg.route_type,
-        Number(leg.distance_km ?? 0),
+        Number(leg.weight_ton ?? 0),
+        Number(leg.freight_rate ?? 0),
         Number(leg.freight_amount ?? 0),
+        leg.expected_mileage_km_per_liter ?? '',
     ].join('|');
 }
 
@@ -186,8 +187,10 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             from: lookupName(stations, leg.from_station_id),
             to: lookupName(stations, leg.to_station_id),
             customer: lookupName(customers, leg.customer_id, '—'),
-            loadType: routeTypeMeta(leg.route_type).label,
-            km: formatNum(leg.distance_km),
+            loadType: legLoadCategoryMeta(leg.weight_ton).label,
+            weight: formatNum(leg.weight_ton),
+            rate: formatMoney(leg.freight_rate),
+            mileage: leg.expected_mileage_km_per_liter ? formatNum(leg.expected_mileage_km_per_liter) : '—',
             freight: formatMoney(leg.freight_amount),
             isNew,
             changed: isNew || changed,
@@ -260,10 +263,12 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         removedLegCount,
         removedExpenseCount,
         totals: {
-            loadedKm: formatNum(summary.loadedKm),
-            halfLoadedKm: formatNum(summary.halfLoadedKm),
-            emptyKm: formatNum(summary.emptyKm),
+            loadedStops: summary.loadedStops,
+            emptyStops: summary.emptyStops,
+            expectedAvgMileage:
+                summary.expectedAvgMileage == null ? '—' : `${formatNum(summary.expectedAvgMileage)} KM/Ltr`,
             totalKm: formatNum(summary.totalKm),
+            totalWeight: summary.totalWeightTon > 0 ? formatNum(summary.totalWeightTon) : '—',
             freight: formatMoney(summary.freightTotal),
             expenses: formatMoney(summary.expenseTotal),
             profit: formatMoney(summary.profit),

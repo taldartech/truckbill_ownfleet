@@ -200,6 +200,209 @@
     }
 }
 
+.trip-performance-card {
+    border-width: 1px;
+    border-style: solid;
+    overflow: hidden;
+}
+
+.trip-performance-card--pending {
+    border-color: #ced4da;
+}
+
+.trip-performance-card--under {
+    border-color: #f1aeb5;
+}
+
+.trip-performance-card--within {
+    border-color: #9ec5fe;
+}
+
+.trip-performance-card--over {
+    border-color: #a3cfbb;
+}
+
+.trip-performance-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    color: #fff !important;
+}
+
+.trip-performance-card__header .trip-performance-card__title,
+.trip-performance-card__header :is(h1, h2, h3, h4, h5, h6),
+.trip-performance-card__header .trip-performance-card__badge,
+.trip-performance-card__header i {
+    color: #fff !important;
+}
+
+.trip-performance-card--pending .trip-performance-card__header {
+    background: linear-gradient(135deg, #6c757d 0%, #5c636a 100%);
+}
+
+.trip-performance-card--under .trip-performance-card__header {
+    background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+}
+
+.trip-performance-card--within .trip-performance-card__header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+.trip-performance-card--over .trip-performance-card__header {
+    background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+}
+
+.trip-performance-card__title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.trip-performance-card__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.trip-performance-card__body {
+    padding: 14px 16px 16px;
+}
+
+.trip-performance-metrics {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+}
+
+.trip-performance-metrics__item {
+    flex: 1 1 0;
+    min-width: 110px;
+    padding: 0 12px;
+    text-align: center;
+}
+
+.trip-performance-metrics__item--amount {
+    min-width: 130px;
+}
+
+.trip-performance-metrics__item:first-child {
+    padding-left: 0;
+}
+
+.trip-performance-metrics__label {
+    font-size: 0.72rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.trip-performance-metrics__value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #212529;
+    white-space: nowrap;
+}
+
+.trip-performance-metrics__value--under {
+    color: #dc3545;
+}
+
+.trip-performance-metrics__value--within {
+    color: #0d6efd;
+}
+
+.trip-performance-metrics__value--over {
+    color: #198754;
+}
+
+.trip-performance-metrics__value--muted {
+    color: #6c757d;
+}
+
+.trip-performance-card--over .trip-performance-metrics__item--amount .trip-performance-metrics__label,
+.trip-performance-card--within .trip-performance-metrics__item--amount .trip-performance-metrics__label,
+.trip-performance-card--under .trip-performance-metrics__item--amount .trip-performance-metrics__label {
+    font-weight: 600;
+}
+
+.trip-performance-metrics__divider {
+    width: 1px;
+    align-self: stretch;
+    background: #dee2e6;
+    flex-shrink: 0;
+}
+
+.trip-performance-metrics__divider--amount {
+    width: 0;
+    border-left: 1px dashed #ced4da;
+    background: transparent;
+    margin: 0 4px;
+}
+
+.trip-performance-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+.trip-performance-status i {
+    font-size: 1rem;
+    margin-top: 1px;
+}
+
+.trip-performance-status__title {
+    font-weight: 600;
+}
+
+.trip-performance-status__subtitle {
+    margin-top: 2px;
+    opacity: 0.9;
+}
+
+.trip-performance-status--pending {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.trip-performance-status--under {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.trip-performance-status--within {
+    background: #cfe2ff;
+    color: #084298;
+}
+
+.trip-performance-status--over {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+@media (max-width: 768px) {
+    .trip-performance-metrics__item {
+        min-width: 96px;
+        padding: 0 8px;
+    }
+
+    .trip-performance-metrics__value {
+        font-size: 0.9rem;
+    }
+}
+
 /* FIX 5 — page header */
 .page-header {
     display: flex;

@@ -6,9 +6,9 @@ use App\Branch;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
-use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
+use App\Enums\TripType;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
 use App\Support\BranchContext;
@@ -151,7 +151,7 @@ class TripManagementTest extends TestCase
         $expectedTripNumber = $this->formatTripNumber($branchId);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -161,25 +161,27 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
                         'sequence_no' => 1,
-                        'distance_km' => 150,
+                        'weight_ton' => 100,
+                        'freight_rate' => 250,
                         'freight_amount' => 25000,
+                        'expected_mileage_km_per_liter' => 2.6,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['c']->id,
-                        'route_type' => RouteType::HalfLoaded->value,
                         'sequence_no' => 2,
-                        'distance_km' => 80,
+                        'weight_ton' => 48,
+                        'freight_rate' => 250,
                         'freight_amount' => 12000,
+                        'expected_mileage_km_per_liter' => 3.0,
                     ],
                     [
                         'from_station_id' => $stations['c']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
                         'sequence_no' => 3,
-                        'distance_km' => 180,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
                 'expenses' => [
@@ -198,13 +200,11 @@ class TripManagementTest extends TestCase
                         'amount' => 1200,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertCreated();
         $response->assertJsonPath('data.trip_number', $expectedTripNumber);
-        $response->assertJsonPath('data.loaded_distance_km', '150.00');
-        $response->assertJsonPath('data.half_loaded_distance_km', '80.00');
-        $response->assertJsonPath('data.empty_distance_km', '180.00');
+        $response->assertJsonPath('data.start_meter_reading_km', '10000.00');
         $response->assertJsonPath('data.total_freight_amount', '37000.00');
         $response->assertJsonPath('data.total_expense_amount', '9700.00');
         $response->assertJsonPath('data.profit_amount', 27300);
@@ -213,6 +213,7 @@ class TripManagementTest extends TestCase
             'tenant_id' => $tenant->id,
             'trip_number' => $expectedTripNumber,
             'start_station_id' => $stations['home']->id,
+            'start_meter_reading_km' => '10000.00',
         ]);
 
         $this->assertDatabaseCount('trip_route_legs', 3);
@@ -245,7 +246,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -255,17 +256,16 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
                         'sequence_no' => 1,
-                        'distance_km' => 150,
+                        'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
                         'sequence_no' => 2,
-                        'distance_km' => 150,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
                 'expenses' => [
@@ -277,7 +277,7 @@ class TripManagementTest extends TestCase
                         'amount' => 500,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertCreated();
 
@@ -295,7 +295,7 @@ class TripManagementTest extends TestCase
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
 
-        $payload = [
+        $payload = array_merge($this->requiredTripMeterFields(), [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -305,17 +305,16 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 150,
+                    'weight_ton' => 100,
                     'freight_amount' => 25000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 150,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
             'expenses' => [
@@ -325,7 +324,7 @@ class TripManagementTest extends TestCase
                     'amount' => 500,
                 ],
             ],
-        ];
+        ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', $payload)
@@ -354,7 +353,7 @@ class TripManagementTest extends TestCase
         ]);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'substitute_driver_id' => $substitute->id,
@@ -364,20 +363,19 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
                         'sequence_no' => 1,
-                        'distance_km' => 150,
+                        'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
                         'sequence_no' => 2,
-                        'distance_km' => 150,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ]);
+            ]));
 
         $createResponse->assertCreated();
         $createResponse->assertJsonPath('data.substitute_driver_id', $substitute->id);
@@ -433,7 +431,7 @@ class TripManagementTest extends TestCase
             ->assertOk();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -442,18 +440,19 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 1,
+                        'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ])
+            ]))
             ->assertCreated();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -505,6 +504,121 @@ class TripManagementTest extends TestCase
         $response->assertJsonStructure(['data' => [['trip_count', 'entry_count', 'total_amount']]]);
     }
 
+    public function test_route_profitability_report_uses_trip_meter_distance_when_leg_distance_is_zero(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 100,
+                        'freight_amount' => 25000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]));
+
+        $tripId = $response->assertCreated()->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-05 20:00:00',
+                'actual_arrival_at' => '2026-06-05 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertOk();
+
+        $report = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/reports/trips/route-profitability?from_date=2026-06-01&to_date=2026-06-30');
+
+        $report->assertOk();
+        $report->assertJsonPath('summary.trip_count', 1);
+
+        $rows = collect($report->json('data'));
+        $this->assertCount(2, $rows);
+        $this->assertTrue($rows->every(fn (array $row): bool => (float) $row['total_distance_km'] === 250.0));
+        $this->assertSame(500.0, (float) $rows->sum('total_distance_km'));
+    }
+
+    public function test_trip_show_includes_diesel_performance_summary(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'expected_diesel_liters' => 200,
+                'diesel_rate_per_liter' => 100,
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 100,
+                        'freight_amount' => 25000,
+                        'expected_mileage_km_per_liter' => 2.5,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                        'expected_mileage_km_per_liter' => 3.0,
+                    ],
+                ],
+            ]));
+
+        $tripId = $response->assertCreated()->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-05 20:00:00',
+                'actual_arrival_at' => '2026-06-05 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/trips/{$tripId}")
+            ->assertOk()
+            ->assertJsonPath('data.diesel_performance.expected_total_km', 550)
+            ->assertJsonPath('data.diesel_performance.actual_total_km', 500)
+            ->assertJsonPath('data.diesel_performance.performance_status', 'under')
+            ->assertJsonPath('data.diesel_performance.unused_km', 50)
+            ->assertJsonPath('data.diesel_performance.rate_per_km', 36.36)
+            ->assertJsonPath('data.diesel_performance.remaining_amount', 1818);
+    }
+
     public function test_trip_report_export_returns_excel_for_selected_filters(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
@@ -541,7 +655,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -550,18 +664,17 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
-                        'distance_km' => 100,
+                        'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
-                        'distance_km' => 100,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['route_legs']);
@@ -573,7 +686,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -583,18 +696,19 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 1,
+                        'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['status']);
@@ -610,6 +724,7 @@ class TripManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.0.registration_number', 'MH12TR0001');
+        $response->assertJsonPath('data.0.odometer_km', 1000);
         $response->assertJsonPath('data.0.selectable', true);
         $response->assertJsonPath('data.0.primary_driver_name', 'Trip Driver');
     }
@@ -634,6 +749,41 @@ class TripManagementTest extends TestCase
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['vehicle_id']);
+    }
+
+    public function test_update_trip_allows_meter_reading_changes_on_edit(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'start_meter_reading_km' => 15000,
+                'end_meter_reading_km' => 15500,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.start_meter_reading_km', '15000.00')
+            ->assertJsonPath('data.end_meter_reading_km', '15500.00')
+            ->assertJsonPath('data.total_distance_km', '500.00');
+
+        $this->assertDatabaseHas('trips', [
+            'id' => $trip->id,
+            'start_meter_reading_km' => '15000.00',
+            'end_meter_reading_km' => '15500.00',
+            'total_distance_km' => '500.00',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'start_meter_reading_km' => 16000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['end_meter_reading_km']);
     }
 
     public function test_update_trip_succeeds_when_driver_assignment_changed_but_start_date_unchanged(): void
@@ -704,7 +854,7 @@ class TripManagementTest extends TestCase
             ->update(['assigned_from' => '2026-06-08']);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'start_station_id' => $stations['home']->id,
                 'start_at' => '2026-06-07 08:00:00',
@@ -712,18 +862,19 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 1,
+                        'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['vehicle_id']);
@@ -745,13 +896,48 @@ class TripManagementTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_cancel_in_progress_trip_requires_end_meter_and_syncs_vehicle_odometer(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Cancelled->value,
+                'cancelled_at' => '2026-06-11 10:00:00',
+                'cancellation_reason' => 'Customer cancelled',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['end_meter_reading_km']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Cancelled->value,
+                'cancelled_at' => '2026-06-11 10:00:00',
+                'cancellation_reason' => 'Customer cancelled',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::Cancelled->value)
+            ->assertJsonPath('data.end_meter_reading_km', '10500.00')
+            ->assertJsonPath('data.total_distance_km', '500.00');
+
+        $vehicle->refresh();
+        $this->assertSame('10500', (string) $vehicle->odometer_km);
+    }
+
     public function test_check_trip_window_reports_vehicle_overlap_for_open_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        $existingTrip = app(TripService::class)->create([
+        $existingTrip = app(TripService::class)->create(array_merge($this->requiredTripMeterFields(), [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -761,20 +947,19 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 100,
+                    'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 100,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
-        ]);
+        ]));
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips/check-window?'.http_build_query([
@@ -806,7 +991,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        app(TripService::class)->create([
+        app(TripService::class)->create(array_merge($this->requiredTripMeterFields(), [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -816,20 +1001,19 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 100,
+                    'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 100,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
-        ]);
+        ]));
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips/check-window?'.http_build_query([
@@ -848,7 +1032,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        $openTrip = app(TripService::class)->create([
+        $openTrip = app(TripService::class)->create(array_merge($this->requiredTripMeterFields(), [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -857,20 +1041,19 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 100,
+                    'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 100,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
-        ]);
+        ]));
 
         $openTrip->update(['status' => 'IN_PROGRESS']);
 
@@ -892,7 +1075,7 @@ class TripManagementTest extends TestCase
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        $cancelledTrip = app(TripService::class)->create([
+        $cancelledTrip = app(TripService::class)->create(array_merge($this->requiredTripMeterFields(), [
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -902,20 +1085,19 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 100,
+                    'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 100,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
-        ]);
+        ]));
 
         $cancelledTrip->update([
             'status' => 'CANCELLED',
@@ -947,7 +1129,7 @@ class TripManagementTest extends TestCase
         ]);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/trips', [
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
@@ -956,20 +1138,183 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
-                        'route_type' => RouteType::Loaded->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 1,
+                        'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
-                        'route_type' => RouteType::Empty->value,
-                        'distance_km' => 100,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
-            ]);
+            ]));
 
         $response->assertCreated();
+    }
+
+    public function test_total_distance_km_comes_from_meter_readings_not_route_legs(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 100,
+                        'freight_amount' => 25000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]));
+
+        $tripId = $response->assertCreated()->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-05 20:00:00',
+                'actual_arrival_at' => '2026-06-05 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_distance_km', '500.00');
+    }
+
+    public function test_complete_trip_requires_end_meter_and_syncs_vehicle_odometer(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-11 20:00:00',
+                'actual_arrival_at' => '2026-06-11 20:00:00',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['end_meter_reading_km']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-11 20:00:00',
+                'actual_arrival_at' => '2026-06-11 20:00:00',
+                'end_meter_reading_km' => 9999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['end_meter_reading_km']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-11 20:00:00',
+                'actual_arrival_at' => '2026-06-11 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.end_meter_reading_km', '10500.00');
+
+        $vehicle->refresh();
+        $this->assertSame('10500', (string) $vehicle->odometer_km);
+    }
+
+    public function test_complete_trip_rejects_end_date_before_actual_arrival(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-10 20:00:00',
+                'actual_arrival_at' => '2026-06-11 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['end_at']);
+    }
+
+    public function test_one_way_trip_skips_return_to_start_validation(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(TripType::OneWay->value), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 100,
+                        'freight_amount' => 25000,
+                    ],
+                ],
+            ]));
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.trip_type', TripType::OneWay->value);
+    }
+
+    public function test_round_trip_still_requires_return_to_start(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 100,
+                        'freight_amount' => 25000,
+                    ],
+                ],
+            ]));
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['route_legs']);
     }
 
     public function test_admin_can_soft_delete_created_trip_and_records_deleted_by(): void
@@ -1094,6 +1439,42 @@ class TripManagementTest extends TestCase
 
     /**
      * @param  array<string, Station>  $stations
+     * @return list<array<string, mixed>>
+     */
+    private function roundTripRouteLegs(array $stations, float $loadedFreight = 25000): array
+    {
+        return [
+            [
+                'from_station_id' => $stations['home']->id,
+                'to_station_id' => $stations['b']->id,
+                'sequence_no' => 1,
+                'weight_ton' => 100,
+                'freight_rate' => $loadedFreight / 100,
+                'freight_amount' => $loadedFreight,
+            ],
+            [
+                'from_station_id' => $stations['b']->id,
+                'to_station_id' => $stations['home']->id,
+                'sequence_no' => 2,
+                'weight_ton' => 0,
+                'freight_amount' => 0,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function requiredTripMeterFields(string $tripType = 'ROUND_TRIP', float $startMeter = 10000): array
+    {
+        return [
+            'trip_type' => $tripType,
+            'start_meter_reading_km' => $startMeter,
+        ];
+    }
+
+    /**
+     * @param  array<string, Station>  $stations
      * @return array<string, mixed>
      */
     private function sampleTripPayload(
@@ -1105,6 +1486,7 @@ class TripManagementTest extends TestCase
         $expenseDate = \Illuminate\Support\Carbon::parse($startAt)->toDateString();
 
         return [
+            ...$this->requiredTripMeterFields(),
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -1113,17 +1495,18 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 280,
+                    'weight_ton' => 90,
+                    'freight_rate' => 200,
                     'freight_amount' => 18000,
+                    'expected_mileage_km_per_liter' => 2.5,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 280,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
             'expenses' => [

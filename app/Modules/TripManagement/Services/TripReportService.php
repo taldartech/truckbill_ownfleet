@@ -7,7 +7,8 @@ use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Trip;
 use App\TripExpense;
 use App\TripRouteLeg;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 
 class TripReportService
 {
@@ -43,8 +44,7 @@ class TripReportService
                 'total_freight_amount' => (float) $trip->total_freight_amount,
                 'total_expense_amount' => (float) $trip->total_expense_amount,
                 'profit_amount' => $trip->profitAmount(),
-                'loaded_distance_km' => (float) $trip->loaded_distance_km,
-                'empty_distance_km' => (float) $trip->empty_distance_km,
+                'total_distance_km' => (float) $trip->total_distance_km,
             ])
             ->all();
 
@@ -69,8 +69,6 @@ class TripReportService
                     'registration_number' => $vehicle?->registration_number,
                     'trip_count' => $trips->count(),
                     'total_distance_km' => (float) $trips->sum('total_distance_km'),
-                    'loaded_distance_km' => (float) $trips->sum('loaded_distance_km'),
-                    'empty_distance_km' => (float) $trips->sum('empty_distance_km'),
                     'total_freight_amount' => (float) $trips->sum('total_freight_amount'),
                     'total_expense_amount' => (float) $trips->sum('total_expense_amount'),
                     'profit_amount' => (float) $trips->sum(fn (Trip $trip) => $trip->profitAmount()),
@@ -173,20 +171,35 @@ class TripReportService
             ->limit(self::REPORT_ROW_LIMIT)
             ->pluck('id');
 
-        $rows = TripRouteLeg::query()
+        $legs = TripRouteLeg::query()
             ->whereIn('trip_id', $tripIds)
-            ->with('expenses')
+            ->with(['expenses', 'trip:id,total_distance_km'])
             ->limit(5000)
-            ->get()
-            ->groupBy(fn (TripRouteLeg $leg): string => $leg->from_location.' → '.$leg->to_location)
-            ->map(function (Collection $legs, string $route): array {
-                $freight = (float) $legs->sum('freight_amount');
-                $legExpenses = (float) $legs->sum(fn (TripRouteLeg $leg): float => (float) $leg->expenses->sum('amount'));
+            ->get();
+
+        $legsByTrip = $legs->groupBy('trip_id');
+
+        $rows = $legs
+            ->map(function (TripRouteLeg $leg) use ($legsByTrip): array {
+                $tripLegs = $legsByTrip->get($leg->trip_id, collect());
+
+                return [
+                    'route' => $leg->from_location.' → '.$leg->to_location,
+                    'trip_id' => $leg->trip_id,
+                    'distance_km' => $this->resolveLegDistanceKm($leg, $tripLegs),
+                    'freight_amount' => (float) $leg->freight_amount,
+                    'expense_amount' => (float) $leg->expenses->sum('amount'),
+                ];
+            })
+            ->groupBy('route')
+            ->map(function (Collection $items, string $route): array {
+                $freight = (float) $items->sum('freight_amount');
+                $legExpenses = (float) $items->sum('expense_amount');
 
                 return [
                     'route' => $route,
-                    'trip_count' => $legs->pluck('trip_id')->unique()->count(),
-                    'total_distance_km' => (float) $legs->sum('distance_km'),
+                    'trip_count' => $items->pluck('trip_id')->unique()->count(),
+                    'total_distance_km' => (float) $items->sum('distance_km'),
                     'total_freight_amount' => $freight,
                     'total_expense_amount' => $legExpenses,
                     'profit_amount' => $freight - $legExpenses,
@@ -196,6 +209,44 @@ class TripReportService
             ->all();
 
         return $this->withSerialNumbers($rows);
+    }
+
+    /**
+     * @param  Collection<int, TripRouteLeg>  $tripLegs
+     */
+    private function resolveLegDistanceKm(TripRouteLeg $leg, Collection $tripLegs): float
+    {
+        if ((float) $leg->distance_km > 0) {
+            return (float) $leg->distance_km;
+        }
+
+        $tripTotal = (float) ($leg->trip?->total_distance_km ?? 0);
+
+        if ($tripTotal <= 0 || $tripLegs->isEmpty()) {
+            return 0.0;
+        }
+
+        $legsWithStoredDistance = $tripLegs->filter(
+            fn (TripRouteLeg $routeLeg): bool => (float) $routeLeg->distance_km > 0,
+        );
+        $storedTotal = (float) $legsWithStoredDistance->sum('distance_km');
+
+        if ($storedTotal > 0) {
+            $remainder = max(0, $tripTotal - $storedTotal);
+            $legsWithoutDistance = $tripLegs->filter(
+                fn (TripRouteLeg $routeLeg): bool => (float) $routeLeg->distance_km <= 0,
+            );
+
+            if (! $legsWithoutDistance->contains('id', $leg->id)) {
+                return 0.0;
+            }
+
+            return $legsWithoutDistance->count() > 0
+                ? round($remainder / $legsWithoutDistance->count(), 2)
+                : 0.0;
+        }
+
+        return round($tripTotal / $tripLegs->count(), 2);
     }
 
     /**

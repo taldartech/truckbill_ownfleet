@@ -57,7 +57,6 @@
                             Stop {{ stop.sequence }} — {{ stop.fromLabel }} → {{ stop.toLabel }}
                         </span>
                         <span class="load-badge" :class="stop.loadBadge">{{ stop.loadLabel }}</span>
-                        <span v-if="stop.km" class="stop-km-label">{{ formatNum(stop.km) }} KM</span>
                     </div>
                     <span class="stop-header-amount">₹{{ formatMoney(stop.subtotal) }}</span>
                 </div>
@@ -114,7 +113,7 @@
 
 <script setup>
 import { computed, nextTick, reactive, ref } from 'vue';
-import { routeTypeMeta } from '../../api/trips';
+import { legLoadCategoryMeta } from '../../api/trips';
 import QuickExpensePills from './QuickExpensePills.vue';
 import TripExpenseEntry from './TripExpenseEntry.vue';
 
@@ -144,16 +143,15 @@ const stopCards = computed(() =>
     props.routeLegs.map((leg, index) => {
         const sequence = index + 1;
         const items = collectItems(sequence);
-        const meta = routeTypeMeta(leg.route_type);
+        const meta = legLoadCategoryMeta(leg.weight_ton);
 
         return {
             key: `stop-${sequence}`,
             sequence,
             fromLabel: stationLabel(leg.from_station_id),
             toLabel: stationLabel(leg.to_station_id),
-            km: Number(leg.distance_km ?? 0),
             loadLabel: meta.label,
-            loadBadge: loadBadgeClass(leg.route_type),
+            loadBadge: loadBadgeClass(meta.value),
             items,
             subtotal: sumItems(items),
         };
@@ -199,12 +197,8 @@ function sumItems(items) {
     return items.reduce((sum, item) => sum + Number(item.expense.amount ?? 0), 0);
 }
 
-function loadBadgeClass(routeType) {
-    const normalized = String(routeType ?? '').toUpperCase();
-
-    if (normalized === 'HALF_LOADED') {
-        return 'load-badge--half';
-    }
+function loadBadgeClass(category) {
+    const normalized = String(category ?? '').toUpperCase();
 
     if (normalized === 'EMPTY') {
         return 'load-badge--empty';

@@ -135,10 +135,18 @@ function childPath(child) {
 }
 
 function isChildActive(child) {
+    if (child.activeNames?.length) {
+        return child.activeNames.includes(route.name);
+    }
+
     const path = childPath(child);
 
     if (!path) {
         return route.name === child.to?.name;
+    }
+
+    if (child.exact) {
+        return route.path === path;
     }
 
     return route.path === path || route.path.startsWith(`${path}/`);

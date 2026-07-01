@@ -229,6 +229,37 @@ class BranchManagementTest extends TestCase
             ->assertJsonValidationErrors(['branch_contact_number']);
     }
 
+    public function test_deleted_branch_name_can_be_reused_for_same_company(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Reuse Name Co');
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $tenant->id,
+                'branch_name' => 'test-1',
+                'branch_contact_number' => '9876543210',
+                'head_office' => true,
+            ])
+            ->assertCreated();
+
+        $branchId = Branch::query()->value('id');
+
+        $this->actingAs($superAdmin)
+            ->deleteJson('/app/api/branches/'.$branchId)
+            ->assertOk();
+
+        $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $tenant->id,
+                'branch_name' => 'test-1',
+                'branch_contact_number' => '9876543211',
+                'head_office' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.branch_name', 'test-1');
+    }
+
     public function test_branches_under_same_company_can_share_contact_number(): void
     {
         $superAdmin = $this->createSuperAdmin();

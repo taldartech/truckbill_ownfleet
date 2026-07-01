@@ -164,7 +164,7 @@ class TripController extends Controller
         $trip = $this->tripService->update(
             $trip,
             $request->validated(),
-            $request->user()?->id,
+            $request->user(),
         );
 
         return new TripResource($trip);

@@ -17,7 +17,7 @@
 </template>
 
 <script setup>
-import { onMounted, provide, ref } from 'vue';
+import { computed, onMounted, provide, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../api';
 import AppFooter from '../components/AppFooter.vue';
@@ -31,6 +31,20 @@ import { useFilteredNavigation } from '../composables/useFilteredNavigation';
 const router = useRouter();
 const user = ref(window.__AUTH_USER__ ?? null);
 
+const branchContextKey = computed(() => {
+    const current = user.value;
+
+    if (!current) {
+        return 'guest';
+    }
+
+    return [
+        current.effective_tenant_id ?? current.company_id ?? 'no-tenant',
+        current.effective_branch_id ?? current.branch_id ?? 'no-branch',
+        current.role ?? 'no-role',
+    ].join(':');
+});
+
 provide('currentUser', user);
 
 const navigationItems = useFilteredNavigation(adminNavigation, user);
@@ -39,6 +53,7 @@ useAdminLtePushMenu();
 
 function onUserUpdated(updatedUser) {
     user.value = updatedUser;
+    window.__AUTH_USER__ = updatedUser;
 }
 
 onMounted(async () => {

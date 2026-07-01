@@ -6,7 +6,6 @@ use App\Challan;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
-use App\Enums\RouteType;
 use App\Enums\TripExpenseType;
 use App\Enums\TyrePosition;
 use App\Modules\TripManagement\Services\TripService;
@@ -213,6 +212,8 @@ class FleetMonthlyReportTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         return app(TripService::class)->create([
+            'trip_type' => 'ROUND_TRIP',
+            'start_meter_reading_km' => 10000,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -221,17 +222,16 @@ class FleetMonthlyReportTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 280,
+                    'weight_ton' => 90,
                     'freight_amount' => 18000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 280,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
             'expenses' => [

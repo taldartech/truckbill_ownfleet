@@ -199,7 +199,7 @@ const quickActions = computed(() => {
         actions.push({
             label: 'New Trip',
             icon: 'fas fa-plus',
-            to: { name: 'trips.create' },
+            to: { name: 'trips.index', query: { create: '1' } },
         });
     }
 

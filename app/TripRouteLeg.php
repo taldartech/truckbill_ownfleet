@@ -14,8 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TripRouteLeg extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [
@@ -38,6 +38,7 @@ class TripRouteLeg extends Model
         'consignor',
         'consignee',
         'freight_rate',
+        'expected_mileage_km_per_liter',
         'weight_ton',
         'invoice_number',
         'lr_number',
@@ -55,6 +56,7 @@ class TripRouteLeg extends Model
             'route_type' => RouteType::class,
             'distance_km' => 'decimal:2',
             'freight_rate' => 'decimal:2',
+            'expected_mileage_km_per_liter' => 'decimal:2',
             'weight_ton' => 'decimal:3',
             'freight_amount' => 'decimal:2',
             'advance_received' => 'decimal:2',
@@ -81,16 +83,16 @@ class TripRouteLeg extends Model
 
     public function isLoaded(): bool
     {
-        return $this->route_type === RouteType::Loaded;
+        return (float) ($this->weight_ton ?? 0) > 0;
     }
 
-    public function isHalfLoaded(): bool
+    public function isEmpty(): bool
     {
-        return $this->route_type === RouteType::HalfLoaded;
+        return (float) ($this->weight_ton ?? 0) <= 0;
     }
 
     public function isRevenueLeg(): bool
     {
-        return in_array($this->route_type, [RouteType::Loaded, RouteType::HalfLoaded], true);
+        return $this->isLoaded();
     }
 }

@@ -52,7 +52,9 @@ class UpdateBranchRequest extends FormRequest
                 'string',
                 'max:150',
                 Rule::unique('branches', 'branch_name')
-                    ->where(fn ($query) => $query->where('company_id', $companyId))
+                    ->where(fn ($query) => $query
+                        ->where('company_id', $companyId)
+                        ->whereNull('deleted_at'))
                     ->ignore($branch->id),
             ],
             'branch_contact_number' => [

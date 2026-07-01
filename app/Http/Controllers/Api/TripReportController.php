@@ -35,13 +35,6 @@ class TripReportController extends Controller
         return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->driverWise($filters));
     }
 
-    public function emptyKm(Request $request): JsonResponse
-    {
-        $this->authorize('trip_reports.view');
-
-        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->emptyKm($filters));
-    }
-
     public function expenseSummary(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
@@ -66,7 +59,6 @@ class TripReportController extends Controller
         $rows = match ($type) {
             'vehicle-wise' => $this->tripReportService->vehicleWise($filters),
             'driver-wise' => $this->tripReportService->driverWise($filters),
-            'empty-km' => $this->tripReportService->emptyKm($filters),
             'expense-summary' => $this->tripReportService->expenseSummary($filters),
             'route-profitability' => $this->tripReportService->routeProfitability($filters),
             default => $this->tripReportService->profitability($filters),

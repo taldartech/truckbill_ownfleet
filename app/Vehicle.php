@@ -30,6 +30,7 @@ class Vehicle extends Model
         'model',
         'manufacture_year',
         'odometer_km',
+        'expected_mileage_km_per_liter',
         'is_active',
         'created_by',
         'updated_by',
@@ -39,6 +40,7 @@ class Vehicle extends Model
     {
         return [
             'is_active' => 'boolean',
+            'expected_mileage_km_per_liter' => 'decimal:2',
         ];
     }
 

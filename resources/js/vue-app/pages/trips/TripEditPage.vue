@@ -7,9 +7,9 @@
         <div v-else-if="loading" class="text-center py-5 text-muted">Loading trip…</div>
 
         <template v-else>
-            <div v-if="isTerminalStatus" class="alert alert-secondary mb-3">
+            <div v-if="terminalAlert" class="alert alert-secondary mb-3">
                 <i class="bi bi-lock me-1"></i>
-                This trip is {{ form.status === 'COMPLETED' ? 'completed' : 'cancelled' }} and is shown in read-only mode.
+                {{ terminalAlert }}
             </div>
 
             <form novalidate @submit.prevent="handleSubmit">
@@ -20,10 +20,11 @@
                     :stations="stations"
                     :brokers="brokers"
                     :customers="customers"
-                    :readonly="isTerminalStatus"
-                    :can-quick-add-station="canQuickAddStation && !isTerminalStatus"
-                    :can-quick-add-broker="canQuickAddBroker && !isTerminalStatus"
-                    :can-quick-add-customer="canQuickAddCustomer && !isTerminalStatus"
+                    :readonly="isFormReadonly"
+                    :expenses-only-edit="expensesOnlyEdit"
+                    :can-quick-add-station="canQuickAddStation && canEditTripFields"
+                    :can-quick-add-broker="canQuickAddBroker && canEditTripFields"
+                    :can-quick-add-customer="canQuickAddCustomer && canEditTripFields"
                     :snapshot-customer-name="snapshotCustomerName"
                     :snapshot-broker-name="snapshotBrokerName"
                     :form-error="tripFormError"
@@ -33,6 +34,8 @@
                     :snapshot-driver-name="snapshotDriverName"
                     :snapshot-substitute-driver-name="snapshotSubstituteDriverName"
                     :drivers="drivers"
+                    :vehicle-odometer-km="vehicleOdometerKm"
+                    :vehicle-expected-mileage="vehicleExpectedMileage"
                     :status-locked="isTerminalStatus"
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
@@ -57,7 +60,7 @@
                     </template>
                     <template #trip-save-actions>
                         <button
-                            v-if="!isTerminalStatus"
+                            v-if="canSave"
                             type="submit"
                             class="btn btn-sm trip-header-btn trip-header-btn--update"
                             :disabled="saving"
@@ -100,12 +103,12 @@
                             :to="{ name: 'trips.index' }"
                         />
                         <AppButton
-                            v-if="!isTerminalStatus"
+                            v-if="canSave"
                             type="submit"
                             variant="primary"
                             size="sm"
                             icon="bi bi-floppy-fill"
-                            label="Update"
+                            :label="expensesOnlyEdit ? 'Update Expenses' : 'Update'"
                             :loading="saving"
                             :disabled="saving"
                         />
@@ -131,7 +134,7 @@ import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
-import { fetchTrip, updateTrip, validateTripPayload } from '../../api/trips';
+import { fetchTrip, resolveTripEditAccess, updateTrip, validateTripPayload } from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -148,7 +151,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
-const { canInCompany } = usePermissions();
+const { canInCompany, user } = usePermissions();
 const { fieldErrors, formError: tripFormError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
 
 const {
@@ -182,6 +185,8 @@ const drivers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const snapshotVehicleLabel = ref('');
+const vehicleOdometerKm = ref('');
+const vehicleExpectedMileage = ref('');
 const snapshotDriverName = ref('');
 const snapshotSubstituteDriverName = ref('');
 const snapshotCustomerName = ref('');
@@ -195,6 +200,30 @@ const pendingPayload = ref(null);
 const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
 );
+
+const editAccess = computed(() => resolveTripEditAccess(form.status, user.value));
+const canSave = computed(() => editAccess.value.canEdit);
+const canEditTripFields = computed(() => editAccess.value.fullEdit);
+const expensesOnlyEdit = computed(() => editAccess.value.expensesOnly);
+const isFormReadonly = computed(() => !editAccess.value.fullEdit && !editAccess.value.expensesOnly);
+
+const terminalAlert = computed(() => {
+    if (!isTerminalStatus.value) {
+        return '';
+    }
+
+    if (editAccess.value.fullEdit) {
+        return '';
+    }
+
+    if (editAccess.value.expensesOnly) {
+        return 'This trip is completed. Only trip expenses can be edited.';
+    }
+
+    const label = form.status === 'COMPLETED' ? 'completed' : 'cancelled';
+
+    return `This trip is ${label} and is shown in read-only mode.`;
+});
 
 const tripFormRef = ref(null);
 
@@ -283,6 +312,8 @@ async function loadTrip() {
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? 'CREATED';
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
+        vehicleOdometerKm.value = trip.vehicle?.odometer_km ?? '';
+        vehicleExpectedMileage.value = trip.vehicle?.expected_mileage_km_per_liter ?? '';
         snapshotDriverName.value = trip.driver?.name ?? '—';
         snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
         snapshotCustomerName.value = trip.customer_name ?? '';
@@ -329,17 +360,30 @@ function buildConfirmSummary() {
 }
 
 async function prepareSave() {
-    if (isTerminalStatus.value && ['COMPLETED', 'CANCELLED'].includes(String(originalStatus.value).toUpperCase())) {
+    if (!canSave.value) {
         return null;
     }
 
     clearErrors();
 
+    if (expensesOnlyEdit.value) {
+        const payload = buildPayload(stations.value, { mode: 'edit' });
+
+        return { expenses: payload.expenses ?? [] };
+    }
+
     const payload = buildPayload(stations.value, { mode: 'edit' });
-    const clientErrors = validateTripPayload(payload, {
-        mode: 'edit',
-        previousStatus: originalStatus.value,
-    });
+    const clientErrors = validateTripPayload(
+        {
+            ...payload,
+            start_meter_reading_km: form.start_meter_reading_km,
+            truck_running_meter_km: vehicleOdometerKm.value,
+        },
+        {
+            mode: 'edit',
+            previousStatus: originalStatus.value,
+        },
+    );
 
     if (Object.keys(clientErrors).length > 0) {
         fieldErrors.value = clientErrors;
@@ -439,13 +483,19 @@ async function confirmSave() {
 }
 
 async function handleSubmit() {
-    if (isTerminalStatus.value) {
+    if (!canSave.value) {
         return;
     }
 
     const payload = await prepareSave();
 
     if (!payload) {
+        return;
+    }
+
+    if (expensesOnlyEdit.value) {
+        await executeSave(payload, { successMessage: 'Trip expenses updated successfully.' });
+
         return;
     }
 

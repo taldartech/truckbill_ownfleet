@@ -39,6 +39,7 @@ class VehicleResource extends JsonResource
             'model' => $this->model,
             'manufacture_year' => $this->manufacture_year,
             'odometer_km' => $this->odometer_km,
+            'expected_mileage_km_per_liter' => $this->expected_mileage_km_per_liter,
             'is_active' => (bool) $this->is_active,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,

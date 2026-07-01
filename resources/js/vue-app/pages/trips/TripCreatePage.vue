@@ -21,6 +21,8 @@
                 :loading-driver="loadingDriver"
                 :primary-driver-name="primaryDriverName"
                 :drivers="drivers"
+                :vehicle-odometer-km="vehicleOdometerKm"
+                :vehicle-expected-mileage="vehicleExpectedMileage"
                 @add-stop="handleAddStop"
                 @return-to-start="handleReturnToStart"
                 @remove-route-leg="removeRouteLeg"
@@ -94,7 +96,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import { listAllDrivers } from '../../api/drivers';
@@ -115,6 +117,7 @@ import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
 
 const router = useRouter();
+const route = useRoute();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
@@ -153,6 +156,8 @@ const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
 const pendingPayload = ref(null);
 const selectedVehicleLabel = ref('');
+const vehicleOdometerKm = ref('');
+const vehicleExpectedMileage = ref('');
 
 const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
 const { applyWindowValidation } = useTripWindowValidation(form, {
@@ -163,6 +168,16 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
 function onVehicleSelected(vehicle) {
     setPrimaryDriverFromSelection(vehicle);
     selectedVehicleLabel.value = vehicle?.registration_number ?? '—';
+    vehicleOdometerKm.value =
+        vehicle?.odometer_km !== undefined && vehicle?.odometer_km !== null && vehicle?.odometer_km !== ''
+            ? vehicle.odometer_km
+            : '';
+    vehicleExpectedMileage.value =
+        vehicle?.expected_mileage_km_per_liter !== undefined
+        && vehicle?.expected_mileage_km_per_liter !== null
+        && vehicle?.expected_mileage_km_per_liter !== ''
+            ? vehicle.expected_mileage_km_per_liter
+            : '';
 }
 
 function onStationCreated({ station, legIndex }) {
@@ -254,7 +269,14 @@ async function prepareSave() {
     clearErrors();
 
     const payload = buildPayload(stations.value, { mode: 'create' });
-    const clientErrors = validateTripPayload(payload, { mode: 'create' });
+    const clientErrors = validateTripPayload(
+        {
+            ...payload,
+            start_meter_reading_km: form.start_meter_reading_km,
+            truck_running_meter_km: vehicleOdometerKm.value,
+        },
+        { mode: 'create' },
+    );
 
     if (Object.keys(clientErrors).length > 0) {
         fieldErrors.value = clientErrors;
@@ -335,6 +357,19 @@ async function confirmSave() {
 onMounted(async () => {
     resetForm();
     form.start_at = toDateInputValue();
+
+    const typeParam = String(route.query.type ?? '');
+
+    if (typeParam === 'one_way') {
+        form.trip_type = 'ONE_WAY';
+    } else if (typeParam === 'round_trip') {
+        form.trip_type = 'ROUND_TRIP';
+    } else {
+        toast.warning('Select a trip type before creating a trip.');
+        await router.replace({ name: 'trips.index', query: { create: '1' } });
+
+        return;
+    }
 
     if (!needsCompanySelection.value) {
         await loadLookups();

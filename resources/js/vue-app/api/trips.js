@@ -1,5 +1,6 @@
 import api from '../api';
 import { thisMonthDateRange } from '../utils/dateRangePresets';
+import { dateOnlyFromDatetimeLocal } from '../utils/datetime';
 
 const tripsBase = '/app/api/trips';
 
@@ -92,6 +93,15 @@ export async function validateTripWindowOverlap(params) {
     return tripWindowConflictErrors(result);
 }
 
+export const TRIP_TYPES = [
+    { value: 'ROUND_TRIP', label: 'Round Trip' },
+    { value: 'ONE_WAY', label: 'One Way Trip' },
+];
+
+export function tripTypeLabel(type) {
+    return TRIP_TYPES.find((t) => t.value === String(type ?? '').toUpperCase())?.label ?? 'Trip';
+}
+
 export const ROUTE_TYPES = [
     { value: 'LOADED', label: 'Full Load', badge: 'bg-success' },
     { value: 'HALF_LOADED', label: 'Half Load', badge: 'bg-warning text-dark' },
@@ -119,18 +129,34 @@ export const EXPENSE_TYPES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export function emptyRouteStop(sequence = 1, fromStationId = '', routeType = 'LOADED', toStationId = '', customerId = '') {
+export function emptyRouteStop(sequence = 1, fromStationId = '', toStationId = '', customerId = '', { expectedMileage = '' } = {}) {
     return {
         from_station_id: fromStationId,
         to_station_id: toStationId,
         customer_id: customerId,
         use_same_customer: false,
-        route_type: routeType,
         sequence_no: sequence,
-        distance_km: 0,
+        expected_mileage_km_per_liter: expectedMileage,
+        freight_rate: '',
         freight_amount: 0,
+        freight_auto_calculate: true,
+        weight_ton: '',
         remarks: '',
     };
+}
+
+export function legLoadCategory(weightTon) {
+    return Number(weightTon ?? 0) > 0 ? 'LOADED' : 'EMPTY';
+}
+
+export function legLoadCategoryMeta(weightTon) {
+    const category = legLoadCategory(weightTon);
+
+    if (category === 'LOADED') {
+        return { value: 'LOADED', label: 'Loaded', badge: 'bg-success' };
+    }
+
+    return { value: 'EMPTY', label: 'Empty', badge: 'bg-secondary' };
 }
 
 export function routeTypeMeta(type) {
@@ -143,8 +169,20 @@ function parseNumeric(value) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export { parseNumeric };
+
 export function validateTripPayload(payload, { mode = 'create', previousStatus = null } = {}) {
     const errors = {};
+
+    if (mode === 'create') {
+        if (!payload.trip_type) {
+            errors.trip_type = ['Trip type is required.'];
+        }
+
+        if (parseNumeric(payload.start_meter_reading_km) <= 0) {
+            errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
+        }
+    }
 
     if (mode === 'create') {
         if (!payload.vehicle_id) {
@@ -173,15 +211,53 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
     }
 
     if (!payload.start_station_id) {
-        errors.start_station_id = ['Select the start station for this round trip.'];
+        errors.start_station_id = ['Select the start station for this trip.'];
     }
 
     if (!payload.start_at) {
         errors.start_at = ['Trip start date is required.'];
     }
 
-    if (payload.start_at && payload.end_at && payload.end_at < payload.start_at) {
+    const startDate = dateOnlyFromDatetimeLocal(payload.start_at);
+    const endDate = dateOnlyFromDatetimeLocal(payload.end_at);
+    const arrivalDate = dateOnlyFromDatetimeLocal(payload.actual_arrival_at);
+
+    if (startDate && endDate && endDate < startDate) {
         errors.end_at = ['End date cannot be before start date.'];
+    }
+
+    if (mode === 'edit' && startDate && arrivalDate && arrivalDate < startDate) {
+        errors.actual_arrival_at = ['Actual arrival cannot be before start date.'];
+    }
+
+    if (mode === 'edit' && endDate && arrivalDate && endDate < arrivalDate) {
+        errors.end_at = ['End date cannot be before the actual arrival date.'];
+    }
+
+    if (mode === 'edit') {
+        if (parseNumeric(payload.start_meter_reading_km) <= 0) {
+            errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
+        }
+
+        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const endMeterRaw = payload.end_meter_reading_km;
+        const endMeter =
+            endMeterRaw === '' || endMeterRaw == null ? null : parseNumeric(endMeterRaw);
+
+        if (endMeter !== null && endMeter > 0) {
+            if (startMeter > 0 && endMeter < startMeter) {
+                errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
+            }
+
+            if (
+                payload.truck_running_meter_km != null
+                && endMeter < parseNumeric(payload.truck_running_meter_km)
+            ) {
+                errors.end_meter_reading_km = [
+                    'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
+                ];
+            }
+        }
     }
 
     if (payload.status === 'COMPLETED' && mode === 'edit') {
@@ -193,8 +269,29 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
             errors.actual_arrival_at = ['Actual arrival date is required to complete the trip.'];
         }
 
-        if (payload.start_at && payload.actual_arrival_at && payload.actual_arrival_at < payload.start_at) {
+        if (parseNumeric(payload.end_meter_reading_km) <= 0) {
+            errors.end_meter_reading_km = ['End meter reading is required to complete the trip.'];
+        }
+
+        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
+            errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
+        }
+
+        if (payload.truck_running_meter_km != null && endMeter > 0 && endMeter < parseNumeric(payload.truck_running_meter_km)) {
+            errors.end_meter_reading_km = [
+                'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
+            ];
+        }
+
+        if (startDate && arrivalDate && arrivalDate < startDate) {
             errors.actual_arrival_at = ['Actual arrival cannot be before start date.'];
+        }
+
+        if (endDate && arrivalDate && endDate < arrivalDate) {
+            errors.end_at = ['End date cannot be before the actual arrival date.'];
         }
     }
 
@@ -206,6 +303,27 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         if (!payload.cancellation_reason?.trim()) {
             errors.cancellation_reason = ['Please provide a reason for cancelling this trip.'];
         }
+
+        if (parseNumeric(payload.end_meter_reading_km) <= 0) {
+            errors.end_meter_reading_km = ['End meter reading is required to cancel the trip.'];
+        }
+
+        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
+            errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
+        }
+
+        if (
+            endMeter > 0
+            && payload.truck_running_meter_km != null
+            && endMeter < parseNumeric(payload.truck_running_meter_km)
+        ) {
+            errors.end_meter_reading_km = [
+                'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
+            ];
+        }
     }
 
     const legs = payload.route_legs ?? [];
@@ -214,7 +332,7 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         errors.route_legs = ['Add at least one stop on the route.'];
     }
 
-    let hasRevenueLeg = false;
+    let hasLoadedLeg = false;
 
     legs.forEach((leg, index) => {
         if (!leg.from_station_id) {
@@ -233,23 +351,27 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
             errors[`route_legs.${index}.to_station_id`] = [`Stop ${index + 1}: from and to station cannot be same.`];
         }
 
-        if (parseNumeric(leg.distance_km) <= 0) {
-            errors[`route_legs.${index}.distance_km`] = [`Stop ${index + 1}: distance must be greater than zero.`];
+        const weight = parseNumeric(leg.weight_ton);
+
+        if (weight > 0) {
+            hasLoadedLeg = true;
         }
 
-        if (leg.route_type === 'LOADED' || leg.route_type === 'HALF_LOADED') {
-            hasRevenueLeg = true;
+        if (weight <= 0 && parseNumeric(leg.freight_amount) > 0) {
+            errors[`route_legs.${index}.freight_amount`] = [`Stop ${index + 1}: freight must be zero when weight is zero.`];
         }
     });
 
     const lastLeg = legs[legs.length - 1];
 
-    if (lastLeg && payload.start_station_id && String(lastLeg.to_station_id) !== String(payload.start_station_id)) {
+    const tripType = String(payload.trip_type ?? 'ROUND_TRIP').toUpperCase();
+
+    if (tripType === 'ROUND_TRIP' && lastLeg && payload.start_station_id && String(lastLeg.to_station_id) !== String(payload.start_station_id)) {
         errors.route_legs = ['Round trip must end at the start station. Use "Return to Start" button.'];
     }
 
-    if (legs.length > 0 && !hasRevenueLeg) {
-        errors.route_legs = ['At least one full load or half load stop is required.'];
+    if (legs.length > 0 && !hasLoadedLeg) {
+        errors.route_legs = ['At least one loaded stop with weight greater than zero is required.'];
     }
 
     if (mode === 'create' && legs.length > 0) {
@@ -392,6 +514,54 @@ export function isTerminalTripStatus(status) {
     return ['COMPLETED', 'CANCELLED'].includes(String(status ?? '').toUpperCase());
 }
 
+function resolveUserRole(user) {
+    return String(user?.role ?? '').toLowerCase();
+}
+
+function isSuperAdminUser(user) {
+    return resolveUserRole(user) === 'super_admin' || Number(user?.user_role_id) === 2;
+}
+
+function isAdminUser(user) {
+    return resolveUserRole(user) === 'admin' || Number(user?.user_role_id) === 3;
+}
+
+export function resolveTripEditAccess(status, user) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    if (!isTerminalTripStatus(normalized)) {
+        return { canEdit: true, fullEdit: true, expensesOnly: false };
+    }
+
+    if (isSuperAdminUser(user)) {
+        return { canEdit: true, fullEdit: true, expensesOnly: false };
+    }
+
+    if (isAdminUser(user) && normalized === 'COMPLETED') {
+        return { canEdit: true, fullEdit: false, expensesOnly: true };
+    }
+
+    return { canEdit: false, fullEdit: false, expensesOnly: false };
+}
+
+export function tripEditDisabledTitle(status, user) {
+    const access = resolveTripEditAccess(status, user);
+
+    if (access.canEdit) {
+        if (access.expensesOnly) {
+            return 'Edit trip expenses';
+        }
+
+        return 'Edit trip';
+    }
+
+    if (isTerminalTripStatus(status)) {
+        return 'Completed or cancelled trips are read-only';
+    }
+
+    return 'Edit trip';
+}
+
 export { thisMonthDateRange };
 
 export function defaultTripListFilters() {
@@ -406,42 +576,168 @@ export function defaultTripListFilters() {
 }
 
 export function summarizeTripForm(form) {
-    let loadedKm = 0;
-    let halfLoadedKm = 0;
-    let emptyKm = 0;
+    let loadedStops = 0;
+    let emptyStops = 0;
+    let mileageSum = 0;
+    let mileageCount = 0;
     let freightTotal = 0;
+    let totalWeightTon = 0;
 
     (form.route_legs ?? []).forEach((leg) => {
-        const km = Number(leg.distance_km ?? 0);
+        const weight = Number(leg.weight_ton ?? 0);
 
-        if (leg.route_type === 'EMPTY') {
-            emptyKm += km;
-
-            return;
+        if (weight > 0) {
+            loadedStops += 1;
+        } else {
+            emptyStops += 1;
         }
 
-        if (leg.route_type === 'HALF_LOADED') {
-            halfLoadedKm += km;
-            freightTotal += Number(leg.freight_amount ?? 0);
-
-            return;
-        }
-
-        loadedKm += km;
+        totalWeightTon += weight;
         freightTotal += Number(leg.freight_amount ?? 0);
+
+        const mileage = leg.expected_mileage_km_per_liter;
+
+        if (mileage !== '' && mileage != null && Number.isFinite(Number(mileage))) {
+            mileageSum += Number(mileage);
+            mileageCount += 1;
+        }
     });
 
     const expenseTotal = (form.expenses ?? [])
         .filter((e) => Number(e.amount) > 0)
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
+    const startMeter = parseNumeric(form.start_meter_reading_km);
+    const endMeterRaw = form.end_meter_reading_km;
+    const endMeter =
+        endMeterRaw !== '' && endMeterRaw != null && Number.isFinite(Number(endMeterRaw))
+            ? parseNumeric(endMeterRaw)
+            : null;
+    const totalKm = endMeter !== null && startMeter > 0 ? Math.max(0, endMeter - startMeter) : 0;
+
     return {
-        loadedKm,
-        halfLoadedKm,
-        emptyKm,
-        totalKm: loadedKm + halfLoadedKm + emptyKm,
+        loadedStops,
+        emptyStops,
+        expectedAvgMileage: mileageCount > 0 ? mileageSum / mileageCount : null,
+        totalKm,
+        totalWeightTon,
         freightTotal,
         expenseTotal,
         profit: freightTotal - expenseTotal,
     };
+}
+
+export function calculateLegFreight(weightTon, freightRate) {
+    const weight = Number(weightTon ?? 0);
+    const rate = Number(freightRate ?? 0);
+
+    if (weight <= 0 || rate <= 0) {
+        return 0;
+    }
+
+    return Math.round(weight * rate * 100) / 100;
+}
+
+/**
+ * @param {{
+ *   routeLegs?: Array<{ expected_mileage_km_per_liter?: number | string | null }>,
+ *   expectedDieselLiters?: number | string | null,
+ *   dieselRatePerLiter?: number | string | null,
+ *   actualTotalKm?: number | string | null,
+ * }} params
+ * @returns {null | {
+ *   expected_avg_mileage_km_per_liter: number,
+ *   expected_diesel_liters: number,
+ *   diesel_rate_per_liter: number | null,
+ *   expected_total_km: number,
+ *   actual_total_km: number | null,
+ *   total_trip_cost: number | null,
+ *   rate_per_km: number | null,
+ *   unused_km: number | null,
+ *   extra_km: number | null,
+ *   remaining_amount: number | null,
+ *   performance_status: 'pending' | 'within' | 'under' | 'over',
+ *   extra_diesel_liters: number | null,
+ *   extra_diesel_cost: number | null,
+ * }}
+ */
+export function computeDieselPerformance({
+    routeLegs = [],
+    expectedDieselLiters = null,
+    dieselRatePerLiter = null,
+    actualTotalKm = null,
+} = {}) {
+    let mileageSum = 0;
+    let mileageCount = 0;
+
+    (routeLegs ?? []).forEach((leg) => {
+        const mileage = leg.expected_mileage_km_per_liter;
+
+        if (mileage !== '' && mileage != null && Number.isFinite(Number(mileage)) && Number(mileage) > 0) {
+            mileageSum += Number(mileage);
+            mileageCount += 1;
+        }
+    });
+
+    if (mileageCount === 0) {
+        return null;
+    }
+
+    const expectedAvgMileage = roundCurrency(mileageSum / mileageCount);
+    const expectedDiesel = Number(expectedDieselLiters ?? 0);
+    const dieselRate = Number(dieselRatePerLiter ?? 0);
+
+    if (!Number.isFinite(expectedDiesel) || expectedDiesel <= 0) {
+        return null;
+    }
+
+    const expectedTotalKm = roundCurrency(expectedDiesel * expectedAvgMileage);
+    const actualKm = Number(actualTotalKm ?? 0);
+    const hasActual = Number.isFinite(actualKm) && actualKm > 0;
+
+    let extraKm = 0;
+    let unusedKm = 0;
+    let performanceStatus = hasActual ? 'within' : 'pending';
+
+    if (hasActual) {
+        const diffKm = roundCurrency(actualKm - expectedTotalKm);
+
+        if (diffKm > 0) {
+            extraKm = diffKm;
+            performanceStatus = 'over';
+        } else if (diffKm < 0) {
+            unusedKm = Math.abs(diffKm);
+            performanceStatus = 'under';
+        }
+    }
+
+    const extraDiesel =
+        extraKm > 0 && expectedAvgMileage > 0 ? roundCurrency(extraKm / expectedAvgMileage) : 0;
+    const extraDieselCost =
+        extraDiesel > 0 && dieselRate > 0 ? roundCurrency(extraDiesel * dieselRate) : 0;
+    const totalTripCost = dieselRate > 0 ? roundCurrency(expectedDiesel * dieselRate) : null;
+    const ratePerKm =
+        totalTripCost !== null && expectedTotalKm > 0 ? roundCurrency(totalTripCost / expectedTotalKm) : null;
+    const remainingAmount =
+        unusedKm > 0 && ratePerKm !== null ? roundCurrency(unusedKm * ratePerKm) : 0;
+
+    return {
+        expected_avg_mileage_km_per_liter: roundCurrency(expectedAvgMileage),
+        expected_diesel_liters: roundCurrency(expectedDiesel),
+        diesel_rate_per_liter: dieselRate > 0 ? roundCurrency(dieselRate) : null,
+        total_trip_cost: totalTripCost,
+        expected_total_km: expectedTotalKm,
+        actual_total_km: hasActual ? roundCurrency(actualKm) : null,
+        rate_per_km: ratePerKm,
+        unused_km: hasActual ? roundCurrency(unusedKm) : null,
+        extra_km: hasActual ? extraKm : null,
+        remaining_amount: hasActual ? remainingAmount : null,
+        performance_status: performanceStatus,
+        extra_diesel_liters: hasActual ? extraDiesel : null,
+        extra_diesel_cost: hasActual ? extraDieselCost : null,
+    };
+}
+
+function roundCurrency(value) {
+    return Math.round(Number(value) * 100) / 100;
 }

@@ -6,11 +6,12 @@ use App\Challan;
 use App\City;
 use App\Driver;
 use App\DriverAssignment;
-use App\Enums\RouteType;
+use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
 use App\Permission;
 use App\Station;
+use App\Support\BranchContext;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\User;
@@ -109,21 +110,12 @@ class ProductionReadinessTest extends TestCase
             ->assertJsonValidationErrors(['driver_id']);
     }
 
-    public function test_completed_trip_cannot_be_edited(): void
+    public function test_completed_trip_cannot_be_edited_by_admin_except_expenses(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
-        Sanctum::actingAs($user);
-        TenantContext::setTenantId($tenant->id);
+        $this->actingAs($user);
 
-        $trip = app(TripService::class)->create($this->tripPayload($vehicle, $driver, $stations, asArray: true));
-
-        $trip->update([
-            'status' => TripStatus::InProgress,
-            'end_at' => '2026-06-05 20:00:00',
-            'actual_arrival_at' => '2026-06-05 19:00:00',
-        ]);
-
-        $trip->update(['status' => TripStatus::Completed]);
+        $trip = $this->createCompletedTrip($vehicle, $driver, $stations);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson("/api/trips/{$trip->id}", [
@@ -131,6 +123,111 @@ class ProductionReadinessTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['trip']);
+    }
+
+    public function test_admin_can_update_expenses_on_completed_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTrip($vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-02',
+                        'amount' => 500,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '500.00');
+
+        $this->assertDatabaseHas('trip_expenses', [
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Toll->value,
+            'amount' => '500.00',
+        ]);
+    }
+
+    public function test_super_admin_can_edit_completed_trip(): void
+    {
+        $superAdmin = User::query()->create([
+            'tenant_id' => null,
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $tenant = Tenant::query()->create([
+            'owner_user_id' => $superAdmin->id,
+            'name' => 'Super Admin Trip Co',
+            'slug' => fake()->unique()->slug(),
+            'timezone' => 'Asia/Kolkata',
+            'is_active' => true,
+        ]);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+
+        $vehicle = Vehicle::query()->create([
+            ...$operationalAttributes,
+            'registration_number' => 'MH12SA0001',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
+        ]);
+
+        $driver = Driver::query()->create([
+            ...$operationalAttributes,
+            'name' => 'Super Admin Driver',
+            'phone' => '9876511111',
+            'daily_wage' => 900,
+            'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            ...$operationalAttributes,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $cityA = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+        $cityB = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Pune')->firstOrFail();
+
+        $stations = [
+            'home' => Station::query()->create([
+                ...$operationalAttributes,
+                'country_id' => $cityA->state->country_id,
+                'state_id' => $cityA->state_id,
+                'city_id' => $cityA->id,
+                'name' => 'Super Station Home',
+            ]),
+            'b' => Station::query()->create([
+                ...$operationalAttributes,
+                'country_id' => $cityB->state->country_id,
+                'state_id' => $cityB->state_id,
+                'city_id' => $cityB->id,
+                'name' => 'Super Station B',
+            ]),
+        ];
+
+        $this->actingAs($superAdmin);
+        $this->enterBranchForSuperAdmin($superAdmin, \App\Branch::query()->findOrFail($operationalAttributes['branch_id']));
+
+        $trip = $this->createCompletedTrip($vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operationalAttributes['branch_id'])
+            ->putJson("/api/trips/{$trip->id}", [
+                'end_at' => '2026-06-06 20:00:00',
+            ])
+            ->assertOk();
+
+        $trip->refresh();
+        $this->assertSame('2026-06-06', $trip->end_at?->toDateString());
     }
 
     public function test_vehicle_cannot_have_overlapping_open_trips(): void
@@ -176,8 +273,11 @@ class ProductionReadinessTest extends TestCase
             'is_active' => true,
         ]);
 
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $operationalAttributes['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -193,15 +293,17 @@ class ProductionReadinessTest extends TestCase
     private function createVehicleDriverFixtures(string $role): array
     {
         [$tenant, $user] = $this->createTenantUser($role);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
 
         $vehicle = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'registration_number' => 'MH12PR0001',
             'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
         ]);
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'name' => 'Readiness Driver',
             'phone' => '9876500000',
             'daily_wage' => 900,
@@ -217,10 +319,11 @@ class ProductionReadinessTest extends TestCase
     private function createTripFixtures(string $role, bool $withAssignment = true): array
     {
         [$tenant, $user, $vehicle, $driver] = $this->createVehicleDriverFixtures($role);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
 
         if ($withAssignment) {
             DriverAssignment::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'vehicle_id' => $vehicle->id,
                 'driver_id' => $driver->id,
                 'assigned_from' => '2026-01-01',
@@ -233,14 +336,14 @@ class ProductionReadinessTest extends TestCase
 
         $stations = [
             'home' => Station::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'country_id' => $cityA->state->country_id,
                 'state_id' => $cityA->state_id,
                 'city_id' => $cityA->id,
                 'name' => 'Station Home',
             ]),
             'b' => Station::query()->create([
-                'tenant_id' => $tenant->id,
+                ...$operationalAttributes,
                 'country_id' => $cityB->state->country_id,
                 'state_id' => $cityB->state_id,
                 'city_id' => $cityB->id,
@@ -258,6 +361,8 @@ class ProductionReadinessTest extends TestCase
     private function tripPayload(Vehicle $vehicle, Driver $driver, array $stations, bool $asArray = false): array
     {
         $payload = [
+            'trip_type' => 'ROUND_TRIP',
+            'start_meter_reading_km' => 10000,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'start_station_id' => $stations['home']->id,
@@ -267,22 +372,39 @@ class ProductionReadinessTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
-                    'route_type' => RouteType::Loaded->value,
                     'sequence_no' => 1,
-                    'distance_km' => 150,
+                    'weight_ton' => 100,
                     'freight_amount' => 25000,
                 ],
                 [
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
-                    'route_type' => RouteType::Empty->value,
                     'sequence_no' => 2,
-                    'distance_km' => 150,
+                    'weight_ton' => 0,
+                    'freight_amount' => 0,
                 ],
             ],
         ];
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, Station>  $stations
+     */
+    private function createCompletedTrip(Vehicle $vehicle, Driver $driver, array $stations): \App\Trip
+    {
+        $trip = app(TripService::class)->create($this->tripPayload($vehicle, $driver, $stations, asArray: true));
+
+        $trip->update([
+            'status' => TripStatus::InProgress,
+            'end_at' => '2026-06-05 20:00:00',
+            'actual_arrival_at' => '2026-06-05 19:00:00',
+        ]);
+
+        $trip->update(['status' => TripStatus::Completed]);
+
+        return $trip->fresh();
     }
 
     private function grantChallanPermissions(string $role): void

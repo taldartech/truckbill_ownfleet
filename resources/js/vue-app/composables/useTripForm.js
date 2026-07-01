@@ -1,5 +1,5 @@
 import { reactive, watch } from 'vue';
-import { clampExpenseDate, emptyExpense, emptyRouteStop } from '../api/trips';
+import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric } from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -11,12 +11,17 @@ export function useTripForm() {
         customer_id: '',
         broker_id: '',
         start_station_id: '',
+        trip_type: 'ROUND_TRIP',
         status: 'CREATED',
         start_at: '',
         end_at: '',
         cancelled_at: '',
         cancellation_reason: '',
         actual_arrival_at: '',
+        start_meter_reading_km: '',
+        end_meter_reading_km: '',
+        expected_diesel_liters: '',
+        diesel_rate_per_liter: '',
         route_legs: [],
         expenses: [],
     });
@@ -29,12 +34,17 @@ export function useTripForm() {
         form.customer_id = '';
         form.broker_id = '';
         form.start_station_id = '';
+        form.trip_type = 'ROUND_TRIP';
         form.status = 'CREATED';
         form.start_at = '';
         form.end_at = '';
         form.cancelled_at = '';
         form.cancellation_reason = '';
         form.actual_arrival_at = '';
+        form.start_meter_reading_km = '';
+        form.end_meter_reading_km = '';
+        form.expected_diesel_liters = '';
+        form.diesel_rate_per_liter = '';
         form.route_legs = [];
         form.expenses = [];
     }
@@ -57,7 +67,7 @@ export function useTripForm() {
         });
     }
 
-    function addStop(defaultType = 'LOADED') {
+    function addStop() {
         if (!form.start_station_id) {
             return;
         }
@@ -67,9 +77,7 @@ export function useTripForm() {
                 ? form.start_station_id
                 : form.route_legs[form.route_legs.length - 1]?.to_station_id ?? '';
 
-        form.route_legs.push(
-            emptyRouteStop(form.route_legs.length + 1, fromStationId, defaultType),
-        );
+        form.route_legs.push(emptyRouteStop(form.route_legs.length + 1, fromStationId));
     }
 
     function addReturnToStart() {
@@ -83,14 +91,17 @@ export function useTripForm() {
             return;
         }
 
-        form.route_legs.push(
-            emptyRouteStop(
-                form.route_legs.length + 1,
-                lastLeg.to_station_id,
-                'EMPTY',
-                form.start_station_id,
-            ),
+        const returnLeg = emptyRouteStop(
+            form.route_legs.length + 1,
+            lastLeg.to_station_id,
+            form.start_station_id,
         );
+        returnLeg.weight_ton = 0;
+        returnLeg.freight_amount = 0;
+        returnLeg.freight_rate = '';
+        returnLeg.freight_auto_calculate = true;
+
+        form.route_legs.push(returnLeg);
     }
 
     function removeRouteLeg(index) {
@@ -122,6 +133,7 @@ export function useTripForm() {
         form.driver_id = trip.driver_id ?? '';
         form.substitute_driver_id = trip.substitute_driver_id ?? '';
         form.start_station_id = trip.start_station_id ?? '';
+        form.trip_type = trip.trip_type ?? 'ROUND_TRIP';
         form.customer_id = trip.customer_id ?? '';
         form.broker_id = trip.broker_id ?? '';
         form.status = trip.status ?? 'CREATED';
@@ -130,6 +142,22 @@ export function useTripForm() {
         form.cancelled_at = toDateInputFromIso(trip.cancelled_at);
         form.cancellation_reason = trip.cancellation_reason ?? '';
         form.actual_arrival_at = toDateInputFromIso(trip.actual_arrival_at);
+        form.start_meter_reading_km =
+            trip.start_meter_reading_km != null && trip.start_meter_reading_km !== ''
+                ? Number(trip.start_meter_reading_km)
+                : '';
+        form.end_meter_reading_km =
+            trip.end_meter_reading_km != null && trip.end_meter_reading_km !== ''
+                ? Number(trip.end_meter_reading_km)
+                : '';
+        form.expected_diesel_liters =
+            trip.expected_diesel_liters != null && trip.expected_diesel_liters !== ''
+                ? Number(trip.expected_diesel_liters)
+                : '';
+        form.diesel_rate_per_liter =
+            trip.diesel_rate_per_liter != null && trip.diesel_rate_per_liter !== ''
+                ? Number(trip.diesel_rate_per_liter)
+                : '';
         const tripCustomerId = trip.customer_id ?? '';
 
         form.route_legs = (trip.route_legs ?? []).map((leg) => {
@@ -143,13 +171,30 @@ export function useTripForm() {
                     tripCustomerId !== '' && String(customerId) === String(tripCustomerId),
                 from_city: leg.from_city ?? leg.from_location ?? '',
                 to_city: leg.to_city ?? leg.to_location ?? '',
-                route_type: leg.route_type ?? 'LOADED',
                 sequence_no: leg.sequence_no ?? 1,
-                distance_km: Number(leg.distance_km ?? 0),
+                expected_mileage_km_per_liter:
+                    leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
+                        ? ''
+                        : Number(leg.expected_mileage_km_per_liter),
+                freight_rate:
+                    leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
                 freight_amount: Number(leg.freight_amount ?? 0),
+                freight_auto_calculate: true,
+                weight_ton:
+                    leg.weight_ton === '' || leg.weight_ton == null ? '' : Number(leg.weight_ton),
                 remarks: leg.remarks ?? '',
             };
         });
+
+        const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
+
+        if (!hasLegWeight && trip.load_weight_ton != null && trip.load_weight_ton !== '') {
+            const firstLeg = form.route_legs[0];
+
+            if (firstLeg) {
+                firstLeg.weight_ton = Number(trip.load_weight_ton);
+            }
+        }
 
         form.expenses = (trip.expenses ?? []).map((expense) => ({
             expense_type: expense.expense_type ?? 'DIESEL',
@@ -227,21 +272,43 @@ export function useTripForm() {
             start_station_id: form.start_station_id,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
+            end_meter_reading_km:
+                form.end_meter_reading_km === '' || form.end_meter_reading_km == null
+                    ? null
+                    : Number(form.end_meter_reading_km),
+            expected_diesel_liters:
+                form.expected_diesel_liters === '' || form.expected_diesel_liters == null
+                    ? null
+                    : Number(form.expected_diesel_liters),
+            diesel_rate_per_liter:
+                form.diesel_rate_per_liter === '' || form.diesel_rate_per_liter == null
+                    ? null
+                    : Number(form.diesel_rate_per_liter),
             cancelled_at: form.cancelled_at || null,
             cancellation_reason: form.cancellation_reason || null,
             actual_arrival_at: form.actual_arrival_at || null,
-            route_legs: form.route_legs.map((leg, index) => ({
-                from_station_id: leg.from_station_id,
-                to_station_id: leg.to_station_id,
-                customer_id: leg.customer_id || null,
-                from_city: stationName(stations, leg.from_station_id),
-                to_city: stationName(stations, leg.to_station_id),
-                route_type: leg.route_type,
-                sequence_no: leg.sequence_no || index + 1,
-                distance_km: Number(leg.distance_km ?? 0) || 0,
-                freight_amount: leg.route_type === 'EMPTY' ? 0 : leg.freight_amount,
-                remarks: leg.remarks || null,
-            })),
+            route_legs: form.route_legs.map((leg, index) => {
+                const weight =
+                    leg.weight_ton === '' || leg.weight_ton == null ? 0 : Number(leg.weight_ton);
+
+                return {
+                    from_station_id: leg.from_station_id,
+                    to_station_id: leg.to_station_id,
+                    customer_id: leg.customer_id || null,
+                    from_city: stationName(stations, leg.from_station_id),
+                    to_city: stationName(stations, leg.to_station_id),
+                    sequence_no: leg.sequence_no || index + 1,
+                    expected_mileage_km_per_liter:
+                        leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
+                            ? null
+                            : Number(leg.expected_mileage_km_per_liter),
+                    freight_rate:
+                        leg.freight_rate === '' || leg.freight_rate == null ? null : Number(leg.freight_rate),
+                    weight_ton: weight > 0 ? weight : null,
+                    freight_amount: weight > 0 ? Number(leg.freight_amount ?? 0) : 0,
+                    remarks: leg.remarks || null,
+                };
+            }),
             expenses: form.expenses
                 .filter((e) => Number(e.amount) > 0)
                 .map((e) => ({
@@ -261,8 +328,11 @@ export function useTripForm() {
         if (mode === 'create') {
             payload.vehicle_id = form.vehicle_id;
             payload.driver_id = form.driver_id;
+            payload.trip_type = form.trip_type;
+            payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
         } else {
             payload.status = form.status;
+            payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
         }
 
         return payload;

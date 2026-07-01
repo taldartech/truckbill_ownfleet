@@ -38,7 +38,7 @@
                         <slot name="trip-nav-actions" />
                     </div>
                     <div
-                        v-if="mode === 'edit' && !readonly && !statusLocked && allowedNextStatuses.length > 0"
+                        v-if="mode === 'edit' && !isFormLocked && !statusLocked && allowedNextStatuses.length > 0"
                         class="trip-header-actions__group"
                     >
                         <button
@@ -63,196 +63,379 @@
             </div>
 
             <div class="card-body trip-form-fields">
-                <div class="trip-details-grid mb-3">
-                    <div>
-                        <label class="form-label trip-number-label">
-                            <span>Trip Number</span>
-                            <span class="badge" :class="mode === 'create' ? 'bg-info text-dark' : currentStatusBadge.badge">
-                                {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
-                            </span>
-                        </label>
-                        <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
-                    </div>
-                    <div>
-                        <label class="form-label">Start Date *</label>
-                        <input
-                            v-model="form.start_at"
-                            type="date"
-                            class="form-control"
-                            :class="{ 'is-invalid': fieldErrors.start_at }"
-                            :readonly="readonly"
-                        />
-                        <div v-if="fieldErrors.start_at" class="invalid-feedback d-block">
-                            {{ fieldErrors.start_at[0] }}
+                <div class="trip-details-rows mb-3">
+                    <div
+                        class="trip-details-row"
+                        :class="showActualArrivalField ? 'trip-details-row--five' : ''"
+                    >
+                        <div>
+                            <label class="form-label trip-number-label">
+                                <span>Trip Number</span>
+                                <span class="badge" :class="mode === 'create' ? 'bg-info text-dark' : currentStatusBadge.badge">
+                                    {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
+                                </span>
+                            </label>
+                            <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
                         </div>
-                    </div>
-                    <div>
-                        <label class="form-label">End Date</label>
-                        <input
-                            v-model="form.end_at"
-                            type="date"
-                            class="form-control"
-                            :class="{ 'is-invalid': fieldErrors.end_at }"
-                            :readonly="readonly"
-                        />
-                        <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
-                            {{ fieldErrors.end_at[0] }}
+                        <div>
+                            <label class="form-label">Trip Type</label>
+                            <input :value="tripTypeDisplay" type="text" class="form-control bg-light" readonly />
                         </div>
-                    </div>
-                    <div>
-                        <label class="form-label">Truck *</label>
-                        <template v-if="mode === 'create'">
-                            <AsyncVehicleTripPicker
-                                v-model="form.vehicle_id"
-                                :as-of-date="tripStartDate"
-                                :trip-end-date="tripEndDate"
-                                :driver-label="primaryDriverName"
-                                :invalid="Boolean(fieldErrors.vehicle_id)"
-                                :error-message="fieldErrorMessage('vehicle_id')"
-                                @vehicle-selected="$emit('vehicle-selected', $event)"
-                            />
-                        </template>
-                        <template v-else>
+                        <div>
+                            <label class="form-label">Start Date *</label>
                             <input
-                                :value="snapshotVehicleLabel"
+                                v-model="form.start_at"
+                                type="date"
+                                class="form-control"
+                                :class="{ 'is-invalid': fieldErrors.start_at }"
+                                :readonly="isFormLocked"
+                            />
+                            <div v-if="fieldErrors.start_at" class="invalid-feedback d-block">
+                                {{ fieldErrors.start_at[0] }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <span>End Date</span>
+                                <span
+                                    v-if="arrivalTiming === 'on-time'"
+                                    class="arrival-timing arrival-timing--on-time"
+                                    title="Arrived on planned end date"
+                                >
+                                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                                    <span>On Time</span>
+                                </span>
+                                <span
+                                    v-else-if="arrivalTiming === 'early'"
+                                    class="arrival-timing arrival-timing--early"
+                                    title="Arrived before planned end date"
+                                >
+                                    <i class="bi bi-arrow-down-circle-fill" aria-hidden="true"></i>
+                                    <span>Early</span>
+                                </span>
+                                <span
+                                    v-else-if="arrivalTiming === 'late'"
+                                    class="arrival-timing arrival-timing--late"
+                                    title="Arrived after planned end date"
+                                >
+                                    <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
+                                    <span>Late</span>
+                                </span>
+                            </label>
+                            <input
+                                v-model="form.end_at"
+                                type="date"
+                                class="form-control"
+                                :class="{ 'is-invalid': fieldErrors.end_at }"
+                                :min="endDateMinOnForm"
+                                :readonly="isFormLocked"
+                            />
+                            <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
+                                {{ fieldErrors.end_at[0] }}
+                            </div>
+                        </div>
+                        <div v-if="showActualArrivalField">
+                            <label class="form-label">Actual Arrival</label>
+                            <input
+                                v-model="form.actual_arrival_at"
+                                type="date"
+                                class="form-control"
+                                :class="{ 'is-invalid': fieldErrors.actual_arrival_at }"
+                                :min="tripStartDate"
+                                :readonly="isFormLocked"
+                                @input="$emit('clear-field-error', 'actual_arrival_at')"
+                            />
+                            <div v-if="fieldErrors.actual_arrival_at" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('actual_arrival_at') }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="trip-details-row"
+                        :class="showSubstituteDriverColumn ? 'trip-details-row--four' : 'trip-details-row--three'"
+                    >
+                        <div>
+                            <label class="form-label">Truck *</label>
+                            <template v-if="mode === 'create'">
+                                <AsyncVehicleTripPicker
+                                    v-model="form.vehicle_id"
+                                    :as-of-date="tripStartDate"
+                                    :trip-end-date="tripEndDate"
+                                    :driver-label="primaryDriverName"
+                                    :invalid="Boolean(fieldErrors.vehicle_id)"
+                                    :error-message="fieldErrorMessage('vehicle_id')"
+                                    @vehicle-selected="$emit('vehicle-selected', $event)"
+                                />
+                            </template>
+                            <template v-else>
+                                <input
+                                    :value="snapshotVehicleLabel"
+                                    type="text"
+                                    class="form-control bg-light"
+                                    readonly
+                                />
+                            </template>
+                        </div>
+                        <div>
+                            <div class="driver-field-header">
+                                <label class="form-label mb-0">
+                                    Primary Driver
+                                    <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
+                                </label>
+                                <div
+                                    v-if="!readonly && hasPrimaryDriver"
+                                    class="form-check form-switch substitute-toggle mb-0"
+                                >
+                                    <input
+                                        id="use-substitute-driver"
+                                        v-model="showSubstituteDriver"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                    />
+                                    <label class="form-check-label" for="use-substitute-driver">
+                                        Substitute
+                                    </label>
+                                </div>
+                            </div>
+                            <input
+                                :value="driverDisplayName"
+                                type="text"
+                                class="form-control bg-light"
+                                :class="{ 'is-invalid': fieldErrors.driver_id && mode !== 'edit' }"
+                                readonly
+                            />
+                            <div v-if="fieldErrors.driver_id && mode !== 'edit'" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('driver_id') }}
+                            </div>
+                        </div>
+                        <div v-if="showSubstituteDriverColumn" class="trip-details-row__substitute">
+                            <label class="form-label">Substitute Driver</label>
+                            <SearchablePicker
+                                v-if="!isFormLocked"
+                                v-model="form.substitute_driver_id"
+                                :items="substituteDriverOptions"
+                                attach-dropdown-to-body
+                                placeholder="Select substitute driver"
+                                search-placeholder="Search driver…"
+                                empty-message="No driver found."
+                                view-title="Driver details"
+                                :invalid="Boolean(fieldErrors.substitute_driver_id)"
+                                :error-message="fieldErrorMessage('substitute_driver_id')"
+                                :can-quick-add="false"
+                            />
+                            <input
+                                v-else
+                                :value="substituteDriverDisplay"
                                 type="text"
                                 class="form-control bg-light"
                                 readonly
                             />
-                        </template>
+                        </div>
+                        <div>
+                            <label class="form-label">Customer</label>
+                            <SearchablePicker
+                                v-if="!isFormLocked"
+                                v-model="form.customer_id"
+                                :items="customers"
+                                attach-dropdown-to-body
+                                placeholder="Select customer"
+                                search-placeholder="Search customer…"
+                                empty-message="No customer found."
+                                view-title="Customer details"
+                                quick-add-title="Quick add customer"
+                                :invalid="Boolean(fieldErrors.customer_id)"
+                                :error-message="fieldErrorMessage('customer_id')"
+                                :can-quick-add="canQuickAddCustomer"
+                                @quick-add="openQuickAddForTripCustomer"
+                            />
+                            <input
+                                v-else
+                                :value="partyLabel(customers, form.customer_id, snapshotCustomerName)"
+                                type="text"
+                                class="form-control form-input bg-light"
+                                readonly
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <div class="driver-field-header">
-                            <label class="form-label mb-0">
-                                Primary Driver
-                                <span v-if="loadingDriver" class="text-muted small">(loading…)</span>
-                            </label>
-                            <div
-                                v-if="!readonly && hasPrimaryDriver"
-                                class="form-check form-switch substitute-toggle mb-0"
-                            >
-                                <input
-                                    id="use-substitute-driver"
-                                    v-model="showSubstituteDriver"
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    role="switch"
-                                />
-                                <label class="form-check-label" for="use-substitute-driver">
-                                    Substitute
-                                </label>
+
+                    <div class="trip-details-row">
+                        <div>
+                            <label class="form-label">Truck Running Meter</label>
+                            <input
+                                :value="truckRunningMeterDisplay"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                        </div>
+                        <div>
+                            <label class="form-label">Start Meter Reading *</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.start_meter_reading_km"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.start_meter_reading_km }"
+                            />
+                            <input
+                                v-else
+                                :value="startMeterDisplay"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                            <div v-if="fieldErrors.start_meter_reading_km" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('start_meter_reading_km') }}
                             </div>
                         </div>
-                        <input
-                            :value="driverDisplayName"
-                            type="text"
-                            class="form-control bg-light"
-                            :class="{ 'is-invalid': fieldErrors.driver_id && mode !== 'edit' }"
-                            readonly
-                        />
-                        <div v-if="fieldErrors.driver_id && mode !== 'edit'" class="invalid-feedback d-block">
-                            {{ fieldErrorMessage('driver_id') }}
+                        <div>
+                            <label class="form-label">End Meter Reading</label>
+                            <template v-if="mode !== 'create'">
+                                <input
+                                    v-if="!isFormLocked"
+                                    v-model.number="form.end_meter_reading_km"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control trip-meter-input"
+                                    :class="{ 'is-invalid': fieldErrors.end_meter_reading_km }"
+                                />
+                                <input
+                                    v-else
+                                    :value="endMeterDisplay"
+                                    type="text"
+                                    class="form-control bg-light"
+                                    readonly
+                                />
+                                <div v-if="fieldErrors.end_meter_reading_km" class="invalid-feedback d-block">
+                                    {{ fieldErrorMessage('end_meter_reading_km') }}
+                                </div>
+                            </template>
+                            <input
+                                v-else
+                                value="—"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                        </div>
+                        <div>
+                            <label class="form-label">Total KM</label>
+                            <input
+                                :value="mode !== 'create' ? totalKmDisplay : '—'"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
                         </div>
                     </div>
-                    <div v-if="showSubstituteDriverColumn" class="trip-details-grid__substitute">
-                        <label class="form-label">Substitute Driver</label>
-                        <SearchablePicker
-                            v-if="!readonly"
-                            v-model="form.substitute_driver_id"
-                            :items="substituteDriverOptions"
-                            attach-dropdown-to-body
-                            placeholder="Select substitute driver"
-                            search-placeholder="Search driver…"
-                            empty-message="No driver found."
-                            view-title="Driver details"
-                            :invalid="Boolean(fieldErrors.substitute_driver_id)"
-                            :error-message="fieldErrorMessage('substitute_driver_id')"
-                            :can-quick-add="false"
-                        />
-                        <input
-                            v-else
-                            :value="substituteDriverDisplay"
-                            type="text"
-                            class="form-control bg-light"
-                            readonly
-                        />
+
+                    <div v-if="startMeterWarning" class="trip-details-row__full-width">
+                        <div class="alert alert-warning py-2 mb-0 small">
+                            <strong>Warning:</strong> The entered Start Meter Reading is lower than the current
+                            Truck Running Meter Reading. Please verify the meter reading before continuing.
+                        </div>
                     </div>
-                    <div>
-                        <label class="form-label">Customer</label>
-                        <SearchablePicker
-                            v-if="!readonly"
-                            v-model="form.customer_id"
-                            :items="customers"
-                            attach-dropdown-to-body
-                            placeholder="Select customer"
-                            search-placeholder="Search customer…"
-                            empty-message="No customer found."
-                            view-title="Customer details"
-                            quick-add-title="Quick add customer"
-                            :invalid="Boolean(fieldErrors.customer_id)"
-                            :error-message="fieldErrorMessage('customer_id')"
-                            :can-quick-add="canQuickAddCustomer"
-                            @quick-add="openQuickAddForTripCustomer"
-                        />
-                        <input
-                            v-else
-                            :value="partyLabel(customers, form.customer_id, snapshotCustomerName)"
-                            type="text"
-                            class="form-control form-input bg-light"
-                            readonly
-                        />
-                    </div>
-                    <div>
-                        <label class="form-label d-flex align-items-center gap-2">
-                            <span>Actual Arrival Date</span>
-                            <span
-                                v-if="arrivalTiming === 'early'"
-                                class="arrival-timing arrival-timing--early"
-                                title="Arrived before planned end date"
-                            >
-                                <i class="bi bi-arrow-down-circle-fill" aria-hidden="true"></i>
-                                <span>Early</span>
-                            </span>
-                            <span
-                                v-else-if="arrivalTiming === 'late'"
-                                class="arrival-timing arrival-timing--late"
-                                title="Arrived after planned end date"
-                            >
-                                <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
-                                <span>Late</span>
-                            </span>
-                        </label>
-                        <input
-                            :value="form.actual_arrival_at ? formatDate(form.actual_arrival_at) : '—'"
-                            type="text"
-                            class="form-control bg-light"
-                            readonly
-                        />
-                    </div>
-                    <div>
-                        <label class="form-label">Reference by (not recommended)</label>
-                        <SearchablePicker
-                            v-if="!readonly"
-                            v-model="form.broker_id"
-                            :items="brokers"
-                            attach-dropdown-to-body
-                            placeholder="Select reference"
-                            search-placeholder="Search reference…"
-                            empty-message="No reference found."
-                            view-title="Reference details"
-                            quick-add-title="Quick add reference"
-                            :invalid="Boolean(fieldErrors.broker_id)"
-                            :error-message="fieldErrorMessage('broker_id')"
-                            :can-quick-add="canQuickAddBroker"
-                            @quick-add="showBrokerQuickAdd = true"
-                        />
-                        <input
-                            v-else
-                            :value="partyLabel(brokers, form.broker_id, snapshotBrokerName)"
-                            type="text"
-                            class="form-control form-input bg-light"
-                            readonly
-                        />
+
+                    <div class="trip-details-row">
+                        <div>
+                            <label class="form-label">Expected Mileage (KM/Ltr)</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="masterExpectedMileage"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="form-control trip-meter-input"
+                                @input="onMasterMileageInput"
+                            />
+                            <input
+                                v-else
+                                :value="masterExpectedMileageDisplay"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                            <div class="form-text">From truck profile by default; updates all route legs when changed.</div>
+                        </div>
+                        <div>
+                            <label class="form-label">Expected Diesel (Ltr)</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.expected_diesel_liters"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.expected_diesel_liters }"
+                            />
+                            <input
+                                v-else
+                                :value="form.expected_diesel_liters ? formatNum(form.expected_diesel_liters) : '—'"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                            <div v-if="fieldErrors.expected_diesel_liters" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('expected_diesel_liters') }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label">Diesel Rate (₹/Ltr)</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.diesel_rate_per_liter"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.diesel_rate_per_liter }"
+                            />
+                            <input
+                                v-else
+                                :value="form.diesel_rate_per_liter ? formatMoney(form.diesel_rate_per_liter) : '—'"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                            <div v-if="fieldErrors.diesel_rate_per_liter" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('diesel_rate_per_liter') }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label">Reference by (not recommended)</label>
+                            <SearchablePicker
+                                v-if="!isFormLocked"
+                                v-model="form.broker_id"
+                                :items="brokers"
+                                attach-dropdown-to-body
+                                placeholder="Select reference"
+                                search-placeholder="Search reference…"
+                                empty-message="No reference found."
+                                view-title="Reference details"
+                                quick-add-title="Quick add reference"
+                                :invalid="Boolean(fieldErrors.broker_id)"
+                                :error-message="fieldErrorMessage('broker_id')"
+                                :can-quick-add="canQuickAddBroker"
+                                @quick-add="showBrokerQuickAdd = true"
+                            />
+                            <input
+                                v-else
+                                :value="partyLabel(brokers, form.broker_id, snapshotBrokerName)"
+                                type="text"
+                                class="form-control form-input bg-light"
+                                readonly
+                            />
+                        </div>
                     </div>
                 </div>
                 <div v-if="form.status === 'CANCELLED'" class="mb-3">
@@ -271,9 +454,9 @@
         <div class="card mb-4 trip-section-card trip-route-card">
             <div class="card-header bg-success text-white trip-section-card__header trip-route-card__header">
                 <h3 class="card-title mb-0 trip-section-card__title">
-                    <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>Round Trip Route
+                    <i class="bi me-2" :class="isRoundTrip ? 'bi-arrow-repeat' : 'bi-arrow-right'" aria-hidden="true"></i>{{ routeSectionTitle }}
                 </h3>
-                <div v-if="!readonly" class="trip-header-actions">
+                <div v-if="!isFormLocked" class="trip-header-actions">
                     <div class="trip-header-actions__group">
                         <button
                             type="button"
@@ -284,6 +467,7 @@
                             <i class="bi bi-plus-lg me-1"></i>Add Stop
                         </button>
                         <button
+                            v-if="isRoundTrip"
                             type="button"
                             class="btn btn-sm trip-header-btn trip-header-btn--return"
                             :disabled="!canReturnToStart"
@@ -299,7 +483,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Start Station (Home Base) *</label>
                         <SearchablePicker
-                            v-if="!readonly"
+                            v-if="!isFormLocked"
                             v-model="form.start_station_id"
                             :items="stations"
                             attach-dropdown-to-body
@@ -320,8 +504,13 @@
                     </div>
                     <div class="col-md-6">
                         <div class="alert alert-light border mb-0 h-100">
-                            <strong>Round trip flow:</strong>
-                            Start → Stop B → Stop C → back to Start.
+                            <strong>{{ isRoundTrip ? 'Round trip flow:' : 'One way flow:' }}</strong>
+                            <template v-if="isRoundTrip">
+                                Start → Stop B → Stop C → back to Start.
+                            </template>
+                            <template v-else>
+                                Start → one or more stops (return to start not required).
+                            </template>
                             <div v-if="routePreview" class="small mt-1 text-muted">{{ routePreview }}</div>
                         </div>
                     </div>
@@ -333,18 +522,19 @@
                     Select start station, then click <strong>Add Stop</strong> to build the route.
                 </div>
 
-                <div class="table-wrap" v-else>
-                    <table class="table table-bordered align-middle mb-0">
+                <div class="table-responsive table-wrap" v-else>
+                    <table class="table table-bordered align-middle mb-0 trip-route-table">
                         <thead class="table-light">
                             <tr>
                                 <th>#</th>
                                 <th>From</th>
                                 <th>To Station *</th>
-                                <th style="min-width: 200px">Customer</th>
-                                <th>Load Type</th>
-                                <th>KM *</th>
-                                <th>Freight ₹</th>
-                                <th v-if="!readonly" style="width: 50px"></th>
+                                <th class="trip-route-customer-col">Customer</th>
+                                <th class="trip-route-weight-cell">Weight (In Ton)</th>
+                                <th class="trip-route-rate-col">Freight Rate (per ton)</th>
+                                <th class="trip-route-freight-col">Freight ₹</th>
+                                <th class="trip-route-mileage-col">Expected Mileage</th>
+                                <th v-if="!isFormLocked" class="trip-route-delete-col"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -353,95 +543,129 @@
                                 <td>{{ stationLabel(leg.from_station_id) }}</td>
                                 <td>
                                     <SearchablePicker
-                                        v-if="!readonly"
+                                        v-if="!isFormLocked"
                                         v-model="leg.to_station_id"
                                         :items="stations"
                                         placeholder="Select station"
                                         attach-dropdown-to-body
+                                        compact-actions
                                         :invalid="Boolean(legFieldError(index, 'to_station_id'))"
                                         :error-message="legFieldError(index, 'to_station_id')"
-                                        :can-quick-add="canQuickAddStation"
                                         @update:model-value="$emit('stop-change', index)"
                                         @quick-add="openQuickAddForLeg(index)"
                                     />
                                     <span v-else>{{ stationLabel(leg.to_station_id) }}</span>
                                 </td>
                                 <td>
-                                    <div v-if="!readonly" class="leg-customer-cell">
-                                        <div class="form-check mb-1">
-                                            <input
-                                                :id="`same-customer-${index}`"
-                                                v-model="leg.use_same_customer"
-                                                class="form-check-input"
-                                                type="checkbox"
-                                                @change="onLegSameCustomerChange(index)"
-                                            />
-                                            <label
-                                                class="form-check-label small text-muted"
-                                                :for="`same-customer-${index}`"
-                                            >
-                                                Same customer
-                                            </label>
-                                        </div>
+                                    <div v-if="!isFormLocked" class="leg-customer-cell">
                                         <SearchablePicker
                                             v-model="leg.customer_id"
                                             :items="customers"
                                             :placeholder="leg.use_same_customer ? 'Uses trip customer' : 'Select customer'"
                                             attach-dropdown-to-body
+                                            compact-actions
                                             view-title="Customer details"
                                             quick-add-title="Quick add customer"
                                             :disabled="leg.use_same_customer"
                                             :invalid="Boolean(legFieldError(index, 'customer_id'))"
                                             :error-message="legFieldError(index, 'customer_id')"
-                                            :can-quick-add="canQuickAddCustomer && !leg.use_same_customer"
                                             @quick-add="openQuickAddForLegCustomer(index)"
-                                        />
+                                        >
+                                            <template #toolbar>
+                                                <div class="form-check">
+                                                    <input
+                                                        :id="`same-customer-${index}`"
+                                                        v-model="leg.use_same_customer"
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        @change="onLegSameCustomerChange(index)"
+                                                    />
+                                                    <label
+                                                        class="form-check-label small text-muted"
+                                                        :for="`same-customer-${index}`"
+                                                    >
+                                                        Same customer
+                                                    </label>
+                                                </div>
+                                            </template>
+                                        </SearchablePicker>
                                     </div>
                                     <span v-else>{{ partyLabel(customers, leg.customer_id) }}</span>
                                 </td>
-                                <td>
-                                    <select
-                                        v-if="!readonly"
-                                        v-model="leg.route_type"
-                                        class="form-select form-select-sm"
-                                    >
-                                        <option v-for="t in routeTypes" :key="t.value" :value="t.value">
-                                            {{ t.label }}
-                                        </option>
-                                    </select>
-                                    <span v-else>{{ routeTypeMeta(leg.route_type).label }}</span>
-                                </td>
-                                <td>
+                                <td class="trip-route-weight-cell">
                                     <input
-                                        v-if="!readonly"
-                                        v-model.number="leg.distance_km"
+                                        v-if="!isFormLocked"
+                                        v-model.number="leg.weight_ton"
                                         v-no-scroll-change
                                         type="number"
                                         min="0"
-                                        step="0.01"
+                                        step="0.001"
                                         class="form-control form-control-sm"
-                                        :class="{ 'is-invalid': legFieldError(index, 'distance_km') }"
-                                        @input="onLegDistanceInput(index)"
+                                        :class="{ 'is-invalid': legFieldError(index, 'weight_ton') }"
+                                        placeholder="In Ton"
+                                        @input="onLegWeightInput(index)"
                                     />
-                                    <span v-else>{{ formatNum(leg.distance_km) }}</span>
-                                    <div v-if="legFieldError(index, 'distance_km')" class="invalid-feedback d-block">
-                                        {{ legFieldError(index, 'distance_km') }}
+                                    <span v-else>{{ leg.weight_ton ? formatNum(leg.weight_ton) : '—' }}</span>
+                                    <div v-if="legFieldError(index, 'weight_ton')" class="invalid-feedback d-block">
+                                        {{ legFieldError(index, 'weight_ton') }}
                                     </div>
                                 </td>
-                                <td>
+                                <td class="trip-route-rate-col">
                                     <input
-                                        v-if="!readonly"
-                                        v-model.number="leg.freight_amount"
+                                        v-if="!isFormLocked"
+                                        v-model.number="leg.freight_rate"
                                         v-no-scroll-change
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         class="form-control form-control-sm"
-                                        :disabled="leg.route_type === 'EMPTY'"
+                                        :disabled="Number(leg.weight_ton ?? 0) <= 0"
+                                        placeholder="₹ per ton"
+                                        @input="onLegRateInput(index)"
                                     />
+                                    <span v-else>{{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}</span>
+                                </td>
+                                <td class="trip-route-freight-col">
+                                    <div v-if="!isFormLocked" class="d-flex flex-column gap-1">
+                                        <label class="form-check-label small text-muted d-flex align-items-center gap-1 mb-0">
+                                            <input
+                                                v-model="leg.freight_auto_calculate"
+                                                class="form-check-input m-0"
+                                                type="checkbox"
+                                                :disabled="Number(leg.weight_ton ?? 0) <= 0"
+                                                @change="onLegAutoCalculateChange(index)"
+                                            />
+                                            Auto Calculate
+                                        </label>
+                                        <input
+                                            v-model.number="leg.freight_amount"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="form-control form-control-sm"
+                                            :disabled="Number(leg.weight_ton ?? 0) <= 0 || leg.freight_auto_calculate"
+                                            @input="onLegFreightManualInput(index)"
+                                        />
+                                    </div>
                                     <span v-else>₹{{ formatMoney(leg.freight_amount) }}</span>
                                 </td>
-                                <td v-if="!readonly">
+                                <td class="trip-route-mileage-col">
+                                    <input
+                                        v-if="!isFormLocked"
+                                        v-model.number="leg.expected_mileage_km_per_liter"
+                                        v-no-scroll-change
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="form-control form-control-sm"
+                                        placeholder="KM/Ltr"
+                                    />
+                                    <span v-else>
+                                        {{ leg.expected_mileage_km_per_liter ? formatNum(leg.expected_mileage_km_per_liter) : '—' }}
+                                    </span>
+                                </td>
+                                <td v-if="!isFormLocked" class="trip-route-delete-col">
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-outline-danger"
@@ -459,28 +683,30 @@
             <div class="card-body p-0 border-top">
                 <div class="km-summary-bar">
                     <div>
-                        <div class="small text-muted">Full Load KM</div>
-                        <strong class="text-success">{{ formatNum(summary.loadedKm) }}</strong>
+                        <div class="small text-muted">Loaded Stops</div>
+                        <strong class="text-success">{{ summary.loadedStops }}</strong>
                     </div>
                     <div>
-                        <div class="small text-muted">Half Load KM</div>
-                        <strong class="text-warning">{{ formatNum(summary.halfLoadedKm) }}</strong>
+                        <div class="small text-muted">Empty Stops</div>
+                        <strong class="text-secondary">{{ summary.emptyStops }}</strong>
                     </div>
                     <div>
-                        <div class="small text-muted">Empty KM</div>
-                        <strong class="text-secondary">{{ formatNum(summary.emptyKm) }}</strong>
+                        <div class="small text-muted">Expected Avg Mileage</div>
+                        <strong>{{ expectedAvgMileageDisplay }}</strong>
                     </div>
                     <div>
                         <div class="small text-muted">Total KM</div>
                         <strong>{{ formatNum(summary.totalKm) }}</strong>
                     </div>
                     <div>
-                        <div class="small text-muted">Freight</div>
+                        <div class="small text-muted">Total Freight</div>
                         <strong>₹{{ formatMoney(summary.freightTotal) }}</strong>
                     </div>
                 </div>
             </div>
         </div>
+
+        <TripDieselPerformanceCard :performance="dieselPerformance" />
 
         <div class="card mb-4 trip-expenses-card">
             <div class="card-header trip-expenses-card__header text-white">
@@ -536,6 +762,9 @@
             :actual-arrival-at-value="form.actual_arrival_at"
             :cancelled-at-value="form.cancelled_at"
             :cancellation-reason-value="form.cancellation_reason"
+            :start-meter-reading-km="form.start_meter_reading_km"
+            :truck-running-meter-km="vehicleOdometerKm"
+            :end-meter-reading-km-value="form.end_meter_reading_km"
             @cancel="onStatusModalCancel"
             @confirm="onStatusModalConfirm"
         />
@@ -545,12 +774,14 @@
 <script setup>
 import { computed, ref, useSlots, watch } from 'vue';
 import {
-    ROUTE_TYPES,
-    routeTypeMeta,
+    calculateLegFreight,
+    computeDieselPerformance,
     summarizeTripForm,
     tripStatusMeta,
+    tripTypeLabel,
 } from '../../api/trips';
 import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
+import { formatMeterKm } from '../../utils/formatMeter';
 import SearchablePicker from '../ui/SearchablePicker.vue';
 import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
 import TripExpensesPanel from './TripExpensesPanel.vue';
@@ -558,6 +789,7 @@ import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
+import TripDieselPerformanceCard from './TripDieselPerformanceCard.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -580,9 +812,12 @@ const props = defineProps({
     primaryDriverName: { type: String, default: '' },
     statusLocked: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
+    expensesOnlyEdit: { type: Boolean, default: false },
     canQuickAddStation: { type: Boolean, default: false },
     canQuickAddBroker: { type: Boolean, default: false },
     canQuickAddCustomer: { type: Boolean, default: false },
+    vehicleOdometerKm: { type: [Number, String], default: '' },
+    vehicleExpectedMileage: { type: [Number, String], default: '' },
 });
 
 const emit = defineEmits([
@@ -603,6 +838,8 @@ const emit = defineEmits([
 
 const slots = useSlots();
 
+const isFormLocked = computed(() => props.readonly || props.expensesOnlyEdit);
+
 const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
@@ -610,11 +847,45 @@ const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
+const masterExpectedMileage = ref('');
 
 const summary = computed(() => summarizeTripForm(props.form));
 
+const dieselPerformance = computed(() =>
+    computeDieselPerformance({
+        routeLegs: props.form.route_legs,
+        expectedDieselLiters: props.form.expected_diesel_liters,
+        dieselRatePerLiter: props.form.diesel_rate_per_liter,
+        actualTotalKm: summary.value.totalKm,
+    }),
+);
+
+const expectedAvgMileageDisplay = computed(() => {
+    if (summary.value.expectedAvgMileage == null) {
+        return '—';
+    }
+
+    return `${formatNum(summary.value.expectedAvgMileage)} KM/Ltr`;
+});
+
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
 const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
+
+const showActualArrivalField = computed(() => {
+    if (props.mode !== 'edit') {
+        return false;
+    }
+
+    const status = String(props.form.status ?? '').toUpperCase();
+
+    return status === 'COMPLETED' || status === 'IN_PROGRESS' || Boolean(props.form.actual_arrival_at);
+});
+
+const endDateMinOnForm = computed(() => {
+    const arrival = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at);
+
+    return arrival || tripStartDate.value || '';
+});
 
 const arrivalTiming = computed(() => {
     const endDate = tripEndDate.value;
@@ -625,7 +896,7 @@ const arrivalTiming = computed(() => {
     }
 
     if (endDate === arrivalDate) {
-        return null;
+        return 'on-time';
     }
 
     if (endDate > arrivalDate) {
@@ -640,6 +911,10 @@ const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
 const tripDetailsHeaderTitle = computed(() => {
     if (props.mode === 'create') {
         return 'Create Trip';
+    }
+
+    if (props.expensesOnlyEdit) {
+        return 'Edit Trip Expenses';
     }
 
     if (props.readonly || props.statusLocked) {
@@ -686,8 +961,8 @@ const hasPrimaryDriver = computed(() => Boolean(String(primaryDriverId.value).tr
 const showSubstituteDriver = ref(false);
 
 const showSubstituteDriverColumn = computed(
-    () => (props.readonly && Boolean(props.form.substitute_driver_id))
-        || (!props.readonly && hasPrimaryDriver.value && showSubstituteDriver.value),
+    () => (isFormLocked.value && Boolean(props.form.substitute_driver_id))
+        || (!isFormLocked.value && hasPrimaryDriver.value && showSubstituteDriver.value),
 );
 
 const substituteDriverOptions = computed(() =>
@@ -717,7 +992,7 @@ watch(
 );
 
 watch(showSubstituteDriver, (enabled) => {
-    if (!enabled && !props.readonly) {
+    if (!enabled && !isFormLocked.value) {
         props.form.substitute_driver_id = '';
         emit('clear-field-error', 'substitute_driver_id');
     }
@@ -764,7 +1039,7 @@ const hasSaveActions = computed(() => Boolean(slots['trip-save-actions']));
 const showHeaderActions = computed(
     () => hasNavActions.value
         || hasSaveActions.value
-        || (props.mode === 'edit' && !props.readonly && !props.statusLocked && allowedNextStatuses.value.length > 0),
+        || (props.mode === 'edit' && !isFormLocked.value && !props.statusLocked && allowedNextStatuses.value.length > 0),
 );
 
 const statusBadgeOnGreen = computed(() => {
@@ -842,6 +1117,10 @@ const routeLegsError = computed(() => {
 });
 
 const canReturnToStart = computed(() => {
+    if (!isRoundTrip.value) {
+        return false;
+    }
+
     if (!props.form.start_station_id || props.form.route_legs.length === 0) {
         return false;
     }
@@ -849,6 +1128,68 @@ const canReturnToStart = computed(() => {
     const last = props.form.route_legs[props.form.route_legs.length - 1];
 
     return String(last.to_station_id) !== String(props.form.start_station_id);
+});
+
+const isRoundTrip = computed(() => String(props.form.trip_type ?? 'ROUND_TRIP').toUpperCase() !== 'ONE_WAY');
+const isOneWayTrip = computed(() => !isRoundTrip.value);
+const tripTypeDisplay = computed(() => tripTypeLabel(props.form.trip_type));
+const routeSectionTitle = computed(() => (isRoundTrip.value ? 'Round Trip Route' : 'One Way Route'));
+
+const truckRunningMeterDisplay = computed(() => formatMeterKm(props.vehicleOdometerKm));
+
+const masterExpectedMileageDisplay = computed(() => {
+    if (masterExpectedMileage.value === '' || masterExpectedMileage.value == null) {
+        return '—';
+    }
+
+    const value = Number(masterExpectedMileage.value);
+
+    if (!Number.isFinite(value) || value <= 0) {
+        return '—';
+    }
+
+    return `${formatNum(value)} KM/Ltr`;
+});
+
+const startMeterDisplay = computed(() => {
+    const value = props.form.start_meter_reading_km;
+
+    if (value === '' || value == null) {
+        return '—';
+    }
+
+    const reading = Number(value);
+
+    if (!Number.isFinite(reading) || reading <= 0) {
+        return '—';
+    }
+
+    return formatMeterKm(reading);
+});
+
+const endMeterDisplay = computed(() => formatMeterKm(props.form.end_meter_reading_km));
+
+const totalKmDisplay = computed(() => {
+    if (summary.value.totalKm > 0) {
+        return formatMeterKm(summary.value.totalKm);
+    }
+
+    return '—';
+});
+
+const startMeterWarning = computed(() => {
+    if (isFormLocked.value) {
+        return false;
+    }
+
+    const start = Number(props.form.start_meter_reading_km ?? 0);
+    const truck = Number(props.vehicleOdometerKm ?? 0);
+
+    if (!Number.isFinite(start) || start <= 0 || !Number.isFinite(truck) || truck <= 0) {
+        return false;
+    }
+
+    return start < truck;
 });
 
 const routePreview = computed(() => {
@@ -900,9 +1241,128 @@ function legFieldError(index, field) {
     return Array.isArray(errors) ? errors[0] : errors;
 }
 
-function onLegDistanceInput(index) {
-    emit('clear-field-error', `route_legs.${index}.distance_km`);
+function applyLegFreightAuto(index) {
+    const leg = props.form.route_legs[index];
+
+    if (!leg || !leg.freight_auto_calculate) {
+        return;
+    }
+
+    const weight = Number(leg.weight_ton ?? 0);
+
+    if (weight <= 0) {
+        leg.freight_amount = 0;
+        leg.freight_rate = leg.freight_rate === '' ? '' : leg.freight_rate;
+
+        return;
+    }
+
+    leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
 }
+
+function onLegWeightInput(index) {
+    const leg = props.form.route_legs[index];
+    const weight = Number(leg?.weight_ton ?? 0);
+
+    if (weight <= 0) {
+        leg.freight_amount = 0;
+        leg.freight_auto_calculate = true;
+    }
+
+    applyLegFreightAuto(index);
+    emit('clear-field-error', `route_legs.${index}.weight_ton`);
+    emit('clear-field-error', `route_legs.${index}.freight_amount`);
+}
+
+function onLegRateInput(index) {
+    applyLegFreightAuto(index);
+}
+
+function onLegAutoCalculateChange(index) {
+    if (props.form.route_legs[index]?.freight_auto_calculate) {
+        applyLegFreightAuto(index);
+    }
+}
+
+function onLegFreightManualInput(index) {
+    const leg = props.form.route_legs[index];
+
+    if (leg) {
+        leg.freight_auto_calculate = false;
+    }
+}
+
+function applyMasterMileageToLegs({ allLegs = false } = {}) {
+    const mileage = Number(masterExpectedMileage.value);
+
+    if (!Number.isFinite(mileage) || mileage <= 0) {
+        return;
+    }
+
+    props.form.route_legs.forEach((leg) => {
+        if (allLegs || leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null) {
+            leg.expected_mileage_km_per_liter = mileage;
+        }
+    });
+}
+
+function initMasterMileageFromLegs() {
+    const leg = props.form.route_legs.find((item) => {
+        const value = item.expected_mileage_km_per_liter;
+
+        return value !== '' && value != null && Number(value) > 0;
+    });
+
+    if (leg) {
+        masterExpectedMileage.value = Number(leg.expected_mileage_km_per_liter);
+
+        return;
+    }
+
+    const truckMileage = Number(props.vehicleExpectedMileage ?? 0);
+
+    if (Number.isFinite(truckMileage) && truckMileage > 0) {
+        masterExpectedMileage.value = truckMileage;
+    }
+}
+
+function onMasterMileageInput() {
+    applyMasterMileageToLegs({ allLegs: true });
+}
+
+watch(
+    () => props.vehicleExpectedMileage,
+    (value) => {
+        if (props.mode !== 'create') {
+            return;
+        }
+
+        if (value === '' || value == null) {
+            return;
+        }
+
+        const mileage = Number(value);
+
+        if (!Number.isFinite(mileage) || mileage <= 0) {
+            return;
+        }
+
+        masterExpectedMileage.value = mileage;
+        applyMasterMileageToLegs({ allLegs: true });
+    },
+);
+
+watch(
+    () => props.form.route_legs.length,
+    () => {
+        if (masterExpectedMileage.value === '' || masterExpectedMileage.value == null) {
+            initMasterMileageFromLegs();
+        }
+
+        applyMasterMileageToLegs({ allLegs: false });
+    },
+    { immediate: true },
+);
 
 function formatNum(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -939,9 +1399,11 @@ function onStatusModalConfirm(data) {
     if (pendingStatus.value === 'CANCELLED') {
         props.form.cancelled_at = data.cancelled_at;
         props.form.cancellation_reason = data.cancellation_reason;
+        props.form.end_meter_reading_km = data.end_meter_reading_km;
     } else if (pendingStatus.value === 'COMPLETED') {
         props.form.end_at = data.end_at;
         props.form.actual_arrival_at = data.actual_arrival_at;
+        props.form.end_meter_reading_km = data.end_meter_reading_km;
     }
 
     showStatusModal.value = false;
@@ -990,8 +1452,6 @@ function onCustomerCreated(customer) {
     quickAddCustomerLegIndex.value = null;
 }
 
-const routeTypes = ROUTE_TYPES;
-
 defineExpose({
     changeStatus: onStatusChange,
 });
@@ -1025,10 +1485,75 @@ defineExpose({
     gap: 0.5rem;
     flex-wrap: wrap;
 }
-.trip-details-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+.trip-details-rows {
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+}
+.trip-details-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+.trip-details-row--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.trip-details-row--four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.trip-details-row--five {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.trip-details-row > * {
+    min-width: 0;
+}
+.trip-details-row__full-width {
+    width: 100%;
+}
+.trip-details-rows .form-control,
+.trip-details-rows .form-select,
+.trip-details-rows .async-vehicle-picker {
+    width: 100%;
+    max-width: 100%;
+}
+.trip-end-date-arrival__label {
+    font-size: 0.8125rem;
+    color: #6c757d;
+}
+.trip-meter-input {
+    width: 100%;
+    max-width: 100%;
+}
+.trip-route-weight-cell {
+    min-width: 96px;
+    width: 110px;
+}
+.trip-route-weight-cell .form-control-sm {
+    min-width: 0;
+}
+.trip-route-customer-col {
+    min-width: 200px;
+}
+.trip-route-rate-col,
+.trip-route-freight-col {
+    min-width: 118px;
+}
+.trip-route-mileage-col {
+    min-width: 56px;
+    width: 68px;
+    max-width: 83px;
+}
+.trip-route-mileage-col .form-control-sm {
+    min-width: 0;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    text-align: center;
+}
+.trip-route-delete-col {
+    width: 44px;
+}
+.trip-route-table .leg-customer-cell {
+    min-width: 0;
 }
 .arrival-timing {
     display: inline-flex;
@@ -1044,6 +1569,10 @@ defineExpose({
     color: #0f5132;
     background: #d1e7dd;
 }
+.arrival-timing--on-time {
+    color: #055160;
+    background: #cff4fc;
+}
 .arrival-timing--late {
     color: #842029;
     background: #f8d7da;
@@ -1056,7 +1585,7 @@ defineExpose({
     min-height: 1.5rem;
     margin-bottom: 0.5rem;
 }
-.trip-details-grid__substitute {
+.trip-details-row__substitute {
     animation: substitute-field-in 0.2s ease-out;
 }
 .substitute-toggle {
@@ -1083,8 +1612,13 @@ defineExpose({
 .substitute-toggle .form-check-input:checked + .form-check-label {
     color: #146c43;
 }
+@media (max-width: 992px) {
+    .trip-details-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 @media (max-width: 768px) {
-    .trip-details-grid {
+    .trip-details-row {
         grid-template-columns: 1fr;
     }
 }

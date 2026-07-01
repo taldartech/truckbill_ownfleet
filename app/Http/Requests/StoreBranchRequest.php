@@ -43,7 +43,9 @@ class StoreBranchRequest extends FormRequest
                 'string',
                 'max:150',
                 Rule::unique('branches', 'branch_name')->where(
-                    fn ($query) => $query->where('company_id', $this->input('company_id'))
+                    fn ($query) => $query
+                        ->where('company_id', $this->input('company_id'))
+                        ->whereNull('deleted_at')
                 ),
             ],
             'branch_contact_number' => $this->branchContactNumberRules(),

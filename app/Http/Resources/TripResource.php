@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\TripManagement\Support\TripDieselPerformance;
 use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -26,12 +27,18 @@ class TripResource extends JsonResource
             'broker_name' => $this->broker_name,
             'start_station_id' => $this->start_station_id,
             'start_station' => new StationResource($this->whenLoaded('startStation')),
+            'trip_type' => $this->trip_type?->value ?? $this->trip_type,
             'status' => $this->status?->value ?? $this->status,
             'start_at' => ApiDateTime::toIso($this->start_at),
             'end_at' => ApiDateTime::toIso($this->end_at),
             'cancelled_at' => ApiDateTime::toIso($this->cancelled_at),
             'cancellation_reason' => $this->cancellation_reason,
             'actual_arrival_at' => ApiDateTime::toIso($this->actual_arrival_at),
+            'start_meter_reading_km' => $this->start_meter_reading_km,
+            'end_meter_reading_km' => $this->end_meter_reading_km,
+            'load_weight_ton' => $this->load_weight_ton,
+            'expected_diesel_liters' => $this->expected_diesel_liters,
+            'diesel_rate_per_liter' => $this->diesel_rate_per_liter,
             'total_distance_km' => $this->total_distance_km,
             'loaded_distance_km' => $this->loaded_distance_km,
             'half_loaded_distance_km' => $this->half_loaded_distance_km,
@@ -39,6 +46,10 @@ class TripResource extends JsonResource
             'total_expense_amount' => $this->total_expense_amount,
             'total_freight_amount' => $this->total_freight_amount,
             'profit_amount' => $this->profitAmount(),
+            'diesel_performance' => $this->when(
+                $this->relationLoaded('routeLegs'),
+                fn () => TripDieselPerformance::forTrip($this->resource),
+            ),
             'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),
             'driver' => new DriverResource($this->whenLoaded('driver')),
             'substitute_driver' => new DriverResource($this->whenLoaded('substituteDriver')),

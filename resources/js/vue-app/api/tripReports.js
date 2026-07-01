@@ -7,7 +7,6 @@ export async function fetchTripReport(type, filters = {}) {
         profitability: `${reportsBase}/profitability`,
         'vehicle-wise': `${reportsBase}/vehicle-wise`,
         'driver-wise': `${reportsBase}/driver-wise`,
-        'empty-km': `${reportsBase}/empty-km`,
         'expense-summary': `${reportsBase}/expense-summary`,
         'route-profitability': `${reportsBase}/route-profitability`,
     };
@@ -30,7 +29,6 @@ export const TRIP_REPORT_TYPES = [
     { value: 'profitability', label: 'Trip Profitability' },
     { value: 'vehicle-wise', label: 'Truck-wise Trips' },
     { value: 'driver-wise', label: 'Driver-wise Trips' },
-    { value: 'empty-km', label: 'Empty KM Report' },
     { value: 'expense-summary', label: 'Expense Summary' },
     { value: 'route-profitability', label: 'Route Profitability' },
 ];

@@ -6,6 +6,7 @@ use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\TripStatus;
+use App\Enums\TripType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,9 +14,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
 {
+    use BranchScoped;
     use SoftDeletes;
     use TenantScoped;
-    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [
@@ -30,12 +31,18 @@ class Trip extends Model
         'broker_id',
         'broker_name',
         'start_station_id',
+        'trip_type',
         'status',
         'start_at',
         'end_at',
         'cancelled_at',
         'cancellation_reason',
         'actual_arrival_at',
+        'start_meter_reading_km',
+        'end_meter_reading_km',
+        'load_weight_ton',
+        'expected_diesel_liters',
+        'diesel_rate_per_liter',
         'total_distance_km',
         'loaded_distance_km',
         'half_loaded_distance_km',
@@ -51,10 +58,16 @@ class Trip extends Model
     {
         return [
             'status' => TripStatus::class,
+            'trip_type' => TripType::class,
             'start_at' => 'datetime',
             'end_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'actual_arrival_at' => 'datetime',
+            'start_meter_reading_km' => 'decimal:2',
+            'end_meter_reading_km' => 'decimal:2',
+            'load_weight_ton' => 'decimal:3',
+            'expected_diesel_liters' => 'decimal:2',
+            'diesel_rate_per_liter' => 'decimal:2',
             'total_distance_km' => 'decimal:2',
             'loaded_distance_km' => 'decimal:2',
             'half_loaded_distance_km' => 'decimal:2',

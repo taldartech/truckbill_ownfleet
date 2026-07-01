@@ -12,9 +12,23 @@ export const adminNavigation = [
     {
         label: 'Trips',
         icon: 'bi bi-signpost-split nav-icon',
-        to: '/trips',
-        permission: 'trips.view',
-        requiresTenant: true,
+        children: [
+            {
+                label: 'Trip List',
+                icon: 'bi bi-list-ul nav-icon',
+                to: '/trips',
+                activeNames: ['trips.index', 'trips.show', 'trips.edit'],
+                permission: 'trips.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Trip Create',
+                icon: 'bi bi-plus-circle nav-icon',
+                to: '/trips?create=1',
+                permission: 'trips.manage',
+                requiresTenant: true,
+            },
+        ],
     },
     {
         label: 'Attendance',

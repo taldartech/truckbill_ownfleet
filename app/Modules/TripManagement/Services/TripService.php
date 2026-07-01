@@ -14,13 +14,16 @@ use App\Support\BranchContext;
 use App\Support\CurrentTenant;
 use App\Support\RouteLegLocationFormatter;
 use App\Support\TripNumberGenerator;
+use App\Support\TyreStintCalculator;
 use App\Trip;
 use App\TripExpense;
 use App\TripRouteLeg;
 use App\TripStatusHistory;
+use App\User;
 use App\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TripService
 {
@@ -91,8 +94,13 @@ class TripService
 
             $this->tripValidation->assertDriverIsActive($driverId);
             $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
-            $this->tripValidation->assertRouteLegsAreValid($routeLegs, isset($data['start_station_id']) ? (int) $data['start_station_id'] : null);
+            $this->tripValidation->assertRouteLegsAreValid(
+                $routeLegs,
+                isset($data['start_station_id']) ? (int) $data['start_station_id'] : null,
+                (string) ($data['trip_type'] ?? 'ROUND_TRIP'),
+            );
             $this->tripValidation->assertPositiveFreightTotal($routeLegs);
+            $this->tripValidation->assertStartMeterReadingIsPresent($data);
             $this->tripValidation->assertExpensesAreValid(
                 $expenses,
                 $data['start_at'] ?? null,
@@ -124,6 +132,13 @@ class TripService
                 'driver_id' => $driverId,
                 'trip_number' => $tripNumber,
                 'start_station_id' => $data['start_station_id'] ?? null,
+                'start_meter_reading_km' => round((float) $data['start_meter_reading_km'], 2),
+                'expected_diesel_liters' => isset($data['expected_diesel_liters']) && $data['expected_diesel_liters'] !== ''
+                    ? round((float) $data['expected_diesel_liters'], 2)
+                    : null,
+                'diesel_rate_per_liter' => isset($data['diesel_rate_per_liter']) && $data['diesel_rate_per_liter'] !== ''
+                    ? round((float) $data['diesel_rate_per_liter'], 2)
+                    : null,
                 'status' => TripStatus::Created->value,
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -148,10 +163,35 @@ class TripService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function update(Trip $trip, array $data, ?string $userId = null): Trip
+    public function update(Trip $trip, array $data, ?User $user = null): Trip
     {
-        return DB::transaction(function () use ($trip, $data, $userId): Trip {
-            $this->tripValidation->assertTripIsEditable($trip);
+        return DB::transaction(function () use ($trip, $data, $user): Trip {
+            $userId = $user?->id;
+            $editScope = $this->tripValidation->resolveTripEditScope($trip, $user);
+
+            if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
+                throw ValidationException::withMessages([
+                    'trip' => ['Completed or cancelled trips cannot be edited.'],
+                ]);
+            }
+
+            if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
+                if (! array_key_exists('expenses', $data)) {
+                    throw ValidationException::withMessages([
+                        'trip' => ['Only trip expenses can be edited on completed trips.'],
+                    ]);
+                }
+
+                $nonExpenseKeys = array_diff(array_keys($data), ['expenses']);
+
+                if ($nonExpenseKeys !== []) {
+                    throw ValidationException::withMessages([
+                        'trip' => ['Only trip expenses can be edited on completed trips.'],
+                    ]);
+                }
+
+                $data = ['expenses' => $data['expenses']];
+            }
 
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
@@ -170,7 +210,11 @@ class TripService
                     ? (int) $data['start_station_id']
                     : (int) $trip->start_station_id;
 
-                $this->tripValidation->assertRouteLegsAreValid($routeLegs, $startStationId ?: null);
+                $tripType = $trip->trip_type instanceof \App\Enums\TripType
+                    ? $trip->trip_type->value
+                    : (string) ($trip->trip_type ?? 'ROUND_TRIP');
+
+                $this->tripValidation->assertRouteLegsAreValid($routeLegs, $startStationId ?: null, $tripType);
             }
 
             if ($expenses !== null) {
@@ -181,18 +225,20 @@ class TripService
                 );
             }
 
-            $this->tripValidation->assertNoDuplicateTripWindow(
-                $vehicleId,
-                $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
-                $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
-                $trip->id,
-            );
-            $this->tripValidation->assertNoDuplicateDriverTripWindow(
-                $driverId,
-                $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
-                $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
-                $trip->id,
-            );
+            if ($editScope === TripValidationService::EDIT_SCOPE_FULL) {
+                $this->tripValidation->assertNoDuplicateTripWindow(
+                    $vehicleId,
+                    $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
+                    $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
+                    $trip->id,
+                );
+                $this->tripValidation->assertNoDuplicateDriverTripWindow(
+                    $driverId,
+                    $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
+                    $data['end_at'] ?? $trip->end_at?->toDateTimeString(),
+                    $trip->id,
+                );
+            }
 
             if (array_key_exists('substitute_driver_id', $data)) {
                 $this->tripValidation->assertSubstituteDriverIsValid($data['substitute_driver_id'] ?? null, $driverId);
@@ -201,6 +247,28 @@ class TripService
 
             if (array_key_exists('customer_id', $data) || array_key_exists('broker_id', $data)) {
                 $data = $this->normalizeBrokerCustomerFields($data);
+            }
+
+            if (
+                $editScope === TripValidationService::EDIT_SCOPE_FULL
+                && (
+                    array_key_exists('start_meter_reading_km', $data)
+                    || array_key_exists('end_meter_reading_km', $data)
+                )
+            ) {
+                $this->tripValidation->assertMeterReadingsOnUpdate($trip, $data);
+            }
+
+            if (array_key_exists('start_meter_reading_km', $data)) {
+                $data['start_meter_reading_km'] = round((float) $data['start_meter_reading_km'], 2);
+            }
+
+            if (array_key_exists('end_meter_reading_km', $data)) {
+                $endMeter = $data['end_meter_reading_km'];
+
+                $data['end_meter_reading_km'] = $endMeter === null || $endMeter === ''
+                    ? null
+                    : round((float) $endMeter, 2);
             }
 
             $this->tripRepository->update($trip, [
@@ -221,6 +289,8 @@ class TripService
             $this->recalculateTotals($trip->fresh());
 
             $trip->refresh();
+
+            $this->syncVehicleOdometerIfCompleted($trip);
 
             if (
                 isset($data['status'])
@@ -278,11 +348,11 @@ class TripService
             ->pluck('name', 'id');
 
         foreach ($routeLegs as $index => $leg) {
-            $routeType = strtoupper((string) ($leg['route_type'] ?? RouteType::Loaded->value));
+            $weightTon = isset($leg['weight_ton']) ? (float) $leg['weight_ton'] : 0.0;
             $freightAmount = (float) ($leg['freight_amount'] ?? 0);
             $advanceReceived = (float) ($leg['advance_received'] ?? 0);
 
-            if ($routeType === RouteType::Empty->value) {
+            if ($weightTon <= 0) {
                 $freightAmount = 0;
                 $advanceReceived = 0;
             }
@@ -317,14 +387,17 @@ class TripService
                     $toAddress,
                     $leg['to_location'] ?? null,
                 ),
-                'route_type' => $routeType,
+                'route_type' => RouteType::Loaded->value,
                 'sequence_no' => (int) ($leg['sequence_no'] ?? ($index + 1)),
-                'distance_km' => (float) ($leg['distance_km'] ?? 0),
+                'distance_km' => 0,
                 'goods_name' => $leg['goods_name'] ?? null,
                 'consignor' => $leg['consignor'] ?? null,
                 'consignee' => $leg['consignee'] ?? null,
                 'freight_rate' => isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : null,
-                'weight_ton' => isset($leg['weight_ton']) ? (float) $leg['weight_ton'] : null,
+                'expected_mileage_km_per_liter' => isset($leg['expected_mileage_km_per_liter'])
+                    ? (float) $leg['expected_mileage_km_per_liter']
+                    : null,
+                'weight_ton' => $weightTon > 0 ? $weightTon : null,
                 'invoice_number' => $leg['invoice_number'] ?? null,
                 'lr_number' => $leg['lr_number'] ?? null,
                 'remarks' => $leg['remarks'] ?? null,
@@ -376,44 +449,56 @@ class TripService
     {
         $trip->load(['routeLegs', 'expenses']);
 
-        $loadedKm = 0.0;
-        $halfLoadedKm = 0.0;
-        $emptyKm = 0.0;
         $freightTotal = 0.0;
 
         foreach ($trip->routeLegs as $leg) {
-            $distance = (float) $leg->distance_km;
-            $routeType = $leg->route_type instanceof RouteType
-                ? $leg->route_type
-                : RouteType::tryFrom((string) $leg->route_type);
-
-            if ($routeType === RouteType::Empty) {
-                $emptyKm += $distance;
-
-                continue;
-            }
-
-            if ($routeType === RouteType::HalfLoaded) {
-                $halfLoadedKm += $distance;
-                $freightTotal += (float) $leg->freight_amount;
-
-                continue;
-            }
-
-            $loadedKm += $distance;
             $freightTotal += (float) $leg->freight_amount;
         }
 
         $expenseTotal = (float) $trip->expenses->sum('amount');
 
+        $startMeter = (float) ($trip->start_meter_reading_km ?? 0);
+        $endMeter = $trip->end_meter_reading_km !== null
+            ? (float) $trip->end_meter_reading_km
+            : null;
+
+        $totalDistanceKm = $endMeter !== null
+            ? max(0, round($endMeter - $startMeter, 2))
+            : 0.0;
+
         $trip->update([
-            'total_distance_km' => $loadedKm + $halfLoadedKm + $emptyKm,
-            'loaded_distance_km' => $loadedKm,
-            'half_loaded_distance_km' => $halfLoadedKm,
-            'empty_distance_km' => $emptyKm,
+            'total_distance_km' => $totalDistanceKm,
+            'loaded_distance_km' => 0,
+            'half_loaded_distance_km' => 0,
+            'empty_distance_km' => 0,
             'total_freight_amount' => $freightTotal,
             'total_expense_amount' => $expenseTotal,
         ]);
+    }
+
+    private function syncVehicleOdometerIfCompleted(Trip $trip): void
+    {
+        $status = $trip->status instanceof TripStatus
+            ? $trip->status
+            : TripStatus::tryFrom((string) $trip->status);
+
+        if (! in_array($status, [TripStatus::Completed, TripStatus::Cancelled], true)) {
+            return;
+        }
+
+        $endMeter = $trip->end_meter_reading_km;
+
+        if ($endMeter === null) {
+            return;
+        }
+
+        $vehicle = Vehicle::query()->find($trip->vehicle_id);
+
+        if ($vehicle === null) {
+            return;
+        }
+
+        app(TyreStintCalculator::class)->syncVehicleOdometer($vehicle, (float) $endMeter);
     }
 
     private function resolvePaymentStatus(float $freightAmount, float $advanceReceived): FreightPaymentStatus

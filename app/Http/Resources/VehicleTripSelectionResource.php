@@ -29,6 +29,8 @@ class VehicleTripSelectionResource extends JsonResource
             'vehicle_id' => $this->id,
             'vehicle_number' => $registrationNumber,
             'registration_number' => $registrationNumber,
+            'odometer_km' => $this->odometer_km,
+            'expected_mileage_km_per_liter' => $this->expected_mileage_km_per_liter,
             'primary_driver_id' => $eligibility['primary_driver_id'],
             'primary_driver_name' => $eligibility['primary_driver_name'],
             'vehicle_status' => $this->is_active ? 'active' : 'inactive',

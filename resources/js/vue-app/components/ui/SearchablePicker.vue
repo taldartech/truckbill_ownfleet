@@ -2,9 +2,84 @@
     <div
         ref="pickerRef"
         class="searchable-picker"
-        :class="{ 'is-invalid-picker': invalid, 'is-open': isOpen }"
+        :class="{
+            'is-invalid-picker': invalid,
+            'is-open': isOpen,
+            'searchable-picker--compact-actions': compactActions,
+        }"
     >
-        <div class="picker-row">
+        <div
+            class="picker-row"
+            :class="{ 'picker-row--toolbar': compactActions && hasToolbar }"
+        >
+            <div v-if="compactActions && hasToolbar" class="picker-toolbar">
+                <div class="picker-toolbar__start">
+                    <slot name="toolbar" />
+                </div>
+                <div class="picker-actions">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm picker-action-btn"
+                        :disabled="!selectedItem || disabled"
+                        :title="viewTitle"
+                        @click.stop="toggleInfo"
+                    >
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button
+                        v-if="canQuickAdd"
+                        type="button"
+                        class="btn btn-outline-success btn-sm picker-action-btn"
+                        :disabled="disabled"
+                        :title="quickAddTitle"
+                        @click.stop="openQuickAdd"
+                    >
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div v-else-if="compactActions" class="picker-actions picker-actions--standalone">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm picker-action-btn"
+                    :disabled="!selectedItem || disabled"
+                    :title="viewTitle"
+                    @click.stop="toggleInfo"
+                >
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button
+                    v-if="canQuickAdd"
+                    type="button"
+                    class="btn btn-outline-success btn-sm picker-action-btn"
+                    :disabled="disabled"
+                    :title="quickAddTitle"
+                    @click.stop="openQuickAdd"
+                >
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+            <div v-else class="picker-actions">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm picker-action-btn"
+                    :disabled="!selectedItem || disabled"
+                    :title="viewTitle"
+                    @click.stop="toggleInfo"
+                >
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button
+                    v-if="canQuickAdd"
+                    type="button"
+                    class="btn btn-outline-success btn-sm picker-action-btn"
+                    :disabled="disabled"
+                    :title="quickAddTitle"
+                    @click.stop="openQuickAdd"
+                >
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
             <div ref="pickerMainRef" class="picker-main">
                 <div class="picker-trigger-wrap">
                     <button
@@ -72,27 +147,6 @@
                     </div>
                 </Teleport>
             </div>
-            <div class="picker-actions">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm picker-action-btn"
-                    :disabled="!selectedItem || disabled"
-                    :title="viewTitle"
-                    @click.stop="toggleInfo"
-                >
-                    <i class="bi bi-eye"></i>
-                </button>
-                <button
-                    v-if="canQuickAdd"
-                    type="button"
-                    class="btn btn-outline-success btn-sm picker-action-btn"
-                    :disabled="disabled"
-                    :title="quickAddTitle"
-                    @click.stop="openQuickAdd"
-                >
-                    <i class="bi bi-plus-lg"></i>
-                </button>
-            </div>
         </div>
 
         <Teleport to="body">
@@ -142,7 +196,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from 'vue';
 import PickerListFooter from './PickerListFooter.vue';
 
 const props = defineProps({
@@ -159,9 +213,13 @@ const props = defineProps({
     emptyMessage: { type: String, default: 'No station found.' },
     viewTitle: { type: String, default: 'Station details' },
     quickAddTitle: { type: String, default: 'Quick add station' },
+    compactActions: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue', 'quick-add']);
+
+const slots = useSlots();
+const hasToolbar = computed(() => Boolean(slots.toolbar));
 
 const pickerRef = ref(null);
 const pickerMainRef = ref(null);
@@ -398,6 +456,12 @@ watch(
     align-items: flex-start;
     gap: 0.35rem;
 }
+.picker-row:not(.picker-row--toolbar) .picker-main {
+    order: 1;
+}
+.picker-row:not(.picker-row--toolbar) .picker-actions:not(.picker-actions--standalone) {
+    order: 2;
+}
 .picker-main {
     flex: 1;
     min-width: 0;
@@ -416,6 +480,55 @@ watch(
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+.searchable-picker--compact-actions .picker-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+}
+.searchable-picker--compact-actions .picker-actions--standalone {
+    order: -1;
+    align-self: flex-end;
+    padding-top: 0;
+    gap: 0.2rem;
+}
+.searchable-picker--compact-actions .picker-row--toolbar .picker-actions--standalone {
+    display: none;
+}
+.searchable-picker--compact-actions.picker-row--toolbar .picker-main,
+.searchable-picker--compact-actions .picker-row--toolbar .picker-main {
+    order: unset;
+}
+.picker-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    width: 100%;
+}
+.picker-toolbar__start {
+    flex: 1;
+    min-width: 0;
+}
+.picker-toolbar .form-check {
+    margin-bottom: 0;
+    min-height: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+.searchable-picker--compact-actions .picker-main {
+    width: 100%;
+}
+.searchable-picker--compact-actions .picker-action-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.7rem;
+}
+.searchable-picker--compact-actions .picker-trigger {
+    min-height: 32px;
+    font-size: 13px;
+    padding-top: 5px;
+    padding-bottom: 5px;
 }
 .is-invalid-picker .picker-trigger {
     border-color: #dc3545;
