@@ -70,7 +70,7 @@
         aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title" id="truckOwnerDetailsModalLabel">
                         <i class="bi bi-truck"></i> Truck Owner Details
                     </h5>
@@ -102,7 +102,7 @@
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title" id="advancePaymentModalLabel">
                         <i class="bi bi-currency-rupee"></i> Add Advance Payment
                     </h5>
@@ -158,7 +158,7 @@
     <div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title" id="addTruckModalLabel">
                         <i class="bi bi-truck"></i> Add New Truck
                     </h5>
@@ -224,7 +224,7 @@
                         <div id="addDriverFormModal" style="display: none;">
                             <hr class="my-4">
                             <div class="card border-primary">
-                                <div class="card-header bg-primary text-white">
+                                <div class="card-header bg-gradient-primary">
                                     <h6 class="mb-0"><i class="bi bi-person-plus"></i> Add New Driver</h6>
                                 </div>
                                 <div class="card-body">

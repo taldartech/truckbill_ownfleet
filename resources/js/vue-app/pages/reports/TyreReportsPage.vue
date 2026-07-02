@@ -15,11 +15,11 @@
             </div>
             <div>
                 <label class="form-label">From</label>
-                <input v-model="filters.from" type="date" class="form-control" />
+                <AppDateInput v-model="filters.from" />
             </div>
             <div>
                 <label class="form-label">To</label>
-                <input v-model="filters.to" type="date" class="form-control" />
+                <AppDateInput v-model="filters.to" />
             </div>
         </AppIndexFiltersCard>
 

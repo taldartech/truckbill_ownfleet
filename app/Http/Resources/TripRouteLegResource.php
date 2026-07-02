@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\TripManagement\Support\LoadClassifier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,6 +13,12 @@ class TripRouteLegResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $weightTon = (float) ($this->weight_ton ?? 0);
+        $maxLoadTon = $this->relationLoaded('trip')
+            ? (float) ($this->trip->max_load_ton ?? 0)
+            : 0.0;
+        $classification = LoadClassifier::classify($weightTon, $maxLoadTon);
+
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
@@ -25,16 +32,15 @@ class TripRouteLegResource extends JsonResource
             'from_address' => $this->from_address,
             'to_city' => $this->to_city,
             'to_address' => $this->to_address,
-            'route_type' => $this->route_type?->value ?? $this->route_type,
-            'load_category' => (float) ($this->weight_ton ?? 0) > 0 ? 'LOADED' : 'EMPTY',
+            'load_classification' => $classification->toArray(),
             'sequence_no' => $this->sequence_no,
             'distance_km' => $this->distance_km,
             'goods_name' => $this->goods_name,
             'consignor' => $this->consignor,
             'consignee' => $this->consignee,
             'freight_rate' => $this->freight_rate,
-            'expected_mileage_km_per_liter' => $this->expected_mileage_km_per_liter,
             'weight_ton' => $this->weight_ton,
+            'expected_mileage_km_per_liter' => $this->expected_mileage_km_per_liter,
             'invoice_number' => $this->invoice_number,
             'lr_number' => $this->lr_number,
             'remarks' => $this->remarks,

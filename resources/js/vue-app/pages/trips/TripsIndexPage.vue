@@ -22,7 +22,7 @@
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trips_search"
-                        placeholder="Trip #, truck registration, driver name…"
+                        placeholder="Trip #, truck registration, primary or substitute driver…"
                         max-width="100%"
                         :disabled="loading"
                     />
@@ -49,6 +49,13 @@
                 <select v-model="filters.status" class="form-select">
                     <option value="">All statuses</option>
                     <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Trip Type</label>
+                <select v-model="filters.trip_type" class="form-select">
+                    <option value="">All trip types</option>
+                    <option v-for="t in tripTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
                 </select>
             </div>
             <div>
@@ -86,34 +93,46 @@
                             <th>Truck</th>
                             <th>Driver</th>
                             <th>Status</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Route</th>
-                            <th>Freight</th>
-                            <th>Expense</th>
-                            <th>Profit</th>
-                            <th v-if="showActions" class="app-index-actions-cell" style="width: 140px">Actions</th>
+                            <th class="trips-period-col">Period</th>
+                            <th class="trips-route-col">Route</th>
+                            <th class="trips-financials-col">Freight / Expense / Profit</th>
+                            <th v-if="showActions" class="app-index-actions-cell" style="width: 180px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="trips.length === 0">
-                            <td :colspan="showActions ? 11 : 10" class="text-center text-muted py-4">
+                            <td :colspan="showActions ? 8 : 7" class="text-center text-muted py-4">
                                 No trips found for selected filters.
                             </td>
                         </tr>
                         <tr v-for="trip in trips" :key="trip.id">
                             <td>
-                                <RouterLink
-                                    v-if="canOpenTrip"
-                                    :to="{ name: 'trips.show', params: { id: trip.id } }"
-                                    class="trip-number-link fw-semibold text-decoration-none"
-                                >
-                                    {{ trip.trip_number || '—' }}
-                                </RouterLink>
-                                <strong v-else>{{ trip.trip_number || '—' }}</strong>
+                                <div class="trips-trip-cell">
+                                    <RouterLink
+                                        v-if="canOpenTrip"
+                                        :to="{ name: 'trips.show', params: { id: trip.id } }"
+                                        class="trip-number-link fw-semibold text-decoration-none"
+                                    >
+                                        {{ trip.trip_number || '—' }}
+                                    </RouterLink>
+                                    <strong v-else>{{ trip.trip_number || '—' }}</strong>
+                                    <span
+                                        class="trip-type-badge"
+                                        :class="tripTypeInfo(trip.trip_type).badge"
+                                        :title="tripTypeInfo(trip.trip_type).label"
+                                    >
+                                        <i class="bi" :class="tripTypeInfo(trip.trip_type).icon" aria-hidden="true"></i>
+                                        <span class="trip-type-badge__label">{{ tripTypeInfo(trip.trip_type).label }}</span>
+                                    </span>
+                                </div>
                             </td>
                             <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
-                            <td>{{ trip.driver?.name ?? '—' }}</td>
+                            <td>
+                                <div>{{ trip.driver?.name ?? '—' }}</div>
+                                <div v-if="trip.substitute_driver?.name" class="small text-muted">
+                                    Substitute: {{ trip.substitute_driver.name }}
+                                </div>
+                            </td>
                             <td>
                                 <TripInlineStatusActions
                                     :trip="trip"
@@ -121,17 +140,51 @@
                                     @updated="onTripStatusUpdated(trip, $event)"
                                 />
                             </td>
-                            <td>{{ formatDateTime(trip.start_at) }}</td>
-                            <td>{{ formatDateTime(trip.end_at) }}</td>
-                            <td class="small">{{ formatRoute(trip) }}</td>
-                            <td>₹{{ formatMoney(trip.total_freight_amount) }}</td>
-                            <td>₹{{ formatMoney(trip.total_expense_amount) }}</td>
-                            <td :class="Number(trip.profit_amount) >= 0 ? 'text-success' : 'text-danger'">
-                                ₹{{ formatMoney(trip.profit_amount) }}
+                            <td class="trips-period-col small">
+                                <div>{{ formatDate(trip.start_at) }}</div>
+                                <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
+                            </td>
+                            <td class="trips-route-col small" :title="formatRoute(trip)">
+                                {{ formatRoute(trip) }}
+                            </td>
+                            <td class="trips-financials-col">
+                                <div class="trips-financials" :title="financialSummaryTitle(trip)">
+                                    <div class="trips-financials__row">
+                                        <span class="trips-financials__label">Freight</span>
+                                        <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
+                                    </div>
+                                    <div class="trips-financials__row">
+                                        <span class="trips-financials__label">Expense</span>
+                                        <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
+                                    </div>
+                                    <div class="trips-financials__row">
+                                        <span class="trips-financials__label">Profit</span>
+                                        <span
+                                            v-if="profitDisplay(trip).value != null"
+                                            class="trips-financials__val"
+                                            :class="profitDisplay(trip).value >= 0 ? 'text-success' : 'text-danger'"
+                                        >
+                                            ₹{{ formatCompactMoney(profitDisplay(trip).value) }}
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="trips-financials__val trips-financials__val--pending"
+                                            :title="profitDisplay(trip).hint"
+                                        >
+                                            —
+                                        </span>
+                                    </div>
+                                </div>
                             </td>
                             <td v-if="showActions" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
+                                    <AppCrudActionButton
+                                        v-if="canManage && canManageTripExpensesFor(trip)"
+                                        action="expenses"
+                                        title="Trip expenses"
+                                        @click="goToExpenses(trip)"
+                                    />
                                     <AppCrudActionButton
                                         v-if="canManage"
                                         action="edit"
@@ -181,7 +234,18 @@ import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
-import { deleteTrip, defaultTripListFilters, isTerminalTripStatus, listTrips, resolveTripEditAccess, tripEditDisabledTitle, TRIP_STATUSES } from '../../api/trips';
+import {
+    deleteTrip,
+    defaultTripListFilters,
+    isTerminalTripStatus,
+    listTrips,
+    canFullEditTrip,
+    canManageTripExpenses,
+    tripEditDisabledTitle,
+    tripTypeMeta,
+    TRIP_STATUSES,
+    TRIP_TYPES,
+} from '../../api/trips';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
@@ -200,7 +264,16 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
-import { formatDateTime } from '../../utils/datetime';
+import { formatDate } from '../../utils/datetime';
+import {
+    buildTripListQuery,
+    clearTripListStateFromSession,
+    hasFilterQueryParams,
+    loadTripListStateFromSession,
+    resolveTripListState,
+    saveTripListStateToSession,
+    splitTripListRouteQuery,
+} from '../../utils/tripListFilterState';
 
 const route = useRoute();
 const router = useRouter();
@@ -223,6 +296,7 @@ const loading = ref(true);
 const flash = reactive({ success: '', error: '' });
 const showTripTypeModal = ref(false);
 const tripStatuses = TRIP_STATUSES;
+const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
 const filters = reactive(defaultTripListFilters());
@@ -231,8 +305,14 @@ const { pagination, syncFromMeta } = useListPagination(15);
 
 const defaultFilters = defaultTripListFilters();
 const searchAutoLoadReady = ref(false);
+const listReady = ref(false);
 let searchDebounceTimer = null;
 let skipNextSearchWatch = false;
+let skipNextRouteSync = false;
+
+const tenantId = computed(
+    () => currentUser.value?.effective_tenant_id ?? currentUser.value?.company_id ?? null,
+);
 
 const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
@@ -243,12 +323,115 @@ const filtersActive = computed(() => {
         filters.search.trim() !== '' ||
         filters.customer_id !== '' ||
         filters.broker_id !== '' ||
-        filters.status !== ''
+        filters.status !== '' ||
+        filters.trip_type !== ''
     );
 });
 
+function currentListState() {
+    return {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        search: filters.search.trim(),
+        status: filters.status,
+        trip_type: filters.trip_type,
+        customer_id: filters.customer_id,
+        broker_id: filters.broker_id,
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+    };
+}
+
+function applyListState(state) {
+    filters.from_date = state.from_date ?? defaultFilters.from_date;
+    filters.to_date = state.to_date ?? defaultFilters.to_date;
+    filters.search = state.search ?? '';
+    filters.status = state.status ?? '';
+    filters.trip_type = state.trip_type ?? '';
+    filters.customer_id = state.customer_id ?? '';
+    filters.broker_id = state.broker_id ?? '';
+    pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
+    pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 15;
+}
+
+function listStatesEqual(left, right) {
+    return (
+        left.from_date === right.from_date &&
+        left.to_date === right.to_date &&
+        left.search === right.search &&
+        left.status === right.status &&
+        left.trip_type === right.trip_type &&
+        String(left.customer_id) === String(right.customer_id) &&
+        String(left.broker_id) === String(right.broker_id) &&
+        Number(left.page) === Number(right.page) &&
+        Number(left.per_page) === Number(right.per_page)
+    );
+}
+
+function syncListStateToRoute(extraQuery = {}) {
+    const state = currentListState();
+
+    saveTripListStateToSession(tenantId.value, state);
+
+    const nextQuery = {
+        ...buildTripListQuery(state),
+        ...extraQuery,
+    };
+
+    skipNextRouteSync = true;
+    router
+        .replace({ query: nextQuery })
+        .catch(() => {})
+        .finally(() => {
+            skipNextRouteSync = false;
+        });
+}
+
 function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatCompactMoney(value) {
+    const amount = Number(value ?? 0);
+
+    if (!Number.isFinite(amount)) {
+        return '0';
+    }
+
+    if (amount === 0) {
+        return '0';
+    }
+
+    return amount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function profitDisplay(trip) {
+    const expense = Number(trip.total_expense_amount ?? 0);
+    const profit = Number(trip.profit_amount ?? 0);
+    const status = String(trip.status ?? '').toUpperCase();
+
+    if (expense <= 0 && ['CREATED', 'IN_PROGRESS'].includes(status)) {
+        return {
+            value: null,
+            hint: 'Profit = Freight − Expense. Add trip expenses first.',
+        };
+    }
+
+    return { value: profit, hint: null };
+}
+
+function financialSummaryTitle(trip) {
+    const profit = profitDisplay(trip);
+
+    if (profit.value == null) {
+        return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit pending (add expenses)`;
+    }
+
+    return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit ₹${formatMoney(profit.value)}`;
+}
+
+function tripTypeInfo(type) {
+    return tripTypeMeta(type);
 }
 
 function isTerminalTrip(trip) {
@@ -256,7 +439,11 @@ function isTerminalTrip(trip) {
 }
 
 function canEditTrip(trip) {
-    return resolveTripEditAccess(trip.status, user.value).canEdit;
+    return canFullEditTrip(trip.status, user.value);
+}
+
+function canManageTripExpensesFor(trip) {
+    return canManageTripExpenses(trip.status, user.value);
 }
 
 function tripEditTitle(trip) {
@@ -294,28 +481,28 @@ function formatRoute(trip) {
 }
 
 function showRouteFlash() {
-    const { created, updated, denied, ...rest } = route.query;
+    const { flash: flashQuery, filters: filterQuery } = splitTripListRouteQuery(route.query);
 
-    if (created === '1') {
+    if (flashQuery.created === '1') {
         flash.success = 'Trip created successfully.';
         toast.success(flash.success);
-        router.replace({ query: rest });
+        router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
 
         return;
     }
 
-    if (updated === '1') {
+    if (flashQuery.updated === '1') {
         flash.success = 'Trip updated successfully.';
         toast.success(flash.success);
-        router.replace({ query: rest });
+        router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
 
         return;
     }
 
-    if (denied === '1') {
+    if (flashQuery.denied === '1') {
         flash.error = 'You do not have permission to open that page, or company context is missing.';
         toast.error(flash.error);
-        router.replace({ query: rest });
+        router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
     }
 }
 
@@ -344,8 +531,8 @@ function openCreateModalFromRoute() {
         return;
     }
 
-    const { create, ...rest } = route.query;
-    router.replace({ query: rest });
+    const { filters: filterQuery } = splitTripListRouteQuery(route.query);
+    router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
     goToCreate();
 }
 
@@ -360,7 +547,11 @@ function onTripTypeSelected(tripType) {
 function clearFilters() {
     clearTimeout(searchDebounceTimer);
     skipNextSearchWatch = true;
+    clearTripListStateFromSession(tenantId.value);
     Object.assign(filters, defaultTripListFilters());
+    pagination.currentPage = 1;
+    pagination.perPage = 15;
+    syncListStateToRoute();
     loadTrips(1);
 }
 
@@ -396,10 +587,12 @@ async function loadTrips(page = 1) {
             customer_id: filters.customer_id || undefined,
             broker_id: filters.broker_id || undefined,
             status: filters.status || undefined,
+            trip_type: filters.trip_type || undefined,
         });
 
         trips.value = result.data;
         syncFromMeta(result.meta, trips.value.length);
+        syncListStateToRoute();
     } catch (error) {
         if (!applyApiError(error, 'Failed to load trips.')) {
             flash.error = friendlyApiErrorMessage(error, 'Failed to load trips.');
@@ -411,6 +604,7 @@ async function loadTrips(page = 1) {
 }
 
 function goToView(trip) {
+    saveTripListStateToSession(tenantId.value, currentListState());
     router.push({ name: 'trips.show', params: { id: trip.id } });
 }
 
@@ -419,7 +613,17 @@ function goToEdit(trip) {
         return;
     }
 
+    saveTripListStateToSession(tenantId.value, currentListState());
     router.push({ name: 'trips.edit', params: { id: trip.id } });
+}
+
+function goToExpenses(trip) {
+    if (!canManageTripExpensesFor(trip)) {
+        return;
+    }
+
+    saveTripListStateToSession(tenantId.value, currentListState());
+    router.push({ name: 'trips.expenses', params: { id: trip.id } });
 }
 
 async function handleDelete(trip) {
@@ -444,23 +648,20 @@ watch(
     () => {
         showRouteFlash();
         openCreateModalFromRoute();
-    },
-    { immediate: true },
-);
 
-watch(
-    () => route.name,
-    async (name, previousName) => {
-        if (name !== 'trips.index' || !previousName || previousName === 'trips.index') {
+        if (route.name !== 'trips.index' || skipNextRouteSync || !listReady.value) {
             return;
         }
 
-        await refreshUserContext();
+        const nextState = resolveTripListState(route.query, tenantId.value);
+        const activeState = currentListState();
 
-        if (!needsCompanySelection.value) {
-            await loadTrips(pagination.currentPage);
+        if (!listStatesEqual(nextState, activeState)) {
+            applyListState(nextState);
+            loadTrips(nextState.page);
         }
     },
+    { immediate: true },
 );
 
 watch(
@@ -488,19 +689,9 @@ async function loadFilterLookups() {
 }
 
 function applyRouteFilters() {
-    const { status, from_date: fromDate, to_date: toDate } = route.query;
+    const nextState = resolveTripListState(route.query, tenantId.value);
 
-    if (typeof status === 'string' && status !== '') {
-        filters.status = status;
-    }
-
-    if (typeof fromDate === 'string' && fromDate !== '') {
-        filters.from_date = fromDate;
-    }
-
-    if (typeof toDate === 'string' && toDate !== '') {
-        filters.to_date = toDate;
-    }
+    applyListState(nextState);
 }
 
 async function refreshUserContext() {
@@ -529,12 +720,20 @@ onMounted(async () => {
         await loadFilterLookups();
     }
 
-    await loadTrips();
+    const initialPage = pagination.currentPage;
+    await loadTrips(initialPage);
+
+    if (!hasFilterQueryParams(route.query) && loadTripListStateFromSession(tenantId.value)) {
+        syncListStateToRoute();
+    }
+
+    listReady.value = true;
     searchAutoLoadReady.value = true;
 });
 
 onBeforeUnmount(() => {
     clearTimeout(searchDebounceTimer);
+    saveTripListStateToSession(tenantId.value, currentListState());
 });
 </script>
 
@@ -567,5 +766,112 @@ onBeforeUnmount(() => {
 .trip-number-link:hover {
     color: #0a58ca;
     text-decoration: underline !important;
+}
+
+.trips-trip-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    min-width: 8.5rem;
+}
+
+.trip-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.trip-type-badge--round {
+    color: #0b5ed7;
+    background: #e7f1ff;
+    border-color: #b6d4fe;
+}
+
+.trip-type-badge--one-way {
+    color: #146c43;
+    background: #e8f5ee;
+    border-color: #a3cfbb;
+}
+
+.trip-type-badge__label {
+    display: inline;
+}
+
+.trips-financials-col {
+    width: 1%;
+    white-space: nowrap;
+    min-width: 8.75rem;
+}
+
+.trips-period-col {
+    width: 1%;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.trips-route-col {
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trips-financials {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.trips-financials__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.trips-financials__label {
+    color: #6c757d;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.trips-financials__label::after {
+    content: ':';
+}
+
+.trips-financials__val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.trips-financials__val--pending {
+    color: #adb5bd;
+    font-weight: 500;
+}
+
+.app-index-list-card :deep(.table) {
+    font-size: 0.8125rem;
+}
+
+.app-index-list-card :deep(.table th),
+.app-index-list-card :deep(.table td) {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+@media (max-width: 767.98px) {
+    .trip-type-badge__label {
+        display: none;
+    }
 }
 </style>

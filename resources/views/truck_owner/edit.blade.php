@@ -266,7 +266,7 @@
 <div class="modal fade" id="truckModal" tabindex="-1" aria-labelledby="truckModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="truckModalLabel">
                     <i class="bi bi-truck"></i> <span id="truckModalTitle">Add New Truck</span>
                 </h5>
@@ -328,7 +328,7 @@
                     <div id="addDriverFormTruck" style="display: none;">
                         <hr class="my-4">
                         <div class="card border-primary">
-                            <div class="card-header bg-primary text-white">
+                            <div class="card-header bg-gradient-primary">
                                 <h6 class="mb-0"><i class="bi bi-person-plus"></i> Add New Driver</h6>
                             </div>
                             <div class="card-body">
@@ -386,7 +386,7 @@
 <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="confirmationModalLabel">
                     <i class="fas fa-check-circle me-2"></i>Confirm Truck Owner Details
                 </h5>

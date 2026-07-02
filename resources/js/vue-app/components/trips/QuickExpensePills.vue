@@ -17,23 +17,11 @@
 </template>
 
 <script setup>
+import { QUICK_EXPENSE_PILLS } from '../../api/trips';
+
 defineEmits(['add']);
 
-const pills = [
-    { value: 'DIESEL', label: 'Diesel', icon: 'bi-fuel-pump', className: 'pill-diesel' },
-    { value: 'TOLL', label: 'Toll', icon: 'bi-sign-turn-right', className: 'pill-toll' },
-    { value: 'LOADING_CHARGES', label: 'Loading', icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
-    { value: 'UNLOADING_CHARGES', label: 'Unloading', icon: 'bi-box-arrow-up', className: 'pill-unloading' },
-    { value: 'FOOD_EXPENSE', label: 'Food', icon: 'bi-cup-hot', className: 'pill-food' },
-    { value: 'RTO_EXPENSE', label: 'RTO', icon: 'bi-shield-check', className: 'pill-rto' },
-    {
-        value: 'PERMIT_BORDER_TAX',
-        label: 'Permit',
-        icon: 'bi-passport',
-        className: 'pill-permit',
-    },
-    { value: 'OTHER', label: 'Other', icon: 'bi-plus-lg', className: 'pill-other' },
-];
+const pills = QUICK_EXPENSE_PILLS;
 </script>
 
 <style scoped>

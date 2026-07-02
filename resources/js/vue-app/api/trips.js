@@ -1,4 +1,6 @@
 import api from '../api';
+import { LoadCategory, loadCategoryMeta } from '../constants/loadCategory';
+import { calculatePerformanceSummary } from '../utils/tripFuelCalculator';
 import { thisMonthDateRange } from '../utils/dateRangePresets';
 import { dateOnlyFromDatetimeLocal } from '../utils/datetime';
 
@@ -102,6 +104,24 @@ export function tripTypeLabel(type) {
     return TRIP_TYPES.find((t) => t.value === String(type ?? '').toUpperCase())?.label ?? 'Trip';
 }
 
+export function tripTypeMeta(type) {
+    const normalized = String(type ?? 'ROUND_TRIP').toUpperCase();
+
+    if (normalized === 'ONE_WAY') {
+        return {
+            label: 'One Way',
+            icon: 'bi-arrow-right',
+            badge: 'trip-type-badge--one-way',
+        };
+    }
+
+    return {
+        label: 'Round Trip',
+        icon: 'bi-arrow-repeat',
+        badge: 'trip-type-badge--round',
+    };
+}
+
 export const ROUTE_TYPES = [
     { value: 'LOADED', label: 'Full Load', badge: 'bg-success' },
     { value: 'HALF_LOADED', label: 'Half Load', badge: 'bg-warning text-dark' },
@@ -129,34 +149,87 @@ export const EXPENSE_TYPES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export function emptyRouteStop(sequence = 1, fromStationId = '', toStationId = '', customerId = '', { expectedMileage = '' } = {}) {
+export const EXPENSE_FORM_TYPES = [
+    { value: 'DIESEL', label: 'Fuel (L × Rate)' },
+    { value: 'TOLL', label: 'Highway toll' },
+    { value: 'LOADING_CHARGES', label: 'Load charges' },
+    { value: 'UNLOADING_CHARGES', label: 'Unload charges' },
+    { value: 'FOOD_EXPENSE', label: 'Driver food' },
+    { value: 'DRIVER_EXPENSE', label: 'Driver cash / misc' },
+    { value: 'REPAIR', label: 'Breakdown' },
+    { value: 'PARKING', label: 'Parking fee' },
+    { value: 'RTO_EXPENSE', label: 'RTO' },
+    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
+    { value: 'OTHER', label: 'Other' },
+];
+
+export const QUICK_EXPENSE_PILLS = [
+    { value: 'DIESEL', label: 'Diesel', icon: 'bi-fuel-pump', className: 'pill-diesel' },
+    { value: 'TOLL', label: 'Toll', icon: 'bi-sign-turn-right', className: 'pill-toll' },
+    { value: 'LOADING_CHARGES', label: 'Loading', icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
+    { value: 'UNLOADING_CHARGES', label: 'Unloading', icon: 'bi-box-arrow-up', className: 'pill-unloading' },
+    { value: 'FOOD_EXPENSE', label: 'Food', icon: 'bi-cup-hot', className: 'pill-food' },
+    { value: 'RTO_EXPENSE', label: 'RTO', icon: 'bi-shield-check', className: 'pill-rto' },
+    {
+        value: 'PERMIT_BORDER_TAX',
+        label: 'Permit',
+        icon: 'bi-passport',
+        className: 'pill-permit',
+    },
+    { value: 'OTHER', label: 'Other', icon: 'bi-plus-lg', className: 'pill-other' },
+];
+
+export function emptyRouteStop(
+    sequence = 1,
+    fromStationId = '',
+    toStationId = '',
+    customerId = '',
+    expectedMileage = '',
+) {
     return {
         from_station_id: fromStationId,
         to_station_id: toStationId,
         customer_id: customerId,
         use_same_customer: false,
         sequence_no: sequence,
-        expected_mileage_km_per_liter: expectedMileage,
         freight_rate: '',
         freight_amount: 0,
         freight_auto_calculate: true,
         weight_ton: '',
+        expected_mileage_km_per_liter: expectedMileage,
         remarks: '',
     };
 }
 
-export function legLoadCategory(weightTon) {
-    return Number(weightTon ?? 0) > 0 ? 'LOADED' : 'EMPTY';
-}
+export function classifyLegLoad(weightTon, maxLoadTon) {
+    const weight = Number(weightTon ?? 0);
+    const maxLoad = Number(maxLoadTon ?? 0);
 
-export function legLoadCategoryMeta(weightTon) {
-    const category = legLoadCategory(weightTon);
-
-    if (category === 'LOADED') {
-        return { value: 'LOADED', label: 'Loaded', badge: 'bg-success' };
+    if (weight === 0) {
+        return { category: LoadCategory.EMPTY, percentage: 0 };
     }
 
-    return { value: 'EMPTY', label: 'Empty', badge: 'bg-secondary' };
+    if (maxLoad <= 0) {
+        return { category: LoadCategory.FULL, percentage: 100 };
+    }
+
+    const percentage = (weight / maxLoad) * 100;
+
+    if (weight < maxLoad) {
+        return { category: LoadCategory.HALF, percentage };
+    }
+
+    return { category: LoadCategory.FULL, percentage };
+}
+
+export function legLoadCategoryMeta(weightTon, maxLoadTon = 0) {
+    const classification = classifyLegLoad(weightTon, maxLoadTon);
+    const meta = loadCategoryMeta(classification.category);
+
+    return {
+        ...classification,
+        ...meta,
+    };
 }
 
 export function routeTypeMeta(type) {
@@ -171,16 +244,12 @@ function parseNumeric(value) {
 
 export { parseNumeric };
 
-export function validateTripPayload(payload, { mode = 'create', previousStatus = null } = {}) {
+export function validateTripPayload(payload, { mode = 'create', previousStatus = null, user = null } = {}) {
     const errors = {};
 
     if (mode === 'create') {
         if (!payload.trip_type) {
             errors.trip_type = ['Trip type is required.'];
-        }
-
-        if (parseNumeric(payload.start_meter_reading_km) <= 0) {
-            errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
         }
     }
 
@@ -206,6 +275,7 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         mode === 'edit'
         && previousStatus
         && ['COMPLETED', 'CANCELLED'].includes(String(previousStatus).toUpperCase())
+        && !canFullEditTrip(previousStatus, user)
     ) {
         errors.trip = ['Completed or cancelled trips cannot be edited.'];
     }
@@ -234,7 +304,7 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         errors.end_at = ['End date cannot be before the actual arrival date.'];
     }
 
-    if (mode === 'edit') {
+    if (mode === 'create' || mode === 'edit') {
         if (parseNumeric(payload.start_meter_reading_km) <= 0) {
             errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
         }
@@ -247,15 +317,6 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
         if (endMeter !== null && endMeter > 0) {
             if (startMeter > 0 && endMeter < startMeter) {
                 errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
-            }
-
-            if (
-                payload.truck_running_meter_km != null
-                && endMeter < parseNumeric(payload.truck_running_meter_km)
-            ) {
-                errors.end_meter_reading_km = [
-                    'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
-                ];
             }
         }
     }
@@ -278,12 +339,6 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
 
         if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
             errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
-        }
-
-        if (payload.truck_running_meter_km != null && endMeter > 0 && endMeter < parseNumeric(payload.truck_running_meter_km)) {
-            errors.end_meter_reading_km = [
-                'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
-            ];
         }
 
         if (startDate && arrivalDate && arrivalDate < startDate) {
@@ -313,16 +368,6 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
 
         if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
             errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
-        }
-
-        if (
-            endMeter > 0
-            && payload.truck_running_meter_km != null
-            && endMeter < parseNumeric(payload.truck_running_meter_km)
-        ) {
-            errors.end_meter_reading_km = [
-                'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
-            ];
         }
     }
 
@@ -388,18 +433,115 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
             startAt: payload.start_at || null,
             endAt: payload.end_at || null,
         }),
+        validateExpenseMeterReadings(payload.expenses ?? [], {
+            startMeterKm: payload.start_meter_reading_km ?? null,
+            endMeterKm: payload.end_meter_reading_km ?? null,
+        }),
     );
 
     return errors;
 }
 
-export function emptyExpense({ defaultDate = '' } = {}) {
+export function validateTripStatusChange(
+    payload,
+    { tripType = 'ROUND_TRIP', routeLegs = [], startStationId = null, previousStatus = null, user = null } = {},
+) {
+    const errors = {};
+
+    if (
+        previousStatus
+        && ['COMPLETED', 'CANCELLED'].includes(String(previousStatus).toUpperCase())
+        && !canFullEditTrip(previousStatus, user)
+    ) {
+        errors.trip = ['Completed or cancelled trips cannot be edited.'];
+    }
+
+    const startDate = dateOnlyFromDatetimeLocal(payload.start_at);
+    const endDate = dateOnlyFromDatetimeLocal(payload.end_at);
+    const arrivalDate = dateOnlyFromDatetimeLocal(payload.actual_arrival_at);
+
+    if (startDate && endDate && endDate < startDate) {
+        errors.end_at = ['End date cannot be before start date.'];
+    }
+
+    if (startDate && arrivalDate && arrivalDate < startDate) {
+        errors.actual_arrival_at = ['Actual arrival cannot be before start date.'];
+    }
+
+    if (endDate && arrivalDate && endDate < arrivalDate) {
+        errors.end_at = ['End date cannot be before the actual arrival date.'];
+    }
+
+    if (payload.status === 'COMPLETED') {
+        if (!payload.end_at) {
+            errors.end_at = ['End date is required to complete the trip.'];
+        }
+
+        if (!payload.actual_arrival_at) {
+            errors.actual_arrival_at = ['Actual arrival date is required to complete the trip.'];
+        }
+
+        if (parseNumeric(payload.end_meter_reading_km) <= 0) {
+            errors.end_meter_reading_km = ['End meter reading is required to complete the trip.'];
+        }
+
+        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
+            errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
+        }
+
+        const normalizedTripType = String(tripType ?? 'ROUND_TRIP').toUpperCase();
+        const lastLeg = routeLegs[routeLegs.length - 1];
+
+        if (
+            normalizedTripType === 'ROUND_TRIP'
+            && lastLeg
+            && startStationId
+            && String(lastLeg.to_station_id) !== String(startStationId)
+        ) {
+            errors.route_legs = ['Round trip must end at the start station. Edit the trip and use "Return to Start".'];
+        }
+    }
+
+    if (payload.status === 'CANCELLED') {
+        if (!payload.cancelled_at) {
+            errors.cancelled_at = ['Cancellation date is required.'];
+        }
+
+        if (!payload.cancellation_reason?.trim()) {
+            errors.cancellation_reason = ['Please provide a reason for cancelling this trip.'];
+        }
+
+        if (parseNumeric(payload.end_meter_reading_km) <= 0) {
+            errors.end_meter_reading_km = ['End meter reading is required to cancel the trip.'];
+        }
+
+        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
+            errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
+        }
+    }
+
+    return errors;
+}
+
+export function emptyExpense({ defaultDate = '', expenseType = 'DIESEL', dieselRatePerLiter = null } = {}) {
+    const normalizedType = expenseType || 'DIESEL';
+    const dieselRate =
+        normalizedType === 'DIESEL' && dieselRatePerLiter != null && dieselRatePerLiter !== ''
+            ? Number(dieselRatePerLiter)
+            : '';
+
     return {
-        expense_type: 'DIESEL',
+        expense_type: normalizedType,
         expense_date: defaultDate || '',
         amount: 0,
         fuel_liters: '',
-        fuel_rate: '',
+        fuel_rate: Number.isFinite(dieselRate) && dieselRate > 0 ? dieselRate : '',
         fuel_odometer_km: '',
         route_leg_sequence: '',
         notes: '',
@@ -451,6 +593,50 @@ export function validateExpenseDates(expenses, { startAt = null, endAt = null } 
 
         if (endAt && expenseDate > endAt) {
             errors[`expenses.${index}.expense_date`] = ['Expense date cannot be after the trip end date.'];
+        }
+    });
+
+    return errors;
+}
+
+export function validateExpenseMeterReadings(expenses, { startMeterKm = null, endMeterKm = null } = {}) {
+    const errors = {};
+    const startMeter = parseNumeric(startMeterKm);
+    const endMeterRaw = endMeterKm;
+    const endMeter =
+        endMeterRaw === '' || endMeterRaw == null ? null : parseNumeric(endMeterRaw);
+
+    if (startMeter <= 0) {
+        return errors;
+    }
+
+    (expenses ?? []).forEach((expense, index) => {
+        if (String(expense.expense_type ?? '').toUpperCase() !== 'DIESEL' || Number(expense.amount ?? 0) <= 0) {
+            return;
+        }
+
+        const raw = expense.fuel_odometer_km;
+
+        if (raw === '' || raw == null) {
+            return;
+        }
+
+        const meter = parseNumeric(raw);
+
+        if (meter < startMeter) {
+            errors[`expenses.${index}.fuel_odometer_km`] = [
+                `Meter reading must be between Start Meter Reading (${startMeter} KM) and End Meter Reading${
+                    endMeter !== null && endMeter > 0 ? ` (${endMeter} KM)` : ''
+                }.`,
+            ];
+
+            return;
+        }
+
+        if (endMeter !== null && endMeter > 0 && meter > endMeter) {
+            errors[`expenses.${index}.fuel_odometer_km`] = [
+                `Meter reading must be between Start Meter Reading (${startMeter} KM) and End Meter Reading (${endMeter} KM).`,
+            ];
         }
     });
 
@@ -544,15 +730,50 @@ export function resolveTripEditAccess(status, user) {
     return { canEdit: false, fullEdit: false, expensesOnly: false };
 }
 
+export function canFullEditTrip(status, user) {
+    return resolveTripEditAccess(status, user).fullEdit;
+}
+
+export function canManageTripExpenses(status, user) {
+    return resolveTripEditAccess(status, user).canEdit;
+}
+
+export function expenseTotalsBySequence(expenses) {
+    const totals = {};
+
+    (expenses ?? []).forEach((expense) => {
+        const amount = Number(expense.amount ?? 0);
+
+        if (amount <= 0) {
+            return;
+        }
+
+        const sequence = expense.route_leg_sequence;
+
+        if (sequence === '' || sequence == null) {
+            return;
+        }
+
+        const key = Number(sequence);
+        totals[key] = (totals[key] ?? 0) + amount;
+    });
+
+    return totals;
+}
+
+export function stopHasExpenses(expenseTotalsBySeq, sequence) {
+    return Number(expenseTotalsBySeq?.[Number(sequence)] ?? 0) > 0;
+}
+
 export function tripEditDisabledTitle(status, user) {
     const access = resolveTripEditAccess(status, user);
 
-    if (access.canEdit) {
-        if (access.expensesOnly) {
-            return 'Edit trip expenses';
-        }
-
+    if (access.fullEdit) {
         return 'Edit trip';
+    }
+
+    if (access.expensesOnly) {
+        return 'Trip details are locked. Use Expenses to edit trip expenses.';
     }
 
     if (isTerminalTripStatus(status)) {
@@ -572,35 +793,46 @@ export function defaultTripListFilters() {
         customer_id: '',
         broker_id: '',
         status: '',
+        trip_type: '',
     };
 }
 
+export function averageLegExpectedMileage(routeLegs = []) {
+    const values = (routeLegs ?? [])
+        .map((leg) => Number(leg.expected_mileage_km_per_liter))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+    if (values.length === 0) {
+        return null;
+    }
+
+    const sum = values.reduce((acc, value) => acc + value, 0);
+
+    return Math.round((sum / values.length) * 100) / 100;
+}
+
 export function summarizeTripForm(form) {
-    let loadedStops = 0;
+    const maxLoadTon = Number(form.max_load_ton ?? 0);
+    let fullLoadStops = 0;
+    let halfLoadStops = 0;
     let emptyStops = 0;
-    let mileageSum = 0;
-    let mileageCount = 0;
     let freightTotal = 0;
     let totalWeightTon = 0;
 
     (form.route_legs ?? []).forEach((leg) => {
         const weight = Number(leg.weight_ton ?? 0);
+        const classification = classifyLegLoad(weight, maxLoadTon);
 
-        if (weight > 0) {
-            loadedStops += 1;
+        if (classification.category === LoadCategory.FULL) {
+            fullLoadStops += 1;
+        } else if (classification.category === LoadCategory.HALF) {
+            halfLoadStops += 1;
         } else {
             emptyStops += 1;
         }
 
         totalWeightTon += weight;
         freightTotal += Number(leg.freight_amount ?? 0);
-
-        const mileage = leg.expected_mileage_km_per_liter;
-
-        if (mileage !== '' && mileage != null && Number.isFinite(Number(mileage))) {
-            mileageSum += Number(mileage);
-            mileageCount += 1;
-        }
     });
 
     const expenseTotal = (form.expenses ?? [])
@@ -615,10 +847,18 @@ export function summarizeTripForm(form) {
             : null;
     const totalKm = endMeter !== null && startMeter > 0 ? Math.max(0, endMeter - startMeter) : 0;
 
+    const legAverageMileage = averageLegExpectedMileage(form.route_legs);
+    const plannedMileageRaw = form.planned_mileage_km_per_liter;
+    const plannedMileage =
+        plannedMileageRaw !== '' && plannedMileageRaw != null && Number.isFinite(Number(plannedMileageRaw))
+            ? Number(plannedMileageRaw)
+            : null;
+
     return {
-        loadedStops,
+        fullLoadStops,
+        halfLoadStops,
         emptyStops,
-        expectedAvgMileage: mileageCount > 0 ? mileageSum / mileageCount : null,
+        expectedMileage: legAverageMileage ?? plannedMileage,
         totalKm,
         totalWeightTon,
         freightTotal,
@@ -640,104 +880,22 @@ export function calculateLegFreight(weightTon, freightRate) {
 
 /**
  * @param {{
- *   routeLegs?: Array<{ expected_mileage_km_per_liter?: number | string | null }>,
- *   expectedDieselLiters?: number | string | null,
+ *   plannedMileageKmPerLiter?: number | string | null,
+ *   plannedDieselLiters?: number | string | null,
  *   dieselRatePerLiter?: number | string | null,
  *   actualTotalKm?: number | string | null,
  * }} params
- * @returns {null | {
- *   expected_avg_mileage_km_per_liter: number,
- *   expected_diesel_liters: number,
- *   diesel_rate_per_liter: number | null,
- *   expected_total_km: number,
- *   actual_total_km: number | null,
- *   total_trip_cost: number | null,
- *   rate_per_km: number | null,
- *   unused_km: number | null,
- *   extra_km: number | null,
- *   remaining_amount: number | null,
- *   performance_status: 'pending' | 'within' | 'under' | 'over',
- *   extra_diesel_liters: number | null,
- *   extra_diesel_cost: number | null,
- * }}
  */
 export function computeDieselPerformance({
-    routeLegs = [],
-    expectedDieselLiters = null,
+    plannedMileageKmPerLiter = null,
+    plannedDieselLiters = null,
     dieselRatePerLiter = null,
     actualTotalKm = null,
 } = {}) {
-    let mileageSum = 0;
-    let mileageCount = 0;
-
-    (routeLegs ?? []).forEach((leg) => {
-        const mileage = leg.expected_mileage_km_per_liter;
-
-        if (mileage !== '' && mileage != null && Number.isFinite(Number(mileage)) && Number(mileage) > 0) {
-            mileageSum += Number(mileage);
-            mileageCount += 1;
-        }
+    return calculatePerformanceSummary({
+        plannedMileageKmPerLiter,
+        plannedDieselLiters,
+        dieselRatePerLiter,
+        actualTotalKm,
     });
-
-    if (mileageCount === 0) {
-        return null;
-    }
-
-    const expectedAvgMileage = roundCurrency(mileageSum / mileageCount);
-    const expectedDiesel = Number(expectedDieselLiters ?? 0);
-    const dieselRate = Number(dieselRatePerLiter ?? 0);
-
-    if (!Number.isFinite(expectedDiesel) || expectedDiesel <= 0) {
-        return null;
-    }
-
-    const expectedTotalKm = roundCurrency(expectedDiesel * expectedAvgMileage);
-    const actualKm = Number(actualTotalKm ?? 0);
-    const hasActual = Number.isFinite(actualKm) && actualKm > 0;
-
-    let extraKm = 0;
-    let unusedKm = 0;
-    let performanceStatus = hasActual ? 'within' : 'pending';
-
-    if (hasActual) {
-        const diffKm = roundCurrency(actualKm - expectedTotalKm);
-
-        if (diffKm > 0) {
-            extraKm = diffKm;
-            performanceStatus = 'over';
-        } else if (diffKm < 0) {
-            unusedKm = Math.abs(diffKm);
-            performanceStatus = 'under';
-        }
-    }
-
-    const extraDiesel =
-        extraKm > 0 && expectedAvgMileage > 0 ? roundCurrency(extraKm / expectedAvgMileage) : 0;
-    const extraDieselCost =
-        extraDiesel > 0 && dieselRate > 0 ? roundCurrency(extraDiesel * dieselRate) : 0;
-    const totalTripCost = dieselRate > 0 ? roundCurrency(expectedDiesel * dieselRate) : null;
-    const ratePerKm =
-        totalTripCost !== null && expectedTotalKm > 0 ? roundCurrency(totalTripCost / expectedTotalKm) : null;
-    const remainingAmount =
-        unusedKm > 0 && ratePerKm !== null ? roundCurrency(unusedKm * ratePerKm) : 0;
-
-    return {
-        expected_avg_mileage_km_per_liter: roundCurrency(expectedAvgMileage),
-        expected_diesel_liters: roundCurrency(expectedDiesel),
-        diesel_rate_per_liter: dieselRate > 0 ? roundCurrency(dieselRate) : null,
-        total_trip_cost: totalTripCost,
-        expected_total_km: expectedTotalKm,
-        actual_total_km: hasActual ? roundCurrency(actualKm) : null,
-        rate_per_km: ratePerKm,
-        unused_km: hasActual ? roundCurrency(unusedKm) : null,
-        extra_km: hasActual ? extraKm : null,
-        remaining_amount: hasActual ? remainingAmount : null,
-        performance_status: performanceStatus,
-        extra_diesel_liters: hasActual ? extraDiesel : null,
-        extra_diesel_cost: hasActual ? extraDieselCost : null,
-    };
-}
-
-function roundCurrency(value) {
-    return Math.round(Number(value) * 100) / 100;
 }

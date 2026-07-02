@@ -24,7 +24,7 @@
 
         <!-- Voucher Summary Card -->
         <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-gradient-primary">
                 <h5 class="card-title mb-0">Voucher Summary</h5>
             </div>
             <div class="card-body">
@@ -151,7 +151,7 @@
 
         <!-- Payments List Card -->
         <div class="card">
-            <div class="card-header bg-info text-white">
+            <div class="card-header bg-gradient-primary">
                 <h5 class="card-title mb-0">Payment History</h5>
             </div>
             <div class="card-body" style="overflow-x: auto;">

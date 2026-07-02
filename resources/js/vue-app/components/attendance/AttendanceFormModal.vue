@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <div>
                         <h5 :id="`${modalId}Label`" class="modal-title mb-0">
                             <i class="bi bi-calendar-check"></i>

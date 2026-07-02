@@ -3,7 +3,7 @@
 namespace Tests\Unit\Modules\TripManagement;
 
 use App\Modules\TripManagement\Support\TripDieselPerformance;
-use App\TripRouteLeg;
+use App\Trip;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -11,16 +11,12 @@ class TripDieselPerformanceTest extends TestCase
 {
     public function test_calculates_over_expected_performance_from_user_example(): void
     {
-        $legs = collect([
-            $this->leg(2.5),
-            $this->leg(3.0),
-            $this->leg(2.5),
-        ]);
+        $trip = $this->trip(2.67, 200, 100, 550);
 
-        $result = TripDieselPerformance::calculate($legs, 200, 100, 550);
+        $result = TripDieselPerformance::forTrip($trip);
 
         $this->assertNotNull($result);
-        $this->assertSame(2.67, $result['expected_avg_mileage_km_per_liter']);
+        $this->assertSame(2.67, $result['planned_mileage_km_per_liter']);
         $this->assertSame(534.0, $result['expected_total_km']);
         $this->assertSame(20000.0, $result['total_trip_cost']);
         $this->assertSame(37.45, $result['rate_per_km']);
@@ -34,13 +30,9 @@ class TripDieselPerformanceTest extends TestCase
 
     public function test_calculates_remaining_amount_for_unused_booked_km(): void
     {
-        $legs = collect([
-            $this->leg(2.5),
-            $this->leg(3.0),
-            $this->leg(2.5),
-        ]);
+        $trip = $this->trip(2.67, 200, 100, 500);
 
-        $result = TripDieselPerformance::calculate($legs, 200, 100, 500);
+        $result = TripDieselPerformance::forTrip($trip);
 
         $this->assertNotNull($result);
         $this->assertSame(534.0, $result['expected_total_km']);
@@ -52,22 +44,18 @@ class TripDieselPerformanceTest extends TestCase
         $this->assertSame('under', $result['performance_status']);
     }
 
-    public function test_returns_null_without_expected_diesel_or_mileage(): void
+    public function test_returns_null_without_planned_diesel_or_mileage(): void
     {
-        $this->assertNull(TripDieselPerformance::calculate(collect([$this->leg(0)]), 200, 100, 500));
-        $this->assertNull(TripDieselPerformance::calculate(collect([$this->leg(2.5)]), 0, 100, 500));
+        $this->assertNull(TripDieselPerformance::forTrip($this->trip(0, 200, 100, 500)));
+        $this->assertNull(TripDieselPerformance::forTrip($this->trip(2.5, 0, 100, 500)));
     }
 
     #[DataProvider('withinExpectedProvider')]
     public function test_within_expected_range_has_zero_extra(float $actualKm): void
     {
-        $legs = collect([
-            $this->leg(2.5),
-            $this->leg(3.0),
-            $this->leg(2.5),
-        ]);
+        $trip = $this->trip(2.67, 200, 100, $actualKm);
 
-        $result = TripDieselPerformance::calculate($legs, 200, 100, $actualKm);
+        $result = TripDieselPerformance::forTrip($trip);
 
         $this->assertNotNull($result);
         $this->assertSame(534.0, $result['expected_total_km']);
@@ -87,11 +75,13 @@ class TripDieselPerformanceTest extends TestCase
         ];
     }
 
-    private function leg(float $mileage): TripRouteLeg
+    private function trip(float $mileage, float $diesel, float $rate, float $actualKm): Trip
     {
-        $leg = new TripRouteLeg;
-        $leg->expected_mileage_km_per_liter = $mileage;
-
-        return $leg;
+        return new Trip([
+            'planned_mileage_km_per_liter' => $mileage,
+            'planned_diesel_liters' => $diesel,
+            'diesel_rate_per_liter' => $rate,
+            'total_distance_km' => $actualKm,
+        ]);
     }
 }

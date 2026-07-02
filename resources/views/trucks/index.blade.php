@@ -50,7 +50,7 @@
 <div class="modal fade" id="truckDetailsModal" tabindex="-1" aria-labelledby="truckDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="truckDetailsModalLabel">
                     <i class="bi bi-truck"></i> Truck Details
                 </h5>
@@ -80,7 +80,7 @@
 <div class="modal fade" id="assignDriverModal" tabindex="-1" aria-labelledby="assignDriverModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="assignDriverModalLabel">
                     <i class="bi bi-person-plus"></i> Assign Driver to Truck
                 </h5>
@@ -134,7 +134,7 @@
                 <!-- Add New Driver Form (Initially Hidden) -->
                 <div id="addDriverForm" style="display: none;">
                     <div class="card border-primary">
-                        <div class="card-header bg-primary text-white">
+                        <div class="card-header bg-gradient-primary">
                             <h6 class="mb-0"><i class="bi bi-person-plus"></i> Add New Driver</h6>
                         </div>
                         <div class="card-body">
@@ -194,7 +194,7 @@
 <div class="modal fade" id="assignOwnerModal" tabindex="-1" aria-labelledby="assignOwnerModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="assignOwnerModalLabel">Assign Truck Owner</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

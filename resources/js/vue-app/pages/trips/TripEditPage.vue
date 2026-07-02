@@ -16,12 +16,13 @@
                 <TripForm
                     ref="tripFormRef"
                     mode="edit"
+                    :show-expenses="false"
                     :form="form"
                     :stations="stations"
                     :brokers="brokers"
                     :customers="customers"
                     :readonly="isFormReadonly"
-                    :expenses-only-edit="expensesOnlyEdit"
+                    :expense-totals-by-sequence="expenseTotalsBySequence"
                     :can-quick-add-station="canQuickAddStation && canEditTripFields"
                     :can-quick-add-broker="canQuickAddBroker && canEditTripFields"
                     :can-quick-add-customer="canQuickAddCustomer && canEditTripFields"
@@ -40,8 +41,6 @@
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
                     @remove-route-leg="removeRouteLeg"
-                    @add-expense="(options) => addExpense(options)"
-                    @remove-expense="removeExpense"
                     @start-station-change="onStartStationChange"
                     @stop-change="onStopStationChange"
                     @station-created="onStationCreated"
@@ -52,7 +51,7 @@
                 >
                     <template #trip-nav-actions>
                         <RouterLink
-                            :to="{ name: 'trips.index' }"
+                            :to="tripListReturnTo"
                             class="btn btn-sm trip-header-btn trip-header-btn--back"
                         >
                             <i class="bi bi-arrow-left me-1"></i>Back
@@ -76,8 +75,8 @@
                     </template>
                 </TripForm>
 
-                <div class="trip-form-actions trip-form-actions--duplicate sticky-bottom-bar card shadow-sm mt-3">
-                    <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
+                <div class="trip-form-actions card shadow-sm">
+                    <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
                         <template v-if="showStatusFooterActions">
                             <AppButton
                                 variant="success"
@@ -95,12 +94,21 @@
                             />
                         </template>
                         <AppButton
+                            v-if="canManageExpenses"
+                            variant="success"
+                            outline
+                            size="sm"
+                            icon="bi bi-receipt"
+                            label="Manage Expenses"
+                            :to="{ name: 'trips.expenses', params: { id: route.params.id } }"
+                        />
+                        <AppButton
                             variant="secondary"
                             outline
                             size="sm"
-                            icon="bi bi-arrow-left"
-                            label="Back"
-                            :to="{ name: 'trips.index' }"
+                            icon="bi bi-x-lg"
+                            label="Exit"
+                            :to="tripListReturnTo"
                         />
                         <AppButton
                             v-if="canSave"
@@ -108,7 +116,7 @@
                             variant="primary"
                             size="sm"
                             icon="bi bi-floppy-fill"
-                            :label="expensesOnlyEdit ? 'Update Expenses' : 'Update'"
+                            label="Save"
                             :loading="saving"
                             :disabled="saving"
                         />
@@ -134,7 +142,15 @@ import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
-import { fetchTrip, resolveTripEditAccess, updateTrip, validateTripPayload } from '../../api/trips';
+import {
+    canFullEditTrip,
+    canManageTripExpenses,
+    expenseTotalsBySequence as computeExpenseTotalsBySequence,
+    fetchTrip,
+    resolveTripEditAccess,
+    updateTrip,
+    validateTripPayload,
+} from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -143,6 +159,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useTripForm } from '../../composables/useTripForm';
+import { useTripListReturn } from '../../composables/useTripListReturn';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
@@ -151,6 +168,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
+const { tripListReturnTo, tripListReturnWithFlash } = useTripListReturn();
 const { canInCompany, user } = usePermissions();
 const { fieldErrors, formError: tripFormError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
 
@@ -160,8 +178,6 @@ const {
     addStop,
     addReturnToStart,
     removeRouteLeg,
-    addExpense,
-    removeExpense,
     buildPayload,
     onStartStationChange,
     onStopStationChange,
@@ -193,6 +209,7 @@ const snapshotCustomerName = ref('');
 const snapshotBrokerName = ref('');
 const originalStatus = ref('');
 const originalConfirmPayload = ref(null);
+const savedExpenses = ref([]);
 const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
 const pendingPayload = ref(null);
@@ -201,11 +218,15 @@ const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
 );
 
+const canManage = computed(() => canInCompany('trips.manage'));
+const canManageExpenses = computed(
+    () => canManage.value && canManageTripExpenses(form.status, user.value),
+);
 const editAccess = computed(() => resolveTripEditAccess(form.status, user.value));
-const canSave = computed(() => editAccess.value.canEdit);
+const canSave = computed(() => editAccess.value.fullEdit);
 const canEditTripFields = computed(() => editAccess.value.fullEdit);
-const expensesOnlyEdit = computed(() => editAccess.value.expensesOnly);
-const isFormReadonly = computed(() => !editAccess.value.fullEdit && !editAccess.value.expensesOnly);
+const isFormReadonly = computed(() => !editAccess.value.fullEdit);
+const expenseTotalsBySequence = computed(() => computeExpenseTotalsBySequence(savedExpenses.value));
 
 const terminalAlert = computed(() => {
     if (!isTerminalStatus.value) {
@@ -214,10 +235,6 @@ const terminalAlert = computed(() => {
 
     if (editAccess.value.fullEdit) {
         return '';
-    }
-
-    if (editAccess.value.expensesOnly) {
-        return 'This trip is completed. Only trip expenses can be edited.';
     }
 
     const label = form.status === 'COMPLETED' ? 'completed' : 'cancelled';
@@ -307,13 +324,30 @@ async function loadTrip() {
 
     try {
         const trip = await fetchTrip(route.params.id);
+
+        if (!canFullEditTrip(trip.status, user.value)) {
+            const access = resolveTripEditAccess(trip.status, user.value);
+
+            if (access.expensesOnly) {
+                await router.replace({ name: 'trips.expenses', params: { id: trip.id } });
+
+                return;
+            }
+
+            toast.error('This trip cannot be edited.');
+            await router.replace({ name: 'trips.show', params: { id: trip.id } });
+
+            return;
+        }
+
         populateFromTrip(trip);
+        savedExpenses.value = trip.expenses ?? [];
         applyLegacyPartyLookups(trip, customers.value, brokers.value);
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? 'CREATED';
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
         vehicleOdometerKm.value = trip.vehicle?.odometer_km ?? '';
-        vehicleExpectedMileage.value = trip.vehicle?.expected_mileage_km_per_liter ?? '';
+        vehicleExpectedMileage.value = trip.vehicle?.default_mileage_km_per_liter ?? '';
         snapshotDriverName.value = trip.driver?.name ?? '—';
         snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
         snapshotCustomerName.value = trip.customer_name ?? '';
@@ -322,14 +356,16 @@ async function loadTrip() {
     } catch (error) {
         applyApiError(error, 'Failed to load trip.');
         toast.error(tripFormError.value);
-        await router.replace({ name: 'trips.index' });
+        await router.replace(tripListReturnTo);
     } finally {
         loading.value = false;
     }
 }
 
 function refreshOriginalConfirmPayload() {
-    originalConfirmPayload.value = JSON.parse(JSON.stringify(buildPayload(stations.value, { mode: 'edit' })));
+    originalConfirmPayload.value = JSON.parse(
+        JSON.stringify(buildPayload(stations.value, { mode: 'edit', includeExpenses: false })),
+    );
 }
 
 function substituteDriverLabel() {
@@ -366,13 +402,7 @@ async function prepareSave() {
 
     clearErrors();
 
-    if (expensesOnlyEdit.value) {
-        const payload = buildPayload(stations.value, { mode: 'edit' });
-
-        return { expenses: payload.expenses ?? [] };
-    }
-
-    const payload = buildPayload(stations.value, { mode: 'edit' });
+    const payload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false });
     const clientErrors = validateTripPayload(
         {
             ...payload,
@@ -382,6 +412,7 @@ async function prepareSave() {
         {
             mode: 'edit',
             previousStatus: originalStatus.value,
+            user: user.value,
         },
     );
 
@@ -424,6 +455,7 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
     try {
         const trip = await updateTrip(route.params.id, payload);
         populateFromTrip(trip);
+        savedExpenses.value = trip.expenses ?? [];
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? form.status;
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? snapshotVehicleLabel.value;
@@ -476,7 +508,7 @@ async function confirmSave() {
         await executeSave(pendingPayload.value, { showToast: false });
         showSaveConfirm.value = false;
         pendingPayload.value = null;
-        await router.push({ name: 'trips.index', query: { updated: '1' } });
+        await router.push(tripListReturnWithFlash({ updated: '1' }));
     } catch {
         showSaveConfirm.value = false;
     }
@@ -493,12 +525,6 @@ async function handleSubmit() {
         return;
     }
 
-    if (expensesOnlyEdit.value) {
-        await executeSave(payload, { successMessage: 'Trip expenses updated successfully.' });
-
-        return;
-    }
-
     pendingPayload.value = payload;
     saveConfirmSummary.value = buildConfirmSummary();
     showSaveConfirm.value = true;
@@ -510,10 +536,3 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.sticky-bottom-bar {
-    position: sticky;
-    bottom: 0.75rem;
-    z-index: 20;
-}
-</style>

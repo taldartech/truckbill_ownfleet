@@ -339,7 +339,7 @@
     <div class="modal fade" id="lrDetailsModal" tabindex="-1" aria-labelledby="lrDetailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title" id="lrDetailsModalLabel">
                         <i class="bi bi-file-text me-2"></i>Good Receipt (Bilty) Details
                     </h5>

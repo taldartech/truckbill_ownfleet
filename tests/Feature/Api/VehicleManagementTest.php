@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Driver;
 use App\DriverAssignment;
 use App\Support\BranchProvisioner;
-use App\Support\SelectedCompanySession;
 use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
 use App\Tenant;
@@ -280,6 +279,24 @@ class VehicleManagementTest extends TestCase
     {
         TyreLayoutDefaults::seedForTenant($tenant->id);
         TruckTypeDefaults::seedForTenant($tenant->id);
+    }
+
+    public function test_admin_can_create_vehicle_with_default_mileage_and_max_load(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5055',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+                'default_mileage_km_per_liter' => 2.5,
+                'max_load_ton' => 22,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.default_mileage_km_per_liter', '2.50')
+            ->assertJsonPath('data.max_load_ton', '22.000');
     }
 
     private function createVehicle(

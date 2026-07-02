@@ -8,8 +8,8 @@
     >
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title text-white">
+                <div class="modal-header bg-gradient-primary">
+                    <h5 class="modal-title">
                         <i class="bi bi-signpost-split me-2"></i>Select Trip Type
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @click="$emit('cancel')"></button>

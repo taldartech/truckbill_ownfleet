@@ -37,6 +37,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-wallet',
         title: 'Advance wallet',
     },
+    expenses: {
+        btnClass: 'btn-warning',
+        icon: 'bi bi-receipt',
+        title: 'Trip expenses',
+    },
     tyres: {
         btnClass: 'btn-outline-secondary',
         icon: 'bi bi-circle',

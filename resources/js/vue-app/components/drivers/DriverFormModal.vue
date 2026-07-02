@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-person-plus'"></i>
                         {{ isEdit ? 'Edit Driver' : 'Add New Driver' }}
@@ -90,12 +90,10 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_license_expiry`" class="form-label">License Expiry</label>
-                                <input
-                                    :id="`${modalId}_license_expiry`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_license_expiry`"
                                     v-model="form.license_expiry_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.license_expiry_date }"
+                                    :invalid="!!fieldErrors.license_expiry_date"
                                 />
                                 <div v-if="fieldErrors.license_expiry_date" class="invalid-feedback d-block">
                                     {{ fieldErrors.license_expiry_date[0] }}
@@ -103,12 +101,10 @@
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_joining_date`" class="form-label">Joining Date *</label>
-                                <input
-                                    :id="`${modalId}_joining_date`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_joining_date`"
                                     v-model="form.joining_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': joiningDateError }"
+                                    :invalid="!!joiningDateError"
                                     required
                                 />
                                 <div v-if="joiningDateError" class="invalid-feedback d-block">

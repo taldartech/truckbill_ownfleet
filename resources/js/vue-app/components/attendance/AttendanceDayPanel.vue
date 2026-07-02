@@ -4,15 +4,14 @@
             <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="loading" @click="shiftDay(-1)">
                 <i class="bi bi-chevron-left"></i>
             </button>
-            <input
-                :id="dateInputId"
-                :value="selectedDate"
-                type="date"
-                class="form-control form-control-sm"
+            <AppDateInput
+                :input-id="dateInputId"
+                :model-value="selectedDate"
+                size="sm"
                 style="width: 11rem"
                 :max="today"
                 :disabled="loading"
-                @change="onDateInput"
+                @update:model-value="onDateChange"
             />
             <button
                 type="button"
@@ -805,9 +804,7 @@ function saveAll() {
     requestSave(rowsToSave);
 }
 
-function onDateInput(event) {
-    const value = event.target.value;
-
+function onDateChange(value) {
     if (!value || value > today.value) {
         return;
     }

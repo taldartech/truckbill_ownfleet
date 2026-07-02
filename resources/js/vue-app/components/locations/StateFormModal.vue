@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-plus-circle'"></i>
                         {{ isEdit ? 'Edit State' : 'Add State' }}

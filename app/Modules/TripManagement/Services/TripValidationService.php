@@ -8,6 +8,7 @@ use App\Enums\TripStatus;
 use App\Enums\TripType;
 use App\Support\RoleHierarchy;
 use App\Trip;
+use App\TripExpense;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -270,8 +271,13 @@ class TripValidationService
     /**
      * @param  list<array<string, mixed>>  $expenses
      */
-    public function assertExpensesAreValid(array $expenses, ?string $tripStartAt, ?string $tripEndAt = null): void
-    {
+    public function assertExpensesAreValid(
+        array $expenses,
+        ?string $tripStartAt,
+        ?string $tripEndAt = null,
+        ?float $startMeterReadingKm = null,
+        ?float $endMeterReadingKm = null,
+    ): void {
         if ($expenses === []) {
             return;
         }
@@ -286,6 +292,8 @@ class TripValidationService
         $tripEnd = $tripEndAt !== null && $tripEndAt !== ''
             ? Carbon::parse($tripEndAt)->toDateString()
             : null;
+        $startMeter = $startMeterReadingKm ?? 0.0;
+        $endMeter = $endMeterReadingKm;
 
         $errors = [];
 
@@ -306,6 +314,49 @@ class TripValidationService
 
             if ($tripEnd !== null && $expenseDay > $tripEnd) {
                 $errors["expenses.{$index}.expense_date"] = ['Expense date cannot be after the trip end date.'];
+            }
+
+            $expenseType = strtoupper((string) ($expense['expense_type'] ?? ''));
+
+            if ($expenseType !== 'DIESEL' || (float) ($expense['amount'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $fuelOdometer = $expense['fuel_odometer_km'] ?? null;
+
+            if ($fuelOdometer === null || $fuelOdometer === '') {
+                continue;
+            }
+
+            if ($startMeter <= 0) {
+                continue;
+            }
+
+            $meter = (float) $fuelOdometer;
+
+            if ($meter < $startMeter) {
+                $endLabel = $endMeter !== null && $endMeter > 0
+                    ? sprintf(' (%s KM)', rtrim(rtrim(number_format($endMeter, 2, '.', ''), '0'), '.'))
+                    : '';
+                $errors["expenses.{$index}.fuel_odometer_km"] = [
+                    sprintf(
+                        'Meter reading must be between Start Meter Reading (%s KM) and End Meter Reading%s.',
+                        rtrim(rtrim(number_format($startMeter, 2, '.', ''), '0'), '.'),
+                        $endLabel,
+                    ),
+                ];
+
+                continue;
+            }
+
+            if ($endMeter !== null && $endMeter > 0 && $meter > $endMeter) {
+                $errors["expenses.{$index}.fuel_odometer_km"] = [
+                    sprintf(
+                        'Meter reading must be between Start Meter Reading (%s KM) and End Meter Reading (%s KM).',
+                        rtrim(rtrim(number_format($startMeter, 2, '.', ''), '0'), '.'),
+                        rtrim(rtrim(number_format($endMeter, 2, '.', ''), '0'), '.'),
+                    ),
+                ];
             }
         }
 
@@ -339,6 +390,33 @@ class TripValidationService
         if ($startMeter <= 0) {
             throw ValidationException::withMessages([
                 'start_meter_reading_km' => ['Start meter reading is required and must be greater than zero.'],
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function assertOptionalEndMeterReadingOnCreate(array $data, string $vehicleId): void
+    {
+        $endMeterRaw = $data['end_meter_reading_km'] ?? null;
+
+        if ($endMeterRaw === null || $endMeterRaw === '') {
+            return;
+        }
+
+        $startMeter = (float) ($data['start_meter_reading_km'] ?? 0);
+        $endMeter = (float) $endMeterRaw;
+
+        if ($endMeter <= 0) {
+            throw ValidationException::withMessages([
+                'end_meter_reading_km' => ['End meter reading must be greater than zero.'],
+            ]);
+        }
+
+        if ($endMeter < $startMeter) {
+            throw ValidationException::withMessages([
+                'end_meter_reading_km' => ['End Meter Reading cannot be less than Start Meter Reading.'],
             ]);
         }
     }
@@ -555,22 +633,6 @@ class TripValidationService
                 'end_meter_reading_km' => ['End Meter Reading cannot be less than Start Meter Reading.'],
             ]);
         }
-
-        $vehicle = Vehicle::query()->find($trip->vehicle_id);
-
-        if ($vehicle === null) {
-            return;
-        }
-
-        $truckOdometer = (float) ($vehicle->odometer_km ?? 0);
-
-        if ($endMeter < $truckOdometer) {
-            throw ValidationException::withMessages([
-                'end_meter_reading_km' => [
-                    'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
-                ],
-            ]);
-        }
     }
 
     /**
@@ -609,21 +671,61 @@ class TripValidationService
                 'end_meter_reading_km' => ['End Meter Reading cannot be less than Start Meter Reading.'],
             ]);
         }
+    }
 
-        $vehicle = Vehicle::query()->find($trip->vehicle_id);
+    /**
+     * @param  list<array<string, mixed>>  $newRouteLegs
+     */
+    public function assertRouteLegsCanBeUpdated(Trip $trip, array $newRouteLegs): void
+    {
+        $trip->load(['routeLegs']);
 
-        if ($vehicle === null) {
-            return;
-        }
+        $newPairKeys = collect($newRouteLegs)
+            ->map(fn (array $leg): string => $this->routeLegPairKey($leg))
+            ->flip()
+            ->all();
 
-        $truckOdometer = (float) ($vehicle->odometer_km ?? 0);
+        foreach ($trip->routeLegs as $oldLeg) {
+            $pairKey = $this->routeLegPairKeyFromLeg($oldLeg);
 
-        if ($endMeter < $truckOdometer) {
+            if (isset($newPairKeys[$pairKey])) {
+                continue;
+            }
+
+            $expenseTotal = (float) TripExpense::query()
+                ->where('trip_route_leg_id', $oldLeg->id)
+                ->sum('amount');
+
+            if ($expenseTotal <= 0) {
+                continue;
+            }
+
+            $from = trim((string) ($oldLeg->from_city ?? $oldLeg->from_location ?? '—'));
+            $to = trim((string) ($oldLeg->to_city ?? $oldLeg->to_location ?? '—'));
+
             throw ValidationException::withMessages([
-                'end_meter_reading_km' => [
-                    'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.',
+                'route_legs' => [
+                    sprintf(
+                        'Stop %d (%s → %s) has expenses. Clear them on Trip Expenses before changing the route.',
+                        (int) $oldLeg->sequence_no,
+                        $from !== '' ? $from : '—',
+                        $to !== '' ? $to : '—',
+                    ),
                 ],
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $leg
+     */
+    private function routeLegPairKey(array $leg): string
+    {
+        return ((int) ($leg['from_station_id'] ?? 0)).':'.((int) ($leg['to_station_id'] ?? 0));
+    }
+
+    private function routeLegPairKeyFromLeg(\App\TripRouteLeg $leg): string
+    {
+        return ((int) ($leg->from_station_id ?? 0)).':'.((int) ($leg->to_station_id ?? 0));
     }
 }

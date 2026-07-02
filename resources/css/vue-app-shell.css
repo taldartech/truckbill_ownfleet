@@ -618,14 +618,16 @@
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
-    background-color: rgba(0, 0, 0, 0.03);
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    background: var(--brand-gradient) !important;
+    padding: 0.65rem 1rem;
+    border-bottom: none !important;
+    color: var(--brand-text-on-green) !important;
 }
 
 .vue-app-shell .app-index-list-card > .card-header .card-title {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
+    color: var(--brand-text-on-green) !important;
 }
 
 .vue-app-shell .app-index-list-card > .card-header .app-index-search,
@@ -771,30 +773,49 @@
 .vue-app-shell .app-filter-action-btn {
     width: 32px;
     height: 32px;
-    border-radius: 10px;
+    border-radius: var(--btn-radius-sm, 0.375rem);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: none;
+    border: 1px solid transparent;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--btn-shadow, 0 1px 3px rgba(15, 23, 42, 0.08));
     flex-shrink: 0;
     cursor: pointer;
 }
 
 .vue-app-shell .app-filter-action-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--btn-shadow-hover, 0 2px 8px rgba(15, 23, 42, 0.12));
+}
+
+.vue-app-shell .app-filter-action-btn:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
 }
 
 .vue-app-shell .app-filter-action-btn--apply {
     background: var(--brand-primary, #2fb36f);
+    border-color: var(--brand-primary, #2fb36f);
+    color: #fff;
+}
+
+.vue-app-shell .app-filter-action-btn--apply:hover {
+    background: var(--brand-primary-dark, #23965c);
+    border-color: var(--brand-primary-dark, #23965c);
     color: #fff;
 }
 
 .vue-app-shell .app-filter-action-btn--reset {
-    background: var(--brand-text-primary, #212529);
-    color: #fff;
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: var(--brand-text-primary, #475569);
+}
+
+.vue-app-shell .app-filter-action-btn--reset:hover {
+    background: #cbd5e1;
+    border-color: #94a3b8;
+    color: var(--brand-text-primary, #475569);
 }
 
 .vue-app-shell .app-table-actions {
@@ -803,7 +824,7 @@
 
 .vue-app-shell .app-table-actions .btn-icon,
 .vue-app-shell .app-table-actions .btn {
-    border-radius: 8px;
+    border-radius: var(--btn-radius-sm, 0.375rem);
 }
 
 .vue-app-shell .app-index-pagination {

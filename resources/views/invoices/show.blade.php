@@ -330,7 +330,7 @@
     <div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-brand-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title" id="addPaymentModalLabel">
                         <i class="bi bi-currency-rupee"></i> Add Payment
                     </h5>

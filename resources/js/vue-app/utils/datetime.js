@@ -3,8 +3,9 @@
  *
  * All calendar dates and clock times use APP_TIMEZONE (Asia/Kolkata), not the browser locale.
  *
- * Date: 15/Jun/2026
- * Time: 04:23 pm
+ * Display (tables, labels): 15/Jun/2026
+ * Text box / date inputs:     dd/mm/yyyy
+ * Time:                       04:23 pm
  */
 
 export const APP_TIMEZONE = 'Asia/Kolkata';
@@ -13,6 +14,12 @@ export const USER_DATE_TIME_DISPLAY = {
     monthLocale: 'en-GB',
     timeLocale: 'en-IN',
     hour12: true,
+};
+
+/** Text box / date-picker display — change HERE only; all date inputs follow. */
+export const USER_DATE_INPUT = {
+    placeholder: 'dd/mm/yyyy',
+    separator: '/',
 };
 
 const formatterCache = new Map();
@@ -120,6 +127,81 @@ function parseNaiveDateTimeInAppTimezone(value) {
         Number(match[5]),
         Number(match[6] ?? 0),
     );
+}
+
+/**
+ * ISO date (YYYY-MM-DD) → user text box format (dd/mm/yyyy).
+ */
+export function toDateInputDisplay(iso) {
+    const raw = String(iso ?? '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (!match) {
+        return '';
+    }
+
+    return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/**
+ * User text box format (dd/mm/yyyy) → ISO date (YYYY-MM-DD), or '' if invalid.
+ */
+export function fromDateInputDisplay(display) {
+    const raw = String(display ?? '').trim();
+
+    if (!raw) {
+        return '';
+    }
+
+    const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+    if (!match) {
+        return '';
+    }
+
+    const day = match[1].padStart(2, '0');
+    const month = match[2].padStart(2, '0');
+    const year = match[3];
+    const iso = `${year}-${month}-${day}`;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        return '';
+    }
+
+    const parsed = parseDateOnlyInAppTimezone(iso);
+
+    if (!parsed) {
+        return '';
+    }
+
+    const parts = getAppTimezoneParts(parsed);
+
+    if (parts.year !== year || parts.month !== month || parts.day !== day) {
+        return '';
+    }
+
+    return iso;
+}
+
+function digitsOnly(value) {
+    return String(value ?? '').replace(/\D/g, '');
+}
+
+/**
+ * Auto-format partial typing into dd/mm/yyyy as the user enters digits.
+ */
+export function formatDateInputTyping(value) {
+    const digits = digitsOnly(value).slice(0, 8);
+
+    if (digits.length <= 2) {
+        return digits;
+    }
+
+    if (digits.length <= 4) {
+        return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    }
+
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 export function toDateInputValue(date = new Date()) {

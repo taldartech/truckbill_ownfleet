@@ -183,10 +183,9 @@
                                             <th>#</th>
                                             <th>From → To</th>
                                             <th>Customer</th>
-                                            <th>Load</th>
-                                            <th class="text-end">Weight</th>
-                                            <th class="text-end">Freight Rate (per ton)</th>
-                                            <th class="text-end">Mileage</th>
+                                            <th class="text-end">Weight (Ton)</th>
+                                            <th class="text-end">Expected Mileage</th>
+                                            <th class="text-end">Freight Rate (₹/Ton)</th>
                                             <th class="text-end">Freight ₹</th>
                                         </tr>
                                     </thead>
@@ -205,10 +204,9 @@
                                             </td>
                                             <td>{{ leg.from }} → {{ leg.to }}</td>
                                             <td>{{ leg.customer }}</td>
-                                            <td>{{ leg.loadType }}</td>
                                             <td class="text-end">{{ leg.weight }}</td>
+                                            <td class="text-end">{{ leg.expectedMileage }}</td>
                                             <td class="text-end">₹{{ leg.rate }}</td>
-                                            <td class="text-end">{{ leg.mileage }}</td>
                                             <td class="text-end">
                                                 <span class="trip-save-confirm-amount">₹{{ leg.freight }}</span>
                                             </td>

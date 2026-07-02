@@ -49,7 +49,7 @@
 <div class="modal fade" id="consigneeDetailsModal" tabindex="-1" aria-labelledby="consigneeDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="consigneeDetailsModalLabel">
                     <i class="bi bi-person-lines-fill"></i> Consignee Details
                 </h5>

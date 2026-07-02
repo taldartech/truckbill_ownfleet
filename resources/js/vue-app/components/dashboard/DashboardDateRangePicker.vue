@@ -68,20 +68,18 @@
                 <div v-if="draftPreset === 'custom'" class="dashboard-date-range__custom">
                     <div>
                         <label class="form-label small text-muted mb-1">From</label>
-                        <input
+                        <AppDateInput
                             v-model="draftFromDate"
-                            type="date"
-                            class="form-control form-control-sm"
+                            size="sm"
                             @change="onCustomDateChange"
                         />
                     </div>
                     <div>
                         <label class="form-label small text-muted mb-1">To</label>
-                        <input
+                        <AppDateInput
                             v-model="draftToDate"
-                            type="date"
-                            class="form-control form-control-sm"
-                            :min="draftFromDate"
+                            size="sm"
+                            :min="draftFromDate || undefined"
                             @change="onCustomDateChange"
                         />
                     </div>

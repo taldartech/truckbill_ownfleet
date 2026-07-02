@@ -190,20 +190,18 @@
                     <div class="row g-2 align-items-end mb-3">
                         <div class="col-sm-4 col-md-3">
                             <label class="form-label small mb-1" for="historyFromDate">From date</label>
-                            <input
-                                id="historyFromDate"
+                            <AppDateInput
+                                input-id="historyFromDate"
                                 v-model="historyFromDate"
-                                type="date"
-                                class="form-control form-control-sm"
+                                size="sm"
                             />
                         </div>
                         <div class="col-sm-4 col-md-3">
                             <label class="form-label small mb-1" for="historyToDate">To date</label>
-                            <input
-                                id="historyToDate"
+                            <AppDateInput
+                                input-id="historyToDate"
                                 v-model="historyToDate"
-                                type="date"
-                                class="form-control form-control-sm"
+                                size="sm"
                             />
                         </div>
                         <div class="col-sm-4 col-md-3">
@@ -331,7 +329,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Installation Date</label>
-                <input v-model="actionForm.installed_at" type="date" class="form-control" required />
+                <AppDateInput v-model="actionForm.installed_at" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Meter Reading at Install (km)</label>
@@ -369,7 +367,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Replace date</label>
-                <input v-model="actionForm.replaced_at" type="date" class="form-control" required />
+                <AppDateInput v-model="actionForm.replaced_at" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -451,7 +449,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Rotation Date</label>
-                    <input v-model="actionForm.rotation_date" type="date" class="form-control" required />
+                    <AppDateInput v-model="actionForm.rotation_date" required />
                 </div>
             </div>
             <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
@@ -491,7 +489,7 @@
         >
             <div class="mb-2">
                 <label class="form-label">Remove date</label>
-                <input v-model="actionForm.removed_at" type="date" class="form-control" required />
+                <AppDateInput v-model="actionForm.removed_at" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -557,7 +555,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Scrap date</label>
-                <input v-model="actionForm.scrapped_at" type="date" class="form-control" required />
+                <AppDateInput v-model="actionForm.scrapped_at" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Sale amount (recovery)</label>
@@ -607,7 +605,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Date</label>
-                <input v-model="actionForm.occurred_at" type="date" class="form-control" required />
+                <AppDateInput v-model="actionForm.occurred_at" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>

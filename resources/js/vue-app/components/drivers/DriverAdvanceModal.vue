@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="fas fa-wallet me-2"></i>
                         Driver Advance — {{ driverName || '—' }}
@@ -64,12 +64,10 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label :for="`${modalId}_entry_date`" class="form-label">Date *</label>
-                                        <input
-                                            :id="`${modalId}_entry_date`"
+                                        <AppDateInput
+                                            :input-id="`${modalId}_entry_date`"
                                             v-model="form.entry_date"
-                                            type="date"
-                                            class="form-control"
-                                            :class="{ 'is-invalid': fieldErrors.entry_date }"
+                                            :invalid="!!fieldErrors.entry_date"
                                             required
                                         />
                                         <div v-if="fieldErrors.entry_date" class="invalid-feedback d-block">

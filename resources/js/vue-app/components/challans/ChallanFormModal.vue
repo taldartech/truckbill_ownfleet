@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-receipt'"></i>
                         {{ isEdit ? 'Edit Challan' : 'Add Challan' }}
@@ -37,12 +37,10 @@
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_challan_date`" class="form-label">Date *</label>
-                                <input
-                                    :id="`${modalId}_challan_date`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_challan_date`"
                                     v-model="form.challan_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.challan_date }"
+                                    :invalid="!!fieldErrors.challan_date"
                                     required
                                 />
                                 <div v-if="fieldErrors.challan_date" class="invalid-feedback d-block">

@@ -171,7 +171,7 @@
 <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-brand-primary text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="confirmationModalLabel">
                     <i class="fas fa-check-circle me-2"></i>Confirm Transporter Update
                 </h5>

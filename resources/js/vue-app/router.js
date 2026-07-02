@@ -111,12 +111,18 @@ const router = createRouter({
                     path: 'trips/:id',
                     name: 'trips.show',
                     component: () => import('./pages/trips/TripDetailPage.vue'),
-                    meta: { requiresTenant: true, permission: 'trips.view' },
+                    meta: { requiresTenant: true, permission: ['trips.view', 'trips.manage'] },
                 },
                 {
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
                     component: () => import('./pages/trips/TripEditPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                },
+                {
+                    path: 'trips/:id/expenses',
+                    name: 'trips.expenses',
+                    component: () => import('./pages/trips/TripExpensesPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.manage' },
                 },
                 {

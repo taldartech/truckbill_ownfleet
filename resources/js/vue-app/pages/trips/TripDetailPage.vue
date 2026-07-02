@@ -2,7 +2,7 @@
     <div class="container mt-4 trip-detail-page pb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
             <div>
-                <RouterLink :to="{ name: 'trips.index' }" class="text-decoration-none small">
+                <RouterLink :to="tripListReturnTo" class="text-decoration-none small">
                     <i class="bi bi-arrow-left"></i> Back to Trips
                 </RouterLink>
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
@@ -30,12 +30,21 @@
                     @updated="onTripUpdated"
                 />
                 <AppButton
+                    v-if="canManage && canManageTripExpensesFor"
+                    variant="success"
+                    outline
+                    size="sm"
+                    icon="bi bi-receipt"
+                    label="Manage Expenses"
+                    :to="{ name: 'trips.expenses', params: { id: trip.id } }"
+                />
+                <AppButton
                     v-if="canManage && canEditTripPage"
                     variant="primary"
                     outline
                     size="sm"
                     icon="bi bi-pencil"
-                    :label="editTripButtonLabel"
+                    label="Edit"
                     :to="{ name: 'trips.edit', params: { id: trip.id } }"
                 />
             </div>
@@ -57,16 +66,10 @@
 
             <div class="row g-3">
                 <div class="col-lg-8">
-                    <div class="card trip-section-card">
-                        <div class="card-header bg-success text-white trip-section-card__header">
-                            <div class="trip-section-card__info">
-                                <h3 class="card-title mb-0 trip-section-card__title">
-                                    <i class="bi bi-signpost-split me-2" aria-hidden="true"></i>Trip Information
-                                </h3>
-                                <p class="trip-section-card__meta mb-0 mt-1">
-                                    {{ headerMetaText }}
-                                </p>
-                            </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <strong><i class="bi bi-signpost-split me-2" aria-hidden="true"></i>Trip Information</strong>
+                            <span v-if="headerMetaText" class="text-muted small ms-2">{{ headerMetaText }}</span>
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
@@ -139,8 +142,16 @@
                                 <div>{{ formatKm(trip.vehicle?.odometer_km) }}</div>
                             </div>
                             <div class="col-md-4">
+                                <span class="text-muted">Expected Mileage (KM/Ltr)</span>
+                                <div>{{ trip.planned_mileage_km_per_liter ? formatKm(trip.planned_mileage_km_per_liter) : '—' }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Max Load (Ton)</span>
+                                <div>{{ trip.max_load_ton ? formatKm(trip.max_load_ton) : '—' }}</div>
+                            </div>
+                            <div class="col-md-4">
                                 <span class="text-muted">Expected Diesel (Ltr)</span>
-                                <div>{{ trip.expected_diesel_liters ? formatKm(trip.expected_diesel_liters) : '—' }}</div>
+                                <div>{{ trip.planned_diesel_liters ? formatKm(trip.planned_diesel_liters) : '—' }}</div>
                             </div>
                             <div class="col-md-4">
                                 <span class="text-muted">Diesel Rate (₹/Ltr)</span>
@@ -174,6 +185,10 @@
                                 <span class="text-muted">Reference</span>
                                 <div>{{ trip.broker_name || '—' }}</div>
                             </div>
+                            <div v-if="trip.notes?.trim()" class="col-12">
+                                <span class="text-muted">Notes</span>
+                                <div style="white-space: pre-wrap">{{ trip.notes }}</div>
+                            </div>
                             <div v-if="trip.status === 'CANCELLED'" class="col-md-4">
                                 <span class="text-muted">Cancelled On</span>
                                 <div>{{ formatDateTime(trip.cancelled_at) }}</div>
@@ -189,11 +204,9 @@
                         </div>
                     </div>
 
-                    <div class="card mt-3 trip-section-card">
-                        <div class="card-header bg-success text-white trip-section-card__header">
-                            <h3 class="card-title mb-0 trip-section-card__title">
-                                <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>{{ routeSectionTitle }}
-                            </h3>
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <strong><i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>{{ routeSectionTitle }}</strong>
                         </div>
                         <div class="card-body">
                             <div v-if="routePreview" class="alert alert-light border mb-3 py-2 small mb-3">
@@ -203,18 +216,17 @@
                                 No route legs recorded.
                             </div>
                             <div v-else class="table-responsive">
-                                <table class="table table-bordered align-middle mb-0 small">
+                                <table class="table table-bordered align-middle mb-0 trip-route-table trip-route-table--readonly">
                                     <thead class="table-light">
                                         <tr>
                                             <th>#</th>
                                             <th>From</th>
                                             <th>To</th>
                                             <th>Customer</th>
-                                            <th>Weight (In Ton)</th>
-                                            <th>Freight Rate (per ton)</th>
-                                            <th>Freight</th>
+                                            <th>Weight (Ton)</th>
                                             <th>Expected Mileage</th>
-                                            <th>Remarks</th>
+                                            <th>Freight Rate (₹/Ton)</th>
+                                            <th>Freight</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -229,29 +241,50 @@
                                                 <div v-if="leg.to_address" class="text-muted">{{ leg.to_address }}</div>
                                             </td>
                                             <td>{{ leg.customer_name || '—' }}</td>
-                                            <td>{{ leg.weight_ton ? formatKm(leg.weight_ton) : '—' }}</td>
+                                            <td>
+                                                <div class="trip-route-weight-field">
+                                                    <span
+                                                        class="trip-route-load-tag"
+                                                        :class="`trip-route-load-tag--${legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).category}`"
+                                                    >
+                                                        {{ legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).label }}
+                                                    </span>
+                                                    <span class="trip-route-weight-readonly">
+                                                        {{ leg.weight_ton ? formatKm(leg.weight_ton) : '—' }}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {{
+                                                    leg.expected_mileage_km_per_liter
+                                                        ? `${formatKm(leg.expected_mileage_km_per_liter)} KM/Lt`
+                                                        : '—'
+                                                }}
+                                            </td>
                                             <td>{{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}</td>
                                             <td>₹{{ formatMoney(leg.freight_amount) }}</td>
-                                            <td>{{ leg.expected_mileage_km_per_liter ? formatKm(leg.expected_mileage_km_per_liter) : '—' }}</td>
-                                            <td class="text-muted">{{ leg.remarks || '—' }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                         <div v-if="routeLegs.length > 0" class="card-body p-0 border-top">
-                            <div class="trip-detail-km-bar">
+                            <div class="trip-detail-km-bar km-summary-bar">
                                 <div>
-                                    <div class="small text-muted">Loaded Stops</div>
-                                    <strong class="text-success">{{ routeSummary.loadedStops }}</strong>
+                                    <div class="small text-muted">Full Load Stops</div>
+                                    <strong class="text-success">{{ routeSummary.fullLoadStops }}</strong>
+                                </div>
+                                <div>
+                                    <div class="small text-muted">Half Load Stops</div>
+                                    <strong class="text-warning">{{ routeSummary.halfLoadStops }}</strong>
                                 </div>
                                 <div>
                                     <div class="small text-muted">Empty Stops</div>
                                     <strong class="text-secondary">{{ routeSummary.emptyStops }}</strong>
                                 </div>
                                 <div>
-                                    <div class="small text-muted">Expected Avg Mileage</div>
-                                    <strong>{{ routeSummary.expectedAvgMileageDisplay }}</strong>
+                                    <div class="small text-muted">Avg Expected Mileage</div>
+                                    <strong>{{ routeSummary.expectedMileageDisplay }}</strong>
                                 </div>
                                 <div>
                                     <div class="small text-muted">Total KM</div>
@@ -327,7 +360,6 @@
                                             <th>Changed At</th>
                                             <th>From</th>
                                             <th>To</th>
-                                            <th>Remarks</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -343,7 +375,6 @@
                                                     {{ tripStatusMeta(history.to_status).label }}
                                                 </span>
                                             </td>
-                                            <td class="text-muted">{{ history.remarks || '—' }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -409,11 +440,14 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
+    canFullEditTrip,
+    canManageTripExpenses,
     expenseTypeLabel,
     fetchTrip,
     isTerminalTripStatus,
     resolveTripEditAccess,
     summarizeTripForm,
+    legLoadCategoryMeta,
     tripStatusMeta,
     tripTypeLabel,
 } from '../../api/trips';
@@ -421,6 +455,7 @@ import TripInlineStatusActions from '../../components/trips/TripInlineStatusActi
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { usePermissions } from '../../composables/usePermissions';
+import { useTripListReturn } from '../../composables/useTripListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
 
@@ -428,6 +463,7 @@ const route = useRoute();
 const { canInCompany, user } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
+const { tripListReturnTo } = useTripListReturn();
 
 const canManage = computed(() => canInCompany('trips.manage'));
 
@@ -439,6 +475,8 @@ const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const routeSummary = computed(() => {
     const summary = summarizeTripForm({
         route_legs: routeLegs.value,
+        planned_mileage_km_per_liter: trip.value?.planned_mileage_km_per_liter,
+        max_load_ton: trip.value?.max_load_ton,
         start_meter_reading_km: trip.value?.start_meter_reading_km,
         end_meter_reading_km: trip.value?.end_meter_reading_km,
         expenses: [],
@@ -446,10 +484,10 @@ const routeSummary = computed(() => {
 
     return {
         ...summary,
-        expectedAvgMileageDisplay:
-            summary.expectedAvgMileage == null
+        expectedMileageDisplay:
+            summary.expectedMileage == null
                 ? '—'
-                : `${Number(summary.expectedAvgMileage).toLocaleString('en-IN', { maximumFractionDigits: 2 })} KM/Ltr`,
+                : `${Number(summary.expectedMileage).toLocaleString('en-IN', { maximumFractionDigits: 2 })} KM/Ltr`,
     };
 });
 const dieselPerformance = computed(() => trip.value?.diesel_performance ?? null);
@@ -457,9 +495,9 @@ const expenses = computed(() => trip.value?.expenses ?? []);
 const statusHistories = computed(() => trip.value?.status_histories ?? []);
 const isTerminal = computed(() => isTerminalTripStatus(trip.value?.status));
 const editAccess = computed(() => resolveTripEditAccess(trip.value?.status, user.value));
-const canEditTripPage = computed(() => editAccess.value.canEdit);
+const canEditTripPage = computed(() => canFullEditTrip(trip.value?.status, user.value));
+const canManageTripExpensesFor = computed(() => canManageTripExpenses(trip.value?.status, user.value));
 const canEditTripStatus = computed(() => editAccess.value.fullEdit);
-const editTripButtonLabel = computed(() => (editAccess.value.expensesOnly ? 'Edit Expenses' : 'Edit'));
 const terminalAlert = computed(() => {
     if (!isTerminal.value) {
         return '';
@@ -470,7 +508,7 @@ const terminalAlert = computed(() => {
     }
 
     if (editAccess.value.expensesOnly) {
-        return 'This trip is completed. Only trip expenses can be edited.';
+        return 'This trip is completed. Trip details are read-only; use Manage Expenses to update expenses.';
     }
 
     const label = trip.value?.status === 'COMPLETED' ? 'completed' : 'cancelled';

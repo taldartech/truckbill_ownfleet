@@ -157,7 +157,7 @@
         >
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
+                    <div class="modal-header bg-gradient-primary">
                         <h5 class="modal-title">
                             <i class="bi bi-truck me-1"></i>
                             Select Truck
@@ -202,7 +202,7 @@
         >
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
+                    <div class="modal-header bg-gradient-primary">
                         <h5 class="modal-title">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
                         <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
                     </div>
@@ -266,11 +266,9 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Purchase Date</label>
-                                <input
+                                <AppDateInput
                                     v-model="form.purchase_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.purchase_date }"
+                                    :invalid="!!fieldErrors.purchase_date"
                                 />
                                 <div v-if="fieldErrors.purchase_date" class="invalid-feedback d-block">
                                     {{ fieldErrors.purchase_date[0] }}
@@ -318,11 +316,9 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Warranty Valid Until</label>
-                                <input
+                                <AppDateInput
                                     v-model="form.warranty_valid_until"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.warranty_valid_until }"
+                                    :invalid="!!fieldErrors.warranty_valid_until"
                                 />
                                 <div v-if="fieldErrors.warranty_valid_until" class="invalid-feedback d-block">
                                     {{ fieldErrors.warranty_valid_until[0] }}

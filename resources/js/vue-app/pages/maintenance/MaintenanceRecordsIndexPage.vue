@@ -48,11 +48,11 @@
             </div>
             <div>
                 <label class="form-label">From</label>
-                <input v-model="fromFilter" type="date" class="form-control" :disabled="loading" />
+                <AppDateInput v-model="fromFilter" :disabled="loading" />
             </div>
             <div>
                 <label class="form-label">To</label>
-                <input v-model="toFilter" type="date" class="form-control" :disabled="loading" />
+                <AppDateInput v-model="toFilter" :disabled="loading" />
             </div>
         </AppIndexFiltersCard>
 

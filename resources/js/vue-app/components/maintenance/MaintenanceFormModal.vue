@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-wrench-adjustable'"></i>
                         {{ isEdit ? 'Edit Service Record' : 'Add Service Record' }}
@@ -39,12 +39,10 @@
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_service_date`" class="form-label">Service Date *</label>
-                                <input
-                                    :id="`${modalId}_service_date`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_service_date`"
                                     v-model="form.service_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': displayFieldErrors.service_date }"
+                                    :invalid="!!displayFieldErrors.service_date"
                                     :max="today"
                                     required
                                 />
@@ -143,13 +141,11 @@
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_next_service_due_date`" class="form-label">Next Due Date</label>
-                                <input
-                                    :id="`${modalId}_next_service_due_date`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_next_service_due_date`"
                                     v-model="form.next_service_due_date"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': displayFieldErrors.next_service_due_date }"
-                                    :min="minNextDueDate"
+                                    :invalid="!!displayFieldErrors.next_service_due_date"
+                                    :min="minNextDueDate || undefined"
                                     :disabled="!form.service_date"
                                 />
                                 <div v-if="displayFieldErrors.next_service_due_date" class="invalid-feedback d-block">

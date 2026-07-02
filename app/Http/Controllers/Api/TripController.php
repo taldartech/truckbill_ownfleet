@@ -116,6 +116,7 @@ class TripController extends Controller
             'vehicle_id',
             'driver_id',
             'status',
+            'trip_type',
             'from_date',
             'to_date',
             'customer_id',

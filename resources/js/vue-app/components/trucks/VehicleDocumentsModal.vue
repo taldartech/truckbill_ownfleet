@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="bi bi-file-earmark-text"></i>
                         Documents — {{ vehicleLabel }}
@@ -73,11 +73,10 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <input
+                                            <AppDateInput
                                                 v-model="docForm.issue_date"
-                                                type="date"
-                                                class="form-control form-control-sm"
-                                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'issue_date') }"
+                                                size="sm"
+                                                :invalid="hasFieldError(fieldErrors, 'issue_date')"
                                                 required
                                             />
                                             <div
@@ -88,11 +87,10 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <input
+                                            <AppDateInput
                                                 v-model="docForm.expiry_date"
-                                                type="date"
-                                                class="form-control form-control-sm"
-                                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'expiry_date') }"
+                                                size="sm"
+                                                :invalid="hasFieldError(fieldErrors, 'expiry_date')"
                                                 :min="docForm.issue_date || undefined"
                                                 required
                                             />

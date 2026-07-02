@@ -10,7 +10,7 @@
             <div class="modal-content">
                 <div
                     class="modal-header text-white"
-                    :class="status === 'CANCELLED' ? 'bg-danger' : 'bg-success'"
+                    :class="status === 'CANCELLED' ? 'bg-danger' : 'bg-gradient-primary'"
                 >
                     <h5 class="modal-title text-white">
                         <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
@@ -63,11 +63,9 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Cancellation Date *</label>
-                                <input
+                                <AppDateInput
                                     v-model="cancelledAt"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.cancelled_at }"
+                                    :invalid="!!fieldErrors.cancelled_at"
                                     required
                                 />
                                 <div v-if="fieldErrors.cancelled_at" class="invalid-feedback d-block">
@@ -124,12 +122,10 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Actual Arrival Date *</label>
-                                <input
+                                <AppDateInput
                                     v-model="actualArrivalAt"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.actual_arrival_at }"
-                                    :min="actualArrivalMin"
+                                    :invalid="!!fieldErrors.actual_arrival_at"
+                                    :min="actualArrivalMin || undefined"
                                     required
                                 />
                                 <div class="form-text">When did the truck actually arrive back?</div>
@@ -153,12 +149,10 @@
                                         class="badge bg-danger"
                                     >Late</span>
                                 </label>
-                                <input
+                                <AppDateInput
                                     v-model="endAt"
-                                    type="date"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.end_at }"
-                                    :min="endDateMin"
+                                    :invalid="!!fieldErrors.end_at"
+                                    :min="endDateMin || undefined"
                                     required
                                 />
                                 <div class="form-text">Must be on or after the actual arrival date.</div>
@@ -322,7 +316,6 @@ watch(
 function validateEndMeterReading() {
     const endMeter = Number(endMeterReadingKm.value);
     const startMeter = Number(props.startMeterReadingKm ?? 0);
-    const truckMeter = Number(props.truckRunningMeterKm ?? 0);
 
     if (!Number.isFinite(endMeter) || endMeter <= 0) {
         fieldErrors.end_meter_reading_km = 'End meter reading is required.';
@@ -332,13 +325,6 @@ function validateEndMeterReading() {
 
     if (Number.isFinite(startMeter) && startMeter > 0 && endMeter < startMeter) {
         fieldErrors.end_meter_reading_km = 'End Meter Reading cannot be less than Start Meter Reading.';
-
-        return;
-    }
-
-    if (Number.isFinite(truckMeter) && truckMeter > 0 && endMeter < truckMeter) {
-        fieldErrors.end_meter_reading_km =
-            'End Meter Reading cannot be less than the current Truck Running Meter Reading. Please enter a valid meter reading.';
     }
 }
 

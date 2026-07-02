@@ -2,12 +2,13 @@
 
 namespace App\Modules\TripManagement\Services;
 
+use App\Enums\LoadCategory;
 use App\Enums\TripExpenseType;
 use App\Modules\TripManagement\Repositories\TripRepository;
+use App\Modules\TripManagement\Support\LoadClassifier;
 use App\Trip;
 use App\TripExpense;
 use App\TripRouteLeg;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 class TripReportService
@@ -116,19 +117,23 @@ class TripReportService
     public function emptyKm(array $filters = []): array
     {
         $rows = $this->tripRepository->filteredQuery($filters)
-            ->with(['vehicle', 'driver'])
+            ->with(['vehicle', 'driver', 'routeLegs'])
             ->limit(self::REPORT_ROW_LIMIT)
             ->get()
-            ->map(fn (Trip $trip): array => [
-                'trip_number' => $trip->trip_number,
-                'vehicle' => $trip->vehicle?->registration_number,
-                'driver' => $trip->driver?->name,
-                'empty_distance_km' => (float) $trip->empty_distance_km,
-                'loaded_distance_km' => (float) $trip->loaded_distance_km,
-                'empty_percentage' => $trip->total_distance_km > 0
-                    ? round(((float) $trip->empty_distance_km / (float) $trip->total_distance_km) * 100, 2)
-                    : 0,
-            ])
+            ->map(function (Trip $trip): array {
+                $distances = $this->resolveLoadDistances($trip);
+
+                return [
+                    'trip_number' => $trip->trip_number,
+                    'vehicle' => $trip->vehicle?->registration_number,
+                    'driver' => $trip->driver?->name,
+                    'empty_distance_km' => $distances['empty_distance_km'],
+                    'loaded_distance_km' => $distances['loaded_distance_km'],
+                    'empty_percentage' => $trip->total_distance_km > 0
+                        ? round(($distances['empty_distance_km'] / (float) $trip->total_distance_km) * 100, 2)
+                        : 0,
+                ];
+            })
             ->all();
 
         return $this->withSerialNumbers($rows);
@@ -247,6 +252,42 @@ class TripReportService
         }
 
         return round($tripTotal / $tripLegs->count(), 2);
+    }
+
+    /**
+     * @return array{empty_distance_km: float, loaded_distance_km: float}
+     */
+    private function resolveLoadDistances(Trip $trip): array
+    {
+        $totalDistance = (float) ($trip->total_distance_km ?? 0);
+        $legs = $trip->routeLegs;
+
+        if ($legs->isEmpty() || $totalDistance <= 0) {
+            return [
+                'empty_distance_km' => 0.0,
+                'loaded_distance_km' => 0.0,
+            ];
+        }
+
+        $maxLoadTon = (float) ($trip->max_load_ton ?? 0);
+        $perLegKm = $totalDistance / $legs->count();
+        $emptyKm = 0.0;
+        $loadedKm = 0.0;
+
+        foreach ($legs as $leg) {
+            $classification = LoadClassifier::classify((float) ($leg->weight_ton ?? 0), $maxLoadTon);
+
+            if ($classification->category === LoadCategory::Empty) {
+                $emptyKm += $perLegKm;
+            } else {
+                $loadedKm += $perLegKm;
+            }
+        }
+
+        return [
+            'empty_distance_km' => round($emptyKm, 2),
+            'loaded_distance_km' => round($loadedKm, 2),
+        ];
     }
 
     /**

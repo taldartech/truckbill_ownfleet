@@ -19,11 +19,9 @@
             </div>
             <div v-if="reportType !== 'due'">
                 <label class="form-label">From</label>
-                <input
+                <AppDateInput
                     v-model="filters.from"
-                    type="date"
-                    class="form-control"
-                    :class="{ 'is-invalid': fieldErrors.from }"
+                    :invalid="!!fieldErrors.from"
                     @input="clearFieldError('from')"
                 />
                 <div v-if="fieldErrors.from" class="invalid-feedback d-block">
@@ -32,11 +30,9 @@
             </div>
             <div v-if="reportType !== 'due'">
                 <label class="form-label">To</label>
-                <input
+                <AppDateInput
                     v-model="filters.to"
-                    type="date"
-                    class="form-control"
-                    :class="{ 'is-invalid': fieldErrors.to }"
+                    :invalid="!!fieldErrors.to"
                     @input="clearFieldError('to')"
                 />
                 <div v-if="fieldErrors.to" class="invalid-feedback d-block">

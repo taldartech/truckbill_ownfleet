@@ -3,10 +3,9 @@
         <div class="trip-expense-entry__row">
             <div class="trip-expense-entry__field trip-expense-entry__field--date">
                 <label class="trip-expense-entry__label">Date</label>
-                <input
+                <AppDateInput
                     v-model="expense.expense_date"
-                    type="date"
-                    class="form-control form-control-sm"
+                    size="sm"
                     :min="tripStartDate || undefined"
                     :max="tripEndDate || undefined"
                     :disabled="disabled"
@@ -42,12 +41,17 @@
                     <input
                         v-model.number="expense.fuel_odometer_km"
                         type="number"
-                        min="0"
+                        :min="tripStartMeterKm || undefined"
+                        :max="tripEndMeterKm || undefined"
                         step="0.01"
                         class="form-control form-control-sm"
+                        :class="{ 'is-invalid': odometerFieldError }"
                         placeholder="0"
                         :disabled="disabled"
                     />
+                    <div v-if="odometerFieldError" class="invalid-feedback d-block">
+                        {{ odometerFieldError }}
+                    </div>
                 </div>
                 <div class="trip-expense-entry__field trip-expense-entry__field--fuel">
                     <label class="trip-expense-entry__label">Liters</label>
@@ -119,6 +123,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { EXPENSE_FORM_TYPES } from '../../api/trips';
 
 const props = defineProps({
     expense: {
@@ -137,23 +142,23 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    tripStartMeterKm: {
+        type: [Number, String],
+        default: '',
+    },
+    tripEndMeterKm: {
+        type: [Number, String],
+        default: '',
+    },
+    odometerFieldError: {
+        type: String,
+        default: '',
+    },
 });
 
 defineEmits(['remove']);
 
-const expenseTypes = [
-    { value: 'DIESEL', label: 'Fuel (L × Rate)' },
-    { value: 'TOLL', label: 'Highway toll' },
-    { value: 'LOADING_CHARGES', label: 'Load charges' },
-    { value: 'UNLOADING_CHARGES', label: 'Unload charges' },
-    { value: 'FOOD_EXPENSE', label: 'Driver food' },
-    { value: 'DRIVER_EXPENSE', label: 'Driver cash / misc' },
-    { value: 'REPAIR', label: 'Breakdown' },
-    { value: 'PARKING', label: 'Parking fee' },
-    { value: 'RTO_EXPENSE', label: 'RTO' },
-    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
-    { value: 'OTHER', label: 'Other' },
-];
+const expenseTypes = EXPENSE_FORM_TYPES;
 
 const isDiesel = computed(() => props.expense.expense_type === 'DIESEL');
 const isOther = computed(() => props.expense.expense_type === 'OTHER');

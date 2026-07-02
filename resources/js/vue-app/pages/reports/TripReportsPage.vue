@@ -28,11 +28,11 @@
             </div>
             <div>
                 <label class="form-label">From Date</label>
-                <input v-model="filters.from_date" type="date" class="form-control" />
+                <AppDateInput v-model="filters.from_date" />
             </div>
             <div>
                 <label class="form-label">To Date</label>
-                <input v-model="filters.to_date" type="date" class="form-control" />
+                <AppDateInput v-model="filters.to_date" />
             </div>
             <div>
                 <label class="form-label">Truck</label>

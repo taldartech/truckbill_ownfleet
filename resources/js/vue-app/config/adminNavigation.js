@@ -17,7 +17,7 @@ export const adminNavigation = [
                 label: 'Trip List',
                 icon: 'bi bi-list-ul nav-icon',
                 to: '/trips',
-                activeNames: ['trips.index', 'trips.show', 'trips.edit'],
+                activeNames: ['trips.index', 'trips.show', 'trips.edit', 'trips.expenses'],
                 permission: 'trips.view',
                 requiresTenant: true,
             },

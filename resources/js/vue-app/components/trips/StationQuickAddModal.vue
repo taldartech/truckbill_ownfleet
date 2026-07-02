@@ -8,7 +8,7 @@
     >
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 class="modal-title"><i class="bi bi-geo-alt"></i> Quick Add Station</h5>
                     <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
                 </div>

@@ -1,8 +1,13 @@
 <template>
     <div class="trip-expenses-panel">
-        <div v-if="routeLegs.length === 0" class="alert alert-info mb-3">
+        <div v-if="routeLegs.length === 0 && context === 'embedded'" class="alert alert-info mb-3">
             <i class="bi bi-info-circle me-1"></i>
             Add stops in the <strong>Round Trip Route</strong> table above, then add expenses here.
+        </div>
+
+        <div v-else-if="routeLegs.length === 0 && context === 'standalone'" class="alert alert-info mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            This trip has no route stops yet. You can still add <strong>whole-trip</strong> expenses below.
         </div>
 
         <!-- Whole trip -->
@@ -30,6 +35,9 @@
                         :disabled="readonly"
                         :trip-start-date="tripStartDate"
                         :trip-end-date="tripEndDate"
+                        :trip-start-meter-km="tripStartMeterKm"
+                        :trip-end-meter-km="tripEndMeterKm"
+                        :odometer-field-error="fieldErrorFor(item.globalIndex)"
                         @remove="$emit('remove-expense', item.globalIndex)"
                     />
                 </template>
@@ -69,6 +77,9 @@
                         :disabled="readonly"
                         :trip-start-date="tripStartDate"
                         :trip-end-date="tripEndDate"
+                        :trip-start-meter-km="tripStartMeterKm"
+                        :trip-end-meter-km="tripEndMeterKm"
+                        :odometer-field-error="fieldErrorFor(item.globalIndex)"
                         @remove="$emit('remove-expense', item.globalIndex)"
                     />
                 </template>
@@ -124,9 +135,28 @@ const props = defineProps({
     readonly: { type: Boolean, default: false },
     tripStartDate: { type: String, default: '' },
     tripEndDate: { type: String, default: '' },
+    tripStartMeterKm: { type: [Number, String], default: '' },
+    tripEndMeterKm: { type: [Number, String], default: '' },
+    fieldErrors: { type: Object, default: () => ({}) },
+    maxLoadTon: { type: [Number, String], default: '' },
+    context: {
+        type: String,
+        default: 'embedded',
+        validator: (value) => ['embedded', 'standalone'].includes(value),
+    },
 });
 
 const emit = defineEmits(['add-expense', 'remove-expense']);
+
+function fieldErrorFor(index) {
+    const errors = props.fieldErrors[`expenses.${index}.fuel_odometer_km`];
+
+    if (Array.isArray(errors)) {
+        return errors[0] ?? '';
+    }
+
+    return errors ?? '';
+}
 
 const collapsed = reactive({});
 const lastFocusedIndex = ref(-1);
@@ -143,13 +173,13 @@ const stopCards = computed(() =>
     props.routeLegs.map((leg, index) => {
         const sequence = index + 1;
         const items = collectItems(sequence);
-        const meta = legLoadCategoryMeta(leg.weight_ton);
+        const meta = legLoadCategoryMeta(leg.weight_ton, props.maxLoadTon);
 
         return {
             key: `stop-${sequence}`,
             sequence,
-            fromLabel: stationLabel(leg.from_station_id),
-            toLabel: stationLabel(leg.to_station_id),
+            fromLabel: legLabel(leg.from_station_id, leg.from_city),
+            toLabel: legLabel(leg.to_station_id, leg.to_city),
             loadLabel: meta.label,
             loadBadge: loadBadgeClass(meta.value),
             items,
@@ -217,6 +247,14 @@ function stationLabel(stationId) {
     return match?.name ?? `#${stationId}`;
 }
 
+function legLabel(stationId, fallbackName = '') {
+    if (fallbackName) {
+        return fallbackName;
+    }
+
+    return stationLabel(stationId);
+}
+
 function isCollapsed(key) {
     return collapsed[key] !== false;
 }
@@ -263,7 +301,7 @@ defineExpose({ grandTotal });
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 .stop-expense-card__header {
-    background: var(--brand-primary);
+    background: var(--brand-gradient);
     color: #fff;
     padding: 14px 18px;
 }

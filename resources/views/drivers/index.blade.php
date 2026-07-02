@@ -48,7 +48,7 @@
 <div class="modal fade" id="addDriverModal" tabindex="-1" aria-labelledby="addDriverModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="addDriverModalLabel">
                     <i class="bi bi-person-plus"></i> Add New Driver
                 </h5>
@@ -99,7 +99,7 @@
 <div class="modal fade" id="editDriverModal" tabindex="-1" aria-labelledby="editDriverModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header bg-gradient-primary">
                 <h5 class="modal-title" id="editDriverModalLabel">
                     <i class="bi bi-pencil-square"></i> Edit Driver
                 </h5>

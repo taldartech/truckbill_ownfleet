@@ -1,4 +1,4 @@
-import { expenseTypeLabel, legLoadCategoryMeta, summarizeTripForm } from '../api/trips';
+import { expenseTypeLabel, summarizeTripForm } from '../api/trips';
 import { formatDate } from './datetime';
 
 function formatNum(value) {
@@ -23,9 +23,9 @@ function legSignature(leg) {
         leg.to_station_id,
         leg.customer_id,
         Number(leg.weight_ton ?? 0),
+        Number(leg.expected_mileage_km_per_liter ?? 0),
         Number(leg.freight_rate ?? 0),
         Number(leg.freight_amount ?? 0),
-        leg.expected_mileage_km_per_liter ?? '',
     ].join('|');
 }
 
@@ -152,6 +152,14 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             previousValue: formatDate(originalPayload?.end_at),
         },
         {
+            label: 'Notes',
+            compareValue: form.notes?.trim() ?? '',
+            comparePrevious: originalPayload?.notes?.trim() ?? '',
+            value: form.notes?.trim() || '—',
+            previousValue: originalPayload?.notes?.trim() || '—',
+            hidden: !form.notes?.trim() && !(originalPayload?.notes?.trim()),
+        },
+        {
             label: 'Status',
             compareValue: form.status,
             comparePrevious: originalPayload?.status,
@@ -187,10 +195,12 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             from: lookupName(stations, leg.from_station_id),
             to: lookupName(stations, leg.to_station_id),
             customer: lookupName(customers, leg.customer_id, '—'),
-            loadType: legLoadCategoryMeta(leg.weight_ton).label,
             weight: formatNum(leg.weight_ton),
+            expectedMileage:
+                leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
+                    ? '—'
+                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`,
             rate: formatMoney(leg.freight_rate),
-            mileage: leg.expected_mileage_km_per_liter ? formatNum(leg.expected_mileage_km_per_liter) : '—',
             freight: formatMoney(leg.freight_amount),
             isNew,
             changed: isNew || changed,
@@ -263,10 +273,11 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         removedLegCount,
         removedExpenseCount,
         totals: {
-            loadedStops: summary.loadedStops,
+            fullLoadStops: summary.fullLoadStops,
+            halfLoadStops: summary.halfLoadStops,
             emptyStops: summary.emptyStops,
-            expectedAvgMileage:
-                summary.expectedAvgMileage == null ? '—' : `${formatNum(summary.expectedAvgMileage)} KM/Ltr`,
+            expectedMileage:
+                summary.expectedMileage == null ? '—' : `${formatNum(summary.expectedMileage)} KM/Ltr`,
             totalKm: formatNum(summary.totalKm),
             totalWeight: summary.totalWeightTon > 0 ? formatNum(summary.totalWeightTon) : '—',
             freight: formatMoney(summary.freightTotal),

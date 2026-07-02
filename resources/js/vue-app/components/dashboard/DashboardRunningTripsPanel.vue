@@ -72,7 +72,7 @@ const runningTripsRoute = computed(() => ({
 }));
 
 function openTrip(tripId) {
-    router.push({ name: 'trips.edit', params: { id: tripId } });
+    router.push({ name: 'trips.show', params: { id: tripId } });
 }
 
 </script>

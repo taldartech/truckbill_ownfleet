@@ -14,7 +14,7 @@ class TripRepository
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         return $this->filteredQuery($filters)
-            ->with(['vehicle', 'driver', 'routeLegs'])
+            ->with(['vehicle', 'driver', 'substituteDriver', 'routeLegs'])
             ->latest('start_at')
             ->latest()
             ->paginate($perPage);
@@ -50,6 +50,7 @@ class TripRepository
                 'substituteDriver',
                 'startStation.city',
                 'routeLegs.customer',
+                'routeLegs.trip',
                 'expenses.routeLeg',
                 'statusHistories' => fn ($query) => $query->latest('changed_at'),
             ])
@@ -82,6 +83,10 @@ class TripRepository
 
         if (! empty($filters['broker_id'])) {
             $query->where('broker_id', (int) $filters['broker_id']);
+        }
+
+        if (! empty($filters['trip_type'])) {
+            $query->where('trip_type', strtoupper((string) $filters['trip_type']));
         }
 
         if (! empty($filters['customer_name'])) {
@@ -133,7 +138,8 @@ class TripRepository
                             ->orWhere('make', 'like', "%{$term}%")
                             ->orWhere('model', 'like', "%{$term}%");
                     })
-                    ->orWhereHas('driver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$term}%"));
+                    ->orWhereHas('driver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$term}%"))
+                    ->orWhereHas('substituteDriver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$term}%"));
             });
 
             return;
@@ -154,7 +160,10 @@ class TripRepository
 
         if (! empty($filters['driver_search'])) {
             $search = (string) $filters['driver_search'];
-            $query->whereHas('driver', fn (Builder $driverQuery) => $driverQuery->where('name', 'like', "%{$search}%"));
+            $query->where(function (Builder $driverQuery) use ($search): void {
+                $driverQuery->whereHas('driver', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('substituteDriver', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"));
+            });
         }
     }
 }

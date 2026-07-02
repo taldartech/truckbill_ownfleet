@@ -4,9 +4,10 @@
             Select a company and click <strong>Enter</strong> before creating trips.
         </div>
 
-        <form v-else novalidate @submit.prevent="handleSubmit">
+        <form v-else novalidate @submit.prevent="handleSubmit('index')">
             <TripForm
                 mode="create"
+                :show-expenses="false"
                 :form="form"
                 :stations="stations"
                 :brokers="brokers"
@@ -22,12 +23,11 @@
                 :primary-driver-name="primaryDriverName"
                 :drivers="drivers"
                 :vehicle-odometer-km="vehicleOdometerKm"
-                :vehicle-expected-mileage="vehicleExpectedMileage"
+                :vehicle-expected-mileage="vehicleDefaultMileage"
+                :vehicle-max-load="vehicleMaxLoad"
                 @add-stop="handleAddStop"
                 @return-to-start="handleReturnToStart"
                 @remove-route-leg="removeRouteLeg"
-                @add-expense="(options) => addExpense(options)"
-                @remove-expense="removeExpense"
                 @start-station-change="onStartStationChange"
                 @stop-change="onStopStationChange"
                 @station-created="onStationCreated"
@@ -38,13 +38,21 @@
             >
                 <template #trip-nav-actions>
                     <RouterLink
-                        :to="{ name: 'trips.index' }"
+                        :to="tripListReturnTo"
                         class="btn btn-sm trip-header-btn trip-header-btn--back"
                     >
                         <i class="bi bi-arrow-left me-1"></i>Cancel
                     </RouterLink>
                 </template>
                 <template #trip-save-actions>
+                    <button
+                        type="button"
+                        class="btn btn-sm trip-header-btn trip-header-btn--back me-1"
+                        :disabled="saving"
+                        @click="handleSubmit('expenses')"
+                    >
+                        <i class="bi bi-receipt me-1"></i>Create & Add Expenses
+                    </button>
                     <button
                         type="submit"
                         class="btn btn-sm trip-header-btn trip-header-btn--update"
@@ -61,22 +69,43 @@
                 </template>
             </TripForm>
 
-            <div class="trip-form-actions trip-form-actions--duplicate sticky-bottom-bar card shadow-sm mt-3">
-                <div class="card-body d-flex flex-wrap gap-2 justify-content-end py-3">
+            <div class="trip-form-actions card shadow-sm">
+                <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
                     <AppButton
                         variant="secondary"
                         outline
                         size="sm"
-                        icon="bi bi-arrow-left"
-                        label="Cancel"
-                        :to="{ name: 'trips.index' }"
+                        icon="bi bi-x-lg"
+                        label="Exit"
+                        :to="tripListReturnTo"
+                    />
+                    <AppButton
+                        type="button"
+                        variant="success"
+                        outline
+                        size="sm"
+                        icon="bi bi-eraser"
+                        label="Clear"
+                        :disabled="saving"
+                        @click="handleClearForm"
+                    />
+                    <AppButton
+                        type="button"
+                        variant="success"
+                        outline
+                        size="sm"
+                        icon="bi bi-receipt"
+                        label="Save & Add Expenses"
+                        :loading="saving"
+                        :disabled="saving"
+                        @click="handleSubmit('expenses')"
                     />
                     <AppButton
                         type="submit"
                         variant="primary"
                         size="sm"
                         icon="bi bi-floppy-fill"
-                        label="Create Trip"
+                        label="Save"
                         :loading="saving"
                         :disabled="saving"
                     />
@@ -111,6 +140,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useTripForm } from '../../composables/useTripForm';
+import { useTripListReturn } from '../../composables/useTripListReturn';
 import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
 import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
@@ -120,6 +150,7 @@ const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
+const { tripListReturnTo, tripListReturnWithFlash } = useTripListReturn();
 const { canInCompany } = usePermissions();
 const { fieldErrors, formError: tripFormError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
 
@@ -129,8 +160,6 @@ const {
     addStop,
     addReturnToStart,
     removeRouteLeg,
-    addExpense,
-    removeExpense,
     buildPayload,
     onStartStationChange,
     onStopStationChange,
@@ -155,9 +184,11 @@ const previewTripNumber = ref('');
 const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
 const pendingPayload = ref(null);
+const saveMode = ref('index');
 const selectedVehicleLabel = ref('');
 const vehicleOdometerKm = ref('');
-const vehicleExpectedMileage = ref('');
+const vehicleDefaultMileage = ref('');
+const vehicleMaxLoad = ref('');
 
 const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
 const { applyWindowValidation } = useTripWindowValidation(form, {
@@ -172,12 +203,17 @@ function onVehicleSelected(vehicle) {
         vehicle?.odometer_km !== undefined && vehicle?.odometer_km !== null && vehicle?.odometer_km !== ''
             ? vehicle.odometer_km
             : '';
-    vehicleExpectedMileage.value =
-        vehicle?.expected_mileage_km_per_liter !== undefined
-        && vehicle?.expected_mileage_km_per_liter !== null
-        && vehicle?.expected_mileage_km_per_liter !== ''
-            ? vehicle.expected_mileage_km_per_liter
-            : '';
+    const defaultMileage =
+        vehicle?.default_mileage_km_per_liter ?? vehicle?.expected_mileage_km_per_liter ?? 0;
+    const maxLoad = vehicle?.max_load_ton ?? 0;
+
+    form.planned_mileage_km_per_liter =
+        defaultMileage !== '' && defaultMileage != null ? Number(defaultMileage) : 0;
+    form.max_load_ton = maxLoad !== '' && maxLoad != null ? Number(maxLoad) : 0;
+    form.planned_diesel_manually_set = false;
+
+    vehicleDefaultMileage.value = defaultMileage !== '' && defaultMileage != null ? defaultMileage : '';
+    vehicleMaxLoad.value = maxLoad !== '' && maxLoad != null ? maxLoad : '';
 }
 
 function onStationCreated({ station, legIndex }) {
@@ -216,6 +252,18 @@ function handleAddStop() {
     }
 
     addStop();
+}
+
+function handleClearForm() {
+    const tripType = form.trip_type;
+    resetForm();
+    form.trip_type = tripType;
+    form.start_at = toDateInputValue();
+    clearErrors();
+    selectedVehicleLabel.value = '';
+    vehicleOdometerKm.value = '';
+    vehicleDefaultMileage.value = '';
+    vehicleMaxLoad.value = '';
 }
 
 function handleReturnToStart() {
@@ -268,7 +316,7 @@ function buildConfirmSummary() {
 async function prepareSave() {
     clearErrors();
 
-    const payload = buildPayload(stations.value, { mode: 'create' });
+    const payload = buildPayload(stations.value, { mode: 'create', includeExpenses: false });
     const clientErrors = validateTripPayload(
         {
             ...payload,
@@ -311,7 +359,8 @@ async function prepareSave() {
     return payload;
 }
 
-async function handleSubmit() {
+async function handleSubmit(mode = 'index') {
+    saveMode.value = mode;
     const payload = await prepareSave();
 
     if (!payload) {
@@ -336,10 +385,17 @@ async function confirmSave() {
     saving.value = true;
 
     try {
-        await createTrip(pendingPayload.value);
+        const trip = await createTrip(pendingPayload.value);
         showSaveConfirm.value = false;
         pendingPayload.value = null;
-        await router.push({ name: 'trips.index', query: { created: '1' } });
+
+        if (saveMode.value === 'expenses' && trip?.id) {
+            await router.push({ name: 'trips.expenses', params: { id: trip.id } });
+
+            return;
+        }
+
+        await router.push(tripListReturnWithFlash({ created: '1' }));
     } catch (error) {
         showSaveConfirm.value = false;
 
@@ -366,7 +422,7 @@ onMounted(async () => {
         form.trip_type = 'ROUND_TRIP';
     } else {
         toast.warning('Select a trip type before creating a trip.');
-        await router.replace({ name: 'trips.index', query: { create: '1' } });
+        await router.replace(tripListReturnWithFlash({ create: '1' }));
 
         return;
     }
@@ -382,10 +438,3 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.sticky-bottom-bar {
-    position: sticky;
-    bottom: 0.75rem;
-    z-index: 20;
-}
-</style>

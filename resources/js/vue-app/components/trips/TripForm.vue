@@ -9,7 +9,7 @@
         <div v-if="driverWarning" class="alert alert-warning">{{ driverWarning }}</div>
 
         <div class="card mb-4 trip-section-card trip-details-card">
-            <div class="card-header bg-success text-white trip-section-card__header">
+            <div class="card-header bg-gradient-primary trip-section-card__header">
                 <div class="trip-section-card__info">
                     <h3 class="card-title mb-0 trip-section-card__title">
                         <i class="bi bi-signpost-split me-2" aria-hidden="true"></i>{{ tripDetailsHeaderTitle }}
@@ -83,11 +83,9 @@
                         </div>
                         <div>
                             <label class="form-label">Start Date *</label>
-                            <input
+                            <AppDateInput
                                 v-model="form.start_at"
-                                type="date"
-                                class="form-control"
-                                :class="{ 'is-invalid': fieldErrors.start_at }"
+                                :invalid="!!fieldErrors.start_at"
                                 :readonly="isFormLocked"
                             />
                             <div v-if="fieldErrors.start_at" class="invalid-feedback d-block">
@@ -122,12 +120,10 @@
                                     <span>Late</span>
                                 </span>
                             </label>
-                            <input
+                            <AppDateInput
                                 v-model="form.end_at"
-                                type="date"
-                                class="form-control"
-                                :class="{ 'is-invalid': fieldErrors.end_at }"
-                                :min="endDateMinOnForm"
+                                :invalid="!!fieldErrors.end_at"
+                                :min="endDateMinOnForm || undefined"
                                 :readonly="isFormLocked"
                             />
                             <div v-if="fieldErrors.end_at" class="invalid-feedback d-block">
@@ -136,12 +132,10 @@
                         </div>
                         <div v-if="showActualArrivalField">
                             <label class="form-label">Actual Arrival</label>
-                            <input
+                            <AppDateInput
                                 v-model="form.actual_arrival_at"
-                                type="date"
-                                class="form-control"
-                                :class="{ 'is-invalid': fieldErrors.actual_arrival_at }"
-                                :min="tripStartDate"
+                                :invalid="!!fieldErrors.actual_arrival_at"
+                                :min="tripStartDate || undefined"
                                 :readonly="isFormLocked"
                                 @input="$emit('clear-field-error', 'actual_arrival_at')"
                             />
@@ -295,40 +289,31 @@
                         </div>
                         <div>
                             <label class="form-label">End Meter Reading</label>
-                            <template v-if="mode !== 'create'">
-                                <input
-                                    v-if="!isFormLocked"
-                                    v-model.number="form.end_meter_reading_km"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="form-control trip-meter-input"
-                                    :class="{ 'is-invalid': fieldErrors.end_meter_reading_km }"
-                                />
-                                <input
-                                    v-else
-                                    :value="endMeterDisplay"
-                                    type="text"
-                                    class="form-control bg-light"
-                                    readonly
-                                />
-                                <div v-if="fieldErrors.end_meter_reading_km" class="invalid-feedback d-block">
-                                    {{ fieldErrorMessage('end_meter_reading_km') }}
-                                </div>
-                            </template>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.end_meter_reading_km"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.end_meter_reading_km }"
+                            />
                             <input
                                 v-else
-                                value="—"
+                                :value="endMeterDisplay"
                                 type="text"
                                 class="form-control bg-light"
                                 readonly
                             />
+                            <div v-if="fieldErrors.end_meter_reading_km" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('end_meter_reading_km') }}
+                            </div>
                         </div>
                         <div>
                             <label class="form-label">Total KM</label>
                             <input
-                                :value="mode !== 'create' ? totalKmDisplay : '—'"
+                                :value="totalKmDisplay"
                                 type="text"
                                 class="form-control bg-light"
                                 readonly
@@ -343,49 +328,73 @@
                         </div>
                     </div>
 
-                    <div class="trip-details-row">
-                        <div>
-                            <label class="form-label">Expected Mileage (KM/Ltr)</label>
+                    <div class="trip-details-row trip-details-row--five-compact">
+                        <div class="trip-details-row__field--compact">
+                            <label class="form-label">Expected Mileage (KM)</label>
                             <input
                                 v-if="!isFormLocked"
-                                v-model.number="masterExpectedMileage"
+                                v-model.number="form.planned_mileage_km_per_liter"
                                 v-no-scroll-change
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 class="form-control trip-meter-input"
-                                @input="onMasterMileageInput"
+                                @input="onPlannedMileageInput"
                             />
                             <input
                                 v-else
-                                :value="masterExpectedMileageDisplay"
+                                :value="plannedMileageDisplay"
                                 type="text"
                                 class="form-control bg-light"
                                 readonly
                             />
-                            <div class="form-text">From truck profile by default; updates all route legs when changed.</div>
+                            <div class="form-text trip-details-row__compact-hint">From truck profile by default; editable per trip.</div>
+                        </div>
+                        <div class="trip-details-row__field--compact">
+                            <label class="form-label">Max Load (Ton)</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.max_load_ton"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.max_load_ton }"
+                            />
+                            <input
+                                v-else
+                                :value="form.max_load_ton !== '' && form.max_load_ton != null ? formatNum(form.max_load_ton) : '—'"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
+                            <div v-if="fieldErrors.max_load_ton" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('max_load_ton') }}
+                            </div>
                         </div>
                         <div>
                             <label class="form-label">Expected Diesel (Ltr)</label>
                             <input
                                 v-if="!isFormLocked"
-                                v-model.number="form.expected_diesel_liters"
+                                v-model.number="form.planned_diesel_liters"
                                 v-no-scroll-change
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 class="form-control trip-meter-input"
-                                :class="{ 'is-invalid': fieldErrors.expected_diesel_liters }"
+                                :class="{ 'is-invalid': fieldErrors.planned_diesel_liters }"
+                                @input="onPlannedDieselInput"
                             />
                             <input
                                 v-else
-                                :value="form.expected_diesel_liters ? formatNum(form.expected_diesel_liters) : '—'"
+                                :value="form.planned_diesel_liters ? formatNum(form.planned_diesel_liters) : '—'"
                                 type="text"
                                 class="form-control bg-light"
                                 readonly
                             />
-                            <div v-if="fieldErrors.expected_diesel_liters" class="invalid-feedback d-block">
-                                {{ fieldErrorMessage('expected_diesel_liters') }}
+                            <div v-if="fieldErrors.planned_diesel_liters" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('planned_diesel_liters') }}
                             </div>
                         </div>
                         <div>
@@ -438,6 +447,27 @@
                         </div>
                     </div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea
+                        v-if="!isFormLocked"
+                        v-model="form.notes"
+                        class="form-control"
+                        rows="2"
+                        placeholder="Optional trip notes…"
+                        :class="{ 'is-invalid': fieldErrors.notes }"
+                    ></textarea>
+                    <div
+                        v-else
+                        class="form-control bg-light"
+                        style="min-height: 2.5rem; white-space: pre-wrap"
+                    >
+                        {{ form.notes?.trim() || '—' }}
+                    </div>
+                    <div v-if="fieldErrors.notes" class="invalid-feedback d-block">
+                        {{ fieldErrorMessage('notes') }}
+                    </div>
+                </div>
                 <div v-if="form.status === 'CANCELLED'" class="mb-3">
                     <div class="alert alert-danger mb-0 py-2">
                         <div class="small">
@@ -452,7 +482,7 @@
         </div>
 
         <div class="card mb-4 trip-section-card trip-route-card">
-            <div class="card-header bg-success text-white trip-section-card__header trip-route-card__header">
+            <div class="card-header bg-gradient-primary trip-section-card__header trip-route-card__header">
                 <h3 class="card-title mb-0 trip-section-card__title">
                     <i class="bi me-2" :class="isRoundTrip ? 'bi-arrow-repeat' : 'bi-arrow-right'" aria-hidden="true"></i>{{ routeSectionTitle }}
                 </h3>
@@ -526,14 +556,14 @@
                     <table class="table table-bordered align-middle mb-0 trip-route-table">
                         <thead class="table-light">
                             <tr>
-                                <th>#</th>
-                                <th>From</th>
-                                <th>To Station *</th>
+                                <th class="trip-route-index-col">#</th>
+                                <th class="trip-route-from-col">From</th>
+                                <th class="trip-route-to-col">To Station *</th>
                                 <th class="trip-route-customer-col">Customer</th>
-                                <th class="trip-route-weight-cell">Weight (In Ton)</th>
-                                <th class="trip-route-rate-col">Freight Rate (per ton)</th>
-                                <th class="trip-route-freight-col">Freight ₹</th>
+                                <th class="trip-route-weight-col">Weight (Ton)</th>
                                 <th class="trip-route-mileage-col">Expected Mileage</th>
+                                <th class="trip-route-rate-col">Freight Rate (₹/Ton)</th>
+                                <th class="trip-route-freight-col">Freight ₹</th>
                                 <th v-if="!isFormLocked" class="trip-route-delete-col"></th>
                             </tr>
                         </thead>
@@ -592,38 +622,84 @@
                                     </div>
                                     <span v-else>{{ partyLabel(customers, leg.customer_id) }}</span>
                                 </td>
-                                <td class="trip-route-weight-cell">
-                                    <input
-                                        v-if="!isFormLocked"
-                                        v-model.number="leg.weight_ton"
-                                        v-no-scroll-change
-                                        type="number"
-                                        min="0"
-                                        step="0.001"
-                                        class="form-control form-control-sm"
-                                        :class="{ 'is-invalid': legFieldError(index, 'weight_ton') }"
-                                        placeholder="In Ton"
-                                        @input="onLegWeightInput(index)"
-                                    />
-                                    <span v-else>{{ leg.weight_ton ? formatNum(leg.weight_ton) : '—' }}</span>
-                                    <div v-if="legFieldError(index, 'weight_ton')" class="invalid-feedback d-block">
-                                        {{ legFieldError(index, 'weight_ton') }}
+                                <td class="trip-route-weight-col">
+                                    <div class="trip-route-weight-field">
+                                        <span
+                                            class="trip-route-load-tag"
+                                            :class="`trip-route-load-tag--${legLoadMeta(leg.weight_ton).category}`"
+                                        >
+                                            {{ legLoadMeta(leg.weight_ton).label }}
+                                        </span>
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="leg.weight_ton"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.001"
+                                            class="form-control form-control-sm trip-route-weight-input"
+                                            :class="{ 'is-invalid': legFieldError(index, 'weight_ton') }"
+                                            placeholder="Ton"
+                                            @input="onLegWeightInput(index)"
+                                        />
+                                        <span v-else class="trip-route-weight-readonly">
+                                            {{ leg.weight_ton ? formatNum(leg.weight_ton) : '—' }}
+                                        </span>
+                                        <div v-if="legFieldError(index, 'weight_ton')" class="invalid-feedback d-block">
+                                            {{ legFieldError(index, 'weight_ton') }}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="trip-route-mileage-col">
+                                    <div class="trip-route-num-field">
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="leg.expected_mileage_km_per_liter"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="form-control form-control-sm trip-route-num-input"
+                                            :class="{ 'is-invalid': legFieldError(index, 'expected_mileage_km_per_liter') }"
+                                            placeholder="KM/Lt"
+                                        />
+                                        <span v-else class="trip-route-num-readonly">
+                                            {{
+                                                leg.expected_mileage_km_per_liter
+                                                    ? `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`
+                                                    : '—'
+                                            }}
+                                        </span>
+                                        <div
+                                            v-if="legFieldError(index, 'expected_mileage_km_per_liter')"
+                                            class="invalid-feedback d-block"
+                                        >
+                                            {{ legFieldError(index, 'expected_mileage_km_per_liter') }}
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="trip-route-rate-col">
-                                    <input
-                                        v-if="!isFormLocked"
-                                        v-model.number="leg.freight_rate"
-                                        v-no-scroll-change
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        class="form-control form-control-sm"
-                                        :disabled="Number(leg.weight_ton ?? 0) <= 0"
-                                        placeholder="₹ per ton"
-                                        @input="onLegRateInput(index)"
-                                    />
-                                    <span v-else>{{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}</span>
+                                    <div class="trip-route-num-field">
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="leg.freight_rate"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="form-control form-control-sm trip-route-num-input"
+                                            :class="{ 'is-invalid': legFieldError(index, 'freight_rate') }"
+                                            :disabled="Number(leg.weight_ton ?? 0) <= 0"
+                                            placeholder="₹/Ton"
+                                            @input="onLegRateInput(index)"
+                                        />
+                                        <span v-else class="trip-route-num-readonly">
+                                            {{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}
+                                        </span>
+                                        <div v-if="legFieldError(index, 'freight_rate')" class="invalid-feedback d-block">
+                                            {{ legFieldError(index, 'freight_rate') }}
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="trip-route-freight-col">
                                     <div v-if="!isFormLocked" class="d-flex flex-column gap-1">
@@ -650,26 +726,13 @@
                                     </div>
                                     <span v-else>₹{{ formatMoney(leg.freight_amount) }}</span>
                                 </td>
-                                <td class="trip-route-mileage-col">
-                                    <input
-                                        v-if="!isFormLocked"
-                                        v-model.number="leg.expected_mileage_km_per_liter"
-                                        v-no-scroll-change
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        class="form-control form-control-sm"
-                                        placeholder="KM/Ltr"
-                                    />
-                                    <span v-else>
-                                        {{ leg.expected_mileage_km_per_liter ? formatNum(leg.expected_mileage_km_per_liter) : '—' }}
-                                    </span>
-                                </td>
                                 <td v-if="!isFormLocked" class="trip-route-delete-col">
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-outline-danger"
-                                        @click="$emit('remove-route-leg', index)"
+                                        :disabled="isStopRemoveBlocked(index)"
+                                        :title="stopRemoveTitle(index)"
+                                        @click="handleRemoveRouteLeg(index)"
                                     >
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -683,16 +746,20 @@
             <div class="card-body p-0 border-top">
                 <div class="km-summary-bar">
                     <div>
-                        <div class="small text-muted">Loaded Stops</div>
-                        <strong class="text-success">{{ summary.loadedStops }}</strong>
+                        <div class="small text-muted">Full Load Stops</div>
+                        <strong class="text-success">{{ summary.fullLoadStops }}</strong>
+                    </div>
+                    <div>
+                        <div class="small text-muted">Half Load Stops</div>
+                        <strong class="text-warning">{{ summary.halfLoadStops }}</strong>
                     </div>
                     <div>
                         <div class="small text-muted">Empty Stops</div>
                         <strong class="text-secondary">{{ summary.emptyStops }}</strong>
                     </div>
                     <div>
-                        <div class="small text-muted">Expected Avg Mileage</div>
-                        <strong>{{ expectedAvgMileageDisplay }}</strong>
+                        <div class="small text-muted">Avg Expected Mileage</div>
+                        <strong>{{ expectedMileageDisplay }}</strong>
                     </div>
                     <div>
                         <div class="small text-muted">Total KM</div>
@@ -708,8 +775,8 @@
 
         <TripDieselPerformanceCard :performance="dieselPerformance" />
 
-        <div class="card mb-4 trip-expenses-card">
-            <div class="card-header trip-expenses-card__header text-white">
+        <div v-if="showExpenses" class="card mb-4 trip-expenses-card">
+            <div class="card-header bg-gradient-primary trip-expenses-card__header">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <div>
                         <h3 class="card-title mb-0">
@@ -727,9 +794,13 @@
                     :expenses="form.expenses"
                     :route-legs="form.route_legs"
                     :stations="stations"
+                    :max-load-ton="form.max_load_ton"
                     :readonly="readonly"
                     :trip-start-date="form.start_at"
                     :trip-end-date="form.end_at"
+                    :trip-start-meter-km="form.start_meter_reading_km"
+                    :trip-end-meter-km="form.end_meter_reading_km"
+                    :field-errors="fieldErrors"
                     @add-expense="$emit('add-expense', $event)"
                     @remove-expense="$emit('remove-expense', $event)"
                 />
@@ -776,10 +847,14 @@ import { computed, ref, useSlots, watch } from 'vue';
 import {
     calculateLegFreight,
     computeDieselPerformance,
+    legLoadCategoryMeta,
+    stopHasExpenses,
     summarizeTripForm,
     tripStatusMeta,
     tripTypeLabel,
 } from '../../api/trips';
+import { useAppToast } from '../../composables/useAppToast';
+import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
 import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 import SearchablePicker from '../ui/SearchablePicker.vue';
@@ -812,13 +887,20 @@ const props = defineProps({
     primaryDriverName: { type: String, default: '' },
     statusLocked: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
-    expensesOnlyEdit: { type: Boolean, default: false },
+    showExpenses: { type: Boolean, default: false },
+    expenseTotalsBySequence: { type: Object, default: () => ({}) },
     canQuickAddStation: { type: Boolean, default: false },
     canQuickAddBroker: { type: Boolean, default: false },
     canQuickAddCustomer: { type: Boolean, default: false },
     vehicleOdometerKm: { type: [Number, String], default: '' },
+    vehicleDefaultMileage: { type: [Number, String], default: '' },
     vehicleExpectedMileage: { type: [Number, String], default: '' },
+    vehicleMaxLoad: { type: [Number, String], default: '' },
 });
+
+const vehicleDefaultMileageResolved = computed(
+    () => props.vehicleDefaultMileage || props.vehicleExpectedMileage || '',
+);
 
 const emit = defineEmits([
     'add-stop',
@@ -837,8 +919,9 @@ const emit = defineEmits([
 ]);
 
 const slots = useSlots();
+const toast = useAppToast();
 
-const isFormLocked = computed(() => props.readonly || props.expensesOnlyEdit);
+const isFormLocked = computed(() => props.readonly);
 
 const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
@@ -847,25 +930,40 @@ const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
-const masterExpectedMileage = ref('');
 
 const summary = computed(() => summarizeTripForm(props.form));
 
 const dieselPerformance = computed(() =>
     computeDieselPerformance({
-        routeLegs: props.form.route_legs,
-        expectedDieselLiters: props.form.expected_diesel_liters,
+        plannedMileageKmPerLiter: props.form.planned_mileage_km_per_liter,
+        plannedDieselLiters: props.form.planned_diesel_liters,
         dieselRatePerLiter: props.form.diesel_rate_per_liter,
         actualTotalKm: summary.value.totalKm,
     }),
 );
 
-const expectedAvgMileageDisplay = computed(() => {
-    if (summary.value.expectedAvgMileage == null) {
+const expectedMileageDisplay = computed(() => {
+    if (summary.value.expectedMileage == null) {
         return '—';
     }
 
-    return `${formatNum(summary.value.expectedAvgMileage)} KM/Ltr`;
+    return `${formatNum(summary.value.expectedMileage)} KM/Ltr`;
+});
+
+const plannedMileageDisplay = computed(() => {
+    const value = props.form.planned_mileage_km_per_liter;
+
+    if (value === '' || value == null) {
+        return '—';
+    }
+
+    const mileage = Number(value);
+
+    if (!Number.isFinite(mileage) || mileage <= 0) {
+        return '—';
+    }
+
+    return `${formatNum(mileage)} KM/Ltr`;
 });
 
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
@@ -913,16 +1011,43 @@ const tripDetailsHeaderTitle = computed(() => {
         return 'Create Trip';
     }
 
-    if (props.expensesOnlyEdit) {
-        return 'Edit Trip Expenses';
-    }
-
     if (props.readonly || props.statusLocked) {
         return 'View Trip';
     }
 
     return 'Edit Trip';
 });
+
+function isStopRemoveBlocked(index) {
+    const sequence = index + 1;
+
+    return stopHasExpenses(props.expenseTotalsBySequence, sequence);
+}
+
+function stopRemoveTitle(index) {
+    if (!isStopRemoveBlocked(index)) {
+        return 'Remove stop';
+    }
+
+    const sequence = index + 1;
+    const total = props.expenseTotalsBySequence[sequence] ?? 0;
+
+    return `Stop ${sequence} has ₹${formatMoney(total)} expenses. Clear them on Trip Expenses first.`;
+}
+
+function handleRemoveRouteLeg(index) {
+    if (isStopRemoveBlocked(index)) {
+        const sequence = index + 1;
+        const total = props.expenseTotalsBySequence[sequence] ?? 0;
+        toast.error(
+            `Stop ${sequence} has ₹${formatMoney(total)} expenses. Remove them from Trip Expenses first.`,
+        );
+
+        return;
+    }
+
+    emit('remove-route-leg', index);
+}
 
 const headerMetaText = computed(() => {
     if (props.mode === 'edit') {
@@ -1137,20 +1262,6 @@ const routeSectionTitle = computed(() => (isRoundTrip.value ? 'Round Trip Route'
 
 const truckRunningMeterDisplay = computed(() => formatMeterKm(props.vehicleOdometerKm));
 
-const masterExpectedMileageDisplay = computed(() => {
-    if (masterExpectedMileage.value === '' || masterExpectedMileage.value == null) {
-        return '—';
-    }
-
-    const value = Number(masterExpectedMileage.value);
-
-    if (!Number.isFinite(value) || value <= 0) {
-        return '—';
-    }
-
-    return `${formatNum(value)} KM/Ltr`;
-});
-
 const startMeterDisplay = computed(() => {
     const value = props.form.start_meter_reading_km;
 
@@ -1260,6 +1371,10 @@ function applyLegFreightAuto(index) {
     leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
 }
 
+function legLoadMeta(weightTon) {
+    return legLoadCategoryMeta(weightTon, props.form.max_load_ton);
+}
+
 function onLegWeightInput(index) {
     const leg = props.form.route_legs[index];
     const weight = Number(leg?.weight_ton ?? 0);
@@ -1292,46 +1407,44 @@ function onLegFreightManualInput(index) {
     }
 }
 
-function applyMasterMileageToLegs({ allLegs = false } = {}) {
-    const mileage = Number(masterExpectedMileage.value);
-
-    if (!Number.isFinite(mileage) || mileage <= 0) {
+function syncAutoPlannedDiesel() {
+    if (props.form.planned_diesel_manually_set || isFormLocked.value) {
         return;
     }
 
-    props.form.route_legs.forEach((leg) => {
-        if (allLegs || leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null) {
-            leg.expected_mileage_km_per_liter = mileage;
-        }
-    });
-}
+    const runningKm = calculateExpectedRunningKm(
+        props.form.start_meter_reading_km,
+        props.form.end_meter_reading_km || props.form.start_meter_reading_km,
+    );
 
-function initMasterMileageFromLegs() {
-    const leg = props.form.route_legs.find((item) => {
-        const value = item.expected_mileage_km_per_liter;
-
-        return value !== '' && value != null && Number(value) > 0;
-    });
-
-    if (leg) {
-        masterExpectedMileage.value = Number(leg.expected_mileage_km_per_liter);
-
+    if (runningKm === null) {
         return;
     }
 
-    const truckMileage = Number(props.vehicleExpectedMileage ?? 0);
+    const plannedDiesel = calculatePlannedDiesel(runningKm, props.form.planned_mileage_km_per_liter);
 
-    if (Number.isFinite(truckMileage) && truckMileage > 0) {
-        masterExpectedMileage.value = truckMileage;
+    if (plannedDiesel !== null) {
+        props.form.planned_diesel_liters = plannedDiesel;
     }
 }
 
-function onMasterMileageInput() {
-    applyMasterMileageToLegs({ allLegs: true });
+function onPlannedMileageInput() {
+    syncAutoPlannedDiesel();
+}
+
+function onPlannedDieselInput() {
+    props.form.planned_diesel_manually_set = true;
 }
 
 watch(
-    () => props.vehicleExpectedMileage,
+    () => [props.form.start_meter_reading_km, props.form.end_meter_reading_km, props.form.planned_mileage_km_per_liter],
+    () => {
+        syncAutoPlannedDiesel();
+    },
+);
+
+watch(
+    () => vehicleDefaultMileageResolved.value,
     (value) => {
         if (props.mode !== 'create') {
             return;
@@ -1343,25 +1456,34 @@ watch(
 
         const mileage = Number(value);
 
-        if (!Number.isFinite(mileage) || mileage <= 0) {
+        if (!Number.isFinite(mileage) || mileage < 0) {
             return;
         }
 
-        masterExpectedMileage.value = mileage;
-        applyMasterMileageToLegs({ allLegs: true });
+        props.form.planned_mileage_km_per_liter = mileage;
+        syncAutoPlannedDiesel();
     },
 );
 
 watch(
-    () => props.form.route_legs.length,
-    () => {
-        if (masterExpectedMileage.value === '' || masterExpectedMileage.value == null) {
-            initMasterMileageFromLegs();
+    () => props.vehicleMaxLoad,
+    (value) => {
+        if (props.mode !== 'create') {
+            return;
         }
 
-        applyMasterMileageToLegs({ allLegs: false });
+        if (value === '' || value == null) {
+            return;
+        }
+
+        const maxLoad = Number(value);
+
+        if (!Number.isFinite(maxLoad) || maxLoad < 0) {
+            return;
+        }
+
+        props.form.max_load_ton = maxLoad;
     },
-    { immediate: true },
 );
 
 function formatNum(value) {
@@ -1459,7 +1581,6 @@ defineExpose({
 
 <style scoped>
 .trip-expenses-card__header {
-    background: var(--brand-primary) !important;
     padding: 14px 18px;
 }
 .trip-expenses-card__subtitle {
@@ -1504,6 +1625,18 @@ defineExpose({
 .trip-details-row--five {
     grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+.trip-details-row--five-compact {
+    grid-template-columns: minmax(6.5rem, 0.6fr) minmax(5.5rem, 0.55fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+}
+.trip-details-row__field--compact .form-label {
+    font-size: 0.8125rem;
+    line-height: 1.25;
+}
+.trip-details-row__compact-hint {
+    font-size: 0.7rem;
+    line-height: 1.25;
+    margin-top: 0.2rem;
+}
 .trip-details-row > * {
     min-width: 0;
 }
@@ -1524,33 +1657,50 @@ defineExpose({
     width: 100%;
     max-width: 100%;
 }
-.trip-route-weight-cell {
-    min-width: 96px;
-    width: 110px;
+.trip-route-table {
+    table-layout: auto;
+    width: 100%;
+    min-width: 1020px;
 }
-.trip-route-weight-cell .form-control-sm {
-    min-width: 0;
+.trip-route-index-col {
+    width: 2rem;
+}
+.trip-route-from-col {
+    min-width: 7.5rem;
+}
+.trip-route-to-col {
+    min-width: 10rem;
 }
 .trip-route-customer-col {
-    min-width: 200px;
+    min-width: 11rem;
 }
-.trip-route-rate-col,
-.trip-route-freight-col {
-    min-width: 118px;
+.trip-route-weight-col {
+    width: 7.5rem;
+}
+.trip-route-weight-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+.trip-route-weight-input,
+.trip-route-weight-readonly {
+    width: 100%;
 }
 .trip-route-mileage-col {
-    min-width: 56px;
-    width: 68px;
-    max-width: 83px;
+    width: 6.75rem;
+    min-width: 6.75rem;
 }
-.trip-route-mileage-col .form-control-sm {
-    min-width: 0;
-    padding-left: 0.3rem;
-    padding-right: 0.3rem;
-    text-align: center;
+.trip-route-rate-col {
+    width: 7.25rem;
+    min-width: 7.25rem;
+}
+.trip-route-freight-col {
+    width: 9rem;
+    min-width: 9rem;
 }
 .trip-route-delete-col {
-    width: 44px;
+    width: 2.75rem;
 }
 .trip-route-table .leg-customer-cell {
     min-width: 0;
@@ -1614,6 +1764,10 @@ defineExpose({
 }
 @media (max-width: 992px) {
     .trip-details-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .trip-details-row--five-compact {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

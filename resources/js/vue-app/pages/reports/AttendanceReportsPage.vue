@@ -17,11 +17,11 @@
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
             <div>
                 <label class="form-label" for="from_date">From Date</label>
-                <input id="from_date" v-model="filters.from_date" type="date" class="form-control" />
+                <AppDateInput input-id="from_date" v-model="filters.from_date" />
             </div>
             <div>
                 <label class="form-label" for="to_date">To Date</label>
-                <input id="to_date" v-model="filters.to_date" type="date" class="form-control" />
+                <AppDateInput input-id="to_date" v-model="filters.to_date" />
             </div>
             <div>
                 <label class="form-label" for="vehicle_id">Truck</label>

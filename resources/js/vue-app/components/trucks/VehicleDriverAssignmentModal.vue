@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="bi bi-person-badge"></i>
                         Driver Assignment — {{ vehicleLabel }}
@@ -117,16 +117,13 @@
                                 </div>
                                 <div :class="editingClosedAssignment ? 'col-md-4' : 'col-md-6'">
                                     <label class="form-label" for="assign_from">Effective From *</label>
-                                    <input
-                                        id="assign_from"
+                                    <AppDateInput
+                                        input-id="assign_from"
                                         v-model="assignForm.assigned_from"
-                                        type="date"
-                                        class="form-control"
-                                        :class="{
-                                            'is-invalid':
-                                                hasFieldError(fieldErrors, 'assigned_from') ||
-                                                hasFieldError(fieldErrors, 'vehicle_id'),
-                                        }"
+                                        :invalid="
+                                            hasFieldError(fieldErrors, 'assigned_from') ||
+                                            hasFieldError(fieldErrors, 'vehicle_id')
+                                        "
                                         required
                                     />
                                     <div
@@ -144,12 +141,10 @@
                                 </div>
                                 <div v-if="editingClosedAssignment" class="col-md-4">
                                     <label class="form-label" for="assign_to">Effective To</label>
-                                    <input
-                                        id="assign_to"
+                                    <AppDateInput
+                                        input-id="assign_to"
                                         v-model="assignForm.assigned_to"
-                                        type="date"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': hasFieldError(fieldErrors, 'assigned_to') }"
+                                        :invalid="hasFieldError(fieldErrors, 'assigned_to')"
                                     />
                                     <div
                                         v-if="fieldErrorMessage(fieldErrors, 'assigned_to')"

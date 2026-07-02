@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="bi bi-calendar-range"></i>
                         Bulk Mark Attendance
@@ -40,22 +40,18 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_from`" class="form-label">From *</label>
-                                <input
-                                    :id="`${modalId}_from`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_from`"
                                     v-model="form.from_date"
-                                    type="date"
-                                    class="form-control"
                                     :max="today"
                                     required
                                 />
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_to`" class="form-label">To *</label>
-                                <input
-                                    :id="`${modalId}_to`"
+                                <AppDateInput
+                                    :input-id="`${modalId}_to`"
                                     v-model="form.to_date"
-                                    type="date"
-                                    class="form-control"
                                     :max="today"
                                     required
                                 />

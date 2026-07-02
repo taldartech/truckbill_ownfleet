@@ -82,13 +82,12 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { listAllStations } from '../../api/stations';
 import {
     fetchTrip,
     tripAllowedNextStatuses,
     tripStatusMeta,
     updateTrip,
-    validateTripPayload,
+    validateTripStatusChange,
 } from '../../api/trips';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -105,13 +104,12 @@ const emit = defineEmits(['updated']);
 
 const toast = useAppToast();
 const { applyApiError } = useApiFormErrors();
-const { form, populateFromTrip, buildPayload } = useTripForm();
+const { form, populateFromTrip, buildStatusChangePayload } = useTripForm();
 
 const saving = ref(false);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
-const stations = ref([]);
 const truckRunningMeterKm = ref('');
 
 const statusMeta = computed(() => tripStatusMeta(props.trip.status));
@@ -154,10 +152,6 @@ function statusActionIcon(status) {
 }
 
 async function ensureTripLoaded() {
-    if (stations.value.length === 0) {
-        stations.value = await listAllStations();
-    }
-
     const fullTrip = await fetchTrip(props.trip.id);
     populateFromTrip(fullTrip);
     originalStatus.value = fullTrip.status ?? 'CREATED';
@@ -167,18 +161,13 @@ async function ensureTripLoaded() {
 }
 
 async function saveStatusChange(successLabel) {
-    const payload = buildPayload(stations.value, { mode: 'edit' });
-    const clientErrors = validateTripPayload(
-        {
-            ...payload,
-            start_meter_reading_km: form.start_meter_reading_km,
-            truck_running_meter_km: truckRunningMeterKm.value,
-        },
-        {
-            mode: 'edit',
-            previousStatus: originalStatus.value,
-        },
-    );
+    const payload = buildStatusChangePayload();
+    const clientErrors = validateTripStatusChange(payload, {
+        tripType: form.trip_type,
+        routeLegs: form.route_legs,
+        startStationId: form.start_station_id,
+        previousStatus: originalStatus.value,
+    });
 
     if (Object.keys(clientErrors).length > 0) {
         const firstError = Object.values(clientErrors).flat()[0] ?? 'Could not update trip status.';

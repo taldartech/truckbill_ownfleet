@@ -9,7 +9,7 @@
     >
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-gradient-primary">
                     <h5 :id="`${modalId}Label`" class="modal-title">
                         <i class="bi bi-truck"></i>
                         {{ isEdit ? 'Edit Truck' : 'Add Truck' }}
@@ -98,6 +98,41 @@
                                 />
                                 <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
                                     {{ props.fieldErrors.odometer_km[0] }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/Ltr)</label>
+                                <input
+                                    :id="`${modalId}_default_mileage`"
+                                    v-model="form.default_mileage_km_per_liter"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.default_mileage_km_per_liter }"
+                                />
+                                <div v-if="props.fieldErrors.default_mileage_km_per_liter" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.default_mileage_km_per_liter[0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="`${modalId}_max_load`" class="form-label">Max Load (Ton)</label>
+                                <input
+                                    :id="`${modalId}_max_load`"
+                                    v-model="form.max_load_ton"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.001"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.max_load_ton }"
+                                />
+                                <div v-if="props.fieldErrors.max_load_ton" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.max_load_ton[0] }}
                                 </div>
                             </div>
                         </div>
@@ -251,6 +286,8 @@ function emptyForm() {
         model: '',
         manufacture_year: '',
         odometer_km: '0',
+        default_mileage_km_per_liter: '',
+        max_load_ton: '',
     };
 }
 
@@ -268,6 +305,12 @@ function fillForm(vehicle) {
         model: vehicle?.model ?? '',
         manufacture_year: vehicle?.manufacture_year ? String(vehicle.manufacture_year) : '',
         odometer_km: vehicle?.odometer_km !== undefined ? String(vehicle.odometer_km) : '0',
+        default_mileage_km_per_liter:
+            vehicle?.default_mileage_km_per_liter != null && vehicle?.default_mileage_km_per_liter !== ''
+                ? String(vehicle.default_mileage_km_per_liter)
+                : '',
+        max_load_ton:
+            vehicle?.max_load_ton != null && vehicle?.max_load_ton !== '' ? String(vehicle.max_load_ton) : '',
     };
 }
 
@@ -346,6 +389,12 @@ function submit() {
         model: form.value.model || null,
         manufacture_year: form.value.manufacture_year ? Number(form.value.manufacture_year) : null,
         odometer_km: form.value.odometer_km === '' ? 0 : Number(form.value.odometer_km),
+        default_mileage_km_per_liter:
+            form.value.default_mileage_km_per_liter === '' || form.value.default_mileage_km_per_liter == null
+                ? 0
+                : Number(form.value.default_mileage_km_per_liter),
+        max_load_ton:
+            form.value.max_load_ton === '' || form.value.max_load_ton == null ? 0 : Number(form.value.max_load_ton),
     });
 }
 </script>
