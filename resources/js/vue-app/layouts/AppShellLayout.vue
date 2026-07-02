@@ -27,6 +27,7 @@ import AppToastHost from '../components/ui/AppToastHost.vue';
 import { adminNavigation } from '../config/adminNavigation';
 import { useAdminLtePushMenu } from '../composables/useAdminLtePushMenu';
 import { useFilteredNavigation } from '../composables/useFilteredNavigation';
+import { initBootstrapModalCleanup } from '../utils/bootstrapModal';
 
 const router = useRouter();
 const user = ref(window.__AUTH_USER__ ?? null);
@@ -57,6 +58,8 @@ function onUserUpdated(updatedUser) {
 }
 
 onMounted(async () => {
+    initBootstrapModalCleanup();
+
     if (user.value) {
         return;
     }

@@ -165,6 +165,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllVehicles } from '../../api/vehicles';
 import { mergeLookupOption } from '../../utils/mergeLookupOption';
@@ -182,7 +183,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -233,20 +237,16 @@ async function loadOptions() {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
             await loadOptions();
             fillForm(props.challan);
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

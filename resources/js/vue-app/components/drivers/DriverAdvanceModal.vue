@@ -142,6 +142,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { fetchDriverAdvanceLedger } from '../../api/driverAdvances';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { formatDate, toDateInputValue } from '../../utils/datetime';
 import { useAppToast } from '../../composables/useAppToast';
 
@@ -160,6 +161,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit', 'loaded']);
 
 const modalElement = ref(null);
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    onHidden: () => emit('close'),
+});
 const loading = ref(false);
 const balance = ref(0);
 const entries = ref([]);
@@ -222,20 +226,16 @@ async function submit() {
 watch(
     () => props.show,
     async (visible) => {
-        const Modal = window.bootstrap?.Modal;
-
-        if (!modalElement.value || !Modal) {
+        if (!modalElement.value) {
             return;
         }
-
-        const instance = Modal.getOrCreateInstance(modalElement.value);
 
         if (visible) {
             resetForm();
             await loadLedger();
-            instance.show();
+            showBootstrapModal();
         } else {
-            instance.hide();
+            hideBootstrapModal();
         }
     },
 );

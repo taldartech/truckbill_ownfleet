@@ -115,6 +115,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { fetchComplianceAlerts } from '../../api/dashboard';
 import { formatDate } from '../../utils/datetime';
 
@@ -132,7 +133,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'edit-document', 'edit-license']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    onHidden: () => emit('close'),
+});
 
 const loading = ref(false);
 const loadError = ref('');
@@ -144,19 +147,15 @@ const isEmpty = computed(() => documents.value.length === 0 && licenses.value.le
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: true });
         }
 
         if (visible) {
             await loadAlerts();
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

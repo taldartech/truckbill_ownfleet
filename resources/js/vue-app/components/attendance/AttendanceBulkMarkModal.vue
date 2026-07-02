@@ -104,6 +104,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { toDateInputValue } from '../../utils/datetime';
 
 const props = defineProps({
@@ -121,7 +122,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 
 const today = computed(() => toDateInputValue());
 
@@ -202,21 +206,17 @@ function driverLabel(driver) {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
             form.value.vehicle_id = props.defaultVehicleId || '';
             form.value.from_date = props.defaultFromDate || today.value;
             form.value.to_date = props.defaultFromDate || today.value;
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

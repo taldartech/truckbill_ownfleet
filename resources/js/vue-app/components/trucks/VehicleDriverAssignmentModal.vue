@@ -247,6 +247,7 @@ import {
 } from '../../api/driverAssignments';
 import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { toDateInputValue } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
@@ -265,7 +266,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'assigned']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 
 const loading = ref(false);
 const saving = ref(false);
@@ -531,12 +535,8 @@ async function refreshAssignmentState() {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
@@ -547,9 +547,9 @@ watch(
             await loadPrimaryAssignment();
             resetAssignForm();
             await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

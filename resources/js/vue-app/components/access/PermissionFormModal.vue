@@ -81,6 +81,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 
 const props = defineProps({
     modalId: { type: String, default: 'permissionFormModal' },
@@ -95,7 +96,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let modalInstance = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: 'static',
+    onHidden: () => emit('close'),
+});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -127,23 +131,16 @@ function submit() {
 
 watch(
     () => props.show,
-    async (visible) => {
+    (visible) => {
         if (!modalElement.value) {
             return;
         }
 
-        const { Modal } = await import('bootstrap');
-
-        if (!modalInstance) {
-            modalInstance = new Modal(modalElement.value, { backdrop: 'static' });
-            modalElement.value.addEventListener('hidden.bs.modal', () => emit('close'));
-        }
-
         if (visible) {
             resetForm();
-            modalInstance.show();
+            showBootstrapModal();
         } else {
-            modalInstance.hide();
+            hideBootstrapModal();
         }
     },
 );

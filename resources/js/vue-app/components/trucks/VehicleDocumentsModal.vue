@@ -217,6 +217,7 @@ import {
     updateVehicleDocument,
 } from '../../api/vehicleDocuments';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
@@ -237,7 +238,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 
 const documents = ref([]);
 const loading = ref(false);
@@ -343,21 +347,17 @@ function openInitialDocumentIfNeeded() {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
             resetDocForm();
             await loadDocuments();
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

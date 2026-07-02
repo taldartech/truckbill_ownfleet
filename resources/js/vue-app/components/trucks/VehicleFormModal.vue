@@ -216,6 +216,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { listAllTyreLayouts } from '../../api/tyreLayouts';
 import { listAllTruckTypes } from '../../api/truckTypes';
 import {
@@ -245,7 +246,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 const isEdit = computed(() => props.mode === 'edit');
 const form = ref(emptyForm());
 const tyreLayoutOptions = ref([]);
@@ -346,12 +350,8 @@ function onTruckTypeCreated(truckType) {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
@@ -359,11 +359,11 @@ watch(
             showTypeQuickAdd.value = false;
             fillForm(props.vehicle);
             await Promise.all([loadTyreLayoutOptions(), loadTruckTypes()]);
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
             localRegistrationError.value = '';
             showTypeQuickAdd.value = false;
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

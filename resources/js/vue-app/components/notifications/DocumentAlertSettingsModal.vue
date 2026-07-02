@@ -101,6 +101,7 @@
 
 <script setup>
 import { reactive, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { fetchDocumentAlertSettings, updateDocumentAlertSettings } from '../../api/documentAlertSettings';
 
 const props = defineProps({
@@ -113,7 +114,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    onHidden: () => emit('close'),
+});
 
 const loading = ref(false);
 const saving = ref(false);
@@ -130,19 +133,15 @@ const form = reactive({
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: true });
         }
 
         if (visible) {
             await loadSettings();
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

@@ -191,6 +191,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { buildVehicleSelectOptions, listAllVehicles } from '../../api/vehicles';
 import { buildMaintenanceServiceTypeSelectOptions, listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
 import SearchableSelect from '../ui/SearchableSelect.vue';
@@ -212,7 +213,11 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    focus: false,
+    onHidden: () => emit('close'),
+});
 
 const isEdit = computed(() => props.mode === 'edit');
 const today = computed(() => toDateInputValue());
@@ -391,20 +396,16 @@ watch(
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false, focus: false });
         }
 
         if (visible) {
             await loadOptions();
             fillForm(props.record);
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );

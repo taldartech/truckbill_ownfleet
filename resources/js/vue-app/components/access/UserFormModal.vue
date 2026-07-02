@@ -201,6 +201,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { listAllBranches } from '../../api/branches';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 
 const SUPER_ADMIN_ROLE_ID = 2;
 const MASTER_ADMIN_ROLE_ID = 1;
@@ -221,7 +222,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const modalElement = ref(null);
-let modalInstance = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: 'static',
+    onHidden: () => emit('close'),
+});
 
 const isEdit = computed(() => props.mode === 'edit');
 const isProtectedUser = computed(() => props.user?.is_protected === true);
@@ -341,19 +345,12 @@ watch(
             return;
         }
 
-        const { Modal } = await import('bootstrap');
-
-        if (!modalInstance) {
-            modalInstance = new Modal(modalElement.value, { backdrop: 'static' });
-            modalElement.value.addEventListener('hidden.bs.modal', () => emit('close'));
-        }
-
         if (visible) {
             resetForm();
             loadBranches();
-            modalInstance.show();
+            showBootstrapModal();
         } else {
-            modalInstance.hide();
+            hideBootstrapModal();
         }
     },
 );

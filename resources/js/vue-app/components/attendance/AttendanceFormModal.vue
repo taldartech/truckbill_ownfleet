@@ -102,6 +102,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import SearchableSelect from '../ui/SearchableSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
@@ -129,7 +130,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit', 'delete']);
 
 const modalElement = ref(null);
-let bootstrapModal = null;
+const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
+    backdrop: false,
+    onHidden: () => emit('close'),
+});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -318,20 +322,16 @@ function ensureContextFields() {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value || typeof window.bootstrap === 'undefined') {
+        if (!modalElement.value) {
             return;
-        }
-
-        if (!bootstrapModal) {
-            bootstrapModal = new window.bootstrap.Modal(modalElement.value, { backdrop: false });
         }
 
         if (visible) {
             contextError.value = '';
             fillForm(props.attendance);
-            bootstrapModal.show();
+            showBootstrapModal();
         } else {
-            bootstrapModal.hide();
+            hideBootstrapModal();
         }
     },
 );
