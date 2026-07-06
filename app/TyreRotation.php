@@ -25,6 +25,7 @@ class TyreRotation extends Model
         'reason',
         'cost',
         'km_at_rotation',
+        'created_by',
     ];
 
     protected function casts(): array

@@ -54,19 +54,29 @@ export async function listAllVehicles({ activeOnly = false } = {}) {
  * @param {Array<{ id: string, registration_number?: string, vehicle_type?: string, vehicle_type_label?: string, make?: string, model?: string, is_active?: boolean }>} vehicles
  */
 export function buildVehicleSelectOptions(vehicles) {
-    return (vehicles ?? []).map((vehicle) => {
-        const registration = vehicle.registration_number ?? '—';
-        const label = vehicle.is_active === false ? `${registration} (Inactive)` : registration;
+    return [...(vehicles ?? [])]
+        .sort((left, right) => {
+            const leftActive = left.is_active !== false;
+            const rightActive = right.is_active !== false;
 
-        return {
-            id: vehicle.id,
-            label,
-            hint: [vehicle.vehicle_type_label ?? vehicle.vehicle_type, vehicle.make, vehicle.model]
-                .filter(Boolean)
-                .join(' · '),
-            icon: 'bi bi-truck',
-        };
-    });
+            if (leftActive !== rightActive) {
+                return leftActive ? -1 : 1;
+            }
+
+            return String(left.registration_number ?? '').localeCompare(String(right.registration_number ?? ''));
+        })
+        .map((vehicle) => {
+            const registration = vehicle.registration_number ?? '—';
+            const inactive = vehicle.is_active === false;
+
+            return {
+                id: vehicle.id,
+                label: registration,
+                inactive,
+                badge: inactive ? '(Inactive)' : '',
+                searchText: registration,
+            };
+        });
 }
 
 export async function listVehicles({

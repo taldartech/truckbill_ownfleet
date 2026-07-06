@@ -243,7 +243,10 @@ class TripManagementTest extends TestCase
                 ],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km']);
+            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km'])
+            ->assertJsonFragment([
+                'Meter reading cannot be less than Trip Start Meter Reading (10000 KM).',
+            ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson("/api/trips/{$trip->id}", [
@@ -260,7 +263,10 @@ class TripManagementTest extends TestCase
                 ],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km']);
+            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km'])
+            ->assertJsonFragment([
+                'Meter reading cannot be greater than Trip End Meter Reading (10500 KM).',
+            ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson("/api/trips/{$trip->id}", [
@@ -278,6 +284,266 @@ class TripManagementTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.expenses.0.fuel_odometer_km', '10200.00');
+    }
+
+    public function test_diesel_expense_validation_rules(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '0.00');
+
+        $this->assertDatabaseCount('trip_expenses', 0);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1000,
+                        'fuel_liters' => 50,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km', 'expenses.0.fuel_rate']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 0,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_liters']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 5001,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_liters']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 12.222,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_liters']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 50,
+                        'fuel_rate' => 0,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_rate']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 50,
+                        'fuel_rate' => 1001,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_rate']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1,
+                        'fuel_liters' => 50,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100.5,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 99999,
+                        'fuel_liters' => 100,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.amount', '8500.00');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 3400,
+                        'fuel_liters' => 40,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1700,
+                        'fuel_liters' => 20,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '5100.00');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 425000,
+                        'fuel_liters' => 5000,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 12000,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.fuel_odometer_km', '12000.00');
+    }
+
+    public function test_legacy_diesel_expense_outside_meter_range_can_be_saved_when_unchanged(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        TripExpense::query()->create([
+            'tenant_id' => $tenant->id,
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Diesel->value,
+            'expense_date' => '2026-06-10',
+            'amount' => 8500,
+            'fuel_liters' => 100,
+            'fuel_rate' => 85,
+            'fuel_odometer_km' => 10600,
+            'currency' => 'INR',
+        ]);
+
+        $trip->update(['end_meter_reading_km' => 10500]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 8500,
+                        'fuel_liters' => 100,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10600,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.fuel_odometer_km', '10600.00');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 8500,
+                        'fuel_liters' => 100,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10650,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.fuel_odometer_km']);
+    }
+
+    public function test_diesel_expense_date_must_stay_within_trip_window(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $trip->update(['end_at' => '2026-06-05 20:00:00']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Diesel->value,
+                        'expense_date' => '2026-05-31',
+                        'amount' => 8500,
+                        'fuel_liters' => 100,
+                        'fuel_rate' => 85,
+                        'fuel_odometer_km' => 10100,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expenses.0.expense_date']);
     }
 
     public function test_trip_number_uses_branch_trip_sequence_start(): void
@@ -430,6 +696,9 @@ class TripManagementTest extends TestCase
                         'expense_type' => TripExpenseType::Diesel->value,
                         'expense_date' => '2026-06-10',
                         'amount' => 7200,
+                        'fuel_liters' => 80,
+                        'fuel_rate' => 90,
+                        'fuel_odometer_km' => 10100,
                         'route_leg_sequence' => 1,
                     ],
                 ],
@@ -754,7 +1023,16 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        TripExpense::query()->create([
+            'tenant_id' => $tenant->id,
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Toll->value,
+            'expense_date' => '2026-06-10',
+            'amount' => 500,
+            'currency' => 'INR',
+        ]);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/expense-summary');
@@ -1030,6 +1308,68 @@ class TripManagementTest extends TestCase
         $response->assertJsonPath('data.0.odometer_km', 1000);
         $response->assertJsonPath('data.0.selectable', true);
         $response->assertJsonPath('data.0.primary_driver_name', 'Trip Driver');
+    }
+
+    public function test_vehicle_for_trip_selection_lists_selectable_trucks_first(): void
+    {
+        [$tenant, $user, , $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+
+        $availableVehicle = Vehicle::query()->create([
+            ...$operationalAttributes,
+            'registration_number' => 'RJ27AV6000',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 500,
+            'created_at' => now()->subDay(),
+        ]);
+
+        DriverAssignment::query()->create([
+            ...$operationalAttributes,
+            'vehicle_id' => $availableVehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $scheduledVehicle = Vehicle::query()->create([
+            ...$operationalAttributes,
+            'registration_number' => 'RJ27AV9004',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 700,
+            'created_at' => now(),
+        ]);
+
+        $scheduledDriver = Driver::query()->create([
+            ...$operationalAttributes,
+            'name' => 'Scheduled Driver',
+            'phone' => '9876543299',
+            'daily_wage' => 900,
+            'is_active' => true,
+        ]);
+
+        DriverAssignment::query()->create([
+            ...$operationalAttributes,
+            'vehicle_id' => $scheduledVehicle->id,
+            'driver_id' => $scheduledDriver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $this->createSampleTrip($tenant, $scheduledVehicle, $scheduledDriver, $stations, '2026-06-01 08:00:00');
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/vehicles/for-trip-selection?'.http_build_query([
+                'search' => 'RJ27',
+                'include_ineligible' => 1,
+                'as_of_date' => '2026-06-01',
+            ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.registration_number', 'RJ27AV6000');
+        $response->assertJsonPath('data.0.selectable', true);
+        $response->assertJsonPath('data.1.registration_number', 'RJ27AV9004');
+        $response->assertJsonPath('data.1.selectable', false);
     }
 
     public function test_update_trip_prohibits_vehicle_and_driver_changes(): void
@@ -1568,6 +1908,56 @@ class TripManagementTest extends TestCase
             ->assertJsonValidationErrors(['end_at']);
     }
 
+    public function test_complete_trip_requires_start_date(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['start_at' => null]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::Completed->value,
+                'end_at' => '2026-06-11 20:00:00',
+                'actual_arrival_at' => '2026-06-11 20:00:00',
+                'end_meter_reading_km' => 10500,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['start_at']);
+    }
+
+    public function test_complete_trip_rejects_before_start_date(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-07-03 10:00:00');
+
+        try {
+            [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+            $this->actingAs($user);
+            $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+            $trip->update(['start_at' => '2026-07-11 08:00:00']);
+
+            $this->withHeader('X-Tenant-Id', $tenant->id)
+                ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+                ->assertOk();
+
+            $this->withHeader('X-Tenant-Id', $tenant->id)
+                ->putJson("/api/trips/{$trip->id}", [
+                    'status' => TripStatus::Completed->value,
+                    'end_at' => '2026-07-11 20:00:00',
+                    'actual_arrival_at' => '2026-07-11 20:00:00',
+                    'end_meter_reading_km' => 10500,
+                ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['status']);
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
     public function test_one_way_trip_skips_return_to_start_validation(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
@@ -1786,8 +2176,6 @@ class TripManagementTest extends TestCase
         array $stations,
         string $startAt = '2026-06-10 09:00:00',
     ): array {
-        $expenseDate = \Illuminate\Support\Carbon::parse($startAt)->toDateString();
-
         return [
             ...$this->requiredTripMeterFields(),
             'vehicle_id' => $vehicle->id,
@@ -1811,23 +2199,21 @@ class TripManagementTest extends TestCase
                     'freight_amount' => 0,
                 ],
             ],
-            'expenses' => [
-                [
-                    'expense_type' => TripExpenseType::Diesel->value,
-                    'expense_date' => $expenseDate,
-                    'amount' => 6000,
-                ],
-            ],
         ];
     }
 
     /**
      * @param  array<string, Station>  $stations
      */
-    private function createSampleTrip(Tenant $tenant, Vehicle $vehicle, Driver $driver, array $stations): Trip
-    {
+    private function createSampleTrip(
+        Tenant $tenant,
+        Vehicle $vehicle,
+        Driver $driver,
+        array $stations,
+        string $startAt = '2026-06-10 09:00:00',
+    ): Trip {
         TenantContext::setTenantId($tenant->id);
 
-        return app(TripService::class)->create($this->sampleTripPayload($vehicle, $driver, $stations));
+        return app(TripService::class)->create($this->sampleTripPayload($vehicle, $driver, $stations, $startAt));
     }
 }

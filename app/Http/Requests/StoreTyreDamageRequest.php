@@ -36,6 +36,12 @@ class StoreTyreDamageRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:2000'],
             'repair_cost' => ['nullable', 'numeric', 'min:0'],
             'is_repaired' => ['nullable', 'boolean'],
+            'expected_life_km' => [
+                Rule::requiredIf(fn () => $this->input('damage_type') === TyreDamageType::Recapped->value),
+                'nullable',
+                'numeric',
+                'min:1000',
+            ],
         ];
     }
 }

@@ -39,9 +39,6 @@
                 </div>
             </div>
 
-            <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-            <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
             <form novalidate @submit.prevent="handleSubmit">
                 <div class="card app-index-list-card role-permissions-toolbar-card mb-3">
                     <div class="card-body py-3">
@@ -180,13 +177,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchUserRole, syncRolePermissions } from '../../api/userRoles';
 import { listAllPermissions } from '../../api/permissions';
 import AppButton from '../../components/ui/AppButton.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
 
 const GROUP_LABELS = {
     access: 'Access Control',
@@ -219,6 +217,7 @@ const GROUP_ICONS = {
 };
 
 const route = useRoute();
+const toast = useAppToast();
 const { can } = usePermissions();
 const canManage = computed(() => can('roles.manage'));
 
@@ -231,7 +230,6 @@ const allPermissions = ref([]);
 const selectedIds = ref([]);
 const initialSelectedIds = ref([]);
 const searchQuery = ref('');
-const flash = reactive({ success: '', error: '' });
 
 const groupedPermissions = computed(() => {
     const groups = {};
@@ -333,11 +331,6 @@ function clearAll() {
     selectedIds.value = [];
 }
 
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
-
 function setSelection(ids) {
     selectedIds.value = [...ids];
     initialSelectedIds.value = [...ids];
@@ -346,8 +339,6 @@ function setSelection(ids) {
 async function loadData() {
     loading.value = true;
     clearErrors();
-    flash.success = '';
-    flash.error = '';
 
     try {
         const roleId = route.params.roleId;
@@ -360,7 +351,7 @@ async function loadData() {
         role.value = roleDetail;
         setSelection((roleDetail.permissions ?? []).map((permission) => permission.id));
     } catch {
-        showToast('Could not load role permissions.', 'error');
+        toast.error('Could not load role permissions.');
         allPermissions.value = [];
         role.value = null;
         setSelection([]);
@@ -376,17 +367,15 @@ async function handleSubmit() {
 
     saving.value = true;
     clearErrors();
-    flash.success = '';
-    flash.error = '';
 
     try {
         const updated = await syncRolePermissions(role.value.id, [...selectedIds.value]);
         role.value = updated;
         setSelection((updated.permissions ?? []).map((permission) => permission.id));
-        showToast('Role permissions updated.');
+        toast.success('Role permissions updated.');
     } catch (error) {
         if (!applyApiError(error, 'Unable to update role permissions.')) {
-            showToast('Unable to update role permissions.', 'error');
+            toast.error('Unable to update role permissions.');
         }
     } finally {
         saving.value = false;

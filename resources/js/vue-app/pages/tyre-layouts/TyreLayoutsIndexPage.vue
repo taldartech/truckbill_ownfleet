@@ -10,9 +10,6 @@
             Select a company and click <strong>Enter</strong> before managing tyre layouts.
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <AppIndexFiltersCard :active="filtersActive" @apply="loadLayouts(1)" @clear="clearFilters">
             <div>
                 <label class="form-label">Search</label>
@@ -127,10 +124,12 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Layout type *</label>
-                                    <select v-model="form.layout_type" class="form-select" required>
-                                        <option value="standard">Standard (steer + axles + spares)</option>
-                                        <option value="legacy_dual_rear">Legacy (front + dual rear + 1 spare)</option>
-                                    </select>
+                                    <AppSelect
+                                        v-model="form.layout_type"
+                                        :options="layoutTypeSelectOptions"
+                                        placeholder="Select layout type"
+                                        search-placeholder="Search type…"
+                                    />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Sort order</label>
@@ -194,7 +193,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     computePositionCount,
     createTyreLayout,
@@ -205,6 +204,7 @@ import {
     updateTyreLayout,
 } from '../../api/tyreLayouts';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -216,7 +216,9 @@ import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } = useRequireCompanyContext();
 const canManage = computed(() => canInCompany('tyre_layouts.manage'));
@@ -228,12 +230,16 @@ const search = ref('');
 const showModal = ref(false);
 const editing = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
-const flash = reactive({ success: '', error: '' });
 
 const form = ref(emptyForm());
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
 const filtersActive = computed(() => search.value.trim() !== '');
+
+const layoutTypeSelectOptions = [
+    { value: 'standard', label: 'Standard (steer + axles + spares)' },
+    { value: 'legacy_dual_rear', label: 'Legacy (front + dual rear + 1 spare)' },
+];
 
 function clearFilters() {
     search.value = '';
@@ -291,7 +297,6 @@ async function loadLayouts(page = pagination.currentPage) {
     }
 
     loading.value = true;
-    flash.error = '';
     try {
         guardCompanyContext();
         const result = await listTyreLayouts({
@@ -304,7 +309,7 @@ async function loadLayouts(page = pagination.currentPage) {
         syncFromMeta(result.meta, result.data.length);
     } catch (e) {
         handleCompanyContextError(e);
-        flash.error = e?.response?.data?.message ?? 'Could not load tyre layouts.';
+        toast.error(e?.response?.data?.message ?? 'Could not load tyre layouts.');
     } finally {
         loading.value = false;
     }
@@ -364,10 +369,10 @@ async function save() {
         const payload = buildPayload();
         if (editing.value) {
             await updateTyreLayout(editing.value.id, payload);
-            flash.success = 'Layout updated.';
+            toast.success('Layout updated.');
         } else {
             await createTyreLayout(payload);
-            flash.success = 'Layout created.';
+            toast.success('Layout created.');
         }
         showModal.value = false;
         await loadLayouts();
@@ -386,12 +391,14 @@ async function handleDelete(layout) {
     try {
         guardCompanyContext();
         await deleteTyreLayout(layout.id);
-        flash.success = 'Layout deleted.';
+        toast.success('Layout deleted.');
         await loadLayouts();
     } catch (e) {
-        flash.error = e?.response?.data?.errors?.tyre_layout?.[0]
+        toast.error(
+            e?.response?.data?.errors?.tyre_layout?.[0]
             ?? e?.response?.data?.message
-            ?? 'Could not delete layout.';
+            ?? 'Could not delete layout.',
+        );
     }
 }
 

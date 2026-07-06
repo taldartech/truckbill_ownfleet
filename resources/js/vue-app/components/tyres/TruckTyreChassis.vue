@@ -25,11 +25,32 @@
                     <div class="axle-tyres">
                         <div class="tyre-side tyre-side--left">
                             <template v-if="row.type === 'dual'">
-                                <TyreSlotNode :slot-data="row.left.outer" side-hint="L-Out" />
-                                <TyreSlotNode :slot-data="row.left.inner" side-hint="L-In" />
+                                <TyreSlotNode
+                                    :slot-data="row.left.outer"
+                                    side-hint="L-Out"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
+                                <TyreSlotNode
+                                    :slot-data="row.left.inner"
+                                    side-hint="L-In"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
                             </template>
                             <template v-else>
-                                <TyreSlotNode :slot-data="row.left" side-hint="L" />
+                                <TyreSlotNode
+                                    :slot-data="row.left"
+                                    side-hint="L"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
                             </template>
                         </div>
 
@@ -39,11 +60,32 @@
 
                         <div class="tyre-side tyre-side--right">
                             <template v-if="row.type === 'dual'">
-                                <TyreSlotNode :slot-data="row.right.inner" side-hint="R-In" />
-                                <TyreSlotNode :slot-data="row.right.outer" side-hint="R-Out" />
+                                <TyreSlotNode
+                                    :slot-data="row.right.inner"
+                                    side-hint="R-In"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
+                                <TyreSlotNode
+                                    :slot-data="row.right.outer"
+                                    side-hint="R-Out"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
                             </template>
                             <template v-else>
-                                <TyreSlotNode :slot-data="row.right" side-hint="R" />
+                                <TyreSlotNode
+                                    :slot-data="row.right"
+                                    side-hint="R"
+                                    :interactive="interactive"
+                                    :can-manage="canManage"
+                                    @install="emit('install', $event)"
+                                    @remove="emit('remove', $event)"
+                                />
                             </template>
                         </div>
                     </div>
@@ -66,6 +108,10 @@
                         :key="slot.position"
                         :slot-data="slot"
                         variant="spare"
+                        :interactive="interactive"
+                        :can-manage="canManage"
+                        @install="emit('install', $event)"
+                        @remove="emit('remove', $event)"
                     />
                 </div>
             </div>
@@ -83,7 +129,17 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    interactive: {
+        type: Boolean,
+        default: false,
+    },
+    canManage: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+const emit = defineEmits(['install', 'remove']);
 
 const layout = computed(() => buildTruckChassisLayout(props.positions));
 </script>

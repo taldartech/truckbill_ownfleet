@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Tyre extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [
@@ -25,7 +25,6 @@ class Tyre extends Model
         'size',
         'purchase_date',
         'purchase_cost',
-        'warranty_details',
         'warranty_valid_until',
         'warranty_km',
         'tyre_type',
@@ -36,6 +35,8 @@ class Tyre extends Model
         'scrap_notes',
         'scrap_sale_amount',
         'notes',
+        'last_inspection_at',
+        'last_tread_depth_mm',
     ];
 
     protected function casts(): array
@@ -51,6 +52,8 @@ class Tyre extends Model
             'tyre_type' => TyreType::class,
             'scrapped_at' => 'date',
             'scrap_sale_amount' => 'decimal:2',
+            'last_inspection_at' => 'date',
+            'last_tread_depth_mm' => 'decimal:2',
         ];
     }
 
@@ -77,5 +80,15 @@ class Tyre extends Model
     public function expenses(): HasMany
     {
         return $this->hasMany(TyreExpense::class);
+    }
+
+    public function inspections(): HasMany
+    {
+        return $this->hasMany(TyreInspection::class);
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(TyreAuditLog::class);
     }
 }

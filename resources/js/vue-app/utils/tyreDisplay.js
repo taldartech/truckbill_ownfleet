@@ -12,6 +12,14 @@ export const TYRE_TYPES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
+export const TYRE_SIZES = [
+    { value: '10.00-20', label: '10.00-20' },
+    { value: '295/90 R20', label: '295/90 R20' },
+    { value: '11R22.5', label: '11R22.5' },
+    { value: '12R22.5', label: '12R22.5' },
+    { value: '315/80 R22.5', label: '315/80 R22.5' },
+];
+
 export function formatTyreStatus(status) {
     return TYRE_STATUSES.find((item) => item.value === status)?.label ?? status ?? '—';
 }
@@ -37,8 +45,7 @@ export function hasTyreWarranty(tyre) {
 
     return Boolean(
         tyre.warranty_valid_until
-            || (tyre.warranty_km != null && Number(tyre.warranty_km) > 0)
-            || tyre.warranty_details?.trim(),
+            || (tyre.warranty_km != null && Number(tyre.warranty_km) > 0),
     );
 }
 
@@ -79,11 +86,7 @@ export function formatWarrantySummary(tyre) {
         parts.push(formatWarrantyKm(tyre.warranty_km));
     }
 
-    if (parts.length === 0 && tyre.warranty_details?.trim()) {
-        return tyre.warranty_details.trim();
-    }
-
-    return parts.join(' · ');
+    return parts.length > 0 ? parts.join(' · ') : '—';
 }
 
 export function formatWarrantyTooltip(tyre) {
@@ -91,13 +94,7 @@ export function formatWarrantyTooltip(tyre) {
         return 'No warranty on file';
     }
 
-    const lines = [formatWarrantySummary(tyre)];
-
-    if (tyre.warranty_details?.trim()) {
-        lines.push(tyre.warranty_details.trim());
-    }
-
-    return lines.filter(Boolean).join('\n');
+    return formatWarrantySummary(tyre);
 }
 
 const DAMAGE_TYPE_LABELS = {

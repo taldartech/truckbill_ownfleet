@@ -23,15 +23,12 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
-                                <SearchableSelect
+                                <VehicleSelect
                                     :input-id="`${modalId}_vehicle`"
                                     v-model="form.vehicle_id"
-                                    :items="vehicleSelectOptions"
+                                    :vehicles="baseVehicleOptions"
+                                    :lookup-vehicle="record?.vehicle ?? null"
                                     placeholder="Select truck"
-                                    search-placeholder="Search truck number…"
-                                    empty-message="No truck found."
-                                    item-icon-class="bi bi-truck"
-                                    attach-dropdown-to-body
                                     :disabled="lockVehicle"
                                     :invalid="Boolean(displayFieldErrors.vehicle_id)"
                                     :error-message="displayFieldErrors.vehicle_id?.[0] ?? ''"
@@ -54,7 +51,10 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label :for="`${modalId}_odometer_km`" class="form-label">Meter Reading (KM) *</label>
+                                <label :for="`${modalId}_odometer_km`" class="form-label">
+                                    Meter Reading (KM) *
+                                    
+                                </label>
                                 <input
                                     :id="`${modalId}_odometer_km`"
                                     v-model="form.odometer_km"
@@ -64,23 +64,24 @@
                                     step="0.01"
                                     class="form-control"
                                     :class="{ 'is-invalid': displayFieldErrors.odometer_km }"
+                                    placeholder="Enter meter reading at service"
                                     required
                                 />
+                                <div v-if="truckRunningMeterDisplay" class="form-text">
+                                    Truck Running: {{ truckRunningMeterDisplay }} km
+                                </div>
                                 <div v-if="displayFieldErrors.odometer_km" class="invalid-feedback d-block">
                                     {{ displayFieldErrors.odometer_km[0] }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_service_type`" class="form-label">Service Type *</label>
-                                <SearchableSelect
+                                <MaintenanceServiceTypeSelect
                                     :input-id="`${modalId}_service_type`"
                                     v-model="form.maintenance_service_type_id"
-                                    :items="serviceTypeSelectItems"
+                                    :service-types="serviceTypes"
+                                    :lookup-service-type="lookupServiceType"
                                     placeholder="Select type"
-                                    search-placeholder="Search service type…"
-                                    empty-message="No service type found."
-                                    item-icon-class="bi bi-wrench-adjustable"
-                                    attach-dropdown-to-body
                                     :invalid="Boolean(displayFieldErrors.maintenance_service_type_id)"
                                     :error-message="displayFieldErrors.maintenance_service_type_id?.[0] ?? ''"
                                 />
@@ -192,11 +193,12 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
-import { buildVehicleSelectOptions, listAllVehicles } from '../../api/vehicles';
-import { buildMaintenanceServiceTypeSelectOptions, listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
-import SearchableSelect from '../ui/SearchableSelect.vue';
+import { listAllVehicles } from '../../api/vehicles';
+import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
+import MaintenanceServiceTypeSelect from '../ui/MaintenanceServiceTypeSelect.vue';
+import VehicleSelect from '../ui/VehicleSelect.vue';
 import { addDaysToDateInput, toDateInputValue } from '../../utils/datetime';
-import { mergeLookupOption } from '../../utils/mergeLookupOption';
+import { resolveVehicleOdometer } from '../../utils/tyreStint';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -223,44 +225,41 @@ const isEdit = computed(() => props.mode === 'edit');
 const today = computed(() => toDateInputValue());
 const minNextDueDate = computed(() => dayAfter(form.value.service_date));
 const serviceTypes = ref([]);
-const serviceTypeSelectItems = computed(() =>
-    serviceTypeOptions.value.map((type) => ({
-        id: type.value,
-        label: type.label,
-        hint: type.subtitle ?? '',
-        code: type.subtitle ?? '',
-        icon: 'bi bi-wrench-adjustable',
-    })),
-);
-const serviceTypeOptions = computed(() => {
-    const options = buildMaintenanceServiceTypeSelectOptions(serviceTypes.value);
-
+const lookupServiceType = computed(() => {
     if (!props.record?.maintenance_service_type_id) {
-        return options;
+        return null;
     }
 
     const currentId = String(props.record.maintenance_service_type_id);
-    const hasCurrent = options.some((option) => option.value === currentId);
+    const hasCurrent = serviceTypes.value.some((type) => String(type.id) === currentId);
 
     if (hasCurrent) {
-        return options;
+        return null;
     }
 
-    return [
-        ...options,
-        {
-            value: currentId,
-            label: props.record.service_type_label ?? props.record.service_type ?? 'Selected type',
-        },
-    ];
+    return {
+        id: props.record.maintenance_service_type_id,
+        name: props.record.service_type_label ?? props.record.service_type ?? 'Selected type',
+        label: props.record.service_type_label ?? props.record.service_type ?? 'Selected type',
+    };
 });
 
 const baseVehicleOptions = ref([]);
+const truckRunningMeterDisplay = computed(() => {
+    if (!form.value.vehicle_id) {
+        return '';
+    }
+
+    const odometer = resolveVehicleOdometer(baseVehicleOptions.value, form.value.vehicle_id);
+
+    if (odometer === null || odometer === undefined) {
+        return '';
+    }
+
+    return Number(odometer).toLocaleString('en-IN');
+});
 const clientErrors = ref({});
 const clientFormError = ref('');
-const vehicleSelectOptions = computed(() =>
-    buildVehicleSelectOptions(mergeLookupOption(baseVehicleOptions.value, props.record?.vehicle ?? null)),
-);
 const displayFieldErrors = computed(() => ({
     ...clientErrors.value,
     ...props.fieldErrors,
@@ -337,7 +336,9 @@ async function loadOptions() {
 
 watch(
     () => form.value.vehicle_id,
-    () => clearClientFieldError('vehicle_id'),
+    () => {
+        clearClientFieldError('vehicle_id');
+    },
 );
 
 watch(

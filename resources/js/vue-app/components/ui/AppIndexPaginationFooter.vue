@@ -10,13 +10,14 @@
             <label class="small text-muted mb-0" :for="perPageInputId">Per page</label>
             <select
                 :id="perPageInputId"
+                class="form-select form-select-sm app-index-pagination__per-page"
                 :value="perPage"
-                class="form-select form-select-sm"
-                style="width: auto"
                 :disabled="loading"
-                @change="onPerPageSelect"
+                @change="onPerPageChange"
             >
-                <option v-for="size in perPageOptions" :key="size" :value="size">{{ size }}</option>
+                <option v-for="size in resolvedPerPageOptions" :key="size" :value="size">
+                    {{ size }}
+                </option>
             </select>
             <div v-if="lastPage > 1" class="btn-group btn-group-sm">
                 <button
@@ -93,7 +94,17 @@ const emit = defineEmits(['page-change', 'update:perPage']);
 
 const perPageInputId = computed(() => `${props.pageId}_per_page`);
 
-function onPerPageSelect(event) {
+const resolvedPerPageOptions = computed(() => {
+    const sizes = new Set(props.perPageOptions.map((size) => Number(size)));
+
+    if (props.perPage > 0) {
+        sizes.add(Number(props.perPage));
+    }
+
+    return [...sizes].sort((left, right) => left - right);
+});
+
+function onPerPageChange(event) {
     emit('update:perPage', Number(event.target.value));
 }
 </script>

@@ -11,7 +11,8 @@
                 <div class="toast-body">{{ toast.message }}</div>
                 <button
                     type="button"
-                    class="btn-close btn-close-white me-2 m-auto"
+                    class="btn-close me-2 m-auto"
+                    :class="{ 'btn-close-white': toast.type !== 'warning' }"
                     aria-label="Close"
                     @click="dismiss(toast.id)"
                 ></button>

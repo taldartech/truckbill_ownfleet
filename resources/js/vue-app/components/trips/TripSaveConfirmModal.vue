@@ -68,7 +68,9 @@
                                             </span>
                                         </div>
                                         <div v-if="field.changed && field.previousValue" class="trip-save-confirm-row__prev">
-                                            Was: {{ field.previousValue }}
+                                            <span class="trip-save-confirm-row__prev-value">{{ field.previousValue }}</span>
+                                            <i class="bi bi-arrow-right mx-1"></i>
+                                            <strong>{{ field.value }}</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -97,11 +99,10 @@
                                                         Updated
                                                     </span>
                                                 </div>
-                                                <div
-                                                    v-if="field.changed && field.previousValue"
-                                                    class="trip-save-confirm-row__prev"
-                                                >
-                                                    Was: {{ field.previousValue }}
+                                                <div v-if="field.changed && field.previousValue" class="trip-save-confirm-row__prev">
+                                                    <span class="trip-save-confirm-row__prev-value">{{ field.previousValue }}</span>
+                                                    <i class="bi bi-arrow-right mx-1"></i>
+                                                    <strong>{{ field.value }}</strong>
                                                 </div>
                                             </div>
                                             <div class="trip-save-confirm-route-preview">
@@ -150,11 +151,10 @@
                                                         Updated
                                                     </span>
                                                 </div>
-                                                <div
-                                                    v-if="field.changed && field.previousValue"
-                                                    class="trip-save-confirm-row__prev"
-                                                >
-                                                    Was: {{ field.previousValue }}
+                                                <div v-if="field.changed && field.previousValue" class="trip-save-confirm-row__prev">
+                                                    <span class="trip-save-confirm-row__prev-value">{{ field.previousValue }}</span>
+                                                    <i class="bi bi-arrow-right mx-1"></i>
+                                                    <strong>{{ field.value }}</strong>
                                                 </div>
                                             </div>
                                         </div>
@@ -202,7 +202,24 @@
                                                     Updated
                                                 </span>
                                             </td>
-                                            <td>{{ leg.from }} → {{ leg.to }}</td>
+                                            <td>
+                                                <div>{{ leg.from }} → {{ leg.to }}</div>
+                                                <div
+                                                    v-if="leg.changed && leg.fieldChanges?.length"
+                                                    class="trip-save-confirm-leg-changes"
+                                                >
+                                                    <div
+                                                        v-for="change in leg.fieldChanges"
+                                                        :key="`${leg.sequence}-${change.label}`"
+                                                        class="trip-save-confirm-leg-changes__item"
+                                                    >
+                                                        <span class="text-muted">{{ change.label }}:</span>
+                                                        <span>{{ change.previous }}</span>
+                                                        <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                                        <strong>{{ change.current }}</strong>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td>{{ leg.customer }}</td>
                                             <td class="text-end">{{ leg.weight }}</td>
                                             <td class="text-end">{{ leg.expectedMileage }}</td>
@@ -257,6 +274,44 @@
                                                 >
                                                     Updated
                                                 </span>
+                                                <div
+                                                    v-if="expense.changed && !expense.isNew"
+                                                    class="trip-save-confirm-expense-changes"
+                                                >
+                                                    <div
+                                                        v-if="expense.previousType && expense.previousType !== expense.type"
+                                                        class="trip-save-confirm-expense-changes__item"
+                                                    >
+                                                        <span class="text-muted">Type:</span>
+                                                        {{ expense.previousType }}
+                                                        <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                                        <strong>{{ expense.type }}</strong>
+                                                    </div>
+                                                    <div
+                                                        v-if="expense.previousDate && expense.previousDate !== expense.date"
+                                                        class="trip-save-confirm-expense-changes__item"
+                                                    >
+                                                        <span class="text-muted">Date:</span>
+                                                        {{ expense.previousDate }}
+                                                        <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                                        <strong>{{ expense.date }}</strong>
+                                                    </div>
+                                                    <div
+                                                        v-if="expense.previousLeg && expense.previousLeg !== expense.leg"
+                                                        class="trip-save-confirm-expense-changes__item"
+                                                    >
+                                                        <span class="text-muted">Stop:</span>
+                                                        {{ expense.previousLeg }}
+                                                        <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                                        <strong>{{ expense.leg }}</strong>
+                                                    </div>
+                                                    <div v-if="expense.previousAmount" class="trip-save-confirm-expense-changes__item">
+                                                        <span class="text-muted">Amount:</span>
+                                                        ₹{{ expense.previousAmount }}
+                                                        <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                                        <strong>₹{{ expense.amount }}</strong>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>{{ expense.date }}</td>
                                             <td>{{ expense.leg }}</td>
@@ -304,25 +359,41 @@
                     </div>
                 </div>
 
-                <div class="modal-footer border-0 justify-content-center gap-2 pb-4 pt-0">
+                <div class="modal-footer border-0 justify-content-center gap-2 pb-4 pt-0 flex-wrap">
                     <button type="button" class="btn btn-outline-secondary px-4" @click="$emit('cancel')">
                         <i class="bi bi-x-lg me-1"></i>
                         Cancel
                     </button>
                     <button
+                        v-if="summary.showExpensesAction"
+                        type="button"
+                        class="btn btn-outline-success px-4"
+                        :disabled="saving"
+                        @click="$emit('confirm', 'expenses')"
+                    >
+                        <span
+                            v-if="saving && confirmMode === 'expenses'"
+                            class="spinner-border spinner-border-sm me-1"
+                            role="status"
+                            aria-hidden="true"
+                        ></span>
+                        <i v-else class="bi bi-receipt me-1"></i>
+                        {{ summary.expensesActionLabel ?? 'Save & Add Expenses' }}
+                    </button>
+                    <button
                         type="button"
                         class="btn btn-success px-4 fw-semibold"
                         :disabled="saving"
-                        @click="$emit('confirm')"
+                        @click="$emit('confirm', 'index')"
                     >
                         <span
-                            v-if="saving"
+                            v-if="saving && confirmMode !== 'expenses'"
                             class="spinner-border spinner-border-sm me-1"
                             role="status"
                             aria-hidden="true"
                         ></span>
                         <i v-else class="bi bi-check-lg me-1"></i>
-                        Yes, Save Trip
+                        {{ summary.confirmLabel ?? 'Yes, Save Trip' }}
                     </button>
                 </div>
             </div>
@@ -337,6 +408,7 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     summary: { type: Object, required: true },
     saving: { type: Boolean, default: false },
+    confirmMode: { type: String, default: 'index' },
 });
 
 defineEmits(['cancel', 'confirm']);
@@ -509,8 +581,24 @@ const routePreviewParts = computed(() => {
 .trip-save-confirm-row__prev {
     width: 100%;
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: #64748b;
     text-align: right;
+}
+
+.trip-save-confirm-row__prev-value {
+    text-decoration: line-through;
+    color: #94a3b8;
+}
+
+.trip-save-confirm-leg-changes,
+.trip-save-confirm-expense-changes {
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+}
+
+.trip-save-confirm-leg-changes__item,
+.trip-save-confirm-expense-changes__item {
+    margin-top: 0.15rem;
 }
 
 .trip-save-confirm-route-preview {

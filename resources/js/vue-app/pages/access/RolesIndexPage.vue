@@ -2,9 +2,6 @@
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Role Management" />
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">Roles List</h3>
@@ -47,35 +44,30 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { listUserRoles } from '../../api/userRoles';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 
 const router = useRouter();
+const toast = useAppToast();
 const { can } = usePermissions();
 const canManage = computed(() => can('roles.manage'));
 
 const roles = ref([]);
 const loading = ref(true);
-const flash = reactive({ success: '', error: '' });
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 async function loadRoles() {
     loading.value = true;
-    flash.error = '';
 
     try {
         roles.value = await listUserRoles();
     } catch {
-        showToast('Could not load roles.', 'error');
+        toast.error('Could not load roles.');
         roles.value = [];
     } finally {
         loading.value = false;

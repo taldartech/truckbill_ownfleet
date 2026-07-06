@@ -2,7 +2,7 @@ import api from '../api';
 import { LoadCategory, loadCategoryMeta } from '../constants/loadCategory';
 import { calculatePerformanceSummary } from '../utils/tripFuelCalculator';
 import { thisMonthDateRange } from '../utils/dateRangePresets';
-import { dateOnlyFromDatetimeLocal } from '../utils/datetime';
+import { dateOnlyFromDatetimeLocal, toDateInputValue, isDateAfter } from '../utils/datetime';
 
 const tripsBase = '/app/api/trips';
 
@@ -433,7 +433,7 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
             startAt: payload.start_at || null,
             endAt: payload.end_at || null,
         }),
-        validateExpenseMeterReadings(payload.expenses ?? [], {
+        validateDieselExpenses(payload.expenses ?? [], {
             startMeterKm: payload.start_meter_reading_km ?? null,
             endMeterKm: payload.end_meter_reading_km ?? null,
         }),
@@ -444,7 +444,14 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
 
 export function validateTripStatusChange(
     payload,
-    { tripType = 'ROUND_TRIP', routeLegs = [], startStationId = null, previousStatus = null, user = null } = {},
+    {
+        tripType = 'ROUND_TRIP',
+        routeLegs = [],
+        startStationId = null,
+        previousStatus = null,
+        user = null,
+        startMeterReadingKm = null,
+    } = {},
 ) {
     const errors = {};
 
@@ -472,7 +479,30 @@ export function validateTripStatusChange(
         errors.end_at = ['End date cannot be before the actual arrival date.'];
     }
 
+    const resolvedStartMeter =
+        payload.start_meter_reading_km != null && payload.start_meter_reading_km !== ''
+            ? parseNumeric(payload.start_meter_reading_km)
+            : parseNumeric(startMeterReadingKm);
+
     if (payload.status === 'COMPLETED') {
+        if (!payload.start_at) {
+            errors.start_at = ['Trip start date is required before completing. Edit the trip and set the start date first.'];
+        }
+
+        const today = toDateInputValue();
+
+        if (startDate && isDateAfter(startDate, today)) {
+            errors.status = ['This trip cannot be completed before its start date.'];
+        }
+
+        if (arrivalDate && isDateAfter(arrivalDate, today)) {
+            errors.actual_arrival_at = ['Actual arrival date cannot be in the future.'];
+        }
+
+        if (endDate && isDateAfter(endDate, today)) {
+            errors.end_at = ['End date cannot be in the future.'];
+        }
+
         if (!payload.end_at) {
             errors.end_at = ['End date is required to complete the trip.'];
         }
@@ -485,8 +515,14 @@ export function validateTripStatusChange(
             errors.end_meter_reading_km = ['End meter reading is required to complete the trip.'];
         }
 
-        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const startMeter = resolvedStartMeter;
         const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (startMeter <= 0) {
+            errors.start_meter_reading_km = [
+                'Start meter reading is required before completing. Edit the trip and set the start meter reading first.',
+            ];
+        }
 
         if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
             errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
@@ -506,6 +542,10 @@ export function validateTripStatusChange(
     }
 
     if (payload.status === 'CANCELLED') {
+        if (!payload.start_at) {
+            errors.start_at = ['Trip start date is required before cancelling. Edit the trip and set the start date first.'];
+        }
+
         if (!payload.cancelled_at) {
             errors.cancelled_at = ['Cancellation date is required.'];
         }
@@ -518,8 +558,14 @@ export function validateTripStatusChange(
             errors.end_meter_reading_km = ['End meter reading is required to cancel the trip.'];
         }
 
-        const startMeter = parseNumeric(payload.start_meter_reading_km);
+        const startMeter = resolvedStartMeter;
         const endMeter = parseNumeric(payload.end_meter_reading_km);
+
+        if (startMeter <= 0) {
+            errors.start_meter_reading_km = [
+                'Start meter reading is required before cancelling. Edit the trip and set the start meter reading first.',
+            ];
+        }
 
         if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
             errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
@@ -575,7 +621,10 @@ export function validateExpenseDates(expenses, { startAt = null, endAt = null } 
     }
 
     (expenses ?? []).forEach((expense, index) => {
-        if (Number(expense.amount ?? 0) <= 0) {
+        const isActiveDiesel = isDieselExpenseType(expense.expense_type) && isActiveFuelRow(expense);
+        const isActiveNonDiesel = !isDieselExpenseType(expense.expense_type) && Number(expense.amount ?? 0) > 0;
+
+        if (!isActiveDiesel && !isActiveNonDiesel) {
             return;
         }
 
@@ -599,48 +648,205 @@ export function validateExpenseDates(expenses, { startAt = null, endAt = null } 
     return errors;
 }
 
-export function validateExpenseMeterReadings(expenses, { startMeterKm = null, endMeterKm = null } = {}) {
+export const MAX_FUEL_LITERS = 5000;
+
+export const MAX_FUEL_RATE = 1000;
+
+export const FUEL_DECIMAL_PLACES = 2;
+
+export function isActiveFuelRow(expense) {
+    const odometer = expense?.fuel_odometer_km;
+    const liters = expense?.fuel_liters;
+
+    const hasOdometer = odometer !== '' && odometer != null;
+    const hasLiters = liters !== '' && liters != null;
+    const userEdited = expense?._fuelDirty === true;
+    const isPersisted = expense?.id != null;
+
+    return hasOdometer || hasLiters || userEdited || isPersisted;
+}
+
+export function buildFuelRowSignature(expense) {
+    return fuelRowSignature(expense);
+}
+
+function fuelRowSignature(expense) {
+    const odometer = expense.fuel_odometer_km;
+    const liters = expense.fuel_liters;
+    const rate = expense.fuel_rate;
+
+    return [
+        odometer !== '' && odometer != null ? String(Math.trunc(parseNumeric(odometer))) : '',
+        liters !== '' && liters != null ? String(Math.round(parseNumeric(liters) * 100) / 100) : '',
+        rate !== '' && rate != null ? String(Math.round(parseNumeric(rate) * 100) / 100) : '',
+    ].join('|');
+}
+
+function hasValidDecimalPlaces(value, maxPlaces) {
+    const str = String(value);
+
+    if (!str.includes('.')) {
+        return true;
+    }
+
+    const fraction = str.split('.')[1] ?? '';
+
+    return fraction.replace(/0+$/, '').length <= maxPlaces;
+}
+
+function formatMeterKmLabel(meter) {
+    const n = parseNumeric(meter);
+
+    return Number.isInteger(n) ? String(n) : String(n).replace(/\.?0+$/, '');
+}
+
+function shouldSkipMeterRangeValidation(expense) {
+    if (expense._fuelDirty || !expense._originalFuelSignature) {
+        return false;
+    }
+
+    return fuelRowSignature(expense) === expense._originalFuelSignature;
+}
+
+export function getLegacyFuelWarning(expense, { startMeterKm = null, endMeterKm = null } = {}) {
+    if (!isDieselExpenseType(expense.expense_type) || !isActiveFuelRow(expense) || expense._fuelDirty) {
+        return '';
+    }
+
+    if (!shouldSkipMeterRangeValidation(expense)) {
+        return '';
+    }
+
+    const startMeter = parseNumeric(startMeterKm);
+    const endMeter = endMeterKm === '' || endMeterKm == null ? null : parseNumeric(endMeterKm);
+    const rawOdometer = expense.fuel_odometer_km;
+
+    if (rawOdometer === '' || rawOdometer == null || startMeter <= 0) {
+        return '';
+    }
+
+    const meter = Math.trunc(parseNumeric(rawOdometer));
+
+    if (meter < Math.trunc(startMeter)) {
+        return `Meter reading (${meter} KM) is below the trip start reading (${formatMeterKmLabel(startMeter)} KM). Update this entry when convenient.`;
+    }
+
+    if (endMeter !== null && endMeter > 0 && meter > Math.trunc(endMeter)) {
+        return `Meter reading (${meter} KM) exceeds the trip end reading (${formatMeterKmLabel(endMeter)} KM). Update this entry when convenient.`;
+    }
+
+    return '';
+}
+
+function meterRangeMessage(startMeter, endMeter) {
+    if (startMeter > 0 && endMeter !== null && endMeter > 0) {
+        return `Enter a meter reading between ${formatMeterKmLabel(startMeter)}–${formatMeterKmLabel(endMeter)} KM.`;
+    }
+
+    if (startMeter > 0) {
+        return `Enter a meter reading of at least ${formatMeterKmLabel(startMeter)} KM.`;
+    }
+
+    if (endMeter !== null && endMeter > 0) {
+        return `Enter a meter reading up to ${formatMeterKmLabel(endMeter)} KM.`;
+    }
+
+    return 'Meter reading is required.';
+}
+
+function isMissingMeterReading(rawOdometer) {
+    return rawOdometer === '' || rawOdometer == null || parseNumeric(rawOdometer) <= 0;
+}
+
+export function validateDieselExpenses(
+    expenses,
+    { startMeterKm = null, endMeterKm = null, strict = true } = {},
+) {
     const errors = {};
     const startMeter = parseNumeric(startMeterKm);
     const endMeterRaw = endMeterKm;
     const endMeter =
         endMeterRaw === '' || endMeterRaw == null ? null : parseNumeric(endMeterRaw);
 
-    if (startMeter <= 0) {
-        return errors;
-    }
-
     (expenses ?? []).forEach((expense, index) => {
-        if (String(expense.expense_type ?? '').toUpperCase() !== 'DIESEL' || Number(expense.amount ?? 0) <= 0) {
+        if (!isDieselExpenseType(expense.expense_type) || !isActiveFuelRow(expense)) {
             return;
         }
 
-        const raw = expense.fuel_odometer_km;
+        const skipMeterRange = shouldSkipMeterRangeValidation(expense);
+        const rawOdometer = expense.fuel_odometer_km;
 
-        if (raw === '' || raw == null) {
-            return;
+        if (isMissingMeterReading(rawOdometer)) {
+            if (strict) {
+                errors[`expenses.${index}.fuel_odometer_km`] = [meterRangeMessage(startMeter, endMeter)];
+            }
+        } else if (!Number.isInteger(Number(rawOdometer)) || parseNumeric(rawOdometer) !== Math.trunc(parseNumeric(rawOdometer))) {
+            errors[`expenses.${index}.fuel_odometer_km`] = ['Meter reading must be a whole number (KM).'];
+        } else if (!skipMeterRange && startMeter > 0) {
+            const meter = Math.trunc(parseNumeric(rawOdometer));
+
+            if (meter < Math.trunc(startMeter)) {
+                errors[`expenses.${index}.fuel_odometer_km`] = [
+                    `Too low. Entered ${formatMeterKmLabel(meter)} KM — allowed from ${formatMeterKmLabel(startMeter)} KM.`,
+                ];
+            } else if (endMeter !== null && endMeter > 0 && meter > Math.trunc(endMeter)) {
+                errors[`expenses.${index}.fuel_odometer_km`] = [
+                    `Too high. Entered ${formatMeterKmLabel(meter)} KM — allowed up to ${formatMeterKmLabel(endMeter)} KM.`,
+                ];
+            }
         }
 
-        const meter = parseNumeric(raw);
+        const rawLiters = expense.fuel_liters;
 
-        if (meter < startMeter) {
-            errors[`expenses.${index}.fuel_odometer_km`] = [
-                `Meter reading must be between Start Meter Reading (${startMeter} KM) and End Meter Reading${
-                    endMeter !== null && endMeter > 0 ? ` (${endMeter} KM)` : ''
-                }.`,
+        if (rawLiters === '' || rawLiters == null) {
+            if (strict) {
+                errors[`expenses.${index}.fuel_liters`] = [
+                    `Enter fuel quantity in liters (max ${MAX_FUEL_LITERS.toLocaleString('en-IN')} L).`,
+                ];
+            }
+        } else if (parseNumeric(rawLiters) <= 0) {
+            errors[`expenses.${index}.fuel_liters`] = [
+                `Fuel quantity must be greater than 0 L (max ${MAX_FUEL_LITERS.toLocaleString('en-IN')} L).`,
             ];
+        } else if (!hasValidDecimalPlaces(rawLiters, FUEL_DECIMAL_PLACES)) {
+            errors[`expenses.${index}.fuel_liters`] = [
+                `Use at most ${FUEL_DECIMAL_PLACES} decimal places for fuel quantity.`,
+            ];
+        } else if (parseNumeric(rawLiters) > MAX_FUEL_LITERS) {
+            const entered = parseNumeric(rawLiters).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
-            return;
+            errors[`expenses.${index}.fuel_liters`] = [
+                `Max ${MAX_FUEL_LITERS.toLocaleString('en-IN')} L allowed — you entered ${entered} L.`,
+            ];
         }
 
-        if (endMeter !== null && endMeter > 0 && meter > endMeter) {
-            errors[`expenses.${index}.fuel_odometer_km`] = [
-                `Meter reading must be between Start Meter Reading (${startMeter} KM) and End Meter Reading (${endMeter} KM).`,
+        const rawRate = expense.fuel_rate;
+
+        if (rawRate === '' || rawRate == null) {
+            if (strict) {
+                errors[`expenses.${index}.fuel_rate`] = ['Enter the diesel rate per liter.'];
+            }
+        } else if (parseNumeric(rawRate) <= 0) {
+            errors[`expenses.${index}.fuel_rate`] = ['Diesel rate must be greater than zero.'];
+        } else if (!hasValidDecimalPlaces(rawRate, FUEL_DECIMAL_PLACES)) {
+            errors[`expenses.${index}.fuel_rate`] = [
+                `Use at most ${FUEL_DECIMAL_PLACES} decimal places for diesel rate.`,
+            ];
+        } else if (parseNumeric(rawRate) > MAX_FUEL_RATE) {
+            const entered = parseNumeric(rawRate).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+            errors[`expenses.${index}.fuel_rate`] = [
+                `Max ₹${MAX_FUEL_RATE.toLocaleString('en-IN')}/L allowed — you entered ₹${entered}/L.`,
             ];
         }
     });
 
     return errors;
+}
+
+/** @deprecated Use validateDieselExpenses */
+export function validateExpenseMeterReadings(expenses, options = {}) {
+    return validateDieselExpenses(expenses, options);
 }
 
 export function expenseTypeLabel(type, otherType = '') {

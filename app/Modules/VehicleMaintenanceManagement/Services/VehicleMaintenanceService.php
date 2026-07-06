@@ -96,10 +96,11 @@ class VehicleMaintenanceService
     }
 
     /**
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, VehicleMaintenance>
      */
-    public function dueServices(): Collection
+    public function dueServices(array $filters = []): Collection
     {
-        return $this->repository->dueServices();
+        return $this->repository->dueServices($filters);
     }
 }

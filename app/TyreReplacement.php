@@ -27,6 +27,7 @@ class TyreReplacement extends Model
         'old_tyre_stint_km',
         'old_tyre_remaining_life_km',
         'recommendation',
+        'created_by',
     ];
 
     protected function casts(): array

@@ -28,8 +28,9 @@ class RolePermissionManagementTest extends TestCase
         $response = $this->actingAs($master)->getJson('/app/api/user-roles');
 
         $response->assertOk();
-        $response->assertJsonFragment(['name' => 'admin']);
-        $response->assertJsonFragment(['name' => 'accountant']);
+        $response->assertJsonFragment(['name' => 'admin', 'label' => 'Admin']);
+        $response->assertJsonFragment(['name' => 'moderator', 'label' => 'Moderator']);
+        $response->assertJsonFragment(['name' => 'accountant', 'label' => 'Accountant']);
         $response->assertJsonCount(5, 'data');
         $response->assertJsonMissing(['name' => 'transporter']);
         $response->assertJsonMissing(['name' => 'customer']);

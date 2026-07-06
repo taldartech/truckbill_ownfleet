@@ -73,9 +73,19 @@ export function hasFieldError(fieldErrors, field) {
 export function scrollToFirstFormError() {
     requestAnimationFrame(() => {
         const target = document.querySelector(
-            '.trip-form .is-invalid, .trip-form .is-invalid-picker, .trip-form .alert-danger',
+            '.trip-expenses-page .is-invalid, .trip-expenses-page .is-invalid-picker, .trip-expenses-page .expense-validation-summary, .trip-form .is-invalid, .trip-form .is-invalid-picker, .trip-form .alert-danger, .maintenance-form .is-invalid, .maintenance-form .is-invalid-picker, .maintenance-form .alert-danger',
         );
 
         target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target?.focus?.();
+    });
+}
+
+export function scrollToExpenseField(focusId) {
+    requestAnimationFrame(() => {
+        const target = document.getElementById(focusId);
+
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target?.focus?.();
     });
 }

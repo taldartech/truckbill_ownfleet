@@ -1,6 +1,43 @@
 import { reactive, watch } from 'vue';
-import { clampExpenseDate, emptyExpense } from '../api/trips';
+import {
+    buildFuelRowSignature,
+    calcDieselAmount,
+    clampExpenseDate,
+    emptyExpense,
+    isActiveFuelRow,
+    isDieselExpenseType,
+} from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
+
+function mapExpenseRow(expense, form) {
+    const row = {
+        id: expense.id ?? null,
+        expense_type: expense.expense_type ?? 'DIESEL',
+        expense_date: clampExpenseDate(
+            toDateInputFromIso(expense.expense_date) || form.start_at,
+            form.start_at,
+            form.end_at,
+        ),
+        amount: Number(expense.amount ?? 0),
+        fuel_liters: expense.fuel_liters != null && expense.fuel_liters !== '' ? Number(expense.fuel_liters) : '',
+        fuel_rate: expense.fuel_rate != null && expense.fuel_rate !== '' ? Number(expense.fuel_rate) : '',
+        fuel_odometer_km:
+            expense.fuel_odometer_km != null && expense.fuel_odometer_km !== ''
+                ? Number(expense.fuel_odometer_km)
+                : '',
+        route_leg_sequence: expense.route_leg_sequence ?? '',
+        notes: expense.notes ?? '',
+        other_type: expense.other_type ?? '',
+        _fuelDirty: false,
+        _originalFuelSignature: null,
+    };
+
+    if (isDieselExpenseType(row.expense_type) && isActiveFuelRow(row)) {
+        row._originalFuelSignature = buildFuelRowSignature(row);
+    }
+
+    return row;
+}
 
 export function useTripExpensesForm() {
     const form = reactive({
@@ -65,24 +102,7 @@ export function useTripExpensesForm() {
                 leg.weight_ton === '' || leg.weight_ton == null ? '' : Number(leg.weight_ton),
         }));
 
-        form.expenses = (trip.expenses ?? []).map((expense) => ({
-            expense_type: expense.expense_type ?? 'DIESEL',
-            expense_date: clampExpenseDate(
-                toDateInputFromIso(expense.expense_date) || form.start_at,
-                form.start_at,
-                form.end_at,
-            ),
-            amount: Number(expense.amount ?? 0),
-            fuel_liters: expense.fuel_liters != null && expense.fuel_liters !== '' ? Number(expense.fuel_liters) : '',
-            fuel_rate: expense.fuel_rate != null && expense.fuel_rate !== '' ? Number(expense.fuel_rate) : '',
-            fuel_odometer_km:
-                expense.fuel_odometer_km != null && expense.fuel_odometer_km !== ''
-                    ? Number(expense.fuel_odometer_km)
-                    : '',
-            route_leg_sequence: expense.route_leg_sequence ?? '',
-            notes: expense.notes ?? '',
-            other_type: expense.other_type ?? '',
-        }));
+        form.expenses = (trip.expenses ?? []).map((expense) => mapExpenseRow(expense, form));
     }
 
     function addExpense({ routeLegSequence = '', expenseType = 'DIESEL' } = {}) {
@@ -93,6 +113,8 @@ export function useTripExpensesForm() {
         });
         expense.route_leg_sequence =
             routeLegSequence === '' || routeLegSequence == null ? '' : Number(routeLegSequence);
+        expense._fuelDirty = false;
+        expense._originalFuelSignature = null;
         form.expenses.push(expense);
     }
 
@@ -103,20 +125,48 @@ export function useTripExpensesForm() {
     function buildExpensesPayload() {
         return {
             expenses: form.expenses
-                .filter((e) => Number(e.amount) > 0)
-                .map((e) => ({
-                    expense_type: e.expense_type,
-                    expense_date: e.expense_date || form.start_at || null,
-                    amount: e.amount,
-                    fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
-                    fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
-                    fuel_odometer_km:
-                        e.fuel_odometer_km === '' || e.fuel_odometer_km == null ? null : Number(e.fuel_odometer_km),
-                    route_leg_sequence: e.route_leg_sequence || null,
-                    other_type: e.expense_type === 'OTHER' ? e.other_type || null : null,
-                    notes: e.notes || null,
-                })),
+                .filter((expense) => {
+                    if (isDieselExpenseType(expense.expense_type)) {
+                        return isActiveFuelRow(expense);
+                    }
+
+                    return Number(expense.amount) > 0;
+                })
+                .map((expense) => {
+                    const amount = isDieselExpenseType(expense.expense_type)
+                        ? calcDieselAmount(expense.fuel_liters, expense.fuel_rate)
+                        : expense.amount;
+
+                    return {
+                        expense_type: expense.expense_type,
+                        expense_date: expense.expense_date || form.start_at || null,
+                        amount,
+                        fuel_liters:
+                            expense.fuel_liters === '' || expense.fuel_liters == null
+                                ? null
+                                : Number(expense.fuel_liters),
+                        fuel_rate:
+                            expense.fuel_rate === '' || expense.fuel_rate == null
+                                ? null
+                                : Number(expense.fuel_rate),
+                        fuel_odometer_km:
+                            expense.fuel_odometer_km === '' || expense.fuel_odometer_km == null
+                                ? null
+                                : Math.trunc(Number(expense.fuel_odometer_km)),
+                        route_leg_sequence: expense.route_leg_sequence || null,
+                        other_type: expense.expense_type === 'OTHER' ? expense.other_type || null : null,
+                        notes: expense.notes || null,
+                    };
+                }),
         };
+    }
+
+    function markFuelFieldDirty(index) {
+        const expense = form.expenses[index];
+
+        if (expense) {
+            expense._fuelDirty = true;
+        }
     }
 
     watch(
@@ -143,5 +193,6 @@ export function useTripExpensesForm() {
         addExpense,
         removeExpense,
         buildExpensesPayload,
+        markFuelFieldDirty,
     };
 }

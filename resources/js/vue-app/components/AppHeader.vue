@@ -26,16 +26,15 @@
                             <span v-if="branchName" class="app-header-company-context__name ms-2">
                                 <i class="fas fa-code-branch"></i>{{ branchName }}
                             </span>
-                            <select
-                                v-if="showBranchSwitcher"
-                                v-model="selectedBranchId"
-                                class="form-select form-select-sm ms-2 app-header-branch-switch"
-                                @change="handleBranchSwitch"
-                            >
-                                <option v-for="branch in switchableBranches" :key="branch.id" :value="branch.id">
-                                    {{ branch.branch_name }}
-                                </option>
-                            </select>
+                            <div v-if="showBranchSwitcher" class="ms-2 app-header-branch-switch">
+                                <AppSelect
+                                    v-model="selectedBranchId"
+                                    :options="branchSwitchOptions"
+                                    placeholder="Switch branch"
+                                    search-placeholder="Search branch…"
+                                    @change="handleBranchSwitch"
+                                />
+                            </div>
                             <button
                                 v-if="showExitCompany"
                                 type="button"
@@ -164,6 +163,7 @@ import {
     markNotificationRead,
 } from '../api/notifications';
 import { formatDisplay, toAppTimezoneIso, toDateInputValue, addDaysToDateInput } from '../utils/datetime';
+import AppSelect from './ui/AppSelect.vue';
 const props = defineProps({
     user: {
         type: Object,
@@ -198,6 +198,12 @@ const showExitCompany = computed(
 );
 const showBranchSwitcher = computed(
     () => props.user?.role === 'super_admin' && switchableBranches.value.length > 1 && !needsBranchSelection.value,
+);
+const branchSwitchOptions = computed(() =>
+    switchableBranches.value.map((branch) => ({
+        value: branch.id,
+        label: branch.branch_name,
+    })),
 );
 const showPlanBadges = computed(() => {
     if (!props.user) {

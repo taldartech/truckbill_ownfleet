@@ -62,9 +62,6 @@
             Select a company and click <strong>Enter</strong> to view truck details.
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div v-if="loading" class="text-center py-5 text-muted">Loading truck details…</div>
 
         <template v-else-if="vehicle">
@@ -371,29 +368,15 @@
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
         />
-
-        <MaintenanceFormModal
-            modal-id="truckDetailMaintenanceModal"
-            :show="showMaintenanceCreate"
-            mode="create"
-            :preset-vehicle-id="vehicle?.id ?? ''"
-            lock-vehicle
-            :saving="maintenanceSaving"
-            :field-errors="maintenanceFieldErrors"
-            :form-error="maintenanceFormError"
-            @close="closeMaintenanceCreate"
-            @submit="handleMaintenanceCreate"
-        />
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { listDriverAssignments } from '../../api/driverAssignments';
-import { createVehicleMaintenance, listVehicleMaintenanceHistory } from '../../api/vehicleMaintenances';
+import { listVehicleMaintenanceHistory } from '../../api/vehicleMaintenances';
 import { fetchVehicle, updateVehicle } from '../../api/vehicles';
-import MaintenanceFormModal from '../../components/maintenance/MaintenanceFormModal.vue';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
@@ -401,9 +384,12 @@ import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 import { formatDate, formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
+const router = useRouter();
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
@@ -423,19 +409,10 @@ const maintenanceRecords = ref([]);
 const loading = ref(true);
 const maintenanceLoading = ref(false);
 const saving = ref(false);
-const maintenanceSaving = ref(false);
 const showForm = ref(false);
 const showDocuments = ref(false);
 const showAssignment = ref(false);
-const showMaintenanceCreate = ref(false);
-const flash = reactive({ success: '', error: '' });
 const { fieldErrors, formError: vehicleFormError, clearErrors, applyApiError } = useApiFormErrors();
-const {
-    fieldErrors: maintenanceFieldErrors,
-    formError: maintenanceFormError,
-    clearErrors: clearMaintenanceErrors,
-    applyApiError: applyMaintenanceApiError,
-} = useApiFormErrors();
 
 const documents = computed(() => vehicle.value?.documents ?? []);
 
@@ -462,11 +439,6 @@ function formatMaintenanceCost(amount) {
         currency: 'INR',
         maximumFractionDigits: 2,
     }).format(Number(amount ?? 0));
-}
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
 }
 
 async function loadAssignments() {
@@ -518,7 +490,6 @@ async function loadVehicle() {
     }
 
     loading.value = true;
-    flash.error = '';
 
     try {
         vehicle.value = await fetchVehicle(vehicleId);
@@ -529,7 +500,7 @@ async function loadVehicle() {
         maintenanceRecords.value = [];
 
         if (!handleCompanyContextError(error, 'Could not load truck details.')) {
-            showToast('Could not load truck details.', 'error');
+            toast.error('Could not load truck details.');
         }
     } finally {
         loading.value = false;
@@ -563,37 +534,15 @@ function closeAssignment() {
 }
 
 function openMaintenanceCreate() {
-    clearMaintenanceErrors();
-    showMaintenanceCreate.value = true;
-}
-
-function closeMaintenanceCreate() {
-    showMaintenanceCreate.value = false;
-    clearMaintenanceErrors();
-}
-
-async function handleMaintenanceCreate(payload) {
-    maintenanceSaving.value = true;
-    clearMaintenanceErrors();
-
-    try {
-        await createVehicleMaintenance(payload);
-        showToast('Service record added.');
-        closeMaintenanceCreate();
-        await Promise.all([loadVehicle(), loadMaintenanceHistory()]);
-    } catch (error) {
-        if (!applyMaintenanceApiError(error, 'Please check the highlighted fields.')) {
-            if (!handleCompanyContextError(error, 'Select a company before saving.')) {
-                showToast('Unable to save service record.', 'error');
-            }
-        }
-    } finally {
-        maintenanceSaving.value = false;
+    if (!vehicle.value?.id) {
+        return;
     }
+
+    router.push({ name: 'maintenance.create', query: { vehicle_id: vehicle.value.id } });
 }
 
 async function onAssignmentSaved() {
-    showToast('Driver assignment saved.');
+    toast.success('Driver assignment saved.');
     await loadVehicle();
 }
 
@@ -607,12 +556,12 @@ async function handleSubmit(payload) {
 
     try {
         vehicle.value = await updateVehicle(vehicle.value.id, payload);
-        showToast('Truck updated successfully.');
+        toast.success('Truck updated successfully.');
         closeForm();
     } catch (error) {
         if (!applyApiError(error, 'Please check the highlighted fields.')) {
             if (!handleCompanyContextError(error, 'Select a company before saving.')) {
-                showToast('Unable to save truck.', 'error');
+                toast.error('Unable to save truck.');
             }
         }
     } finally {

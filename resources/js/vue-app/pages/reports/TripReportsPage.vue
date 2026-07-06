@@ -17,14 +17,15 @@
             and click <strong>Enter</strong> to view trip reports.
         </div>
 
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
             <div>
                 <label class="form-label">Report Type</label>
-                <select v-model="reportType" class="form-select">
-                    <option v-for="t in reportTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-                </select>
+                <AppSelect
+                    v-model="reportType"
+                    :options="reportTypes"
+                    placeholder="Select report"
+                    search-placeholder="Search report…"
+                />
             </div>
             <div>
                 <label class="form-label">From Date</label>
@@ -35,11 +36,13 @@
                 <AppDateInput v-model="filters.to_date" />
             </div>
             <div>
-                <label class="form-label">Truck</label>
-                <select v-model="filters.vehicle_id" class="form-select">
-                    <option value="">All</option>
-                    <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.registration_number }}</option>
-                </select>
+                <label class="form-label" for="tripReports_vehicle">Truck</label>
+                <VehicleSelect
+                    input-id="tripReports_vehicle"
+                    v-model="filters.vehicle_id"
+                    :vehicles="vehicles"
+                    placeholder="All trucks"
+                />
             </div>
         </AppIndexFiltersCard>
 
@@ -85,12 +88,16 @@ import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { formatTableCell } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 
 const { needsCompanySelection } = useRequireCompanyContext();
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const canExport = computed(() => canInCompany('trip_reports.export'));
 
@@ -100,7 +107,6 @@ const vehicles = ref([]);
 const rows = ref([]);
 const tripCount = ref(null);
 const loading = ref(false);
-const flash = reactive({ error: '' });
 
 function defaultFilters() {
     return {
@@ -171,14 +177,13 @@ function buildFilterParams() {
 
 async function loadReport() {
     loading.value = true;
-    flash.error = '';
 
     try {
         const result = await fetchTripReport(reportType.value, buildFilterParams());
         rows.value = result.rows;
         tripCount.value = result.summary?.trip_count ?? result.rows.length;
     } catch (error) {
-        flash.error = error?.response?.data?.message ?? 'Failed to load trip report.';
+        toast.error(error?.response?.data?.message ?? 'Failed to load trip report.');
         rows.value = [];
         tripCount.value = null;
     } finally {

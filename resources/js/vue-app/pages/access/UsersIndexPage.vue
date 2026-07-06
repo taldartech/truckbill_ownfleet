@@ -6,9 +6,6 @@
             </template>
         </AppIndexPageHeader>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div v-if="showCompanyAlertSettings" class="card mb-3">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
@@ -181,11 +178,13 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
 const { can, user } = usePermissions();
+const toast = useAppToast();
 const managesSuperAdmins = computed(() => can('super_admins.view'));
 const managesTenantUsers = computed(() => can('users.view'));
 const canManage = computed(
@@ -250,24 +249,17 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingUser = ref(null);
-const flash = reactive({ success: '', error: '' });
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 async function loadUsers(page = pagination.currentPage) {
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listManagedUsers({ page, per_page: pagination.perPage });
         users.value = response.data ?? [];
         syncFromMeta(response.meta, users.value.length);
     } catch {
-        showToast('Could not load users.', 'error');
+        toast.error('Could not load users.');
         users.value = [];
         resetPagination();
     } finally {
@@ -303,10 +295,10 @@ async function saveCompanyAlertSettings() {
             notify_live: companyAlertSettings.notify_live,
             notify_email: companyAlertSettings.notify_email,
         });
-        showToast('Company alert channels saved.');
+        toast.success('Company alert channels saved.');
     } catch {
         companySettingsError.value = 'Could not save company alert settings.';
-        showToast('Could not save company alert settings.', 'error');
+        toast.error('Could not save company alert settings.');
     } finally {
         companySettingsSaving.value = false;
     }
@@ -368,17 +360,17 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingUser.value?.id) {
             await updateManagedUser(editingUser.value.id, payload);
-            showToast('User updated.');
+            toast.success('User updated.');
         } else {
             await createManagedUser(payload);
-            showToast('User created.');
+            toast.success('User created.');
         }
 
         closeForm();
         await loadUsers();
     } catch (error) {
         if (!applyApiError(error)) {
-            showToast('Unable to save user.', 'error');
+            toast.error('Unable to save user.');
         }
     } finally {
         saving.value = false;
@@ -392,10 +384,10 @@ async function handleDelete(user) {
 
     try {
         await deleteManagedUser(user.id);
-        showToast('User deleted.');
+        toast.success('User deleted.');
         await loadUsers();
     } catch {
-        showToast('Unable to delete user.', 'error');
+        toast.error('Unable to delete user.');
     }
 }
 

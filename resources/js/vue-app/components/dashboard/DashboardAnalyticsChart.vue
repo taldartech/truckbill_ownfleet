@@ -332,6 +332,20 @@
                 </div>
             </div>
 
+           <!-- <div v-if="tyreAlertItems.length" class="analytics-card flex-col-center">
+                <h6 class="analytics-card__title">Tyre Alerts</h6>
+                <div class="trip-status-grid">
+                    <div
+                        v-for="item in tyreAlertItems"
+                        :key="item.key"
+                        class="trip-status-card"
+                    >
+                        <span class="trip-status-card__value">{{ item.count }}</span>
+                        <span class="trip-status-card__label">{{ item.label }}</span>
+                    </div>
+                </div>
+            </div>-->
+
             <div class="analytics-card analytics-card--span-2 flex-col-center">
                 <h6 class="analytics-card__title">Tyre Financial Distribution</h6>
                 <div class="column-chart-container">
@@ -409,15 +423,29 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    canViewTrips: {
+        type: Boolean,
+        default: true,
+    },
+    canViewTyres: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const analyticsTabs = [
-    { id: 'financials', label: 'Trips & Financials' },
-    { id: 'fleet', label: 'Attendance' },
-    { id: 'tyres', label: 'Tyres & Financials' },
-];
+const analyticsTabs = computed(() => {
+    const tabs = [];
+    if (props.canViewTrips) {
+        tabs.push({ id: 'financials', label: 'Trips & Financials' });
+        tabs.push({ id: 'fleet', label: 'Attendance' });
+    }
+    if (props.canViewTyres) {
+        tabs.push({ id: 'tyres', label: 'Tyres & Financials' });
+    }
+    return tabs;
+});
 
-const activeTab = ref('financials');
+const activeTab = ref(props.canViewTrips ? 'financials' : 'tyres');
 
 // Tooltip State
 const tooltip = ref({
@@ -574,6 +602,29 @@ const tyreTotalCount = computed(() => Number(props.tyreStats?.total_count ?? 0))
 const tyreInStockCount = computed(() => Number(props.tyreStats?.in_stock_count ?? 0));
 const tyreInstalledCount = computed(() => Number(props.tyreStats?.installed_count ?? 0));
 const tyreScrappedCount = computed(() => Number(props.tyreStats?.scrapped_count ?? 0));
+
+const tyreAlertItems = computed(() => [
+    {
+        key: 'near_end_of_life',
+        label: 'Near End of Life',
+        count: Number(props.tyreStats?.near_end_of_life ?? 0),
+    },
+    {
+        key: 'warranty_expiring',
+        label: 'Warranty Expiring',
+        count: Number(props.tyreStats?.warranty_expiring ?? 0),
+    },
+    {
+        key: 'inspection_overdue',
+        label: 'Inspection Overdue',
+        count: Number(props.tyreStats?.inspection_overdue ?? 0),
+    },
+    {
+        key: 'vehicles_empty_steer',
+        label: 'Trucks Missing Steer Tyres',
+        count: Number(props.tyreStats?.vehicles_empty_steer ?? 0),
+    },
+].filter((item) => item.count > 0));
 
 function tyreStatusPct(count) {
     if (tyreTotalCount.value <= 0) {

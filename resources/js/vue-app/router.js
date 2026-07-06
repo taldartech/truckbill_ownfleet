@@ -65,6 +65,24 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'maintenance.view' },
                 },
                 {
+                    path: 'maintenance/create',
+                    name: 'maintenance.create',
+                    component: () => import('./pages/maintenance/MaintenanceCreatePage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance.create' },
+                },
+                {
+                    path: 'maintenance/records/:id',
+                    name: 'maintenance.show',
+                    component: () => import('./pages/maintenance/MaintenanceDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance.view' },
+                },
+                {
+                    path: 'maintenance/records/:id/edit',
+                    name: 'maintenance.edit',
+                    component: () => import('./pages/maintenance/MaintenanceEditPage.vue'),
+                    meta: { requiresTenant: true, permission: 'maintenance.edit' },
+                },
+                {
                     path: 'maintenance/due',
                     name: 'maintenance.due',
                     component: () => import('./pages/maintenance/MaintenanceDueIndexPage.vue'),

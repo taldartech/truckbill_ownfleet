@@ -6,9 +6,6 @@
             </template>
         </AppIndexPageHeader>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div class="card app-index-list-card">
             <div class="card-header">
                 <h3 class="card-title mb-0">Permissions List</h3>
@@ -88,11 +85,13 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
 const { can } = usePermissions();
+const toast = useAppToast();
 const canManage = computed(() => can('permissions.manage'));
 
 const { fieldErrors, formError: permissionFormError, clearErrors, applyApiError } = useApiFormErrors();
@@ -103,24 +102,17 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingPermission = ref(null);
-const flash = reactive({ success: '', error: '' });
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(50);
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 async function loadPermissions(page = pagination.currentPage) {
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listPermissions({ page, per_page: pagination.perPage });
         permissions.value = response.data ?? [];
         syncFromMeta(response.meta, permissions.value.length);
     } catch {
-        showToast('Could not load permissions.', 'error');
+        toast.error('Could not load permissions.');
         permissions.value = [];
         resetPagination();
     } finally {
@@ -169,17 +161,17 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingPermission.value?.id) {
             await updatePermission(editingPermission.value.id, payload);
-            showToast('Permission updated.');
+            toast.success('Permission updated.');
         } else {
             await createPermission(payload);
-            showToast('Permission created.');
+            toast.success('Permission created.');
         }
 
         closeForm();
         await loadPermissions();
     } catch (error) {
         if (!applyApiError(error)) {
-            showToast('Unable to save permission.', 'error');
+            toast.error('Unable to save permission.');
         }
     } finally {
         saving.value = false;
@@ -193,10 +185,10 @@ async function handleDelete(permission) {
 
     try {
         await deletePermission(permission.id);
-        showToast('Permission deleted.');
+        toast.success('Permission deleted.');
         await loadPermissions();
     } catch {
-        showToast('Unable to delete permission.', 'error');
+        toast.error('Unable to delete permission.');
     }
 }
 

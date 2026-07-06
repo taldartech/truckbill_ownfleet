@@ -82,7 +82,11 @@ class FleetMonthlyReportTest extends TestCase
         $create = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/tyres', [
                 'serial_number' => 'TYRE-FLEET-1',
+                'brand' => 'MRF',
+                'size' => '10.00-20',
+                'tyre_type' => 'RADIAL',
                 'purchase_date' => '2026-06-05',
+                'expected_life_km' => 40000,
                 'purchase_cost' => 18000,
             ]);
 

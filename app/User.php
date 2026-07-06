@@ -242,6 +242,12 @@ class User extends Authenticatable
 
     private static function normalizeRoleName(string $role): string
     {
-        return strtolower(str_replace('-', '_', $role));
+        $normalized = strtolower(str_replace('-', '_', $role));
+
+        if ($normalized === 'operator') {
+            return 'moderator';
+        }
+
+        return $normalized;
     }
 }

@@ -12,7 +12,7 @@
                 {{ terminalAlert }}
             </div>
 
-            <form novalidate @submit.prevent="handleSubmit">
+            <form novalidate @submit.prevent="handleSubmit('index')">
                 <TripForm
                     ref="tripFormRef"
                     mode="edit"
@@ -128,6 +128,7 @@
                 :show="showSaveConfirm"
                 :summary="saveConfirmSummary"
                 :saving="saving"
+                :confirm-mode="saveMode"
                 @cancel="cancelSaveConfirm"
                 @confirm="confirmSave"
             />
@@ -213,6 +214,7 @@ const savedExpenses = ref([]);
 const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
 const pendingPayload = ref(null);
+const saveMode = ref('index');
 
 const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
@@ -392,6 +394,7 @@ function buildConfirmSummary() {
         driverLabel: snapshotDriverName.value || '—',
         substituteDriverLabel: substituteDriverLabel(),
         tripNumber: form.trip_number,
+        showExpensesAction: canManageExpenses.value,
     });
 }
 
@@ -499,26 +502,36 @@ function cancelSaveConfirm() {
     pendingPayload.value = null;
 }
 
-async function confirmSave() {
+async function confirmSave(mode = 'index') {
     if (!pendingPayload.value) {
         return;
     }
+
+    saveMode.value = mode;
 
     try {
         await executeSave(pendingPayload.value, { showToast: false });
         showSaveConfirm.value = false;
         pendingPayload.value = null;
+
+        if (saveMode.value === 'expenses') {
+            await router.push({ name: 'trips.expenses', params: { id: route.params.id } });
+
+            return;
+        }
+
         await router.push(tripListReturnWithFlash({ updated: '1' }));
     } catch {
         showSaveConfirm.value = false;
     }
 }
 
-async function handleSubmit() {
+async function handleSubmit(mode = 'index') {
     if (!canSave.value) {
         return;
     }
 
+    saveMode.value = mode;
     const payload = await prepareSave();
 
     if (!payload) {

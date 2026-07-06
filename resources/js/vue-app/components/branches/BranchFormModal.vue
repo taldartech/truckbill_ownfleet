@@ -19,22 +19,16 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label" for="branch_company_id">Company *</label>
-                                <select
-                                    id="branch_company_id"
+                                <AppSelect
+                                    input-id="branch_company_id"
                                     v-model="form.company_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.company_id }"
+                                    :options="companySelectOptions"
+                                    placeholder="Select company"
+                                    search-placeholder="Search company…"
                                     :disabled="isEdit"
-                                    required
-                                >
-                                    <option value="">Select company</option>
-                                    <option v-for="company in companies" :key="company.id" :value="company.id">
-                                        {{ company.name }}
-                                    </option>
-                                </select>
-                                <div v-if="fieldErrors.company_id" class="invalid-feedback d-block">
-                                    {{ fieldErrors.company_id[0] }}
-                                </div>
+                                    :invalid="Boolean(fieldErrors.company_id)"
+                                    :error-message="fieldErrors.company_id?.[0] ?? ''"
+                                />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="branch_name">Branch Name *</label>
@@ -82,18 +76,15 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="head_office">Head Office</label>
-                                <select
-                                    id="head_office"
+                                <AppSelect
+                                    input-id="head_office"
                                     v-model="form.head_office"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.head_office }"
-                                >
-                                    <option :value="false">No</option>
-                                    <option :value="true">Yes</option>
-                                </select>
-                                <div v-if="fieldErrors.head_office" class="invalid-feedback d-block">
-                                    {{ fieldErrors.head_office[0] }}
-                                </div>
+                                    :options="headOfficeOptions"
+                                    placeholder="Select"
+                                    search-placeholder="Search…"
+                                    :invalid="Boolean(fieldErrors.head_office)"
+                                    :error-message="fieldErrors.head_office?.[0] ?? ''"
+                                />
                                 <div class="form-text">Only one head office is allowed per company.</div>
                             </div>
                             <div class="col-md-6">
@@ -151,6 +142,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import AppButton from '../ui/AppButton.vue';
+import AppSelect from '../ui/AppSelect.vue';
 import { allowNumericKeydown, isValidMobile, normalizeMobile } from '../../utils/phone';
 
 const props = defineProps({
@@ -165,6 +157,18 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
+
+const companySelectOptions = computed(() =>
+    props.companies.map((company) => ({
+        value: company.id,
+        label: company.name,
+    })),
+);
+
+const headOfficeOptions = [
+    { value: false, label: 'No' },
+    { value: true, label: 'Yes' },
+];
 
 const isEdit = computed(() => props.mode === 'edit');
 

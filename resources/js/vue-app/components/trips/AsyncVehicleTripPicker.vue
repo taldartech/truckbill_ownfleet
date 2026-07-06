@@ -68,7 +68,15 @@
                             :disabled="!item.selectable"
                             @click="selectItem(item)"
                         >
-                            <span class="picker-option-name">{{ item.registration_number }}</span>
+                            <span
+                                class="picker-option-name"
+                                :class="{ 'picker-option-name--inactive': item.vehicle_status === 'inactive' }"
+                            >
+                                {{ item.registration_number }}
+                                <span v-if="item.vehicle_status === 'inactive'" class="picker-option-badge">
+                                    (Inactive)
+                                </span>
+                            </span>
                             <span v-if="itemDriverLine(item)" class="picker-option-meta">{{ itemDriverLine(item) }}</span>
                             <span v-if="itemReasonLine(item)" class="picker-option-reason">
                                 {{ itemReasonLine(item) }}
@@ -124,6 +132,16 @@ const currentPage = ref(1);
 const lastPage = ref(1);
 const totalResults = ref(null);
 let debounceTimer = null;
+
+function sortItemsBySelectable(list) {
+    return [...list].sort((left, right) => {
+        if (left.selectable === right.selectable) {
+            return 0;
+        }
+
+        return left.selectable ? -1 : 1;
+    });
+}
 
 function itemDriverLine(item) {
     if (item.primary_driver_name) {
@@ -271,7 +289,8 @@ async function fetchPage(page = 1, append = false) {
             endAt: props.tripEndDate || null,
         });
 
-        items.value = append ? [...items.value, ...result.data] : result.data;
+        const merged = append ? [...items.value, ...result.data] : result.data;
+        items.value = sortItemsBySelectable(merged);
         currentPage.value = result.meta.current_page ?? page;
         lastPage.value = result.meta.last_page ?? page;
         totalResults.value = result.meta.total ?? items.value.length;
@@ -433,6 +452,18 @@ onBeforeUnmount(() => {
     display: block;
     font-weight: 600;
     line-height: 1.3;
+}
+
+.async-vehicle-option .picker-option-name--inactive {
+    color: #dc3545;
+}
+
+.async-vehicle-option .picker-option-badge {
+    display: inline-block;
+    margin-left: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #dc3545;
 }
 .async-vehicle-option .picker-option-meta {
     display: block;

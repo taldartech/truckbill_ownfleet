@@ -12,9 +12,6 @@
             and click <strong>Enter</strong> before adding trucks.
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <AppIndexFiltersCard :active="filtersActive" @apply="loadVehicles(1)" @clear="clearFilters">
             <div>
                 <label class="form-label">Search</label>
@@ -28,28 +25,30 @@
             </div>
             <div>
                 <label class="form-label">Truck type</label>
-                <select v-model="filters.vehicle_type" class="form-select">
-                    <option value="">All types</option>
-                    <option v-for="type in vehicleTypes" :key="type.value" :value="type.value">
-                        {{ type.label }}
-                    </option>
-                </select>
+                <AppSelect
+                    v-model="filters.vehicle_type"
+                    :options="vehicleTypes"
+                    placeholder="All types"
+                    search-placeholder="Search type…"
+                />
             </div>
             <div>
                 <label class="form-label">Status</label>
-                <select v-model="filters.status" class="form-select">
-                    <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
+                <AppSelect
+                    v-model="filters.status"
+                    :options="truckStatusFilterOptions"
+                    placeholder="All statuses"
+                    search-placeholder="Search status…"
+                />
             </div>
             <div>
                 <label class="form-label">Primary driver</label>
-                <select v-model="filters.primary_driver" class="form-select">
-                    <option value="">All trucks</option>
-                    <option value="assigned">Assigned</option>
-                    <option value="unassigned">Unassigned</option>
-                </select>
+                <AppSelect
+                    v-model="filters.primary_driver"
+                    :options="primaryDriverFilterOptions"
+                    placeholder="All trucks"
+                    search-placeholder="Search…"
+                />
             </div>
         </AppIndexFiltersCard>
 
@@ -252,6 +251,7 @@ import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
@@ -262,10 +262,12 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 import { crudActionButtonClasses } from '../../utils/crudActionPresets';
 
 const tyreLinkClasses = crudActionButtonClasses('tyres');
 const route = useRoute();
+const toast = useAppToast();
 
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
@@ -291,7 +293,6 @@ const showDocuments = ref(false);
 const documentsVehicle = ref(null);
 const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
-const flash = reactive({ success: '', error: '' });
 const togglingId = ref(null);
 const truckTypes = ref([]);
 
@@ -301,6 +302,14 @@ const vehicleTypes = computed(() =>
         label: type.name,
     })),
 );
+const truckStatusFilterOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+];
+const primaryDriverFilterOptions = [
+    { value: 'assigned', label: 'Assigned' },
+    { value: 'unassigned', label: 'Unassigned' },
+];
 const filters = reactive(defaultVehicleListFilters());
 const defaultFilters = defaultVehicleListFilters();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
@@ -318,11 +327,6 @@ function formatMakeModel(vehicle) {
     const parts = [vehicle.make, vehicle.model].filter(Boolean);
 
     return parts.length ? parts.join(' / ') : '-';
-}
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
 }
 
 async function loadTruckTypes() {
@@ -349,7 +353,6 @@ async function loadVehicles(page = pagination.currentPage) {
     }
 
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listVehicles({
@@ -364,7 +367,7 @@ async function loadVehicles(page = pagination.currentPage) {
         syncFromMeta(response.meta, vehicles.value.length);
     } catch (error) {
         if (!handleCompanyContextError(error, 'Could not load trucks.')) {
-            showToast('Could not load trucks.', 'error');
+            toast.error('Could not load trucks.');
         }
 
         vehicles.value = [];
@@ -424,8 +427,6 @@ function closeDocuments() {
 }
 
 function openAssignment(vehicle) {
-    flash.success = '';
-    flash.error = '';
     assignmentVehicle.value = { ...vehicle };
     showAssignment.value = true;
 }
@@ -436,7 +437,7 @@ function closeAssignment() {
 }
 
 async function onAssignmentSaved() {
-    showToast('Driver assignment saved.');
+    toast.success('Driver assignment saved.');
     await loadVehicles();
 }
 
@@ -447,10 +448,10 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingVehicle.value?.id) {
             await updateVehicle(editingVehicle.value.id, payload);
-            showToast('Truck updated successfully.');
+            toast.success('Truck updated successfully.');
         } else {
             await createVehicle(payload);
-            showToast('Truck added successfully.');
+            toast.success('Truck added successfully.');
         }
 
         closeForm();
@@ -458,7 +459,7 @@ async function handleSubmit(payload) {
     } catch (error) {
         if (!applyApiError(error, 'Please check the highlighted fields.')) {
             if (!handleCompanyContextError(error, 'Select a company before saving a truck.')) {
-                showToast('Unable to save truck.', 'error');
+                toast.error('Unable to save truck.');
             }
         }
     } finally {
@@ -469,15 +470,14 @@ async function handleSubmit(payload) {
 async function handleToggleStatus(vehicle, event) {
     const nextActive = event.target.checked;
     togglingId.value = vehicle.id;
-    flash.error = '';
 
     try {
         const updated = await toggleVehicleStatus(vehicle.id, nextActive);
         vehicle.is_active = updated.is_active;
-        showToast(updated.is_active ? 'Truck activated.' : 'Truck deactivated.');
+        toast.success(updated.is_active ? 'Truck activated.' : 'Truck deactivated.');
     } catch {
         event.target.checked = vehicle.is_active;
-        showToast('Unable to update truck status.', 'error');
+        toast.error('Unable to update truck status.');
     } finally {
         togglingId.value = null;
     }
@@ -490,10 +490,10 @@ async function handleDelete(vehicle) {
 
     try {
         await deleteVehicle(vehicle.id);
-        showToast('Truck deleted.');
+        toast.success('Truck deleted.');
         await loadVehicles();
     } catch {
-        showToast('Unable to delete truck.', 'error');
+        toast.error('Unable to delete truck.');
     }
 }
 

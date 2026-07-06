@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\TyreManagement\Services\TyreReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TyreReportController extends Controller
 {
@@ -44,6 +47,41 @@ class TyreReportController extends Controller
         $this->authorize('tyre_reports.view');
 
         return response()->json(['data' => $this->tyreReportService->expenseSummary($this->filters($request))]);
+    }
+
+    public function export(Request $request): BinaryFileResponse
+    {
+        $this->authorize('tyre_reports.export');
+
+        $type = $request->string('type', 'life')->toString();
+        $filters = $this->filters($request);
+
+        $rows = match ($type) {
+            'cost' => $this->tyreReportService->costPerKm($filters),
+            'replacements' => $this->tyreReportService->replacements($filters),
+            'vehicle' => $this->tyreReportService->vehicleWiseUsage($filters),
+            'expenses' => $this->expenseSummaryRows($filters),
+            default => $this->tyreReportService->tyreLife($filters),
+        };
+
+        $filename = 'tyre-report-'.$type.'-'.now()->format('Y-m-d-His').'.xlsx';
+
+        return Excel::download(new TripReportExport($rows), $filename);
+    }
+
+    /**
+     * @param  array{from?: string, to?: string, vehicle_id?: string}  $filters
+     * @return list<array{expense_type: string, total: float}>
+     */
+    private function expenseSummaryRows(array $filters): array
+    {
+        return collect($this->tyreReportService->expenseSummary($filters))
+            ->map(fn (float $total, string $expenseType): array => [
+                'expense_type' => $expenseType,
+                'total' => $total,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

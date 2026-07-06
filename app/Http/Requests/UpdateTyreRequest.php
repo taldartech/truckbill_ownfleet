@@ -35,16 +35,15 @@ class UpdateTyreRequest extends FormRequest
                     ->where(fn ($query) => $query->where('tenant_id', CurrentTenant::id()))
                     ->ignore($tyre->id),
             ],
-            'brand' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'size' => ['sometimes', 'nullable', 'string', 'max:50'],
-            'purchase_date' => ['sometimes', 'nullable', 'date'],
+            'brand' => ['sometimes', 'required', 'string', 'max:100'],
+            'size' => ['sometimes', 'required', 'string', 'max:50'],
+            'purchase_date' => ['sometimes', 'required', 'date'],
             'purchase_cost' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'warranty_details' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'warranty_valid_until' => ['sometimes', 'nullable', 'date'],
             'warranty_km' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'tyre_type' => ['sometimes', 'nullable', Rule::enum(TyreType::class)],
+            'tyre_type' => ['sometimes', 'required', Rule::enum(TyreType::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
-            'expected_life_km' => ['sometimes', 'nullable', 'numeric', 'min:1000'],
+            'expected_life_km' => ['sometimes', 'required', 'numeric', 'min:1000'],
             'current_km' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }

@@ -2,6 +2,8 @@ import { addDaysToDateInput, formatDate, toDateInputValue } from './datetime';
 
 export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
 
+export const MAX_LIST_DATE_RANGE_MONTHS = 3;
+
 export const DATE_RANGE_PRESETS = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
@@ -126,4 +128,46 @@ export function formatDateRangeLabel(fromDate, toDate) {
     }
 
     return `${formatDate(fromDate)} - ${formatDate(toDate)}`;
+}
+
+export function addMonthsToDateInput(dateInput, monthOffset) {
+    if (!dateInput) {
+        return '';
+    }
+
+    const [year, month, day] = dateInput.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setMonth(date.getMonth() + monthOffset);
+
+    return toIsoDate(date);
+}
+
+export function maxDateRangeEnd(fromDate, maxMonths = MAX_LIST_DATE_RANGE_MONTHS) {
+    return addMonthsToDateInput(fromDate, maxMonths);
+}
+
+export function dateRangeExceedsMonths(
+    fromDate,
+    toDate,
+    maxMonths = MAX_LIST_DATE_RANGE_MONTHS,
+) {
+    if (!fromDate || !toDate) {
+        return false;
+    }
+
+    const start = new Date(`${fromDate}T00:00:00`);
+    const end = new Date(`${toDate}T00:00:00`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return false;
+    }
+
+    const earliestAllowedStart = new Date(end);
+    earliestAllowedStart.setMonth(earliestAllowedStart.getMonth() - maxMonths);
+
+    return start < earliestAllowedStart;
+}
+
+export function dateRangeMonthsError(maxMonths = MAX_LIST_DATE_RANGE_MONTHS) {
+    return `Maximum allowed date range is ${maxMonths} months.`;
 }

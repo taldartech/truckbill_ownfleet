@@ -1,19 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader
-            title="Tyre Management"
-            :subtitle="selectedTruckLabel ? `Truck: ${selectedTruckLabel}` : ''"
-        >
+        <AppIndexPageHeader title="Tyre Management">
             <template #actions>
-                <AppButton
-                    v-if="vehicleFilter && truckFilterApplicable"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-truck"
-                    label="Change truck"
-                    @click="openTruckPicker"
-                />
                 <RouterLink
                     v-if="vehicleFilter && truckFilterApplicable"
                     :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
@@ -21,7 +9,7 @@
                 >
                     <i class="bi bi-grid-3x3-gap"></i> Positions
                 </RouterLink>
-                <AppButton v-if="canManage" icon="bi bi-plus" label="Create" @click="openCreate" />
+                <AppButton v-if="canManage" icon="bi bi-plus" label="Add Tyre" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
 
@@ -29,10 +17,6 @@
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
-        <template v-if="truckContextReady">
         <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
             <div>
                 <label class="form-label">Search</label>
@@ -42,34 +26,39 @@
                     placeholder="Tyre number, brand, size…"
                     max-width="100%"
                     :disabled="loading"
+                    @keydown.enter.prevent="applyFilters"
                 />
             </div>
             <div v-if="truckFilterApplicable">
                 <label class="form-label" for="tyresIndex_vehicle">Truck</label>
-                <SearchableSelect
+                <VehicleSelect
                     input-id="tyresIndex_vehicle"
                     v-model="vehicleFilter"
-                    :items="vehicleSelectOptions"
+                    :vehicles="vehicles"
                     placeholder="All trucks"
-                    search-placeholder="Search truck number…"
-                    empty-message="No truck found."
-                    :disabled="loading || Boolean(vehicleFilter)"
+                    :disabled="loading"
                 />
-                <div v-if="vehicleFilter" class="form-text">
-                    Use <strong>Change truck</strong> above to pick a different truck.
-                </div>
             </div>
             <div>
                 <label class="form-label">Status</label>
-                <select v-model="statusFilter" class="form-select" :disabled="loading">
-                    <option value="">All statuses</option>
-                    <option v-for="s in tyreStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                </select>
+                <AppSelect
+                    v-model="statusFilter"
+                    :options="tyreStatuses"
+                    placeholder="All statuses"
+                    search-placeholder="Search status…"
+                    :disabled="loading"
+                />
             </div>
         </AppIndexFiltersCard>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading tyres…">
-            <table class="table table-hover align-middle mb-0">
+        <div class="card app-index-list-card">
+            <div class="card-body">
+                <div v-if="!filtersApplied" class="text-center text-muted py-4">
+                    Select filters and click Apply to view tyres.
+                </div>
+                <div v-else-if="loading" class="text-center py-4 text-muted">Loading tyres…</div>
+                <div v-else class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Tyre #</th>
@@ -77,6 +66,7 @@
                             <th>Size</th>
                             <th>Type</th>
                             <th>Status</th>
+                            <th>Life used</th>
                             <th>Warranty</th>
                             <th>Truck / Position</th>
                             <th>Purchase</th>
@@ -85,7 +75,9 @@
                     </thead>
                     <tbody>
                         <tr v-if="tyres.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 9 : 8" class="text-center text-muted py-4">No tyres found.</td>
+                            <td :colspan="canManage ? 10 : 9" class="text-center text-muted py-4">
+                                No tyres found for selected filters.
+                            </td>
                         </tr>
                         <tr v-for="tyre in tyres" :key="tyre.id">
                             <td>
@@ -103,6 +95,18 @@
                                 <span class="badge" :class="tyreStatusBadgeClass(tyre.status)">
                                     {{ formatTyreStatus(tyre.status) }}
                                 </span>
+                            </td>
+                            <td class="small" style="min-width: 110px">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>{{ estimateLifePercent(tyre) }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px">
+                                    <div
+                                        class="progress-bar"
+                                        :class="lifeBarClass(estimateLifePercent(tyre))"
+                                        :style="{ width: Math.min(100, estimateLifePercent(tyre)) + '%' }"
+                                    ></div>
+                                </div>
                             </td>
                             <td class="small">
                                 <template v-if="hasTyreWarranty(tyre)">
@@ -129,68 +133,23 @@
                             </td>
                         </tr>
                     </tbody>
-            </table>
-            <template #footer>
-                <AppIndexPaginationFooter
-                    page-id="tyresIndex"
-                    :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
-                    item-label="tyres"
-                    :per-page-options="[15, 25, 50]"
-                    @page-change="loadTyres"
-                    @update:per-page="onPerPageUpdate"
-                />
-            </template>
-        </AppIndexListCard>
-        </template>
-
-        <div
-            v-if="showTruckPicker"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-        >
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-gradient-primary">
-                        <h5 class="modal-title">
-                            <i class="bi bi-truck me-1"></i>
-                            Select Truck
-                        </h5>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-muted small mb-3">
-                            Choose a truck to view tyres installed on it, or open the full inventory list.
-                        </p>
-                        <label class="form-label" for="tyresTruckPicker_vehicle">Truck</label>
-                        <SearchableSelect
-                            input-id="tyresTruckPicker_vehicle"
-                            v-model="pickerVehicleId"
-                            :items="vehicleSelectOptions"
-                            placeholder="Search and select truck…"
-                            search-placeholder="Search truck number…"
-                            empty-message="No truck found."
-                            :disabled="vehiclesLoading"
-                        />
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" @click="viewAllTrucks">
-                            All tyres (inventory)
-                        </button>
-                        <AppButton
-                            label="View truck tyres"
-                            icon="bi bi-arrow-right"
-                            :disabled="!pickerVehicleId"
-                            @click="confirmTruckSelection"
-                        />
-                    </div>
+                    </table>
                 </div>
             </div>
+            <AppIndexPaginationFooter
+                page-id="tyresIndex"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="tyres"
+                :per-page-options="[15, 25, 50]"
+                @page-change="goToPage"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <div
@@ -200,172 +159,189 @@
             style="background: rgba(0, 0, 0, 0.45)"
             @click.self="closeModal"
         >
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-gradient-primary">
-                        <h5 class="modal-title">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable tyre-form-modal">
+                <div class="modal-content tyre-form-modal__content">
+                    <div class="modal-header bg-gradient-primary py-2">
+                        <div>
+                            <h5 class="modal-title mb-0">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
+                            <p v-if="modalHeaderMetaText" class="tyre-form-modal__meta mb-0 mt-1">
+                                {{ modalHeaderMetaText }}
+                            </p>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="closeModal"></button>
                     </div>
-                    <form novalidate @submit.prevent="save">
-                        <div class="modal-body row g-3">
-                            <div v-if="formError" class="col-12">
-                                <div class="alert alert-danger py-2 mb-0">{{ formError }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Tyre Number *</label>
-                                <input
-                                    ref="serialNumberInputRef"
-                                    v-model="form.serial_number"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.serial_number }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.serial_number" class="invalid-feedback d-block">
-                                    {{ fieldErrors.serial_number[0] }}
+                    <form novalidate class="tyre-form-modal__form" @submit.prevent="save">
+                        <div class="modal-body tyre-form-body">
+                            <div v-if="formError" class="alert alert-danger py-2 mb-2 small" role="alert">{{ formError }}</div>
+
+                            <div class="tyre-form-grid">
+                                <div>
+                                    <label class="form-label" for="tyreForm_serial_number">Tyre Number *</label>
+                                    <input
+                                        id="tyreForm_serial_number"
+                                        ref="serialNumberInputRef"
+                                        v-model="form.serial_number"
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': fieldErrors.serial_number }"
+                                        autocomplete="off"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.serial_number" class="invalid-feedback d-block">
+                                        {{ fieldErrors.serial_number[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Brand</label>
-                                <input
-                                    v-model="form.brand"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.brand }"
-                                />
-                                <div v-if="fieldErrors.brand" class="invalid-feedback d-block">
-                                    {{ fieldErrors.brand[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_brand">Brand *</label>
+                                    <input
+                                        id="tyreForm_brand"
+                                        v-model="form.brand"
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': fieldErrors.brand }"
+                                        autocomplete="off"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.brand" class="invalid-feedback d-block">
+                                        {{ fieldErrors.brand[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Size</label>
-                                <input
-                                    v-model="form.size"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.size }"
-                                    placeholder="10.00-20"
-                                />
-                                <div v-if="fieldErrors.size" class="invalid-feedback d-block">
-                                    {{ fieldErrors.size[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_size">Size *</label>
+                                    <input
+                                        id="tyreForm_size"
+                                        v-model="form.size"
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': fieldErrors.size }"
+                                        placeholder="10.00-20"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.size" class="invalid-feedback d-block">
+                                        {{ fieldErrors.size[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Tyre Type</label>
-                                <select
-                                    v-model="form.tyre_type"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.tyre_type }"
-                                >
-                                    <option value="">—</option>
-                                    <option v-for="t in tyreTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-                                </select>
-                                <div v-if="fieldErrors.tyre_type" class="invalid-feedback d-block">
-                                    {{ fieldErrors.tyre_type[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_purchase_date">Purchase Date *</label>
+                                    <AppDateInput
+                                        input-id="tyreForm_purchase_date"
+                                        v-model="form.purchase_date"
+                                        :invalid="!!fieldErrors.purchase_date"
+                                        size="sm"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.purchase_date" class="invalid-feedback d-block">
+                                        {{ fieldErrors.purchase_date[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Purchase Date</label>
-                                <AppDateInput
-                                    v-model="form.purchase_date"
-                                    :invalid="!!fieldErrors.purchase_date"
-                                />
-                                <div v-if="fieldErrors.purchase_date" class="invalid-feedback d-block">
-                                    {{ fieldErrors.purchase_date[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_expected_life_km">Expected Tyre Life (KM) *</label>
+                                    <input
+                                        id="tyreForm_expected_life_km"
+                                        v-model.number="form.expected_life_km"
+                                        v-no-scroll-change
+                                        type="number"
+                                        min="1000"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': fieldErrors.expected_life_km }"
+                                        placeholder="e.g. 40,000"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.expected_life_km" class="invalid-feedback d-block">
+                                        {{ fieldErrors.expected_life_km[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Purchase Cost</label>
-                                <input
-                                    v-model.number="form.purchase_cost"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.purchase_cost }"
-                                />
-                                <div v-if="fieldErrors.purchase_cost" class="invalid-feedback d-block">
-                                    {{ fieldErrors.purchase_cost[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_current_km">Initial Running KM <span class="text-muted fw-normal">(optional)</span></label>
+                                    <input
+                                        id="tyreForm_current_km"
+                                        v-model.number="form.current_km"
+                                        v-no-scroll-change
+                                        type="number"
+                                        min="0"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': fieldErrors.current_km }"
+                                        placeholder="0"
+                                    />
+                                    <div v-if="fieldErrors.current_km" class="invalid-feedback d-block">
+                                        {{ fieldErrors.current_km[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Expected life (KM)</label>
-                                <input v-model.number="form.expected_life_km" v-no-scroll-change type="number" min="1000" class="form-control" placeholder="40000" />
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">KM already used</label>
-                                <input
-                                    v-model.number="form.current_km"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.current_km }"
-                                    placeholder="0"
-                                />
-                                <div v-if="fieldErrors.current_km" class="invalid-feedback d-block">
-                                    {{ fieldErrors.current_km[0] }}
+                                <div class="tyre-form-grid__full">
+                                    <label class="form-label" for="tyreForm_purchase_cost">Purchase Cost <span class="text-muted fw-normal">(optional)</span></label>
+                                    <input
+                                        id="tyreForm_purchase_cost"
+                                        v-model="form.purchase_cost"
+                                        v-no-scroll-change
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="form-control form-control-sm"
+                                        placeholder="0"
+                                        autocomplete="off"
+                                        inputmode="decimal"
+                                        :class="{ 'is-invalid': fieldErrors.purchase_cost }"
+                                        @keydown="blockNegativeAmountKey"
+                                        @paste="onPositiveAmountPaste($event, 'purchase_cost')"
+                                        @blur="normalizePurchaseCostField"
+                                    />
+                                    <div v-if="fieldErrors.purchase_cost" class="invalid-feedback d-block">
+                                        {{ fieldErrors.purchase_cost[0] }}
+                                    </div>
                                 </div>
-                                <div v-else class="form-text">
-                                    0 = new tyre. Prior KM before this fleet, or fix a wrong entry at create time.
-                                    <span v-if="editing && minimumRecordedKm > 0">
-                                        Minimum {{ minimumRecordedKm }} km (already run on trucks).
-                                    </span>
+                                <div>
+                                    <label class="form-label" for="tyreForm_warranty_until">Warranty Valid Until <span class="text-muted fw-normal">(optional)</span></label>
+                                    <AppDateInput
+                                        input-id="tyreForm_warranty_until"
+                                        v-model="form.warranty_valid_until"
+                                        :invalid="!!fieldErrors.warranty_valid_until"
+                                        size="sm"
+                                    />
+                                    <div v-if="fieldErrors.warranty_valid_until" class="invalid-feedback d-block">
+                                        {{ fieldErrors.warranty_valid_until[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Warranty Valid Until</label>
-                                <AppDateInput
-                                    v-model="form.warranty_valid_until"
-                                    :invalid="!!fieldErrors.warranty_valid_until"
-                                />
-                                <div v-if="fieldErrors.warranty_valid_until" class="invalid-feedback d-block">
-                                    {{ fieldErrors.warranty_valid_until[0] }}
+                                <div>
+                                    <label class="form-label" for="tyreForm_warranty_km">Warranty KM Limit <span class="text-muted fw-normal">(optional)</span></label>
+                                    <input
+                                        id="tyreForm_warranty_km"
+                                        v-model="form.warranty_km"
+                                        type="text"
+                                        inputmode="numeric"
+                                        class="form-control form-control-sm"
+                                        placeholder="e.g. 40,000"
+                                        autocomplete="off"
+                                        :class="{ 'is-invalid': fieldErrors.warranty_km }"
+                                    />
+                                    <div v-if="fieldErrors.warranty_km" class="invalid-feedback d-block">
+                                        {{ fieldErrors.warranty_km[0] }}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Warranty KM Limit</label>
-                                <input
-                                    v-model.number="form.warranty_km"
-                                    v-no-scroll-change type="number"
-                                    min="0"
-                                    step="1"
-                                    class="form-control"
-                                    placeholder="e.g. 40000"
-                                    :class="{ 'is-invalid': fieldErrors.warranty_km }"
-                                />
-                                <div v-if="fieldErrors.warranty_km" class="invalid-feedback d-block">
-                                    {{ fieldErrors.warranty_km[0] }}
+                                <div class="tyre-form-grid__full">
+                                    <label class="form-label" for="tyreForm_notes">Notes <span class="text-muted fw-normal">(optional)</span></label>
+                                    <textarea
+                                        id="tyreForm_notes"
+                                        v-model="form.notes"
+                                        class="form-control form-control-sm"
+                                        rows="3"
+                                        placeholder="Dealer name, claim terms, etc."
+                                    />
                                 </div>
-                            </div>
-                            
-                            <div class="col-12">
-                                <label class="form-label">Warranty Notes</label>
-                                <textarea
-                                    v-model="form.warranty_details"
-                                    class="form-control"
-                                    rows="2"
-                                    placeholder="Dealer name, claim terms, etc."
-                                />
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Notes</label>
-                                <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
+                        <div class="modal-footer tyre-form-footer">
+                            <button type="button" class="btn btn-secondary btn-sm" @click="closeModal">Cancel</button>
                             <AppButton
                                 v-if="!editing"
                                 type="button"
                                 variant="primary"
                                 outline
-                                label="Save & Add More"
+                                size="sm"
+                                label="Save & Add Another"
                                 :loading="saving"
                                 @click="saveAndNext"
                             />
-                            <AppButton type="submit" label="Save" :loading="saving" />
+                            <AppButton type="submit" variant="primary" size="sm" label="Save" :loading="saving" />
                         </div>
                     </form>
                 </div>
@@ -380,21 +356,23 @@ import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppButton from '../../components/ui/AppButton.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import AppDateInput from '../../components/ui/AppDateInput.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import {
     TYRE_STATUSES,
-    TYRE_TYPES,
     formatTyreStatus,
     formatTyreType,
     formatWarrantySummary,
@@ -404,17 +382,94 @@ import {
     warrantyBadgeClass,
 } from '../../utils/tyreDisplay';
 
+const DEFAULT_TYRE_TYPE = 'RADIAL';
+
+function estimateLifePercent(tyre) {
+    const expected = Number(tyre?.expected_life_km ?? 40000);
+    const used = Number(tyre?.current_km ?? 0);
+
+    if (expected <= 0) {
+        return 0;
+    }
+
+    return Math.min(100, Math.round((used / expected) * 100));
+}
+
+function lifeBarClass(percent) {
+    if (percent >= 85) {
+        return 'bg-danger';
+    }
+
+    if (percent >= 60) {
+        return 'bg-warning';
+    }
+
+    return 'bg-success';
+}
+
+function optionalNumber(value) {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = String(value).replace(/[₹,\s]/g, '');
+    const parsed = Number(normalized);
+
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function numberFieldDisplay(value) {
+    return value !== null && value !== undefined ? String(value) : '';
+}
+
+function blockNegativeAmountKey(event) {
+    if (event.key === '-' || event.key === 'Minus' || event.key === 'e' || event.key === 'E' || event.key === '+') {
+        event.preventDefault();
+    }
+}
+
+function purchaseCostForPayload(value) {
+    const parsed = optionalNumber(value);
+
+    return parsed === null ? 0 : parsed;
+}
+
+function normalizePurchaseCostField() {
+    const parsed = optionalNumber(form.purchase_cost);
+    form.purchase_cost = parsed === null ? 0 : parsed;
+}
+
+function onPositiveAmountPaste(event, fieldKey) {
+    const text = (event.clipboardData?.getData('text') ?? '').trim();
+
+    if (text.includes('-') || text.includes('+') || (text !== '' && Number(text) < 0)) {
+        event.preventDefault();
+        return;
+    }
+
+    const parsed = optionalNumber(text);
+
+    if (text !== '' && parsed === null) {
+        event.preventDefault();
+        return;
+    }
+
+    form[fieldKey] = text === '' ? (fieldKey === 'purchase_cost' ? 0 : '') : String(parsed);
+    event.preventDefault();
+}
+
 const route = useRoute();
 const router = useRouter();
+const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('tyres.manage'));
 
 const tyreStatuses = TYRE_STATUSES;
-const tyreTypes = TYRE_TYPES;
 
 const tyres = ref([]);
-const loading = ref(true);
+const loading = ref(false);
+const filtersApplied = ref(false);
 const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('');
@@ -423,48 +478,23 @@ const truckFilterApplicable = computed(
     () => statusFilter.value !== 'IN_STOCK' && statusFilter.value !== 'SCRAPPED',
 );
 const vehicles = ref([]);
-const vehiclesLoading = ref(true);
-const vehicleSelectOptions = computed(() =>
-    vehicles.value.map((vehicle) => ({
-        id: vehicle.id,
-        label: vehicle.registration_number,
-    })),
-);
-const showTruckPicker = ref(false);
-const truckContextReady = ref(false);
-const pickerVehicleId = ref('');
-const selectedTruckLabel = computed(() => {
-    if (!vehicleFilter.value) {
-        return '';
-    }
-
-    const match = vehicles.value.find((vehicle) => String(vehicle.id) === String(vehicleFilter.value));
-    return match?.registration_number ?? '';
-});
 const showModal = ref(false);
 const editing = ref(null);
 const serialNumberInputRef = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta } = useListPagination(15);
-const flash = reactive({ success: '', error: '' });
-
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
 
 const form = reactive({
     serial_number: '',
     brand: '',
     size: '',
-    tyre_type: '',
+    tyre_type: DEFAULT_TYRE_TYPE,
     purchase_date: '',
     purchase_cost: 0,
     expected_life_km: 40000,
     current_km: 0,
     warranty_valid_until: '',
-    warranty_km: null,
-    warranty_details: '',
+    warranty_km: '',
     notes: '',
 });
 
@@ -474,6 +504,34 @@ const filtersActive = computed(
 
 const minimumRecordedKm = computed(() => Number(editing.value?.minimum_recorded_km ?? 0));
 
+const displayStatusLabel = computed(() => {
+    if (editing.value?.status) {
+        return formatTyreStatus(editing.value.status);
+    }
+
+    return formatTyreStatus('IN_STOCK');
+});
+
+const modalHeaderMetaText = computed(() => {
+    if (!editing.value) {
+        return '';
+    }
+
+    const parts = [];
+    const installation = editing.value.active_installation;
+
+    if (installation?.vehicle_registration) {
+        const truckLabel = installation.position_label
+            ? `${installation.vehicle_registration} (${installation.position_label})`
+            : installation.vehicle_registration;
+        parts.push(`Truck: ${truckLabel}`);
+    }
+
+    parts.push(displayStatusLabel.value);
+
+    return parts.join(' · ');
+});
+
 function clearTruckFilterIfNeeded() {
     if (truckFilterApplicable.value) {
         return;
@@ -481,29 +539,27 @@ function clearTruckFilterIfNeeded() {
 
     if (vehicleFilter.value) {
         vehicleFilter.value = '';
-        syncVehicleQuery();
     }
-
-    truckContextReady.value = true;
 }
 
 function applyFilters() {
     clearTruckFilterIfNeeded();
+    filtersApplied.value = true;
     syncVehicleQuery();
+    pagination.currentPage = 1;
     loadTyres(1);
 }
 
 function clearFilters() {
     search.value = '';
     statusFilter.value = '';
-    if (!vehicleFilter.value) {
-        loadTyres(1);
-        return;
-    }
-
     vehicleFilter.value = '';
+    filtersApplied.value = false;
+    tyres.value = [];
+    syncFromMeta({}, 0);
+    pagination.currentPage = 1;
+    pagination.perPage = 15;
     syncVehicleQuery();
-    openTruckPicker();
 }
 
 function syncVehicleQuery() {
@@ -515,34 +571,21 @@ function syncVehicleQuery() {
         delete query.vehicle_id;
     }
 
+    if (statusFilter.value) {
+        query.status = statusFilter.value;
+    } else {
+        delete query.status;
+    }
+
     router.replace({ query });
 }
 
-function openTruckPicker() {
-    pickerVehicleId.value = vehicleFilter.value;
-    truckContextReady.value = false;
-    showTruckPicker.value = true;
-}
-
-function confirmTruckSelection() {
-    if (!pickerVehicleId.value) {
+function goToPage(page) {
+    if (!filtersApplied.value || page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
         return;
     }
 
-    vehicleFilter.value = String(pickerVehicleId.value);
-    statusFilter.value = '';
-    showTruckPicker.value = false;
-    truckContextReady.value = true;
-    syncVehicleQuery();
-    loadTyres(1);
-}
-
-function viewAllTrucks() {
-    vehicleFilter.value = '';
-    showTruckPicker.value = false;
-    truckContextReady.value = true;
-    syncVehicleQuery();
-    loadTyres(1);
+    loadTyres(page);
 }
 
 function resetForm() {
@@ -550,14 +593,13 @@ function resetForm() {
         serial_number: '',
         brand: '',
         size: '',
-        tyre_type: '',
+        tyre_type: DEFAULT_TYRE_TYPE,
         purchase_date: '',
         purchase_cost: 0,
         expected_life_km: 40000,
         current_km: 0,
         warranty_valid_until: '',
-        warranty_km: null,
-        warranty_details: '',
+        warranty_km: '',
         notes: '',
     });
 }
@@ -566,28 +608,23 @@ function openCreate() {
     editing.value = null;
     resetForm();
     clearErrors();
-    flash.success = '';
-    flash.error = '';
     showModal.value = true;
 }
 
 async function openEdit(tyre) {
     editing.value = tyre;
     clearErrors();
-    flash.success = '';
-    flash.error = '';
     Object.assign(form, {
         serial_number: tyre.serial_number,
         brand: tyre.brand ?? '',
         size: tyre.size ?? '',
         tyre_type: tyre.tyre_type ?? '',
         purchase_date: tyre.purchase_date ?? '',
-        purchase_cost: tyre.purchase_cost ?? 0,
+        purchase_cost: Number(tyre.purchase_cost ?? 0),
         expected_life_km: tyre.expected_life_km ?? 40000,
         current_km: tyre.current_km ?? 0,
         warranty_valid_until: tyre.warranty_valid_until ?? '',
-        warranty_km: tyre.warranty_km ?? null,
-        warranty_details: tyre.warranty_details ?? '',
+        warranty_km: numberFieldDisplay(tyre.warranty_km),
         notes: tyre.notes ?? '',
     });
     showModal.value = true;
@@ -596,6 +633,7 @@ async function openEdit(tyre) {
         const payload = await getTyre(tyre.id);
         editing.value = {
             ...tyre,
+            ...(payload.tyre ?? {}),
             minimum_recorded_km: payload.life_summary?.minimum_current_km ?? 0,
         };
         form.current_km = payload.tyre?.current_km ?? form.current_km;
@@ -614,15 +652,22 @@ function goToDetail(id) {
 }
 
 function onPerPageUpdate(perPage) {
+    if (!filtersApplied.value) {
+        return;
+    }
+
     pagination.perPage = perPage;
+    pagination.currentPage = 1;
     loadTyres(1);
 }
 
 async function loadTyres(page = 1) {
-    if (needsCompanySelection.value) {
+    if (needsCompanySelection.value || !filtersApplied.value) {
         loading.value = false;
+
         return;
     }
+
     loading.value = true;
     try {
         const response = await listTyres({
@@ -641,13 +686,66 @@ async function loadTyres(page = 1) {
 
 function buildPayload() {
     return {
-        ...form,
-        tyre_type: form.tyre_type || null,
+        serial_number: form.serial_number,
+        brand: form.brand,
+        size: form.size,
+        tyre_type: DEFAULT_TYRE_TYPE,
         purchase_date: form.purchase_date || null,
-        purchase_cost: form.purchase_cost === '' || form.purchase_cost == null ? null : form.purchase_cost,
+        purchase_cost: purchaseCostForPayload(form.purchase_cost),
+        expected_life_km: form.expected_life_km,
+        current_km: form.current_km === '' || form.current_km == null ? 0 : form.current_km,
         warranty_valid_until: form.warranty_valid_until || null,
-        warranty_km: form.warranty_km === '' || form.warranty_km == null ? null : form.warranty_km,
+        warranty_km: optionalNumber(form.warranty_km),
+        notes: form.notes || null,
     };
+}
+
+function validateForm() {
+    const errors = {};
+
+    if (!String(form.serial_number ?? '').trim()) {
+        errors.serial_number = ['Tyre number is required.'];
+    }
+
+    if (!String(form.brand ?? '').trim()) {
+        errors.brand = ['Brand is required.'];
+    }
+
+    if (!String(form.size ?? '').trim()) {
+        errors.size = ['Size is required.'];
+    }
+
+    if (!form.purchase_date) {
+        errors.purchase_date = ['Please enter a valid purchase date (dd/mm/yyyy).'];
+    }
+
+    const purchaseCost = purchaseCostForPayload(form.purchase_cost);
+    const purchaseCostRaw = form.purchase_cost;
+    const purchaseCostTouched =
+        purchaseCostRaw !== '' && purchaseCostRaw !== null && purchaseCostRaw !== undefined && Number(purchaseCostRaw) !== 0;
+
+    if (purchaseCostTouched && optionalNumber(purchaseCostRaw) === null) {
+        errors.purchase_cost = ['Enter a valid amount (numbers only, e.g. 1000).'];
+    }
+
+    if (purchaseCost < 0) {
+        errors.purchase_cost = ['Purchase cost cannot be negative.'];
+    }
+
+    if (form.expected_life_km == null || form.expected_life_km === '' || Number(form.expected_life_km) < 1000) {
+        errors.expected_life_km = ['Expected life must be at least 1,000 km.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+        fieldErrors.value = errors;
+        const firstMessage = Object.values(errors)
+            .flat()
+            .find((message) => typeof message === 'string' && message.length > 0);
+        formError.value = firstMessage ?? 'Please complete the required fields marked with *.';
+        return false;
+    }
+
+    return true;
 }
 
 async function persistTyre() {
@@ -665,13 +763,21 @@ async function save() {
     saving.value = true;
     clearErrors();
 
+    if (!validateForm()) {
+        saving.value = false;
+        return;
+    }
+
     try {
         await persistTyre();
-        showToast(editing.value ? 'Tyre updated successfully.' : 'Tyre added successfully.');
+        toast.success(editing.value ? 'Tyre updated successfully.' : 'Tyre added successfully.');
         closeModal();
-        await loadTyres(pagination.currentPage);
+
+        if (filtersApplied.value) {
+            await loadTyres(pagination.currentPage);
+        }
     } catch (error) {
-        applyApiError(error, 'Please check the highlighted fields.');
+        applyApiError(error, friendlyApiErrorMessage(error, 'Unable to save the tyre. Please check the form and try again.'));
     } finally {
         saving.value = false;
     }
@@ -685,15 +791,24 @@ async function saveAndNext() {
     saving.value = true;
     clearErrors();
 
+    if (!validateForm()) {
+        saving.value = false;
+        return;
+    }
+
     try {
         await persistTyre();
-        showToast('Tyre added successfully.');
-        await loadTyres(pagination.currentPage);
+        toast.success('Tyre added successfully.');
+
+        if (filtersApplied.value) {
+            await loadTyres(pagination.currentPage);
+        }
+
         form.serial_number = '';
         await nextTick();
         serialNumberInputRef.value?.focus();
     } catch (error) {
-        applyApiError(error, 'Please check the highlighted fields.');
+        applyApiError(error, friendlyApiErrorMessage(error, 'Unable to save the tyre. Please check the form and try again.'));
     } finally {
         saving.value = false;
     }
@@ -714,8 +829,6 @@ function applyRouteFilters() {
 
     if (!skipTruckFilter && typeof vehicleId === 'string' && vehicleId !== '') {
         vehicleFilter.value = vehicleId;
-        pickerVehicleId.value = vehicleId;
-        truckContextReady.value = true;
     }
 }
 
@@ -723,28 +836,107 @@ watch(statusFilter, () => {
     clearTruckFilterIfNeeded();
 });
 
+watch(showModal, async (open) => {
+    if (!open) {
+        return;
+    }
+
+    await nextTick();
+    serialNumberInputRef.value?.focus();
+});
+
 onMounted(async () => {
     applyRouteFilters();
-    vehiclesLoading.value = true;
 
     try {
         vehicles.value = await listAllVehicles();
-    } finally {
-        vehiclesLoading.value = false;
+    } catch {
+        vehicles.value = [];
     }
-
-    if (truckContextReady.value) {
-        await loadTyres();
-        return;
-    }
-
-    if (statusFilter.value === 'IN_STOCK' || statusFilter.value === 'SCRAPPED') {
-        truckContextReady.value = true;
-        await loadTyres();
-        return;
-    }
-
-    loading.value = false;
-    showTruckPicker.value = !needsCompanySelection.value;
 });
 </script>
+
+<style scoped>
+.tyre-form-modal {
+    width: calc(100% - 1rem);
+    max-width: 680px;
+    margin: 0.5rem auto;
+}
+
+.tyre-form-modal__content {
+    border: 0;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+.tyre-form-modal__meta {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.tyre-form-modal__form {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 1rem);
+}
+
+.tyre-form-body {
+    padding: 0.75rem 1rem;
+    overflow-y: auto;
+}
+
+.tyre-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.75rem;
+    align-items: start;
+}
+
+.tyre-form-grid__full {
+    grid-column: 1 / -1;
+}
+
+.tyre-form-footer {
+    flex-shrink: 0;
+    padding: 0.6rem 1rem;
+    border-top: 1px solid #dee2e6;
+    background: #fff;
+    gap: 0.4rem;
+}
+
+.tyre-form-body .form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.tyre-form-body .invalid-feedback {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+    .tyre-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tyre-form-modal {
+        max-width: 100%;
+    }
+
+    .tyre-form-footer {
+        flex-wrap: wrap;
+        justify-content: stretch;
+    }
+
+    .tyre-form-footer :deep(.btn),
+    .tyre-form-footer .btn {
+        flex: 1 1 auto;
+    }
+}
+
+@media (min-width: 992px) {
+    .tyre-form-modal {
+        max-width: 720px;
+    }
+}
+</style>

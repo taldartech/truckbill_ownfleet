@@ -81,6 +81,16 @@ class TyrePositionCatalog
         return TyrePosition::tryFrom($positionCode) === TyrePosition::Spare;
     }
 
+    public function isSteerPosition(?string $positionCode): bool
+    {
+        if ($positionCode === null || $positionCode === '') {
+            return false;
+        }
+
+        return str_starts_with($positionCode, 'STEER')
+            || in_array($positionCode, [TyrePosition::FrontLeft->value, TyrePosition::FrontRight->value], true);
+    }
+
     private function resolveLayoutForVehicle(Vehicle $vehicle): ?TyreLayout
     {
         if ($vehicle->tyre_layout === null || $vehicle->tyre_layout === '') {

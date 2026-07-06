@@ -124,7 +124,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             previousValue: lookupName(customers, originalPayload?.customer_id, '—'),
         },
         {
-            label: 'Reference by (not recommended)',
+            label: 'Reference by (optional)',
             compareValue: form.broker_id,
             comparePrevious: originalPayload?.broker_id,
             value: lookupName(brokers, form.broker_id, '—'),
@@ -184,11 +184,60 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             };
         });
 
+    function formatLegField(leg, field, stationsList, customersList) {
+        switch (field) {
+            case 'from':
+                return lookupName(stationsList, leg.from_station_id);
+            case 'to':
+                return lookupName(stationsList, leg.to_station_id);
+            case 'customer':
+                return lookupName(customersList, leg.customer_id, '—');
+            case 'weight':
+                return formatNum(leg.weight_ton);
+            case 'expectedMileage':
+                return leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
+                    ? '—'
+                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`;
+            case 'rate':
+                return `₹${formatMoney(leg.freight_rate)}`;
+            case 'freight':
+                return `₹${formatMoney(leg.freight_amount)}`;
+            default:
+                return '—';
+        }
+    }
+
     const routeLegs = (form.route_legs ?? []).map((leg, index) => {
         const originalLeg = originalLegs[index];
         const signature = legSignature(leg);
         const isNew = mode === 'edit' && index >= originalLegs.length;
         const changed = mode === 'edit' && originalLeg && legSignature(originalLeg) !== signature;
+
+        const legFieldDefs = [
+            { key: 'from', label: 'From' },
+            { key: 'to', label: 'To' },
+            { key: 'customer', label: 'Customer' },
+            { key: 'weight', label: 'Weight (Ton)' },
+            { key: 'expectedMileage', label: 'Expected Mileage' },
+            { key: 'rate', label: 'Freight Rate' },
+            { key: 'freight', label: 'Freight' },
+        ];
+
+        const fieldChanges =
+            changed && originalLeg
+                ? legFieldDefs
+                      .map(({ key, label }) => {
+                          const previous = formatLegField(originalLeg, key, stations, customers);
+                          const current = formatLegField(leg, key, stations, customers);
+
+                          if (previous === current) {
+                              return null;
+                          }
+
+                          return { label, previous, current };
+                      })
+                      .filter(Boolean)
+                : [];
 
         return {
             sequence: index + 1,
@@ -204,6 +253,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             freight: formatMoney(leg.freight_amount),
             isNew,
             changed: isNew || changed,
+            fieldChanges,
         };
     });
 
@@ -216,11 +266,23 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         const changed =
             mode === 'edit' && originalExpense && expenseSignature(originalExpense) !== expenseSignature(expense);
 
+        const previousAmount = originalExpense ? formatMoney(originalExpense.amount) : null;
+
         return {
             type: expenseTypeLabel(expense.expense_type, expense.other_type),
+            previousType: originalExpense
+                ? expenseTypeLabel(originalExpense.expense_type, originalExpense.other_type)
+                : null,
             date: formatDate(expense.expense_date),
+            previousDate: originalExpense ? formatDate(originalExpense.expense_date) : null,
             leg: expense.route_leg_sequence ? `Stop ${expense.route_leg_sequence}` : 'General',
+            previousLeg: originalExpense
+                ? originalExpense.route_leg_sequence
+                    ? `Stop ${originalExpense.route_leg_sequence}`
+                    : 'General'
+                : null,
             amount: formatMoney(expense.amount),
+            previousAmount: changed && previousAmount !== formatMoney(expense.amount) ? previousAmount : null,
             isNew,
             changed: isNew || changed,
         };
@@ -264,7 +326,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                   ? 'Please review what you are updating. Changed items are marked — save only if everything is correct.'
                   : 'Please review the trip details below before saving.',
         basicInfoFields: pickFields('Trip Number', 'Start Date', 'End Date', 'Status'),
-        partyFields: pickFields('Customer', 'Reference by (not recommended)', 'Start Station'),
+        partyFields: pickFields('Customer', 'Reference by (optional)', 'Start Station'),
         transportFields: pickFields('Truck', 'Primary Driver', 'Substitute Driver'),
         routePreview: routePreviewParts.filter(Boolean).join(' → ') || '—',
         detailFields,
@@ -286,6 +348,9 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             profitPositive: summary.profit >= 0,
         },
         hasChanges,
+        showExpensesAction: (mode === 'create' || mode === 'edit') && options.showExpensesAction !== false,
+        confirmLabel: mode === 'create' ? 'Yes, Save Trip' : 'Yes, Update Trip',
+        expensesActionLabel: mode === 'create' ? 'Save & Add Expenses' : 'Save & Manage Expenses',
         changeSummary:
             mode === 'edit' && hasChanges
                 ? [

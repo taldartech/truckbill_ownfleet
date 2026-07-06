@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VehicleMaintenanceReportController extends Controller
 {
@@ -36,6 +39,37 @@ class VehicleMaintenanceReportController extends Controller
         return response()->json([
             'data' => $this->reportService->dueServices(),
         ]);
+    }
+
+    public function export(Request $request): BinaryFileResponse
+    {
+        $this->authorize('maintenance_reports.export');
+
+        $type = $request->string('type', 'cost')->toString();
+        $filters = $this->filters($request);
+
+        $rows = match ($type) {
+            'truck' => $this->reportService->truckWiseCost($filters),
+            default => $this->reportService->costSummary($filters),
+        };
+
+        $filename = 'maintenance-report-'.$type.'-'.now()->format('Y-m-d-His').'.xlsx';
+
+        return Excel::download(new TripReportExport($this->exportRows($rows)), $filename);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function exportRows(array $rows): array
+    {
+        $hiddenColumns = ['service_type', 'vehicle_id', 'maintenance_service_type_id'];
+
+        return array_map(
+            fn (array $row): array => array_diff_key($row, array_flip($hiddenColumns)),
+            $rows,
+        );
     }
 
     /**

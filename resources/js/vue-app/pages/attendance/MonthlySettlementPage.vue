@@ -69,9 +69,6 @@
         </div>
 
         <div class="container-fluid">
-            <div v-if="flash.success" class="alert alert-success py-2">{{ flash.success }}</div>
-            <div v-if="flash.error" class="alert alert-danger py-2">{{ flash.error }}</div>
-
             <div v-if="loading" class="text-center py-5 text-muted">Loading settlement sheet…</div>
 
             <div v-else-if="loadError" class="alert alert-danger">
@@ -429,7 +426,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import SettlementActionConfirmModal from '../../components/attendance/SettlementActionConfirmModal.vue';
 import {
@@ -443,10 +440,12 @@ import {
     updateVehicleSettlementLine,
 } from '../../api/attendances';
 import { usePermissions } from '../../composables/usePermissions';
+import { useAppToast } from '../../composables/useAppToast';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatMonthYear, currentMonthValue } from '../../utils/datetime';
 
 const route = useRoute();
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 
 const canManageWages = computed(() => canInCompany('wages.manage'));
@@ -472,7 +471,6 @@ const selectedMonth = ref(route.query.month ?? currentMonth());
 const sheet = ref({});
 const payrollLines = ref([]);
 const vehicleMatrix = ref([]);
-const flash = reactive({ success: '', error: '' });
 
 const monthLock = computed(() => sheet.value.month_lock ?? { status: 'open' });
 const calendarDays = computed(() => sheet.value.calendar_days ?? 30);
@@ -643,11 +641,6 @@ function dayCellClass(mark) {
     return '';
 }
 
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
-
 function downloadExcel() {
     if (!selectedMonth.value) {
         return;
@@ -663,7 +656,6 @@ async function loadSheet() {
 
     loading.value = true;
     loadError.value = '';
-    flash.error = '';
 
     try {
         sheet.value = await fetchSettlementSheet(selectedMonth.value);
@@ -679,7 +671,7 @@ async function loadSheet() {
         vehicleMatrix.value = [];
         const message = friendlyApiErrorMessage(error, 'Unable to load settlement sheet.');
         loadError.value = message;
-        showToast(message, 'error');
+        toast.error(message);
     } finally {
         loading.value = false;
     }
@@ -711,7 +703,7 @@ async function savePayrollLine(line) {
         line.extra_deductions =
             Number(updated.pf ?? 0) + Number(updated.esi ?? 0) + Number(updated.other_deduction ?? 0);
     } catch (error) {
-        showToast(error.response?.data?.message ?? 'Could not save line.', 'error');
+        toast.error(error.response?.data?.message ?? 'Could not save line.');
     }
 }
 
@@ -730,7 +722,7 @@ async function saveVehicleLine(row) {
             total: row.total,
         });
     } catch (error) {
-        showToast(error.response?.data?.message ?? 'Could not save truck line.', 'error');
+        toast.error(error.response?.data?.message ?? 'Could not save truck line.');
     }
 }
 
@@ -750,7 +742,7 @@ function handleLockMonth() {
     }
 
     if (!canLockSelectedMonth.value || monthLock.value.status !== 'open') {
-        showToast('Only completed past months can be locked.', 'error');
+        toast.error('Only completed past months can be locked.');
 
         return;
     }
@@ -768,19 +760,19 @@ async function handleMarkAllPaid() {
     }
 
     if (monthLock.value.status === 'paid') {
-        showToast('This month is already finalized.', 'error');
+        toast.error('This month is already finalized.');
 
         return;
     }
 
     if (monthLock.value.status !== 'closed') {
-        showToast('Lock the month before marking payments.', 'error');
+        toast.error('Lock the month before marking payments.');
 
         return;
     }
 
     if (unpaidCount.value === 0) {
-        showToast('All drivers are already marked paid.', 'error');
+        toast.error('All drivers are already marked paid.');
 
         return;
     }
@@ -798,13 +790,13 @@ async function handleUnlockMonth() {
     }
 
     if (monthLock.value.status === 'paid') {
-        showToast('This month is finalized and cannot be unlocked.', 'error');
+        toast.error('This month is finalized and cannot be unlocked.');
 
         return;
     }
 
     if (monthLock.value.status !== 'closed') {
-        showToast('This month is not locked.', 'error');
+        toast.error('This month is not locked.');
 
         return;
     }
@@ -831,13 +823,13 @@ async function confirmSettlementAction() {
         if (action === 'lock') {
             await closeMonthWages(selectedMonth.value);
             activeTab.value = 'payroll';
-            showToast('Month locked. Review payroll and truck sheets.');
+            toast.success('Month locked. Review payroll and truck sheets.');
         } else if (action === 'markAllPaid') {
             await markAllMonthlyWagesPaid(selectedMonth.value, {});
-            showToast('All drivers marked paid. This month is now finalized.');
+            toast.success('All drivers marked paid. This month is now finalized.');
         } else if (action === 'unlock') {
             await unlockMonthWages(selectedMonth.value);
-            showToast('Month unlocked. Attendance can be edited again.');
+            toast.success('Month unlocked. Attendance can be edited again.');
         }
 
         pendingAction.value = null;
@@ -850,7 +842,7 @@ async function confirmSettlementAction() {
         }[action];
 
         pendingAction.value = null;
-        showToast(friendlyApiErrorMessage(error, fallback), 'error');
+        toast.error(friendlyApiErrorMessage(error, fallback));
         await loadSheet();
     } finally {
         locking.value = false;
@@ -879,9 +871,9 @@ async function handleMarkDriverPaid(line) {
 
         line.payment_status = updated.payment_status ?? 'paid';
         line.payment_notes = updated.payment_notes ?? notes;
-        showToast(`${line.name} marked paid.`);
+        toast.success(`${line.name} marked paid.`);
     } catch (error) {
-        showToast(error.response?.data?.message ?? 'Unable to mark driver paid.', 'error');
+        toast.error(error.response?.data?.message ?? 'Unable to mark driver paid.');
     } finally {
         markingDriverId.value = null;
     }

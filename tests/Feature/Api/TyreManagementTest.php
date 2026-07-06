@@ -30,15 +30,11 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-001',
-                'brand' => 'MRF',
-                'size' => '10.00-20',
-                'purchase_date' => '2026-01-15',
                 'purchase_cost' => 25000,
-                'tyre_type' => 'RADIAL',
-            ]);
+            ]));
 
         $create->assertOk();
         $create->assertJsonPath('data.serial_number', 'TYRE-001');
@@ -46,7 +42,7 @@ class TyreManagementTest extends TestCase
 
         $tyreId = $create->json('data.id');
 
-        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $install = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -63,24 +59,68 @@ class TyreManagementTest extends TestCase
         ]);
     }
 
-    public function test_tyre_life_report_returns_data_for_tenant(): void
+    public function test_create_tyre_without_purchase_cost_defaults_to_zero(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
         Sanctum::actingAs($user);
 
-        Tyre::query()->create([
-            'tenant_id' => $tenant->id,
+        $response = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-NO-COST',
+                'purchase_cost' => null,
+            ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('data.purchase_cost', 0);
+
+        $this->assertDatabaseHas('tyres', [
+            'serial_number' => 'TYRE-NO-COST',
+            'purchase_cost' => 0,
+        ]);
+    }
+
+    public function test_tyre_life_report_returns_data_for_tenant(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        $this->actingAs($user);
+
+        Tyre::query()->create(array_merge($this->operationalAttributesForTenant($tenant), [
             'serial_number' => 'TYRE-LIFE-1',
             'brand' => 'CEAT',
             'purchase_cost' => 10000,
+            'purchase_date' => '2026-03-01',
             'status' => TyreStatus::InStock,
-        ]);
+        ]));
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/reports/tyres/life');
+        $response = $this->tyreApi($tenant)
+            ->getJson('/api/reports/tyres/life?from=2026-01-01&to=2026-03-31');
 
         $response->assertOk();
         $response->assertJsonFragment(['serial_number' => 'TYRE-LIFE-1']);
+    }
+
+    public function test_tyre_report_export_returns_excel_for_selected_filters(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        $this->actingAs($user);
+
+        Tyre::query()->create(array_merge($this->operationalAttributesForTenant($tenant), [
+            'serial_number' => 'TYRE-EXPORT-1',
+            'brand' => 'CEAT',
+            'purchase_cost' => 10000,
+            'purchase_date' => '2026-03-01',
+            'status' => TyreStatus::InStock,
+        ]));
+
+        $response = $this->tyreApi($tenant)
+            ->get('/api/reports/tyres/export?type=life&from=2026-01-01&to=2026-03-31');
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        $this->assertStringContainsString('.xlsx', (string) $response->headers->get('content-disposition'));
     }
 
     public function test_vehicle_tyre_positions_returns_all_slots(): void
@@ -88,7 +128,7 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/vehicles/{$vehicle->id}/tyre-positions");
 
         $response->assertOk();
@@ -103,7 +143,7 @@ class TyreManagementTest extends TestCase
         $vehicle->update(['tyre_layout' => 'TYRES_12']);
         Sanctum::actingAs($user);
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/vehicles/{$vehicle->id}/tyre-positions");
 
         $response->assertOk();
@@ -120,14 +160,14 @@ class TyreManagementTest extends TestCase
 
         $activeTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-ACTIVE', TyrePosition::FrontLeft->value);
 
-        $removedTyreCreate = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $removedTyreCreate = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-REMOVED',
                 'purchase_cost' => 20000,
-            ]);
+            ]));
         $removedTyreId = $removedTyreCreate->json('data.id');
 
-        $removedInstall = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $removedInstall = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$removedTyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontRight->value,
@@ -136,14 +176,14 @@ class TyreManagementTest extends TestCase
             ]);
         $removedInstallationId = $removedInstall->json('data.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$removedInstallationId}/remove", [
                 'removed_at' => '2026-03-01',
                 'stint_km' => 2500,
             ])
             ->assertOk();
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/vehicles/{$vehicle->id}/tyre-history");
 
         $response->assertOk();
@@ -174,18 +214,18 @@ class TyreManagementTest extends TestCase
 
         $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SCRAP-HIST', TyrePosition::FrontLeft->value);
 
-        $firstInstall = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $firstInstall = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}")
             ->json('data.active_installation.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$firstInstall}/remove", [
                 'removed_at' => '2026-01-15',
                 'stint_km' => 1000,
             ])
             ->assertOk();
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontRight->value,
@@ -194,24 +234,24 @@ class TyreManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        $secondInstall = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $secondInstall = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}")
             ->json('data.active_installation.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$secondInstall}/remove", [
                 'removed_at' => '2026-03-01',
                 'stint_km' => 1500,
             ])
             ->assertOk();
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/scrap", [
                 'scrapped_at' => '2026-03-02',
             ])
             ->assertOk();
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/vehicles/{$vehicle->id}/tyre-history");
 
         $response->assertOk();
@@ -233,11 +273,11 @@ class TyreManagementTest extends TestCase
         Sanctum::actingAs($user);
 
         $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SAME-DAY', TyrePosition::FrontLeft->value);
-        $installationId = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $installationId = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}")
             ->json('data.active_installation.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$installationId}/remove", [
                 'removed_at' => '2026-03-01',
                 'stint_km' => 20000,
@@ -251,20 +291,19 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicleA] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $vehicleB = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+        $vehicleB = Vehicle::query()->create(array_merge($this->operationalAttributesForTenant($tenant), [
             'registration_number' => 'MH12TY9997',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 15000,
-        ]);
+        ]));
 
         $tyreId = $this->createAndInstallTyre($tenant, $vehicleA, 'TYRE-TIMELINE', TyrePosition::FrontLeft->value);
 
-        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $install = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
         $installationId = $install->json('data.active_installation.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/rotate", [
                 'rotation_date' => '2026-06-10',
                 'previous_position' => TyrePosition::FrontLeft->value,
@@ -274,14 +313,14 @@ class TyreManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$installationId}/remove", [
                 'removed_at' => '2026-06-11',
                 'stint_km' => 1500,
             ])
             ->assertOk();
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicleB->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -290,7 +329,7 @@ class TyreManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $response->assertOk();
@@ -333,7 +372,7 @@ class TyreManagementTest extends TestCase
         $leftTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-LEFT', TyrePosition::FrontLeft->value);
         $rightTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-RIGHT', TyrePosition::FrontRight->value);
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$leftTyreId}/rotate", [
                 'rotation_date' => '2026-06-05',
                 'previous_position' => TyrePosition::FrontLeft->value,
@@ -385,16 +424,15 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-EARLY',
-                'expected_life_km' => 40000,
                 'purchase_cost' => 20000,
-            ]);
+            ]));
 
         $tyreId = $create->json('data.id');
 
-        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $install = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -404,7 +442,7 @@ class TyreManagementTest extends TestCase
 
         $installationId = $install->json('data.id');
 
-        $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $preview = $this->tyreApi($tenant)
             ->getJson("/api/tyre-installations/{$installationId}/removal-preview?stint_km=1000");
 
         $preview->assertOk();
@@ -417,25 +455,23 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicleA] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $vehicleB = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+        $vehicleB = Vehicle::query()->create(array_merge($this->operationalAttributesForTenant($tenant), [
             'registration_number' => 'MH12TY9998',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 10000,
-        ]);
+        ]));
 
         $vehicleA->update(['odometer_km' => 5000]);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-ODO',
-                'expected_life_km' => 40000,
                 'current_km' => 0,
-            ]);
+            ]));
 
         $tyreId = $create->json('data.id');
 
-        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $install = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicleA->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -445,20 +481,20 @@ class TyreManagementTest extends TestCase
         $installationId = $install->json('data.id');
         $install->assertJsonPath('data.km_at_installation', 5000);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->patchJson("/api/tyre-installations/{$installationId}/stint-km", [
                 'odometer_km' => 6000,
             ])
             ->assertOk()
             ->assertJsonPath('data.stint_km', 1000);
 
-        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $show = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $show->assertJsonPath('life_summary.active_stint_km', 1000);
         $show->assertJsonPath('life_summary.life_used_percent', 2.5);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$installationId}/remove", [
                 'removed_at' => '2026-06-01',
                 'odometer_km' => 6000,
@@ -467,7 +503,7 @@ class TyreManagementTest extends TestCase
             ->assertJsonPath('data.running_km', 1000)
             ->assertJsonPath('data.km_at_removal', 6000);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicleB->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -476,7 +512,7 @@ class TyreManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        $afterTransfer = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $afterTransfer = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $afterTransfer->assertJsonPath('life_summary.stock_km', 1000);
@@ -484,14 +520,14 @@ class TyreManagementTest extends TestCase
 
         $newInstallationId = $afterTransfer->json('data.active_installation.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->patchJson("/api/tyre-installations/{$newInstallationId}/stint-km", [
                 'odometer_km' => 12000,
             ])
             ->assertOk()
             ->assertJsonPath('data.stint_km', 2000);
 
-        $final = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $final = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $final->assertJsonPath('life_summary.total_km_used', 3000);
@@ -504,16 +540,15 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-MANUAL',
-                'expected_life_km' => 40000,
                 'current_km' => 0,
-            ]);
+            ]));
 
         $tyreId = $create->json('data.id');
 
-        $install = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $install = $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -522,27 +557,27 @@ class TyreManagementTest extends TestCase
 
         $installationId = $install->json('data.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->patchJson("/api/tyre-installations/{$installationId}/stint-km", [
                 'stint_km' => 8000,
             ])
             ->assertOk();
 
-        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $show = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $show->assertOk();
         $show->assertJsonPath('life_summary.life_used_percent', 20);
         $show->assertJsonPath('life_summary.active_stint_km', 8000);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyre-installations/{$installationId}/remove", [
                 'removed_at' => '2026-06-01',
                 'stint_km' => 12000,
             ])
             ->assertOk();
 
-        $afterRemove = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $afterRemove = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $afterRemove->assertJsonPath('life_summary.total_km_used', 12000);
@@ -572,7 +607,7 @@ class TyreManagementTest extends TestCase
             'status' => TyreStatus::InStock,
         ]);
 
-        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $response = $this->tyreApi($tenant)
             ->getJson("/api/tyres?vehicle_id={$vehicle->id}");
 
         $response->assertOk();
@@ -586,23 +621,22 @@ class TyreManagementTest extends TestCase
         [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
         Sanctum::actingAs($user);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-FIX-KM',
-                'expected_life_km' => 40000,
                 'current_km' => 10000,
-            ]);
+            ]));
 
         $tyreId = $create->json('data.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->putJson("/api/tyres/{$tyreId}", [
                 'current_km' => 0,
             ])
             ->assertOk()
             ->assertJsonPath('data.current_km', 0);
 
-        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $show = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $show->assertJsonPath('life_summary.stock_km', 0);
@@ -614,16 +648,15 @@ class TyreManagementTest extends TestCase
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');
         Sanctum::actingAs($user);
 
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-OLD',
-                'expected_life_km' => 40000,
                 'current_km' => 18000,
-            ]);
+            ]));
 
         $tyreId = $create->json('data.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontLeft->value,
@@ -631,11 +664,78 @@ class TyreManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        $show = $this->withHeader('X-Tenant-Id', $tenant->id)
+        $show = $this->tyreApi($tenant)
             ->getJson("/api/tyres/{$tyreId}");
 
         $show->assertJsonPath('life_summary.stock_km', 18000);
         $show->assertJsonPath('life_summary.life_used_percent', 45);
+    }
+
+    public function test_recapped_damage_updates_expected_life_km(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $user->update(['branch_id' => $operational['branch_id']]);
+        Sanctum::actingAs($user->fresh());
+
+        $create = $this->tyreApi($tenant)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-RECAP',
+                'expected_life_km' => 40000,
+            ]));
+
+        $create->assertOk();
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->postJson("/api/tyres/{$tyreId}/damage", [
+                'damage_type' => 'RECAPPED',
+                'occurred_at' => '2026-07-04',
+                'odometer_km' => 0,
+                'repair_cost' => 3500,
+                'expected_life_km' => 55000,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('tyres', [
+            'id' => $tyreId,
+            'expected_life_km' => 55000,
+        ]);
+
+        $show = $this->tyreApi($tenant)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->getJson("/api/tyres/{$tyreId}");
+
+        $show->assertJsonPath('life_summary.expected_life_km', 55000);
+    }
+
+    public function test_recapped_damage_requires_expected_life_km(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $user->update(['branch_id' => $operational['branch_id']]);
+        Sanctum::actingAs($user->fresh());
+
+        $create = $this->tyreApi($tenant)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-RECAP-VAL',
+            ]));
+
+        $create->assertOk();
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->postJson("/api/tyres/{$tyreId}/damage", [
+                'damage_type' => 'RECAPPED',
+                'occurred_at' => '2026-07-04',
+                'odometer_km' => 0,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expected_life_km']);
     }
 
     public function test_moderator_can_manage_tyres_without_delete_permission(): void
@@ -643,29 +743,221 @@ class TyreManagementTest extends TestCase
         [$tenant, $user] = array_slice($this->createFixtures('moderator'), 0, 2);
         Sanctum::actingAs($user);
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->getJson('/api/tyres')
             ->assertOk();
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-MOD',
-            ])
+            ]))
             ->assertOk();
     }
 
-    private function createAndInstallTyre(Tenant $tenant, Vehicle $vehicle, string $serial, string $positionCode): string
+    public function test_install_syncs_vehicle_odometer_when_higher_than_stored_reading(): void
     {
-        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson('/api/tyres', [
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $vehicle->update(['odometer_km' => 50000]);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-ODO-SYNC',
+            ]));
+
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => 'FRONT_LEFT',
+                'installed_at' => '2026-07-01',
+                'km_at_installation' => 52000,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('vehicles', [
+            'id' => $vehicle->id,
+            'odometer_km' => 52000,
+        ]);
+    }
+
+    public function test_cannot_scrap_tyre_while_installed(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SCRAP-BLOCK', 'FRONT_LEFT');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/scrap", [
+                'scrapped_at' => '2026-07-05',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tyre']);
+    }
+
+    public function test_replace_removes_old_tyre_and_installs_new_tyre(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $oldTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-OLD-REP', 'FRONT_LEFT');
+
+        $newCreate = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-NEW-REP',
+            ]));
+        $newTyreId = $newCreate->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson('/api/tyres/replace', [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => 'FRONT_LEFT',
+                'old_tyre_id' => $oldTyreId,
+                'new_tyre_id' => $newTyreId,
+                'replaced_at' => '2026-07-02',
+                'odometer_km' => 6000,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('tyres', [
+            'id' => $oldTyreId,
+            'status' => TyreStatus::InStock->value,
+        ]);
+
+        $this->assertDatabaseHas('tyres', [
+            'id' => $newTyreId,
+            'status' => TyreStatus::Installed->value,
+        ]);
+
+        $this->assertDatabaseHas('tyre_installations', [
+            'tyre_id' => $newTyreId,
+            'vehicle_id' => $vehicle->id,
+            'position_code' => 'FRONT_LEFT',
+            'removed_at' => null,
+        ]);
+    }
+
+    public function test_cost_per_km_report_uses_lifetime_km_without_double_counting(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $purchaseDate = now()->subMonth()->toDateString();
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-COST-KM', 'FRONT_LEFT', $purchaseDate);
+        $removedAt = now()->subDays(2)->toDateString();
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyre-installations/{$this->activeInstallationId($tyreId)}/remove", [
+                'removed_at' => $removedAt,
+                'odometer_km' => 7000,
+            ])
+            ->assertOk();
+
+        $from = now()->subMonths(2)->toDateString();
+        $to = now()->subDay()->toDateString();
+
+        $response = $this->tyreApi($tenant)
+            ->getJson("/api/reports/tyres/cost-per-km?from={$from}&to={$to}");
+
+        $response->assertOk();
+
+        $row = collect($response->json('data'))->firstWhere('serial_number', 'TYRE-COST-KM');
+        $this->assertNotNull($row);
+        $this->assertSame(6000.0, (float) $row['total_km']);
+    }
+
+    public function test_vehicle_odometer_cannot_decrease_via_update(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $this->tyreApi($tenant)
+            ->putJson("/api/vehicles/{$vehicle->id}", [
+                'odometer_km' => 1000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['odometer_km']);
+    }
+
+    public function test_admin_can_delete_in_stock_tyre(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-DELETE',
+            ]));
+
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->deleteJson("/api/tyres/{$tyreId}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('tyres', ['id' => $tyreId]);
+    }
+
+    public function test_tyre_inspection_updates_last_inspection_fields(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-INSP',
+            ]));
+
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/inspections", [
+                'inspected_at' => '2026-07-05',
+                'tread_depth_mm' => 8.5,
+                'result' => 'PASS',
+                'next_due_at' => '2026-10-05',
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('tyres', [
+            'id' => $tyreId,
+            'last_tread_depth_mm' => 8.5,
+        ]);
+    }
+
+    private function activeInstallationId(string $tyreId): string
+    {
+        return (string) \App\TyreInstallation::query()
+            ->withoutGlobalScopes()
+            ->where('tyre_id', $tyreId)
+            ->whereNull('removed_at')
+            ->value('id');
+    }
+
+    private function tyreApi(Tenant $tenant): static
+    {
+        $branchId = $this->operationalAttributesForTenant($tenant)['branch_id'];
+
+        return $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId);
+    }
+
+    private function createAndInstallTyre(Tenant $tenant, Vehicle $vehicle, string $serial, string $positionCode, ?string $purchaseDate = null): string
+    {
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => $serial,
                 'purchase_cost' => 20000,
-            ]);
+                'purchase_date' => $purchaseDate ?? '2026-01-15',
+            ]));
 
         $create->assertOk();
         $tyreId = $create->json('data.id');
 
-        $this->withHeader('X-Tenant-Id', $tenant->id)
+        $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => $positionCode,
@@ -675,6 +967,22 @@ class TyreManagementTest extends TestCase
             ->assertCreated();
 
         return $tyreId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function validTyrePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'serial_number' => 'TYRE-'.fake()->unique()->numerify('####'),
+            'brand' => 'MRF',
+            'size' => '10.00-20',
+            'tyre_type' => 'RADIAL',
+            'purchase_date' => '2026-01-15',
+            'expected_life_km' => 40000,
+        ], $overrides);
     }
 
     /**
@@ -697,12 +1005,14 @@ class TyreManagementTest extends TestCase
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
 
-        $vehicle = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+
+        $vehicle = Vehicle::query()->create(array_merge($operational, [
             'registration_number' => 'MH12TY0001',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 5000,
-        ]);
+        ]));
 
         TyreLayoutDefaults::seedForTenant($tenant->id);
 

@@ -242,6 +242,8 @@ class TripService
             }
 
             if ($expenses !== null) {
+                $existingExpenses = $trip->expenses()->get()->all();
+
                 $this->tripValidation->assertExpensesAreValid(
                     $expenses,
                     $data['start_at'] ?? $trip->start_at?->toDateTimeString(),
@@ -254,6 +256,7 @@ class TripService
                             ? (float) $data['end_meter_reading_km']
                             : null)
                         : ($trip->end_meter_reading_km !== null ? (float) $trip->end_meter_reading_km : null),
+                    $existingExpenses,
                 );
             }
 
@@ -470,25 +473,43 @@ class TripService
         $legsBySequence = $trip->routeLegs()->get()->keyBy('sequence_no');
 
         foreach ($expenses as $expense) {
+            $expenseType = strtoupper((string) $expense['expense_type']);
+
+            if ($expenseType === TripExpenseType::Diesel->value && ! TripValidationService::isActiveFuelRow($expense)) {
+                continue;
+            }
+
             $legId = $expense['trip_route_leg_id'] ?? null;
 
             if ($legId === null && isset($expense['route_leg_sequence'])) {
                 $legId = $legsBySequence->get((int) $expense['route_leg_sequence'])?->id;
             }
 
+            if ($expenseType === TripExpenseType::Diesel->value) {
+                $amount = round((float) $expense['fuel_liters'] * (float) $expense['fuel_rate'], 2);
+                $fuelOdometer = isset($expense['fuel_odometer_km']) ? (int) $expense['fuel_odometer_km'] : null;
+                $fuelLiters = isset($expense['fuel_liters']) ? round((float) $expense['fuel_liters'], 2) : null;
+                $fuelRate = isset($expense['fuel_rate']) ? round((float) $expense['fuel_rate'], 2) : null;
+            } else {
+                $amount = (float) ($expense['amount'] ?? 0);
+                $fuelOdometer = null;
+                $fuelLiters = null;
+                $fuelRate = null;
+            }
+
             TripExpense::query()->create([
                 'tenant_id' => $trip->tenant_id,
                 'trip_id' => $trip->id,
                 'trip_route_leg_id' => $legId,
-                'expense_type' => strtoupper((string) $expense['expense_type']),
-                'other_type' => strtoupper((string) $expense['expense_type']) === TripExpenseType::Other->value
+                'expense_type' => $expenseType,
+                'other_type' => $expenseType === TripExpenseType::Other->value
                     ? ($expense['other_type'] ?? null)
                     : null,
                 'expense_date' => $expense['expense_date'] ?? null,
-                'amount' => (float) ($expense['amount'] ?? 0),
-                'fuel_liters' => isset($expense['fuel_liters']) ? (float) $expense['fuel_liters'] : null,
-                'fuel_rate' => isset($expense['fuel_rate']) ? (float) $expense['fuel_rate'] : null,
-                'fuel_odometer_km' => isset($expense['fuel_odometer_km']) ? (float) $expense['fuel_odometer_km'] : null,
+                'amount' => $amount,
+                'fuel_liters' => $fuelLiters,
+                'fuel_rate' => $fuelRate,
+                'fuel_odometer_km' => $fuelOdometer,
                 'currency' => $expense['currency'] ?? 'INR',
                 'notes' => $expense['notes'] ?? null,
                 'created_by' => $userId,

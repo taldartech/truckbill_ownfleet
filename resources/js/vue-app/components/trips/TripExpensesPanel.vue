@@ -29,18 +29,45 @@
             </button>
             <div v-show="!isCollapsed('general')" class="stop-expense-card__body">
                 <QuickExpensePills v-if="!readonly" @add="(type) => quickAdd('', type)" />
-                <template v-for="item in generalItems" :key="item.globalIndex">
-                    <TripExpenseEntry
-                        :expense="item.expense"
-                        :disabled="readonly"
-                        :trip-start-date="tripStartDate"
-                        :trip-end-date="tripEndDate"
-                        :trip-start-meter-km="tripStartMeterKm"
-                        :trip-end-meter-km="tripEndMeterKm"
-                        :odometer-field-error="fieldErrorFor(item.globalIndex)"
-                        @remove="$emit('remove-expense', item.globalIndex)"
-                    />
-                </template>
+                <div v-if="generalItems.length > 0" class="expense-entries-scroll">
+                    <div
+                        class="expense-entry-columns"
+                        :class="sectionUsesDieselColumns(generalItems) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
+                    >
+                        <span>Date</span>
+                        <span>Type</span>
+                        <template v-if="sectionUsesDieselColumns(generalItems)">
+                            <span>Meter</span>
+                            <span>L</span>
+                            <span>₹/L</span>
+                        </template>
+                        <span>Amount</span>
+                        <span>Note</span>
+                        <span aria-hidden="true"></span>
+                    </div>
+                    <template v-for="item in generalItems" :key="item.globalIndex">
+                        <TripExpenseEntry
+                            :expense="item.expense"
+                            :expense-index="item.globalIndex"
+                            :show-diesel-columns="sectionUsesDieselColumns(generalItems)"
+                            :disabled="readonly"
+                            :trip-start-date="tripStartDate"
+                            :trip-end-date="tripEndDate"
+                            :trip-start-meter-km="tripStartMeterKm"
+                            :trip-end-meter-km="tripEndMeterKm"
+                            :date-field-error="fieldErrorFor(item.globalIndex, 'expense_date')"
+                            :odometer-field-error="fieldErrorFor(item.globalIndex, 'fuel_odometer_km')"
+                            :liters-field-error="fieldErrorFor(item.globalIndex, 'fuel_liters')"
+                            :rate-field-error="fieldErrorFor(item.globalIndex, 'fuel_rate')"
+                            :amount-field-error="fieldErrorFor(item.globalIndex, 'amount')"
+                            :other-type-field-error="fieldErrorFor(item.globalIndex, 'other_type')"
+                            :legacy-warning="legacyWarningFor(item.globalIndex)"
+                            @remove="$emit('remove-expense', item.globalIndex)"
+                            @fuel-field-input="$emit('fuel-field-input', item.globalIndex)"
+                            @field-input="$emit('field-input', item.globalIndex)"
+                        />
+                    </template>
+                </div>
                 <div v-if="generalItems.length === 0" class="expense-empty-state">
                     <i class="bi bi-receipt expense-empty-state__icon"></i>
                     <span>No whole-trip expenses yet. Tap a button above to add one.</span>
@@ -71,18 +98,45 @@
             </button>
             <div v-show="!isCollapsed(stop.key)" class="stop-expense-card__body">
                 <QuickExpensePills v-if="!readonly" @add="(type) => quickAdd(stop.sequence, type)" />
-                <template v-for="item in stop.items" :key="item.globalIndex">
-                    <TripExpenseEntry
-                        :expense="item.expense"
-                        :disabled="readonly"
-                        :trip-start-date="tripStartDate"
-                        :trip-end-date="tripEndDate"
-                        :trip-start-meter-km="tripStartMeterKm"
-                        :trip-end-meter-km="tripEndMeterKm"
-                        :odometer-field-error="fieldErrorFor(item.globalIndex)"
-                        @remove="$emit('remove-expense', item.globalIndex)"
-                    />
-                </template>
+                <div v-if="stop.items.length > 0" class="expense-entries-scroll">
+                    <div
+                        class="expense-entry-columns"
+                        :class="sectionUsesDieselColumns(stop.items) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
+                    >
+                        <span>Date</span>
+                        <span>Type</span>
+                        <template v-if="sectionUsesDieselColumns(stop.items)">
+                            <span>Meter</span>
+                            <span>L</span>
+                            <span>₹/L</span>
+                        </template>
+                        <span>Amount</span>
+                        <span>Note</span>
+                        <span aria-hidden="true"></span>
+                    </div>
+                    <template v-for="item in stop.items" :key="item.globalIndex">
+                        <TripExpenseEntry
+                            :expense="item.expense"
+                            :expense-index="item.globalIndex"
+                            :show-diesel-columns="sectionUsesDieselColumns(stop.items)"
+                            :disabled="readonly"
+                            :trip-start-date="tripStartDate"
+                            :trip-end-date="tripEndDate"
+                            :trip-start-meter-km="tripStartMeterKm"
+                            :trip-end-meter-km="tripEndMeterKm"
+                            :date-field-error="fieldErrorFor(item.globalIndex, 'expense_date')"
+                            :odometer-field-error="fieldErrorFor(item.globalIndex, 'fuel_odometer_km')"
+                            :liters-field-error="fieldErrorFor(item.globalIndex, 'fuel_liters')"
+                            :rate-field-error="fieldErrorFor(item.globalIndex, 'fuel_rate')"
+                            :amount-field-error="fieldErrorFor(item.globalIndex, 'amount')"
+                            :other-type-field-error="fieldErrorFor(item.globalIndex, 'other_type')"
+                            :legacy-warning="legacyWarningFor(item.globalIndex)"
+                            @remove="$emit('remove-expense', item.globalIndex)"
+                            @fuel-field-input="$emit('fuel-field-input', item.globalIndex)"
+                            @field-input="$emit('field-input', item.globalIndex)"
+                        />
+                    </template>
+                </div>
                 <div v-if="stop.items.length === 0" class="expense-empty-state">
                     <i class="bi bi-plus-circle expense-empty-state__icon"></i>
                     <span>Tap Diesel, Toll, Loading… to add an expense for this stop.</span>
@@ -124,7 +178,7 @@
 
 <script setup>
 import { computed, nextTick, reactive, ref } from 'vue';
-import { legLoadCategoryMeta } from '../../api/trips';
+import { getLegacyFuelWarning, isDieselExpenseType, legLoadCategoryMeta } from '../../api/trips';
 import QuickExpensePills from './QuickExpensePills.vue';
 import TripExpenseEntry from './TripExpenseEntry.vue';
 
@@ -146,16 +200,33 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['add-expense', 'remove-expense']);
+const emit = defineEmits(['add-expense', 'remove-expense', 'fuel-field-input', 'field-input']);
 
-function fieldErrorFor(index) {
-    const errors = props.fieldErrors[`expenses.${index}.fuel_odometer_km`];
+function fieldErrorFor(index, field) {
+    const errors = props.fieldErrors[`expenses.${index}.${field}`];
 
     if (Array.isArray(errors)) {
         return errors[0] ?? '';
     }
 
     return errors ?? '';
+}
+
+function sectionUsesDieselColumns(items) {
+    return items.some(({ expense }) => isDieselExpenseType(expense.expense_type));
+}
+
+function legacyWarningFor(index) {
+    const expense = props.expenses[index];
+
+    if (!expense) {
+        return '';
+    }
+
+    return getLegacyFuelWarning(expense, {
+        startMeterKm: props.tripStartMeterKm,
+        endMeterKm: props.tripEndMeterKm,
+    });
 }
 
 const collapsed = reactive({});
@@ -284,7 +355,45 @@ function formatNum(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-defineExpose({ grandTotal });
+function collapseKeyForExpense(expense) {
+    const seq = expense?.route_leg_sequence;
+
+    if (seq === '' || seq == null) {
+        return 'general';
+    }
+
+    return `stop-${seq}`;
+}
+
+function expandExpenseSection(expenseIndex) {
+    const expense = props.expenses[expenseIndex];
+
+    if (!expense) {
+        return;
+    }
+
+    collapsed[collapseKeyForExpense(expense)] = false;
+}
+
+function focusExpenseField({ expenseIndex, field, focusId }) {
+    const expense = props.expenses[expenseIndex];
+
+    if (!expense) {
+        return;
+    }
+
+    expandExpenseSection(expenseIndex);
+
+    nextTick(() => {
+        const targetId = focusId ?? `expense-${expenseIndex}-${field}`;
+        const target = document.getElementById(targetId);
+
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target?.focus?.();
+    });
+}
+
+defineExpose({ grandTotal, focusExpenseField });
 </script>
 
 <style scoped>
@@ -373,6 +482,49 @@ defineExpose({ grandTotal });
 }
 .stop-expense-card__body {
     padding: 16px;
+}
+
+.expense-entry-columns {
+    display: grid;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0 0 0.35rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+}
+
+.expense-entries-scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.expense-entry-columns--wide {
+    grid-template-columns: 6.75rem 7.25rem 5.25rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    min-width: 42rem;
+}
+
+.expense-entry-columns--narrow {
+    grid-template-columns: 6.75rem 7.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    min-width: 28rem;
+}
+
+.expense-entries-scroll :deep(.trip-expense-entry--wide) {
+    min-width: 42rem;
+}
+
+.expense-entries-scroll :deep(.trip-expense-entry--narrow) {
+    min-width: 28rem;
+}
+
+@media (max-width: 992px) {
+    .expense-entry-columns {
+        display: none;
+    }
 }
 .stop-subtotal {
     border-top: 1px dashed #e5e7eb;

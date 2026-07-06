@@ -106,21 +106,18 @@
                         </div>
                         <div class="mb-0">
                             <label class="form-label" for="payroll_pay_days_mode">Pay Days (default)</label>
-                            <select
-                                id="payroll_pay_days_mode"
+                            <AppSelect
+                                input-id="payroll_pay_days_mode"
                                 v-model="form.payroll_pay_days_mode"
-                                class="form-select"
-                                :class="{ 'is-invalid': fieldErrors.payroll_pay_days_mode }"
-                            >
-                                <option value="calendar">Calendar days (default)</option>
-                                <option value="fixed_30">Fixed 30 days</option>
-                            </select>
+                                :options="payrollPayDaysOptions"
+                                placeholder="Select pay days mode"
+                                search-placeholder="Search mode…"
+                                :invalid="Boolean(fieldErrors.payroll_pay_days_mode)"
+                                :error-message="fieldErrors.payroll_pay_days_mode?.[0] ?? ''"
+                            />
                             <small class="form-text text-muted">
                                 Used for monthly wage settlement and per-day salary calculations.
                             </small>
-                            <div v-if="fieldErrors.payroll_pay_days_mode" class="invalid-feedback d-block">
-                                {{ fieldErrors.payroll_pay_days_mode[0] }}
-                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -138,6 +135,7 @@
 
 <script setup>
 import { computed, reactive, watch } from 'vue';
+import AppSelect from '../ui/AppSelect.vue';
 import { allowNumericKeydown, normalizeMobile } from '../../utils/phone';
 
 function onContactNumberInput(event) {
@@ -157,6 +155,11 @@ const props = defineProps({
 defineEmits(['close', 'submit']);
 
 const isEdit = computed(() => props.mode === 'edit');
+
+const payrollPayDaysOptions = [
+    { value: 'calendar', label: 'Calendar days (default)' },
+    { value: 'fixed_30', label: 'Fixed 30 days' },
+];
 
 const form = reactive({
     name: '',

@@ -105,23 +105,19 @@
                             <div class="text-muted small">{{ row.driver_name }}</div>
                         </td>
                         <td>
-                            <select
+                            <AppSelect
                                 v-if="canEdit && row.editable"
                                 v-model="row.statusType"
-                                class="form-select form-select-sm"
-                                :class="{ 'is-invalid': row.statusError }"
+                                :options="attendanceStatusOptions"
+                                placeholder="Select status"
+                                search-placeholder="Search status…"
+                                :invalid="Boolean(row.statusError)"
+                                :error-message="row.statusError"
                                 @change="onStatusChange(row)"
-                            >
-                                <option value="PRESENT">Present</option>
-                                <option value="ABSENT">Absent</option>
-                                <option value="SUBSTITUTE">Substitute</option>
-                            </select>
+                            />
                             <span v-else class="mark" :class="markClass(row)">
                                 {{ displayMark(row) }}
                             </span>
-                            <div v-if="row.statusError" class="invalid-feedback d-block">
-                                {{ row.statusError }}
-                            </div>
                         </td>
                         <td>
                             <span class="marked-by" :class="markedByClass(row)">
@@ -197,6 +193,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import AttendanceSaveConfirmModal from './AttendanceSaveConfirmModal.vue';
+import AppSelect from '../ui/AppSelect.vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
 import { buildDayPanelConfirmSummary } from '../../utils/attendanceSaveConfirm';
 import {
@@ -210,6 +207,12 @@ import {
     isSubstituteDriverBusy,
 } from '../../utils/substituteDriverAvailability';
 import { formatDateHeading, toDateInputValue, addDaysToDateInput } from '../../utils/datetime';
+
+const attendanceStatusOptions = [
+    { value: 'PRESENT', label: 'Present' },
+    { value: 'ABSENT', label: 'Absent' },
+    { value: 'SUBSTITUTE', label: 'Substitute' },
+];
 
 const props = defineProps({
     selectedDate: {

@@ -421,7 +421,7 @@
                             </div>
                         </div>
                         <div>
-                            <label class="form-label">Reference by (not recommended)</label>
+                            <label class="form-label">Reference by (optional)</label>
                             <SearchablePicker
                                 v-if="!isFormLocked"
                                 v-model="form.broker_id"

@@ -158,7 +158,7 @@ class VehicleMaintenanceTest extends TestCase
         [, $user] = $this->createFixtures('moderator');
 
         $this->actingAs($user)
-            ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-06-30')
+            ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-03-31')
             ->assertForbidden();
     }
 
@@ -177,10 +177,35 @@ class VehicleMaintenanceTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-06-30')
+            ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-03-31')
             ->assertOk()
             ->assertJsonPath('data.0.service_type', 'OIL_CHANGE')
             ->assertJsonPath('data.1.service_type_label', 'Grand Total');
+    }
+
+    public function test_maintenance_report_export_returns_excel_for_selected_filters(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+
+        VehicleMaintenance::query()->create([
+            'tenant_id' => $vehicle->tenant_id,
+            'branch_id' => $vehicle->branch_id,
+            'vehicle_id' => $vehicle->id,
+            'service_date' => '2026-03-01',
+            'odometer_km' => 11000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+            'cost_amount' => 1000,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get('/app/api/reports/maintenance/export?type=cost&from=2026-01-01&to=2026-03-31');
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        $this->assertStringContainsString('.xlsx', (string) $response->headers->get('content-disposition'));
     }
 
     public function test_cannot_create_maintenance_when_next_due_date_is_not_after_service_date(): void
@@ -276,6 +301,147 @@ class VehicleMaintenanceTest extends TestCase
             'code' => 'GREASING_AND_LUBRICATION',
             'name' => 'Greasing & Lubrication',
         ]);
+    }
+
+    public function test_maintenance_list_supports_due_status_filter_and_includes_due_status(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        $vehicle->update(['odometer_km' => 25000]);
+
+        $dueRecord = VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicle->branch_id,
+            'vehicle_id' => $vehicle->id,
+            'service_date' => '2026-06-01',
+            'odometer_km' => 15000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+            'service_provider' => 'City Garage',
+            'cost_amount' => 2500,
+            'next_service_due_km' => 20000,
+            'next_service_due_date' => '2026-12-01',
+        ]);
+
+        VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicle->branch_id,
+            'vehicle_id' => $vehicle->id,
+            'service_date' => '2026-05-01',
+            'odometer_km' => 12000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'GENERAL_SERVICE'),
+            'service_provider' => 'Other Garage',
+            'cost_amount' => 1500,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances?due_status=due')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $dueRecord->id)
+            ->assertJsonPath('data.0.due_status', 'due')
+            ->assertJsonPath('data.0.due_status_label', 'Due');
+
+        $this->actingAs($user)
+            ->getJson("/app/api/vehicle-maintenances/{$dueRecord->id}")
+            ->assertOk()
+            ->assertJsonPath('data.due_status', 'due');
+    }
+
+    public function test_due_services_endpoint_supports_filters(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+
+        $vehicleKmOnly = Vehicle::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'registration_number' => 'MH12KM0001',
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 40000,
+        ]);
+
+        VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicleKmOnly->branch_id,
+            'vehicle_id' => $vehicleKmOnly->id,
+            'service_date' => '2026-06-10',
+            'odometer_km' => 10000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'AC_REPAIR'),
+            'service_provider' => 'KM Garage',
+            'cost_amount' => 1500,
+            'next_service_due_km' => 2000,
+            'next_service_due_date' => '2026-12-31',
+        ]);
+
+        $vehicleBoth = Vehicle::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'registration_number' => 'MH12BOTH01',
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 80000,
+        ]);
+
+        VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicleBoth->branch_id,
+            'vehicle_id' => $vehicleBoth->id,
+            'service_date' => '2026-06-01',
+            'odometer_km' => 70000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'GENERAL_SERVICE'),
+            'service_provider' => 'Both Garage',
+            'cost_amount' => 1500,
+            'next_service_due_km' => 500,
+            'next_service_due_date' => '2026-05-01',
+        ]);
+
+        $vehicleDateOnly = Vehicle::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'registration_number' => 'MH12DATE01',
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 10000,
+        ]);
+
+        VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicleDateOnly->branch_id,
+            'vehicle_id' => $vehicleDateOnly->id,
+            'service_date' => '2026-06-01',
+            'odometer_km' => 9000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'GENERAL_SERVICE'),
+            'service_provider' => 'Date Garage',
+            'cost_amount' => 1500,
+            'next_service_due_km' => 50000,
+            'next_service_due_date' => '2026-05-01',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?overdue_reason=both')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.overdue_reason', 'both')
+            ->assertJsonPath('data.0.overdue_reason_label', 'KM & Date');
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?overdue_reason=date')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['overdue_reason' => 'date'])
+            ->assertJsonFragment(['overdue_reason' => 'both']);
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?overdue_reason=km')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['overdue_reason' => 'km'])
+            ->assertJsonFragment(['overdue_reason' => 'both']);
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?vehicle_id='.$vehicleKmOnly->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.overdue_reason', 'km');
     }
 
     /**

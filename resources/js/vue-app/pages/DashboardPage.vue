@@ -63,12 +63,14 @@
 
             <template v-else>
                 <div class="dashboard-page__body">
-                    <div v-if="canViewTrips" class="dashboard-page__analytics">
+                    <div v-if="canViewTrips || canViewTyres" class="dashboard-page__analytics">
                         <DashboardAnalyticsChart
-                            v-if="tripStats && fleetStats && tyreStats"
+                            v-if="(canViewTrips && tripStats && fleetStats) || (canViewTyres && tyreStats)"
                             :trip-stats="tripStats"
                             :fleet-stats="fleetStats"
                             :tyre-stats="tyreStats"
+                            :can-view-trips="canViewTrips"
+                            :can-view-tyres="canViewTyres"
                         />
                     </div>
 

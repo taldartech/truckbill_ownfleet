@@ -6,7 +6,7 @@
         >
             <button
                 type="button"
-                class="badge dropdown-toggle trip-inline-status__badge-btn"
+                class="badge dropdown-toggle trip-inline-status__badge trip-inline-status__badge-btn"
                 :class="statusMeta.badge"
                 :disabled="saving"
                 data-bs-toggle="dropdown"
@@ -37,10 +37,10 @@
             </ul>
         </div>
 
-        <span v-else-if="compact" class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
+        <span v-else-if="compact" class="badge trip-inline-status__badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
 
         <template v-else>
-            <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
+            <span class="badge trip-inline-status__badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
             <div v-if="canManage && nextStatuses.length > 0" class="trip-inline-status__actions">
                 <button
                     v-for="next in nextStatuses"
@@ -74,9 +74,66 @@
             :start-meter-reading-km="form.start_meter_reading_km"
             :truck-running-meter-km="truckRunningMeterKm"
             :end-meter-reading-km-value="form.end_meter_reading_km"
+            :saving="saving"
+            :save-error="saveError"
             @cancel="onStatusModalCancel"
             @confirm="onStatusModalConfirm"
         />
+
+        <Teleport to="body">
+            <div
+                v-if="showSimpleConfirm"
+                class="modal fade show d-block trip-status-simple-confirm"
+                tabindex="-1"
+                style="background: rgba(0, 0, 0, 0.45)"
+                @click.self="cancelSimpleConfirm"
+            >
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-gradient-primary text-white">
+                            <h5 class="modal-title text-white mb-0">Change Trip Status</h5>
+                            <button
+                                type="button"
+                                class="btn-close btn-close-white"
+                                :disabled="saving"
+                                @click="cancelSimpleConfirm"
+                            ></button>
+                        </div>
+                        <div class="modal-body">
+                            <div v-if="saveError" class="alert alert-danger py-2 mb-3">{{ saveError }}</div>
+                            <p class="mb-0 text-center">
+                                Are you sure you want to change the status to
+                                <strong>{{ pendingStatusLabel }}</strong>?
+                            </p>
+                        </div>
+                        <div class="modal-footer justify-content-center gap-2">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                :disabled="saving"
+                                @click="cancelSimpleConfirm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                :disabled="saving"
+                                @click="confirmSimpleStatusChange"
+                            >
+                                <span
+                                    v-if="saving"
+                                    class="spinner-border spinner-border-sm me-1"
+                                    role="status"
+                                    aria-hidden="true"
+                                ></span>
+                                Yes, Change Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
@@ -89,9 +146,10 @@ import {
     updateTrip,
     validateTripStatusChange,
 } from '../../api/trips';
-import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useTripForm } from '../../composables/useTripForm';
+import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
+import { formatDate, isDateAfter, toDateInputValue } from '../../utils/datetime';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({
@@ -103,17 +161,33 @@ const props = defineProps({
 const emit = defineEmits(['updated']);
 
 const toast = useAppToast();
-const { applyApiError } = useApiFormErrors();
 const { form, populateFromTrip, buildStatusChangePayload } = useTripForm();
 
 const saving = ref(false);
 const showStatusModal = ref(false);
+const showSimpleConfirm = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
 const truckRunningMeterKm = ref('');
+const saveError = ref('');
 
 const statusMeta = computed(() => tripStatusMeta(props.trip.status));
 const nextStatuses = computed(() => tripAllowedNextStatuses(props.trip.status));
+const pendingStatusLabel = computed(() => tripStatusMeta(pendingStatus.value).label);
+
+function resolveSaveError(error, fallback) {
+    const { message } = extractValidationErrors(error);
+
+    return message ?? friendlyApiErrorMessage(error, fallback);
+}
+
+function reportStatusError(message) {
+    saveError.value = message;
+
+    if (!showStatusModal.value && !showSimpleConfirm.value) {
+        toast.error(message);
+    }
+}
 
 function statusActionButtonClass(status) {
     const normalized = String(status ?? '').toUpperCase();
@@ -167,28 +241,29 @@ async function saveStatusChange(successLabel) {
         routeLegs: form.route_legs,
         startStationId: form.start_station_id,
         previousStatus: originalStatus.value,
+        startMeterReadingKm: form.start_meter_reading_km,
     });
 
     if (Object.keys(clientErrors).length > 0) {
         const firstError = Object.values(clientErrors).flat()[0] ?? 'Could not update trip status.';
-        toast.error(firstError);
+        reportStatusError(firstError);
 
-        return null;
+        return { updated: null, error: firstError };
     }
 
     saving.value = true;
+    saveError.value = '';
 
     try {
         const updated = await updateTrip(props.trip.id, payload);
         toast.success(successLabel);
 
-        return updated;
+        return { updated, error: null };
     } catch (error) {
-        if (!applyApiError(error, 'Failed to update trip status.')) {
-            toast.error(error?.response?.data?.message ?? 'Failed to update trip status.');
-        }
+        const errorMessage = resolveSaveError(error, 'Failed to update trip status.');
+        reportStatusError(errorMessage);
 
-        return null;
+        return { updated: null, error: errorMessage };
     } finally {
         saving.value = false;
     }
@@ -202,32 +277,82 @@ async function requestStatusChange(newStatus) {
     try {
         await ensureTripLoaded();
     } catch (error) {
-        if (!applyApiError(error, 'Could not load trip for status change.')) {
-            toast.error('Could not load trip for status change.');
-        }
+        toast.error(resolveSaveError(error, 'Could not load trip for status change.'));
 
         return;
     }
 
+    saveError.value = '';
+    pendingStatus.value = newStatus;
+
     if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
-        pendingStatus.value = newStatus;
+        if (!form.start_at) {
+            toast.error('Trip start date is required. Edit the trip, set the start date, then change the status.');
+            showStatusModal.value = true;
+
+            return;
+        }
+
+        if (newStatus === 'COMPLETED' && isDateAfter(form.start_at, toDateInputValue())) {
+            toast.error(
+                `This trip starts on ${formatDate(form.start_at)}. It cannot be completed before that date.`,
+            );
+            showStatusModal.value = true;
+
+            return;
+        }
+
         showStatusModal.value = true;
 
         return;
     }
 
-    form.status = newStatus;
+    showSimpleConfirm.value = true;
+}
 
-    const updated = await saveStatusChange('Trip marked as in progress.');
-
-    if (updated) {
-        emit('updated', updated);
+function cancelSimpleConfirm() {
+    if (saving.value) {
+        return;
     }
+
+    showSimpleConfirm.value = false;
+    pendingStatus.value = '';
+    saveError.value = '';
+}
+
+async function confirmSimpleStatusChange() {
+    if (!pendingStatus.value || saving.value) {
+        return;
+    }
+
+    form.status = pendingStatus.value;
+
+    const label =
+        pendingStatus.value === 'IN_PROGRESS'
+            ? 'Trip marked as in progress.'
+            : 'Trip status updated.';
+    const result = await saveStatusChange(label);
+
+    if (result.updated) {
+        showSimpleConfirm.value = false;
+        pendingStatus.value = '';
+        saveError.value = '';
+        emit('updated', result.updated);
+
+        return;
+    }
+
+    saveError.value = result.error ?? 'Failed to update trip status.';
 }
 
 function onStatusModalCancel() {
+    if (saving.value) {
+        return;
+    }
+
     showStatusModal.value = false;
     pendingStatus.value = '';
+    saveError.value = '';
 }
 
 async function onStatusModalConfirm(data) {
@@ -243,19 +368,23 @@ async function onStatusModalConfirm(data) {
         form.end_meter_reading_km = data.end_meter_reading_km;
     }
 
-    showStatusModal.value = false;
-
+    const statusBeingSaved = pendingStatus.value;
     const label =
-        pendingStatus.value === 'COMPLETED'
+        statusBeingSaved === 'COMPLETED'
             ? 'Trip marked as completed.'
             : 'Trip marked as cancelled.';
-    pendingStatus.value = '';
+    const result = await saveStatusChange(label);
 
-    const updated = await saveStatusChange(label);
+    if (result.updated) {
+        showStatusModal.value = false;
+        pendingStatus.value = '';
+        saveError.value = '';
+        emit('updated', result.updated);
 
-    if (updated) {
-        emit('updated', updated);
+        return;
     }
+
+    saveError.value = result.error ?? 'Failed to update trip status.';
 }
 </script>
 
@@ -275,17 +404,25 @@ async function onStatusModalConfirm(data) {
     display: inline-block;
 }
 
-.trip-inline-status__badge-btn {
+.trip-inline-status__badge {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 8.25rem;
+    height: 1.75rem;
+    padding: 0 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    box-sizing: border-box;
+    border-radius: 0.375rem;
+}
+
+.trip-inline-status__badge-btn {
     gap: 0.2rem;
     border: none;
     cursor: pointer;
-    padding: 0.4em 0.65em;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    line-height: 1.2;
-    white-space: nowrap;
 }
 
 .trip-inline-status__badge-btn:disabled {
@@ -294,9 +431,10 @@ async function onStatusModalConfirm(data) {
 }
 
 .trip-inline-status__badge-btn.dropdown-toggle::after {
-    margin-left: 0.15em;
-    vertical-align: 0.15em;
+    margin-left: 0.2em;
+    vertical-align: 0;
     opacity: 0.85;
+    flex-shrink: 0;
 }
 
 .trip-inline-status__actions {

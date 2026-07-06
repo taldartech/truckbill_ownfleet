@@ -52,63 +52,43 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_role`" class="form-label">Role *</label>
-                                <select
-                                    :id="`${modalId}_role`"
+                                <AppSelect
+                                    :input-id="`${modalId}_role`"
                                     v-model="form.user_role_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.user_role_id }"
+                                    :options="roleSelectOptions"
+                                    placeholder="Select role"
+                                    search-placeholder="Search role…"
                                     :disabled="isProtectedUser"
-                                    required
-                                >
-                                    <option value="">Select role</option>
-                                    <option v-for="role in assignableRoles" :key="role.id" :value="role.id">
-                                        {{ role.label }}
-                                    </option>
-                                </select>
-                                <div v-if="fieldErrors.user_role_id" class="invalid-feedback d-block">
-                                    {{ fieldErrors.user_role_id[0] }}
-                                </div>
+                                    :invalid="Boolean(fieldErrors.user_role_id)"
+                                    :error-message="fieldErrors.user_role_id?.[0] ?? ''"
+                                />
                             </div>
                             <div v-if="requiresCompany" class="col-md-6">
                                 <label :for="`${modalId}_tenant`" class="form-label">Company *</label>
-                                <select
-                                    :id="`${modalId}_tenant`"
+                                <AppSelect
+                                    :input-id="`${modalId}_tenant`"
                                     v-model="form.tenant_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.tenant_id }"
-                                    required
-                                >
-                                    <option value="">Select company</option>
-                                    <option v-for="company in companies" :key="company.id" :value="company.id">
-                                        {{ company.name }}
-                                    </option>
-                                </select>
-                                <div v-if="fieldErrors.tenant_id" class="invalid-feedback d-block">
-                                    {{ fieldErrors.tenant_id[0] }}
-                                </div>
+                                    :options="companySelectOptions"
+                                    placeholder="Select company"
+                                    search-placeholder="Search company…"
+                                    :invalid="Boolean(fieldErrors.tenant_id)"
+                                    :error-message="fieldErrors.tenant_id?.[0] ?? ''"
+                                />
                             </div>
                             <div v-if="requiresBranch" class="col-md-6">
                                 <label :for="`${modalId}_branch`" class="form-label">Branch *</label>
-                                <select
-                                    :id="`${modalId}_branch`"
+                                <AppSelect
+                                    :input-id="`${modalId}_branch`"
                                     v-model="form.branch_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.branch_id }"
+                                    :options="branchSelectOptions"
+                                    :placeholder="branchesLoading ? 'Loading branches…' : 'Select branch'"
+                                    search-placeholder="Search branch…"
                                     :disabled="!form.tenant_id || branchesLoading"
-                                    required
-                                >
-                                    <option value="">
-                                        {{ branchesLoading ? 'Loading branches…' : 'Select branch' }}
-                                    </option>
-                                    <option v-for="branch in companyBranches" :key="branch.id" :value="branch.id">
-                                        {{ branch.branch_name }}
-                                    </option>
-                                </select>
-                                <div v-if="fieldErrors.branch_id" class="invalid-feedback d-block">
-                                    {{ fieldErrors.branch_id[0] }}
-                                </div>
+                                    :invalid="Boolean(fieldErrors.branch_id)"
+                                    :error-message="fieldErrors.branch_id?.[0] ?? ''"
+                                />
                                 <div
-                                    v-else-if="form.tenant_id && !branchesLoading && companyBranches.length === 0"
+                                    v-if="form.tenant_id && !branchesLoading && companyBranches.length === 0"
                                     class="form-text text-danger"
                                 >
                                     No branches for this company. Create a branch first.
@@ -202,6 +182,7 @@
 import { computed, ref, watch } from 'vue';
 import { listAllBranches } from '../../api/branches';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppSelect from '../ui/AppSelect.vue';
 
 const SUPER_ADMIN_ROLE_ID = 2;
 const MASTER_ADMIN_ROLE_ID = 1;
@@ -252,6 +233,27 @@ const companyBranches = computed(() => {
 
     return branches.value.filter((branch) => branch.company_id === form.value.tenant_id);
 });
+
+const roleSelectOptions = computed(() =>
+    props.assignableRoles.map((role) => ({
+        value: role.id,
+        label: role.label,
+    })),
+);
+
+const companySelectOptions = computed(() =>
+    props.companies.map((company) => ({
+        value: company.id,
+        label: company.name,
+    })),
+);
+
+const branchSelectOptions = computed(() =>
+    companyBranches.value.map((branch) => ({
+        value: branch.id,
+        label: branch.branch_name,
+    })),
+);
 
 const showDocumentAlertPreferences = computed(
     () => requiresCompany.value || Boolean(props.user?.tenant_id),

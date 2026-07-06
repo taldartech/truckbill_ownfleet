@@ -39,7 +39,7 @@ export const CRUD_ACTION_PRESETS = {
     },
     expenses: {
         btnClass: 'btn-warning',
-        icon: 'bi bi-receipt',
+        icon: 'fas fa-receipt',
         title: 'Trip expenses',
     },
     tyres: {

@@ -38,31 +38,25 @@
 
                         <div class="mb-3">
                             <label :for="`${modalId}_exception`" class="form-label">Attendance Type *</label>
-                            <select
-                                :id="`${modalId}_exception`"
+                            <AppSelect
+                                :input-id="`${modalId}_exception`"
                                 v-model="form.exception_type"
-                                class="form-select"
-                                :class="{ 'is-invalid': hasFieldError(fieldErrors, 'status') }"
-                                required
-                            >
-                                <option v-if="isEdit" value="BLANK">P — Present</option>
-                                <option value="ABSENT">A — Absent</option>
-                                <option value="ABSENT_SUBSTITUTE">S — Substitute</option>
-                            </select>
-                            <div v-if="fieldErrorMessage(fieldErrors, 'status')" class="invalid-feedback d-block">
-                                {{ fieldErrorMessage(fieldErrors, 'status') }}
-                            </div>
+                                :options="attendanceExceptionOptions"
+                                placeholder="Select type"
+                                search-placeholder="Search type…"
+                                :invalid="hasFieldError(fieldErrors, 'status')"
+                                :error-message="fieldErrorMessage(fieldErrors, 'status')"
+                            />
                         </div>
 
                         <div v-if="form.exception_type === 'ABSENT_SUBSTITUTE'" class="mb-3">
                             <label :for="`${modalId}_temp`" class="form-label">Substitute Driver *</label>
-                            <SearchableSelect
+                            <AppSelect
                                 :input-id="`${modalId}_temp`"
                                 v-model="form.temporary_driver_id"
-                                :items="substituteSelectItems"
+                                :options="substituteSelectItems"
                                 placeholder="Select substitute"
-                                search-placeholder="Search driver name…"
-                                empty-message="No matching drivers."
+                                search-placeholder="Search driver…"
                                 :invalid="hasFieldError(fieldErrors, 'temporary_driver_id')"
                                 :error-message="fieldErrorMessage(fieldErrors, 'temporary_driver_id')"
                             />
@@ -103,7 +97,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
-import SearchableSelect from '../ui/SearchableSelect.vue';
+import AppSelect from '../ui/AppSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
     buildBusySubstituteDriversByDate,
@@ -136,6 +130,19 @@ const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal
 });
 
 const isEdit = computed(() => props.mode === 'edit');
+
+const attendanceExceptionOptions = computed(() => {
+    const options = [
+        { value: 'ABSENT', label: 'A — Absent' },
+        { value: 'ABSENT_SUBSTITUTE', label: 'S — Substitute' },
+    ];
+
+    if (isEdit.value) {
+        return [{ value: 'BLANK', label: 'P — Present' }, ...options];
+    }
+
+    return options;
+});
 
 const today = computed(() => toDateInputValue());
 

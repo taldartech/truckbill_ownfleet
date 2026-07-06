@@ -17,8 +17,6 @@
             and click <strong>Enter</strong> to view the monthly fleet report.
         </div>
 
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
             <div>
                 <label class="form-label">Month</label>
@@ -126,9 +124,11 @@ import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 import { formatMonthYear } from '../../utils/datetime';
 
 const { needsCompanySelection } = useRequireCompanyContext();
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const canExport = computed(() => canInCompany('fleet_monthly_report.export'));
 
@@ -136,7 +136,6 @@ const rows = ref([]);
 const summary = ref(null);
 const companyName = ref('');
 const loading = ref(false);
-const flash = reactive({ error: '' });
 
 function defaultFilters() {
     return {
@@ -172,7 +171,6 @@ async function loadReport() {
     }
 
     loading.value = true;
-    flash.error = '';
 
     try {
         const data = await fetchFleetMonthlyReport(filters.month);
@@ -180,7 +178,7 @@ async function loadReport() {
         summary.value = data.summary ?? null;
         companyName.value = data.company_name ?? '';
     } catch (error) {
-        flash.error = error?.response?.data?.message ?? 'Failed to load monthly fleet report.';
+        toast.error(error?.response?.data?.message ?? 'Failed to load monthly fleet report.');
         rows.value = [];
         summary.value = null;
         companyName.value = '';

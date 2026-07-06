@@ -52,36 +52,30 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
-                                <select
-                                    :id="`${modalId}_vehicle`"
+                                <VehicleSelect
+                                    :input-id="`${modalId}_vehicle`"
                                     v-model="form.vehicle_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.vehicle_id }"
-                                    required
-                                >
-                                    <option value="">Select truck</option>
-                                    <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                                        {{ vehicle.registration_number }}
-                                    </option>
-                                </select>
+                                    :vehicles="baseVehicleOptions"
+                                    :lookup-vehicle="challan?.vehicle ?? null"
+                                    placeholder="Select truck"
+                                    :invalid="Boolean(fieldErrors.vehicle_id)"
+                                    :error-message="fieldErrors.vehicle_id?.[0] ?? ''"
+                                />
                                 <div v-if="fieldErrors.vehicle_id" class="invalid-feedback d-block">
                                     {{ fieldErrors.vehicle_id[0] }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_driver`" class="form-label">Driver *</label>
-                                <select
-                                    :id="`${modalId}_driver`"
+                                <AppSelect
+                                    :input-id="`${modalId}_driver`"
                                     v-model="form.driver_id"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.driver_id }"
-                                    required
-                                >
-                                    <option value="">Select driver</option>
-                                    <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                                        {{ driver.name }}
-                                    </option>
-                                </select>
+                                    :options="driverSelectOptions"
+                                    placeholder="Select driver"
+                                    search-placeholder="Search driver…"
+                                    :invalid="Boolean(fieldErrors.driver_id)"
+                                    :error-message="fieldErrors.driver_id?.[0] ?? ''"
+                                />
                                 <div v-if="fieldErrors.driver_id" class="invalid-feedback d-block">
                                     {{ fieldErrors.driver_id[0] }}
                                 </div>
@@ -126,16 +120,15 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_status`" class="form-label">Payment Status *</label>
-                                <select
-                                    :id="`${modalId}_status`"
+                                <AppSelect
+                                    :input-id="`${modalId}_status`"
                                     v-model="form.status"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': fieldErrors.status }"
-                                    required
-                                >
-                                    <option value="UNPAID">Unpaid</option>
-                                    <option value="PAID">Paid</option>
-                                </select>
+                                    :options="challanStatusOptions"
+                                    placeholder="Select status"
+                                    search-placeholder="Search status…"
+                                    :invalid="Boolean(fieldErrors.status)"
+                                    :error-message="fieldErrors.status?.[0] ?? ''"
+                                />
                                 <div v-if="fieldErrors.status" class="invalid-feedback d-block">
                                     {{ fieldErrors.status[0] }}
                                 </div>
@@ -168,6 +161,8 @@ import { computed, ref, watch } from 'vue';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllVehicles } from '../../api/vehicles';
+import VehicleSelect from '../ui/VehicleSelect.vue';
+import AppSelect from '../ui/AppSelect.vue';
 import { mergeLookupOption } from '../../utils/mergeLookupOption';
 
 const props = defineProps({
@@ -190,7 +185,18 @@ const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal
 
 const isEdit = computed(() => props.mode === 'edit');
 
-const vehicles = ref([]);
+const challanStatusOptions = [
+    { value: 'UNPAID', label: 'Unpaid' },
+    { value: 'PAID', label: 'Paid' },
+];
+
+const driverSelectOptions = computed(() =>
+    drivers.value.map((driver) => ({
+        id: driver.id,
+        label: driver.name,
+        is_active: driver.is_active,
+    })),
+);
 const drivers = ref([]);
 const baseVehicleOptions = ref([]);
 const baseDriverOptions = ref([]);
@@ -222,7 +228,6 @@ function fillForm(challan) {
 }
 
 function refreshLookupOptions(challan = props.challan) {
-    vehicles.value = mergeLookupOption(baseVehicleOptions.value, challan?.vehicle ?? null);
     drivers.value = mergeLookupOption(baseDriverOptions.value, challan?.driver ?? null);
 }
 

@@ -15,6 +15,8 @@
                                 <RouterLink
                                     :to="item.to ?? item.href"
                                     class="nav-link"
+                                    active-class=""
+                                    exact-active-class=""
                                     :class="{ active: isItemActive(item) }"
                                 >
                                     <i :class="item.icon" class="nav-icon"></i>
@@ -35,6 +37,8 @@
                                             v-if="child.to"
                                             :to="child.to"
                                             class="nav-link"
+                                            active-class=""
+                                            exact-active-class=""
                                             :class="{ active: isChildActive(child) }"
                                         >
                                             <i :class="child.icon"></i>
@@ -124,7 +128,7 @@ function childPath(child) {
     }
 
     if (typeof child.to === 'string') {
-        return child.to;
+        return child.to.split('?')[0].split('#')[0];
     }
 
     if (typeof child.to === 'object' && child.to.path) {
@@ -173,7 +177,7 @@ function scrollActiveItemIntoView() {
         return;
     }
 
-    const activeLink = container.querySelector('.nav-link.active, .nav-link.router-link-exact-active');
+    const activeLink = container.querySelector('.nav-link.active');
 
     if (!activeLink) {
         return;
@@ -187,10 +191,10 @@ function scrollActiveItemIntoView() {
     }
 }
 
-watch(() => route.path, syncOpenMenusWithRoute, { immediate: true });
+watch(() => route.fullPath, syncOpenMenusWithRoute, { immediate: true });
 
 watch(
-    () => route.path,
+    () => route.fullPath,
     async () => {
         await nextTick();
         scrollActiveItemIntoView();

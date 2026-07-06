@@ -9,6 +9,17 @@ use App\UserRole;
 class RoleHierarchy
 {
     /**
+     * @var array<int, string>
+     */
+    private const ROLE_LABELS = [
+        UserRole::MASTER_ADMIN => 'Master Admin',
+        UserRole::SUPER_ADMIN => 'Super Admin',
+        UserRole::ADMIN => 'Admin',
+        UserRole::MODERATOR => 'Moderator',
+        UserRole::ACCOUNTANT => 'Accountant',
+    ];
+
+    /**
      * Roles a user manager may assign when creating/editing users.
      *
      * @return list<int>
@@ -131,8 +142,6 @@ class RoleHierarchy
      */
     public static function roleLabel(int $roleId): string
     {
-        $name = UserRole::NAMES[$roleId] ?? 'unknown';
-
-        return str_replace('_', ' ', ucwords($name, '_'));
+        return self::ROLE_LABELS[$roleId] ?? 'Unknown';
     }
 }

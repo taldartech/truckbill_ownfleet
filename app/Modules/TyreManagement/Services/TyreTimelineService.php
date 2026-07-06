@@ -80,7 +80,7 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'installed',
-                sortAt: $installation->created_at ?? $installation->installed_at,
+                sortAt: $installation->installed_at ?? $installation->created_at,
                 date: $installedDate,
                 title: "Installed on {$vehicle}",
                 detail: "Position: {$position}",
@@ -100,7 +100,7 @@ class TyreTimelineService
 
                 $events->push($this->event(
                     type: 'removed',
-                    sortAt: $installation->updated_at ?? $installation->removed_at,
+                    sortAt: $installation->removed_at,
                     date: $removedDate,
                     title: "Removed from {$vehicle}",
                     detail: "Ran {$installation->running_km} km on {$position}"

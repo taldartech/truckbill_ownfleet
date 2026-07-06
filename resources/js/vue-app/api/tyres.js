@@ -32,6 +32,11 @@ export async function getTyre(id) {
     };
 }
 
+export async function fetchTyreAlerts() {
+    const { data } = await api.get(`${base}/alerts`);
+    return data.data ?? data;
+}
+
 export async function previewTyreRemoval(installationId, { stintKm, odometerKm } = {}) {
     const params = {};
     if (odometerKm != null && odometerKm !== '') {
@@ -66,6 +71,10 @@ export async function updateTyre(id, payload) {
     return unwrapResource(data);
 }
 
+export async function deleteTyre(id) {
+    await api.delete(`${base}/${id}`);
+}
+
 export async function installTyre(id, payload) {
     const { data } = await api.post(`${base}/${id}/install`, payload);
     return unwrapResource(data);
@@ -83,6 +92,11 @@ export async function rotateTyre(id, payload) {
 
 export async function recordTyreDamage(id, payload) {
     const { data } = await api.post(`${base}/${id}/damage`, payload);
+    return unwrapResource(data);
+}
+
+export async function recordTyreInspection(id, payload) {
+    const { data } = await api.post(`${base}/${id}/inspections`, payload);
     return unwrapResource(data);
 }
 

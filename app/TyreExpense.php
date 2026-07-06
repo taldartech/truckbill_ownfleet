@@ -23,6 +23,7 @@ class TyreExpense extends Model
         'amount',
         'expense_date',
         'notes',
+        'created_by',
     ];
 
     protected function casts(): array

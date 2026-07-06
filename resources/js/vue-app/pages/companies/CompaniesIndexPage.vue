@@ -10,8 +10,6 @@
         </AppIndexPageHeader>
 
         <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
         <div class="card app-index-list-card mb-4">
             <div class="card-header">
@@ -99,7 +97,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, reactive, ref } from 'vue';
+import { computed, inject, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import {
@@ -112,9 +110,11 @@ import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import { formatDate } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
+import { useAppToast } from '../../composables/useAppToast';
 
 const router = useRouter();
 const route = useRoute();
+const toast = useAppToast();
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 
@@ -126,7 +126,6 @@ const formMode = ref('create');
 const editingCompany = ref(null);
 const fieldErrors = ref({});
 const companyFormError = ref('');
-const flash = reactive({ success: '', error: '' });
 
 const canCreate = computed(() => can('companies.create'));
 const canUpdate = computed(() => can('companies.update'));
@@ -150,12 +149,11 @@ async function refreshUser() {
 
 async function loadCompanies() {
     loading.value = true;
-    flash.error = '';
 
     try {
         companies.value = await listAllCompanies();
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Failed to load companies.';
+        toast.error(error.response?.data?.message ?? 'Failed to load companies.');
     } finally {
         loading.value = false;
     }
@@ -193,10 +191,10 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingCompany.value) {
             await updateCompany(editingCompany.value.id, payload);
-            flash.success = 'Company updated successfully.';
+            toast.success('Company updated successfully.');
         } else {
             await createCompany(payload);
-            flash.success = 'Company created successfully.';
+            toast.success('Company created successfully.');
         }
 
         closeForm();
@@ -219,14 +217,12 @@ async function handleSubmit(payload) {
 }
 
 async function toggleBlock(company) {
-    flash.error = '';
-
     try {
         await updateCompany(company.id, { is_blocked: !company.is_blocked });
-        flash.success = company.is_blocked ? 'Company unblocked.' : 'Company blocked.';
+        toast.success(company.is_blocked ? 'Company unblocked.' : 'Company blocked.');
         await loadCompanies();
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Could not update company.';
+        toast.error(error.response?.data?.message ?? 'Could not update company.');
     }
 }
 

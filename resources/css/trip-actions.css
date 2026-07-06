@@ -216,14 +216,47 @@ button.trip-header-btn:disabled {
 }
 
 .trip-form-actions {
-    position: sticky;
+    position: fixed;
     bottom: 0;
-    z-index: 1020;
-    margin-top: 1rem;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    margin: 0;
     background: var(--bs-gray-100, #f1f3f5);
     border: 1px solid var(--bs-border-color, #dee2e6);
-    border-radius: 0.5rem;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    border-bottom: none;
+    border-radius: 0;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.vue-app-shell .trip-form-actions {
+    left: 250px;
+}
+
+.vue-app-shell .trip-create-page,
+.vue-app-shell .trip-edit-page,
+.vue-app-shell .trip-expenses-page,
+.vue-app-shell .maintenance-create-page,
+.vue-app-shell .maintenance-edit-page {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+@media (max-width: 991.98px) {
+    .vue-app-shell .trip-form-actions {
+        left: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .vue-app-shell .trip-form-actions > .card-body {
+        justify-content: stretch !important;
+    }
+
+    .vue-app-shell .trip-form-actions .btn {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: 0;
+    }
 }
 
 .trip-form-actions > .card-body {

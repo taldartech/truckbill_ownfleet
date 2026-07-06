@@ -19,11 +19,13 @@
             </div>
             <div>
                 <label class="form-label">Status</label>
-                <select v-model="statusFilter" class="form-select" :disabled="loading">
-                    <option value="">All statuses</option>
-                    <option value="UNPAID">Unpaid</option>
-                    <option value="PAID">Paid</option>
-                </select>
+                <AppSelect
+                    v-model="statusFilter"
+                    :options="challanStatusOptions"
+                    placeholder="All statuses"
+                    search-placeholder="Search status…"
+                    :disabled="loading"
+                />
             </div>
         </AppIndexFiltersCard>
 
@@ -120,6 +122,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { createChallan, deleteChallan, listChallans, updateChallan } from '../../api/challans';
 import ChallanFormModal from '../../components/challans/ChallanFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -134,6 +137,11 @@ import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate } from '../../utils/datetime';
 
 const pageId = 'challansIndex';
+
+const challanStatusOptions = [
+    { value: 'UNPAID', label: 'Unpaid' },
+    { value: 'PAID', label: 'Paid' },
+];
 
 const toast = useAppToast();
 const { fieldErrors, formError: challanFormError, clearErrors, applyApiError } = useApiFormErrors();

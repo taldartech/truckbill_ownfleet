@@ -117,6 +117,7 @@
             :show="showSaveConfirm"
             :summary="saveConfirmSummary"
             :saving="saving"
+            :confirm-mode="saveMode"
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
@@ -377,11 +378,12 @@ function cancelSaveConfirm() {
     pendingPayload.value = null;
 }
 
-async function confirmSave() {
+async function confirmSave(mode = 'index') {
     if (!pendingPayload.value) {
         return;
     }
 
+    saveMode.value = mode;
     saving.value = true;
 
     try {

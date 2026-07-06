@@ -25,13 +25,11 @@
 
                         <div class="mb-3">
                             <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
-                            <SearchableSelect
+                            <VehicleSelect
                                 :input-id="`${modalId}_vehicle`"
                                 v-model="form.vehicle_id"
-                                :items="vehicleSelectItems"
+                                :vehicles="props.vehicles"
                                 placeholder="Select truck"
-                                search-placeholder="Search truck or driver…"
-                                empty-message="No matching trucks."
                                 :invalid="Boolean(fieldErrors.vehicle_id)"
                                 :error-message="fieldErrors.vehicle_id"
                             />
@@ -60,21 +58,23 @@
 
                         <div class="mb-3">
                             <label :for="`${modalId}_type`" class="form-label">Attendance Type *</label>
-                            <select :id="`${modalId}_type`" v-model="form.attendance_type" class="form-select" required>
-                                <option value="ABSENT">A — Absent</option>
-                                <option value="ABSENT_SUBSTITUTE">S — Substitute</option>
-                            </select>
+                            <AppSelect
+                                :input-id="`${modalId}_type`"
+                                v-model="form.attendance_type"
+                                :options="attendanceTypeOptions"
+                                placeholder="Select type"
+                                search-placeholder="Search type…"
+                            />
                         </div>
 
                         <div v-if="form.attendance_type === 'ABSENT_SUBSTITUTE'" class="mb-3">
                             <label :for="`${modalId}_sub`" class="form-label">Substitute Driver *</label>
-                            <SearchableSelect
+                            <AppSelect
                                 :input-id="`${modalId}_sub`"
                                 v-model="form.temporary_driver_id"
-                                :items="substituteSelectItems"
+                                :options="substituteSelectItems"
                                 placeholder="Select substitute"
-                                search-placeholder="Search driver name…"
-                                empty-message="No matching drivers."
+                                search-placeholder="Search driver…"
                             />
                         </div>
 
@@ -103,7 +103,8 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import SearchableSelect from '../ui/SearchableSelect.vue';
+import AppSelect from '../ui/AppSelect.vue';
+import VehicleSelect from '../ui/VehicleSelect.vue';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { toDateInputValue } from '../../utils/datetime';
 
@@ -129,6 +130,11 @@ const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal
 
 const today = computed(() => toDateInputValue());
 
+const attendanceTypeOptions = [
+    { value: 'ABSENT', label: 'A — Absent' },
+    { value: 'ABSENT_SUBSTITUTE', label: 'S — Substitute' },
+];
+
 const form = ref({
     vehicle_id: '',
     from_date: today.value,
@@ -143,17 +149,6 @@ const selectedVehicle = computed(() =>
 );
 
 const selectedPrimaryDriverId = computed(() => resolveVehiclePrimaryDriverId(selectedVehicle.value));
-
-const vehicleSelectItems = computed(() =>
-    [...props.vehicles]
-        .sort((left, right) =>
-            String(left.registration_number ?? '').localeCompare(String(right.registration_number ?? '')),
-        )
-        .map((vehicle) => ({
-            id: vehicle.id,
-            name: vehicleOptionLabel(vehicle),
-        })),
-);
 
 const substituteSelectItems = computed(() =>
     props.drivers
@@ -179,22 +174,6 @@ function resolveVehiclePrimaryDriverId(vehicle) {
         vehicle.current_primary_assignment?.driver?.id ??
         ''
     );
-}
-
-function vehicleDriverName(vehicle) {
-    return (
-        vehicle?.current_primary_assignment?.driver?.name ??
-        vehicle?.primary_driver?.name ??
-        props.drivers.find((driver) => driver.id === resolveVehiclePrimaryDriverId(vehicle))?.name ??
-        'No driver'
-    );
-}
-
-function vehicleOptionLabel(vehicle) {
-    const truck = vehicle?.registration_number ?? '—';
-    const driver = vehicleDriverName(vehicle);
-
-    return `${truck} — ${driver}`;
 }
 
 function driverLabel(driver) {

@@ -57,12 +57,29 @@ export function useTripForm() {
         form.expenses = [];
     }
 
+    function applySameCustomerDefault(leg) {
+        const customerId = form.customer_id ?? '';
+
+        if (customerId === '') {
+            return;
+        }
+
+        leg.use_same_customer = true;
+        leg.customer_id = customerId;
+    }
+
     function syncLegCustomersFromTrip() {
         const customerId = form.customer_id ?? '';
 
         form.route_legs.forEach((leg) => {
             if (leg.use_same_customer) {
                 leg.customer_id = customerId;
+
+                return;
+            }
+
+            if (customerId !== '' && !leg.customer_id) {
+                applySameCustomerDefault(leg);
             }
         });
     }
@@ -90,7 +107,9 @@ export function useTripForm() {
                 ? form.planned_mileage_km_per_liter
                 : '';
 
-        form.route_legs.push(emptyRouteStop(form.route_legs.length + 1, fromStationId, '', '', defaultMileage));
+        const leg = emptyRouteStop(form.route_legs.length + 1, fromStationId, '', '', defaultMileage);
+        applySameCustomerDefault(leg);
+        form.route_legs.push(leg);
     }
 
     function addReturnToStart() {
@@ -120,6 +139,7 @@ export function useTripForm() {
         returnLeg.freight_amount = 0;
         returnLeg.freight_rate = '';
         returnLeg.freight_auto_calculate = true;
+        applySameCustomerDefault(returnLeg);
 
         form.route_legs.push(returnLeg);
     }
@@ -379,19 +399,31 @@ export function useTripForm() {
     }
 
     function buildStatusChangePayload() {
-        return {
+        const payload = {
             status: form.status,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
             actual_arrival_at: form.actual_arrival_at || null,
             cancelled_at: form.cancelled_at || null,
             cancellation_reason: form.cancellation_reason || null,
-            start_meter_reading_km: parseNumeric(form.start_meter_reading_km),
-            end_meter_reading_km:
-                form.end_meter_reading_km === '' || form.end_meter_reading_km == null
-                    ? null
-                    : Number(form.end_meter_reading_km),
         };
+
+        const startMeter = parseNumeric(form.start_meter_reading_km);
+
+        if (startMeter > 0) {
+            payload.start_meter_reading_km = startMeter;
+        }
+
+        const endMeter =
+            form.end_meter_reading_km === '' || form.end_meter_reading_km == null
+                ? null
+                : Number(form.end_meter_reading_km);
+
+        if (endMeter != null && endMeter > 0) {
+            payload.end_meter_reading_km = endMeter;
+        }
+
+        return payload;
     }
 
     watch(

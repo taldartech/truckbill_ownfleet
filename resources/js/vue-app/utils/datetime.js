@@ -214,6 +214,34 @@ export function toDateInputValue(date = new Date()) {
     return toDateInputFromParts(getAppTimezoneParts(value));
 }
 
+function normalizeDateOnly(value) {
+    if (!value) {
+        return '';
+    }
+
+    return toDateInputFromIso(value) || String(value).trim().slice(0, 10);
+}
+
+/** @returns {-1|0|1} */
+export function compareDateOnly(left, right) {
+    const a = normalizeDateOnly(left);
+    const b = normalizeDateOnly(right);
+
+    if (!a || !b) {
+        return 0;
+    }
+
+    return a.localeCompare(b);
+}
+
+export function isDateAfter(left, right) {
+    return compareDateOnly(left, right) > 0;
+}
+
+export function isDateBefore(left, right) {
+    return compareDateOnly(left, right) < 0;
+}
+
 export function toAppTimezoneIso(date = new Date()) {
     const value = parseInstant(date);
 

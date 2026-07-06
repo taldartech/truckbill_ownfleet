@@ -1,4 +1,5 @@
 <template>
+    <Teleport to="body">
     <div
         v-if="show"
         class="modal fade show d-block"
@@ -16,11 +17,17 @@
                         <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
                         {{ modalTitle }}
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" @click="$emit('cancel')"></button>
+                    <button
+                        type="button"
+                        class="btn-close btn-close-white"
+                        :disabled="saving"
+                        @click="$emit('cancel')"
+                    ></button>
                 </div>
                 <form @submit.prevent="submit">
                     <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+                        <div v-if="saveError" class="alert alert-danger py-2">{{ saveError }}</div>
+                        <div v-else-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
 
                         <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
                             <div
@@ -34,16 +41,27 @@
                         </div>
 
                         <template v-else-if="status === 'CANCELLED'">
+                            <div v-if="!hasStartDate" class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                This trip has no <strong>start date</strong>. Open the trip, set the start date, then try cancelling again.
+                            </div>
+                            <div v-else-if="!hasStartMeterReading" class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                This trip has no <strong>start meter reading</strong>. Open the trip, set the start meter reading, then try cancelling again.
+                            </div>
+                            <template v-else>
                             <p class="text-muted small mb-3">
                                 Please enter when this trip was cancelled, the end meter reading, and why.
                             </p>
-                            <div class="mb-3">
-                                <label class="form-label">Start Meter Reading</label>
-                                <input :value="formatMeter(startMeterReadingKm)" type="text" class="form-control bg-light" readonly />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Truck Running Meter Reading</label>
-                                <input :value="formatMeter(truckRunningMeterKm)" type="text" class="form-control bg-light" readonly />
+                            <div class="status-readonly-strip mb-3">
+                                <div class="status-readonly-strip__item">
+                                    <span class="status-readonly-strip__label">Start Meter Reading</span>
+                                    <span class="status-readonly-strip__value">{{ formatMeter(startMeterReadingKm) }}</span>
+                                </div>
+                                <div class="status-readonly-strip__item">
+                                    <span class="status-readonly-strip__label">Truck Running Meter</span>
+                                    <span class="status-readonly-strip__value">{{ formatMeter(truckRunningMeterKm) }}</span>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">End Meter Reading *</label>
@@ -86,23 +104,39 @@
                                     {{ fieldErrors.cancellation_reason }}
                                 </div>
                             </div>
+                            </template>
                         </template>
 
                         <template v-else-if="!awaitingFinalConfirm && status === 'COMPLETED'">
+                            <div v-if="!hasStartDate" class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                This trip has no <strong>start date</strong>. Open the trip, set the start date, then try completing again.
+                            </div>
+                            <div v-else-if="tripStartIsFuture" class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                This trip starts on <strong>{{ formatDate(startAt) }}</strong>. It cannot be completed before that date.
+                            </div>
+                            <div v-else-if="!hasStartMeterReading" class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                This trip has no <strong>start meter reading</strong>. Open the trip, set the start meter reading, then try completing again.
+                            </div>
+                            <template v-else>
                             <p class="text-muted small mb-3">
                                 Confirm trip completion dates and meter reading before saving.
                             </p>
-                            <div class="mb-3">
-                                <label class="form-label">Start Date</label>
-                                <input :value="formatDate(startAt)" type="text" class="form-control bg-light" readonly />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Truck Running Meter Reading</label>
-                                <input :value="formatMeter(truckRunningMeterKm)" type="text" class="form-control bg-light" readonly />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Start Meter Reading</label>
-                                <input :value="formatMeter(startMeterReadingKm)" type="text" class="form-control bg-light" readonly />
+                            <div class="status-readonly-strip mb-3">
+                                <div class="status-readonly-strip__item">
+                                    <span class="status-readonly-strip__label">Start Date</span>
+                                    <span class="status-readonly-strip__value">{{ formatDate(startAt) }}</span>
+                                </div>
+                                <div class="status-readonly-strip__item">
+                                    <span class="status-readonly-strip__label">Truck Running Meter</span>
+                                    <span class="status-readonly-strip__value">{{ formatMeter(truckRunningMeterKm) }}</span>
+                                </div>
+                                <div class="status-readonly-strip__item">
+                                    <span class="status-readonly-strip__label">Start Meter Reading</span>
+                                    <span class="status-readonly-strip__value">{{ formatMeter(startMeterReadingKm) }}</span>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">End Meter Reading *</label>
@@ -126,6 +160,7 @@
                                     v-model="actualArrivalAt"
                                     :invalid="!!fieldErrors.actual_arrival_at"
                                     :min="actualArrivalMin || undefined"
+                                    :max="completionMaxDate || undefined"
                                     required
                                 />
                                 <div class="form-text">When did the truck actually arrive back?</div>
@@ -153,6 +188,7 @@
                                     v-model="endAt"
                                     :invalid="!!fieldErrors.end_at"
                                     :min="endDateMin || undefined"
+                                    :max="completionMaxDate || undefined"
                                     required
                                 />
                                 <div class="form-text">Must be on or after the actual arrival date.</div>
@@ -160,26 +196,30 @@
                                     {{ fieldErrors.end_at }}
                                 </div>
                             </div>
+                            </template>
                         </template>
                     </div>
                     <div class="modal-footer">
                         <template v-if="awaitingFinalConfirm">
-                            <button type="button" class="btn btn-secondary" @click="backToForm">
+                            <button type="button" class="btn btn-secondary" :disabled="saving" @click="backToForm">
                                 No, Go Back
                             </button>
                             <AppButton
                                 type="button"
                                 label="OK"
                                 :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                                :disabled="saving"
+                                :loading="saving"
                                 @click="finalConfirm"
                             />
                         </template>
                         <template v-else>
-                            <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Back</button>
+                            <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('cancel')">Back</button>
                             <AppButton
                                 type="submit"
                                 :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
                                 :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                                :disabled="saving || !canSubmit"
                             />
                         </template>
                     </div>
@@ -187,11 +227,12 @@
             </div>
         </div>
     </div>
+    </Teleport>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
-import { toDateInputFromIso, toDateInputValue, formatDate } from '../../utils/datetime';
+import { toDateInputFromIso, toDateInputValue, formatDate, isDateAfter } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 import AppButton from '../ui/AppButton.vue';
 
@@ -206,6 +247,8 @@ const props = defineProps({
     startMeterReadingKm: { type: [Number, String], default: '' },
     truckRunningMeterKm: { type: [Number, String], default: '' },
     endMeterReadingKmValue: { type: [Number, String], default: '' },
+    saving: { type: Boolean, default: false },
+    saveError: { type: String, default: '' },
 });
 
 const emit = defineEmits(['cancel', 'confirm']);
@@ -233,6 +276,38 @@ const finalConfirmMessage = computed(() =>
 );
 
 const tripStartDateMin = computed(() => toDateInputFromIso(props.startAt));
+
+const hasStartDate = computed(() => Boolean(tripStartDateMin.value));
+
+const hasStartMeterReading = computed(() => {
+    const value = Number(props.startMeterReadingKm ?? 0);
+
+    return Number.isFinite(value) && value > 0;
+});
+
+const todayDate = computed(() => toDateInputValue());
+
+const tripStartIsFuture = computed(() => {
+    if (!tripStartDateMin.value) {
+        return false;
+    }
+
+    return isDateAfter(tripStartDateMin.value, todayDate.value);
+});
+
+const completionMaxDate = computed(() => todayDate.value);
+
+const canSubmit = computed(() => {
+    if (!hasStartDate.value || tripStartIsFuture.value) {
+        return false;
+    }
+
+    if ((props.status === 'COMPLETED' || props.status === 'CANCELLED') && !hasStartMeterReading.value) {
+        return false;
+    }
+
+    return true;
+});
 
 const actualArrivalMin = computed(() => tripStartDateMin.value || '');
 
@@ -264,16 +339,31 @@ function initCompletionDates() {
     const existingArrival = toDateInputFromIso(props.actualArrivalAtValue);
     const today = toDateInputValue();
 
-    actualArrivalAt.value = existingArrival || startMin || today;
+    if (!startMin || isDateAfter(startMin, today)) {
+        actualArrivalAt.value = existingArrival || '';
+        endAt.value = existingEnd || '';
 
-    if (startMin && actualArrivalAt.value < startMin) {
+        return;
+    }
+
+    actualArrivalAt.value = existingArrival || today;
+
+    if (actualArrivalAt.value < startMin) {
         actualArrivalAt.value = startMin;
     }
 
-    endAt.value = existingEnd || startMin || today;
+    if (isDateAfter(actualArrivalAt.value, today)) {
+        actualArrivalAt.value = today;
+    }
 
-    if (startMin && endAt.value < startMin) {
+    endAt.value = existingEnd || actualArrivalAt.value || today;
+
+    if (endAt.value < startMin) {
         endAt.value = startMin;
+    }
+
+    if (isDateAfter(endAt.value, today)) {
+        endAt.value = today;
     }
 
     if (actualArrivalAt.value && endAt.value < actualArrivalAt.value) {
@@ -333,6 +423,10 @@ function validate() {
     Object.keys(fieldErrors).forEach((key) => delete fieldErrors[key]);
 
     if (props.status === 'CANCELLED') {
+        if (!hasStartDate.value) {
+            fieldErrors.start_at = 'Trip start date is required before cancelling this trip.';
+        }
+
         if (!cancelledAt.value) {
             fieldErrors.cancelled_at = 'Cancellation date is required.';
         }
@@ -345,6 +439,22 @@ function validate() {
     }
 
     if (props.status === 'COMPLETED') {
+        if (!hasStartDate.value) {
+            fieldErrors.start_at = 'Trip start date is required before completing this trip.';
+        }
+
+        if (tripStartIsFuture.value) {
+            fieldErrors.status = `This trip cannot be completed before ${formatDate(props.startAt)}.`;
+        }
+
+        if (actualArrivalAt.value && isDateAfter(actualArrivalAt.value, todayDate.value)) {
+            fieldErrors.actual_arrival_at = 'Actual arrival date cannot be in the future.';
+        }
+
+        if (endAt.value && isDateAfter(endAt.value, todayDate.value)) {
+            fieldErrors.end_at = 'End date cannot be in the future.';
+        }
+
         if (!endAt.value) {
             fieldErrors.end_at = 'End date is required to complete the trip.';
         }
@@ -421,5 +531,38 @@ function finalConfirm() {
 .status-final-confirm__icon {
     font-size: 2.5rem;
     line-height: 1;
+}
+
+.status-readonly-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+    padding: 0.65rem 0.85rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.status-readonly-strip__item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.status-readonly-strip__label {
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.status-readonly-strip__label::after {
+    content: ':';
+}
+
+.status-readonly-strip__value {
+    font-weight: 600;
+    color: #1e293b;
 }
 </style>

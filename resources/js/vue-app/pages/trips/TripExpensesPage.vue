@@ -9,8 +9,8 @@
         <template v-else-if="trip">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                 <div>
-                    <RouterLink :to="tripListReturnTo" class="text-decoration-none small">
-                        <i class="bi bi-arrow-left"></i> Back to Trips
+                    <RouterLink :to="tripDetailReturnTo" class="text-decoration-none small">
+                        <i class="bi bi-arrow-left"></i> Back to Trip
                     </RouterLink>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                         <h3 class="mb-0">Trip Expenses</h3>
@@ -85,8 +85,6 @@
                 </div>
             </div>
 
-            <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
-
             <div class="card mb-4 trip-expenses-card">
                 <div class="card-header bg-gradient-primary trip-expenses-card__header">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -99,7 +97,14 @@
                     </div>
                 </div>
                 <div class="card-body trip-expenses-card__body">
+                    <TripExpenseValidationSummary
+                        v-if="showValidationSummary"
+                        :items="validationSummaryItems"
+                        @focus-field="handleFocusField"
+                    />
+
                     <TripExpensesPanel
+                        ref="expensesPanelRef"
                         context="standalone"
                         :expenses="form.expenses"
                         :route-legs="form.route_legs"
@@ -109,35 +114,45 @@
                         :trip-end-date="form.end_at"
                         :trip-start-meter-km="form.start_meter_reading_km"
                         :trip-end-meter-km="form.end_meter_reading_km"
-                        :field-errors="fieldErrors"
+                        :field-errors="liveFieldErrors"
                         @add-expense="(options) => addExpense(options)"
                         @remove-expense="removeExpense"
+                        @fuel-field-input="markFuelFieldDirty"
+                        @field-input="onExpenseFieldInput"
                     />
                 </div>
             </div>
 
             <div class="trip-form-actions card shadow-sm">
-                <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
+                <div class="card-body d-flex flex-wrap gap-2 justify-content-end align-items-center">
                     <AppButton
                         variant="secondary"
                         outline
                         size="sm"
                         icon="bi bi-x-lg"
                         label="Exit"
-                        :to="tripListReturnTo"
+                        :to="tripDetailReturnTo"
                     />
                     <AppButton
                         variant="primary"
                         size="sm"
                         icon="bi bi-floppy-fill"
-                        label="Save"
+                        :label="saveButtonLabel"
                         :loading="saving"
-                        :disabled="saving"
+                        :disabled="saving || (hasValidationErrors && hasStartedExpense)"
                         @click="handleSave"
                     />
                 </div>
             </div>
         </template>
+
+        <TripExpenseSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -150,18 +165,24 @@ import {
     fetchTrip,
     tripStatusMeta,
     updateTrip,
-    validateExpenseDates,
-    validateExpenseMeterReadings,
 } from '../../api/trips';
 import TripExpensesPanel from '../../components/trips/TripExpensesPanel.vue';
+import TripExpenseSaveConfirmModal from '../../components/trips/TripExpenseSaveConfirmModal.vue';
+import TripExpenseValidationSummary from '../../components/trips/TripExpenseValidationSummary.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useTripExpensesForm } from '../../composables/useTripExpensesForm';
-import { useTripListReturn } from '../../composables/useTripListReturn';
+import { useUnsavedFormGuard } from '../../composables/useUnsavedFormGuard';
 import { formatDate } from '../../utils/datetime';
+import { buildExpenseSaveConfirmViewModel } from '../../utils/expenseSaveConfirm';
+import {
+    buildExpenseValidationSummaryItems,
+    countValidationErrors,
+    validateAllTripExpenses,
+} from '../../utils/expenseValidation';
 import { formatMeterKm } from '../../utils/formatMeter';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 
@@ -169,16 +190,25 @@ const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
-const { tripListReturnTo } = useTripListReturn();
 const { user } = usePermissions();
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
-const { form, populateFromTrip, addExpense, removeExpense, buildExpensesPayload } = useTripExpensesForm();
+const { form, populateFromTrip, addExpense, removeExpense, buildExpensesPayload, markFuelFieldDirty } = useTripExpensesForm();
 
 const trip = ref(null);
 const stations = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+const showSaveConfirm = ref(false);
+const saveConfirmSummary = ref(buildExpenseSaveConfirmViewModel({ expenses: [] }));
+const originalExpenses = ref([]);
+const expensesPanelRef = ref(null);
+const validationAttempted = ref(false);
+
+const tripDetailReturnTo = computed(() => ({
+    name: 'trips.show',
+    params: { id: route.params.id },
+}));
 
 const statusMeta = computed(() => tripStatusMeta(trip.value?.status));
 const liveExpenseTotal = computed(() =>
@@ -188,6 +218,58 @@ const profitAmount = computed(() => {
     const freight = Number(trip.value?.total_freight_amount ?? 0);
 
     return freight - liveExpenseTotal.value;
+});
+
+const isDirty = computed(
+    () => JSON.stringify(form.expenses) !== JSON.stringify(originalExpenses.value),
+);
+
+useUnsavedFormGuard(
+    isDirty,
+    'You have unsaved expense changes. Leave without saving?',
+);
+
+const liveFieldErrors = computed(() => {
+    const clientErrors = validateAllTripExpenses(form, { strict: validationAttempted.value });
+
+    if (Object.keys(fieldErrors.value).length === 0) {
+        return clientErrors;
+    }
+
+    return { ...clientErrors, ...fieldErrors.value };
+});
+
+const validationSummaryItems = computed(() =>
+    buildExpenseValidationSummaryItems(liveFieldErrors.value, form.expenses, form),
+);
+
+const validationErrorCount = computed(() => countValidationErrors(liveFieldErrors.value));
+
+const hasValidationErrors = computed(() => validationErrorCount.value > 0);
+
+const hasStartedExpense = computed(() =>
+    form.expenses.some(
+        (expense) =>
+            expense._fuelDirty === true
+            || Number(expense.amount) > 0
+            || expense.id != null,
+    ),
+);
+
+const showValidationSummary = computed(
+    () =>
+        validationSummaryItems.value.length > 0
+        && (validationAttempted.value || form.expenses.some((expense) => expense._fuelDirty)),
+);
+
+const saveButtonLabel = computed(() => {
+    if (hasValidationErrors.value && hasStartedExpense.value) {
+        const count = validationErrorCount.value;
+
+        return `Fix ${count} issue${count === 1 ? '' : 's'}`;
+    }
+
+    return 'Save';
 });
 
 const hasTripMasterData = computed(
@@ -223,9 +305,20 @@ function formatMeter(value) {
     return formatMeterKm(value);
 }
 
+function onExpenseFieldInput() {
+    if (Object.keys(fieldErrors.value).length > 0) {
+        fieldErrors.value = {};
+    }
+}
+
+function handleFocusField(item) {
+    expensesPanelRef.value?.focusExpenseField(item);
+}
+
 async function loadTrip() {
     loading.value = true;
     clearErrors();
+    validationAttempted.value = false;
 
     try {
         const loaded = await fetchTrip(route.params.id);
@@ -239,48 +332,45 @@ async function loadTrip() {
 
         trip.value = loaded;
         populateFromTrip(loaded);
+        originalExpenses.value = JSON.parse(JSON.stringify(form.expenses));
     } catch (error) {
         applyApiError(error, 'Failed to load trip.');
         toast.error(formError.value);
-        await router.replace(tripListReturnTo);
+        await router.replace(tripDetailReturnTo.value);
     } finally {
         loading.value = false;
     }
 }
 
-async function handleSave() {
-    clearErrors();
+function buildConfirmSummary() {
+    return buildExpenseSaveConfirmViewModel(form, {
+        originalExpenses: originalExpenses.value,
+        tripNumber: trip.value?.trip_number ?? '',
+        vehicleLabel: trip.value?.vehicle?.registration_number ?? '—',
+    });
+}
 
-    const payload = buildExpensesPayload();
-    const clientErrors = {
-        ...validateExpenseDates(payload.expenses, {
-            startAt: form.start_at || null,
-            endAt: form.end_at || null,
-        }),
-        ...validateExpenseMeterReadings(payload.expenses, {
-            startMeterKm: form.start_meter_reading_km,
-            endMeterKm: form.end_meter_reading_km,
-        }),
-    };
+function cancelSaveConfirm() {
+    showSaveConfirm.value = false;
+}
 
-    if (Object.keys(clientErrors).length > 0) {
-        fieldErrors.value = clientErrors;
-        formError.value = 'Please fix the errors below before saving.';
-        toast.error(formError.value);
-        scrollToFirstFormError();
-
-        return;
-    }
-
+async function confirmSave() {
     saving.value = true;
 
     try {
+        const payload = buildExpensesPayload();
         const updated = await updateTrip(route.params.id, payload);
         trip.value = updated;
         populateFromTrip(updated);
+        originalExpenses.value = JSON.parse(JSON.stringify(form.expenses));
+        showSaveConfirm.value = false;
+        validationAttempted.value = false;
         toast.success('Trip expenses saved successfully.');
         await router.push({ name: 'trips.show', params: { id: route.params.id } });
     } catch (error) {
+        showSaveConfirm.value = false;
+        validationAttempted.value = true;
+
         if (!applyApiError(error, 'Failed to save trip expenses.')) {
             formError.value = error?.response?.data?.message ?? 'Failed to save trip expenses.';
         }
@@ -290,6 +380,28 @@ async function handleSave() {
     } finally {
         saving.value = false;
     }
+}
+
+async function handleSave() {
+    clearErrors();
+    validationAttempted.value = true;
+
+    if (hasValidationErrors.value) {
+        const firstItem = validationSummaryItems.value[0];
+
+        if (firstItem) {
+            handleFocusField(firstItem);
+        } else {
+            scrollToFirstFormError();
+        }
+
+        toast.error(`Fix ${validationErrorCount.value} issue${validationErrorCount.value === 1 ? '' : 's'} before saving.`);
+
+        return;
+    }
+
+    saveConfirmSummary.value = buildConfirmSummary();
+    showSaveConfirm.value = true;
 }
 
 onMounted(async () => {

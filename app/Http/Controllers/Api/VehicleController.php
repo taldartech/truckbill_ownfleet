@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
 use App\Http\Resources\VehicleTripSelectionResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
+use App\Modules\TripManagement\Services\VehicleTripEligibilityService;
 use App\Support\TyreLayoutDefaults;
 use App\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,10 @@ use Illuminate\Http\Response;
 
 class VehicleController extends Controller
 {
-    public function __construct(private readonly DriverAssignmentService $driverAssignmentService) {}
+    public function __construct(
+        private readonly DriverAssignmentService $driverAssignmentService,
+        private readonly VehicleTripEligibilityService $vehicleTripEligibility,
+    ) {}
 
     public function forTripSelection(Request $request): AnonymousResourceCollection
     {
@@ -44,8 +48,13 @@ class VehicleController extends Controller
                     ->orWhereHas('currentPrimaryAssignment.driver', function ($driverQuery) use ($search): void {
                         $driverQuery->where('name', 'like', "%{$search}%");
                     });
-            })
-            ->latest();
+            });
+
+        $this->vehicleTripEligibility->applySelectableFirstOrdering(
+            $query,
+            $request->filled('as_of_date') ? $request->string('as_of_date')->toString() : null,
+            $request->filled('end_at') ? $request->string('end_at')->toString() : null,
+        );
 
         if (! $includeIneligible) {
             $query->where('is_active', true)
@@ -164,8 +173,21 @@ class VehicleController extends Controller
 
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): VehicleResource
     {
+        $validated = $request->validated();
+
+        if (array_key_exists('odometer_km', $validated) && $validated['odometer_km'] !== null) {
+            $newReading = (float) $validated['odometer_km'];
+            $currentReading = max(0, (float) ($vehicle->odometer_km ?? 0));
+
+            if ($newReading < $currentReading) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'odometer_km' => "Truck running meter reading cannot be less than the last recorded reading ({$currentReading} km).",
+                ]);
+            }
+        }
+
         $vehicle->update([
-            ...$request->validated(),
+            ...$validated,
             'updated_by' => $request->user()?->id,
         ]);
 

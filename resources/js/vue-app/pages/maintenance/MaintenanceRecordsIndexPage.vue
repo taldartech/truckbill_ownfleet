@@ -2,221 +2,225 @@
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Service Records">
             <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Add Service" @click="openCreate" />
+                <AppButton icon="bi bi-plus" label="Add Maintenance" @click="goToCreate" />
             </template>
         </AppIndexPageHeader>
 
+        <div v-if="needsCompanySelection" class="alert alert-warning">
+            Select a company from
+            <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
+            and click <strong>Enter</strong> before managing maintenance records.
+        </div>
+
         <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="searchQuery"
-                    :input-id="`${pageId}_search`"
-                    placeholder="Truck, provider, remarks…"
-                    max-width="100%"
-                    :disabled="loading"
-                    @keydown.enter.prevent="applyFilters"
+            <div class="maintenance-filter-period">
+                <DashboardDateRangePicker
+                    v-model:from-date="filters.from_date"
+                    v-model:to-date="filters.to_date"
+                    label="Date Range *"
+                    panel-align="start"
+                    :preset-keys="datePresetKeys"
+                    :max-months="MAX_LIST_DATE_RANGE_MONTHS"
+                    @change="onDateRangeChange"
                 />
             </div>
             <div>
                 <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
-                <SearchableSelect
+                <VehicleSelect
                     :input-id="`${pageId}_vehicle`"
-                    v-model="vehicleFilter"
-                    :items="vehicleSelectOptions"
+                    v-model="filters.vehicle_id"
+                    :vehicles="vehicles"
                     placeholder="All trucks"
-                    search-placeholder="Search truck number…"
-                    empty-message="No truck found."
-                    item-icon-class="bi bi-truck"
-                    attach-dropdown-to-body
                     :disabled="loading"
                 />
             </div>
             <div>
                 <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
-                <SearchableSelect
+                <MaintenanceServiceTypeSelect
                     :input-id="`${pageId}_service_type`"
-                    v-model="serviceTypeFilter"
-                    :items="serviceTypeSelectItems"
+                    v-model="filters.maintenance_service_type_id"
+                    :service-types="serviceTypes"
                     placeholder="All types"
-                    search-placeholder="Search service type…"
-                    empty-message="No service type found."
-                    item-icon-class="bi bi-wrench-adjustable"
-                    attach-dropdown-to-body
                     :disabled="loading"
                 />
             </div>
             <div>
-                <label class="form-label">From</label>
-                <AppDateInput v-model="fromFilter" :disabled="loading" />
-            </div>
-            <div>
-                <label class="form-label">To</label>
-                <AppDateInput v-model="toFilter" :disabled="loading" />
+                <label class="form-label">Status</label>
+                <AppSelect
+                    v-model="filters.due_status"
+                    :options="dueStatusOptions"
+                    placeholder="All statuses"
+                    search-placeholder="Search status…"
+                />
             </div>
         </AppIndexFiltersCard>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading service records…">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 70px">#</th>
-                        <th>Date</th>
-                        <th>Truck</th>
-                        <th>Service Type</th>
-                        <th>Provider</th>
-                        <th class="text-end">Meter Reading</th>
-                        <th class="text-end">Cost</th>
-                        <th>Next Due</th>
-                        <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="records.length === 0" class="app-index-empty-row">
-                        <td :colspan="hasRowActions ? 9 : 8" class="text-center text-muted py-4">
-                            No service records found.
-                        </td>
-                    </tr>
-                    <tr v-for="(record, index) in records" :key="record.id">
-                        <td class="text-center">{{ rowNumber(index) }}</td>
-                        <td>{{ formatDate(record.service_date) }}</td>
-                        <td>{{ vehicleLabel(record) }}</td>
-                        <td>{{ record.service_type_label ?? record.service_type ?? '—' }}</td>
-                        <td>{{ record.service_provider || '—' }}</td>
-                        <td class="text-end">{{ formatOdometer(record.odometer_km) }}</td>
-                        <td class="text-end">{{ formatAmount(record.cost_amount) }}</td>
-                        <td>{{ dueSummary(record) }}</td>
-                        <td v-if="hasRowActions" class="app-index-actions-cell">
-                            <AppTableActions>
-                                <AppCrudActionButton v-if="canEdit" action="edit" @click="openEdit(record)" />
-                                <AppCrudActionButton v-if="canDelete" action="delete" @click="handleDelete(record)" />
-                            </AppTableActions>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <template #footer>
-                <AppIndexPaginationFooter
-                    :page-id="pageId"
-                    :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
-                    item-label="records"
-                    @page-change="goToPage"
-                    @update:per-page="onPerPageUpdate"
-                />
-            </template>
-        </AppIndexListCard>
+        <div class="card app-index-list-card">
+            <div class="card-body">
+                <div v-if="!filtersApplied" class="text-center text-muted py-4">
+                    Select a date range and click Apply to view service records.
+                </div>
+                <div v-else-if="loading" class="text-center py-4 text-muted">Loading service records…</div>
+                <div v-else class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 70px">#</th>
+                                <th>Date</th>
+                                <th>Truck</th>
+                                <th>Service Type</th>
+                                <th>Provider</th>
+                                <th class="text-end">Meter Reading</th>
+                                <th class="text-end">Cost</th>
+                                <th>Status</th>
+                                <th>Next Due</th>
+                                <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 160px">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="records.length === 0">
+                                <td :colspan="hasRowActions ? 10 : 9" class="text-center text-muted py-4">
+                                    No service records found for selected filters.
+                                </td>
+                            </tr>
+                            <tr v-for="(record, index) in records" :key="record.id">
+                                <td class="text-center">{{ rowNumber(index) }}</td>
+                                <td>{{ formatDate(record.service_date) }}</td>
+                                <td>
+                                    <RouterLink
+                                        v-if="canView && record.vehicle?.id"
+                                        :to="{ name: 'trucks.show', params: { vehicleId: record.vehicle.id } }"
+                                        class="text-decoration-none fw-semibold"
+                                    >
+                                        {{ vehicleLabel(record) }}
+                                    </RouterLink>
+                                    <span v-else>{{ vehicleLabel(record) }}</span>
+                                </td>
+                                <td>{{ record.service_type_label ?? record.service_type ?? '—' }}</td>
+                                <td>{{ record.service_provider || '—' }}</td>
+                                <td class="text-end">{{ formatOdometer(record.odometer_km) }}</td>
+                                <td class="text-end">{{ formatAmount(record.cost_amount) }}</td>
+                                <td>
+                                    <span class="badge" :class="statusMeta(record).badge">{{ statusMeta(record).label }}</span>
+                                </td>
+                                <td>{{ dueSummary(record) }}</td>
+                                <td v-if="hasRowActions" class="app-index-actions-cell">
+                                    <AppTableActions>
+                                        <AppCrudActionButton
+                                            v-if="canView"
+                                            action="view"
+                                            title="View record"
+                                            @click="goToView(record)"
+                                        />
+                                        <AppCrudActionButton v-if="canEdit" action="edit" @click="goToEdit(record)" />
+                                        <AppCrudActionButton v-if="canDelete" action="delete" @click="openDelete(record)" />
+                                    </AppTableActions>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <AppIndexPaginationFooter
+                :page-id="pageId"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="records"
+                :per-page-options="[10, 25, 50]"
+                @page-change="goToPage"
+                @update:per-page="onPerPageUpdate"
+            />
+        </div>
 
-        <MaintenanceFormModal
-            modal-id="createMaintenanceModal"
-            :show="showCreate"
-            mode="create"
-            :saving="saving"
-            :field-errors="fieldErrors"
-            :form-error="formError"
-            @close="closeCreate"
-            @submit="handleCreate"
-        />
-
-        <MaintenanceFormModal
-            modal-id="editMaintenanceModal"
-            :show="showEdit"
-            mode="edit"
-            :record="editingRecord"
-            :saving="saving"
-            :field-errors="fieldErrors"
-            :form-error="formError"
-            @close="closeEdit"
-            @submit="handleUpdate"
+        <MaintenanceActionConfirmModal
+            :show="showDeleteConfirm"
+            :summary="deleteConfirmSummary"
+            :deleting="deleting"
+            @cancel="closeDeleteConfirm"
+            @confirm="confirmDelete"
         />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
-import { buildVehicleSelectOptions, listAllVehicles } from '../../api/vehicles';
-import { buildMaintenanceServiceTypeSelectOptions, listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
+import { useRoute, useRouter } from 'vue-router';
+import { listAllVehicles } from '../../api/vehicles';
+import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
 import {
-    createVehicleMaintenance,
+    defaultMaintenanceListFilters,
     deleteVehicleMaintenance,
     listVehicleMaintenances,
-    updateVehicleMaintenance,
+    MAINTENANCE_DUE_STATUSES,
 } from '../../api/vehicleMaintenances';
-import MaintenanceFormModal from '../../components/maintenance/MaintenanceFormModal.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import MaintenanceActionConfirmModal from '../../components/maintenance/MaintenanceActionConfirmModal.vue';
+import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
+import MaintenanceServiceTypeSelect from '../../components/ui/MaintenanceServiceTypeSelect.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
-import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
-import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useListPagination } from '../../composables/useListPagination';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
+import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import {
+    dateRangeExceedsMonths,
+    dateRangeMonthsError,
+    MAX_LIST_DATE_RANGE_MONTHS,
+    TRIP_LIST_DATE_PRESET_KEYS,
+} from '../../utils/dateRangePresets';
 import { formatDate } from '../../utils/datetime';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
+import { maintenanceDueStatusMeta, resolveMaintenanceDueStatus } from '../../utils/maintenanceDueStatus';
+import { buildMaintenanceDeleteConfirmViewModel } from '../../utils/maintenanceSaveConfirm';
 
 const pageId = 'maintenanceRecordsIndex';
 const route = useRoute();
+const router = useRouter();
 const toast = useAppToast();
-const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
+const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
 
 const canView = computed(() => canInCompany('maintenance.view'));
 const canCreate = computed(() => canInCompany('maintenance.create'));
 const canEdit = computed(() => canInCompany('maintenance.edit'));
 const canDelete = computed(() => canInCompany('maintenance.delete'));
-const hasRowActions = computed(() => canEdit.value || canDelete.value);
+const hasRowActions = computed(() => canView.value || canEdit.value || canDelete.value);
 
-const serviceTypeOptions = computed(() => buildMaintenanceServiceTypeSelectOptions(serviceTypes.value));
-const serviceTypeSelectItems = computed(() => [
-    { id: '', label: 'All types', hint: '', icon: 'bi bi-wrench-adjustable' },
-    ...serviceTypeOptions.value.map((type) => ({
-        id: type.value,
-        label: type.label,
-        hint: type.subtitle ?? '',
-        icon: 'bi bi-wrench-adjustable',
-    })),
-]);
 const serviceTypes = ref([]);
 const vehicles = ref([]);
-const vehicleSelectOptions = computed(() => buildVehicleSelectOptions(vehicles.value));
 const records = ref([]);
-const loading = ref(true);
-const saving = ref(false);
-const showCreate = ref(false);
-const showEdit = ref(false);
-const editingRecord = ref(null);
-const searchQuery = ref('');
-const vehicleFilter = ref('');
-const serviceTypeFilter = ref('');
-const fromFilter = ref('');
-const toFilter = ref('');
+const loading = ref(false);
+const filtersApplied = ref(false);
+const deleting = ref(false);
+const showDeleteConfirm = ref(false);
+const deleteConfirmSummary = ref(null);
+const deletingRecord = ref(null);
 
-const pagination = reactive({
-    currentPage: 1,
-    lastPage: 1,
-    perPage: 25,
-    total: 0,
-    from: 0,
-    to: 0,
-});
+const filters = reactive(defaultMaintenanceListFilters());
+const defaultFilters = defaultMaintenanceListFilters();
+const dueStatusOptions = MAINTENANCE_DUE_STATUSES;
+const datePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
+
+const { pagination, syncFromMeta } = useListPagination(10);
 
 const filtersActive = computed(
     () =>
-        searchQuery.value.trim() !== '' ||
-        vehicleFilter.value !== '' ||
-        serviceTypeFilter.value !== '' ||
-        fromFilter.value !== '' ||
-        toFilter.value !== '',
+        filters.from_date !== defaultFilters.from_date ||
+        filters.to_date !== defaultFilters.to_date ||
+        filters.vehicle_id !== '' ||
+        filters.maintenance_service_type_id !== '' ||
+        filters.due_status !== '',
 );
 
 function vehicleLabel(record) {
@@ -227,6 +231,12 @@ function vehicleLabel(record) {
     }
 
     return label;
+}
+
+function statusMeta(record) {
+    const status = record.due_status ?? resolveMaintenanceDueStatus(record);
+
+    return maintenanceDueStatusMeta(status);
 }
 
 function dueSummary(record) {
@@ -263,24 +273,61 @@ function rowNumber(index) {
     return pagination.from > 0 ? pagination.from + index : index + 1;
 }
 
+function showRouteFlash() {
+    if (route.query.created === '1') {
+        toast.success('Maintenance record created.');
+    } else if (route.query.updated === '1') {
+        toast.success('Maintenance record updated.');
+    } else if (route.query.deleted === '1') {
+        toast.success('Maintenance record deleted.');
+    }
+}
+
 function applyFilters() {
+    if (!filters.from_date || !filters.to_date) {
+        toast.error('Select a date range before applying filters.');
+
+        return;
+    }
+
+    if (dateRangeExceedsMonths(filters.from_date, filters.to_date, MAX_LIST_DATE_RANGE_MONTHS)) {
+        toast.error(dateRangeMonthsError(MAX_LIST_DATE_RANGE_MONTHS));
+
+        return;
+    }
+
+    filtersApplied.value = true;
     pagination.currentPage = 1;
     loadRecords(1);
 }
 
+function onDateRangeChange() {
+    filtersApplied.value = false;
+    records.value = [];
+    syncFromMeta({}, 0);
+}
+
 function clearFilters() {
-    searchQuery.value = '';
-    vehicleFilter.value = '';
-    serviceTypeFilter.value = '';
-    fromFilter.value = '';
-    toFilter.value = '';
-    applyFilters();
+    Object.assign(filters, defaultMaintenanceListFilters());
+    pagination.perPage = 10;
+    pagination.currentPage = 1;
+    filtersApplied.value = false;
+    records.value = [];
+    syncFromMeta({}, 0);
 }
 
 async function loadRecords(page = pagination.currentPage) {
-    if (!canView.value) {
+    if (!canView.value || !filtersApplied.value) {
         records.value = [];
         loading.value = false;
+
+        return;
+    }
+
+    if (!filters.from_date || !filters.to_date) {
+        filtersApplied.value = false;
+        records.value = [];
+        syncFromMeta({}, 0);
 
         return;
     }
@@ -291,34 +338,26 @@ async function loadRecords(page = pagination.currentPage) {
         const response = await listVehicleMaintenances({
             page,
             perPage: pagination.perPage,
-            search: searchQuery.value.trim(),
-            vehicleId: vehicleFilter.value,
-            maintenanceServiceTypeId: serviceTypeFilter.value,
-            from: fromFilter.value,
-            to: toFilter.value,
+            vehicleId: filters.vehicle_id,
+            maintenanceServiceTypeId: filters.maintenance_service_type_id,
+            from: filters.from_date,
+            to: filters.to_date,
+            dueStatus: filters.due_status,
         });
 
         records.value = response.data;
-        pagination.currentPage = response.meta.current_page ?? page;
-        pagination.lastPage = response.meta.last_page ?? 1;
-        pagination.total = response.meta.total ?? records.value.length;
-        pagination.from = response.meta.from ?? (records.value.length > 0 ? 1 : 0);
-        pagination.to = response.meta.to ?? records.value.length;
+        syncFromMeta(response.meta, records.value.length);
     } catch {
         toast.error('Could not load service records.');
         records.value = [];
-        pagination.currentPage = 1;
-        pagination.lastPage = 1;
-        pagination.total = 0;
-        pagination.from = 0;
-        pagination.to = 0;
+        syncFromMeta({}, 0);
     } finally {
         loading.value = false;
     }
 }
 
 function goToPage(page) {
-    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+    if (!filtersApplied.value || page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
         return;
     }
 
@@ -326,104 +365,72 @@ function goToPage(page) {
 }
 
 function onPerPageUpdate(perPage) {
+    if (!filtersApplied.value) {
+        return;
+    }
+
     pagination.perPage = perPage;
     pagination.currentPage = 1;
     loadRecords(1);
 }
 
-function openCreate() {
-    clearErrors();
-    showCreate.value = true;
+function goToCreate() {
+    router.push({ name: 'maintenance.create' });
 }
 
-function closeCreate() {
-    showCreate.value = false;
-    clearErrors();
+function goToView(record) {
+    router.push({ name: 'maintenance.show', params: { id: record.id } });
 }
 
-function openEdit(record) {
-    editingRecord.value = { ...record };
-    clearErrors();
-    showEdit.value = true;
+function goToEdit(record) {
+    router.push({ name: 'maintenance.edit', params: { id: record.id } });
 }
 
-function closeEdit() {
-    showEdit.value = false;
-    editingRecord.value = null;
-    clearErrors();
+function openDelete(record) {
+    deletingRecord.value = record;
+    deleteConfirmSummary.value = buildMaintenanceDeleteConfirmViewModel(record);
+    showDeleteConfirm.value = true;
 }
 
-function applyValidationError(error, fallback = 'Unable to save service record.') {
-    if (applyApiError(error, fallback)) {
-        toast.error(formError.value || fallback);
+function closeDeleteConfirm() {
+    showDeleteConfirm.value = false;
+    deleteConfirmSummary.value = null;
+    deletingRecord.value = null;
+}
 
+async function confirmDelete() {
+    if (!deletingRecord.value?.id) {
         return;
     }
 
-    toast.error(friendlyApiErrorMessage(error, fallback));
-}
-
-async function handleCreate(payload) {
-    saving.value = true;
-    clearErrors();
+    deleting.value = true;
 
     try {
-        await createVehicleMaintenance(payload);
-        toast.success('Service record added.');
-        closeCreate();
-        await loadRecords(1);
-    } catch (error) {
-        applyValidationError(error);
-    } finally {
-        saving.value = false;
-    }
-}
-
-async function handleUpdate(payload) {
-    if (!editingRecord.value?.id) {
-        return;
-    }
-
-    saving.value = true;
-    clearErrors();
-
-    try {
-        await updateVehicleMaintenance(editingRecord.value.id, payload);
-        toast.success('Service record updated.');
-        closeEdit();
-        await loadRecords();
-    } catch (error) {
-        applyValidationError(error);
-    } finally {
-        saving.value = false;
-    }
-}
-
-async function handleDelete(record) {
-    const truck = vehicleLabel(record);
-
-    if (!window.confirm(`Delete service record for ${truck} on ${formatDate(record.service_date)}?`)) {
-        return;
-    }
-
-    try {
-        await deleteVehicleMaintenance(record.id);
+        await deleteVehicleMaintenance(deletingRecord.value.id);
         toast.success('Service record deleted.');
+        closeDeleteConfirm();
 
         const page =
             records.value.length === 1 && pagination.currentPage > 1
                 ? pagination.currentPage - 1
                 : pagination.currentPage;
 
-        await loadRecords(page);
+        if (filtersApplied.value) {
+            await loadRecords(page);
+        }
     } catch (error) {
         toast.error(friendlyApiErrorMessage(error, 'Unable to delete service record.'));
+        closeDeleteConfirm();
+    } finally {
+        deleting.value = false;
     }
 }
 
 onMounted(async () => {
+    showRouteFlash();
+
     if (route.query.vehicle_id) {
-        vehicleFilter.value = String(route.query.vehicle_id);
+        filters.vehicle_id = String(route.query.vehicle_id);
     }
 
     try {
@@ -434,12 +441,6 @@ onMounted(async () => {
     } catch {
         vehicles.value = [];
         serviceTypes.value = [];
-    }
-
-    if (canView.value) {
-        loadRecords();
-    } else {
-        loading.value = false;
     }
 });
 </script>

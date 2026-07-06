@@ -3,6 +3,8 @@
 namespace App\Modules\TyreManagement\Services;
 
 use App\Enums\TyreExpenseType;
+use App\Support\ReportDateRange;
+use App\Support\TyreLifeCalculator;
 use App\Tyre;
 use App\TyreExpense;
 use App\TyreInstallation;
@@ -11,16 +13,22 @@ use Illuminate\Support\Facades\DB;
 
 class TyreReportService
 {
+    public function __construct(private readonly TyreLifeCalculator $lifeCalculator) {}
+
     /**
      * @param  array{vehicle_id?: string, from?: string, to?: string}  $filters
      * @return list<array<string, mixed>>
      */
     public function tyreLife(array $filters = []): array
     {
+        ReportDateRange::assertValid($filters);
+
         return Tyre::query()
             ->when($filters['vehicle_id'] ?? null, function ($query, string $vehicleId): void {
                 $query->whereHas('installations', fn ($q) => $q->where('vehicle_id', $vehicleId));
             })
+            ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('purchase_date', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('purchase_date', '<=', $to))
             ->withSum('installations as total_running_km', 'running_km')
             ->orderBy('serial_number')
             ->get()
@@ -42,15 +50,18 @@ class TyreReportService
      */
     public function costPerKm(array $filters = []): array
     {
+        ReportDateRange::assertValid($filters);
+
         return Tyre::query()
-            ->with(['expenses', 'installations'])
+            ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('purchase_date', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('purchase_date', '<=', $to))
+            ->with(['expenses', 'activeInstallation.vehicle'])
             ->get()
             ->map(function (Tyre $tyre): array {
                 $totalCost = (float) $tyre->expenses->sum('amount') + (float) $tyre->purchase_cost;
                 $scrapRecovery = (float) ($tyre->scrap_sale_amount ?? 0);
                 $netCost = max(0, $totalCost - $scrapRecovery);
-                $installationKm = (float) $tyre->installations->sum('running_km');
-                $totalKm = max(1, (float) $tyre->current_km + $installationKm);
+                $totalKm = max(1, $this->lifeCalculator->summary($tyre)['total_km_used']);
 
                 return [
                     'tyre_id' => $tyre->id,
@@ -72,6 +83,8 @@ class TyreReportService
      */
     public function replacements(array $filters = []): array
     {
+        ReportDateRange::assertValid($filters);
+
         return TyreReplacement::query()
             ->when($filters['vehicle_id'] ?? null, fn ($q, string $id) => $q->where('vehicle_id', $id))
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('replaced_at', '>=', $from))
@@ -96,6 +109,8 @@ class TyreReportService
      */
     public function vehicleWiseUsage(array $filters = []): array
     {
+        ReportDateRange::assertValid($filters);
+
         return TyreInstallation::query()
             ->select('vehicle_id', DB::raw('COUNT(*) as installation_count'), DB::raw('SUM(running_km) as total_km'))
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('installed_at', '>=', $from))
@@ -117,6 +132,8 @@ class TyreReportService
      */
     public function expenseSummary(array $filters = []): array
     {
+        ReportDateRange::assertValid($filters);
+
         $rows = TyreExpense::query()
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('expense_date', '>=', $from))
             ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('expense_date', '<=', $to))

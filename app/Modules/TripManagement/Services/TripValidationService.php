@@ -23,6 +23,12 @@ class TripValidationService
 
     public const EDIT_SCOPE_NONE = 'none';
 
+    public const MAX_FUEL_LITERS = 5000;
+
+    public const MAX_FUEL_RATE = 1000;
+
+    public const FUEL_DECIMAL_PLACES = 2;
+
     /**
      * @var array<string, list<string>>
      */
@@ -269,7 +275,22 @@ class TripValidationService
      * @param  list<array<string, mixed>>  $routeLegs
      */
     /**
+     * @param  array<string, mixed>  $expense
+     */
+    public static function isActiveFuelRow(array $expense): bool
+    {
+        $odometer = $expense['fuel_odometer_km'] ?? null;
+        $liters = $expense['fuel_liters'] ?? null;
+        $rate = $expense['fuel_rate'] ?? null;
+
+        return ($odometer !== null && $odometer !== '')
+            || ($liters !== null && $liters !== '')
+            || ($rate !== null && $rate !== '');
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $expenses
+     * @param  list<TripExpense>|null  $existingExpenses
      */
     public function assertExpensesAreValid(
         array $expenses,
@@ -277,6 +298,7 @@ class TripValidationService
         ?string $tripEndAt = null,
         ?float $startMeterReadingKm = null,
         ?float $endMeterReadingKm = null,
+        ?array $existingExpenses = null,
     ): void {
         if ($expenses === []) {
             return;
@@ -294,10 +316,19 @@ class TripValidationService
             : null;
         $startMeter = $startMeterReadingKm ?? 0.0;
         $endMeter = $endMeterReadingKm;
+        $legacyFuelSignatures = $this->buildLegacyFuelSignatures($existingExpenses ?? []);
 
         $errors = [];
 
         foreach ($expenses as $index => $expense) {
+            $expenseType = strtoupper((string) ($expense['expense_type'] ?? ''));
+            $isActiveDiesel = $expenseType === 'DIESEL' && self::isActiveFuelRow($expense);
+            $isActiveNonDiesel = $expenseType !== 'DIESEL' && (float) ($expense['amount'] ?? 0) > 0;
+
+            if (! $isActiveDiesel && ! $isActiveNonDiesel) {
+                continue;
+            }
+
             $expenseDate = $expense['expense_date'] ?? null;
 
             if ($expenseDate === null || $expenseDate === '') {
@@ -316,53 +347,160 @@ class TripValidationService
                 $errors["expenses.{$index}.expense_date"] = ['Expense date cannot be after the trip end date.'];
             }
 
-            $expenseType = strtoupper((string) ($expense['expense_type'] ?? ''));
-
-            if ($expenseType !== 'DIESEL' || (float) ($expense['amount'] ?? 0) <= 0) {
-                continue;
-            }
-
-            $fuelOdometer = $expense['fuel_odometer_km'] ?? null;
-
-            if ($fuelOdometer === null || $fuelOdometer === '') {
-                continue;
-            }
-
-            if ($startMeter <= 0) {
-                continue;
-            }
-
-            $meter = (float) $fuelOdometer;
-
-            if ($meter < $startMeter) {
-                $endLabel = $endMeter !== null && $endMeter > 0
-                    ? sprintf(' (%s KM)', rtrim(rtrim(number_format($endMeter, 2, '.', ''), '0'), '.'))
-                    : '';
-                $errors["expenses.{$index}.fuel_odometer_km"] = [
-                    sprintf(
-                        'Meter reading must be between Start Meter Reading (%s KM) and End Meter Reading%s.',
-                        rtrim(rtrim(number_format($startMeter, 2, '.', ''), '0'), '.'),
-                        $endLabel,
-                    ),
-                ];
-
-                continue;
-            }
-
-            if ($endMeter !== null && $endMeter > 0 && $meter > $endMeter) {
-                $errors["expenses.{$index}.fuel_odometer_km"] = [
-                    sprintf(
-                        'Meter reading must be between Start Meter Reading (%s KM) and End Meter Reading (%s KM).',
-                        rtrim(rtrim(number_format($startMeter, 2, '.', ''), '0'), '.'),
-                        rtrim(rtrim(number_format($endMeter, 2, '.', ''), '0'), '.'),
-                    ),
-                ];
+            if ($isActiveDiesel) {
+                $skipMeterRange = in_array($this->fuelRowSignature($expense), $legacyFuelSignatures, true);
+                $this->collectDieselExpenseErrors(
+                    $expense,
+                    $index,
+                    $startMeter,
+                    $endMeter,
+                    $skipMeterRange,
+                    $errors,
+                );
             }
         }
 
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /**
+     * @param  list<TripExpense>  $existingExpenses
+     * @return list<string>
+     */
+    private function buildLegacyFuelSignatures(array $existingExpenses): array
+    {
+        $signatures = [];
+
+        foreach ($existingExpenses as $existing) {
+            $existingType = $existing->expense_type instanceof \BackedEnum
+                ? $existing->expense_type->value
+                : (string) $existing->expense_type;
+
+            if (strtoupper($existingType) !== 'DIESEL') {
+                continue;
+            }
+
+            $row = [
+                'fuel_odometer_km' => $existing->fuel_odometer_km,
+                'fuel_liters' => $existing->fuel_liters,
+                'fuel_rate' => $existing->fuel_rate,
+            ];
+
+            if (! self::isActiveFuelRow($row)) {
+                continue;
+            }
+
+            $signatures[] = $this->fuelRowSignature($row);
+        }
+
+        return $signatures;
+    }
+
+    /**
+     * @param  array<string, mixed>  $expense
+     */
+    private function fuelRowSignature(array $expense): string
+    {
+        $odometer = $expense['fuel_odometer_km'] ?? null;
+        $liters = $expense['fuel_liters'] ?? null;
+        $rate = $expense['fuel_rate'] ?? null;
+
+        return sprintf(
+            '%s|%s|%s',
+            $odometer !== null && $odometer !== '' ? (string) (int) $odometer : '',
+            $liters !== null && $liters !== '' ? (string) round((float) $liters, self::FUEL_DECIMAL_PLACES) : '',
+            $rate !== null && $rate !== '' ? (string) round((float) $rate, self::FUEL_DECIMAL_PLACES) : '',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $expense
+     * @param  array<string, list<string>>  $errors
+     */
+    private function collectDieselExpenseErrors(
+        array $expense,
+        int $index,
+        float $startMeter,
+        ?float $endMeter,
+        bool $skipMeterRange,
+        array &$errors,
+    ): void {
+        $fuelOdometer = $expense['fuel_odometer_km'] ?? null;
+        $fuelLiters = $expense['fuel_liters'] ?? null;
+        $fuelRate = $expense['fuel_rate'] ?? null;
+
+        if ($fuelOdometer === null || $fuelOdometer === '') {
+            $errors["expenses.{$index}.fuel_odometer_km"] = ['Meter reading is required.'];
+        } elseif (! is_numeric($fuelOdometer) || (float) $fuelOdometer != (int) $fuelOdometer) {
+            $errors["expenses.{$index}.fuel_odometer_km"] = ['Meter reading must be a whole number.'];
+        } elseif (! $skipMeterRange && $startMeter > 0) {
+            $meter = (int) $fuelOdometer;
+
+            if ($meter < (int) $startMeter) {
+                $errors["expenses.{$index}.fuel_odometer_km"] = [
+                    sprintf(
+                        'Meter reading cannot be less than Trip Start Meter Reading (%s KM).',
+                        $this->formatMeterKmLabel($startMeter),
+                    ),
+                ];
+            } elseif ($endMeter !== null && $endMeter > 0 && $meter > (int) $endMeter) {
+                $errors["expenses.{$index}.fuel_odometer_km"] = [
+                    sprintf(
+                        'Meter reading cannot be greater than Trip End Meter Reading (%s KM).',
+                        $this->formatMeterKmLabel($endMeter),
+                    ),
+                ];
+            }
+        }
+
+        if ($fuelLiters === null || $fuelLiters === '') {
+            $errors["expenses.{$index}.fuel_liters"] = ['Fuel liters is required.'];
+        } elseif (! is_numeric($fuelLiters) || (float) $fuelLiters <= 0) {
+            $errors["expenses.{$index}.fuel_liters"] = ['Fuel liters must be greater than zero.'];
+        } elseif (! $this->hasValidDecimalPlaces($fuelLiters, self::FUEL_DECIMAL_PLACES)) {
+            $errors["expenses.{$index}.fuel_liters"] = [
+                sprintf('Fuel liters must have at most %d decimal places.', self::FUEL_DECIMAL_PLACES),
+            ];
+        } elseif ((float) $fuelLiters > self::MAX_FUEL_LITERS) {
+            $errors["expenses.{$index}.fuel_liters"] = [
+                sprintf('Fuel liters cannot exceed %d L.', self::MAX_FUEL_LITERS),
+            ];
+        }
+
+        if ($fuelRate === null || $fuelRate === '') {
+            $errors["expenses.{$index}.fuel_rate"] = ['Diesel rate is required.'];
+        } elseif (! is_numeric($fuelRate) || (float) $fuelRate <= 0) {
+            $errors["expenses.{$index}.fuel_rate"] = ['Diesel rate must be greater than zero.'];
+        } elseif (! $this->hasValidDecimalPlaces($fuelRate, self::FUEL_DECIMAL_PLACES)) {
+            $errors["expenses.{$index}.fuel_rate"] = [
+                sprintf('Diesel rate must have at most %d decimal places.', self::FUEL_DECIMAL_PLACES),
+            ];
+        } elseif ((float) $fuelRate > self::MAX_FUEL_RATE) {
+            $errors["expenses.{$index}.fuel_rate"] = [
+                sprintf('Diesel rate cannot exceed ₹%d per liter.', self::MAX_FUEL_RATE),
+            ];
+        }
+    }
+
+    private function formatMeterKmLabel(float $meter): string
+    {
+        return rtrim(rtrim(number_format($meter, 2, '.', ''), '0'), '.');
+    }
+
+    private function hasValidDecimalPlaces(mixed $value, int $maxPlaces): bool
+    {
+        $normalized = (string) $value;
+
+        if (! str_contains($normalized, '.')) {
+            return true;
+        }
+
+        [$whole, $fraction] = explode('.', $normalized, 2);
+        unset($whole);
+
+        return strlen(rtrim($fraction, '0')) <= $maxPlaces;
     }
 
     public function assertPositiveFreightTotal(array $routeLegs): void
@@ -450,6 +588,14 @@ class TripValidationService
         }
 
         if ($next === TripStatus::Completed->value) {
+            $startAt = $data['start_at'] ?? $trip->start_at;
+
+            if ($startAt === null) {
+                throw ValidationException::withMessages([
+                    'start_at' => ['Trip start date is required before marking a trip as completed. Edit the trip and set the start date first.'],
+                ]);
+            }
+
             $endAt = $data['end_at'] ?? $trip->end_at;
 
             if ($endAt === null) {
@@ -467,10 +613,27 @@ class TripValidationService
             }
 
             $this->assertMeterReadingsOnComplete($trip, $data);
+
+            $startDay = Carbon::parse($startAt)->startOfDay();
+
+            if (now()->startOfDay()->lt($startDay)) {
+                throw ValidationException::withMessages([
+                    'status' => ['This trip cannot be completed before its start date ('.$startDay->format('d/M/Y').').'],
+                ]);
+            }
+
             $this->assertCompletionDatesAreValid($trip, $data);
         }
 
         if ($next === TripStatus::Cancelled->value) {
+            $startAt = $data['start_at'] ?? $trip->start_at;
+
+            if ($startAt === null) {
+                throw ValidationException::withMessages([
+                    'start_at' => ['Trip start date is required before cancelling a trip. Edit the trip and set the start date first.'],
+                ]);
+            }
+
             $cancelledAt = $data['cancelled_at'] ?? $trip->cancelled_at;
 
             if ($cancelledAt === null) {
@@ -574,7 +737,9 @@ class TripValidationService
         $actualArrivalAt = $data['actual_arrival_at'] ?? $trip->actual_arrival_at;
 
         if ($startAt === null || $endAt === null || $actualArrivalAt === null) {
-            return;
+            throw ValidationException::withMessages([
+                'trip' => ['Trip start, end, and actual arrival dates are required to validate completion.'],
+            ]);
         }
 
         $start = Carbon::parse($startAt)->toDateString();
@@ -596,6 +761,20 @@ class TripValidationService
         if ($end < $start) {
             throw ValidationException::withMessages([
                 'end_at' => ['End date cannot be before the trip start date.'],
+            ]);
+        }
+
+        $today = now()->toDateString();
+
+        if ($arrival > $today) {
+            throw ValidationException::withMessages([
+                'actual_arrival_at' => ['Actual arrival date cannot be in the future.'],
+            ]);
+        }
+
+        if ($end > $today) {
+            throw ValidationException::withMessages([
+                'end_at' => ['End date cannot be in the future.'],
             ]);
         }
     }

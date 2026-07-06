@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\TyreStatus;
 use App\Enums\TyreType;
 use App\Support\CurrentTenant;
 use App\Tyre;
@@ -28,17 +27,16 @@ class StoreTyreRequest extends FormRequest
                 'max:80',
                 Rule::unique('tyres', 'serial_number')->where(fn ($query) => $query->where('tenant_id', CurrentTenant::id())),
             ],
-            'brand' => ['nullable', 'string', 'max:100'],
-            'size' => ['nullable', 'string', 'max:50'],
-            'purchase_date' => ['nullable', 'date'],
+            'brand' => ['required', 'string', 'max:100'],
+            'size' => ['required', 'string', 'max:50'],
+            'purchase_date' => ['required', 'date'],
             'purchase_cost' => ['nullable', 'numeric', 'min:0'],
-            'warranty_details' => ['nullable', 'string', 'max:2000'],
             'warranty_valid_until' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'warranty_km' => ['nullable', 'numeric', 'min:0'],
             'tyre_type' => ['nullable', Rule::enum(TyreType::class)],
             'current_km' => ['nullable', 'numeric', 'min:0'],
-            'expected_life_km' => ['nullable', 'numeric', 'min:1000'],
-            'status' => ['nullable', Rule::enum(TyreStatus::class)],
+            'expected_life_km' => ['required', 'numeric', 'min:1000'],
+            'status' => ['prohibited'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

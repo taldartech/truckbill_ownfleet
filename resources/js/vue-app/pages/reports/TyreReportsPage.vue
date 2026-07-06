@@ -1,25 +1,58 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Tyre Reports" />
+        <AppIndexPageHeader title="Tyre Reports">
+            <template v-if="canExport" #actions>
+                <AppButton
+                    icon="bi bi-file-earmark-excel"
+                    label="Export Excel"
+                    outline
+                    @click="exportExcel"
+                />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> to view tyre reports.
         </div>
 
+        <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
+
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
             <div>
                 <label class="form-label">Report</label>
-                <select v-model="reportType" class="form-select">
-                    <option v-for="r in reportTypes" :key="r.value" :value="r.value">{{ r.label }}</option>
-                </select>
+                <AppSelect
+                    v-model="reportType"
+                    :options="reportTypes"
+                    placeholder="Select report"
+                    search-placeholder="Search report…"
+                    @change="onReportTypeChange"
+                />
             </div>
             <div>
                 <label class="form-label">From</label>
-                <AppDateInput v-model="filters.from" />
+                <AppDateInput
+                    v-model="filters.from"
+                    :max="todayMax"
+                    :invalid="!!fieldErrors.from"
+                    @input="onFromChange"
+                />
+                <div v-if="fieldErrors.from" class="invalid-feedback d-block">
+                    {{ fieldErrors.from[0] }}
+                </div>
             </div>
             <div>
                 <label class="form-label">To</label>
-                <AppDateInput v-model="filters.to" />
+                <AppDateInput
+                    v-model="filters.to"
+                    :min="filters.from || undefined"
+                    :max="filtersToMax"
+                    :invalid="!!fieldErrors.to"
+                    @input="clearFieldError('to')"
+                />
+                <div v-if="fieldErrors.to" class="invalid-feedback d-block">
+                    {{ fieldErrors.to[0] }}
+                </div>
+                <div class="form-text">Maximum {{ MAX_REPORT_DATE_RANGE_MONTHS }} months. No future dates.</div>
             </div>
         </AppIndexFiltersCard>
 
@@ -38,7 +71,9 @@
                         </thead>
                         <tbody>
                             <tr v-if="rows.length === 0">
-                                <td :colspan="columns.length || 1" class="text-center text-muted py-4">No data.</td>
+                                <td :colspan="columns.length || 1" class="text-center text-muted py-4">
+                                    {{ emptyTableMessage }}
+                                </td>
                             </tr>
                             <tr v-for="(row, i) in rows" :key="i">
                                 <td v-for="col in columns" :key="col">{{ formatCell(row, col, i) }}</td>
@@ -52,20 +87,37 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import {
+    exportTyreReport,
     fetchTyreCostPerKmReport,
     fetchTyreExpenseSummary,
     fetchTyreLifeReport,
     fetchTyreReplacementsReport,
     fetchTyreVehicleWiseReport,
 } from '../../api/tyreReports';
+import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import { formatTableCell } from '../../utils/datetime';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import {
+    dateRangeExceedsMonths,
+    dateRangeMonthsError,
+    MAX_LIST_DATE_RANGE_MONTHS,
+    maxDateRangeEnd,
+} from '../../utils/dateRangePresets';
+import { formatTableCell, toDateInputValue } from '../../utils/datetime';
 
 const { needsCompanySelection } = useRequireCompanyContext();
+const { canInCompany } = usePermissions();
+const { fieldErrors, formError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
+const canExport = computed(() => canInCompany('tyre_reports.export'));
+
+const MAX_REPORT_DATE_RANGE_MONTHS = MAX_LIST_DATE_RANGE_MONTHS;
+const todayMax = computed(() => toDateInputValue());
 
 const reportTypes = [
     { value: 'life', label: 'Tyre Life Report', loader: fetchTyreLifeReport },
@@ -79,10 +131,29 @@ const reportType = ref('life');
 const filters = reactive({ from: '', to: '' });
 const rows = ref([]);
 const loading = ref(false);
+const reportLoaded = ref(false);
 
 const filtersActive = computed(() => filters.from !== '' || filters.to !== '');
 
+const filtersToMax = computed(() => {
+    if (!filters.from) {
+        return todayMax.value;
+    }
+
+    const rangeEnd = maxDateRangeEnd(filters.from, MAX_REPORT_DATE_RANGE_MONTHS);
+
+    return rangeEnd > todayMax.value ? todayMax.value : rangeEnd;
+});
+
 const currentLabel = computed(() => reportTypes.find((r) => r.value === reportType.value)?.label ?? 'Report');
+
+const emptyTableMessage = computed(() => {
+    if (formError.value) {
+        return 'Fix the filters above and try again.';
+    }
+
+    return reportLoaded.value ? 'No data.' : 'Select date range and click search.';
+});
 
 const COLUMN_LABELS = {
     s_no: 'S.No',
@@ -117,32 +188,89 @@ function formatCell(row, col, rowIndex) {
     return formatTableCell(col, row[col]);
 }
 
+function validateFilters() {
+    const errors = {};
+
+    if (!filters.from) {
+        errors.from = ['Date range is required.'];
+    }
+
+    if (!filters.to) {
+        errors.to = ['Date range is required.'];
+    }
+
+    if (filters.from && filters.from > todayMax.value) {
+        errors.from = ['Future dates are not allowed.'];
+    }
+
+    if (filters.to && filters.to > todayMax.value) {
+        errors.to = ['Future dates are not allowed.'];
+    }
+
+    if (filters.from && filters.to && filters.from > filters.to) {
+        errors.to = ['End date must be on or after start date.'];
+    }
+
+    if (dateRangeExceedsMonths(filters.from, filters.to, MAX_REPORT_DATE_RANGE_MONTHS)) {
+        errors.to = [dateRangeMonthsError(MAX_REPORT_DATE_RANGE_MONTHS)];
+    }
+
+    if (Object.keys(errors).length > 0) {
+        fieldErrors.value = errors;
+        formError.value = errors.to?.[0] ?? errors.from?.[0] ?? 'Date range is required.';
+
+        return false;
+    }
+
+    return true;
+}
+
+function buildFilterParams() {
+    return {
+        from: filters.from,
+        to: filters.to,
+    };
+}
+
 async function loadReport() {
     if (needsCompanySelection.value) {
+        rows.value = [];
+        reportLoaded.value = false;
+
+        return;
+    }
+
+    clearErrors();
+
+    if (!validateFilters()) {
+        rows.value = [];
+        reportLoaded.value = false;
+
+        return;
+    }
+
+    const def = reportTypes.find((r) => r.value === reportType.value);
+
+    if (!def) {
         return;
     }
 
     loading.value = true;
 
     try {
-        const def = reportTypes.find((r) => r.value === reportType.value);
-        const params = {};
-
-        if (filters.from) {
-            params.from = filters.from;
-        }
-
-        if (filters.to) {
-            params.to = filters.to;
-        }
-
-        const data = await def.loader(params);
+        const data = await def.loader(buildFilterParams());
 
         if (reportType.value === 'expenses') {
             rows.value = Object.entries(data).map(([expense_type, total]) => ({ expense_type, total }));
         } else {
             rows.value = data;
         }
+
+        reportLoaded.value = true;
+    } catch (error) {
+        rows.value = [];
+        reportLoaded.value = false;
+        applyApiError(error, 'Unable to load report.');
     } finally {
         loading.value = false;
     }
@@ -151,12 +279,30 @@ async function loadReport() {
 function clearFilters() {
     filters.from = '';
     filters.to = '';
-    loadReport();
+    rows.value = [];
+    reportLoaded.value = false;
+    clearErrors();
 }
 
-watch(reportType, () => {
-    loadReport();
-});
+function exportExcel() {
+    if (!validateFilters()) {
+        return;
+    }
 
-onMounted(() => loadReport());
+    exportTyreReport(reportType.value, buildFilterParams());
+}
+
+function onFromChange() {
+    clearFieldError('from');
+
+    if (filters.to && filters.to > filtersToMax.value) {
+        filters.to = filtersToMax.value;
+    }
+}
+
+function onReportTypeChange() {
+    rows.value = [];
+    reportLoaded.value = false;
+    clearErrors();
+}
 </script>

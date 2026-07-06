@@ -11,10 +11,27 @@ export async function listMaintenanceServiceTypes({ perPage = 500 } = {}) {
 }
 
 export function buildMaintenanceServiceTypeSelectOptions(types) {
-    return (types ?? []).map((type) => ({
-        id: type.id,
-        value: String(type.id),
-        label: type.label ?? type.name,
-        subtitle: type.code,
-    }));
+    return [...(types ?? [])]
+        .sort((left, right) => {
+            const leftActive = left.is_active !== false;
+            const rightActive = right.is_active !== false;
+
+            if (leftActive !== rightActive) {
+                return leftActive ? -1 : 1;
+            }
+
+            return String(left.label ?? left.name ?? '').localeCompare(String(right.label ?? right.name ?? ''));
+        })
+        .map((type) => {
+            const label = type.label ?? type.name ?? '—';
+            const inactive = type.is_active === false;
+
+            return {
+                id: type.id,
+                label,
+                inactive,
+                badge: inactive ? '(Inactive)' : '',
+                searchText: [label, type.code].filter(Boolean).join(' '),
+            };
+        });
 }

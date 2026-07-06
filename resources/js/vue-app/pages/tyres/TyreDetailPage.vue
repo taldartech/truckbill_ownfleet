@@ -32,7 +32,22 @@
                 >
                     Replace
                 </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" @click="openDamage">Damage</button>
+                <button
+                    v-if="tyre.status !== 'SCRAPPED'"
+                    type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    @click="openDamage"
+                >
+                    Damage
+                </button>
+                <button
+                    v-if="tyre.status !== 'SCRAPPED'"
+                    type="button"
+                    class="btn btn-outline-info btn-sm"
+                    @click="openInspection"
+                >
+                    Inspect
+                </button>
                 <button
                     v-if="tyre.status !== 'SCRAPPED' && !tyre.active_installation"
                     type="button"
@@ -113,8 +128,15 @@
                             <div v-if="tyre.warranty_km != null && tyre.warranty_km > 0" class="col-md-4">
                                 <span class="text-muted">Warranty KM Limit</span><br />{{ formatWarrantyKm(tyre.warranty_km) }}
                             </div>
-                            <div v-if="tyre.warranty_details?.trim()" class="col-12">
-                                <span class="text-muted">Warranty Notes</span><br />{{ tyre.warranty_details }}
+                            <div v-if="tyre.last_inspection_at" class="col-md-4">
+                                <span class="text-muted">Last inspection</span><br />
+                                {{ formatDate(tyre.last_inspection_at) }}
+                                <span v-if="tyre.last_tread_depth_mm != null" class="text-muted">
+                                    · {{ tyre.last_tread_depth_mm }} mm tread
+                                </span>
+                            </div>
+                            <div v-if="tyre.notes?.trim()" class="col-12">
+                                <span class="text-muted">Notes</span><br />{{ tyre.notes }}
                             </div>
                             <template v-if="tyre.status === 'SCRAPPED'">
                                 <div class="col-md-4">
@@ -206,12 +228,13 @@
                         </div>
                         <div class="col-sm-4 col-md-3">
                             <label class="form-label small mb-1" for="historyTypeFilter">Event type</label>
-                            <select id="historyTypeFilter" v-model="historyTypeFilter" class="form-select form-select-sm">
-                                <option value="">All types</option>
-                                <option v-for="option in historyTypeOptions" :key="option.value" :value="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
+                            <AppSelect
+                                input-id="historyTypeFilter"
+                                v-model="historyTypeFilter"
+                                :options="historyTypeSelectOptions"
+                                placeholder="All types"
+                                search-placeholder="Search type…"
+                            />
                         </div>
                         <div class="col-md-3">
                             <button
@@ -288,37 +311,22 @@
         >
             <div class="mb-2">
                 <label class="form-label" for="installTyre_vehicle">Truck</label>
-                <SearchableSelect
+                <VehicleSelect
                     input-id="installTyre_vehicle"
                     v-model="actionForm.vehicle_id"
-                    :items="vehicleSelectOptions"
+                    :vehicles="vehicles"
                     placeholder="Select truck"
-                    search-placeholder="Search truck number…"
-                    empty-message="No truck found."
-                    item-icon-class="bi bi-truck"
                 />
             </div>
             <div class="mb-2">
                 <label class="form-label">Position</label>
-                <select
+                <AppSelect
                     v-model="actionForm.position_code"
-                    class="form-select position-select"
-                    required
+                    :options="installPositionSelectOptions"
+                    :placeholder="loadingVehiclePositions ? 'Loading positions…' : 'Select truck first'"
+                    search-placeholder="Search position…"
                     :disabled="!actionForm.vehicle_id || loadingVehiclePositions"
-                >
-                    <option value="">
-                        {{ loadingVehiclePositions ? 'Loading positions…' : 'Select truck first' }}
-                    </option>
-                    <option
-                        v-for="p in installPositionOptions"
-                        :key="p.value"
-                        :value="p.value"
-                        :disabled="p.occupied"
-                        :class="p.occupied ? 'position-option--occupied' : 'position-option--free'"
-                    >
-                        {{ p.occupied ? '○' : '●' }} {{ p.label }}{{ p.occupied ? ' (occupied)' : ' (free)' }}
-                    </option>
-                </select>
+                />
                 <div v-if="actionForm.vehicle_id && !loadingVehiclePositions" class="form-text">
                     ● Free position · ○ Already has a tyre
                 </div>
@@ -360,10 +368,12 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">New tyre (from stock)</label>
-                <select v-model="actionForm.new_tyre_id" class="form-select">
-                    <option value="">Remove only (no new tyre)</option>
-                    <option v-for="t in stockTyres" :key="t.id" :value="t.id">{{ t.serial_number }} — {{ t.brand }}</option>
-                </select>
+                <AppSelect
+                    v-model="actionForm.new_tyre_id"
+                    :options="stockTyreSelectOptions"
+                    placeholder="Remove only (no new tyre)"
+                    search-placeholder="Search tyre…"
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Replace date</label>
@@ -412,23 +422,17 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">New Position</label>
-                <select
+                <AppSelect
                     v-model="actionForm.new_position"
-                    class="form-select"
-                    required
-                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'new_position') }"
+                    :options="rotatePositionSelectOptions"
+                    :placeholder="
+                        rotatePositionOptions.length === 0 ? 'No other positions on this truck' : 'Select position'
+                    "
+                    search-placeholder="Search position…"
                     :disabled="loadingVehiclePositions || rotatePositionOptions.length === 0"
-                >
-                    <option v-if="rotatePositionOptions.length === 0" value="" disabled>
-                        No other positions on this truck
-                    </option>
-                    <option v-for="p in rotatePositionOptions" :key="p.value" :value="p.value">
-                        {{ rotateOptionLabel(p) }}
-                    </option>
-                </select>
-                <div v-if="fieldErrorMessage(fieldErrors, 'new_position')" class="invalid-feedback d-block">
-                    {{ fieldErrorMessage(fieldErrors, 'new_position') }}
-                </div>
+                    :invalid="hasFieldError(fieldErrors, 'new_position')"
+                    :error-message="fieldErrorMessage(fieldErrors, 'new_position')"
+                />
             </div>
             <div v-if="selectedRotateTarget?.occupied" class="alert alert-warning small py-2 mb-2">
                 Will swap with <strong>{{ selectedRotateTarget.tyre_serial }}</strong> currently at
@@ -581,6 +585,62 @@
         </TyreActionModal>
 
         <TyreActionModal
+            v-if="showInspection"
+            title="Record Tyre Inspection"
+            :form-error="formError"
+            :saving="actionSaving"
+            @close="closeInspection"
+            @submit="submitInspection"
+        >
+            <div class="mb-2">
+                <label class="form-label">Inspection date</label>
+                <AppDateInput v-model="actionForm.inspected_at" required />
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label">Tread depth (mm)</label>
+                    <input
+                        v-model.number="actionForm.tread_depth_mm"
+                        v-no-scroll-change
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.1"
+                        class="form-control"
+                    />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Pressure (PSI)</label>
+                    <input
+                        v-model.number="actionForm.pressure_psi"
+                        v-no-scroll-change
+                        type="number"
+                        min="0"
+                        max="300"
+                        step="0.1"
+                        class="form-control"
+                    />
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Result</label>
+                <AppSelect
+                    v-model="actionForm.inspection_result"
+                    :options="inspectionResultOptions"
+                    placeholder="Select result"
+                />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Next due date</label>
+                <AppDateInput v-model="actionForm.next_due_at" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Notes</label>
+                <textarea v-model="actionForm.inspection_notes" class="form-control" rows="2" />
+            </div>
+        </TyreActionModal>
+
+        <TyreActionModal
             v-if="showDamage"
             title="Record Damage"
             :form-error="formError"
@@ -590,14 +650,33 @@
         >
             <div class="mb-2">
                 <label class="form-label">Type</label>
-                <select v-model="actionForm.damage_type" class="form-select" required>
-                    <option value="PUNCTURE">Puncture</option>
-                    <option value="BURST">Burst</option>
-                    <option value="CUT">Cut</option>
-                    <option value="SIDEWALL">Sidewall</option>
-                    <option value="RECAPPED">Recapped</option>
-                    <option value="OTHER">Other</option>
-                </select>
+                <AppSelect
+                    v-model="actionForm.damage_type"
+                    :options="damageTypeSelectOptions"
+                    placeholder="Select type"
+                    search-placeholder="Search type…"
+                />
+            </div>
+            <div v-if="actionForm.damage_type === 'RECAPPED'" class="mb-2">
+                <label class="form-label">New expected life (km) *</label>
+                <input
+                    v-model.number="actionForm.expected_life_km"
+                    type="number"
+                    min="1000"
+                    step="1"
+                    class="form-control"
+                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'expected_life_km') }"
+                    placeholder="e.g. 55000"
+                    required
+                    @wheel.prevent
+                />
+                <div class="form-text">
+                    Current expected life: {{ tyre?.expected_life_km ?? 40000 }} km.
+                    Increase or decrease based on recap quality.
+                </div>
+                <div v-if="hasFieldError(fieldErrors, 'expected_life_km')" class="invalid-feedback d-block">
+                    {{ fieldErrorMessage(fieldErrors, 'expected_life_km') }}
+                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Position on truck</label>
@@ -642,6 +721,7 @@ import {
     listTyres,
     previewTyreRemoval,
     recordTyreDamage,
+    recordTyreInspection,
     removeTyreInstallation,
     updateTyreInstallationStintKm,
     replaceTyre,
@@ -651,7 +731,8 @@ import {
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { calculateTyreStintKm, resolveVehicleOdometer } from '../../utils/tyreStint';
 import { formatDate, formatEventParts, toDateInputValue } from '../../utils/datetime';
@@ -687,16 +768,6 @@ const historyTypeFilter = ref('');
 const loading = ref(true);
 const activeTab = ref('timeline');
 const vehicles = ref([]);
-const vehicleSelectOptions = computed(() =>
-    vehicles.value.map((vehicle) => ({
-        id: vehicle.id,
-        label: vehicle.registration_number,
-        hint: [vehicle.vehicle_type_label ?? vehicle.vehicle_type, vehicle.make, vehicle.model]
-            .filter(Boolean)
-            .join(' · '),
-        icon: 'bi bi-truck',
-    })),
-);
 const stockTyres = ref([]);
 const showInstall = ref(false);
 const showRotate = ref(false);
@@ -705,6 +776,7 @@ const showReplace = ref(false);
 const showRemove = ref(false);
 const showUpdateKm = ref(false);
 const showScrap = ref(false);
+const showInspection = ref(false);
 const replacePreview = ref(null);
 const removePreview = ref(null);
 
@@ -719,6 +791,22 @@ const installPositionOptions = computed(() =>
     })),
 );
 
+const installPositionSelectOptions = computed(() =>
+    installPositionOptions.value.map((option) => ({
+        value: option.value,
+        label: `${option.occupied ? '○' : '●'} ${option.label}${option.occupied ? ' (occupied)' : ' (free)'}`,
+        disabled: option.occupied,
+    })),
+);
+
+const stockTyreSelectOptions = computed(() => [
+    { value: '', label: 'Remove only (no new tyre)' },
+    ...stockTyres.value.map((tyreOption) => ({
+        value: tyreOption.id,
+        label: `${tyreOption.serial_number} — ${tyreOption.brand}`,
+    })),
+]);
+
 const rotatePositionOptions = computed(() =>
     vehiclePositionSlots.value
         .filter((slot) => slot.position !== tyre.value?.active_installation?.position)
@@ -729,6 +817,28 @@ const rotatePositionOptions = computed(() =>
             tyre_serial: slot.tyre?.serial_number ?? null,
         })),
 );
+
+const rotatePositionSelectOptions = computed(() =>
+    rotatePositionOptions.value.map((option) => ({
+        value: option.value,
+        label: rotateOptionLabel(option),
+    })),
+);
+
+const damageTypeSelectOptions = [
+    { value: 'PUNCTURE', label: 'Puncture' },
+    { value: 'BURST', label: 'Burst' },
+    { value: 'CUT', label: 'Cut' },
+    { value: 'SIDEWALL', label: 'Sidewall' },
+    { value: 'RECAPPED', label: 'Recapped' },
+    { value: 'OTHER', label: 'Other' },
+];
+
+const inspectionResultOptions = [
+    { value: 'PASS', label: 'Pass' },
+    { value: 'ATTENTION', label: 'Needs attention' },
+    { value: 'FAIL', label: 'Fail' },
+];
 
 const selectedRotateTarget = computed(() =>
     rotatePositionOptions.value.find((option) => option.value === actionForm.new_position) ?? null,
@@ -788,6 +898,7 @@ function createActionFormDefaults() {
         occurred_at: todayIsoDate(),
         repair_cost: null,
         damage_description: '',
+        expected_life_km: null,
         km_at_installation: 0,
         odometer_km: 0,
         stint_km: 0,
@@ -798,6 +909,12 @@ function createActionFormDefaults() {
         scrapped_at: todayIsoDate(),
         scrap_sale_amount: null,
         scrap_notes: '',
+        inspected_at: todayIsoDate(),
+        tread_depth_mm: null,
+        pressure_psi: null,
+        inspection_result: 'PASS',
+        next_due_at: '',
+        inspection_notes: '',
     };
 }
 
@@ -823,6 +940,11 @@ const historyTypeOptions = [
     { value: 'scrapped', label: 'Scrap' },
     { value: 'expense', label: 'Expense' },
 ];
+
+const historyTypeSelectOptions = computed(() => [
+    { value: '', label: 'All types' },
+    ...historyTypeOptions,
+]);
 
 const filteredTimeline = computed(() => {
     return timeline.value.filter((event) => {
@@ -956,7 +1078,12 @@ function openDamage() {
     clearErrors();
     resetActionForm();
     prefillActiveVehicleOdometer();
+    prefillRecapExpectedLife();
     showDamage.value = true;
+}
+
+function prefillRecapExpectedLife() {
+    actionForm.expected_life_km = tyre.value?.expected_life_km ?? lifeSummary.value?.expected_life_km ?? 40000;
 }
 
 function openReplace() {
@@ -988,6 +1115,13 @@ function openScrap() {
     showScrap.value = true;
 }
 
+function openInspection() {
+    clearErrors();
+    resetActionForm();
+    actionForm.tread_depth_mm = tyre.value?.last_tread_depth_mm ?? null;
+    showInspection.value = true;
+}
+
 function closeInstall() {
     closeActionModal(showInstall);
 }
@@ -1015,6 +1149,10 @@ function closeUpdateKm() {
 
 function closeScrap() {
     closeActionModal(showScrap);
+}
+
+function closeInspection() {
+    closeActionModal(showInspection);
 }
 
 function finishTyreAction(modalRef) {
@@ -1142,6 +1280,15 @@ async function loadVehiclePositions(vehicleId) {
 }
 
 watch(
+    () => actionForm.damage_type,
+    (damageType) => {
+        if (damageType === 'RECAPPED') {
+            prefillRecapExpectedLife();
+        }
+    },
+);
+
+watch(
     () => actionForm.vehicle_id,
     (vehicleId) => {
         actionForm.position_code = '';
@@ -1201,13 +1348,32 @@ async function submitRotate() {
 
 async function submitDamage() {
     await runTyreAction(async () => {
-        await recordTyreDamage(tyre.value.id, {
+        if (actionForm.damage_type === 'RECAPPED') {
+            const expectedLife = Number(actionForm.expected_life_km);
+
+            if (!Number.isFinite(expectedLife) || expectedLife < 1000) {
+                fieldErrors.value = {
+                    expected_life_km: ['Expected life must be at least 1,000 km.'],
+                };
+                formError.value = 'Please fix the highlighted fields and try again.';
+
+                return;
+            }
+        }
+
+        const payload = {
             damage_type: actionForm.damage_type,
             occurred_at: actionForm.occurred_at,
             repair_cost: actionForm.repair_cost || null,
             description: actionForm.damage_description || null,
             odometer_km: actionForm.odometer_km,
-        });
+        };
+
+        if (actionForm.damage_type === 'RECAPPED') {
+            payload.expected_life_km = actionForm.expected_life_km;
+        }
+
+        await recordTyreDamage(tyre.value.id, payload);
         finishTyreAction(showDamage);
         activeTab.value = 'damages';
         await loadTyre();
@@ -1270,6 +1436,23 @@ async function submitScrap() {
             scrap_notes: actionForm.scrap_notes || null,
         });
         finishTyreAction(showScrap);
+        activeTab.value = 'timeline';
+        await loadTyre();
+    });
+}
+
+async function submitInspection() {
+    await runTyreAction(async () => {
+        await recordTyreInspection(tyre.value.id, {
+            vehicle_id: tyre.value?.active_installation?.vehicle_id ?? null,
+            inspected_at: actionForm.inspected_at,
+            tread_depth_mm: actionForm.tread_depth_mm === '' ? null : actionForm.tread_depth_mm,
+            pressure_psi: actionForm.pressure_psi === '' ? null : actionForm.pressure_psi,
+            result: actionForm.inspection_result || 'PASS',
+            next_due_at: actionForm.next_due_at || null,
+            notes: actionForm.inspection_notes || null,
+        });
+        finishTyreAction(showInspection);
         activeTab.value = 'timeline';
         await loadTyre();
     });

@@ -12,8 +12,6 @@
             and click <strong>Enter</strong> to view attendance reports.
         </div>
 
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
             <div>
                 <label class="form-label" for="from_date">From Date</label>
@@ -25,29 +23,32 @@
             </div>
             <div>
                 <label class="form-label" for="vehicle_id">Truck</label>
-                <select id="vehicle_id" v-model="filters.vehicle_id" class="form-select">
-                    <option value="">All trucks</option>
-                    <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                        {{ vehicle.registration_number }}
-                    </option>
-                </select>
+                <VehicleSelect
+                    input-id="vehicle_id"
+                    v-model="filters.vehicle_id"
+                    :vehicles="vehicles"
+                    placeholder="All trucks"
+                />
             </div>
             <div>
                 <label class="form-label" for="driver_id">Driver</label>
-                <select id="driver_id" v-model="filters.driver_id" class="form-select">
-                    <option value="">All drivers</option>
-                    <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                        {{ driver.name }}
-                    </option>
-                </select>
+                <AppSelect
+                    input-id="driver_id"
+                    v-model="filters.driver_id"
+                    :options="driverSelectOptions"
+                    placeholder="All drivers"
+                    search-placeholder="Search driver…"
+                />
             </div>
             <div>
                 <label class="form-label" for="status">Status</label>
-                <select id="status" v-model="filters.status" class="form-select">
-                    <option value="">All</option>
-                    <option value="PRESENT">Present</option>
-                    <option value="ABSENT">Absent</option>
-                </select>
+                <AppSelect
+                    input-id="status"
+                    v-model="filters.status"
+                    :options="attendanceStatusOptions"
+                    placeholder="All"
+                    search-placeholder="Search status…"
+                />
             </div>
         </AppIndexFiltersCard>
 
@@ -120,23 +121,37 @@ import { listAllVehicles } from '../../api/vehicles';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import { formatDate, toDateInputValue } from '../../utils/datetime';
 import { thisMonthDateRange } from '../../utils/dateRangePresets';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
+const toast = useAppToast();
 
 const canExport = computed(() => canInCompany('reports.export'));
 
 const vehicles = ref([]);
 const drivers = ref([]);
+const attendanceStatusOptions = [
+    { value: 'PRESENT', label: 'Present' },
+    { value: 'ABSENT', label: 'Absent' },
+];
+const driverSelectOptions = computed(() =>
+    drivers.value.map((driver) => ({
+        id: driver.id,
+        label: driver.name,
+        is_active: driver.is_active,
+    })),
+);
 const rows = ref([]);
 const loading = ref(false);
-const flash = reactive({ error: '' });
 
 function defaultFilters() {
     const { from_date } = thisMonthDateRange();
@@ -204,7 +219,6 @@ async function loadReport(page = 1) {
     }
 
     loading.value = true;
-    flash.error = '';
 
     try {
         const data = await fetchAttendanceReport(buildParams(page));
@@ -216,7 +230,7 @@ async function loadReport(page = 1) {
         pagination.total = data.meta?.total ?? 0;
     } catch (error) {
         if (!handleCompanyContextError(error, 'Could not load attendance report.')) {
-            flash.error = 'Could not load attendance report.';
+            toast.error('Could not load attendance report.');
         }
 
         rows.value = [];

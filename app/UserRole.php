@@ -47,6 +47,11 @@ class UserRole extends Model
     public static function idFor(string $name): ?int
     {
         $normalized = strtolower(str_replace('-', '_', $name));
+
+        if ($normalized === 'operator') {
+            $normalized = 'moderator';
+        }
+
         $flipped = array_flip(self::NAMES);
 
         return $flipped[$normalized] ?? null;

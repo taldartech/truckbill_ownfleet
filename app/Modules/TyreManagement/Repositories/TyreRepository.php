@@ -25,6 +25,7 @@ class TyreRepository
                 'rotations.vehicle',
                 'damages.vehicle',
                 'expenses',
+                'inspections.vehicle',
             ])
             ->findOrFail($id);
     }

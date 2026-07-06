@@ -54,8 +54,6 @@
             Select a company and click <strong>Enter</strong> to view trip details.
         </div>
 
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div v-if="loading" class="text-center py-5 text-muted">Loading trip details…</div>
 
         <template v-else-if="trip">
@@ -437,7 +435,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
     canFullEditTrip,
@@ -457,9 +455,11 @@ import AppButton from '../../components/ui/AppButton.vue';
 import { usePermissions } from '../../composables/usePermissions';
 import { useTripListReturn } from '../../composables/useTripListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
+const toast = useAppToast();
 const { canInCompany, user } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
@@ -469,7 +469,6 @@ const canManage = computed(() => canInCompany('trips.manage'));
 
 const trip = ref(null);
 const loading = ref(true);
-const flash = reactive({ error: '' });
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const routeSummary = computed(() => {
@@ -737,7 +736,6 @@ async function loadTrip() {
     }
 
     loading.value = true;
-    flash.error = '';
 
     try {
         trip.value = await fetchTrip(tripId);
@@ -745,7 +743,7 @@ async function loadTrip() {
         trip.value = null;
 
         if (!handleCompanyContextError(error, 'Could not load trip details.')) {
-            flash.error = 'Could not load trip details.';
+            toast.error('Could not load trip details.');
         }
     } finally {
         loading.value = false;

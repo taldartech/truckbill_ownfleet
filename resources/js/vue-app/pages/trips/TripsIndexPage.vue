@@ -12,28 +12,20 @@
             and click <strong>Enter</strong> before managing trips.
         </div>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
-        <div class="card mb-3 trips-top-search">
-            <div class="card-body py-3">
-                <label class="form-label mb-2" for="trips_search">Search</label>
-                <div class="trips-top-search__row">
-                    <AppIndexSearchInput
-                        v-model="filters.search"
-                        input-id="trips_search"
-                        placeholder="Trip #, truck registration, primary or substitute driver…"
-                        max-width="100%"
-                        :disabled="loading"
-                    />
-                </div>
-                <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-2">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
+            <div class="trips-filter-search">
+                <label class="form-label" for="trips_search">Search</label>
+                <AppIndexSearchInput
+                    v-model="filters.search"
+                    input-id="trips_search"
+                    placeholder="Trip #, truck registration, primary or substitute driver…"
+                    max-width="100%"
+                    :disabled="loading"
+                />
+                <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-1">
                     Search looks across all trips and ignores the date range.
                 </div>
             </div>
-        </div>
-
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
             <div class="trips-filter-period">
                 <DashboardDateRangePicker
                     v-model:from-date="filters.from_date"
@@ -46,17 +38,21 @@
             </div>
             <div>
                 <label class="form-label">Status</label>
-                <select v-model="filters.status" class="form-select">
-                    <option value="">All statuses</option>
-                    <option v-for="s in tripStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                </select>
+                <AppSelect
+                    v-model="filters.status"
+                    :options="tripStatuses"
+                    placeholder="All statuses"
+                    search-placeholder="Search status…"
+                />
             </div>
             <div>
                 <label class="form-label">Trip Type</label>
-                <select v-model="filters.trip_type" class="form-select">
-                    <option value="">All trip types</option>
-                    <option v-for="t in tripTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-                </select>
+                <AppSelect
+                    v-model="filters.trip_type"
+                    :options="tripTypes"
+                    placeholder="All trip types"
+                    search-placeholder="Search trip type…"
+                />
             </div>
             <div>
                 <label class="form-label">Customer</label>
@@ -69,17 +65,7 @@
                     view-title="Customer details"
                 />
             </div>
-            <div>
-                <label class="form-label">Reference</label>
-                <SearchablePicker
-                    v-model="filters.broker_id"
-                    :items="brokers"
-                    placeholder="All references"
-                    search-placeholder="Search reference…"
-                    empty-message="No reference found."
-                    view-title="Reference details"
-                />
-            </div>
+          
         </AppIndexFiltersCard>
 
         <div class="card app-index-list-card">
@@ -92,7 +78,7 @@
                             <th>Trip #</th>
                             <th>Truck</th>
                             <th>Driver</th>
-                            <th>Status</th>
+                            <th class="trips-status-col">Status</th>
                             <th class="trips-period-col">Period</th>
                             <th class="trips-route-col">Route</th>
                             <th class="trips-financials-col">Freight / Expense / Profit</th>
@@ -133,7 +119,7 @@
                                     Substitute: {{ trip.substitute_driver.name }}
                                 </div>
                             </td>
-                            <td>
+                            <td class="trips-status-col">
                                 <TripInlineStatusActions
                                     :trip="trip"
                                     :can-manage="canManage"
@@ -160,18 +146,10 @@
                                     <div class="trips-financials__row">
                                         <span class="trips-financials__label">Profit</span>
                                         <span
-                                            v-if="profitDisplay(trip).value != null"
                                             class="trips-financials__val"
-                                            :class="profitDisplay(trip).value >= 0 ? 'text-success' : 'text-danger'"
+                                            :class="tripProfit(trip) >= 0 ? 'text-success' : 'text-danger'"
                                         >
-                                            ₹{{ formatCompactMoney(profitDisplay(trip).value) }}
-                                        </span>
-                                        <span
-                                            v-else
-                                            class="trips-financials__val trips-financials__val--pending"
-                                            :title="profitDisplay(trip).hint"
-                                        >
-                                            —
+                                            ₹{{ formatCompactMoney(tripProfit(trip)) }}
                                         </span>
                                     </div>
                                 </div>
@@ -250,6 +228,7 @@ import TripInlineStatusActions from '../../components/trips/TripInlineStatusActi
 import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import SearchablePicker from '../../components/ui/SearchablePicker.vue';
 import { TRIP_LIST_DATE_PRESET_KEYS } from '../../utils/dateRangePresets';
@@ -293,7 +272,6 @@ const trips = ref([]);
 const customers = ref([]);
 const brokers = ref([]);
 const loading = ref(true);
-const flash = reactive({ success: '', error: '' });
 const showTripTypeModal = ref(false);
 const tripStatuses = TRIP_STATUSES;
 const tripTypes = TRIP_TYPES;
@@ -405,29 +383,22 @@ function formatCompactMoney(value) {
     return amount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
-function profitDisplay(trip) {
+function tripProfit(trip) {
+    const freight = Number(trip.total_freight_amount ?? 0);
     const expense = Number(trip.total_expense_amount ?? 0);
-    const profit = Number(trip.profit_amount ?? 0);
-    const status = String(trip.status ?? '').toUpperCase();
+    const profit = Number(trip.profit_amount ?? freight - expense);
 
-    if (expense <= 0 && ['CREATED', 'IN_PROGRESS'].includes(status)) {
-        return {
-            value: null,
-            hint: 'Profit = Freight − Expense. Add trip expenses first.',
-        };
+    if (Number.isFinite(profit)) {
+        return profit;
     }
 
-    return { value: profit, hint: null };
+    return freight - expense;
 }
 
 function financialSummaryTitle(trip) {
-    const profit = profitDisplay(trip);
+    const profit = tripProfit(trip);
 
-    if (profit.value == null) {
-        return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit pending (add expenses)`;
-    }
-
-    return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit ₹${formatMoney(profit.value)}`;
+    return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit ₹${formatMoney(profit)}`;
 }
 
 function tripTypeInfo(type) {
@@ -484,39 +455,34 @@ function showRouteFlash() {
     const { flash: flashQuery, filters: filterQuery } = splitTripListRouteQuery(route.query);
 
     if (flashQuery.created === '1') {
-        flash.success = 'Trip created successfully.';
-        toast.success(flash.success);
+        toast.success('Trip created successfully.');
         router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
 
         return;
     }
 
     if (flashQuery.updated === '1') {
-        flash.success = 'Trip updated successfully.';
-        toast.success(flash.success);
+        toast.success('Trip updated successfully.');
         router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
 
         return;
     }
 
     if (flashQuery.denied === '1') {
-        flash.error = 'You do not have permission to open that page, or company context is missing.';
-        toast.error(flash.error);
+        toast.error('You do not have permission to open that page, or company context is missing.');
         router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
     }
 }
 
 function goToCreate() {
     if (needsCompanySelection.value) {
-        flash.error = 'Select and enter a company before creating a trip.';
-        toast.warning(flash.error);
+        toast.warning('Select and enter a company before creating a trip.');
 
         return false;
     }
 
     if (!canManage.value) {
-        flash.error = 'You do not have permission to create trips.';
-        toast.error(flash.error);
+        toast.error('You do not have permission to create trips.');
 
         return false;
     }
@@ -573,7 +539,6 @@ function onDateRangeChange() {
 
 async function loadTrips(page = 1) {
     loading.value = true;
-    flash.error = '';
 
     const search = filters.search.trim();
 
@@ -595,8 +560,7 @@ async function loadTrips(page = 1) {
         syncListStateToRoute();
     } catch (error) {
         if (!applyApiError(error, 'Failed to load trips.')) {
-            flash.error = friendlyApiErrorMessage(error, 'Failed to load trips.');
-            toast.error(flash.error);
+            toast.error(friendlyApiErrorMessage(error, 'Failed to load trips.'));
         }
     } finally {
         loading.value = false;
@@ -633,12 +597,11 @@ async function handleDelete(trip) {
 
     try {
         await deleteTrip(trip.id);
-        flash.success = 'Trip deleted.';
+        toast.success('Trip deleted.');
         await loadTrips(pagination.currentPage);
     } catch (error) {
         if (!applyApiError(error, 'Failed to delete trip.')) {
-            flash.error = friendlyApiErrorMessage(error, 'Failed to delete trip.');
-            toast.error(flash.error);
+            toast.error(friendlyApiErrorMessage(error, 'Failed to delete trip.'));
         }
     }
 }
@@ -738,20 +701,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.trips-top-search {
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+.trips-filter-search {
+    grid-column: 1 / -1;
 }
 
-.trips-top-search__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.trips-top-search__row :deep(.app-index-search) {
-    flex: 1 1 16rem;
+.trips-filter-search :deep(.app-index-search) {
     max-width: none;
 }
 
@@ -803,6 +757,12 @@ onBeforeUnmount(() => {
 
 .trip-type-badge__label {
     display: inline;
+}
+
+.trips-status-col {
+    width: 1%;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 .trips-financials-col {
@@ -857,6 +817,26 @@ onBeforeUnmount(() => {
 .trips-financials__val--pending {
     color: #adb5bd;
     font-weight: 500;
+}
+
+.app-index-list-card :deep(.app-table-actions) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.app-index-list-card :deep(.app-table-actions .btn-icon) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    padding: 0 !important;
+    flex-shrink: 0;
+}
+
+.app-index-list-card :deep(.app-table-actions .btn-icon i) {
+    font-size: 0.8125rem;
+    line-height: 1;
 }
 
 .app-index-list-card :deep(.table) {

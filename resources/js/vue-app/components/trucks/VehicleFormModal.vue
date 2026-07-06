@@ -42,21 +42,15 @@
                             </div>
                             <div class="col-md-6">
                                 <label :for="`${modalId}_layout`" class="form-label">Tyre layout *</label>
-                                <select
-                                    :id="`${modalId}_layout`"
+                                <AppSelect
+                                    :input-id="`${modalId}_layout`"
                                     v-model="form.tyre_layout"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': props.fieldErrors.tyre_layout }"
-                                    required
-                                >
-                                    <option v-for="opt in tyreLayoutOptions" :key="opt.code" :value="opt.code">
-                                        {{ opt.name }} ({{ opt.position_count }} positions)
-                                    </option>
-                                </select>
-
-                                <div v-if="props.fieldErrors.tyre_layout" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.tyre_layout[0] }}
-                                </div>
+                                    :options="tyreLayoutSelectOptions"
+                                    placeholder="Select layout"
+                                    search-placeholder="Search layout…"
+                                    :invalid="Boolean(props.fieldErrors.tyre_layout)"
+                                    :error-message="props.fieldErrors.tyre_layout?.[0] ?? ''"
+                                />
                             </div>
                         </div>
 
@@ -227,6 +221,7 @@ import {
 } from '../../utils/vehicleRegistration';
 import { formatDateTime } from '../../utils/datetime';
 import SearchableSelect from '../ui/SearchableSelect.vue';
+import AppSelect from '../ui/AppSelect.vue';
 import TruckTypeQuickAddModal from './TruckTypeQuickAddModal.vue';
 
 const DEFAULT_TYRE_LAYOUT = 'TYRES_10';
@@ -261,6 +256,13 @@ const truckTypeOptions = computed(() =>
     truckTypes.value.map((type) => ({
         id: type.code,
         name: type.name,
+    })),
+);
+
+const tyreLayoutSelectOptions = computed(() =>
+    tyreLayoutOptions.value.map((option) => ({
+        value: option.code,
+        label: `${option.name} (${option.position_count} positions)`,
     })),
 );
 

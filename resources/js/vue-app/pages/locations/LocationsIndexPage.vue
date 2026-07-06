@@ -110,12 +110,13 @@
         >
             <div>
                 <label class="form-label">State</label>
-                <select v-model="cityStateFilter" class="form-select" :disabled="loadingCities">
-                    <option value="">All states</option>
-                    <option v-for="state in stateOptions" :key="state.id" :value="state.id">
-                        {{ state.name }}
-                    </option>
-                </select>
+                <AppSelect
+                    v-model="cityStateFilter"
+                    :options="stateOptions"
+                    placeholder="All states"
+                    search-placeholder="Search state…"
+                    :disabled="loadingCities"
+                />
             </div>
             <div>
                 <label class="form-label">Search</label>
@@ -230,6 +231,7 @@ import { createState, listStates, updateState } from '../../api/states';
 import CityFormModal from '../../components/locations/CityFormModal.vue';
 import StateFormModal from '../../components/locations/StateFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';

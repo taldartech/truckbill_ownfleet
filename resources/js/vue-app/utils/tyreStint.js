@@ -6,7 +6,7 @@ export function calculateTyreStintKm(kmAtInstallation, currentOdometer) {
 }
 
 export function resolveVehicleOdometer(vehicles, vehicleId) {
-    const vehicle = vehicles.find((row) => row.id === vehicleId);
+    const vehicle = vehicles.find((row) => String(row.id) === String(vehicleId));
 
     return vehicle?.odometer_km != null ? Number(vehicle.odometer_km) : 0;
 }

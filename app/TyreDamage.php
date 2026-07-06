@@ -27,6 +27,7 @@ class TyreDamage extends Model
         'description',
         'repair_cost',
         'is_repaired',
+        'created_by',
     ];
 
     protected function casts(): array

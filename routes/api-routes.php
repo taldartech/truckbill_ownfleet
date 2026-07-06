@@ -84,6 +84,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::apiResource('brokers', BrokerController::class);
     Route::apiResource('customers', CustomerController::class);
     Route::apiResource('tyre-layouts', TyreLayoutController::class);
+    Route::get('tyres/alerts', [TyreController::class, 'alerts']);
     Route::post('tyres/replace', [TyreController::class, 'replace']);
     Route::apiResource('tyres', TyreController::class);
     Route::post('tyres/{tyre}/install', [TyreController::class, 'install']);
@@ -91,6 +92,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::patch('tyre-installations/{tyre_installation}/stint-km', [TyreController::class, 'updateStintKm']);
     Route::post('tyres/{tyre}/rotate', [TyreController::class, 'rotate']);
     Route::post('tyres/{tyre}/damage', [TyreController::class, 'damage']);
+    Route::post('tyres/{tyre}/inspections', [TyreController::class, 'inspection']);
     Route::post('tyres/{tyre}/expenses', [TyreController::class, 'expense']);
     Route::get('tyre-installations/{tyre_installation}/removal-preview', [TyreController::class, 'removalPreview']);
     Route::post('tyres/{tyre}/scrap', [TyreController::class, 'scrap']);
@@ -101,6 +103,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::get('/reports/tyres/replacements', [TyreReportController::class, 'replacements']);
     Route::get('/reports/tyres/vehicle-wise', [TyreReportController::class, 'vehicleWiseUsage']);
     Route::get('/reports/tyres/expense-summary', [TyreReportController::class, 'expenseSummary']);
+    Route::get('/reports/tyres/export', [TyreReportController::class, 'export']);
     Route::get('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index']);
     Route::post('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'store']);
     Route::get('document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'show']);
@@ -125,6 +128,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::get('/reports/maintenance/cost-summary', [VehicleMaintenanceReportController::class, 'costSummary']);
     Route::get('/reports/maintenance/truck-wise', [VehicleMaintenanceReportController::class, 'truckWise']);
     Route::get('/reports/maintenance/due-services', [VehicleMaintenanceReportController::class, 'dueServices']);
+    Route::get('/reports/maintenance/export', [VehicleMaintenanceReportController::class, 'export']);
     Route::get('maintenance-service-types', [MaintenanceServiceTypeController::class, 'index']);
     Route::get('vehicle-maintenances/due', [VehicleMaintenanceController::class, 'due']);
     Route::get('vehicles/{vehicle}/maintenances', [VehicleMaintenanceController::class, 'forVehicle']);

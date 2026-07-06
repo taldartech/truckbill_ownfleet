@@ -1,34 +1,61 @@
 <template>
-    <component
-        :is="slotData?.tyre ? RouterLink : 'div'"
-        :to="slotData?.tyre ? { name: 'tyres.show', params: { id: slotData.tyre.id } } : undefined"
-        class="tyre-node"
-        :class="nodeClass"
-        :title="tooltip"
+    <div
+        class="tyre-node-wrapper"
+        :class="{ 'tyre-node-wrapper--interactive': interactive && canManage }"
     >
-        <div class="tyre-node__shape">
-            <i v-if="installed" class="bi bi-circle-fill tyre-node__icon"></i>
-            <i v-else-if="variant === 'spare'" class="bi bi-life-preserver tyre-node__icon tyre-node__icon--spare"></i>
-            <i v-else class="bi bi-plus-lg tyre-node__icon tyre-node__icon--empty"></i>
-        </div>
-
-        <div class="tyre-node__label">{{ shortLabel }}</div>
-
-        <template v-if="installed">
-            <div class="tyre-node__serial">{{ slotData.tyre.serial_number }}</div>
-            <div v-if="slotData.tyre.stint_km != null" class="tyre-node__km">
-                {{ formatKm(slotData.tyre.stint_km) }}
+        <component
+            :is="installed && !interactive ? RouterLink : 'div'"
+            :to="installed && !interactive ? { name: 'tyres.show', params: { id: slotData.tyre.id } } : undefined"
+            class="tyre-node"
+            :class="nodeClass"
+            :title="tooltip"
+            role="button"
+            :tabindex="interactive && canManage && !installed ? 0 : undefined"
+            @click="handleNodeClick"
+            @keydown.enter.prevent="handleNodeClick"
+        >
+            <div class="tyre-node__shape">
+                <i v-if="installed" class="bi bi-circle-fill tyre-node__icon"></i>
+                <i v-else-if="variant === 'spare'" class="bi bi-life-preserver tyre-node__icon tyre-node__icon--spare"></i>
+                <i v-else class="bi bi-plus-lg tyre-node__icon tyre-node__icon--empty"></i>
             </div>
-            <div
-                v-if="slotData.tyre.life_used_percent != null"
-                class="tyre-node__life"
-                :class="lifeClass(slotData.tyre.life_used_percent)"
-            >
-                {{ slotData.tyre.life_used_percent }}% used
-            </div>
-        </template>
-        <div v-else class="tyre-node__free">FREE</div>
-    </component>
+
+            <div class="tyre-node__label">{{ shortLabel }}</div>
+
+            <template v-if="installed">
+                <RouterLink
+                    v-if="interactive"
+                    :to="{ name: 'tyres.show', params: { id: slotData.tyre.id } }"
+                    class="tyre-node__serial tyre-node__serial--link"
+                    @click.stop
+                >
+                    {{ slotData.tyre.serial_number }}
+                </RouterLink>
+                <div v-else class="tyre-node__serial">{{ slotData.tyre.serial_number }}</div>
+                <div v-if="slotData.tyre.stint_km != null" class="tyre-node__km">
+                    {{ formatKm(slotData.tyre.stint_km) }}
+                </div>
+                <div
+                    v-if="slotData.tyre.life_used_percent != null"
+                    class="tyre-node__life"
+                    :class="lifeClass(slotData.tyre.life_used_percent)"
+                >
+                    {{ slotData.tyre.life_used_percent }}% used
+                </div>
+            </template>
+            <div v-else class="tyre-node__free">{{ interactive && canManage ? 'INSTALL' : 'FREE' }}</div>
+        </component>
+
+        <button
+            v-if="installed && interactive && canManage"
+            type="button"
+            class="tyre-node__remove-btn"
+            title="Remove tyre from this position"
+            @click.stop="emit('remove', slotData)"
+        >
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
+    </div>
 </template>
 
 <script setup>
@@ -49,9 +76,32 @@ const props = defineProps({
         type: String,
         default: 'road',
     },
+    interactive: {
+        type: Boolean,
+        default: false,
+    },
+    canManage: {
+        type: Boolean,
+        default: false,
+    },
 });
 
+const emit = defineEmits(['install', 'remove']);
+
 const installed = computed(() => Boolean(props.slotData?.tyre && !props.slotData?.is_empty));
+
+function handleNodeClick(event) {
+    if (!props.interactive || !props.canManage || !props.slotData) {
+        return;
+    }
+
+    if (installed.value) {
+        return;
+    }
+
+    event.preventDefault();
+    emit('install', props.slotData);
+}
 
 const shortLabel = computed(() => {
     if (!props.slotData) {
@@ -116,7 +166,8 @@ const nodeClass = computed(() => ({
     'tyre-node--empty': !installed.value && props.slotData,
     'tyre-node--missing': !props.slotData,
     'tyre-node--spare': props.variant === 'spare',
-    'tyre-node--link': installed.value,
+    'tyre-node--link': installed.value && !props.interactive,
+    'tyre-node--actionable': props.interactive && props.canManage && !installed.value && props.slotData,
 }));
 
 function formatKm(value) {
@@ -135,6 +186,47 @@ function lifeClass(percent) {
 </script>
 
 <style scoped>
+.tyre-node-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.tyre-node-wrapper--interactive .tyre-node--actionable {
+    cursor: pointer;
+}
+
+.tyre-node-wrapper--interactive .tyre-node--actionable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.18);
+}
+
+.tyre-node__remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 999px;
+    background: #fff;
+    color: #dc3545;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    padding: 0;
+}
+
+.tyre-node__remove-btn:hover {
+    background: #dc3545;
+    color: #fff;
+}
+
+.tyre-node--actionable {
+    border-color: #0d6efd;
+}
+
 .tyre-node {
     width: 72px;
     min-height: 96px;
@@ -220,6 +312,14 @@ function lifeClass(percent) {
     letter-spacing: 0.02em;
     line-height: 1.2;
     color: #495057;
+}
+
+.tyre-node__serial--link {
+    text-decoration: none;
+}
+
+.tyre-node__serial--link:hover {
+    text-decoration: underline;
 }
 
 .tyre-node__serial {

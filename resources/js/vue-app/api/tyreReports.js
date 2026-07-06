@@ -26,3 +26,8 @@ export async function fetchTyreExpenseSummary(params = {}) {
     const { data } = await api.get(`${reportBase}/expense-summary`, { params });
     return data.data ?? {};
 }
+
+export function exportTyreReport(type, filters = {}) {
+    const params = new URLSearchParams({ type, ...filters });
+    window.location.href = `${reportBase}/export?${params.toString()}`;
+}

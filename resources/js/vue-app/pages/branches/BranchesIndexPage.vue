@@ -7,8 +7,6 @@
         </AppIndexPageHeader>
 
         <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
 
         <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
             <div>
@@ -23,12 +21,13 @@
             </div>
             <div>
                 <label class="form-label">Company</label>
-                <select v-model="companyFilter" class="form-select" :disabled="loading">
-                    <option value="">All companies</option>
-                    <option v-for="company in companies" :key="company.id" :value="company.id">
-                        {{ company.name }}
-                    </option>
-                </select>
+                <AppSelect
+                    v-model="companyFilter"
+                    :options="companySelectOptions"
+                    placeholder="All companies"
+                    search-placeholder="Search company…"
+                    :disabled="loading"
+                />
             </div>
         </AppIndexFiltersCard>
 
@@ -124,13 +123,14 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, reactive, ref } from 'vue';
+import { computed, inject, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import { listAllCompanies } from '../../api/companies';
 import { createBranch, deleteBranch, enterBranch, fetchBranchDeletionImpact, listBranches, updateBranch } from '../../api/branches';
 import BranchFormModal from '../../components/branches/BranchFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -139,12 +139,14 @@ import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFoot
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 
 const pageId = 'branchesIndex';
 const router = useRouter();
 const route = useRoute();
+const toast = useAppToast();
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 const canManage = computed(() => can('branches.manage'));
@@ -161,6 +163,12 @@ function isActiveBranch(id) {
 }
 
 const companies = ref([]);
+const companySelectOptions = computed(() =>
+    companies.value.map((company) => ({
+        id: company.id,
+        label: company.name,
+    })),
+);
 const branches = ref([]);
 const loading = ref(true);
 const saving = ref(false);
@@ -169,7 +177,6 @@ const formMode = ref('create');
 const editingBranch = ref(null);
 const searchQuery = ref('');
 const companyFilter = ref('');
-const flash = reactive({ success: '', error: '' });
 
 const { fieldErrors, formError: branchFormError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
@@ -192,7 +199,6 @@ async function loadCompanies() {
 
 async function loadBranches(page = pagination.currentPage) {
     loading.value = true;
-    flash.error = '';
 
     try {
         const response = await listBranches({
@@ -205,7 +211,7 @@ async function loadBranches(page = pagination.currentPage) {
         branches.value = response.data ?? [];
         syncFromMeta(response.meta, branches.value.length);
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Failed to load branches.';
+        toast.error(error.response?.data?.message ?? 'Failed to load branches.');
         branches.value = [];
         resetPagination();
     } finally {
@@ -263,10 +269,10 @@ async function handleSubmit(payload) {
     try {
         if (formMode.value === 'edit' && editingBranch.value) {
             await updateBranch(editingBranch.value.id, payload);
-            flash.success = 'Branch updated successfully.';
+            toast.success('Branch updated successfully.');
         } else {
             await createBranch(payload);
-            flash.success = 'Branch created successfully.';
+            toast.success('Branch created successfully.');
         }
 
         closeForm();
@@ -279,8 +285,6 @@ async function handleSubmit(payload) {
 }
 
 async function handleEnter(branch) {
-    flash.error = '';
-
     try {
         const data = await enterBranch(branch.id);
 
@@ -293,22 +297,20 @@ async function handleEnter(branch) {
             window.__AUTH_USER__ = user;
         }
 
-        flash.success = `Entered ${branch.branch_name}.`;
+        toast.success(`Entered ${branch.branch_name}.`);
         await router.push({ name: 'dashboard' });
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Could not enter branch.';
+        toast.error(error.response?.data?.message ?? 'Could not enter branch.');
     }
 }
 
 async function handleDelete(branch) {
-    flash.error = '';
-
     let impact;
 
     try {
         impact = await fetchBranchDeletionImpact(branch.id);
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Could not load branch delete details.';
+        toast.error(error.response?.data?.message ?? 'Could not load branch delete details.');
 
         return;
     }
@@ -330,10 +332,10 @@ async function handleDelete(branch) {
             await router.push({ name: 'branches.index' });
         }
 
-        flash.success = 'Branch deleted successfully.';
+        toast.success('Branch deleted successfully.');
         await loadBranches();
     } catch (error) {
-        flash.error = error.response?.data?.message ?? 'Could not delete branch.';
+        toast.error(error.response?.data?.message ?? 'Could not delete branch.');
     }
 }
 

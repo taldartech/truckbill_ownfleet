@@ -31,19 +31,15 @@
                                 <div class="row g-2">
                                     <div class="col-md-3">
                                         <label :for="`${modalId}_entry_type`" class="form-label">Type *</label>
-                                        <select
-                                            :id="`${modalId}_entry_type`"
+                                        <AppSelect
+                                            :input-id="`${modalId}_entry_type`"
                                             v-model="form.entry_type"
-                                            class="form-select"
-                                            :class="{ 'is-invalid': fieldErrors.entry_type }"
-                                            required
-                                        >
-                                            <option value="dr">Dr — Advance given</option>
-                                            <option value="cr">Cr — Amount returned</option>
-                                        </select>
-                                        <div v-if="fieldErrors.entry_type" class="invalid-feedback d-block">
-                                            {{ fieldErrors.entry_type[0] }}
-                                        </div>
+                                            :options="entryTypeOptions"
+                                            placeholder="Select type"
+                                            search-placeholder="Search type…"
+                                            :invalid="Boolean(fieldErrors.entry_type)"
+                                            :error-message="fieldErrors.entry_type?.[0] ?? ''"
+                                        />
                                     </div>
                                     <div class="col-md-3">
                                         <label :for="`${modalId}_amount`" class="form-label">Amount *</label>
@@ -143,6 +139,7 @@
 import { ref, watch } from 'vue';
 import { fetchDriverAdvanceLedger } from '../../api/driverAdvances';
 import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppSelect from '../ui/AppSelect.vue';
 import { formatDate, toDateInputValue } from '../../utils/datetime';
 import { useAppToast } from '../../composables/useAppToast';
 
@@ -159,6 +156,11 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit', 'loaded']);
+
+const entryTypeOptions = [
+    { value: 'dr', label: 'Dr — Advance given' },
+    { value: 'cr', label: 'Cr — Amount returned' },
+];
 
 const modalElement = ref(null);
 const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {

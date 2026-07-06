@@ -27,6 +27,8 @@ class TyreInstallation extends Model
         'stint_km',
         'running_km',
         'removal_recommendation',
+        'created_by',
+        'removed_by',
     ];
 
     protected function casts(): array

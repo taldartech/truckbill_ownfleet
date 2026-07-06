@@ -301,6 +301,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
 
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
+            Route::get('/tyres/alerts', [\App\Http\Controllers\Api\TyreController::class, 'alerts'])->name('tyres.alerts');
             Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
             Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);
             Route::post('/tyres/{tyre}/install', [\App\Http\Controllers\Api\TyreController::class, 'install'])->name('tyres.install');
@@ -310,6 +311,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('tyre-installations.update-stint-km');
             Route::post('/tyres/{tyre}/rotate', [\App\Http\Controllers\Api\TyreController::class, 'rotate'])->name('tyres.rotate');
             Route::post('/tyres/{tyre}/damage', [\App\Http\Controllers\Api\TyreController::class, 'damage'])->name('tyres.damage');
+            Route::post('/tyres/{tyre}/inspections', [\App\Http\Controllers\Api\TyreController::class, 'inspection'])->name('tyres.inspections');
             Route::post('/tyres/{tyre}/expenses', [\App\Http\Controllers\Api\TyreController::class, 'expense'])->name('tyres.expenses');
             Route::get('/tyre-installations/{tyre_installation}/removal-preview', [\App\Http\Controllers\Api\TyreController::class, 'removalPreview'])
                 ->name('tyre-installations.removal-preview');
@@ -329,6 +331,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.tyres.vehicle-wise');
             Route::get('/reports/tyres/expense-summary', [\App\Http\Controllers\Api\TyreReportController::class, 'expenseSummary'])
                 ->name('reports.tyres.expense-summary');
+            Route::get('/reports/tyres/export', [\App\Http\Controllers\Api\TyreReportController::class, 'export'])
+                ->name('reports.tyres.export');
 
             Route::get('/reports/maintenance/cost-summary', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'costSummary'])
                 ->name('reports.maintenance.cost-summary');
@@ -336,6 +340,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.maintenance.truck-wise');
             Route::get('/reports/maintenance/due-services', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'dueServices'])
                 ->name('reports.maintenance.due-services');
+            Route::get('/reports/maintenance/export', [\App\Http\Controllers\Api\VehicleMaintenanceReportController::class, 'export'])
+                ->name('reports.maintenance.export');
 
             Route::get('/reports/trips/profitability', [\App\Http\Controllers\Api\TripReportController::class, 'profitability'])
                 ->name('reports.trips.profitability');

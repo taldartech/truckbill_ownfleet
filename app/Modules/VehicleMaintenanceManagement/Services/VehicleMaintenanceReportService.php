@@ -3,9 +3,9 @@
 namespace App\Modules\VehicleMaintenanceManagement\Services;
 
 use App\Modules\VehicleMaintenanceManagement\Repositories\VehicleMaintenanceRepository;
+use App\Support\ReportDateRange;
 use App\VehicleMaintenance;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class VehicleMaintenanceReportService
 {
@@ -137,11 +137,6 @@ class VehicleMaintenanceReportService
      */
     private function assertDateRange(array $filters): void
     {
-        if (empty($filters['from']) || empty($filters['to'])) {
-            throw ValidationException::withMessages([
-                'from' => 'Date range is required.',
-                'to' => 'Date range is required.',
-            ]);
-        }
+        ReportDateRange::assertValid($filters);
     }
 }

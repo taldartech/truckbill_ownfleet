@@ -23,9 +23,6 @@
             </template>
         </AppIndexPageHeader>
 
-        <div v-if="flash.success" class="alert alert-success">{{ flash.success }}</div>
-        <div v-if="flash.error" class="alert alert-danger">{{ flash.error }}</div>
-
         <div
             v-if="monthLock.status !== 'open'"
             class="alert"
@@ -309,11 +306,13 @@ import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFoot
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { usePermissions } from '../../composables/usePermissions';
+import { useAppToast } from '../../composables/useAppToast';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate, formatMonthYear, toDateInputValue, currentMonthValue } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useAppToast();
 const { canInCompany } = usePermissions();
 
 const canManageAttendance = computed(() => canInCompany('attendances.manage'));
@@ -390,7 +389,6 @@ const showFormSaveConfirm = ref(false);
 const formSaveConfirmSummary = ref(null);
 const pendingFormPayload = ref(null);
 const pendingFormDeleteRecord = ref(null);
-const flash = reactive({ success: '', error: '' });
 const filters = reactive({
     month: currentMonth(),
 });
@@ -551,11 +549,6 @@ function statusLabel(row) {
     return 'Present';
 }
 
-function showToast(message, type = 'success') {
-    flash.success = type === 'success' ? message : '';
-    flash.error = type === 'error' ? message : '';
-}
-
 function syncPagination(meta) {
     pagination.current_page = meta.current_page ?? 1;
     pagination.last_page = meta.last_page ?? 1;
@@ -627,7 +620,6 @@ async function reloadActiveView() {
 
 async function loadAttendances() {
     tableLoading.value = true;
-    flash.error = '';
 
     try {
         const { rows, meta } = await listAttendancesPaginated(detailQueryParams());
@@ -635,7 +627,7 @@ async function loadAttendances() {
         attendances.value = rows;
         syncPagination(meta);
     } catch {
-        showToast('Could not load attendance records.', 'error');
+        toast.error('Could not load attendance records.');
         attendances.value = [];
         syncPagination({});
     } finally {
@@ -763,11 +755,11 @@ async function handleDailySave({ entries, presentConfirmIds = [] }) {
         monthGridKey.value += 1;
 
         const totalSaved = savedVehicleIds.length;
-        showToast(
+        toast.success(
             totalSaved === 1 ? 'Attendance saved.' : `${totalSaved} truck${totalSaved === 1 ? '' : 's'} saved.`,
         );
     } catch (error) {
-        showToast(friendlyApiErrorMessage(error, 'Unable to save daily attendance.'), 'error');
+        toast.error(friendlyApiErrorMessage(error, 'Unable to save daily attendance.'));
     } finally {
         dailySaving.value = false;
         dayPanelRef.value?.clearSavingState();
@@ -782,7 +774,7 @@ async function handleBulkSubmit(payload) {
     try {
         await bulkMarkAttendance(payload);
         closeBulkForm();
-        showToast('Bulk attendance saved.');
+        toast.success('Bulk attendance saved.');
         await reloadActiveView();
     } catch (error) {
         const { fieldErrors, message } = extractValidationErrors(error);
@@ -838,7 +830,7 @@ async function openEditFromGrid(cell) {
         formPrefilledVehicleId.value = '';
         showForm.value = true;
     } catch {
-        showToast('Could not load attendance for editing.', 'error');
+        toast.error('Could not load attendance for editing.');
     }
 }
 
@@ -921,10 +913,10 @@ async function executeFormSave(payload) {
     try {
         if (formMode.value === 'edit' && editingRecord.value?.id) {
             await updateAttendance(editingRecord.value.id, apiPayload);
-            showToast('Attendance updated successfully.');
+            toast.success('Attendance updated successfully.');
         } else {
             await markAttendance(apiPayload);
-            showToast('Attendance saved successfully.');
+            toast.success('Attendance saved successfully.');
         }
 
         cancelFormSaveConfirm();
@@ -961,11 +953,11 @@ async function executeFormDelete(record) {
         await deleteAttendance(record.id);
         cancelFormSaveConfirm();
         closeForm();
-        showToast('Mark cleared — day is default present.');
+        toast.success('Mark cleared — day is default present.');
         await reloadAll();
     } catch {
         cancelFormSaveConfirm();
-        showToast('Unable to change attendance.', 'error');
+        toast.error('Unable to change attendance.');
     } finally {
         saving.value = false;
     }

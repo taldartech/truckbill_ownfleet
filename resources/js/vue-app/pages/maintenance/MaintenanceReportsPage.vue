@@ -1,6 +1,15 @@
 <template>
     <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Maintenance Reports" />
+        <AppIndexPageHeader title="Maintenance Reports">
+            <template v-if="canExport" #actions>
+                <AppButton
+                    icon="bi bi-file-earmark-excel"
+                    label="Export Excel"
+                    outline
+                    @click="exportExcel"
+                />
+            </template>
+        </AppIndexPageHeader>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> to view maintenance reports.
@@ -11,54 +20,56 @@
         <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
             <div>
                 <label class="form-label">Report</label>
-                <select v-model="reportType" class="form-select" @change="clearErrors">
-                    <option v-for="report in reportTypes" :key="report.value" :value="report.value">
-                        {{ report.label }}
-                    </option>
-                </select>
+                <AppSelect
+                    v-model="reportType"
+                    :options="reportTypes"
+                    placeholder="Select report"
+                    search-placeholder="Search report…"
+                    @change="clearErrors"
+                />
             </div>
-            <div v-if="reportType !== 'due'">
+            <div>
                 <label class="form-label">From</label>
                 <AppDateInput
                     v-model="filters.from"
+                    :max="todayMax"
                     :invalid="!!fieldErrors.from"
-                    @input="clearFieldError('from')"
+                    @input="onFromChange"
                 />
                 <div v-if="fieldErrors.from" class="invalid-feedback d-block">
                     {{ fieldErrors.from[0] }}
                 </div>
             </div>
-            <div v-if="reportType !== 'due'">
+            <div>
                 <label class="form-label">To</label>
                 <AppDateInput
                     v-model="filters.to"
+                    :min="filters.from || undefined"
+                    :max="filtersToMax"
                     :invalid="!!fieldErrors.to"
                     @input="clearFieldError('to')"
                 />
                 <div v-if="fieldErrors.to" class="invalid-feedback d-block">
                     {{ fieldErrors.to[0] }}
                 </div>
+                <div class="form-text">Maximum {{ MAX_REPORT_DATE_RANGE_MONTHS }} months. No future dates.</div>
             </div>
             <div v-if="reportType === 'cost'">
-                <label class="form-label">Service Type</label>
-                <select v-model="filters.maintenance_service_type_id" class="form-select">
-                    <option value="">All types</option>
-                    <option v-for="type in serviceTypeOptions" :key="type.value" :value="type.value">
-                        {{ type.label }}
-                    </option>
-                </select>
+                <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
+                <MaintenanceServiceTypeSelect
+                    :input-id="`${pageId}_service_type`"
+                    v-model="filters.maintenance_service_type_id"
+                    :service-types="serviceTypes"
+                    placeholder="All types"
+                />
             </div>
             <div v-if="reportType === 'truck'">
                 <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
-                <SearchableSelect
+                <VehicleSelect
                     :input-id="`${pageId}_vehicle`"
                     v-model="filters.vehicle_id"
-                    :items="vehicleSelectOptions"
+                    :vehicles="vehicles"
                     placeholder="All trucks"
-                    search-placeholder="Search truck number…"
-                    empty-message="No truck found."
-                    item-icon-class="bi bi-truck"
-                    attach-dropdown-to-body
                 />
             </div>
         </AppIndexFiltersCard>
@@ -99,55 +110,71 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { buildMaintenanceServiceTypeSelectOptions, listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
-import {
-    fetchMaintenanceCostSummary,
-    fetchMaintenanceDueServicesReport,
-    fetchMaintenanceTruckWiseReport,
-} from '../../api/maintenanceReports';
-import { buildVehicleSelectOptions, listAllVehicles } from '../../api/vehicles';
+import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
+import { exportMaintenanceReport, fetchMaintenanceCostSummary, fetchMaintenanceTruckWiseReport } from '../../api/maintenanceReports';
+import { listAllVehicles } from '../../api/vehicles';
+import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import MaintenanceServiceTypeSelect from '../../components/ui/MaintenanceServiceTypeSelect.vue';
+import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
-import { formatTableCell } from '../../utils/datetime';
+import {
+    dateRangeExceedsMonths,
+    dateRangeMonthsError,
+    MAX_LIST_DATE_RANGE_MONTHS,
+    maxDateRangeEnd,
+} from '../../utils/dateRangePresets';
+import { formatTableCell, toDateInputValue } from '../../utils/datetime';
 
 const { needsCompanySelection } = useRequireCompanyContext();
+const { canInCompany } = usePermissions();
+const canExport = computed(() => canInCompany('maintenance_reports.export'));
+
+const MAX_REPORT_DATE_RANGE_MONTHS = MAX_LIST_DATE_RANGE_MONTHS;
+const todayMax = computed(() => toDateInputValue());
 const { fieldErrors, formError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
 
 const pageId = 'maintenanceReports';
 const reportTypes = [
     { value: 'cost', label: 'Maintenance Cost Report', loader: fetchMaintenanceCostSummary },
     { value: 'truck', label: 'Truck-wise Maintenance Cost', loader: fetchMaintenanceTruckWiseReport },
-    { value: 'due', label: 'Due Services Report', loader: fetchMaintenanceDueServicesReport },
 ];
 
 const serviceTypes = ref([]);
-const serviceTypeOptions = computed(() => buildMaintenanceServiceTypeSelectOptions(serviceTypes.value));
 const reportType = ref('cost');
 const filters = reactive({ from: '', to: '', maintenance_service_type_id: '', vehicle_id: '' });
 const vehicles = ref([]);
-const vehicleSelectOptions = computed(() => buildVehicleSelectOptions(vehicles.value));
 const rows = ref([]);
 const loading = ref(false);
 const reportLoaded = ref(false);
 
-const filtersActive = computed(() =>
-    reportType.value === 'due'
-        ? false
-        : filters.from !== '' || filters.to !== '' || filters.maintenance_service_type_id !== '' || filters.vehicle_id !== '',
+const filtersActive = computed(
+    () =>
+        filters.from !== '' ||
+        filters.to !== '' ||
+        filters.maintenance_service_type_id !== '' ||
+        filters.vehicle_id !== '',
 );
+
+const filtersToMax = computed(() => {
+    if (!filters.from) {
+        return todayMax.value;
+    }
+
+    const rangeEnd = maxDateRangeEnd(filters.from, MAX_REPORT_DATE_RANGE_MONTHS);
+
+    return rangeEnd > todayMax.value ? todayMax.value : rangeEnd;
+});
 
 const currentLabel = computed(() => reportTypes.find((report) => report.value === reportType.value)?.label ?? 'Report');
 
 const emptyTableMessage = computed(() => {
     if (formError.value) {
         return 'Fix the filters above and try again.';
-    }
-
-    if (reportType.value === 'due') {
-        return reportLoaded.value ? 'No data.' : 'Click search to load due services.';
     }
 
     return reportLoaded.value ? 'No data.' : 'Select date range and click search.';
@@ -197,10 +224,6 @@ function formatCell(row, col, index) {
 }
 
 function validateFilters() {
-    if (reportType.value === 'due') {
-        return true;
-    }
-
     const errors = {};
 
     if (!filters.from) {
@@ -213,6 +236,18 @@ function validateFilters() {
 
     if (filters.from && filters.to && filters.from > filters.to) {
         errors.to = ['End date must be on or after start date.'];
+    }
+
+    if (filters.from && filters.from > todayMax.value) {
+        errors.from = ['Future dates are not allowed.'];
+    }
+
+    if (filters.to && filters.to > todayMax.value) {
+        errors.to = ['Future dates are not allowed.'];
+    }
+
+    if (dateRangeExceedsMonths(filters.from, filters.to, MAX_REPORT_DATE_RANGE_MONTHS)) {
+        errors.to = [dateRangeMonthsError(MAX_REPORT_DATE_RANGE_MONTHS)];
     }
 
     if (Object.keys(errors).length > 0) {
@@ -251,19 +286,7 @@ async function loadReport() {
     loading.value = true;
 
     try {
-        const params =
-            reportType.value === 'due'
-                ? {}
-                : {
-                      from: filters.from,
-                      to: filters.to,
-                      ...(filters.maintenance_service_type_id
-                          ? { maintenance_service_type_id: filters.maintenance_service_type_id }
-                          : {}),
-                      ...(filters.vehicle_id ? { vehicle_id: filters.vehicle_id } : {}),
-                  };
-
-        rows.value = await report.loader(params);
+        rows.value = await report.loader(buildFilterParams());
         reportLoaded.value = true;
     } catch (error) {
         rows.value = [];
@@ -282,6 +305,33 @@ function clearFilters() {
     rows.value = [];
     reportLoaded.value = false;
     clearErrors();
+}
+
+function buildFilterParams() {
+    return {
+        from: filters.from,
+        to: filters.to,
+        ...(filters.maintenance_service_type_id
+            ? { maintenance_service_type_id: filters.maintenance_service_type_id }
+            : {}),
+        ...(filters.vehicle_id ? { vehicle_id: filters.vehicle_id } : {}),
+    };
+}
+
+function exportExcel() {
+    if (!validateFilters()) {
+        return;
+    }
+
+    exportMaintenanceReport(reportType.value, buildFilterParams());
+}
+
+function onFromChange() {
+    clearFieldError('from');
+
+    if (filters.to && filters.to > filtersToMax.value) {
+        filters.to = filtersToMax.value;
+    }
 }
 
 watch(reportType, () => {

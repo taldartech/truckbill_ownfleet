@@ -1,117 +1,149 @@
 <template>
-    <div class="trip-expense-entry">
+    <div
+        class="trip-expense-entry"
+        :class="showDieselColumns ? 'trip-expense-entry--wide' : 'trip-expense-entry--narrow'"
+        :data-expense-index="expenseIndex"
+    >
         <div class="trip-expense-entry__row">
-            <div class="trip-expense-entry__field trip-expense-entry__field--date">
-                <label class="trip-expense-entry__label">Date</label>
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--date">
                 <AppDateInput
+                    :input-id="fieldId('expense_date')"
                     v-model="expense.expense_date"
                     size="sm"
                     :min="tripStartDate || undefined"
                     :max="tripEndDate || undefined"
                     :disabled="disabled"
+                    :invalid="Boolean(dateFieldError)"
+                    @update:model-value="onFieldInput"
                 />
             </div>
 
-            <div class="trip-expense-entry__field trip-expense-entry__field--type">
-                <label class="trip-expense-entry__label">Type</label>
-                <select
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--type">
+                <AppSelect
                     v-if="!isOther"
                     v-model="expense.expense_type"
-                    class="form-control form-control-sm"
+                    :options="expenseTypes"
+                    placeholder="Type"
+                    search-placeholder="Search type…"
                     :disabled="disabled"
                     @change="onTypeChange"
-                >
-                    <option v-for="type in expenseTypes" :key="type.value" :value="type.value">
-                        {{ type.label }}
-                    </option>
-                </select>
+                />
                 <input
                     v-else
+                    :id="fieldId('other_type')"
                     v-model="expense.other_type"
                     type="text"
                     class="form-control form-control-sm"
-                    placeholder="Enter expense type"
+                    :class="{ 'is-invalid': otherTypeFieldError }"
+                    :title="otherTypeFieldError || undefined"
+                    placeholder="Type name"
                     :disabled="disabled"
+                    @input="onFieldInput"
                 />
             </div>
 
             <template v-if="isDiesel">
-                <div class="trip-expense-entry__field trip-expense-entry__field--odometer">
-                    <label class="trip-expense-entry__label">Meter Reading(KM)</label>
+                <div class="trip-expense-entry__cell trip-expense-entry__cell--meter">
                     <input
-                        v-model.number="expense.fuel_odometer_km"
+                        :id="fieldId('fuel_odometer_km')"
+                        v-model="expense.fuel_odometer_km"
                         type="number"
                         :min="tripStartMeterKm || undefined"
-                        :max="tripEndMeterKm || undefined"
-                        step="0.01"
+                        :max="tripEndMeterKm > 0 ? tripEndMeterKm : undefined"
+                        step="1"
                         class="form-control form-control-sm"
                         :class="{ 'is-invalid': odometerFieldError }"
-                        placeholder="0"
+                        :placeholder="meterPlaceholder"
+                        :title="odometerFieldError || legacyWarning || meterTitle || undefined"
                         :disabled="disabled"
-                    />
-                    <div v-if="odometerFieldError" class="invalid-feedback d-block">
-                        {{ odometerFieldError }}
-                    </div>
-                </div>
-                <div class="trip-expense-entry__field trip-expense-entry__field--fuel">
-                    <label class="trip-expense-entry__label">Liters</label>
-                    <input
-                        v-model.number="expense.fuel_liters"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        class="form-control form-control-sm"
-                        placeholder="0"
-                        :disabled="disabled"
-                        @input="recalculateDieselAmount"
+                        @input="onFuelFieldInput"
                     />
                 </div>
-                <div class="trip-expense-entry__field trip-expense-entry__field--fuel">
-                    <label class="trip-expense-entry__label">Rate</label>
+
+                <div class="trip-expense-entry__cell trip-expense-entry__cell--liters">
                     <input
-                        v-model.number="expense.fuel_rate"
+                        :id="fieldId('fuel_liters')"
+                        v-model="expense.fuel_liters"
                         type="number"
-                        min="0"
+                        min="0.01"
+                        :max="maxFuelLiters"
                         step="0.01"
                         class="form-control form-control-sm"
-                        placeholder="0"
+                        :class="{ 'is-invalid': litersFieldError }"
+                        placeholder="L"
+                        :title="litersFieldError || 'Fuel liters'"
                         :disabled="disabled"
-                        @input="recalculateDieselAmount"
+                        @input="onFuelInput"
+                    />
+                </div>
+
+                <div class="trip-expense-entry__cell trip-expense-entry__cell--rate">
+                    <input
+                        :id="fieldId('fuel_rate')"
+                        v-model="expense.fuel_rate"
+                        type="number"
+                        min="0.01"
+                        :max="maxFuelRate"
+                        step="0.01"
+                        class="form-control form-control-sm"
+                        :class="{ 'is-invalid': rateFieldError }"
+                        placeholder="₹/L"
+                        :title="rateFieldError || 'Diesel rate per liter'"
+                        :disabled="disabled"
+                        @input="onFuelInput"
                     />
                 </div>
             </template>
 
-            <div class="trip-expense-entry__field trip-expense-entry__field--amount">
-                <label class="trip-expense-entry__label">Amount</label>
+            <div
+                v-else-if="showDieselColumns"
+                class="trip-expense-entry__cell trip-expense-entry__cell--diesel-gap"
+                aria-hidden="true"
+            ></div>
+
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--amount">
+                <div v-if="isDiesel" class="trip-expense-entry__amount" :title="amountTooltip">
+                    <template v-if="hasDieselCalc">
+                        <span class="trip-expense-entry__amount-formula">
+                            {{ formatNum(expense.fuel_liters) }}×{{ formatNum(expense.fuel_rate) }}
+                        </span>
+                        <span class="trip-expense-entry__amount-eq">=</span>
+                        <strong>₹{{ formatMoney(expense.amount) }}</strong>
+                    </template>
+                    <span v-else class="trip-expense-entry__amount-empty">—</span>
+                </div>
                 <input
+                    v-else
+                    :id="fieldId('amount')"
                     v-model.number="expense.amount"
                     type="number"
                     min="0"
                     step="0.01"
                     class="form-control form-control-sm"
-                    placeholder="0"
-                    :disabled="disabled || isDiesel"
-                    :readonly="isDiesel"
+                    :class="{ 'is-invalid': amountFieldError }"
+                    :title="amountFieldError || undefined"
+                    placeholder="₹"
+                    :disabled="disabled"
+                    @input="onFieldInput"
                 />
             </div>
 
-            <div class="trip-expense-entry__field trip-expense-entry__field--notes">
-                <label class="trip-expense-entry__label">Note</label>
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--note">
                 <input
                     v-model="expense.notes"
                     type="text"
                     class="form-control form-control-sm"
-                    placeholder="Optional"
+                    placeholder="Note"
                     :disabled="disabled"
                 />
             </div>
 
-            <div class="trip-expense-entry__actions">
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--actions">
                 <button
                     type="button"
-                    class="btn btn-sm btn-outline-danger"
+                    class="btn btn-sm btn-outline-danger trip-expense-entry__delete"
                     :disabled="disabled"
-                    title="Remove expense"
+                    title="Remove"
                     @click="$emit('remove')"
                 >
                     <i class="fa fa-trash" />
@@ -123,12 +155,22 @@
 
 <script setup>
 import { computed } from 'vue';
-import { EXPENSE_FORM_TYPES } from '../../api/trips';
+import AppSelect from '../ui/AppSelect.vue';
+import { EXPENSE_FORM_TYPES, MAX_FUEL_LITERS, MAX_FUEL_RATE } from '../../api/trips';
+import { buildMeterLimitHints, expenseFieldFocusId } from '../../utils/expenseValidation';
 
 const props = defineProps({
     expense: {
         type: Object,
         required: true,
+    },
+    expenseIndex: {
+        type: Number,
+        required: true,
+    },
+    showDieselColumns: {
+        type: Boolean,
+        default: false,
     },
     disabled: {
         type: Boolean,
@@ -150,24 +192,108 @@ const props = defineProps({
         type: [Number, String],
         default: '',
     },
+    dateFieldError: {
+        type: String,
+        default: '',
+    },
     odometerFieldError: {
+        type: String,
+        default: '',
+    },
+    litersFieldError: {
+        type: String,
+        default: '',
+    },
+    rateFieldError: {
+        type: String,
+        default: '',
+    },
+    amountFieldError: {
+        type: String,
+        default: '',
+    },
+    otherTypeFieldError: {
+        type: String,
+        default: '',
+    },
+    legacyWarning: {
         type: String,
         default: '',
     },
 });
 
-defineEmits(['remove']);
+const emit = defineEmits(['remove', 'fuel-field-input', 'field-input']);
+
+const maxFuelLiters = MAX_FUEL_LITERS;
+const maxFuelRate = MAX_FUEL_RATE;
 
 const expenseTypes = EXPENSE_FORM_TYPES;
 
 const isDiesel = computed(() => props.expense.expense_type === 'DIESEL');
 const isOther = computed(() => props.expense.expense_type === 'OTHER');
 
+const limitHints = computed(() =>
+    buildMeterLimitHints({
+        startMeterKm: props.tripStartMeterKm,
+        endMeterKm: props.tripEndMeterKm,
+    }),
+);
+
+const meterTitle = computed(() => {
+    const allowed = limitHints.value.allowed;
+
+    return allowed && allowed !== '—' ? `Allowed: ${allowed}` : '';
+});
+
+const meterPlaceholder = computed(() => {
+    const allowed = limitHints.value.allowed;
+
+    if (allowed && allowed !== '—') {
+        return allowed.replace(/\s*KM/g, '');
+    }
+
+    return 'Meter';
+});
+
+const hasDieselCalc = computed(() => {
+    const liters = Number(props.expense.fuel_liters);
+    const rate = Number(props.expense.fuel_rate);
+
+    return liters > 0 && rate > 0;
+});
+
+const amountTooltip = computed(() => {
+    if (!hasDieselCalc.value) {
+        return 'Liters × Rate';
+    }
+
+    return `${formatNum(props.expense.fuel_liters)} L × ₹${formatNum(props.expense.fuel_rate)} = ₹${formatMoney(props.expense.amount)}`;
+});
+
+function fieldId(field) {
+    return expenseFieldFocusId(props.expenseIndex, field);
+}
+
 function recalculateDieselAmount() {
     const liters = Number(props.expense.fuel_liters) || 0;
     const rate = Number(props.expense.fuel_rate) || 0;
 
     props.expense.amount = Math.round(liters * rate * 100) / 100;
+}
+
+function onFuelInput() {
+    recalculateDieselAmount();
+    emit('fuel-field-input');
+    emit('field-input');
+}
+
+function onFuelFieldInput() {
+    emit('fuel-field-input');
+    emit('field-input');
+}
+
+function onFieldInput() {
+    emit('field-input');
 }
 
 function onTypeChange() {
@@ -182,13 +308,22 @@ function onTypeChange() {
         props.expense.fuel_rate = '';
         props.expense.fuel_odometer_km = '';
     }
+
+    emit('field-input');
+}
+
+function formatMoney(value) {
+    return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatNum(value) {
+    return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 </script>
 
 <style scoped>
 .trip-expense-entry {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--bs-border-color-translucent, #dee2e6);
+    border-bottom: 1px solid #f3f4f6;
 }
 
 .trip-expense-entry:last-child {
@@ -197,35 +332,94 @@ function onTypeChange() {
 
 .trip-expense-entry__row {
     display: grid;
-    grid-template-columns: 7.5rem 9rem repeat(3, minmax(4.5rem, 1fr)) minmax(5rem, 1fr) minmax(6rem, 1.5fr) auto;
-    gap: 0.5rem;
-    align-items: end;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.1rem;
+    padding: 0.3rem 0;
 }
 
-.trip-expense-entry__row:not(:has(.trip-expense-entry__field--odometer)) {
-    grid-template-columns: 7.5rem 9rem minmax(5rem, 1fr) minmax(6rem, 1.5fr) auto;
+.trip-expense-entry--wide .trip-expense-entry__row {
+    grid-template-columns: 6.75rem 7.25rem 5.25rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
 }
 
-.trip-expense-entry__label {
-    display: block;
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
-    margin-bottom: 0.15rem;
+.trip-expense-entry--narrow .trip-expense-entry__row {
+    grid-template-columns: 6.75rem 7.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
 }
 
-.trip-expense-entry__actions {
+.trip-expense-entry__cell--diesel-gap {
+    grid-column: 3 / 6;
+}
+
+.trip-expense-entry__cell :deep(.form-control),
+.trip-expense-entry__cell :deep(.app-date-input__text),
+.trip-expense-entry__cell :deep(.select-trigger) {
+    min-height: 1.85rem;
+    height: 1.85rem;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+    font-size: 0.8rem;
+}
+
+.trip-expense-entry__cell :deep(.app-date-input) {
+    min-width: 0;
+}
+
+.trip-expense-entry__amount {
     display: flex;
-    align-items: flex-end;
-    padding-bottom: 0.1rem;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    color: #374151;
+    padding: 0 0.15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trip-expense-entry__amount-formula {
+    color: #9ca3af;
+    font-size: 0.72rem;
+}
+
+.trip-expense-entry__amount-eq {
+    color: #d1d5db;
+    font-size: 0.72rem;
+}
+
+.trip-expense-entry__amount strong {
+    color: #166534;
+    font-weight: 700;
+}
+
+.trip-expense-entry__amount-empty {
+    color: #d1d5db;
+}
+
+.trip-expense-entry__delete {
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.trip-expense-entry__cell--actions {
+    display: flex;
+    justify-content: center;
 }
 
 @media (max-width: 992px) {
-    .trip-expense-entry__row,
-    .trip-expense-entry__row:not(:has(.trip-expense-entry__field--odometer)) {
+    .trip-expense-entry--wide .trip-expense-entry__row,
+    .trip-expense-entry--narrow .trip-expense-entry__row {
         grid-template-columns: 1fr 1fr;
     }
 
-    .trip-expense-entry__actions {
+    .trip-expense-entry__cell--diesel-gap {
+        display: none;
+    }
+
+    .trip-expense-entry__cell--actions {
         grid-column: 1 / -1;
         justify-content: flex-end;
     }

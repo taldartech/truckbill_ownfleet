@@ -8,6 +8,7 @@ use App\Enums\AttendanceStatus;
 use App\Enums\TripStatus;
 use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
+use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
 use App\Trip;
 use App\Tyre;
@@ -81,6 +82,7 @@ class FleetDashboardStats
             $payload['tyres'] = array_merge(
                 self::buildTyreInventoryStats(),
                 self::buildTyrePeriodStats($fromDate, $toDate),
+                self::buildTyreAlertStats(),
             );
         }
 
@@ -220,5 +222,13 @@ class FleetDashboardStats
             'period_scrapped_count' => (clone $scrappedQuery)->count(),
             'period_scrapped_recovery_amount' => round((float) (clone $scrappedQuery)->sum('scrap_sale_amount'), 2),
         ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private static function buildTyreAlertStats(): array
+    {
+        return app(TyreAlertService::class)->dashboardCounts();
     }
 }

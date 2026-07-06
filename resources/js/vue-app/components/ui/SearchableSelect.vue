@@ -14,10 +14,15 @@
                 :aria-expanded="isOpen"
                 @click="toggleDropdown"
             >
-                <span v-if="displayIcon" class="select-trigger-icon">
+                <span v-if="displayIcon && !plain" class="select-trigger-icon">
                     <i :class="displayIcon"></i>
                 </span>
-                <span class="select-trigger-label">{{ displayLabel }}</span>
+                <span
+                    class="select-trigger-label"
+                    :class="{ 'select-trigger-label--inactive': selectedItemInactive }"
+                >
+                    {{ displayLabel }}
+                </span>
             </button>
             <div class="select-trigger-chevron" aria-hidden="true">
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
@@ -43,13 +48,14 @@
                 :class="{ 'picker-dropdown-menu--fixed': attachDropdownToBody }"
                 :style="attachDropdownToBody ? dropdownStyle : undefined"
             >
-                <div class="picker-search-wrap">
-                    <i class="bi bi-search picker-search-icon"></i>
+                <div class="picker-search-wrap" :class="{ 'picker-search-wrap--plain': plain }">
+                    <i v-if="!plain" class="bi bi-search picker-search-icon"></i>
                     <input
                         ref="searchInputRef"
                         v-model="searchQuery"
                         type="text"
                         class="form-control form-control-sm picker-search-input"
+                        :class="{ 'picker-search-input--plain': plain }"
                         :placeholder="searchPlaceholder"
                         @click.stop
                     />
@@ -67,14 +73,20 @@
                         :disabled="item.disabled"
                         @click="selectItem(item)"
                     >
-                        <span v-if="itemIcon(item)" class="picker-option-icon">
+                        <span v-if="itemIcon(item) && !plain" class="picker-option-icon">
                             <i :class="itemIcon(item)"></i>
                         </span>
                         <span class="picker-option-body">
-                            <span class="picker-option-name">{{ itemLabel(item) }}</span>
-                            <span v-if="itemHint(item)" class="picker-option-sub">{{ itemHint(item) }}</span>
+                            <span
+                                class="picker-option-name"
+                                :class="{ 'picker-option-name--inactive': item.inactive }"
+                            >
+                                {{ itemLabel(item) }}
+                                <span v-if="item.badge" class="picker-option-badge">{{ item.badge }}</span>
+                            </span>
+                            <span v-if="itemHint(item) && !plain" class="picker-option-sub">{{ itemHint(item) }}</span>
                         </span>
-                        <i v-if="isSelected(item)" class="bi bi-check2 picker-option-check"></i>
+                        <i v-if="isSelected(item) && !plain" class="bi bi-check2 picker-option-check"></i>
                     </button>
                     <div v-if="filteredItems.length === 0" class="picker-empty">
                         {{ emptyMessage }}
@@ -103,8 +115,9 @@ const props = defineProps({
     disabled: { type: Boolean, default: false },
     invalid: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
-    attachDropdownToBody: { type: Boolean, default: false },
+    attachDropdownToBody: { type: Boolean, default: true },
     itemIconClass: { type: String, default: '' },
+    plain: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -126,8 +139,13 @@ const displayLabel = computed(() => {
         return props.placeholder;
     }
 
-    return itemLabel(selectedItem.value);
+    const label = itemLabel(selectedItem.value);
+    const badge = selectedItem.value.badge;
+
+    return badge ? `${label} ${badge}` : label;
 });
+
+const selectedItemInactive = computed(() => Boolean(selectedItem.value?.inactive));
 
 const displayIcon = computed(() => {
     if (!selectedItem.value) {
@@ -320,7 +338,9 @@ watch(
     display: flex;
     align-items: center;
     gap: 0.45rem;
+    --bs-form-select-bg-img: none;
     --bs-form-select-bg-icon: none;
+    background-image: none;
 }
 
 .select-trigger--placeholder .select-trigger-label {
@@ -441,6 +461,10 @@ watch(
     box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.12);
 }
 
+.picker-search-input--plain {
+    padding-left: 0.65rem;
+}
+
 .picker-list-scroll {
     max-height: 240px;
     overflow-y: auto;
@@ -519,6 +543,22 @@ watch(
     font-weight: 600;
     color: #212529;
     line-height: 1.2;
+}
+
+.picker-option-name--inactive {
+    color: #dc3545;
+}
+
+.picker-option-badge {
+    display: inline-block;
+    margin-left: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #dc3545;
+}
+
+.select-trigger-label--inactive {
+    color: #dc3545;
 }
 
 .picker-option-sub {

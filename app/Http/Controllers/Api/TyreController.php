@@ -8,6 +8,7 @@ use App\Http\Requests\RemoveTyreInstallationRequest;
 use App\Http\Requests\ScrapTyreRequest;
 use App\Http\Requests\StoreTyreDamageRequest;
 use App\Http\Requests\StoreTyreExpenseRequest;
+use App\Http\Requests\StoreTyreInspectionRequest;
 use App\Http\Requests\StoreTyreReplacementRequest;
 use App\Http\Requests\StoreTyreRequest;
 use App\Http\Requests\StoreTyreRotationRequest;
@@ -15,19 +16,25 @@ use App\Http\Requests\UpdateTyreRequest;
 use App\Http\Requests\UpdateTyreStintRequest;
 use App\Http\Resources\TyreDamageResource;
 use App\Http\Resources\TyreExpenseResource;
+use App\Http\Resources\TyreInspectionResource;
 use App\Http\Resources\TyreInstallationResource;
 use App\Http\Resources\TyreResource;
 use App\Http\Resources\TyreRotationResource;
+use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Modules\TyreManagement\Services\TyreService;
 use App\Tyre;
 use App\TyreInstallation;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class TyreController extends Controller
 {
-    public function __construct(private readonly TyreService $tyreService) {}
+    public function __construct(
+        private readonly TyreService $tyreService,
+        private readonly TyreAlertService $tyreAlertService,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -81,6 +88,23 @@ class TyreController extends Controller
         return new TyreResource($tyre);
     }
 
+    public function destroy(Tyre $tyre): Response
+    {
+        $this->authorize('delete', $tyre);
+        $this->tyreService->delete($tyre);
+
+        return response()->noContent();
+    }
+
+    public function alerts(): JsonResponse
+    {
+        $this->authorize('viewAny', Tyre::class);
+
+        return response()->json([
+            'data' => $this->tyreAlertService->alerts(),
+        ]);
+    }
+
     public function install(InstallTyreRequest $request, Tyre $tyre): TyreInstallationResource
     {
         $installation = $this->tyreService->install($tyre, $request->validated());
@@ -129,6 +153,13 @@ class TyreController extends Controller
                 'replaced_at' => $replacement->replaced_at?->toDateString(),
             ],
         ], 201);
+    }
+
+    public function inspection(StoreTyreInspectionRequest $request, Tyre $tyre): TyreInspectionResource
+    {
+        $inspection = $this->tyreService->recordInspection($tyre, $request->validated());
+
+        return new TyreInspectionResource($inspection);
     }
 
     public function scrap(ScrapTyreRequest $request, Tyre $tyre): TyreResource

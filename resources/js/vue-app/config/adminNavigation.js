@@ -22,9 +22,10 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
-                label: 'Trip Create',
+                label: 'Create Trip',
                 icon: 'bi bi-plus-circle nav-icon',
-                to: '/trips?create=1',
+                to: { name: 'trips.create' },
+                activeNames: ['trips.create'],
                 permission: 'trips.manage',
                 requiresTenant: true,
             },
@@ -75,13 +76,6 @@ export const adminNavigation = [
                 permission: 'maintenance.view',
                 requiresTenant: true,
             },
-            {
-                label: 'Reports',
-                icon: 'bi bi-bar-chart nav-icon',
-                to: '/maintenance/reports',
-                permission: 'maintenance_reports.view',
-                requiresTenant: true,
-            },
         ],
     },
     {
@@ -93,6 +87,13 @@ export const adminNavigation = [
                 icon: 'bi bi-graph-up-arrow nav-icon',
                 to: '/reports/trips',
                 permission: 'trip_reports.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Maintenance Reports',
+                icon: 'bi bi-bar-chart nav-icon',
+                to: '/maintenance/reports',
+                permission: 'maintenance_reports.view',
                 requiresTenant: true,
             },
             {

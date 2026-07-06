@@ -19,3 +19,8 @@ export async function fetchMaintenanceDueServicesReport() {
 
     return data.data ?? [];
 }
+
+export function exportMaintenanceReport(type, filters = {}) {
+    const params = new URLSearchParams({ type, ...filters });
+    window.location.href = `${reportBase}/export?${params.toString()}`;
+}
