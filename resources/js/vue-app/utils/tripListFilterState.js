@@ -10,6 +10,7 @@ export const TRIP_LIST_FILTER_QUERY_KEYS = [
     'trip_type',
     'customer_id',
     'broker_id',
+    'show_archived',
     'page',
     'per_page',
 ];
@@ -72,6 +73,7 @@ export function parseTripListStateFromQuery(query = {}) {
         trip_type: readQueryValue(query, 'trip_type'),
         customer_id: readQueryValue(query, 'customer_id'),
         broker_id: readQueryValue(query, 'broker_id'),
+        show_archived: ['1', 'true'].includes(readQueryValue(query, 'show_archived')),
         page: normalizePage(readQueryValue(query, 'page'), defaults.page),
         per_page: normalizePerPage(readQueryValue(query, 'per_page'), defaults.per_page),
     };
@@ -102,6 +104,10 @@ export function buildTripListQuery(state = {}, { includeDefaults = false } = {})
     assignIfPresent('trip_type', state.trip_type);
     assignIfPresent('customer_id', state.customer_id);
     assignIfPresent('broker_id', state.broker_id);
+
+    if (state.show_archived) {
+        query.show_archived = '1';
+    }
 
     const page = normalizePage(state.page, defaults.page);
 

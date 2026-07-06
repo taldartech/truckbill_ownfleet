@@ -54,137 +54,108 @@
             </table>
         </AppIndexListCard>
 
-        <div
-            v-if="showModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeModal"
+        <AppModal
+            :show="showModal"
+            :loading="saving"
+            :form-error="formError"
+            as-form
+            size="lg"
+            @close="closeModal"
+            @submit="save"
         >
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-gradient-primary">
-                        <h5 class="modal-title">{{ editing ? 'Edit Reference' : 'Add Reference' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
+            <template #title>{{ editing ? 'Edit Reference' : 'Add Reference' }}</template>
+
+            <div class="row g-2">
+                <IndiaLocationFields
+                    v-model:state-id="stateId"
+                    v-model:city-id="cityId"
+                    :states="states"
+                    :cities="cities"
+                    :field-errors="fieldErrors"
+                />
+
+                <div class="col-12">
+                    <label class="form-label">Reference Name *</label>
+                    <input
+                        v-model="form.name"
+                        type="text"
+                        class="form-control"
+                        :class="{ 'is-invalid': fieldErrors.name }"
+                        required
+                    />
+                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                        {{ fieldErrors.name[0] }}
                     </div>
-                    <form novalidate @submit.prevent="save">
-                        <div class="modal-body">
-                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" :value="indiaCountry?.name || 'India'" disabled />
-                            </div>
+                </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">State *</label>
-                                <SearchableSelect
-                                    v-model="stateId"
-                                    :items="states"
-                                    placeholder="Select state"
-                                    search-placeholder="Search state…"
-                                    :invalid="Boolean(fieldErrors.state_id)"
-                                    :error-message="fieldErrors.state_id?.[0]"
-                                />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">City *</label>
-                                <SearchableSelect
-                                    v-model="cityId"
-                                    :items="cities"
-                                    placeholder="Select city"
-                                    search-placeholder="Search city…"
-                                    :disabled="!stateId"
-                                    :invalid="Boolean(fieldErrors.city_id)"
-                                    :error-message="fieldErrors.city_id?.[0]"
-                                />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Reference Name *</label>
-                                <input
-                                    v-model="form.name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.name }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.name[0] }}
-                                </div>
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">GST Number</label>
-                                    <input
-                                        v-model="form.gst_number"
-                                        type="text"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': fieldErrors.gst_number }"
-                                    />
-                                    <div v-if="fieldErrors.gst_number" class="invalid-feedback d-block">
-                                        {{ fieldErrors.gst_number[0] }}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">PAN Number</label>
-                                    <input
-                                        v-model="form.pan_number"
-                                        type="text"
-                                        class="form-control text-uppercase"
-                                        :class="{ 'is-invalid': fieldErrors.pan_number }"
-                                        maxlength="10"
-                                    />
-                                    <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
-                                        {{ fieldErrors.pan_number[0] }}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Contact Number *</label>
-                                    <input
-                                        :value="form.contact_number"
-                                        type="text"
-                                        inputmode="numeric"
-                                        maxlength="10"
-                                        class="form-control"
-                                        placeholder="10-digit mobile"
-                                        required
-                                        :class="{ 'is-invalid': fieldErrors.contact_number }"
-                                        @input="form.contact_number = normalizeMobile($event.target.value)"
-                                    />
-                                    <div v-if="fieldErrors.contact_number" class="invalid-feedback d-block">
-                                        {{ fieldErrors.contact_number[0] }}
-                                    </div>
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label">Address</label>
-                                    <textarea
-                                        v-model="form.address"
-                                        class="form-control"
-                                        rows="2"
-                                        :class="{ 'is-invalid': fieldErrors.address }"
-                                    />
-                                    <div v-if="fieldErrors.address" class="invalid-feedback d-block">
-                                        {{ fieldErrors.address[0] }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
-                            <AppButton type="submit" label="Save" :loading="saving" />
-                        </div>
-                    </form>
+                <div class="col-md-4">
+                    <label class="form-label">GST Number</label>
+                    <input
+                        v-model="form.gst_number"
+                        type="text"
+                        class="form-control"
+                        :class="{ 'is-invalid': fieldErrors.gst_number }"
+                    />
+                    <div v-if="fieldErrors.gst_number" class="invalid-feedback d-block">
+                        {{ fieldErrors.gst_number[0] }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">PAN Number</label>
+                    <input
+                        v-model="form.pan_number"
+                        type="text"
+                        class="form-control text-uppercase"
+                        :class="{ 'is-invalid': fieldErrors.pan_number }"
+                        maxlength="10"
+                    />
+                    <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
+                        {{ fieldErrors.pan_number[0] }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Contact Number *</label>
+                    <input
+                        :value="form.contact_number"
+                        type="text"
+                        inputmode="numeric"
+                        maxlength="10"
+                        class="form-control"
+                        placeholder="10-digit mobile"
+                        required
+                        :class="{ 'is-invalid': fieldErrors.contact_number }"
+                        @input="form.contact_number = normalizeMobile($event.target.value)"
+                    />
+                    <div v-if="fieldErrors.contact_number" class="invalid-feedback d-block">
+                        {{ fieldErrors.contact_number[0] }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    <textarea
+                        v-model="form.address"
+                        class="form-control"
+                        rows="2"
+                        :class="{ 'is-invalid': fieldErrors.address }"
+                    />
+                    <div v-if="fieldErrors.address" class="invalid-feedback d-block">
+                        {{ fieldErrors.address[0] }}
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
+                <AppButton type="submit" label="Save" :loading="saving" />
+            </template>
+        </AppModal>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { createBroker, deleteBroker, listAllBrokers, updateBroker } from '../../api/brokers';
+import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
@@ -192,7 +163,7 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';

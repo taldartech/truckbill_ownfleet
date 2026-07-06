@@ -12,6 +12,8 @@ use App\Station;
 use App\Support\BranchContext;
 use App\Support\CurrentTenant;
 use App\Support\RouteLegLocationFormatter;
+use App\Support\ArchivedTripGuard;
+use App\Support\TripArchiveImpact;
 use App\Support\TripNumberGenerator;
 use App\Support\TyreStintCalculator;
 use App\Trip;
@@ -32,6 +34,7 @@ class TripService
         private readonly TripNumberGenerator $tripNumberGenerator,
         private readonly VehicleTripEligibilityService $vehicleTripEligibility,
         private readonly TripSnapshotService $tripSnapshotService,
+        private readonly TripAuditLogger $tripAuditLogger,
     ) {}
 
     /**
@@ -189,6 +192,8 @@ class TripService
      */
     public function update(Trip $trip, array $data, ?User $user = null): Trip
     {
+        ArchivedTripGuard::ensureModifiable($trip);
+
         return DB::transaction(function () use ($trip, $data, $user): Trip {
             $userId = $user?->id;
             $editScope = $this->tripValidation->resolveTripEditScope($trip, $user);
@@ -376,19 +381,43 @@ class TripService
         });
     }
 
-    public function delete(Trip $trip, ?string $userId = null): void
+    public function archive(Trip $trip, string $archiveReason, ?User $user = null): void
     {
-        $status = $trip->status instanceof TripStatus
-            ? $trip->status
-            : TripStatus::tryFrom((string) $trip->status);
+        ArchivedTripGuard::ensureModifiable($trip);
 
-        if (in_array($status, [TripStatus::InProgress, TripStatus::Completed], true)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'trip' => ['Trips in progress or completed cannot be deleted. Cancel the trip first if required.'],
-            ]);
-        }
+        DB::transaction(function () use ($trip, $archiveReason, $user): void {
+            $impact = TripArchiveImpact::forTrip($trip);
+            $userId = $user?->id;
+            $archivedAt = now();
 
-        $this->tripRepository->delete($trip, $userId);
+            $this->tripRepository->archive($trip, $userId, $archiveReason);
+
+            $this->tripAuditLogger->log(
+                eventType: 'trip.archived',
+                trip: $trip,
+                payload: [
+                    'trip_number' => $trip->trip_number,
+                    'archive_reason' => $archiveReason,
+                    'archived_by' => [
+                        'id' => $userId,
+                        'name' => $user?->name,
+                    ],
+                    'archived_at' => $archivedAt->toIso8601String(),
+                    'route_stops_count' => $impact['linked_records']['route_stops_count'],
+                    'expenses_count' => $impact['linked_records']['expenses_count'],
+                    'total_expense_amount' => $impact['linked_records']['total_expense_amount'],
+                ],
+                performedBy: $userId,
+            );
+        });
+    }
+
+    /**
+     * @deprecated Use archive()
+     */
+    public function delete(Trip $trip, string $deletionReason, ?User $user = null): void
+    {
+        $this->archive($trip, $deletionReason, $user);
     }
 
     /**

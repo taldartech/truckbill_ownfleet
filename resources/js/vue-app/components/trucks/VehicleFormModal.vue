@@ -1,25 +1,18 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i class="bi bi-truck"></i>
-                        {{ isEdit ? 'Edit Truck' : 'Add Truck' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
-                </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="row mb-3">
+        <template #title>
+            <i class="bi bi-truck"></i>
+            {{ isEdit ? 'Edit Truck' : 'Add Truck' }}
+        </template>
+
+        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_registration`" class="form-label">Registration Number *</label>
                                 <input
@@ -189,28 +182,25 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Add Truck' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
-        <TruckTypeQuickAddModal
-            :show="showTypeQuickAdd"
-            @close="showTypeQuickAdd = false"
-            @created="onTruckTypeCreated"
-        />
-    </div>
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-success" :disabled="saving">
+                {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Add Truck' }}
+            </button>
+        </template>
+    </AppModal>
+
+    <TruckTypeQuickAddModal
+        :show="showTypeQuickAdd"
+        @close="showTypeQuickAdd = false"
+        @created="onTruckTypeCreated"
+    />
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import { listAllTyreLayouts } from '../../api/tyreLayouts';
 import { listAllTruckTypes } from '../../api/truckTypes';
 import {
@@ -240,11 +230,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit']);
 
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
 const isEdit = computed(() => props.mode === 'edit');
 const form = ref(emptyForm());
 const tyreLayoutOptions = ref([]);
@@ -352,20 +337,14 @@ function onTruckTypeCreated(truckType) {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             localRegistrationError.value = '';
             showTypeQuickAdd.value = false;
             fillForm(props.vehicle);
             await Promise.all([loadTyreLayoutOptions(), loadTruckTypes()]);
-            showBootstrapModal();
         } else {
             localRegistrationError.value = '';
             showTypeQuickAdd.value = false;
-            hideBootstrapModal();
         }
     },
 );

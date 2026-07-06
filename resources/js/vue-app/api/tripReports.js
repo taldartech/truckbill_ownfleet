@@ -1,4 +1,5 @@
 import api from '../api';
+import { parsePaginatedReportResponse } from './reportPagination';
 
 const reportsBase = '/app/api/reports/trips';
 
@@ -13,10 +14,12 @@ export async function fetchTripReport(type, filters = {}) {
 
     const url = endpoints[type] ?? endpoints.profitability;
     const { data } = await api.get(url, { params: filters });
+    const parsed = parsePaginatedReportResponse(data);
 
     return {
-        rows: data.data ?? [],
-        summary: data.summary ?? { trip_count: (data.data ?? []).length },
+        rows: parsed.rows,
+        meta: parsed.meta,
+        summary: parsed.summary ?? { trip_count: parsed.rows.length },
     };
 }
 

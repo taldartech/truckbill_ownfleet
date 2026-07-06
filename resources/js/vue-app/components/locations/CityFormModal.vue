@@ -1,77 +1,67 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-plus-circle'"></i>
-                        {{ isEdit ? 'Edit City' : 'Add City' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
-                </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="mb-3">
-                            <label :for="`${modalId}_country`" class="form-label">Country</label>
-                            <input
-                                :id="`${modalId}_country`"
-                                type="text"
-                                class="form-control"
-                                value="India"
-                                disabled
-                            />
-                        </div>
-                        <div class="mb-3">
-                            <label :for="`${modalId}_state`" class="form-label">State *</label>
-                            <SearchableSelect
-                                :input-id="`${modalId}_state`"
-                                v-model="form.state_id"
-                                :items="stateOptions"
-                                placeholder="Select state"
-                                search-placeholder="Search state…"
-                                :invalid="Boolean(fieldErrors.state_id)"
-                                :error-message="fieldErrors.state_id?.[0]"
-                            />
-                        </div>
-                        <div class="mb-0">
-                            <label :for="`${modalId}_name`" class="form-label">City Name *</label>
-                            <input
-                                :id="`${modalId}_name`"
-                                v-model="form.name"
-                                type="text"
-                                class="form-control"
-                                :class="{ 'is-invalid': fieldErrors.name }"
-                                required
-                            />
-                            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                {{ fieldErrors.name[0] }}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            <i class="bi bi-check-circle"></i>
-                            {{ saving ? (isEdit ? 'Updating...' : 'Saving...') : isEdit ? 'Update City' : 'Add City' }}
-                        </button>
-                    </div>
-                </form>
+        <template #title>
+            <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-plus-circle'"></i>
+            {{ isEdit ? 'Edit City' : 'Add City' }}
+        </template>
+
+        <div class="mb-3">
+            <label :for="`${modalId}_country`" class="form-label">Country</label>
+            <input
+                :id="`${modalId}_country`"
+                type="text"
+                class="form-control"
+                value="India"
+                disabled
+            />
+        </div>
+        <div class="mb-3">
+            <label :for="`${modalId}_state`" class="form-label">State *</label>
+            <SearchableSelect
+                :input-id="`${modalId}_state`"
+                v-model="form.state_id"
+                :items="stateOptions"
+                placeholder="Select state"
+                search-placeholder="Search state…"
+                :invalid="Boolean(fieldErrors.state_id)"
+                :error-message="fieldErrors.state_id?.[0]"
+            />
+        </div>
+        <div class="mb-0">
+            <label :for="`${modalId}_name`" class="form-label">City Name *</label>
+            <input
+                :id="`${modalId}_name`"
+                v-model="form.name"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': fieldErrors.name }"
+                required
+            />
+            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                {{ fieldErrors.name[0] }}
             </div>
         </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-success" :disabled="saving">
+                <i class="bi bi-check-circle"></i>
+                {{ saving ? (isEdit ? 'Updating...' : 'Saving...') : isEdit ? 'Update City' : 'Add City' }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
 
 const props = defineProps({
@@ -87,12 +77,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -115,15 +99,8 @@ function fillForm(city, defaultStateId = '') {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             fillForm(props.city, props.initialStateId);
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

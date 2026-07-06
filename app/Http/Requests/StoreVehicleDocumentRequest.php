@@ -5,7 +5,9 @@ namespace App\Http\Requests;
 use App\Support\CurrentTenant;
 use App\VehicleDocument;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreVehicleDocumentRequest extends FormRequest
 {
@@ -49,11 +51,41 @@ class StoreVehicleDocumentRequest extends FormRequest
                     ->ignore($vehicleDocument?->id),
             ],
             'issue_date' => ['required', 'date'],
-            'expiry_date' => ['required', 'date', 'after_or_equal:issue_date'],
+            'expiry_date' => ['required', 'date', 'after:issue_date'],
             'file' => ['nullable', 'file', 'max:'.$maxKb, 'mimes:'.implode(',', $mimes)],
             'file_url' => ['nullable', 'string', 'max:500'],
             'reminder_days_before' => ['nullable', 'integer', 'min:1', 'max:90'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (! $this->filled(['issue_date', 'expiry_date'])) {
+                return;
+            }
+
+            $issueDate = Carbon::parse((string) $this->input('issue_date'))->startOfDay();
+            $expiryDate = Carbon::parse((string) $this->input('expiry_date'))->startOfDay();
+            $validityDays = (int) $issueDate->diffInDays($expiryDate);
+
+            if ($validityDays < 1) {
+                return;
+            }
+
+            $reminderDays = $this->input('reminder_days_before');
+
+            if ($reminderDays !== null && (int) $reminderDays > $validityDays) {
+                $validator->errors()->add(
+                    'reminder_days_before',
+                    'Reminder days cannot exceed the document validity period.',
+                );
+            }
+        });
     }
 
     /**
@@ -64,8 +96,8 @@ class StoreVehicleDocumentRequest extends FormRequest
         return [
             'issue_date.required' => 'Issue date is required.',
             'expiry_date.required' => 'Expiry date is required.',
-            'expiry_date.after_or_equal' => 'Expiry date must be on or after the issue date.',
-            'document_type.unique' => 'This truck already has a document of this type.',
+            'expiry_date.after' => 'Expiry date must be after the issue date.',
+            'document_type.unique' => 'This document type already exists for this truck. Please renew the existing document.',
             'document_type.exists' => 'Selected document type is invalid.',
         ];
     }

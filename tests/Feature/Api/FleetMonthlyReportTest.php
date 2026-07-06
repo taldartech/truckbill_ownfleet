@@ -44,33 +44,34 @@ class FleetMonthlyReportTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.company_name', 'Fleet Tenant');
-        $response->assertJsonPath('data.rows.0.registration_number', 'MH12TR0001');
-        $response->assertJsonPath('data.rows.0.driver_name', 'Fleet Driver');
-        $response->assertJsonPath('data.rows.0.trip_count', 1);
-        $response->assertJsonPath('data.rows.0.total_km', 560);
-        $response->assertJsonPath('data.rows.0.diesel_liters', 100);
-        $response->assertJsonPath('data.rows.0.average_km_per_liter', 5.6);
-        $response->assertJsonPath('data.rows.0.total_expense', 7200);
-        $response->assertJsonPath('data.rows.0.saving', 10800);
-        $response->assertJsonPath('data.summary.total_bill', 18000);
-        $response->assertJsonPath('data.summary.total_saving', 10800);
-        $response->assertJsonPath('data.summary.rto_entry', 500);
-        $response->assertJsonPath('data.summary.challan_rto', 1500);
-        $response->assertJsonPath('data.summary.net_saving', 10800);
+        $response->assertJsonPath('data.0.registration_number', 'MH12TR0001');
+        $response->assertJsonPath('data.0.driver_name', 'Fleet Driver');
+        $response->assertJsonPath('data.0.trip_count', 1);
+        $response->assertJsonPath('data.0.total_km', 560);
+        $response->assertJsonPath('data.0.diesel_liters', 100);
+        $response->assertJsonPath('data.0.average_km_per_liter', 5.6);
+        $response->assertJsonPath('data.0.total_expense', 7200);
+        $response->assertJsonPath('data.0.saving', 10800);
+        $response->assertJsonPath('summary.total_bill', 18000);
+        $response->assertJsonPath('summary.total_saving', 10800);
+        $response->assertJsonPath('summary.rto_entry', 500);
+        $response->assertJsonPath('summary.challan_rto', 1500);
+        $response->assertJsonPath('summary.net_saving', 10800);
+        $response->assertJsonPath('meta.total', 1);
     }
 
-    public function test_moderator_cannot_access_monthly_fleet_report(): void
+    public function test_moderator_can_access_monthly_fleet_report(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('moderator'), 0, 2);
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-06')
-            ->assertForbidden();
+            ->assertOk();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get('/api/reports/fleet-monthly/export?month=2026-06')
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_monthly_fleet_report_includes_tyres_used_and_expense_for_truck(): void
@@ -114,10 +115,10 @@ class FleetMonthlyReportTest extends TestCase
             ->getJson('/api/reports/fleet-monthly?month=2026-06');
 
         $response->assertOk();
-        $response->assertJsonPath('data.rows.0.tyres_used', 1);
-        $response->assertJsonPath('data.rows.0.tyre_expense', 20500);
-        $response->assertJsonPath('data.summary.total_tyres_used', 1);
-        $response->assertJsonPath('data.summary.tyre_bill', 20500);
+        $response->assertJsonPath('data.0.tyres_used', 1);
+        $response->assertJsonPath('data.0.tyre_expense', 20500);
+        $response->assertJsonPath('summary.total_tyres_used', 1);
+        $response->assertJsonPath('summary.tyre_bill', 20500);
     }
 
     public function test_month_parameter_is_required(): void

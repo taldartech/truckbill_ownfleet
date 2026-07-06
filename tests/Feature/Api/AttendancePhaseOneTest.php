@@ -132,24 +132,17 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonValidationErrors(['wage_amount']);
     }
 
-    public function test_moderator_can_mark_daily_attendance_but_not_bulk_mark_or_wages(): void
+    public function test_moderator_can_view_attendance_but_not_manage_or_wages(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Driver', 500.00);
 
-        $attendance = Attendance::query()->create([
-            'tenant_id' => $tenant->id,
-            'vehicle_id' => $vehicle->id,
-            'primary_driver_id' => $driver->id,
-            'wage_owner_driver_id' => $driver->id,
-            'attendance_date' => now()->toDateString(),
-            'status' => 'PRESENT',
-            'wage_amount' => 500,
-            'wage_payment_status' => 'unpaid',
-        ]);
-
         Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances')
+            ->assertOk();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances', [
@@ -158,7 +151,7 @@ class AttendancePhaseOneTest extends TestCase
                 'attendance_date' => now()->addDay()->toDateString(),
                 'status' => 'ABSENT',
             ])
-            ->assertCreated();
+            ->assertForbidden();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/bulk-mark', [
@@ -170,8 +163,25 @@ class AttendancePhaseOneTest extends TestCase
             ->assertForbidden();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/api/attendances/{$attendance->id}/mark-wage-paid", [
-                'wage_transfer_notes' => 'Paid in cash to primary driver',
+            ->postJson('/api/attendances/close-month', [
+                'month' => now()->format('Y-m'),
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_moderator_can_view_monthly_settlement_but_not_manage_wages(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('moderator');
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/attendances/settlement-sheet?month='.now()->format('Y-m'))
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', [
+                'month' => now()->format('Y-m'),
             ])
             ->assertForbidden();
     }
@@ -258,17 +268,6 @@ class AttendancePhaseOneTest extends TestCase
                 'attendance_date' => now()->toDateString(),
                 'status' => 'PRESENT',
             ])
-            ->assertForbidden();
-    }
-
-    public function test_moderator_cannot_access_monthly_settlement(): void
-    {
-        [$tenant, $user] = $this->createTenantUser('moderator');
-
-        Sanctum::actingAs($user);
-
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/attendances/settlement-sheet?month='.now()->format('Y-m'))
             ->assertForbidden();
     }
 

@@ -78,117 +78,108 @@
             </template>
         </AppIndexListCard>
 
-        <div
-            v-if="showModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeModal"
+        <AppModal
+            :show="showModal"
+            :loading="saving"
+            :form-error="formError"
+            as-form
+            size="lg"
+            @close="closeModal"
+            @submit="save"
         >
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-gradient-primary">
-                        <h5 class="modal-title">{{ editing ? 'Edit Tyre Layout' : 'Add Tyre Layout' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
+            <template #title>{{ editing ? 'Edit Tyre Layout' : 'Add Tyre Layout' }}</template>
+
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label">Name *</label>
+                    <input
+                        v-model="form.name"
+                        type="text"
+                        class="form-control"
+                        :class="{ 'is-invalid': fieldErrors.name }"
+                        required
+                    />
+                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                        {{ fieldErrors.name[0] }}
                     </div>
-                    <form novalidate @submit.prevent="save">
-                        <div class="modal-body">
-                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-
-                            <div class="row g-3">
-                                <div class="col-md-8">
-                                    <label class="form-label">Name *</label>
-                                    <input
-                                        v-model="form.name"
-                                        type="text"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': fieldErrors.name }"
-                                        required
-                                    />
-                                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                        {{ fieldErrors.name[0] }}
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Code</label>
-                                    <input
-                                        v-model="form.code"
-                                        type="text"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': fieldErrors.code }"
-                                        placeholder="Auto from name"
-                                    />
-                                    <div v-if="fieldErrors.code" class="invalid-feedback d-block">
-                                        {{ fieldErrors.code[0] }}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Layout type *</label>
-                                    <AppSelect
-                                        v-model="form.layout_type"
-                                        :options="layoutTypeSelectOptions"
-                                        placeholder="Select layout type"
-                                        search-placeholder="Search type…"
-                                    />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Sort order</label>
-                                    <input v-model.number="form.sort_order" v-no-scroll-change type="number" min="0" class="form-control" />
-                                </div>
-                                <div class="col-md-3 d-flex align-items-end">
-                                    <div class="form-check">
-                                        <input id="layoutActive" v-model="form.is_active" class="form-check-input" type="checkbox" />
-                                        <label class="form-check-label" for="layoutActive">Active</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <template v-if="form.layout_type === 'standard'">
-                                <hr />
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Steer axles</label>
-                                        <input v-model.number="form.steer_axles" v-no-scroll-change type="number" min="0" max="2" class="form-control" />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Spare count</label>
-                                        <input v-model.number="form.spare_count" v-no-scroll-change type="number" min="0" max="10" class="form-control" />
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Dual axles</label>
-                                        <input
-                                            v-model="form.dual_axles_text"
-                                            type="text"
-                                            class="form-control"
-                                            placeholder="e.g. 1, 2, 3"
-                                        />
-                                        <div class="form-text">Comma-separated axle numbers with inner+outer wheels.</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Single-wheel axles</label>
-                                        <input
-                                            v-model="form.single_axles_text"
-                                            type="text"
-                                            class="form-control"
-                                            placeholder="e.g. 1"
-                                        />
-                                        <div class="form-text">For small trucks — one tyre per side per axle.</div>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <div class="alert alert-info py-2 mt-3 mb-0 small">
-                                Total positions: <strong>{{ previewCount }}</strong>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
-                            <AppButton type="submit" label="Save" :loading="saving" />
-                        </div>
-                    </form>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Code</label>
+                    <input
+                        v-model="form.code"
+                        type="text"
+                        class="form-control"
+                        :class="{ 'is-invalid': fieldErrors.code }"
+                        placeholder="Auto from name"
+                    />
+                    <div v-if="fieldErrors.code" class="invalid-feedback d-block">
+                        {{ fieldErrors.code[0] }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Layout type *</label>
+                    <AppSelect
+                        v-model="form.layout_type"
+                        :options="layoutTypeSelectOptions"
+                        placeholder="Select layout type"
+                        search-placeholder="Search type…"
+                    />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort order</label>
+                    <input v-model.number="form.sort_order" v-no-scroll-change type="number" min="0" class="form-control" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input id="layoutActive" v-model="form.is_active" class="form-check-input" type="checkbox" />
+                        <label class="form-check-label" for="layoutActive">Active</label>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <template v-if="form.layout_type === 'standard'">
+                <hr />
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Steer axles</label>
+                        <input v-model.number="form.steer_axles" v-no-scroll-change type="number" min="0" max="2" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Spare count</label>
+                        <input v-model.number="form.spare_count" v-no-scroll-change type="number" min="0" max="10" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Dual axles</label>
+                        <input
+                            v-model="form.dual_axles_text"
+                            type="text"
+                            class="form-control"
+                            placeholder="e.g. 1, 2, 3"
+                        />
+                        <div class="form-text">Comma-separated axle numbers with inner+outer wheels.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Single-wheel axles</label>
+                        <input
+                            v-model="form.single_axles_text"
+                            type="text"
+                            class="form-control"
+                            placeholder="e.g. 1"
+                        />
+                        <div class="form-text">For small trucks — one tyre per side per axle.</div>
+                    </div>
+                </div>
+            </template>
+
+            <div class="alert alert-info py-2 mt-3 mb-0 small">
+                Total positions: <strong>{{ previewCount }}</strong>
+            </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
+                <AppButton type="submit" label="Save" :loading="saving" />
+            </template>
+        </AppModal>
     </div>
 </template>
 
@@ -203,6 +194,7 @@ import {
     parseAxleList,
     updateTyreLayout,
 } from '../../api/tyreLayouts';
+import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';

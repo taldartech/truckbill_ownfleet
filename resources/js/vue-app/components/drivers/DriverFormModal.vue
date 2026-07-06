@@ -1,263 +1,235 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-person-plus'"></i>
-                        {{ isEdit ? 'Edit Driver' : 'Add New Driver' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
+        <template #title>
+            <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-person-plus'"></i>
+            {{ isEdit ? 'Edit Driver' : 'Add New Driver' }}
+        </template>
+
+        <div class="driver-form-grid">
+            <div>
+                <label :for="`${modalId}_name`" class="form-label">Name *</label>
+                <input
+                    :id="`${modalId}_name`"
+                    v-model="form.name"
+                    type="text"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.name }"
+                    required
+                />
+                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                    {{ fieldErrors.name[0] }}
                 </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_name`" class="form-label">Name *</label>
-                                <input
-                                    :id="`${modalId}_name`"
-                                    v-model="form.name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.name }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.name[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_mobile`" class="form-label">Mobile *</label>
-                                <input
-                                    :id="`${modalId}_mobile`"
-                                    v-model="form.mobile"
-                                    type="text"
-                                    inputmode="numeric"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': mobileError }"
-                                    maxlength="10"
-                                    placeholder="10-digit mobile number"
-                                    required
-                                    @input="onMobileInput"
-                                />
-                                <div v-if="mobileError" class="invalid-feedback d-block">
-                                    {{ mobileError }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_license_number`" class="form-label">License Number</label>
-                                <input
-                                    :id="`${modalId}_license_number`"
-                                    v-model="form.license_number"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.license_number }"
-                                    placeholder="e.g., DL-1420110012345"
-                                />
-                                <small class="form-text text-muted">Optional field</small>
-                                <div v-if="fieldErrors.license_number" class="invalid-feedback d-block">
-                                    {{ fieldErrors.license_number[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_address`" class="form-label">Address</label>
-                                <input
-                                    :id="`${modalId}_address`"
-                                    v-model="form.address"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.address }"
-                                    placeholder="Enter address"
-                                />
-                                <small class="form-text text-muted">Optional field</small>
-                                <div v-if="fieldErrors.address" class="invalid-feedback d-block">
-                                    {{ fieldErrors.address[0] }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_license_expiry`" class="form-label">License Expiry</label>
-                                <AppDateInput
-                                    :input-id="`${modalId}_license_expiry`"
-                                    v-model="form.license_expiry_date"
-                                    :invalid="!!fieldErrors.license_expiry_date"
-                                />
-                                <div v-if="fieldErrors.license_expiry_date" class="invalid-feedback d-block">
-                                    {{ fieldErrors.license_expiry_date[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_joining_date`" class="form-label">Joining Date *</label>
-                                <AppDateInput
-                                    :input-id="`${modalId}_joining_date`"
-                                    v-model="form.joining_date"
-                                    :invalid="!!joiningDateError"
-                                    required
-                                />
-                                <div v-if="joiningDateError" class="invalid-feedback d-block">
-                                    {{ joiningDateError }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_aadhaar`" class="form-label">Aadhaar Number</label>
-                                <input
-                                    :id="`${modalId}_aadhaar`"
-                                    v-model="form.aadhaar_number"
-                                    type="text"
-                                    inputmode="numeric"
-                                    maxlength="12"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.aadhaar_number }"
-                                    placeholder="12 digits"
-                                    @input="onAadhaarInput"
-                                />
-                                <div v-if="fieldErrors.aadhaar_number" class="invalid-feedback d-block">
-                                    {{ fieldErrors.aadhaar_number[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_pan`" class="form-label">PAN Number</label>
-                                <input
-                                    :id="`${modalId}_pan`"
-                                    v-model="form.pan_number"
-                                    type="text"
-                                    maxlength="10"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.pan_number }"
-                                    placeholder="ABCDE1234F"
-                                    @input="onPanInput"
-                                />
-                                <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
-                                    {{ fieldErrors.pan_number[0] }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_bank_account`" class="form-label">Bank Account No.</label>
-                                <input
-                                    :id="`${modalId}_bank_account`"
-                                    v-model="form.bank_account_number"
-                                    type="text"
-                                    inputmode="numeric"
-                                    class="form-control"
-                                    @input="onBankAccountInput"
-                                />
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_bank_ifsc`" class="form-label">IFSC</label>
-                                <input
-                                    :id="`${modalId}_bank_ifsc`"
-                                    v-model="form.bank_ifsc"
-                                    type="text"
-                                    class="form-control"
-                                />
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_emergency_name`" class="form-label">Emergency Contact Name</label>
-                                <input
-                                    :id="`${modalId}_emergency_name`"
-                                    v-model="form.emergency_contact_name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.emergency_contact_name }"
-                                />
-                                <div v-if="fieldErrors.emergency_contact_name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.emergency_contact_name[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_emergency_phone`" class="form-label">Emergency Contact Mobile</label>
-                                <input
-                                    :id="`${modalId}_emergency_phone`"
-                                    v-model="form.emergency_contact_phone"
-                                    type="text"
-                                    inputmode="numeric"
-                                    maxlength="10"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.emergency_contact_phone }"
-                                    placeholder="10-digit mobile number"
-                                    @input="onEmergencyPhoneInput"
-                                />
-                                <div v-if="fieldErrors.emergency_contact_phone" class="invalid-feedback d-block">
-                                    {{ fieldErrors.emergency_contact_phone[0] }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_daily_wage`" class="form-label">
-                                    Monthly Payment Base *
-                                </label>
-                                <input
-                                    :id="`${modalId}_daily_wage`"
-                                    v-model="form.daily_wage"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': monthlyPaymentError }"
-                                    placeholder="e.g. 30000"
-                                    required
-                                />
-                                <small class="form-text text-muted">
-                                    Monthly payment appears in Monthly Wage Settlement.
-                                </small>
-                                <div v-if="monthlyPaymentError" class="invalid-feedback d-block">
-                                    {{ monthlyPaymentError }}
-                                </div>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-end">
-                                <div class="form-check mb-2">
-                                    <input
-                                        :id="`${modalId}_is_active`"
-                                        v-model="form.is_active"
-                                        class="form-check-input"
-                                        type="checkbox"
-                                    />
-                                    <label class="form-check-label" :for="`${modalId}_is_active`">Active</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            <i class="bi bi-check-circle"></i>
-                            {{ saving ? (isEdit ? 'Updating...' : 'Adding...') : isEdit ? 'Update Driver' : 'Add Driver' }}
-                        </button>
-                    </div>
-                </form>
             </div>
+            <div>
+                <label :for="`${modalId}_mobile`" class="form-label">Mobile *</label>
+                <input
+                    :id="`${modalId}_mobile`"
+                    v-model="form.mobile"
+                    type="text"
+                    inputmode="numeric"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': mobileError }"
+                    maxlength="10"
+                    placeholder="10-digit mobile"
+                    required
+                    @input="onMobileInput"
+                />
+                <div v-if="mobileError" class="invalid-feedback d-block">
+                    {{ mobileError }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_license_number`" class="form-label">License Number</label>
+                <input
+                    :id="`${modalId}_license_number`"
+                    v-model="form.license_number"
+                    type="text"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.license_number }"
+                    placeholder="e.g. DL-1420110012345"
+                />
+                <div v-if="fieldErrors.license_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.license_number[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_address`" class="form-label">Address</label>
+                <input
+                    :id="`${modalId}_address`"
+                    v-model="form.address"
+                    type="text"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.address }"
+                    placeholder="Enter address"
+                />
+                <div v-if="fieldErrors.address" class="invalid-feedback d-block">
+                    {{ fieldErrors.address[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_license_expiry`" class="form-label">License Expiry</label>
+                <AppDateInput
+                    :input-id="`${modalId}_license_expiry`"
+                    v-model="form.license_expiry_date"
+                    size="sm"
+                    :invalid="!!fieldErrors.license_expiry_date"
+                />
+                <div v-if="fieldErrors.license_expiry_date" class="invalid-feedback d-block">
+                    {{ fieldErrors.license_expiry_date[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_joining_date`" class="form-label">Joining Date *</label>
+                <AppDateInput
+                    :input-id="`${modalId}_joining_date`"
+                    v-model="form.joining_date"
+                    size="sm"
+                    :invalid="!!joiningDateError"
+                    required
+                />
+                <div v-if="joiningDateError" class="invalid-feedback d-block">
+                    {{ joiningDateError }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_aadhaar`" class="form-label">Aadhaar Number</label>
+                <input
+                    :id="`${modalId}_aadhaar`"
+                    v-model="form.aadhaar_number"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="12"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.aadhaar_number }"
+                    placeholder="12 digits"
+                    @input="onAadhaarInput"
+                />
+                <div v-if="fieldErrors.aadhaar_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.aadhaar_number[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_pan`" class="form-label">PAN Number</label>
+                <input
+                    :id="`${modalId}_pan`"
+                    v-model="form.pan_number"
+                    type="text"
+                    maxlength="10"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.pan_number }"
+                    placeholder="ABCDE1234F"
+                    @input="onPanInput"
+                />
+                <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.pan_number[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_bank_account`" class="form-label">Bank Account No.</label>
+                <input
+                    :id="`${modalId}_bank_account`"
+                    v-model="form.bank_account_number"
+                    type="text"
+                    inputmode="numeric"
+                    class="form-control form-control-sm"
+                    @input="onBankAccountInput"
+                />
+            </div>
+            <div>
+                <label :for="`${modalId}_bank_ifsc`" class="form-label">IFSC</label>
+                <input
+                    :id="`${modalId}_bank_ifsc`"
+                    v-model="form.bank_ifsc"
+                    type="text"
+                    class="form-control form-control-sm"
+                />
+            </div>
+            <div>
+                <label :for="`${modalId}_emergency_name`" class="form-label">Emergency Contact Name</label>
+                <input
+                    :id="`${modalId}_emergency_name`"
+                    v-model="form.emergency_contact_name"
+                    type="text"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.emergency_contact_name }"
+                />
+                <div v-if="fieldErrors.emergency_contact_name" class="invalid-feedback d-block">
+                    {{ fieldErrors.emergency_contact_name[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_emergency_phone`" class="form-label">Emergency Contact Mobile</label>
+                <input
+                    :id="`${modalId}_emergency_phone`"
+                    v-model="form.emergency_contact_phone"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="10"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': fieldErrors.emergency_contact_phone }"
+                    placeholder="10-digit mobile"
+                    @input="onEmergencyPhoneInput"
+                />
+                <div v-if="fieldErrors.emergency_contact_phone" class="invalid-feedback d-block">
+                    {{ fieldErrors.emergency_contact_phone[0] }}
+                </div>
+            </div>
+            <div>
+                <label :for="`${modalId}_daily_wage`" class="form-label">Monthly Payment Base *</label>
+                <input
+                    :id="`${modalId}_daily_wage`"
+                    v-model="form.daily_wage"
+                    v-no-scroll-change
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': monthlyPaymentError }"
+                    placeholder="e.g. 30000"
+                    required
+                />
+                <div v-if="monthlyPaymentError" class="invalid-feedback d-block">
+                    {{ monthlyPaymentError }}
+                </div>
+            </div>
+            <div class="driver-form-grid__active">
+                <div class="form-check">
+                    <input
+                        :id="`${modalId}_is_active`"
+                        v-model="form.is_active"
+                        class="form-check-input"
+                        type="checkbox"
+                    />
+                    <label class="form-check-label" :for="`${modalId}_is_active`">Active</label>
+                </div>
+            </div>
+            <p class="driver-form-grid__hint text-muted small mb-0">
+                Monthly payment appears in Monthly Wage Settlement.
+            </p>
         </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="saving" @click="close">
+                Cancel
+            </button>
+            <button type="submit" class="btn btn-success btn-sm" :disabled="saving">
+                <i class="bi bi-check-circle"></i>
+                {{ saving ? (isEdit ? 'Updating...' : 'Adding...') : isEdit ? 'Update Driver' : 'Add Driver' }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import { normalizeDigits, normalizeMobile } from '../../utils/phone';
 
 const props = defineProps({
@@ -271,12 +243,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -371,15 +337,8 @@ function fillForm(driver) {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             fillForm(props.driver);
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );
@@ -442,3 +401,30 @@ function submit() {
     });
 }
 </script>
+
+<style scoped>
+.driver-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.75rem;
+    align-items: start;
+}
+
+.driver-form-grid__active {
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 0.15rem;
+}
+
+.driver-form-grid__hint {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+@media (max-width: 575.98px) {
+    .driver-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+</style>

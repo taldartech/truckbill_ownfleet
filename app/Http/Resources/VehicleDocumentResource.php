@@ -2,9 +2,10 @@
 
 namespace App\Http\Resources;
 
-use App\Support\ApiDateTime;
 use App\Enums\VehicleDocumentType;
+use App\Support\ApiDateTime;
 use App\Support\DocumentTypeDefaults;
+use App\Support\VehicleDocumentStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +21,11 @@ class VehicleDocumentResource extends JsonResource
         $label = DocumentTypeDefaults::labelFor((string) $this->tenant_id, $code)
             ?? $enumType?->label()
             ?? $code;
+
+        $status = VehicleDocumentStatus::compute(
+            $this->expiry_date,
+            $this->reminder_days_before,
+        );
 
         return [
             'id' => $this->id,
@@ -43,7 +49,8 @@ class VehicleDocumentResource extends JsonResource
                 fn () => route('app.api.vehicle-documents.preview', $this->id),
             ),
             'reminder_days_before' => $this->reminder_days_before,
-            'is_expired' => $this->expiry_date !== null && $this->expiry_date->isPast(),
+            'is_expired' => $status['status_tier'] === 'expired',
+            ...$status,
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
             'vehicle' => new VehicleResource($this->whenLoaded('vehicle')),

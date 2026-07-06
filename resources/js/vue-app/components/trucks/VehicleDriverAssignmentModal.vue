@@ -1,24 +1,18 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        size="lg"
+        :loading="modalLoading"
+        :form-error="assignmentErrorMessage"
+        :dismissible="true"
+        @close="close"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i class="bi bi-person-badge"></i>
-                        Driver Assignment — {{ vehicleLabel }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
-                </div>
-                <div class="modal-body">
-                    <div v-if="assignmentErrorMessage" class="alert alert-danger py-2">{{ assignmentErrorMessage }}</div>
-                    <div v-if="hasActivePrimary" class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <template #title>
+            <i class="bi bi-person-badge"></i>
+            Driver Assignment — {{ vehicleLabel }}
+        </template>
+
+        <div v-if="hasActivePrimary" class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <div>
                             <strong>Current driver:</strong> {{ currentDriverName }}
                             <span v-if="currentAssignedFrom" class="text-muted">
@@ -229,10 +223,7 @@
                             </table>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    </AppModal>
 </template>
 
 <script setup>
@@ -247,11 +238,11 @@ import {
 } from '../../api/driverAssignments';
 import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { toDateInputValue } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
+import AppModal from '../ui/AppModal.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
@@ -264,12 +255,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'assigned']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
 
 const loading = ref(false);
 const saving = ref(false);
@@ -314,6 +299,8 @@ const assignmentErrorMessage = computed(
         || formError.value
         || '',
 );
+
+const modalLoading = computed(() => saving.value || removing.value || deletingId.value !== null);
 
 const unassignedDrivers = computed(() =>
     drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),
@@ -535,10 +522,6 @@ async function refreshAssignmentState() {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             clearErrors();
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
@@ -547,9 +530,6 @@ watch(
             await loadPrimaryAssignment();
             resetAssignForm();
             await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

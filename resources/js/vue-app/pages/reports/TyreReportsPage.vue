@@ -17,7 +17,7 @@
 
         <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
             <div>
                 <label class="form-label">Report</label>
                 <AppSelect
@@ -82,6 +82,19 @@
                     </table>
                 </div>
             </div>
+            <AppIndexPaginationFooter
+                page-id="tyreReports"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="records"
+                @page-change="loadReport"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
     </div>
 </template>
@@ -95,19 +108,24 @@ import {
     fetchTyreLifeReport,
     fetchTyreReplacementsReport,
     fetchTyreVehicleWiseReport,
+    withReportPagination,
 } from '../../api/tyreReports';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import {
     dateRangeExceedsMonths,
     dateRangeMonthsError,
+    FUTURE_DATE_ERROR,
     MAX_LIST_DATE_RANGE_MONTHS,
     maxDateRangeEnd,
+    TO_DATE_BEFORE_FROM_ERROR,
 } from '../../utils/dateRangePresets';
 import { formatTableCell, toDateInputValue } from '../../utils/datetime';
 
@@ -132,6 +150,7 @@ const filters = reactive({ from: '', to: '' });
 const rows = ref([]);
 const loading = ref(false);
 const reportLoaded = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
 
 const filtersActive = computed(() => filters.from !== '' || filters.to !== '');
 
@@ -182,10 +201,18 @@ function formatColumn(key) {
 
 function formatCell(row, col, rowIndex) {
     if (col === 's_no') {
-        return rowIndex + 1;
+        return serialNumber(rowIndex);
     }
 
     return formatTableCell(col, row[col]);
+}
+
+function serialNumber(rowIndex) {
+    if (pagination.from > 0) {
+        return pagination.from + rowIndex;
+    }
+
+    return rowIndex + 1;
 }
 
 function validateFilters() {
@@ -200,15 +227,15 @@ function validateFilters() {
     }
 
     if (filters.from && filters.from > todayMax.value) {
-        errors.from = ['Future dates are not allowed.'];
+        errors.from = [FUTURE_DATE_ERROR];
     }
 
     if (filters.to && filters.to > todayMax.value) {
-        errors.to = ['Future dates are not allowed.'];
+        errors.to = [FUTURE_DATE_ERROR];
     }
 
     if (filters.from && filters.to && filters.from > filters.to) {
-        errors.to = ['End date must be on or after start date.'];
+        errors.to = [TO_DATE_BEFORE_FROM_ERROR];
     }
 
     if (dateRangeExceedsMonths(filters.from, filters.to, MAX_REPORT_DATE_RANGE_MONTHS)) {
@@ -232,10 +259,11 @@ function buildFilterParams() {
     };
 }
 
-async function loadReport() {
+async function loadReport(page = 1) {
     if (needsCompanySelection.value) {
         rows.value = [];
         reportLoaded.value = false;
+        resetPagination();
 
         return;
     }
@@ -245,6 +273,7 @@ async function loadReport() {
     if (!validateFilters()) {
         rows.value = [];
         reportLoaded.value = false;
+        resetPagination();
 
         return;
     }
@@ -258,22 +287,24 @@ async function loadReport() {
     loading.value = true;
 
     try {
-        const data = await def.loader(buildFilterParams());
+        const result = await def.loader(withReportPagination(buildFilterParams(), page, pagination.perPage));
 
-        if (reportType.value === 'expenses') {
-            rows.value = Object.entries(data).map(([expense_type, total]) => ({ expense_type, total }));
-        } else {
-            rows.value = data;
-        }
-
+        rows.value = result.rows;
+        syncFromMeta(result.meta, result.rows.length);
         reportLoaded.value = true;
     } catch (error) {
         rows.value = [];
         reportLoaded.value = false;
+        resetPagination();
         applyApiError(error, 'Unable to load report.');
     } finally {
         loading.value = false;
     }
+}
+
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadReport(1);
 }
 
 function clearFilters() {
@@ -281,6 +312,7 @@ function clearFilters() {
     filters.to = '';
     rows.value = [];
     reportLoaded.value = false;
+    resetPagination();
     clearErrors();
 }
 
@@ -303,6 +335,7 @@ function onFromChange() {
 function onReportTypeChange() {
     rows.value = [];
     reportLoaded.value = false;
+    resetPagination();
     clearErrors();
 }
 </script>

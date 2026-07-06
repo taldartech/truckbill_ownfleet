@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\TripManagement\Services\FleetMonthlyReportService;
+use App\Support\ReportPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -19,9 +20,12 @@ class FleetMonthlyReportController extends Controller
         $this->authorize('fleet_monthly_report.view');
 
         $month = $this->validatedMonth($request);
+        $report = $this->fleetMonthlyReportService->build($month);
 
-        return response()->json([
-            'data' => $this->fleetMonthlyReportService->build($month),
+        return ReportPaginator::paginate($request, $report['rows'], [
+            'summary' => $report['summary'],
+            'company_name' => $report['company_name'],
+            'month' => $report['month'],
         ]);
     }
 

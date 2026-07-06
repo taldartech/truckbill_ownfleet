@@ -1,87 +1,77 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-shield-plus'"></i>
-                        {{ isEdit ? 'Edit Permission' : 'Add Permission' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
+        <template #title>
+            <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-shield-plus'"></i>
+            {{ isEdit ? 'Edit Permission' : 'Add Permission' }}
+        </template>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label :for="`${modalId}_slug`" class="form-label">Slug *</label>
+                <input
+                    :id="`${modalId}_slug`"
+                    v-model="form.slug"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.slug }"
+                    placeholder="module.action"
+                    required
+                />
+                <div v-if="fieldErrors.slug" class="invalid-feedback d-block">
+                    {{ fieldErrors.slug[0] }}
                 </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_slug`" class="form-label">Slug *</label>
-                                <input
-                                    :id="`${modalId}_slug`"
-                                    v-model="form.slug"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.slug }"
-                                    placeholder="module.action"
-                                    required
-                                />
-                                <div v-if="fieldErrors.slug" class="invalid-feedback d-block">
-                                    {{ fieldErrors.slug[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_group`" class="form-label">Group *</label>
-                                <input
-                                    :id="`${modalId}_group`"
-                                    v-model="form.group"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.group }"
-                                    placeholder="access"
-                                    required
-                                />
-                                <div v-if="fieldErrors.group" class="invalid-feedback d-block">
-                                    {{ fieldErrors.group[0] }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label :for="`${modalId}_name`" class="form-label">Name *</label>
-                            <input
-                                :id="`${modalId}_name`"
-                                v-model="form.name"
-                                type="text"
-                                class="form-control"
-                                :class="{ 'is-invalid': fieldErrors.name }"
-                                required
-                            />
-                            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                {{ fieldErrors.name[0] }}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-                            {{ isEdit ? 'Update' : 'Create' }}
-                        </button>
-                    </div>
-                </form>
+            </div>
+            <div class="col-md-6">
+                <label :for="`${modalId}_group`" class="form-label">Group *</label>
+                <input
+                    :id="`${modalId}_group`"
+                    v-model="form.group"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.group }"
+                    placeholder="access"
+                    required
+                />
+                <div v-if="fieldErrors.group" class="invalid-feedback d-block">
+                    {{ fieldErrors.group[0] }}
+                </div>
             </div>
         </div>
-    </div>
+        <div class="mb-3">
+            <label :for="`${modalId}_name`" class="form-label">Name *</label>
+            <input
+                :id="`${modalId}_name`"
+                v-model="form.name"
+                type="text"
+                class="form-control"
+                :class="{ 'is-invalid': fieldErrors.name }"
+                required
+            />
+            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                {{ fieldErrors.name[0] }}
+            </div>
+        </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-success" :disabled="saving">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+                {{ isEdit ? 'Update' : 'Create' }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 
 const props = defineProps({
     modalId: { type: String, default: 'permissionFormModal' },
@@ -94,12 +84,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: 'static',
-    onHidden: () => emit('close'),
-});
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -132,15 +116,8 @@ function submit() {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             resetForm();
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

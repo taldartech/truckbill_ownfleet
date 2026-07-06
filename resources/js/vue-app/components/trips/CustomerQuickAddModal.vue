@@ -1,44 +1,35 @@
 <template>
-    <div
-        v-if="show"
-        class="modal fade show d-block"
-        tabindex="-1"
-        style="background: rgba(0, 0, 0, 0.45)"
-        @click.self="$emit('close')"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="$emit('close')"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 class="modal-title"><i class="bi bi-building"></i> Quick Add Customer</h5>
-                    <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
-                </div>
-                <form @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+        <template #title>
+            <i class="bi bi-building"></i> Quick Add Customer
+        </template>
 
-                        <PartyQuickAddFields
-                            name-label="Customer Name"
-                            v-model:name="name"
-                            v-model:gst-number="gstNumber"
-                            v-model:pan-number="panNumber"
-                            v-model:contact-number="contactNumber"
-                            v-model:address="address"
-                            v-model:state-id="stateId"
-                            v-model:city-id="cityId"
-                            :states="states"
-                            :cities="cities"
-                            :india-country="indiaCountry"
-                            :field-errors="fieldErrors"
-                        />
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-                        <AppButton type="submit" label="Save" :loading="saving" />
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+        <PartyQuickAddFields
+            name-label="Customer Name"
+            v-model:name="name"
+            v-model:gst-number="gstNumber"
+            v-model:pan-number="panNumber"
+            v-model:contact-number="contactNumber"
+            v-model:address="address"
+            v-model:state-id="stateId"
+            v-model:city-id="cityId"
+            :states="states"
+            :cities="cities"
+            :field-errors="fieldErrors"
+        />
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('close')">Cancel</button>
+            <AppButton type="submit" label="Save" :loading="saving" />
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
@@ -49,6 +40,7 @@ import { useLocationLookups } from '../../composables/useLocationLookups';
 import { normalizeMobile } from '../../utils/phone';
 import PartyQuickAddFields from '../parties/PartyQuickAddFields.vue';
 import AppButton from '../ui/AppButton.vue';
+import AppModal from '../ui/AppModal.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

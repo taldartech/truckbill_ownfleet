@@ -13,8 +13,16 @@ class TripRepository
      */
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
+        $archived = (string) ($filters['archived'] ?? 'active');
+
+        $relations = ['vehicle', 'driver', 'substituteDriver', 'routeLegs'];
+
+        if ($archived === 'archived') {
+            $relations[] = 'archivedBy';
+        }
+
         return $this->filteredQuery($filters)
-            ->with(['vehicle', 'driver', 'substituteDriver', 'routeLegs'])
+            ->with($relations)
             ->latest('start_at')
             ->latest()
             ->paginate($perPage);
@@ -32,13 +40,22 @@ class TripRepository
         return $trip->fresh();
     }
 
-    public function delete(Trip $trip, ?string $userId = null): void
+    public function archive(Trip $trip, ?string $userId = null, ?string $archiveReason = null): void
     {
-        if ($userId !== null) {
-            $trip->update(['deleted_by' => $userId]);
-        }
+        $trip->update([
+            'archived_by' => $userId,
+            'archive_reason' => $archiveReason,
+        ]);
 
         $trip->delete();
+    }
+
+    /**
+     * @deprecated Use archive()
+     */
+    public function delete(Trip $trip, ?string $userId = null, ?string $deletionReason = null): void
+    {
+        $this->archive($trip, $userId, $deletionReason);
     }
 
     public function findWithDetails(string $id): ?Trip
@@ -87,6 +104,12 @@ class TripRepository
 
         if (! empty($filters['trip_type'])) {
             $query->where('trip_type', strtoupper((string) $filters['trip_type']));
+        }
+
+        $archived = (string) ($filters['archived'] ?? 'active');
+
+        if ($archived === 'archived') {
+            $query->onlyTrashed();
         }
 
         if (! empty($filters['customer_name'])) {

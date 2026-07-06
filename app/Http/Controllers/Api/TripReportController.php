@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\TripManagement\Services\TripReportService;
+use App\Support\ReportPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -76,8 +77,7 @@ class TripReportController extends Controller
     {
         $filters = $this->filters($request);
 
-        return response()->json([
-            'data' => $report($filters),
+        return ReportPaginator::paginate($request, $report($filters), [
             'summary' => [
                 'trip_count' => $this->tripReportService->filteredTripCount($filters),
             ],

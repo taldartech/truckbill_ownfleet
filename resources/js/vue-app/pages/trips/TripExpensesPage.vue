@@ -130,7 +130,7 @@
                         outline
                         size="sm"
                         icon="bi bi-x-lg"
-                        label="Exit"
+                        label="Cancel"
                         :to="tripDetailReturnTo"
                     />
                     <AppButton
@@ -163,6 +163,7 @@ import { listAllStations } from '../../api/stations';
 import {
     canManageTripExpenses,
     fetchTrip,
+    isTripArchived,
     tripStatusMeta,
     updateTrip,
 } from '../../api/trips';
@@ -322,6 +323,13 @@ async function loadTrip() {
 
     try {
         const loaded = await fetchTrip(route.params.id);
+
+        if (isTripArchived(loaded)) {
+            toast.error('This trip has been archived and expenses cannot be modified.');
+            await router.replace({ name: 'trips.show', params: { id: loaded.id } });
+
+            return;
+        }
 
         if (!canManageTripExpenses(loaded.status, user.value)) {
             toast.error('You cannot edit expenses for this trip.');

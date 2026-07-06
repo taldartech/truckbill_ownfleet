@@ -1,58 +1,35 @@
 <template>
-    <div
-        v-if="show"
-        class="modal fade show d-block"
-        tabindex="-1"
-        style="background: rgba(0, 0, 0, 0.45)"
-        @click.self="$emit('close')"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="$emit('close')"
+        @submit="submit"
     >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 class="modal-title"><i class="bi bi-geo-alt"></i> Quick Add Station</h5>
-                    <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
-                </div>
-                <form @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+        <template #title>
+            <i class="bi bi-geo-alt"></i> Quick Add Station
+        </template>
 
-                        <div class="mb-3">
-                            <label class="form-label">Country</label>
-                            <input type="text" class="form-control" :value="indiaCountry?.name || 'India'" disabled />
-                        </div>
+        <div class="row g-2">
+            <IndiaLocationFields
+                v-model:state-id="stateId"
+                v-model:city-id="cityId"
+                :states="states"
+                :cities="cities"
+            />
 
-                        <div class="mb-3">
-                            <label class="form-label">State *</label>
-                            <SearchableSelect
-                                v-model="stateId"
-                                :items="states"
-                                placeholder="Select state"
-                                search-placeholder="Search state…"
-                            />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">City *</label>
-                            <SearchableSelect
-                                v-model="cityId"
-                                :items="cities"
-                                placeholder="Select city"
-                                search-placeholder="Search city…"
-                                :disabled="!stateId"
-                            />
-                        </div>
-
-                        <label class="form-label">Station Name *</label>
-                        <input v-model="name" type="text" class="form-control" required />
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-                        <AppButton type="submit" label="Save" :loading="saving" />
-                    </div>
-                </form>
+            <div class="col-12">
+                <label class="form-label">Station Name *</label>
+                <input v-model="name" type="text" class="form-control" required />
             </div>
         </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('close')">Cancel</button>
+            <AppButton type="submit" label="Save" :loading="saving" />
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
@@ -60,8 +37,9 @@ import { onMounted, ref, watch } from 'vue';
 import { createStation } from '../../api/stations';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
+import IndiaLocationFields from '../locations/IndiaLocationFields.vue';
 import AppButton from '../ui/AppButton.vue';
-import SearchableSelect from '../ui/SearchableSelect.vue';
+import AppModal from '../ui/AppModal.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

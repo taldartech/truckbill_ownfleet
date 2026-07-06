@@ -1,0 +1,128 @@
+.compliance-row {
+    border-left: 3px solid transparent;
+    transition: background-color 0.15s ease;
+}
+
+.compliance-row--expired {
+    border-left-color: rgba(220, 53, 69, 0.45);
+}
+
+.compliance-row--today {
+    border-left-color: rgba(217, 119, 6, 0.55);
+}
+
+.compliance-row--reminder {
+    border-left-color: rgba(245, 158, 11, 0.5);
+}
+
+.compliance-row--valid {
+    border-left-color: rgba(47, 179, 111, 0.45);
+}
+
+.compliance-badge {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.05rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.compliance-badge__sub {
+    font-size: 0.68rem;
+    font-weight: 500;
+    opacity: 0.85;
+}
+
+.compliance-badge--expired {
+    color: #b42318;
+    background: rgba(254, 226, 226, 0.65);
+    border-color: rgba(248, 113, 113, 0.35);
+}
+
+.compliance-badge--today {
+    color: #b45309;
+    background: rgba(254, 243, 199, 0.7);
+    border-color: rgba(251, 191, 36, 0.4);
+}
+
+.compliance-badge--reminder {
+    color: #a16207;
+    background: rgba(254, 249, 195, 0.75);
+    border-color: rgba(234, 179, 8, 0.35);
+}
+
+.compliance-badge--valid {
+    color: #23965c;
+    background: rgba(232, 245, 238, 0.9);
+    border-color: rgba(47, 179, 111, 0.3);
+}
+
+.compliance-table .table > :not(caption) > * > * {
+    padding: 0.55rem 0.65rem;
+    vertical-align: middle;
+}
+
+.compliance-table thead th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--brand-text-muted, #64748b);
+    border-bottom-width: 1px;
+}
+
+.compliance-modal .modal-header {
+    background: linear-gradient(135deg, var(--brand-primary, #2fb36f) 0%, #23965c 100%);
+    color: #fff;
+    border-bottom: none;
+}
+
+.compliance-modal .modal-header .modal-title {
+    color: #fff;
+}
+
+.compliance-modal .modal-header .btn-close {
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+}
+
+.compliance-modal .modal-content {
+    border: none;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+}
+
+.compliance-actions-col {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.compliance-actions {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.compliance-actions .btn {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compliance-actions .btn i {
+    margin: 0 !important;
+}

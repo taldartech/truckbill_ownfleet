@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Support\ApiDateTime;
 use App\Http\Controllers\Controller;
+use App\Support\ApiDateTime;
 use App\Support\FleetComplianceAlerts;
 use App\Support\FleetDashboardStats;
+use App\Support\ReportDateRange;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,6 +33,8 @@ class FleetDashboardController extends Controller
 
         $fromDate = $validated['from_date'] ?? now()->toDateString();
         $toDate = $validated['to_date'] ?? $fromDate;
+
+        ReportDateRange::assertValidDates($fromDate, $toDate, 'from_date', 'to_date');
 
         return response()->json(FleetDashboardStats::build($user, $fromDate, $toDate));
     }

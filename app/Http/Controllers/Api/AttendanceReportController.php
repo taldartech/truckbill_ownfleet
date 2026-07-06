@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Attendance;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AttendanceResource;
+use App\Support\ReportPaginator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -15,7 +16,7 @@ class AttendanceReportController extends Controller
     {
         $this->authorize('reports.view');
 
-        $perPage = min(max((int) $request->input('per_page', 50), 1), 500);
+        $perPage = ReportPaginator::perPage($request);
 
         return AttendanceResource::collection(
             $this->filteredQuery($request)

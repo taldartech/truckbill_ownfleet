@@ -1,35 +1,23 @@
 <template>
-    <Teleport to="body">
-    <div
-        v-if="show"
-        class="modal fade show d-block"
-        tabindex="-1"
-        style="background: rgba(0, 0, 0, 0.45)"
-        @click.self="$emit('cancel')"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="saveError || formError"
+        :header-gradient="status !== 'CANCELLED'"
+        :content-class="status === 'CANCELLED' ? 'trip-status-modal--cancelled' : ''"
+        dismissible
+        as-form
+        @close="$emit('cancel')"
+        @submit="submit"
     >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div
-                    class="modal-header text-white"
-                    :class="status === 'CANCELLED' ? 'bg-danger' : 'bg-gradient-primary'"
-                >
-                    <h5 class="modal-title text-white">
-                        <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
-                        {{ modalTitle }}
-                    </h5>
-                    <button
-                        type="button"
-                        class="btn-close btn-close-white"
-                        :disabled="saving"
-                        @click="$emit('cancel')"
-                    ></button>
-                </div>
-                <form @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="saveError" class="alert alert-danger py-2">{{ saveError }}</div>
-                        <div v-else-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+        <template #title>
+            <span class="text-white">
+                <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
+                {{ modalTitle }}
+            </span>
+        </template>
 
-                        <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
+        <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
                             <div
                                 class="status-final-confirm__icon mb-3"
                                 :class="status === 'CANCELLED' ? 'text-danger' : 'text-success'"
@@ -198,36 +186,32 @@
                             </div>
                             </template>
                         </template>
-                    </div>
-                    <div class="modal-footer">
-                        <template v-if="awaitingFinalConfirm">
-                            <button type="button" class="btn btn-secondary" :disabled="saving" @click="backToForm">
-                                No, Go Back
-                            </button>
-                            <AppButton
-                                type="button"
-                                label="OK"
-                                :variant="status === 'CANCELLED' ? 'danger' : 'success'"
-                                :disabled="saving"
-                                :loading="saving"
-                                @click="finalConfirm"
-                            />
-                        </template>
-                        <template v-else>
-                            <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('cancel')">Back</button>
-                            <AppButton
-                                type="submit"
-                                :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
-                                :variant="status === 'CANCELLED' ? 'danger' : 'success'"
-                                :disabled="saving || !canSubmit"
-                            />
-                        </template>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    </Teleport>
+
+        <template #footer>
+            <template v-if="awaitingFinalConfirm">
+                <button type="button" class="btn btn-secondary" :disabled="saving" @click="backToForm">
+                    No, Go Back
+                </button>
+                <AppButton
+                    type="button"
+                    label="OK"
+                    :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                    :disabled="saving"
+                    :loading="saving"
+                    @click="finalConfirm"
+                />
+            </template>
+            <template v-else>
+                <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('cancel')">Back</button>
+                <AppButton
+                    type="submit"
+                    :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
+                    :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                    :disabled="saving || !canSubmit"
+                />
+            </template>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
@@ -235,6 +219,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { toDateInputFromIso, toDateInputValue, formatDate, isDateAfter } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 import AppButton from '../ui/AppButton.vue';
+import AppModal from '../ui/AppModal.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -528,6 +513,11 @@ function finalConfirm() {
 </script>
 
 <style scoped>
+:deep(.trip-status-modal--cancelled .app-modal__header) {
+    background-color: var(--bs-danger);
+    color: #fff;
+}
+
 .status-final-confirm__icon {
     font-size: 2.5rem;
     line-height: 1;

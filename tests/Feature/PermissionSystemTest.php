@@ -64,10 +64,12 @@ class PermissionSystemTest extends TestCase
 
         $user->load('userRole.permissions');
 
-        $this->assertFalse($user->hasPermission('drivers.view'));
+        $this->assertTrue($user->hasPermission('drivers.view'));
         $this->assertFalse($user->hasPermission('drivers.manage'));
         $this->assertTrue($user->hasPermission('stations.view'));
-        $this->assertTrue($user->hasPermission('stations.manage'));
+        $this->assertFalse($user->hasPermission('stations.manage'));
+        $this->assertTrue($user->hasPermission('trips.view'));
+        $this->assertFalse($user->hasPermission('trips.manage'));
     }
 
     public function test_effective_tenant_id_is_cached_per_user_instance(): void

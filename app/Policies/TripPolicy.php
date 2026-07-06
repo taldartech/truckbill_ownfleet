@@ -29,13 +29,24 @@ class TripPolicy
 
     public function update(User $user, Trip $trip): bool
     {
-        return CurrentTenant::id() === $trip->tenant_id
+        return ! $trip->trashed()
+            && CurrentTenant::id() === $trip->tenant_id
             && $this->create($user);
     }
 
+    public function archive(User $user, Trip $trip): bool
+    {
+        return ! $trip->trashed()
+            && CurrentTenant::id() === $trip->tenant_id
+            && ($user->hasPermission('trips.archive') || $user->hasPermission('trips.delete'))
+            && $this->viewAny($user);
+    }
+
+    /**
+     * @deprecated Use archive()
+     */
     public function delete(User $user, Trip $trip): bool
     {
-        return $user->canDeleteOperationalRecords()
-            && $this->update($user, $trip);
+        return $this->archive($user, $trip);
     }
 }

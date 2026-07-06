@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceReportService;
+use App\Support\ReportPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,27 +19,33 @@ class VehicleMaintenanceReportController extends Controller
     {
         $this->authorize('maintenance_reports.view');
 
-        return response()->json([
-            'data' => $this->reportService->costSummary($this->filters($request)),
-        ]);
+        [$rows, $grandTotal] = ReportPaginator::extractGrandTotalRow(
+            $this->reportService->costSummary($this->filters($request)),
+        );
+
+        return ReportPaginator::paginate($request, $rows, array_filter([
+            'grand_total' => $grandTotal,
+        ]));
     }
 
     public function truckWise(Request $request): JsonResponse
     {
         $this->authorize('maintenance_reports.view');
 
-        return response()->json([
-            'data' => $this->reportService->truckWiseCost($this->filters($request)),
-        ]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->reportService->truckWiseCost($this->filters($request)),
+        );
     }
 
-    public function dueServices(): JsonResponse
+    public function dueServices(Request $request): JsonResponse
     {
         $this->authorize('maintenance_reports.view');
 
-        return response()->json([
-            'data' => $this->reportService->dueServices(),
-        ]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->reportService->dueServices(),
+        );
     }
 
     public function export(Request $request): BinaryFileResponse

@@ -17,7 +17,7 @@
             and click <strong>Enter</strong> to view trip reports.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
             <div>
                 <label class="form-label">Report Type</label>
                 <AppSelect
@@ -76,6 +76,19 @@
                 </div>
                 <div v-else-if="!loading" class="text-center text-muted py-4">No data for selected filters.</div>
             </div>
+            <AppIndexPaginationFooter
+                page-id="tripReports"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="records"
+                @page-change="loadReport"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
     </div>
 </template>
@@ -86,13 +99,17 @@ import { RouterLink } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
+import { withReportPagination } from '../../api/reportPagination';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { formatTableCell } from '../../utils/datetime';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
+import { useOperationalDataInvalidation } from '../../composables/useOperationalDataInvalidation';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
 
@@ -107,6 +124,7 @@ const vehicles = ref([]);
 const rows = ref([]);
 const tripCount = ref(null);
 const loading = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
 
 function defaultFilters() {
     return {
@@ -175,25 +193,35 @@ function buildFilterParams() {
     return params;
 }
 
-async function loadReport() {
+async function loadReport(page = 1) {
     loading.value = true;
 
     try {
-        const result = await fetchTripReport(reportType.value, buildFilterParams());
+        const result = await fetchTripReport(
+            reportType.value,
+            withReportPagination(buildFilterParams(), page, pagination.perPage),
+        );
         rows.value = result.rows;
-        tripCount.value = result.summary?.trip_count ?? result.rows.length;
+        tripCount.value = result.summary?.trip_count ?? result.meta?.total ?? result.rows.length;
+        syncFromMeta(result.meta, result.rows.length);
     } catch (error) {
         toast.error(error?.response?.data?.message ?? 'Failed to load trip report.');
         rows.value = [];
         tripCount.value = null;
+        resetPagination();
     } finally {
         loading.value = false;
     }
 }
 
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadReport(1);
+}
+
 function clearFilters() {
     Object.assign(filters, defaultFilters());
-    loadReport();
+    loadReport(1);
 }
 
 function exportExcel() {
@@ -201,11 +229,18 @@ function exportExcel() {
 }
 
 watch(reportType, () => {
-    loadReport();
+    resetPagination();
+    loadReport(1);
 });
 
 onMounted(async () => {
     vehicles.value = await listAllVehicles();
-    await loadReport();
+    await loadReport(1);
+});
+
+useOperationalDataInvalidation('trip-reports', () => {
+    if (!needsCompanySelection.value) {
+        loadReport(pagination.currentPage);
+    }
 });
 </script>

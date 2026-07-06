@@ -1,26 +1,18 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="displayFormError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-wrench-adjustable'"></i>
-                        {{ isEdit ? 'Edit Service Record' : 'Add Service Record' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
-                </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="displayFormError" class="alert alert-danger py-2">{{ displayFormError }}</div>
+        <template #title>
+            <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-wrench-adjustable'"></i>
+            {{ isEdit ? 'Edit Service Record' : 'Add Service Record' }}
+        </template>
 
-                        <div class="row mb-3">
+        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
                                 <VehicleSelect
@@ -168,31 +160,28 @@
                                 {{ displayFieldErrors.remarks[0] }}
                             </div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            <i class="bi bi-check-circle"></i>
-                            {{
-                                saving
-                                    ? isEdit
-                                        ? 'Updating...'
-                                        : 'Adding...'
-                                    : isEdit
-                                      ? 'Update Record'
-                                      : 'Add Record'
-                            }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-success" :disabled="saving">
+                <i class="bi bi-check-circle"></i>
+                {{
+                    saving
+                        ? isEdit
+                            ? 'Updating...'
+                            : 'Adding...'
+                        : isEdit
+                          ? 'Update Record'
+                          : 'Add Record'
+                }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import { listAllVehicles } from '../../api/vehicles';
 import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
 import MaintenanceServiceTypeSelect from '../ui/MaintenanceServiceTypeSelect.vue';
@@ -213,13 +202,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    focus: false,
-    onHidden: () => emit('close'),
-});
 
 const isEdit = computed(() => props.mode === 'edit');
 const today = computed(() => toDateInputValue());
@@ -397,16 +379,9 @@ watch(
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             await loadOptions();
             fillForm(props.record);
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

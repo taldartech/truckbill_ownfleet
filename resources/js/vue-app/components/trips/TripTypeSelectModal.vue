@@ -1,75 +1,68 @@
 <template>
-    <div
-        v-if="show"
-        class="modal fade show d-block"
-        tabindex="-1"
-        style="background: rgba(0, 0, 0, 0.45)"
-        @click.self="$emit('cancel')"
+    <AppModal
+        :show="show"
+        dismissible
+        :form-error="formError"
+        size="lg"
+        @close="$emit('cancel')"
     >
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 class="modal-title">
-                        <i class="bi bi-signpost-split me-2"></i>Select Trip Type
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @click="$emit('cancel')"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Choose the type of trip before continuing to the create form.
-                    </p>
-                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                    <div class="d-grid gap-2">
-                        <button
-                            type="button"
-                            class="trip-type-option"
-                            :class="{ 'trip-type-option--selected': selectedType === 'ROUND_TRIP' }"
-                            @click="selectedType = 'ROUND_TRIP'"
-                        >
-                            <span class="trip-type-option__icon">
-                                <i class="bi bi-arrow-repeat"></i>
-                            </span>
-                            <span class="trip-type-option__body">
-                                <strong>Round Trip</strong>
-                                <span class="trip-type-option__desc">Start → stops → return to start station</span>
-                            </span>
-                            <i
-                                v-if="selectedType === 'ROUND_TRIP'"
-                                class="bi bi-check-circle-fill trip-type-option__check"
-                            ></i>
-                        </button>
-                        <button
-                            type="button"
-                            class="trip-type-option"
-                            :class="{ 'trip-type-option--selected': selectedType === 'ONE_WAY' }"
-                            @click="selectedType = 'ONE_WAY'"
-                        >
-                            <span class="trip-type-option__icon">
-                                <i class="bi bi-arrow-right"></i>
-                            </span>
-                            <span class="trip-type-option__body">
-                                <strong>One Way Trip</strong>
-                                <span class="trip-type-option__desc">Start → one or more stops (no return required)</span>
-                            </span>
-                            <i
-                                v-if="selectedType === 'ONE_WAY'"
-                                class="bi bi-check-circle-fill trip-type-option__check"
-                            ></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
-                    <AppButton type="button" label="Continue" variant="success" @click="confirm" />
-                </div>
-            </div>
+        <template #title>
+            <i class="bi bi-signpost-split me-2"></i>Select Trip Type
+        </template>
+
+        <p class="text-muted small mb-3">
+            Choose the type of trip before continuing to the create form.
+        </p>
+        <div class="d-grid gap-2">
+            <button
+                type="button"
+                class="trip-type-option"
+                :class="{ 'trip-type-option--selected': selectedType === 'ROUND_TRIP' }"
+                @click="selectedType = 'ROUND_TRIP'"
+            >
+                <span class="trip-type-option__icon">
+                    <i class="bi bi-arrow-repeat"></i>
+                </span>
+                <span class="trip-type-option__body">
+                    <strong>Round Trip</strong>
+                    <span class="trip-type-option__desc">Start → stops → return to start station</span>
+                </span>
+                <i
+                    v-if="selectedType === 'ROUND_TRIP'"
+                    class="bi bi-check-circle-fill trip-type-option__check"
+                ></i>
+            </button>
+            <button
+                type="button"
+                class="trip-type-option"
+                :class="{ 'trip-type-option--selected': selectedType === 'ONE_WAY' }"
+                @click="selectedType = 'ONE_WAY'"
+            >
+                <span class="trip-type-option__icon">
+                    <i class="bi bi-arrow-right"></i>
+                </span>
+                <span class="trip-type-option__body">
+                    <strong>One Way Trip</strong>
+                    <span class="trip-type-option__desc">Start → one or more stops (no return required)</span>
+                </span>
+                <i
+                    v-if="selectedType === 'ONE_WAY'"
+                    class="bi bi-check-circle-fill trip-type-option__check"
+                ></i>
+            </button>
         </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
+            <AppButton type="button" label="Continue" variant="success" @click="confirm" />
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue';
 import AppButton from '../ui/AppButton.vue';
+import AppModal from '../ui/AppModal.vue';
 
 defineProps({
     show: { type: Boolean, default: false },

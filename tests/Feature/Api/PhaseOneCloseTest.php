@@ -101,17 +101,17 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('fleet.exceptions_today_count', 1);
     }
 
-    public function test_moderator_cannot_access_attendance_reports(): void
+    public function test_moderator_can_access_attendance_reports(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/reports/attendance')
-            ->assertForbidden();
+            ->assertOk();
 
         $this->actingAs($user)
             ->get('/app/api/reports/attendance/export')
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_admin_can_export_attendance_report_csv(): void
@@ -460,19 +460,29 @@ class PhaseOneCloseTest extends TestCase
     public function test_compliance_alerts_list_expired_and_expiring_documents(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
-        $vehicle = $this->createVehicle($tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = Vehicle::query()->create([
+            ...$operational,
+            'registration_number' => strtoupper(fake()->bothify('??##??####')),
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 1000,
+        ]);
 
         VehicleDocument::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operational,
             'vehicle_id' => $vehicle->id,
             'document_type' => 'insurance',
+            'issue_date' => now()->subYear()->toDateString(),
             'expiry_date' => now()->subDays(3)->toDateString(),
         ]);
 
         VehicleDocument::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operational,
             'vehicle_id' => $vehicle->id,
             'document_type' => 'puc',
+            'issue_date' => now()->subMonths(6)->toDateString(),
             'expiry_date' => now()->addDays(12)->toDateString(),
         ]);
 
@@ -484,6 +494,12 @@ class PhaseOneCloseTest extends TestCase
         $documents = collect($response->json('documents'));
         $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expired'));
         $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expiring'));
+        $this->assertSame('3 Days Overdue', $documents->firstWhere('document_type', 'insurance')['status_label']);
+        $this->assertSame(-3, $documents->firstWhere('document_type', 'insurance')['days_remaining']);
+        $this->assertLessThan(
+            $documents->firstWhere('document_type', 'puc')['days_remaining'],
+            $documents->firstWhere('document_type', 'insurance')['days_remaining'],
+        );
     }
 
     public function test_document_alert_notifier_creates_live_and_email_notifications(): void

@@ -152,29 +152,27 @@
             />
         </div>
 
-        <div
-            v-if="showModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeModal"
+        <AppModal
+            :show="showModal"
+            :loading="saving"
+            :form-error="formError"
+            as-form
+            content-class="tyre-form-modal__content"
+            body-class="tyre-form-body"
+            footer-class="tyre-form-footer"
+            @close="closeModal"
+            @submit="save"
         >
-            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable tyre-form-modal">
-                <div class="modal-content tyre-form-modal__content">
-                    <div class="modal-header bg-gradient-primary py-2">
-                        <div>
-                            <h5 class="modal-title mb-0">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
-                            <p v-if="modalHeaderMetaText" class="tyre-form-modal__meta mb-0 mt-1">
-                                {{ modalHeaderMetaText }}
-                            </p>
-                        </div>
-                        <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="closeModal"></button>
-                    </div>
-                    <form novalidate class="tyre-form-modal__form" @submit.prevent="save">
-                        <div class="modal-body tyre-form-body">
-                            <div v-if="formError" class="alert alert-danger py-2 mb-2 small" role="alert">{{ formError }}</div>
+            <template #header>
+                <div>
+                    <h5 class="modal-title mb-0">{{ editing ? 'Edit Tyre' : 'Add Tyre' }}</h5>
+                    <p v-if="modalHeaderMetaText" class="tyre-form-modal__meta mb-0 mt-1">
+                        {{ modalHeaderMetaText }}
+                    </p>
+                </div>
+            </template>
 
-                            <div class="tyre-form-grid">
+            <div class="tyre-form-grid">
                                 <div>
                                     <label class="form-label" for="tyreForm_serial_number">Tyre Number *</label>
                                     <input
@@ -328,25 +326,22 @@
                                     />
                                 </div>
                             </div>
-                        </div>
-                        <div class="modal-footer tyre-form-footer">
-                            <button type="button" class="btn btn-secondary btn-sm" @click="closeModal">Cancel</button>
-                            <AppButton
-                                v-if="!editing"
-                                type="button"
-                                variant="primary"
-                                outline
-                                size="sm"
-                                label="Save & Add Another"
-                                :loading="saving"
-                                @click="saveAndNext"
-                            />
-                            <AppButton type="submit" variant="primary" size="sm" label="Save" :loading="saving" />
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary btn-sm" :disabled="saving" @click="closeModal">Cancel</button>
+                <AppButton
+                    v-if="!editing"
+                    type="button"
+                    variant="primary"
+                    outline
+                    size="sm"
+                    label="Save & Add Another"
+                    :loading="saving"
+                    @click="saveAndNext"
+                />
+                <AppButton type="submit" variant="primary" size="sm" label="Save" :loading="saving" />
+            </template>
+        </AppModal>
     </div>
 </template>
 
@@ -355,6 +350,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
+import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -857,10 +853,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.tyre-form-modal {
-    width: calc(100% - 1rem);
-    max-width: 680px;
-    margin: 0.5rem auto;
+:deep(.app-modal:has(.tyre-form-modal__content)) {
+    max-width: 720px;
 }
 
 .tyre-form-modal__content {
@@ -872,12 +866,6 @@ onMounted(async () => {
 .tyre-form-modal__meta {
     font-size: 0.8125rem;
     color: rgba(255, 255, 255, 0.85);
-}
-
-.tyre-form-modal__form {
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 1rem);
 }
 
 .tyre-form-body {
@@ -919,10 +907,6 @@ onMounted(async () => {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .tyre-form-modal {
-        max-width: 100%;
-    }
-
     .tyre-form-footer {
         flex-wrap: wrap;
         justify-content: stretch;
@@ -931,12 +915,6 @@ onMounted(async () => {
     .tyre-form-footer :deep(.btn),
     .tyre-form-footer .btn {
         flex: 1 1 auto;
-    }
-}
-
-@media (min-width: 992px) {
-    .tyre-form-modal {
-        max-width: 720px;
     }
 }
 </style>

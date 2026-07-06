@@ -17,7 +17,7 @@
             and click <strong>Enter</strong> to view the monthly fleet report.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport" @clear="clearFilters">
+        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
             <div>
                 <label class="form-label">Month</label>
                 <input v-model="filters.month" type="month" class="form-control" />
@@ -71,6 +71,19 @@
                     </table>
                 </div>
             </div>
+            <AppIndexPaginationFooter
+                page-id="fleetMonthlyReport"
+                :loading="loading"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
+                :total="pagination.total"
+                :from="pagination.from"
+                :to="pagination.to"
+                item-label="trucks"
+                @page-change="loadReport"
+                @update:per-page="onPerPageUpdate"
+            />
         </div>
 
         <div v-if="!loading && summary" class="card app-index-list-card mt-3">
@@ -122,6 +135,8 @@ import {
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
@@ -136,6 +151,7 @@ const rows = ref([]);
 const summary = ref(null);
 const companyName = ref('');
 const loading = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
 
 function defaultFilters() {
     return {
@@ -165,7 +181,7 @@ function formatNumber(value, maximumFractionDigits = 2) {
     return Number(value).toLocaleString('en-IN', { maximumFractionDigits });
 }
 
-async function loadReport() {
+async function loadReport(page = 1) {
     if (needsCompanySelection.value || !filters.month) {
         return;
     }
@@ -173,23 +189,33 @@ async function loadReport() {
     loading.value = true;
 
     try {
-        const data = await fetchFleetMonthlyReport(filters.month);
+        const data = await fetchFleetMonthlyReport(filters.month, {
+            page,
+            per_page: pagination.perPage,
+        });
         rows.value = data.rows ?? [];
         summary.value = data.summary ?? null;
         companyName.value = data.company_name ?? '';
+        syncFromMeta(data.meta, rows.value.length);
     } catch (error) {
         toast.error(error?.response?.data?.message ?? 'Failed to load monthly fleet report.');
         rows.value = [];
         summary.value = null;
         companyName.value = '';
+        resetPagination();
     } finally {
         loading.value = false;
     }
 }
 
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadReport(1);
+}
+
 function clearFilters() {
     Object.assign(filters, defaultFilters());
-    loadReport();
+    loadReport(1);
 }
 
 function exportExcel() {
@@ -201,6 +227,6 @@ function exportExcel() {
 }
 
 onMounted(() => {
-    loadReport();
+    loadReport(1);
 });
 </script>

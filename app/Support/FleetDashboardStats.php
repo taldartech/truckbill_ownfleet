@@ -2,14 +2,13 @@
 
 namespace App\Support;
 
-use App\Support\ApiDateTime;
 use App\Driver;
 use App\Enums\AttendanceStatus;
 use App\Enums\TripStatus;
 use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
-use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
+use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Trip;
 use App\Tyre;
 use App\TyreExpense;
@@ -40,7 +39,7 @@ class FleetDashboardStats
         ];
 
         if ($user->hasPermission('attendances.view')) {
-            $fleet = array_merge($fleet, self::buildAttendanceTodayStats($today));
+            $fleet = array_merge($fleet, self::buildAttendancePeriodStats($fromDate, $toDate));
         }
 
         if ($user->hasPermission('vehicle_documents.view')) {
@@ -92,9 +91,9 @@ class FleetDashboardStats
     /**
      * @return array<string, int>
      */
-    private static function buildAttendanceTodayStats(string $today): array
+    private static function buildAttendancePeriodStats(string $fromDate, string $toDate): array
     {
-        $overview = app(AttendanceCalendarService::class)->buildOverview($today, $today);
+        $overview = app(AttendanceCalendarService::class)->buildOverview($fromDate, $toDate);
 
         $present = 0;
         $absent = 0;
@@ -102,23 +101,23 @@ class FleetDashboardStats
         $noWorkDay = 0;
 
         foreach ($overview['rows'] as $row) {
-            $cell = $row['days'][$today] ?? null;
+            foreach ($row['days'] as $cell) {
+                if ($cell === null || empty($cell['status'])) {
+                    continue;
+                }
 
-            if ($cell === null || empty($cell['status'])) {
-                continue;
-            }
+                $status = strtoupper((string) $cell['status']);
 
-            $status = strtoupper((string) $cell['status']);
-
-            if ($status === AttendanceStatus::Present->value) {
-                $present++;
-            } elseif ($status === AttendanceStatus::NoWorkDay->value) {
-                $noWorkDay++;
-            } elseif ($status === AttendanceStatus::Absent->value) {
-                if (! empty($cell['temporary_driver_id'])) {
-                    $absentSubstitute++;
-                } else {
-                    $absent++;
+                if ($status === AttendanceStatus::Present->value) {
+                    $present++;
+                } elseif ($status === AttendanceStatus::NoWorkDay->value) {
+                    $noWorkDay++;
+                } elseif ($status === AttendanceStatus::Absent->value) {
+                    if (! empty($cell['temporary_driver_id'])) {
+                        $absentSubstitute++;
+                    } else {
+                        $absent++;
+                    }
                 }
             }
         }

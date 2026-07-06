@@ -1,12 +1,25 @@
 import api from '../api';
-import { currentMonthValue } from '../utils/datetime';
+import { parsePaginatedReportResponse } from './reportPagination';
 
 const reportsBase = '/app/api/reports/fleet-monthly';
 
-export async function fetchFleetMonthlyReport(month) {
-    const { data } = await api.get(reportsBase, { params: { month } });
+export async function fetchFleetMonthlyReport(month, pagination = {}) {
+    const { data } = await api.get(reportsBase, {
+        params: {
+            month,
+            ...pagination,
+        },
+    });
 
-    return data.data ?? { rows: [], summary: {} };
+    const parsed = parsePaginatedReportResponse(data);
+
+    return {
+        rows: parsed.rows,
+        meta: parsed.meta,
+        summary: parsed.summary ?? {},
+        company_name: parsed.companyName ?? '',
+        month: parsed.month ?? month,
+    };
 }
 
 export function exportFleetMonthlyReport(month) {
@@ -14,4 +27,4 @@ export function exportFleetMonthlyReport(month) {
     window.location.href = `${reportsBase}/export?${params.toString()}`;
 }
 
-export { currentMonthValue };
+export { currentMonthValue } from '../utils/datetime';

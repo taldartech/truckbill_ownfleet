@@ -53,8 +53,43 @@ export async function updateTrip(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteTrip(id) {
-    await api.delete(`${tripsBase}/${id}`);
+export async function archiveTrip(id, { archive_reason } = {}) {
+    await api.post(`${tripsBase}/${id}/archive`, {
+        archive_reason,
+    });
+}
+
+/** @deprecated Use archiveTrip */
+export async function deleteTrip(id, { deletion_reason, archive_reason } = {}) {
+    await archiveTrip(id, {
+        archive_reason: archive_reason ?? deletion_reason,
+    });
+}
+
+export async function fetchTripArchiveImpact(id) {
+    const { data } = await api.get(`${tripsBase}/${id}/archive-impact`);
+
+    return data;
+}
+
+/** @deprecated Use fetchTripArchiveImpact */
+export async function fetchTripDeletionImpact(id) {
+    return fetchTripArchiveImpact(id);
+}
+
+export function isTripArchivable(status) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    return ['CREATED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(normalized);
+}
+
+export function isTripArchived(trip) {
+    return Boolean(trip?.is_archived);
+}
+
+/** @deprecated Use isTripArchivable */
+export function isTripDeletable(status) {
+    return isTripArchivable(status);
 }
 
 export async function checkTripWindowOverlap({
@@ -244,7 +279,10 @@ function parseNumeric(value) {
 
 export { parseNumeric };
 
-export function validateTripPayload(payload, { mode = 'create', previousStatus = null, user = null } = {}) {
+export function validateTripPayload(
+    payload,
+    { mode = 'create', previousStatus = null, user = null, tripType = null } = {},
+) {
     const errors = {};
 
     if (mode === 'create') {
@@ -409,9 +447,14 @@ export function validateTripPayload(payload, { mode = 'create', previousStatus =
 
     const lastLeg = legs[legs.length - 1];
 
-    const tripType = String(payload.trip_type ?? 'ROUND_TRIP').toUpperCase();
+    const resolvedTripType = String(tripType ?? payload.trip_type ?? 'ROUND_TRIP').toUpperCase();
 
-    if (tripType === 'ROUND_TRIP' && lastLeg && payload.start_station_id && String(lastLeg.to_station_id) !== String(payload.start_station_id)) {
+    if (
+        resolvedTripType === 'ROUND_TRIP'
+        && lastLeg
+        && payload.start_station_id
+        && String(lastLeg.to_station_id) !== String(payload.start_station_id)
+    ) {
         errors.route_legs = ['Round trip must end at the start station. Use "Return to Start" button.'];
     }
 
@@ -1000,6 +1043,7 @@ export function defaultTripListFilters() {
         broker_id: '',
         status: '',
         trip_type: '',
+        show_archived: false,
     };
 }
 

@@ -1,187 +1,177 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-person-plus'"></i>
-                        {{ isEdit ? 'Edit User' : 'Add User' }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
+        <template #title>
+            <i :class="isEdit ? 'bi bi-pencil-square' : 'bi bi-person-plus'"></i>
+            {{ isEdit ? 'Edit User' : 'Add User' }}
+        </template>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label :for="`${modalId}_name`" class="form-label">Name *</label>
+                <input
+                    :id="`${modalId}_name`"
+                    v-model="form.name"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.name }"
+                    required
+                />
+                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                    {{ fieldErrors.name[0] }}
                 </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_name`" class="form-label">Name *</label>
-                                <input
-                                    :id="`${modalId}_name`"
-                                    v-model="form.name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.name }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.name[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_email`" class="form-label">Email *</label>
-                                <input
-                                    :id="`${modalId}_email`"
-                                    v-model="form.email"
-                                    type="email"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.email }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.email" class="invalid-feedback d-block">
-                                    {{ fieldErrors.email[0] }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_role`" class="form-label">Role *</label>
-                                <AppSelect
-                                    :input-id="`${modalId}_role`"
-                                    v-model="form.user_role_id"
-                                    :options="roleSelectOptions"
-                                    placeholder="Select role"
-                                    search-placeholder="Search role…"
-                                    :disabled="isProtectedUser"
-                                    :invalid="Boolean(fieldErrors.user_role_id)"
-                                    :error-message="fieldErrors.user_role_id?.[0] ?? ''"
-                                />
-                            </div>
-                            <div v-if="requiresCompany" class="col-md-6">
-                                <label :for="`${modalId}_tenant`" class="form-label">Company *</label>
-                                <AppSelect
-                                    :input-id="`${modalId}_tenant`"
-                                    v-model="form.tenant_id"
-                                    :options="companySelectOptions"
-                                    placeholder="Select company"
-                                    search-placeholder="Search company…"
-                                    :invalid="Boolean(fieldErrors.tenant_id)"
-                                    :error-message="fieldErrors.tenant_id?.[0] ?? ''"
-                                />
-                            </div>
-                            <div v-if="requiresBranch" class="col-md-6">
-                                <label :for="`${modalId}_branch`" class="form-label">Branch *</label>
-                                <AppSelect
-                                    :input-id="`${modalId}_branch`"
-                                    v-model="form.branch_id"
-                                    :options="branchSelectOptions"
-                                    :placeholder="branchesLoading ? 'Loading branches…' : 'Select branch'"
-                                    search-placeholder="Search branch…"
-                                    :disabled="!form.tenant_id || branchesLoading"
-                                    :invalid="Boolean(fieldErrors.branch_id)"
-                                    :error-message="fieldErrors.branch_id?.[0] ?? ''"
-                                />
-                                <div
-                                    v-if="form.tenant_id && !branchesLoading && companyBranches.length === 0"
-                                    class="form-text text-danger"
-                                >
-                                    No branches for this company. Create a branch first.
-                                </div>
-                            </div>
-                        </div>
-                        <div v-if="showDocumentAlertPreferences" class="border rounded p-3 mb-3 bg-light">
-                            <h6 class="fw-bold mb-2">
-                                <i class="fas fa-bell me-2 text-brand-primary"></i>
-                                Document Alert Notifications
-                            </h6>
-                            <p class="text-muted small mb-3">
-                                Choose how this user receives document expiry alerts for their company.
-                            </p>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <div class="form-check form-switch">
-                                        <input
-                                            :id="`${modalId}_document_alerts_live`"
-                                            v-model="form.document_alerts_live"
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            role="switch"
-                                        />
-                                        <label class="form-check-label" :for="`${modalId}_document_alerts_live`">
-                                            Live notifications
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-check form-switch">
-                                        <input
-                                            :id="`${modalId}_document_alerts_email`"
-                                            v-model="form.document_alerts_email"
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            role="switch"
-                                        />
-                                        <label class="form-check-label" :for="`${modalId}_document_alerts_email`">
-                                            Email notifications
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_password`" class="form-label">
-                                    {{ isEdit ? 'New Password' : 'Password *' }}
-                                </label>
-                                <input
-                                    :id="`${modalId}_password`"
-                                    v-model="form.password"
-                                    type="password"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.password }"
-                                    :required="!isEdit"
-                                />
-                                <div v-if="fieldErrors.password" class="invalid-feedback d-block">
-                                    {{ fieldErrors.password[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_password_confirmation`" class="form-label">
-                                    Confirm Password {{ isEdit ? '' : '*' }}
-                                </label>
-                                <input
-                                    :id="`${modalId}_password_confirmation`"
-                                    v-model="form.password_confirmation"
-                                    type="password"
-                                    class="form-control"
-                                    :required="!isEdit && !!form.password"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-success" :disabled="saving">
-                            <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-                            {{ isEdit ? 'Update' : 'Create' }}
-                        </button>
-                    </div>
-                </form>
+            </div>
+            <div class="col-md-6">
+                <label :for="`${modalId}_email`" class="form-label">Email *</label>
+                <input
+                    :id="`${modalId}_email`"
+                    v-model="form.email"
+                    type="email"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.email }"
+                    required
+                />
+                <div v-if="fieldErrors.email" class="invalid-feedback d-block">
+                    {{ fieldErrors.email[0] }}
+                </div>
             </div>
         </div>
-    </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label :for="`${modalId}_role`" class="form-label">Role *</label>
+                <AppSelect
+                    :input-id="`${modalId}_role`"
+                    v-model="form.user_role_id"
+                    :options="roleSelectOptions"
+                    placeholder="Select role"
+                    search-placeholder="Search role…"
+                    :disabled="isProtectedUser"
+                    :invalid="Boolean(fieldErrors.user_role_id)"
+                    :error-message="fieldErrors.user_role_id?.[0] ?? ''"
+                />
+            </div>
+            <div v-if="requiresCompany" class="col-md-6">
+                <label :for="`${modalId}_tenant`" class="form-label">Company *</label>
+                <AppSelect
+                    :input-id="`${modalId}_tenant`"
+                    v-model="form.tenant_id"
+                    :options="companySelectOptions"
+                    placeholder="Select company"
+                    search-placeholder="Search company…"
+                    :invalid="Boolean(fieldErrors.tenant_id)"
+                    :error-message="fieldErrors.tenant_id?.[0] ?? ''"
+                />
+            </div>
+            <div v-if="requiresBranch" class="col-md-6">
+                <label :for="`${modalId}_branch`" class="form-label">Branch *</label>
+                <AppSelect
+                    :input-id="`${modalId}_branch`"
+                    v-model="form.branch_id"
+                    :options="branchSelectOptions"
+                    :placeholder="branchesLoading ? 'Loading branches…' : 'Select branch'"
+                    search-placeholder="Search branch…"
+                    :disabled="!form.tenant_id || branchesLoading"
+                    :invalid="Boolean(fieldErrors.branch_id)"
+                    :error-message="fieldErrors.branch_id?.[0] ?? ''"
+                />
+                <div
+                    v-if="form.tenant_id && !branchesLoading && companyBranches.length === 0"
+                    class="form-text text-danger"
+                >
+                    No branches for this company. Create a branch first.
+                </div>
+            </div>
+        </div>
+        <div v-if="showDocumentAlertPreferences" class="border rounded p-3 mb-3 bg-light">
+            <h6 class="fw-bold mb-2">
+                <i class="fas fa-bell me-2 text-brand-primary"></i>
+                Document Alert Notifications
+            </h6>
+            <p class="text-muted small mb-3">
+                Choose how this user receives document expiry alerts for their company.
+            </p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input
+                            :id="`${modalId}_document_alerts_live`"
+                            v-model="form.document_alerts_live"
+                            class="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                        />
+                        <label class="form-check-label" :for="`${modalId}_document_alerts_live`">
+                            Live notifications
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input
+                            :id="`${modalId}_document_alerts_email`"
+                            v-model="form.document_alerts_email"
+                            class="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                        />
+                        <label class="form-check-label" :for="`${modalId}_document_alerts_email`">
+                            Email notifications
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label :for="`${modalId}_password`" class="form-label">
+                    {{ isEdit ? 'New Password' : 'Password *' }}
+                </label>
+                <input
+                    :id="`${modalId}_password`"
+                    v-model="form.password"
+                    type="password"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.password }"
+                    :required="!isEdit"
+                />
+                <div v-if="fieldErrors.password" class="invalid-feedback d-block">
+                    {{ fieldErrors.password[0] }}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label :for="`${modalId}_password_confirmation`" class="form-label">
+                    Confirm Password {{ isEdit ? '' : '*' }}
+                </label>
+                <input
+                    :id="`${modalId}_password_confirmation`"
+                    v-model="form.password_confirmation"
+                    type="password"
+                    class="form-control"
+                    :required="!isEdit && !!form.password"
+                />
+            </div>
+        </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-success" :disabled="saving">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
+                {{ isEdit ? 'Update' : 'Create' }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { listAllBranches } from '../../api/branches';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import AppSelect from '../ui/AppSelect.vue';
 
 const SUPER_ADMIN_ROLE_ID = 2;
@@ -201,12 +191,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: 'static',
-    onHidden: () => emit('close'),
-});
 
 const isEdit = computed(() => props.mode === 'edit');
 const isProtectedUser = computed(() => props.user?.is_protected === true);
@@ -343,16 +327,9 @@ function submit() {
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             resetForm();
             loadBranches();
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

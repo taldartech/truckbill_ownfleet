@@ -1,123 +1,162 @@
 <template>
-    <div
-        id="dashboardComplianceModal"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        aria-labelledby="dashboardComplianceModalLabel"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="loading"
+        :header-gradient="false"
+        content-class="compliance-modal"
+        @close="close"
     >
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header bg-warning-subtle">
-                    <h5 id="dashboardComplianceModalLabel" class="modal-title fw-bold">
-                        <i class="fas fa-shield-halved text-warning me-2"></i>
-                        Compliance Alerts
-                    </h5>
-                    <button type="button" class="btn-close" aria-label="Close" @click="close"></button>
-                </div>
-                <div class="modal-body">
-                    <div v-if="loading" class="text-center py-4 text-muted">Loading alerts…</div>
-                    <div v-else-if="loadError" class="alert alert-danger mb-0">{{ loadError }}</div>
-                    <div v-else-if="isEmpty" class="text-center py-4 text-muted">
-                        No compliance alerts right now.
-                    </div>
-                    <template v-else>
-                        <div v-if="documents.length" class="mb-4">
-                            <h6 class="fw-bold mb-2">Vehicle Documents</h6>
-                            <p class="text-muted small mb-3">
-                                Click a row to open that truck's documents and update the expiry.
-                            </p>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Truck</th>
-                                            <th>Document</th>
-                                            <th>Expiry</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr
-                                            v-for="document in documents"
-                                            :key="document.id"
-                                            class="compliance-alert-row"
-                                            tabindex="0"
-                                            role="button"
-                                            @click="selectDocument(document)"
-                                            @keydown.enter.prevent="selectDocument(document)"
-                                        >
-                                            <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
-                                            <td>{{ document.document_type_label }}</td>
-                                            <td>{{ formatDate(document.expiry_date) }}</td>
-                                            <td>
-                                                <span :class="['badge rounded-pill', statusBadgeClass(document.status)]">
-                                                    {{ statusLabel(document) }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+        <template #title>
+            <i class="fas fa-shield-halved me-2"></i>
+            Compliance Alerts
+        </template>
 
-                        <div v-if="licenses.length">
-                            <h6 class="fw-bold mb-2">Driver Licenses</h6>
-                            <p class="text-muted small mb-3">
-                                Click a row to edit the driver's license expiry.
-                            </p>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Driver</th>
-                                            <th>License #</th>
-                                            <th>Expiry</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr
-                                            v-for="license in licenses"
-                                            :key="license.driver_id"
-                                            :class="[
-                                                'compliance-alert-row',
-                                                { 'compliance-alert-row--disabled': !canManageLicenses },
-                                            ]"
-                                            :tabindex="canManageLicenses ? 0 : -1"
-                                            :role="canManageLicenses ? 'button' : undefined"
-                                            @click="selectLicense(license)"
-                                            @keydown.enter.prevent="selectLicense(license)"
-                                        >
-                                            <td class="fw-medium">{{ license.driver_name }}</td>
-                                            <td>{{ license.license_number ?? '—' }}</td>
-                                            <td>{{ formatDate(license.license_expiry_date) }}</td>
-                                            <td>
-                                                <span :class="['badge rounded-pill', statusBadgeClass(license.status)]">
-                                                    {{ statusLabel(license) }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @click="close">Close</button>
+        <div v-if="loading" class="text-center py-4 text-muted">Loading alerts…</div>
+        <div v-else-if="loadError" class="alert alert-danger mb-0">{{ loadError }}</div>
+        <div v-else-if="isEmpty" class="text-center py-4 text-muted">
+            No compliance alerts right now.
+        </div>
+        <template v-else>
+            <div v-if="documents.length" class="mb-4">
+                <h6 class="fw-bold mb-1">Vehicle Documents</h6>
+                <p class="text-muted small mb-3">
+                    Most urgent items appear first. Edit or renew from here.
+                </p>
+                <div class="table-responsive compliance-table">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Truck</th>
+                                <th>Document</th>
+                                <th>Expiry</th>
+                                
+                                <th>Status</th>
+                                <th v-if="canManageDocuments" class="text-end compliance-actions-col">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="document in documents"
+                                :key="document.id"
+                                :class="['compliance-alert-row', rowBorderClass(document)]"
+                            >
+                                <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
+                                <td>{{ document.document_type_label }}</td>
+                                <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
+                             
+                                <td>
+                                    <DocumentStatusBadge :document="document" soft />
+                                </td>
+                                <td v-if="canManageDocuments" class="text-end">
+                                    <div class="compliance-actions">
+                                        <AppButton
+                                            v-if="canManageDocuments"
+                                            size="sm"
+                                            variant="secondary"
+                                            outline
+                                            icon="fas fa-pen"
+                                            title="Edit"
+                                            @click="selectDocument(document, 'edit')"
+                                        />
+                                        <AppButton
+                                            v-if="canManageDocuments && canRenewDocument(document)"
+                                            size="sm"
+                                            variant="primary"
+                                            icon="fas fa-rotate-right"
+                                            title="Renew"
+                                            @click="selectDocument(document, 'renew')"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-    </div>
+
+            <div v-if="licenses.length">
+                <h6 class="fw-bold mb-1">Driver Licenses</h6>
+                <p class="text-muted small mb-3">
+                    Update license expiry for drivers needing attention.
+                </p>
+                <div class="table-responsive compliance-table">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Driver</th>
+                                <th>License #</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                                <th v-if="canManageLicenses" class="text-end compliance-actions-col">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="license in licenses"
+                                :key="license.driver_id"
+                                :class="[
+                                    'compliance-alert-row',
+                                    rowBorderClass(license),
+                                    { 'compliance-alert-row--disabled': !canManageLicenses },
+                                ]"
+                            >
+                                <td class="fw-medium">{{ license.driver_name }}</td>
+                                <td>{{ license.license_number ?? '—' }}</td>
+                                <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
+                                <td>
+                                    <DocumentStatusBadge :document="license" soft />
+                                </td>
+                                <td v-if="canManageLicenses" class="text-end">
+                                    <div class="compliance-actions">
+                                        <AppButton
+                                            size="sm"
+                                            variant="secondary"
+                                            outline
+                                            icon="fas fa-eye"
+                                            title="View"
+                                            :disabled="!canManageLicenses"
+                                            @click="selectLicense(license)"
+                                        />
+                                        <AppButton
+                                            v-if="canUpdateLicense(license)"
+                                            size="sm"
+                                            variant="primary"
+                                            icon="fas fa-id-card"
+                                            title="Update license"
+                                            @click="selectLicense(license)"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="loading" @click="close">Close</button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import { fetchComplianceAlerts } from '../../api/dashboard';
+import {
+    canRenewDocument,
+    canUpdateLicense,
+    formatDaysLeft,
+    rowBorderClass,
+    sortDocumentsByUrgency,
+} from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
+import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
+import AppButton from '../ui/AppButton.vue';
+import './complianceAlerts.css';
 
 const props = defineProps({
     show: {
@@ -128,14 +167,13 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    canManageDocuments: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const emit = defineEmits(['close', 'edit-document', 'edit-license']);
-
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    onHidden: () => emit('close'),
-});
+const emit = defineEmits(['close', 'edit-document', 'renew-document', 'edit-license']);
 
 const loading = ref(false);
 const loadError = ref('');
@@ -147,15 +185,8 @@ const isEmpty = computed(() => documents.value.length === 0 && licenses.value.le
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             await loadAlerts();
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );
@@ -166,8 +197,8 @@ async function loadAlerts() {
 
     try {
         const data = await fetchComplianceAlerts();
-        documents.value = data.documents;
-        licenses.value = data.licenses;
+        documents.value = sortDocumentsByUrgency(data.documents ?? []);
+        licenses.value = sortDocumentsByUrgency(data.licenses ?? []);
     } catch {
         documents.value = [];
         licenses.value = [];
@@ -181,7 +212,13 @@ function close() {
     emit('close');
 }
 
-function selectDocument(document) {
+function selectDocument(document, action) {
+    if (action === 'renew') {
+        emit('renew-document', document);
+
+        return;
+    }
+
     emit('edit-document', document);
 }
 
@@ -193,36 +230,14 @@ function selectLicense(license) {
     emit('edit-license', license);
 }
 
-function statusBadgeClass(status) {
-    return status === 'expired' ? 'bg-danger' : 'bg-warning text-dark';
-}
-
-function statusLabel(item) {
-    const days = Number(item.days_remaining ?? 0);
-
-    if (item.status === 'expired') {
-        const daysAgo = Math.abs(days);
-
-        return daysAgo === 0 ? 'Expired today' : `Expired ${daysAgo}d ago`;
-    }
-
-    if (days === 0) {
-        return 'Expires today';
-    }
-
-    return `Expires in ${days}d`;
-}
-
+defineExpose({
+    refreshAlerts: loadAlerts,
+});
 </script>
 
 <style scoped>
-.compliance-alert-row {
-    cursor: pointer;
-}
-
-.compliance-alert-row:hover,
-.compliance-alert-row:focus {
-    background-color: rgba(47, 179, 111, 0.08);
+.compliance-alert-row:hover {
+    background-color: rgba(47, 179, 111, 0.04);
 }
 
 .compliance-alert-row--disabled {

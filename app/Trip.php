@@ -54,7 +54,8 @@ class Trip extends Model
         'total_freight_amount',
         'created_by',
         'updated_by',
-        'deleted_by',
+        'archived_by',
+        'archive_reason',
     ];
 
     protected function casts(): array
@@ -127,9 +128,14 @@ class Trip extends Model
         return $this->hasMany(TripStatusHistory::class);
     }
 
-    public function deletedBy(): BelongsTo
+    public function archivedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'deleted_by');
+        return $this->belongsTo(User::class, 'archived_by');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(TripAuditLog::class);
     }
 
     public function profitAmount(): float

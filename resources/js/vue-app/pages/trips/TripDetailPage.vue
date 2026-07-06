@@ -24,6 +24,7 @@
             </div>
             <div v-if="trip" class="d-flex flex-wrap align-items-center gap-2">
                 <TripInlineStatusActions
+                    v-if="!isArchived"
                     :trip="trip"
                     :can-manage="canManage && canEditTripStatus"
                     :compact="false"
@@ -57,6 +58,14 @@
         <div v-if="loading" class="text-center py-5 text-muted">Loading trip details…</div>
 
         <template v-else-if="trip">
+            <div v-if="isArchived" class="alert alert-warning mb-3">
+                <i class="bi bi-archive me-1"></i>
+                This trip has been archived and is read-only. It cannot be edited or modified.
+                <span v-if="trip.archive_reason" class="d-block mt-1 small mb-0">
+                    Reason: {{ trip.archive_reason }}
+                </span>
+            </div>
+
             <div v-if="terminalAlert" class="alert alert-secondary mb-3">
                 <i class="bi bi-lock me-1"></i>
                 {{ terminalAlert }}
@@ -442,6 +451,7 @@ import {
     canManageTripExpenses,
     expenseTypeLabel,
     fetchTrip,
+    isTripArchived,
     isTerminalTripStatus,
     resolveTripEditAccess,
     summarizeTripForm,
@@ -493,10 +503,11 @@ const dieselPerformance = computed(() => trip.value?.diesel_performance ?? null)
 const expenses = computed(() => trip.value?.expenses ?? []);
 const statusHistories = computed(() => trip.value?.status_histories ?? []);
 const isTerminal = computed(() => isTerminalTripStatus(trip.value?.status));
+const isArchived = computed(() => isTripArchived(trip.value));
 const editAccess = computed(() => resolveTripEditAccess(trip.value?.status, user.value));
-const canEditTripPage = computed(() => canFullEditTrip(trip.value?.status, user.value));
-const canManageTripExpensesFor = computed(() => canManageTripExpenses(trip.value?.status, user.value));
-const canEditTripStatus = computed(() => editAccess.value.fullEdit);
+const canEditTripPage = computed(() => !isArchived.value && canFullEditTrip(trip.value?.status, user.value));
+const canManageTripExpensesFor = computed(() => !isArchived.value && canManageTripExpenses(trip.value?.status, user.value));
+const canEditTripStatus = computed(() => !isArchived.value && editAccess.value.fullEdit);
 const terminalAlert = computed(() => {
     if (!isTerminal.value) {
         return '';

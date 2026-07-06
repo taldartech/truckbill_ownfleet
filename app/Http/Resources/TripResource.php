@@ -67,6 +67,16 @@ class TripResource extends JsonResource
             ])),
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
+            'is_archived' => $this->trashed(),
+            'archived_at' => $this->when($this->trashed(), fn () => ApiDateTime::toIso($this->deleted_at)),
+            'archive_reason' => $this->when($this->trashed(), $this->archive_reason),
+            'archived_by' => $this->when(
+                $this->trashed() && $this->relationLoaded('archivedBy'),
+                fn () => $this->archivedBy ? [
+                    'id' => $this->archivedBy->id,
+                    'name' => $this->archivedBy->name,
+                ] : null,
+            ),
         ];
     }
 }

@@ -22,33 +22,44 @@
         <div v-else class="dashboard-panel__body">
             <div v-if="documents.length" class="mb-3">
                 <div class="dashboard-panel__subtitle">Vehicle documents</div>
-                <div class="table-responsive">
+                <div class="table-responsive compliance-table">
                     <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead>
                             <tr>
                                 <th>Truck</th>
                                 <th>Document</th>
                                 <th>Expiry</th>
                                 <th>Status</th>
+                                <th v-if="canManageDocuments" class="text-end" style="width: 3.5rem">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
                                 v-for="document in documents"
                                 :key="`doc-${document.id}`"
-                                class="dashboard-panel__row"
+                                :class="['dashboard-panel__row', rowBorderClass(document)]"
                                 tabindex="0"
                                 role="button"
-                                @click="$emit('edit-document', document)"
-                                @keydown.enter.prevent="$emit('edit-document', document)"
+                                @click="canManageDocuments && $emit('edit-document', document)"
+                                @keydown.enter.prevent="canManageDocuments && $emit('edit-document', document)"
                             >
                                 <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
                                 <td>{{ document.document_type_label }}</td>
-                                <td>{{ formatDate(document.expiry_date) }}</td>
+                                <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
                                 <td>
-                                    <span :class="['badge rounded-pill', statusBadgeClass(document.status)]">
-                                        {{ statusLabel(document) }}
-                                    </span>
+                                    <DocumentStatusBadge :document="document" soft />
+                                </td>
+                                <td v-if="canManageDocuments" class="text-end">
+                                    <div class="compliance-actions">
+                                        <AppButton
+                                            v-if="canRenewDocument(document)"
+                                            size="sm"
+                                            variant="primary"
+                                            icon="fas fa-rotate-right"
+                                            title="Renew Now"
+                                            @click.stop="$emit('renew-document', document)"
+                                        />
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -58,14 +69,15 @@
 
             <div v-if="licenses.length">
                 <div class="dashboard-panel__subtitle">Driver licenses</div>
-                <div class="table-responsive">
+                <div class="table-responsive compliance-table">
                     <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead>
                             <tr>
                                 <th>Driver</th>
                                 <th>License</th>
                                 <th>Expiry</th>
                                 <th>Status</th>
+                                <th v-if="canManageLicenses" class="text-end" style="width: 3.5rem">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -74,6 +86,7 @@
                                 :key="`lic-${license.driver_id}`"
                                 :class="[
                                     'dashboard-panel__row',
+                                    rowBorderClass(license),
                                     { 'dashboard-panel__row--disabled': !canManageLicenses },
                                 ]"
                                 :tabindex="canManageLicenses ? 0 : -1"
@@ -83,11 +96,22 @@
                             >
                                 <td class="fw-medium">{{ license.driver_name }}</td>
                                 <td>{{ license.license_number ?? '—' }}</td>
-                                <td>{{ formatDate(license.license_expiry_date) }}</td>
+                                <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
                                 <td>
-                                    <span :class="['badge rounded-pill', statusBadgeClass(license.status)]">
-                                        {{ statusLabel(license) }}
-                                    </span>
+                                    <DocumentStatusBadge :document="license" soft />
+                                </td>
+                                <td v-if="canManageLicenses" class="text-end">
+                                    <div class="compliance-actions">
+                                        <AppButton
+                                            v-if="canUpdateLicense(license)"
+                                            size="sm"
+                                            variant="primary"
+                                            outline
+                                            icon="fas fa-id-card"
+                                            title="Update license"
+                                            @click.stop="$emit('edit-license', license)"
+                                        />
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -100,8 +124,11 @@
 
 <script setup>
 import { computed } from 'vue';
-import AppButton from '../ui/AppButton.vue';
+import { canRenewDocument, canUpdateLicense, rowBorderClass } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
+import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
+import AppButton from '../ui/AppButton.vue';
+import './complianceAlerts.css';
 
 const props = defineProps({
     documents: {
@@ -124,35 +151,17 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    canManageDocuments: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-defineEmits(['view-all', 'edit-document', 'edit-license']);
+defineEmits(['view-all', 'edit-document', 'renew-document', 'edit-license']);
 
 const isEmpty = computed(() => props.documents.length === 0 && props.licenses.length === 0);
 
 const showViewAll = computed(() => !props.loading && props.totalCount > 0);
-
-function statusBadgeClass(status) {
-    return status === 'expired' ? 'text-bg-danger' : 'text-bg-warning';
-}
-
-function statusLabel(item) {
-    if (item.status === 'expired') {
-        return 'Expired';
-    }
-
-    const days = item.days_remaining;
-
-    if (days === 0) {
-        return 'Expires today';
-    }
-
-    if (days != null && days > 0) {
-        return `${days}d left`;
-    }
-
-    return 'Expiring';
-}
 </script>
 
 <style scoped>
@@ -209,7 +218,7 @@ function statusLabel(item) {
 
 .dashboard-panel__row:hover,
 .dashboard-panel__row:focus {
-    background: rgba(245, 158, 11, 0.06);
+    background: rgba(47, 179, 111, 0.04);
     outline: none;
 }
 

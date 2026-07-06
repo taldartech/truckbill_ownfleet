@@ -23,6 +23,7 @@
             <!-- 1. Trips by Status -->
             <div class="analytics-card flex-col-center">
                 <h6 class="analytics-card__title">Trips by Status</h6>
+                <p v-if="periodLabel" class="analytics-card__hint">Date: {{ periodLabel }}</p>
                 <div class="trip-status-grid">
                     <div
                         v-for="item in tripStatusItems"
@@ -48,6 +49,7 @@
 
             <!-- 2. Trip Profit -->
             <div class="analytics-card trip-profit-card">
+                <p v-if="periodLabel" class="analytics-card__hint analytics-card__hint--top">Date: {{ periodLabel }}</p>
                 <div class="trip-profit-card__hero">
                     <div class="financial-flow__label-row">
                         <span class="financial-flow__lbl">
@@ -100,6 +102,7 @@
             <!-- 3. Net Profit Margin -->
             <div class="analytics-card">
                 <h6 class="analytics-card__title">Net Profit Margin</h6>
+                <p v-if="periodLabel" class="analytics-card__hint">Date: {{ periodLabel }}</p>
                 <div class="analytics-card__chart-wrap analytics-card__chart-wrap--grow">
                     <svg viewBox="0 0 100 65" class="gauge-svg">
                         <defs>
@@ -144,171 +147,11 @@
             </div>
         </div>
 
-        <!-- Attendance Tab -->
-        <div v-if="activeTab === 'fleet'" class="analytics-charts__content grid-3">
-            <!-- Vehicles Donut Chart -->
-            <div class="analytics-card">
-                <h6 class="analytics-card__title text-center">Truck Availability</h6>
-                <div class="donut-chart-container">
-                    <svg viewBox="0 0 100 100" class="donut-svg">
-                        <defs>
-                            <linearGradient id="activeTruckGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#3b82f6" />
-                                <stop offset="100%" stop-color="#1d4ed8" />
-                            </linearGradient>
-                            <linearGradient id="inactiveTruckGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#94a3b8" />
-                                <stop offset="100%" stop-color="#64748b" />
-                            </linearGradient>
-                        </defs>
-                        <!-- Back track -->
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
-                        <!-- Active segment -->
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="38"
-                            fill="transparent"
-                            stroke="url(#activeTruckGrad)"
-                            stroke-width="12"
-                            stroke-dasharray="238.76"
-                            :stroke-dashoffset="activeTruckOffset"
-                            stroke-linecap="round"
-                            transform="rotate(-90 50 50)"
-                            class="donut-segment"
-                        />
-                        <text x="50" y="52" text-anchor="middle" class="donut-center-val">
-                            {{ activeTruckPct.toFixed(0) }}%
-                        </text>
-                        <text x="50" y="64" text-anchor="middle" class="donut-center-lbl">
-                            Active
-                        </text>
-                    </svg>
-                    <div class="donut-legend">
-                        <div class="donut-legend__item">
-                            <span class="legend-dot bg-blue"></span>
-                            <span class="legend-lbl">Active: <strong>{{ activeTrucks }}</strong></span>
-                        </div>
-                        <div class="donut-legend__item">
-                            <span class="legend-dot bg-slate"></span>
-                            <span class="legend-lbl">Inactive: <strong>{{ inactiveTrucks }}</strong></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Attendance Ring Gauge -->
-            <div class="analytics-card">
-                <h6 class="analytics-card__title text-center">Today's Driver Attendance</h6>
-                <div class="donut-chart-container">
-                    <svg viewBox="0 0 100 100" class="donut-svg">
-                        <defs>
-                            <linearGradient id="presentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#2fb36f" />
-                                <stop offset="100%" stop-color="#15803d" />
-                            </linearGradient>
-                            <linearGradient id="absentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#f43f5e" />
-                                <stop offset="100%" stop-color="#be123c" />
-                            </linearGradient>
-                            <linearGradient id="substituteGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#a855f7" />
-                                <stop offset="100%" stop-color="#6b21a8" />
-                            </linearGradient>
-                        </defs>
-                        <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
-                        
-                        <!-- Present segment -->
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="38"
-                            fill="transparent"
-                            stroke="url(#presentGrad)"
-                            stroke-width="12"
-                            :stroke-dasharray="238.76"
-                            :stroke-dashoffset="presentOffset"
-                            transform="rotate(-90 50 50)"
-                            class="donut-segment"
-                        />
-                        <!-- Substitute segment -->
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="38"
-                            fill="transparent"
-                            stroke="url(#substituteGrad)"
-                            stroke-width="12"
-                            :stroke-dasharray="238.76"
-                            :stroke-dashoffset="substituteOffset"
-                            :transform="`rotate(${substituteStartAngle} 50 50)`"
-                            class="donut-segment"
-                        />
-                        
-                        <text x="50" y="52" text-anchor="middle" class="donut-center-val">
-                            {{ attendanceRate.toFixed(0) }}%
-                        </text>
-                        <text x="50" y="64" text-anchor="middle" class="donut-center-lbl">
-                            Present
-                        </text>
-                    </svg>
-                    <div class="donut-legend">
-                        <div class="donut-legend__item">
-                            <span class="legend-dot bg-emerald"></span>
-                            <span class="legend-lbl">Present: <strong>{{ attPresent }}</strong></span>
-                        </div>
-                        <div class="donut-legend__item">
-                            <span class="legend-dot bg-purple"></span>
-                            <span class="legend-lbl">Substitute: <strong>{{ attSubstitute }}</strong></span>
-                        </div>
-                        <div class="donut-legend__item">
-                            <span class="legend-dot bg-rose"></span>
-                            <span class="legend-lbl">Absent: <strong>{{ attAbsent }}</strong></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Drivers breakdown -->
-            <div class="analytics-card">
-                <h6 class="analytics-card__title">Fleet Roster Stats</h6>
-                <div class="fleet-roster">
-                    <div class="roster-item">
-                        <div class="roster-lbl-row">
-                            <span class="roster-title">Active Drivers</span>
-                            <span class="roster-val">{{ activeDrivers }}</span>
-                        </div>
-                        <div class="roster-bar-wrap">
-                            <div class="roster-bar bg-info" :style="{ width: `${driverActivePct}%` }"></div>
-                        </div>
-                    </div>
-                    <div class="roster-item">
-                        <div class="roster-lbl-row">
-                            <span class="roster-title">Inactive Drivers</span>
-                            <span class="roster-val">{{ inactiveDrivers }}</span>
-                        </div>
-                        <div class="roster-bar-wrap">
-                            <div class="roster-bar bg-slate" :style="{ width: `${100 - driverActivePct}%` }"></div>
-                        </div>
-                    </div>
-                    <div class="roster-summary mt-3">
-                        <div class="roster-summary-card">
-                            <span class="roster-summary-num text-primary">{{ assignedTrucksToday }}</span>
-                            <span class="roster-summary-lbl">Trucks Assigned Today</span>
-                        </div>
-                        <div class="roster-summary-card">
-                            <span class="roster-summary-num text-success">{{ attPresent + attSubstitute }}</span>
-                            <span class="roster-summary-lbl">Drivers Active Today</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Tyres & Financials Tab -->
         <div v-if="activeTab === 'tyres'" class="analytics-charts__content grid-3">
             <div class="analytics-card flex-col-center">
                 <h6 class="analytics-card__title">Tyres by Status</h6>
+                <p class="analytics-card__hint">Current fleet inventory</p>
                 <div class="trip-status-grid">
                     <div
                         v-for="item in tyreStatusItems"
@@ -348,6 +191,7 @@
 
             <div class="analytics-card analytics-card--span-2 flex-col-center">
                 <h6 class="analytics-card__title">Tyre Financial Distribution</h6>
+                <p v-if="periodLabel" class="analytics-card__hint">Date: {{ periodLabel }}</p>
                 <div class="column-chart-container">
                     <div class="column-chart">
                         <div class="column-group">
@@ -409,19 +253,24 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { formatMoney } from '../../utils/formatMoney';
+import { formatDateRangeLabel } from '../../utils/dateRangePresets';
 
 const props = defineProps({
     tripStats: {
         type: Object,
         default: () => ({}),
     },
-    fleetStats: {
-        type: Object,
-        default: () => ({}),
-    },
     tyreStats: {
         type: Object,
         default: () => ({}),
+    },
+    periodFromDate: {
+        type: String,
+        default: '',
+    },
+    periodToDate: {
+        type: String,
+        default: '',
     },
     canViewTrips: {
         type: Boolean,
@@ -433,11 +282,14 @@ const props = defineProps({
     },
 });
 
+const periodLabel = computed(() =>
+    formatDateRangeLabel(props.periodFromDate, props.periodToDate),
+);
+
 const analyticsTabs = computed(() => {
     const tabs = [];
     if (props.canViewTrips) {
         tabs.push({ id: 'financials', label: 'Trips & Financials' });
-        tabs.push({ id: 'fleet', label: 'Attendance' });
     }
     if (props.canViewTyres) {
         tabs.push({ id: 'tyres', label: 'Tyres & Financials' });
@@ -544,57 +396,6 @@ const radialDashoffset = computed(() => {
     // scale absolute margin from 0 to 100
     const absMargin = Math.max(0, margin);
     return radialCircumference - (absMargin / 100) * radialCircumference;
-});
-
-// Tab 2: Fleet Computed
-const activeTrucks = computed(() => Number(props.fleetStats?.active_vehicles_count ?? 0));
-const inactiveTrucks = computed(() => Number(props.fleetStats?.inactive_vehicles_count ?? 0));
-const totalTrucks = computed(() => activeTrucks.value + inactiveTrucks.value);
-const activeTruckPct = computed(() => {
-    if (totalTrucks.value <= 0) return 0;
-    return (activeTrucks.value / totalTrucks.value) * 100;
-});
-const activeTruckOffset = computed(() => {
-    const pct = activeTruckPct.value;
-    return 238.76 - (pct / 100) * 238.76;
-});
-
-const activeDrivers = computed(() => Number(props.fleetStats?.drivers_count ?? 0));
-const inactiveDrivers = computed(() => Number(props.fleetStats?.inactive_drivers_count ?? 0));
-const totalDrivers = computed(() => activeDrivers.value + inactiveDrivers.value);
-const driverActivePct = computed(() => {
-    if (totalDrivers.value <= 0) return 0;
-    return (activeDrivers.value / totalDrivers.value) * 100;
-});
-
-// Attendance Stats
-const assignedTrucksToday = computed(() => Number(props.fleetStats?.assigned_trucks_today_count ?? 0));
-const attPresent = computed(() => Number(props.fleetStats?.present_today_count ?? 0));
-const attAbsent = computed(() => Number(props.fleetStats?.absent_today_count ?? 0));
-const attSubstitute = computed(() => Number(props.fleetStats?.absent_substitute_today_count ?? 0));
-
-const attendanceTotal = computed(() => attPresent.value + attAbsent.value + attSubstitute.value);
-const attendanceRate = computed(() => {
-    if (attendanceTotal.value <= 0) return 0;
-    return ((attPresent.value + attSubstitute.value) / attendanceTotal.value) * 100;
-});
-
-const presentOffset = computed(() => {
-    if (attendanceTotal.value <= 0) return 238.76;
-    const pct = (attPresent.value / attendanceTotal.value) * 100;
-    return 238.76 - (pct / 100) * 238.76;
-});
-
-const substituteOffset = computed(() => {
-    if (attendanceTotal.value <= 0) return 238.76;
-    const pct = (attSubstitute.value / attendanceTotal.value) * 100;
-    return 238.76 - (pct / 100) * 238.76;
-});
-
-const substituteStartAngle = computed(() => {
-    if (attendanceTotal.value <= 0) return -90;
-    const presentPct = (attPresent.value / attendanceTotal.value) * 360;
-    return -90 + presentPct;
 });
 
 // Tab 3: Tyres Computed
@@ -846,6 +647,16 @@ function hideTooltip() {
     letter-spacing: 0.05em;
 }
 
+.analytics-card__hint {
+    margin: -0.65rem 0 0.85rem 0;
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.analytics-card__hint--top {
+    margin: 0 0 0.75rem 0;
+}
+
 /* Gauge styling */
 .analytics-card__chart-wrap {
     display: flex;
@@ -1051,163 +862,6 @@ function hideTooltip() {
 
 .bg-danger-dark {
     background: linear-gradient(90deg, #ef4444, #991b1b);
-}
-
-/* Donut Chart styling */
-.donut-chart-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.25rem;
-}
-
-.donut-svg {
-    max-width: 140px;
-    height: auto;
-}
-
-.donut-segment {
-    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.donut-center-val {
-    font-size: 1.25rem;
-    font-weight: 800;
-    fill: #0f172a;
-}
-
-.donut-center-lbl {
-    font-size: 0.6rem;
-    font-weight: 700;
-    fill: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.donut-legend {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem 1rem;
-    width: 100%;
-}
-
-.donut-legend__item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
-}
-
-.legend-dot {
-    width: 0.55rem;
-    height: 0.55rem;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.legend-lbl {
-    color: #475569;
-}
-
-.bg-blue {
-    background: #3b82f6;
-}
-
-.bg-slate {
-    background: #94a3b8;
-}
-
-.bg-emerald {
-    background: #2fb36f;
-}
-
-.bg-purple {
-    background: #a855f7;
-}
-
-.bg-rose {
-    background: #f43f5e;
-}
-
-/* Fleet Roster styling */
-.fleet-roster {
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
-}
-
-.roster-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.roster-lbl-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.85rem;
-}
-
-.roster-title {
-    font-weight: 600;
-    color: #475569;
-}
-
-.roster-val {
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.roster-bar-wrap {
-    height: 0.45rem;
-    background: #e2e8f0;
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.roster-bar {
-    height: 100%;
-    border-radius: 999px;
-}
-
-.bg-info {
-    background: linear-gradient(90deg, #60a5fa, #3b82f6);
-}
-
-.roster-summary {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-    border-top: 1px dashed #e2e8f0;
-    padding-top: 1rem;
-}
-
-.roster-summary-card {
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
-    border-radius: 0.75rem;
-    padding: 0.75rem 0.5rem;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.roster-summary-num {
-    display: block;
-    font-size: 1.35rem;
-    font-weight: 800;
-    margin-bottom: 0.15rem;
-}
-
-.roster-summary-lbl {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    display: block;
-    line-height: 1.3;
 }
 
 /* Column Chart Styling (Tyres) */

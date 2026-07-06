@@ -48,81 +48,53 @@
             </table>
         </AppIndexListCard>
 
-        <div
-            v-if="showModal"
-            class="modal fade show d-block"
-            tabindex="-1"
-            style="background: rgba(0, 0, 0, 0.45)"
-            @click.self="closeModal"
+        <AppModal
+            :show="showModal"
+            :loading="saving"
+            :form-error="formError"
+            as-form
+            @close="closeModal"
+            @submit="save"
         >
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-gradient-primary">
-                        <h5 class="modal-title">{{ editing ? 'Edit Station' : 'Add Station' }}</h5>
-                        <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
+            <template #title>{{ editing ? 'Edit Station' : 'Add Station' }}</template>
+
+            <div class="row g-2">
+                <IndiaLocationFields
+                    v-model:state-id="stateId"
+                    v-model:city-id="cityId"
+                    :states="states"
+                    :cities="cities"
+                    :field-errors="fieldErrors"
+                />
+
+                <div class="col-12">
+                    <label class="form-label">Station Name *</label>
+                    <input
+                        v-model="form.name"
+                        type="text"
+                        class="form-control"
+                        :class="{ 'is-invalid': fieldErrors.name }"
+                        required
+                    />
+                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                        {{ fieldErrors.name[0] }}
                     </div>
-                    <form novalidate @submit.prevent="save">
-                        <div class="modal-body">
-                            <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" :value="indiaCountry?.name || 'India'" disabled />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">State *</label>
-                                <SearchableSelect
-                                    v-model="stateId"
-                                    :items="states"
-                                    placeholder="Select state"
-                                    search-placeholder="Search state…"
-                                    :invalid="Boolean(fieldErrors.state_id)"
-                                    :error-message="fieldErrors.state_id?.[0]"
-                                />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">City *</label>
-                                <SearchableSelect
-                                    v-model="cityId"
-                                    :items="cities"
-                                    placeholder="Select city"
-                                    search-placeholder="Search city…"
-                                    :disabled="!stateId"
-                                    :invalid="Boolean(fieldErrors.city_id)"
-                                    :error-message="fieldErrors.city_id?.[0]"
-                                />
-                            </div>
-
-                            <div class="mb-0">
-                                <label class="form-label">Station Name *</label>
-                                <input
-                                    v-model="form.name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.name }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.name[0] }}
-                                </div>
-                                <div class="form-text">Example: Depot, Yard, or local area name.</div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
-                            <AppButton type="submit" label="Save" :loading="saving" />
-                        </div>
-                    </form>
+                    <div class="form-text">Example: Depot, Yard, or local area name.</div>
                 </div>
             </div>
-        </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
+                <AppButton type="submit" label="Save" :loading="saving" />
+            </template>
+        </AppModal>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { createStation, deleteStation, listAllStations, updateStation } from '../../api/stations';
+import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
@@ -130,7 +102,7 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
-import SearchableSelect from '../../components/ui/SearchableSelect.vue';
+import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';

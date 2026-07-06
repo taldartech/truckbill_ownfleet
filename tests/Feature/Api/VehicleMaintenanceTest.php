@@ -153,13 +153,13 @@ class VehicleMaintenanceTest extends TestCase
             ->assertJsonPath('data.0.service_type', 'BRAKE_REPAIR');
     }
 
-    public function test_maintenance_reports_require_reports_permission(): void
+    public function test_moderator_can_view_maintenance_reports(): void
     {
         [, $user] = $this->createFixtures('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-03-31')
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_admin_can_view_maintenance_reports(): void

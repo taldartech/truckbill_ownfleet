@@ -73,6 +73,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::apiResource('attendances', AttendanceController::class);
     Route::get('trips/next-number', [TripController::class, 'nextTripNumber']);
     Route::get('trips/check-window', [TripController::class, 'checkTripWindow']);
+    Route::get('trips/{trip}/archive-impact', [TripController::class, 'archiveImpact']);
+    Route::get('trips/{trip}/deletion-impact', [TripController::class, 'deletionImpact']);
+    Route::post('trips/{trip}/archive', [TripController::class, 'archive']);
     Route::get('vehicles/{vehicle}/primary-driver', [TripController::class, 'vehiclePrimaryDriver']);
     Route::apiResource('trips', TripController::class);
     Route::get('locations/countries', [LocationController::class, 'countries']);

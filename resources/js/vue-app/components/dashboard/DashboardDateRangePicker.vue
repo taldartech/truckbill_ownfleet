@@ -71,6 +71,7 @@
                         <AppDateInput
                             v-model="draftFromDate"
                             size="sm"
+                            :max="draftFromMaxDate || undefined"
                             @change="onCustomDateChange"
                         />
                     </div>
@@ -86,8 +87,10 @@
                     </div>
                 </div>
 
-                <div v-if="maxMonths" class="form-text mb-0 mt-2">
-                    Maximum {{ maxMonths }} months per range.
+                <div v-if="maxMonths || blockFutureDates" class="form-text mb-0 mt-2">
+                    <span v-if="blockFutureDates">No future dates.</span>
+                    <span v-if="maxMonths && blockFutureDates"> </span>
+                    <span v-if="maxMonths">Maximum {{ maxMonths }} months per range.</span>
                 </div>
                 <div v-if="rangeError" class="text-danger small mt-2 mb-0">
                     {{ rangeError }}
@@ -110,13 +113,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     DATE_RANGE_PRESETS,
-    dateRangeExceedsMonths,
-    dateRangeMonthsError,
     detectDateRangePreset,
     formatDateRangeLabel,
     maxDateRangeEnd,
     resolveDateRangePreset,
+    validateDateRange,
 } from '../../utils/dateRangePresets';
+import { toDateInputValue } from '../../utils/datetime';
 
 const props = defineProps({
     fromDate: {
@@ -143,6 +146,10 @@ const props = defineProps({
     maxMonths: {
         type: Number,
         default: null,
+    },
+    blockFutureDates: {
+        type: Boolean,
+        default: true,
     },
 });
 
@@ -176,12 +183,26 @@ const selectablePresets = computed(() => {
 
 const appliedRangeLabel = computed(() => formatDateRangeLabel(appliedFromDate.value, appliedToDate.value));
 
+const todayMaxDate = computed(() => (props.blockFutureDates ? toDateInputValue(new Date()) : ''));
+
+const draftFromMaxDate = computed(() => todayMaxDate.value || undefined);
+
 const draftToMaxDate = computed(() => {
-    if (!props.maxMonths || !draftFromDate.value) {
+    const caps = [];
+
+    if (todayMaxDate.value) {
+        caps.push(todayMaxDate.value);
+    }
+
+    if (props.maxMonths && draftFromDate.value) {
+        caps.push(maxDateRangeEnd(draftFromDate.value, props.maxMonths, todayMaxDate.value || null));
+    }
+
+    if (caps.length === 0) {
         return undefined;
     }
 
-    return maxDateRangeEnd(draftFromDate.value, props.maxMonths);
+    return caps.sort()[0];
 });
 
 watch(
@@ -204,8 +225,14 @@ function resetDraftFromApplied() {
 }
 
 function clampDraftToDate() {
-    if (draftToDate.value && draftFromDate.value && draftToDate.value < draftFromDate.value) {
-        draftToDate.value = draftFromDate.value;
+    if (props.blockFutureDates && todayMaxDate.value) {
+        if (draftFromDate.value && draftFromDate.value > todayMaxDate.value) {
+            draftFromDate.value = todayMaxDate.value;
+        }
+
+        if (draftToDate.value && draftToDate.value > todayMaxDate.value) {
+            draftToDate.value = todayMaxDate.value;
+        }
     }
 
     if (props.maxMonths && draftFromDate.value && draftToDate.value && draftToMaxDate.value) {
@@ -216,21 +243,15 @@ function clampDraftToDate() {
 }
 
 function validateDraftRange() {
-    if (!draftFromDate.value || !draftToDate.value) {
-        rangeError.value = 'Select both From and To dates.';
+    const error = validateDateRange(draftFromDate.value, draftToDate.value, {
+        maxMonths: props.maxMonths,
+        todayMax: todayMaxDate.value || undefined,
+        blockFutureDates: props.blockFutureDates,
+    });
 
-        return false;
-    }
+    rangeError.value = error;
 
-    if (props.maxMonths && dateRangeExceedsMonths(draftFromDate.value, draftToDate.value, props.maxMonths)) {
-        rangeError.value = dateRangeMonthsError(props.maxMonths);
-
-        return false;
-    }
-
-    rangeError.value = '';
-
-    return true;
+    return error === '';
 }
 
 function panelWidth() {
@@ -290,6 +311,7 @@ function selectPreset(presetKey) {
     const range = resolveDateRangePreset(presetKey);
     draftFromDate.value = range.from_date;
     draftToDate.value = range.to_date;
+    clampDraftToDate();
 }
 
 function onCustomDateChange() {

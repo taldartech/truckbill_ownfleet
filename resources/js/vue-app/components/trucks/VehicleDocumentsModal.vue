@@ -1,54 +1,138 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        size="xl"
+        :loading="saving"
+        :form-error="formError"
+        @close="close"
     >
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <h5 :id="`${modalId}Label`" class="modal-title">
-                        <i class="bi bi-file-earmark-text"></i>
-                        Documents — {{ vehicleLabel }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
+        <template #title>
+            <div>
+                <span>
+                    <i class="bi bi-file-earmark-text"></i>
+                    <template v-if="isDashboardContext">Compliance Documents</template>
+                    <template v-else>Documents — {{ vehicleLabel }}</template>
+                </span>
+                <div v-if="isDashboardContext" class="small text-white-50 mt-1">
+                    {{ vehicleLabel }}
                 </div>
-                <div class="modal-body">
-                    <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
+            </div>
+        </template>
+
+        <div
+                        v-if="isDashboardContext && showAddPanel && canManage"
+                        class="card mb-3 border-primary-subtle"
+                    >
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <h6 class="mb-0">Add Document</h6>
+                            <button type="button" class="btn-close btn-sm" @click="closeAddPanel"></button>
+                        </div>
+                        <div class="card-body">
+                            <DocumentFormFields
+                                v-model="docForm"
+                                :document-types="addDocumentTypeOptions"
+                                :field-errors="fieldErrors"
+                                :document-type-disabled="false"
+                                :show-type-quick-add="canManage"
+                                @quick-add-type="showTypeQuickAdd = true"
+                            />
+                            <div class="d-flex gap-2 mt-3">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-success"
+                                    :disabled="saving"
+                                    @click="saveDocument('add')"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    :disabled="saving"
+                                    @click="closeAddPanel"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="isDashboardContext && editingDocument && !showAddPanel"
+                        class="card mb-3 border-primary-subtle"
+                    >
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <h6 class="mb-0">
+                                Edit — {{ editingDocument.document_type_label ?? editingDocument.document_type }}
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" @click="resetDocForm"></button>
+                        </div>
+                        <div class="card-body">
+                            <DocumentFormFields
+                                v-model="docForm"
+                                :document-types="[{ id: editingDocument.document_type, label: editingDocument.document_type_label ?? editingDocument.document_type }]"
+                                :field-errors="fieldErrors"
+                                :document-type-disabled="true"
+                                :hide-type="true"
+                            />
+                            <div class="d-flex gap-2 mt-3">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-success"
+                                    :disabled="saving"
+                                    @click="saveDocument('update')"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    :disabled="saving"
+                                    @click="resetDocForm"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="card app-index-list-card vehicle-doc-table-card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title mb-0">Documents List</h3>
+                            <h3 class="card-title mb-0">
+                                {{ isDashboardContext ? 'Documents' : 'Documents List' }}
+                            </h3>
                             <button
-                                v-if="canManage && !showDocForm"
+                                v-if="canManage && showAddButton"
                                 type="button"
                                 class="btn btn-primary btn-sm"
                                 title="Add document"
                                 @click="openAddForm"
                             >
-                                <i class="bi bi-plus-lg"></i>
+                                <i class="bi bi-plus-lg me-1"></i>
+                                Add Document
                             </button>
                         </div>
-                        <div class="card-body table-responsive p-0">
+                        <div ref="tableScrollRef" class="card-body table-responsive p-0" :class="{ 'compliance-table': isDashboardContext }">
                             <div v-if="loading" class="text-muted text-center py-4">Loading documents…</div>
                             <table v-else class="table table-hover align-middle mb-0 vehicle-doc-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Type</th>
-                                        <th style="min-width: 150px">Issue Date</th>
+                                        <th>{{ isDashboardContext ? 'Document' : 'Type' }}</th>
+                                        <th v-if="!isDashboardContext" style="min-width: 150px">Issue Date</th>
                                         <th style="min-width: 150px">Expiry Date</th>
-                                        <th style="width: 110px">Reminder</th>
-                                        <th style="width: 90px">Status</th>
-                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">
+                                        <th v-if="isDashboardContext" style="width: 100px">Days Left</th>
+                                        <th v-if="!isDashboardContext" style="width: 110px">Reminder</th>
+                                        <th style="width: 120px">Status</th>
+                                        <th v-if="showActionsColumn" class="app-index-actions-cell" style="width: 140px">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-if="canManage && showDocForm" class="vehicle-doc-form-row">
+                                    <tr
+                                        v-if="!isDashboardContext && canManage && showDocForm"
+                                        class="vehicle-doc-form-row"
+                                    >
                                         <td>
                                             <div class="doc-type-picker">
                                                 <SearchableSelect
@@ -121,7 +205,7 @@
                                                     class="btn btn-sm btn-success"
                                                     title="Save"
                                                     :disabled="saving"
-                                                    @click="saveDocument"
+                                                    @click="saveDocument('update')"
                                                 >
                                                     <i class="bi bi-check-lg"></i>
                                                 </button>
@@ -138,8 +222,8 @@
                                         </td>
                                     </tr>
 
-                                    <tr v-if="!loading && documents.length === 0 && !showDocForm">
-                                        <td :colspan="canManage ? 6 : 5" class="text-center text-muted py-4">
+                                    <tr v-if="!loading && sortedDocuments.length === 0 && !showDocForm && !showAddPanel">
+                                        <td :colspan="tableColspan" class="text-center text-muted py-4">
                                             No documents added yet.
                                             <button
                                                 v-if="canManage"
@@ -152,59 +236,112 @@
                                         </td>
                                     </tr>
 
-                                    <tr
-                                        v-for="doc in documents"
-                                        v-show="!(showDocForm && editingDocument?.id === doc.id)"
-                                        :key="doc.id"
-                                        :class="{ 'vehicle-doc-row--expired': doc.is_expired }"
-                                    >
-                                        <td>
-                                            <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
-                                            <small class="text-muted">{{ doc.document_type }}</small>
-                                        </td>
-                                        <td>{{ formatDate(doc.issue_date) }}</td>
-                                        <td>{{ formatDate(doc.expiry_date) }}</td>
-                                        <td>{{ doc.reminder_days_before ?? 7 }} days</td>
-                                        <td>
-                                            <span
-                                                class="badge"
-                                                :class="doc.is_expired ? 'bg-danger' : 'bg-success'"
-                                            >
-                                                {{ doc.is_expired ? 'Expired' : 'Valid' }}
-                                            </span>
-                                        </td>
-                                        <td v-if="canManage" class="app-index-actions-cell">
-                                            <AppTableActions>
-                                                <AppCrudActionButton
-                                                    action="edit"
-                                                    title="Edit document"
-                                                    @click="editDocument(doc)"
-                                                />
-                                                <AppCrudActionButton
-                                                    action="delete"
-                                                    title="Delete document"
-                                                    @click="removeDocument(doc)"
-                                                />
-                                            </AppTableActions>
-                                        </td>
-                                    </tr>
+                                    <template v-for="doc in sortedDocuments" :key="doc.id">
+                                        <tr
+                                            v-show="!(showDocForm && editingDocument?.id === doc.id)"
+                                            :class="rowBorderClass(doc)"
+                                        >
+                                            <td>
+                                                <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
+                                                <small v-if="!isDashboardContext" class="text-muted">{{ doc.document_type }}</small>
+                                            </td>
+                                            <td v-if="!isDashboardContext">{{ formatDate(doc.issue_date) }}</td>
+                                            <td>{{ formatDate(doc.expiry_date) }}</td>
+                                            <td v-if="isDashboardContext">{{ formatDaysLeft(doc) }}</td>
+                                            <td v-if="!isDashboardContext">{{ doc.reminder_days_before ?? 7 }} days</td>
+                                            <td>
+                                                <DocumentStatusBadge :document="doc" :soft="isDashboardContext" />
+                                            </td>
+                                            <td v-if="showActionsColumn" class="app-index-actions-cell">
+                                                <template v-if="isDashboardContext">
+                                                    <div class="compliance-actions">
+                                                        <AppButton
+                                                            v-if="canManage"
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            outline
+                                                            icon="fas fa-pen"
+                                                            title="Edit"
+                                                            @click="editDocument(doc)"
+                                                        />
+                                                        <AppButton
+                                                            v-if="canManage && canRenewDocument(doc)"
+                                                            size="sm"
+                                                            variant="primary"
+                                                            icon="fas fa-rotate-right"
+                                                            title="Renew"
+                                                            @click="renewDocument(doc)"
+                                                        />
+                                                    </div>
+                                                </template>
+                                                <AppTableActions v-else-if="canManage">
+                                                    <AppCrudActionButton
+                                                        action="edit"
+                                                        title="Edit document"
+                                                        @click="editDocument(doc)"
+                                                    />
+                                                    <AppCrudActionButton
+                                                        action="delete"
+                                                        title="Delete document"
+                                                        @click="removeDocument(doc)"
+                                                    />
+                                                </AppTableActions>
+                                            </td>
+                                        </tr>
+
+                                        <tr
+                                            v-if="isDashboardContext && renewingDocument?.id === doc.id"
+                                            class="vehicle-doc-form-row"
+                                        >
+                                            <td :colspan="tableColspan">
+                                                <div class="p-2">
+                                                    <h6 class="small fw-bold mb-2">
+                                                        Renew — {{ doc.document_type_label ?? doc.document_type }}
+                                                    </h6>
+                                                    <DocumentFormFields
+                                                        v-model="docForm"
+                                                        :document-types="[{ id: doc.document_type, label: doc.document_type_label ?? doc.document_type }]"
+                                                        :field-errors="fieldErrors"
+                                                        :document-type-disabled="true"
+                                                        :hide-type="true"
+                                                    />
+                                                    <div class="d-flex gap-2 mt-2">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-success"
+                                                            :disabled="saving"
+                                                            @click="saveDocument('renew')"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-secondary"
+                                                            :disabled="saving"
+                                                            @click="cancelRenew"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @click="close">Close</button>
-                </div>
-            </div>
-        </div>
 
-        <DocumentTypeQuickAddModal
-            :show="showTypeQuickAdd"
-            @close="showTypeQuickAdd = false"
-            @created="onDocumentTypeCreated"
-        />
-    </div>
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="close">Close</button>
+        </template>
+    </AppModal>
+
+    <DocumentTypeQuickAddModal
+        :show="showTypeQuickAdd"
+        @close="showTypeQuickAdd = false"
+        @created="onDocumentTypeCreated"
+    />
 </template>
 
 <script setup>
@@ -217,15 +354,27 @@ import {
     updateVehicleDocument,
 } from '../../api/vehicleDocuments';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import { useAppToast } from '../../composables/useAppToast';
+import {
+    canRenewDocument,
+    formatDaysLeft,
+    rowBorderClass,
+    sortDocumentsByUrgency,
+} from '../../utils/documentStatus';
+import { formatDate } from '../../utils/datetime';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
+import AppButton from '../ui/AppButton.vue';
+import AppModal from '../ui/AppModal.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
+import '../dashboard/complianceAlerts.css';
+import DocumentFormFields from './DocumentFormFields.vue';
+import DocumentStatusBadge from './DocumentStatusBadge.vue';
 import DocumentTypeQuickAddModal from './DocumentTypeQuickAddModal.vue';
-import { formatDate } from '../../utils/datetime';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
+const toast = useAppToast();
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -233,24 +382,47 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
     modalId: { type: String, required: true },
     initialDocumentId: { type: String, default: null },
+    initialAction: { type: String, default: null },
+    context: { type: String, default: 'truck' },
 });
 
 const emit = defineEmits(['close', 'saved']);
 
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
+const tableScrollRef = ref(null);
 
 const documents = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const showDocForm = ref(false);
+const showAddPanel = ref(false);
 const showTypeQuickAdd = ref(false);
 const editingDocument = ref(null);
+const renewingDocument = ref(null);
 const documentTypes = ref([]);
 const vehicleLabel = ref('');
+const initialDocumentHandled = ref(false);
+
+const isDashboardContext = computed(() => props.context === 'dashboard');
+
+const sortedDocuments = computed(() => sortDocumentsByUrgency(documents.value));
+
+const showActionsColumn = computed(() => props.canManage);
+
+const showAddButton = computed(() => {
+    if (isDashboardContext.value) {
+        return !showAddPanel.value && !renewingDocument.value && !editingDocument.value;
+    }
+
+    return !showDocForm.value;
+});
+
+const tableColspan = computed(() => {
+    if (isDashboardContext.value) {
+        return showActionsColumn.value ? 5 : 4;
+    }
+
+    return showActionsColumn.value ? 6 : 5;
+});
 
 const documentTypeOptions = computed(() =>
     documentTypes.value.map((type) => ({
@@ -259,15 +431,22 @@ const documentTypeOptions = computed(() =>
     })),
 );
 
+const usedDocumentTypes = computed(() => new Set(documents.value.map((doc) => doc.document_type)));
+
 const selectableDocumentTypes = computed(() => {
     if (editingDocument.value) {
         return documentTypeOptions.value;
     }
 
-    const usedTypes = new Set(documents.value.map((doc) => doc.document_type));
-
-    return documentTypeOptions.value.filter((type) => !usedTypes.has(type.id));
+    return documentTypeOptions.value.filter((type) => !usedDocumentTypes.value.has(type.id));
 });
+
+const addDocumentTypeOptions = computed(() =>
+    documentTypeOptions.value.map((type) => ({
+        ...type,
+        disabled: usedDocumentTypes.value.has(type.id),
+    })),
+);
 
 const docForm = ref(emptyDocForm());
 
@@ -281,15 +460,39 @@ function emptyDocForm() {
 }
 
 function openAddForm() {
+    if (isDashboardContext.value) {
+        editingDocument.value = null;
+        renewingDocument.value = null;
+        clearErrors();
+        docForm.value = emptyDocForm();
+        showAddPanel.value = true;
+
+        return;
+    }
+
     editingDocument.value = null;
     clearErrors();
     docForm.value = emptyDocForm();
     showDocForm.value = true;
 }
 
+function closeAddPanel() {
+    showAddPanel.value = false;
+    clearErrors();
+    docForm.value = emptyDocForm();
+}
+
 function resetDocForm() {
     editingDocument.value = null;
     showDocForm.value = false;
+    showAddPanel.value = false;
+    renewingDocument.value = null;
+    clearErrors();
+    docForm.value = emptyDocForm();
+}
+
+function cancelRenew() {
+    renewingDocument.value = null;
     clearErrors();
     docForm.value = emptyDocForm();
 }
@@ -313,17 +516,33 @@ function onDocumentTypeCreated(documentType) {
     docForm.value.document_type = documentType.code;
 }
 
-async function loadDocuments() {
+function getScrollTop() {
+    return tableScrollRef.value?.scrollTop ?? 0;
+}
+
+function setScrollTop(value) {
+    if (tableScrollRef.value) {
+        tableScrollRef.value.scrollTop = value;
+    }
+}
+
+async function loadDocuments({ preserveInitialAction = false } = {}) {
     if (!props.vehicle?.id) {
         return;
     }
 
+    const scrollTop = getScrollTop();
     loading.value = true;
 
     try {
         await loadDocumentTypes();
         documents.value = await listVehicleDocuments(props.vehicle.id);
-        openInitialDocumentIfNeeded();
+
+        if (preserveInitialAction) {
+            openInitialDocumentIfNeeded();
+        }
+
+        setScrollTop(scrollTop);
     } catch (error) {
         documents.value = [];
         showRequestError(error, 'Unable to load documents right now.');
@@ -333,31 +552,39 @@ async function loadDocuments() {
 }
 
 function openInitialDocumentIfNeeded() {
-    if (!props.initialDocumentId) {
+    if (!props.initialDocumentId || initialDocumentHandled.value) {
         return;
     }
 
     const document = documents.value.find((item) => item.id === props.initialDocumentId);
 
-    if (document) {
-        editDocument(document);
+    if (!document) {
+        return;
     }
+
+    initialDocumentHandled.value = true;
+
+    if (isDashboardContext.value) {
+        if (props.initialAction === 'renew' && canRenewDocument(document)) {
+            renewDocument(document);
+        } else if (props.canManage) {
+            editDocument(document);
+        }
+
+        return;
+    }
+
+    editDocument(document);
 }
 
 watch(
     () => props.show,
     async (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
+            initialDocumentHandled.value = false;
             resetDocForm();
-            await loadDocuments();
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
+            await loadDocuments({ preserveInitialAction: true });
         }
     },
 );
@@ -366,9 +593,10 @@ function close() {
     emit('close');
 }
 
-function editDocument(doc) {
-    editingDocument.value = doc;
-    showDocForm.value = true;
+function renewDocument(doc) {
+    renewingDocument.value = doc;
+    editingDocument.value = null;
+    showAddPanel.value = false;
     clearErrors();
     docForm.value = {
         document_type: doc.document_type,
@@ -378,20 +606,59 @@ function editDocument(doc) {
     };
 }
 
-async function saveDocument() {
-    if (!props.vehicle?.id) {
-        return;
-    }
+function editDocument(doc) {
+    editingDocument.value = doc;
+    renewingDocument.value = null;
+    showAddPanel.value = false;
+    clearErrors();
+    docForm.value = {
+        document_type: doc.document_type,
+        issue_date: doc.issue_date ?? '',
+        expiry_date: doc.expiry_date ?? '',
+        reminder_days_before: doc.reminder_days_before ?? 7,
+    };
 
-    if (!docForm.value.document_type) {
+    if (!isDashboardContext.value) {
+        showDocForm.value = true;
+    }
+}
+
+function validateDocForm() {
+    if (!docForm.value.document_type && !renewingDocument.value) {
         formError.value = 'Document type is required.';
 
-        return;
+        return false;
     }
 
     if (!docForm.value.issue_date || !docForm.value.expiry_date) {
         formError.value = 'Issue date and expiry date are required.';
 
+        return false;
+    }
+
+    const issue = new Date(docForm.value.issue_date);
+    const expiry = new Date(docForm.value.expiry_date);
+
+    if (expiry <= issue) {
+        formError.value = 'Expiry date must be after the issue date.';
+
+        return false;
+    }
+
+    const validityDays = Math.round((expiry - issue) / (1000 * 60 * 60 * 24));
+    const reminderDays = Number(docForm.value.reminder_days_before) || 7;
+
+    if (reminderDays > validityDays) {
+        formError.value = 'Reminder days cannot exceed the document validity period.';
+
+        return false;
+    }
+
+    return true;
+}
+
+async function saveDocument(action = 'update') {
+    if (!props.vehicle?.id || !validateDocForm()) {
         return;
     }
 
@@ -400,22 +667,43 @@ async function saveDocument() {
 
     const payload = {
         vehicle_id: props.vehicle.id,
-        document_type: docForm.value.document_type,
+        document_type: renewingDocument.value?.document_type ?? docForm.value.document_type,
         issue_date: docForm.value.issue_date,
         expiry_date: docForm.value.expiry_date,
         reminder_days_before: Number(docForm.value.reminder_days_before) || 7,
     };
 
     try {
-        if (editingDocument.value?.id) {
-            await updateVehicleDocument(editingDocument.value.id, payload);
+        let savedDocument = null;
+        let savedAction = action;
+
+        if (renewingDocument.value?.id) {
+            savedDocument = await updateVehicleDocument(renewingDocument.value.id, payload);
+            savedAction = 'renew';
+        } else if (editingDocument.value?.id) {
+            savedDocument = await updateVehicleDocument(editingDocument.value.id, payload);
+            savedAction = 'update';
         } else {
-            await createVehicleDocument(payload);
+            savedDocument = await createVehicleDocument(payload);
+            savedAction = 'add';
         }
+
+        const toastMessages = {
+            renew: 'Document renewed successfully.',
+            add: 'Document added successfully.',
+            update: 'Document updated successfully.',
+        };
+
+        toast.success(toastMessages[savedAction] ?? 'Document saved successfully.');
 
         resetDocForm();
         await loadDocuments();
-        emit('saved');
+
+        emit('saved', {
+            action: savedAction,
+            document: savedDocument,
+            vehicleId: props.vehicle.id,
+        });
     } catch (error) {
         if (!applyApiError(error)) {
             formError.value = 'Unable to save the document. Please try again.';
@@ -432,11 +720,19 @@ async function removeDocument(doc) {
 
     try {
         await deleteVehicleDocument(doc.id);
+
         if (editingDocument.value?.id === doc.id) {
             resetDocForm();
         }
+
+        toast.success('Document deleted successfully.');
         await loadDocuments();
-        emit('saved');
+
+        emit('saved', {
+            action: 'delete',
+            document: doc,
+            vehicleId: props.vehicle.id,
+        });
     } catch (error) {
         showRequestError(error, 'Unable to delete the document.');
     }
@@ -449,22 +745,20 @@ function showRequestError(error, fallbackMessage) {
         ? Object.values(validationErrors).flat().find(Boolean)
         : null;
 
-    window.alert(firstValidationMessage || message || fallbackMessage);
+    toast.error(firstValidationMessage || message || fallbackMessage);
 }
 </script>
 
 <style scoped>
 .vehicle-doc-table-card > .card-body {
     padding: 0;
+    max-height: 420px;
+    overflow-y: auto;
 }
 
 .vehicle-doc-form-row > td {
     background: rgba(13, 110, 253, 0.06);
     vertical-align: middle;
-}
-
-.vehicle-doc-row--expired > td {
-    background: rgba(220, 53, 69, 0.04);
 }
 
 .doc-type-picker {

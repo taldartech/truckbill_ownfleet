@@ -3,7 +3,7 @@ export function getBootstrapModal() {
 }
 
 export function countOpenBootstrapModals() {
-    return document.querySelectorAll('.modal.show').length;
+    return document.querySelectorAll('.modal.show:not([data-app-modal])').length;
 }
 
 /**

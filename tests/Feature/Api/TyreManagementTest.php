@@ -738,7 +738,7 @@ class TyreManagementTest extends TestCase
             ->assertJsonValidationErrors(['expected_life_km']);
     }
 
-    public function test_moderator_can_manage_tyres_without_delete_permission(): void
+    public function test_moderator_can_view_tyres_but_not_manage(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('moderator'), 0, 2);
         Sanctum::actingAs($user);
@@ -751,7 +751,7 @@ class TyreManagementTest extends TestCase
             ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => 'TYRE-MOD',
             ]))
-            ->assertOk();
+            ->assertForbidden();
     }
 
     public function test_install_syncs_vehicle_odometer_when_higher_than_stored_reading(): void

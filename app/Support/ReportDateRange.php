@@ -21,19 +21,39 @@ class ReportDateRange
             ]);
         }
 
-        $from = Carbon::parse($filters['from'])->startOfDay();
-        $to = Carbon::parse($filters['to'])->startOfDay();
+        self::assertValidDates(
+            (string) $filters['from'],
+            (string) $filters['to'],
+            'from',
+            'to',
+        );
+    }
+
+    public static function assertValidDates(
+        string $fromDate,
+        string $toDate,
+        string $fromField = 'from',
+        string $toField = 'to',
+    ): void {
+        $from = Carbon::parse($fromDate)->startOfDay();
+        $to = Carbon::parse($toDate)->startOfDay();
         $today = Carbon::today();
 
-        if ($from->gt($to)) {
+        if ($from->gt($today)) {
             throw ValidationException::withMessages([
-                'to' => 'End date must be on or after start date.',
+                $fromField => 'Future date is not allowed.',
             ]);
         }
 
-        if ($from->gt($today) || $to->gt($today)) {
+        if ($to->gt($today)) {
             throw ValidationException::withMessages([
-                'to' => 'Future dates are not allowed.',
+                $toField => 'Future date is not allowed.',
+            ]);
+        }
+
+        if ($from->gt($to)) {
+            throw ValidationException::withMessages([
+                $toField => 'To Date cannot be earlier than From Date.',
             ]);
         }
 
@@ -41,7 +61,7 @@ class ReportDateRange
 
         if ($from->lt($earliestAllowed)) {
             throw ValidationException::withMessages([
-                'from' => 'Maximum allowed date range is '.self::MAX_MONTHS.' months.',
+                $fromField => 'Maximum allowed date range is '.self::MAX_MONTHS.' months.',
             ]);
         }
     }

@@ -1,23 +1,24 @@
 import api from '../api';
+import { parsePaginatedReportResponse } from './reportPagination';
 
 const reportBase = '/app/api/reports/maintenance';
 
-export async function fetchMaintenanceCostSummary(params = {}) {
-    const { data } = await api.get(`${reportBase}/cost-summary`, { params });
+async function fetchMaintenanceReport(endpoint, params = {}) {
+    const { data } = await api.get(`${reportBase}/${endpoint}`, { params });
 
-    return data.data ?? [];
+    return parsePaginatedReportResponse(data);
+}
+
+export async function fetchMaintenanceCostSummary(params = {}) {
+    return fetchMaintenanceReport('cost-summary', params);
 }
 
 export async function fetchMaintenanceTruckWiseReport(params = {}) {
-    const { data } = await api.get(`${reportBase}/truck-wise`, { params });
-
-    return data.data ?? [];
+    return fetchMaintenanceReport('truck-wise', params);
 }
 
-export async function fetchMaintenanceDueServicesReport() {
-    const { data } = await api.get(`${reportBase}/due-services`);
-
-    return data.data ?? [];
+export async function fetchMaintenanceDueServicesReport(params = {}) {
+    return fetchMaintenanceReport('due-services', params);
 }
 
 export function exportMaintenanceReport(type, filters = {}) {

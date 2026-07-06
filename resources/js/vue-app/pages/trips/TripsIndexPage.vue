@@ -13,6 +13,17 @@
         </div>
 
         <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
+            <template #header-actions>
+                <AppButton
+                    size="sm"
+                    :variant="filters.show_archived ? 'warning' : 'secondary'"
+                    :outline="!filters.show_archived"
+                    icon="bi bi-archive"
+                    label="Show archived"
+                    :disabled="loading"
+                    @click="toggleShowArchived"
+                />
+            </template>
             <div class="trips-filter-search">
                 <label class="form-label" for="trips_search">Search</label>
                 <AppIndexSearchInput
@@ -30,7 +41,7 @@
                 <DashboardDateRangePicker
                     v-model:from-date="filters.from_date"
                     v-model:to-date="filters.to_date"
-                    label="Period"
+                    label="Trip Date"
                     panel-align="start"
                     :preset-keys="tripDatePresetKeys"
                     @change="onDateRangeChange"
@@ -79,16 +90,19 @@
                             <th>Truck</th>
                             <th>Driver</th>
                             <th class="trips-status-col">Status</th>
-                            <th class="trips-period-col">Period</th>
-                            <th class="trips-route-col">Route</th>
-                            <th class="trips-financials-col">Freight / Expense / Profit</th>
-                            <th v-if="showActions" class="app-index-actions-cell" style="width: 180px">Actions</th>
+                            <th v-if="showingArchived" class="trips-archived-col">Archived At</th>
+                            <th v-if="showingArchived" class="trips-archive-reason-col">Archive Reason</th>
+                            <th v-if="!showingArchived" class="trips-period-col">Trip Date</th>
+                            <th v-if="!showingArchived" class="trips-route-col">Route</th>
+                            <th v-if="!showingArchived" class="trips-financials-col">Freight / Expense / Profit</th>
+                            <th v-if="showActions && !showingArchived" class="app-index-actions-cell" style="width: 180px">Actions</th>
+                            <th v-if="showActions && showingArchived" class="app-index-actions-cell" style="width: 80px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="trips.length === 0">
-                            <td :colspan="showActions ? 8 : 7" class="text-center text-muted py-4">
-                                No trips found for selected filters.
+                            <td :colspan="tableColspan" class="text-center text-muted py-4">
+                                {{ showingArchived ? 'No archived trips found for selected filters.' : 'No trips found for selected filters.' }}
                             </td>
                         </tr>
                         <tr v-for="trip in trips" :key="trip.id">
@@ -121,19 +135,33 @@
                             </td>
                             <td class="trips-status-col">
                                 <TripInlineStatusActions
+                                    v-if="!showingArchived"
                                     :trip="trip"
                                     :can-manage="canManage"
                                     @updated="onTripStatusUpdated(trip, $event)"
                                 />
+                                <span
+                                    v-else
+                                    class="badge"
+                                    :class="tripStatusInfo(trip.status).badge"
+                                >
+                                    {{ tripStatusInfo(trip.status).label }}
+                                </span>
                             </td>
-                            <td class="trips-period-col small">
+                            <td v-if="showingArchived" class="trips-archived-col small">
+                                {{ formatDate(trip.archived_at) }}
+                            </td>
+                            <td v-if="showingArchived" class="trips-archive-reason-col small text-muted">
+                                {{ trip.archive_reason || '—' }}
+                            </td>
+                            <td v-if="!showingArchived" class="trips-period-col small">
                                 <div>{{ formatDate(trip.start_at) }}</div>
                                 <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
                             </td>
-                            <td class="trips-route-col small" :title="formatRoute(trip)">
+                            <td v-if="!showingArchived" class="trips-route-col small" :title="formatRoute(trip)">
                                 {{ formatRoute(trip) }}
                             </td>
-                            <td class="trips-financials-col">
+                            <td v-if="!showingArchived" class="trips-financials-col">
                                 <div class="trips-financials" :title="financialSummaryTitle(trip)">
                                     <div class="trips-financials__row">
                                         <span class="trips-financials__label">Freight</span>
@@ -157,24 +185,27 @@
                             <td v-if="showActions" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
-                                    <AppCrudActionButton
-                                        v-if="canManage && canManageTripExpensesFor(trip)"
-                                        action="expenses"
-                                        title="Trip expenses"
-                                        @click="goToExpenses(trip)"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canManage"
-                                        action="edit"
-                                        :disabled="!canEditTrip(trip)"
-                                        :title="tripEditTitle(trip)"
-                                        @click="goToEdit(trip)"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canDelete"
-                                        action="delete"
-                                        @click="handleDelete(trip)"
-                                    />
+                                    <template v-if="!showingArchived">
+                                        <AppCrudActionButton
+                                            v-if="canManage && canManageTripExpensesFor(trip)"
+                                            action="expenses"
+                                            title="Trip expenses"
+                                            @click="goToExpenses(trip)"
+                                        />
+                                        <AppCrudActionButton
+                                            v-if="canManage"
+                                            action="edit"
+                                            :disabled="!canEditTrip(trip)"
+                                            :title="tripEditTitle(trip)"
+                                            @click="goToEdit(trip)"
+                                        />
+                                        <AppCrudActionButton
+                                            v-if="canArchive"
+                                            action="archive"
+                                            title="Archive trip"
+                                            @click="handleArchive(trip)"
+                                        />
+                                    </template>
                                 </AppTableActions>
                             </td>
                         </tr>
@@ -203,6 +234,15 @@
             @cancel="showTripTypeModal = false"
             @confirm="onTripTypeSelected"
         />
+
+        <TripArchiveConfirmModal
+            :show="showArchiveConfirm"
+            :summary="archiveConfirmSummary"
+            :archiving="archivingTrip"
+            :field-errors="archiveFieldErrors"
+            @cancel="closeArchiveConfirm"
+            @confirm="confirmArchiveTrip"
+        />
     </div>
 </template>
 
@@ -213,17 +253,20 @@ import { fetchCurrentUser } from '../../api';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import {
-    deleteTrip,
+    archiveTrip,
     defaultTripListFilters,
+    fetchTripArchiveImpact,
     isTerminalTripStatus,
     listTrips,
     canFullEditTrip,
     canManageTripExpenses,
     tripEditDisabledTitle,
+    tripStatusMeta,
     tripTypeMeta,
     TRIP_STATUSES,
     TRIP_TYPES,
 } from '../../api/trips';
+import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
@@ -242,6 +285,11 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import {
+    invalidateOperationalData,
+    useOperationalDataInvalidation,
+} from '../../composables/useOperationalDataInvalidation';
+import { buildTripArchiveConfirmViewModel } from '../../utils/tripArchiveConfirm';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate } from '../../utils/datetime';
 import {
@@ -259,9 +307,17 @@ const router = useRouter();
 const toast = useAppToast();
 const currentUser = inject('currentUser', ref(null));
 const { needsCompanySelection } = useRequireCompanyContext();
-const { canInCompany, canDeleteRecords, user } = usePermissions(currentUser);
+const { canInCompany, user } = usePermissions(currentUser);
 const canManage = computed(() => canInCompany('trips.manage'));
-const canDelete = computed(() => canManage.value && canDeleteRecords.value);
+const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const showingArchived = computed(() => Boolean(filters.show_archived));
+const tableColspan = computed(() => {
+    if (showingArchived.value) {
+        return showActions.value ? 8 : 7;
+    }
+
+    return showActions.value ? 8 : 7;
+});
 const canView = computed(() => canInCompany('trips.view'));
 const canOpenTrip = computed(() => canView.value || canManage.value);
 const showActions = computed(() => canOpenTrip.value);
@@ -273,6 +329,11 @@ const customers = ref([]);
 const brokers = ref([]);
 const loading = ref(true);
 const showTripTypeModal = ref(false);
+const showArchiveConfirm = ref(false);
+const archiveConfirmSummary = ref(null);
+const archivingTrip = ref(false);
+const archiveFieldErrors = ref({});
+const tripPendingArchive = ref(null);
 const tripStatuses = TRIP_STATUSES;
 const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
@@ -302,7 +363,8 @@ const filtersActive = computed(() => {
         filters.customer_id !== '' ||
         filters.broker_id !== '' ||
         filters.status !== '' ||
-        filters.trip_type !== ''
+        filters.trip_type !== '' ||
+        filters.show_archived
     );
 });
 
@@ -315,6 +377,7 @@ function currentListState() {
         trip_type: filters.trip_type,
         customer_id: filters.customer_id,
         broker_id: filters.broker_id,
+        show_archived: filters.show_archived,
         page: pagination.currentPage,
         per_page: pagination.perPage,
     };
@@ -328,6 +391,7 @@ function applyListState(state) {
     filters.trip_type = state.trip_type ?? '';
     filters.customer_id = state.customer_id ?? '';
     filters.broker_id = state.broker_id ?? '';
+    filters.show_archived = Boolean(state.show_archived);
     pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
     pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 15;
 }
@@ -341,6 +405,7 @@ function listStatesEqual(left, right) {
         left.trip_type === right.trip_type &&
         String(left.customer_id) === String(right.customer_id) &&
         String(left.broker_id) === String(right.broker_id) &&
+        Boolean(left.show_archived) === Boolean(right.show_archived) &&
         Number(left.page) === Number(right.page) &&
         Number(left.per_page) === Number(right.per_page)
     );
@@ -537,6 +602,15 @@ function onDateRangeChange() {
     loadTrips(1);
 }
 
+function tripStatusInfo(status) {
+    return tripStatusMeta(status);
+}
+
+function toggleShowArchived() {
+    filters.show_archived = !filters.show_archived;
+    loadTrips(1);
+}
+
 async function loadTrips(page = 1) {
     loading.value = true;
 
@@ -546,6 +620,7 @@ async function loadTrips(page = 1) {
         const result = await listTrips({
             page,
             perPage: pagination.perPage,
+            archived: filters.show_archived ? 'archived' : 'active',
             search: search || undefined,
             from_date: search ? undefined : filters.from_date || undefined,
             to_date: search ? undefined : filters.to_date || undefined,
@@ -590,21 +665,77 @@ function goToExpenses(trip) {
     router.push({ name: 'trips.expenses', params: { id: trip.id } });
 }
 
-async function handleDelete(trip) {
-    if (!window.confirm(`Delete trip ${trip.trip_number || trip.id}?`)) {
+async function handleArchive(trip) {
+    archiveFieldErrors.value = {};
+    tripPendingArchive.value = trip;
+
+    try {
+        const impact = await fetchTripArchiveImpact(trip.id);
+        archiveConfirmSummary.value = buildTripArchiveConfirmViewModel(impact);
+        showArchiveConfirm.value = true;
+    } catch (error) {
+        toast.error(archiveTripErrorMessage(error));
+    }
+}
+
+function closeArchiveConfirm() {
+    if (archivingTrip.value) {
         return;
     }
 
+    showArchiveConfirm.value = false;
+    archiveConfirmSummary.value = null;
+    tripPendingArchive.value = null;
+    archiveFieldErrors.value = {};
+}
+
+function archiveTripErrorMessage(error) {
+    if (error?.response?.status === 403) {
+        return 'You do not have permission to archive trips.';
+    }
+
+    const tripError = error?.response?.data?.errors?.trip?.[0];
+
+    if (tripError) {
+        return tripError;
+    }
+
+    return friendlyApiErrorMessage(error, 'Unable to archive trip.');
+}
+
+async function confirmArchiveTrip({ archive_reason: archiveReason }) {
+    if (!tripPendingArchive.value || archivingTrip.value) {
+        return;
+    }
+
+    archivingTrip.value = true;
+    archiveFieldErrors.value = {};
+
     try {
-        await deleteTrip(trip.id);
-        toast.success('Trip deleted.');
+        await archiveTrip(tripPendingArchive.value.id, { archive_reason: archiveReason });
+        toast.success('Trip archived successfully.');
+        showArchiveConfirm.value = false;
+        archiveConfirmSummary.value = null;
+        tripPendingArchive.value = null;
+        archiveFieldErrors.value = {};
+        invalidateOperationalData(['trips', 'dashboard', 'trip-reports']);
         await loadTrips(pagination.currentPage);
     } catch (error) {
-        if (!applyApiError(error, 'Failed to delete trip.')) {
-            toast.error(friendlyApiErrorMessage(error, 'Failed to delete trip.'));
+        if (error?.response?.status === 422 && error?.response?.data?.errors) {
+            archiveFieldErrors.value = error.response.data.errors;
+        } else {
+            toast.error(archiveTripErrorMessage(error));
         }
+    } finally {
+        archivingTrip.value = false;
     }
 }
+
+useOperationalDataInvalidation('trips', () => {
+    if (listReady.value) {
+        loadTrips(pagination.currentPage);
+    }
+});
 
 watch(
     () => route.query,

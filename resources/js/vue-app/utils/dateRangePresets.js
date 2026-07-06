@@ -2,7 +2,13 @@ import { addDaysToDateInput, formatDate, toDateInputValue } from './datetime';
 
 export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
 
+export const DASHBOARD_DATE_PRESET_KEYS = ['today', 'yesterday', 'this_month', 'last_month'];
+
 export const MAX_LIST_DATE_RANGE_MONTHS = 3;
+
+export const FUTURE_DATE_ERROR = 'Future date is not allowed.';
+
+export const TO_DATE_BEFORE_FROM_ERROR = 'To Date cannot be earlier than From Date.';
 
 export const DATE_RANGE_PRESETS = [
     { key: 'today', label: 'Today' },
@@ -52,12 +58,14 @@ export function lastThirtyDaysDateRange(referenceDate = new Date()) {
 }
 
 export function thisMonthDateRange(referenceDate = new Date()) {
-    const [year, month] = toIsoDate(referenceDate).split('-').map(Number);
+    const today = toIsoDate(referenceDate);
+    const [year, month] = today.split('-').map(Number);
     const lastDay = new Date(year, month, 0).getDate();
+    const monthEnd = `${year}-${pad(month)}-${pad(lastDay)}`;
 
     return {
         from_date: `${year}-${pad(month)}-01`,
-        to_date: `${year}-${pad(month)}-${pad(lastDay)}`,
+        to_date: monthEnd > today ? today : monthEnd,
     };
 }
 
@@ -142,8 +150,18 @@ export function addMonthsToDateInput(dateInput, monthOffset) {
     return toIsoDate(date);
 }
 
-export function maxDateRangeEnd(fromDate, maxMonths = MAX_LIST_DATE_RANGE_MONTHS) {
-    return addMonthsToDateInput(fromDate, maxMonths);
+export function maxDateRangeEnd(
+    fromDate,
+    maxMonths = MAX_LIST_DATE_RANGE_MONTHS,
+    todayMax = toIsoDate(new Date()),
+) {
+    const rangeEnd = addMonthsToDateInput(fromDate, maxMonths);
+
+    if (!todayMax) {
+        return rangeEnd;
+    }
+
+    return rangeEnd > todayMax ? todayMax : rangeEnd;
 }
 
 export function dateRangeExceedsMonths(
@@ -170,4 +188,32 @@ export function dateRangeExceedsMonths(
 
 export function dateRangeMonthsError(maxMonths = MAX_LIST_DATE_RANGE_MONTHS) {
     return `Maximum allowed date range is ${maxMonths} months.`;
+}
+
+export function validateDateRange(fromDate, toDate, options = {}) {
+    const maxMonths = options.maxMonths ?? null;
+    const todayMax = options.todayMax ?? toIsoDate(new Date());
+    const blockFutureDates = options.blockFutureDates ?? true;
+
+    if (!fromDate || !toDate) {
+        return 'Select both From and To dates.';
+    }
+
+    if (blockFutureDates && fromDate > todayMax) {
+        return FUTURE_DATE_ERROR;
+    }
+
+    if (blockFutureDates && toDate > todayMax) {
+        return FUTURE_DATE_ERROR;
+    }
+
+    if (toDate < fromDate) {
+        return TO_DATE_BEFORE_FROM_ERROR;
+    }
+
+    if (maxMonths && dateRangeExceedsMonths(fromDate, toDate, maxMonths)) {
+        return dateRangeMonthsError(maxMonths);
+    }
+
+    return '';
 }

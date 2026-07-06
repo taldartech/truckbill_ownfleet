@@ -15,7 +15,9 @@ use App\Support\BranchContext;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Trip;
+use App\TripAuditLog;
 use App\TripExpense;
+use App\TripRouteLeg;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -948,11 +950,11 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.0.trip_type', TripType::RoundTrip->value);
     }
 
-    public function test_moderator_can_create_trips_but_not_delete(): void
+    public function test_moderator_can_view_trips_but_not_create_or_archive(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
         $this->actingAs($user);
-        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips')
@@ -981,11 +983,124 @@ class TripManagementTest extends TestCase
                     ],
                 ],
             ]))
-            ->assertCreated();
+            ->assertForbidden();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->deleteJson('/api/trips/'.$trip->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Created by mistake during testing.',
+            ])
             ->assertForbidden();
+    }
+
+    public function test_trip_archive_impact_returns_summary_and_expense_breakdown(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+
+        TripRouteLeg::query()->create([
+            ...$operationalAttributes,
+            'trip_id' => $trip->id,
+            'from_station_id' => $stations['home']->id,
+            'to_station_id' => $stations['b']->id,
+            'from_location' => $stations['home']->name,
+            'to_location' => $stations['b']->name,
+            'sequence_no' => 1,
+            'weight_ton' => 10,
+            'freight_amount' => 5000,
+        ]);
+
+        TripExpense::query()->create([
+            ...$operationalAttributes,
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Diesel->value,
+            'expense_date' => '2026-06-10',
+            'amount' => 5000,
+        ]);
+        TripExpense::query()->create([
+            ...$operationalAttributes,
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Toll->value,
+            'expense_date' => '2026-06-10',
+            'amount' => 250,
+        ]);
+        TripExpense::query()->create([
+            ...$operationalAttributes,
+            'trip_id' => $trip->id,
+            'expense_type' => TripExpenseType::Other->value,
+            'other_type' => 'Parking',
+            'expense_date' => '2026-06-10',
+            'amount' => 100,
+        ]);
+        $trip->update(['total_expense_amount' => 5350]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id.'/archive-impact')
+            ->assertOk()
+            ->assertJsonPath('trip.trip_number', $trip->trip_number)
+            ->assertJsonPath('trip.status_label', 'Draft')
+            ->assertJsonPath('linked_records.expenses_count', 3)
+            ->assertJsonPath('linked_records.total_expense_amount', 5350)
+            ->assertJsonPath('warnings.has_financial_records', true)
+            ->assertJsonPath('can_archive', true);
+    }
+
+    public function test_admin_cannot_archive_trip_without_archive_reason(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['archive_reason']);
+
+        $this->assertNotNull(Trip::query()->find($trip->id));
+    }
+
+    public function test_admin_can_archive_in_progress_trip_with_reason(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['status' => TripStatus::InProgress->value]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Running trip should be removable when required.',
+            ])
+            ->assertNoContent();
+
+        $this->assertNull(Trip::query()->find($trip->id));
+    }
+
+    public function test_admin_can_archive_cancelled_trip_with_reason(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'status' => TripStatus::Cancelled->value,
+            'cancellation_reason' => 'Customer cancelled',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Cancelled trip no longer needed in system.',
+            ])
+            ->assertNoContent();
+
+        $this->assertNull(Trip::query()->find($trip->id));
     }
 
     public function test_trip_profitability_report_returns_calculated_rows(): void
@@ -2010,47 +2125,177 @@ class TripManagementTest extends TestCase
         $response->assertJsonValidationErrors(['route_legs']);
     }
 
-    public function test_admin_can_soft_delete_created_trip_and_records_deleted_by(): void
+    public function test_admin_can_archive_created_trip_and_records_archived_by(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->deleteJson('/api/trips/'.$trip->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Created by mistake during testing.',
+            ])
             ->assertNoContent();
 
         $this->assertNull(Trip::query()->find($trip->id));
 
-        $deletedTrip = Trip::query()->withTrashed()->find($trip->id);
+        $archivedTrip = Trip::query()->withTrashed()->find($trip->id);
 
-        $this->assertNotNull($deletedTrip);
-        $this->assertNotNull($deletedTrip->deleted_at);
-        $this->assertSame($user->id, $deletedTrip->deleted_by);
+        $this->assertNotNull($archivedTrip);
+        $this->assertNotNull($archivedTrip->deleted_at);
+        $this->assertSame($user->id, $archivedTrip->archived_by);
+        $this->assertSame('Created by mistake during testing.', $archivedTrip->archive_reason);
+
+        $this->assertDatabaseHas('trip_audit_logs', [
+            'trip_id' => $trip->id,
+            'event_type' => 'trip.archived',
+            'performed_by' => $user->id,
+        ]);
+
+        $auditLog = TripAuditLog::query()->where('trip_id', $trip->id)->first();
+        $this->assertNotNull($auditLog);
+        $this->assertSame('Created by mistake during testing.', $auditLog->payload['archive_reason'] ?? null);
+        $this->assertSame($trip->trip_number, $auditLog->payload['trip_number'] ?? null);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips')
             ->assertOk()
             ->assertJsonMissing(['id' => $trip->id]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?archived=archived')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $trip->id)
+            ->assertJsonPath('data.0.archive_reason', 'Created by mistake during testing.');
     }
 
-    public function test_admin_cannot_delete_completed_trip(): void
+    public function test_admin_can_archive_completed_trip_with_reason(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
-        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
         $trip->update(['status' => TripStatus::Completed->value]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->deleteJson('/api/trips/'.$trip->id)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['trip']);
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Completed trip entered by mistake during testing.',
+            ])
+            ->assertNoContent();
 
-        $this->assertNotNull(Trip::query()->find($trip->id));
+        $this->assertNull(Trip::query()->find($trip->id));
+    }
+
+    public function test_archived_trip_cannot_be_updated(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived trip should not be editable.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'notes' => 'Attempt to modify archived trip.',
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_archived_trip_cannot_change_status(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived trip should not allow status changes.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'status' => TripStatus::InProgress->value,
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_archived_trip_cannot_modify_expenses(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived trip should not allow expense edits.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 100,
+                    ],
+                ],
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_archived_trip_can_still_be_viewed(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived trip remains readable for audit.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id)
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', true)
+            ->assertJsonPath('data.archive_reason', 'Archived trip remains readable for audit.');
+    }
+
+    public function test_archived_trip_archive_impact_returns_not_found(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Already archived trip should not re-archive.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id.'/archive-impact')
+            ->assertNotFound();
     }
 
     /**
@@ -2200,6 +2445,34 @@ class TripManagementTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    /**
+     * @param  array<string, Station>  $stations
+     */
+    private function createPersistedTrip(
+        Tenant $tenant,
+        Vehicle $vehicle,
+        Driver $driver,
+        array $stations,
+        TripStatus $status = TripStatus::Created,
+    ): Trip {
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+        TenantContext::setTenantId($tenant->id);
+
+        return Trip::query()->create([
+            ...$operationalAttributes,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'start_station_id' => $stations['home']->id,
+            'trip_number' => 'TRP-DEL-'.fake()->unique()->numerify('####'),
+            'trip_type' => TripType::OneWay->value,
+            'status' => $status->value,
+            'start_at' => '2026-06-10 09:00:00',
+            'start_meter_reading_km' => 1000,
+            'total_freight_amount' => 10000,
+            'total_expense_amount' => 0,
+        ]);
     }
 
     /**

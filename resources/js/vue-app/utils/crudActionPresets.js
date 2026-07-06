@@ -12,6 +12,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-pencil-alt',
         title: 'Edit',
     },
+    archive: {
+        btnClass: 'btn-warning',
+        icon: 'bi bi-archive',
+        title: 'Archive',
+    },
     delete: {
         btnClass: 'btn-danger',
         icon: 'fas fa-trash',

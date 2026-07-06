@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exports\TripReportExport;
 use App\Http\Controllers\Controller;
 use App\Modules\TyreManagement\Services\TyreReportService;
+use App\Support\ReportPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,35 +19,50 @@ class TyreReportController extends Controller
     {
         $this->authorize('tyre_reports.view');
 
-        return response()->json(['data' => $this->tyreReportService->tyreLife($this->filters($request))]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->tyreReportService->tyreLife($this->filters($request)),
+        );
     }
 
     public function costPerKm(Request $request): JsonResponse
     {
         $this->authorize('tyre_reports.view');
 
-        return response()->json(['data' => $this->tyreReportService->costPerKm($this->filters($request))]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->tyreReportService->costPerKm($this->filters($request)),
+        );
     }
 
     public function replacements(Request $request): JsonResponse
     {
         $this->authorize('tyre_reports.view');
 
-        return response()->json(['data' => $this->tyreReportService->replacements($this->filters($request))]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->tyreReportService->replacements($this->filters($request)),
+        );
     }
 
     public function vehicleWiseUsage(Request $request): JsonResponse
     {
         $this->authorize('tyre_reports.view');
 
-        return response()->json(['data' => $this->tyreReportService->vehicleWiseUsage($this->filters($request))]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->tyreReportService->vehicleWiseUsage($this->filters($request)),
+        );
     }
 
     public function expenseSummary(Request $request): JsonResponse
     {
         $this->authorize('tyre_reports.view');
 
-        return response()->json(['data' => $this->tyreReportService->expenseSummary($this->filters($request))]);
+        return ReportPaginator::paginate(
+            $request,
+            $this->expenseSummaryRows($this->filters($request)),
+        );
     }
 
     public function export(Request $request): BinaryFileResponse

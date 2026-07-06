@@ -26,7 +26,7 @@
                                 <i class="fas fa-building text-brand-primary me-1"></i>
                                 Company: <strong>{{ user?.tenant_name ?? user?.company?.name }}</strong>
                             </span>
-                            <span v-else>Overview of trips, fleet, tyres, attendance, and compliance.</span>
+                            <span v-else>Overview of trips, fleet, tyres, and compliance.</span>
                         </p>
                     </div>
                     <div class="dashboard-page__hero-actions">
@@ -46,6 +46,8 @@
                             v-model:from-date="periodFromDate"
                             v-model:to-date="periodToDate"
                             label=""
+                            :preset-keys="dashboardDatePresetKeys"
+                            :max-months="MAX_LIST_DATE_RANGE_MONTHS"
                             @change="loadDashboard"
                         />
                         <div v-if="!showPeriodFilter" class="dashboard-page__today">
@@ -65,10 +67,11 @@
                 <div class="dashboard-page__body">
                     <div v-if="canViewTrips || canViewTyres" class="dashboard-page__analytics">
                         <DashboardAnalyticsChart
-                            v-if="(canViewTrips && tripStats && fleetStats) || (canViewTyres && tyreStats)"
+                            v-if="(canViewTrips && tripStats) || (canViewTyres && tyreStats)"
                             :trip-stats="tripStats"
-                            :fleet-stats="fleetStats"
                             :tyre-stats="tyreStats"
+                            :period-from-date="periodFromDate"
+                            :period-to-date="periodToDate"
                             :can-view-trips="canViewTrips"
                             :can-view-tyres="canViewTyres"
                         />
@@ -96,8 +99,10 @@
                                 :total-count="complianceTotalCount"
                                 :loading="complianceLoading"
                                 :can-manage-licenses="canManageDrivers"
+                                :can-manage-documents="canManageDocuments"
                                 @view-all="openComplianceModal"
-                                @edit-document="openDocumentFromAlert"
+                                @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
+                                @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
                                 @edit-license="openDriverFromAlert"
                             />
                         </div>
@@ -108,18 +113,23 @@
         </template>
 
         <DashboardComplianceModal
+            ref="complianceModalRef"
             :show="showComplianceModal"
             :can-manage-licenses="canManageDrivers"
+            :can-manage-documents="canManageDocuments"
             @close="closeComplianceModal"
-            @edit-document="openDocumentFromAlert"
+            @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
+            @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
             @edit-license="openDriverFromAlert"
         />
 
         <VehicleDocumentsModal
             modal-id="dashboardVehicleDocumentsModal"
+            context="dashboard"
             :show="showDocumentsModal"
             :vehicle="documentsVehicle"
             :initial-document-id="initialDocumentId"
+            :initial-action="initialDocumentAction"
             :can-manage="canManageDocuments"
             @close="closeDocumentsModal"
             @saved="onComplianceItemSaved"
@@ -154,9 +164,13 @@ import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlace
 import DriverFormModal from '../components/drivers/DriverFormModal.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
 import { useApiFormErrors } from '../composables/useApiFormErrors';
+import { useOperationalDataInvalidation } from '../composables/useOperationalDataInvalidation';
 import { usePermissions } from '../composables/usePermissions';
-import { defaultDashboardTripRange } from '../utils/dateRangePresets';
+import { defaultDashboardTripRange, DASHBOARD_DATE_PRESET_KEYS, MAX_LIST_DATE_RANGE_MONTHS } from '../utils/dateRangePresets';
+import { sortDocumentsByUrgency } from '../utils/documentStatus';
 import { formatDate } from '../utils/datetime';
+
+const complianceModalRef = ref(null);
 
 const { user, canInCompany } = usePermissions();
 
@@ -180,13 +194,13 @@ const compliancePreview = ref({ documents: [], licenses: [] });
 const defaultPeriodRange = defaultDashboardTripRange();
 const periodFromDate = ref(defaultPeriodRange.from_date);
 const periodToDate = ref(defaultPeriodRange.to_date);
+const dashboardDatePresetKeys = DASHBOARD_DATE_PRESET_KEYS;
 
 const currentRole = computed(() => user.value?.role ?? 'user');
 const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const showPeriodFilter = computed(() => canViewTrips.value || canViewTyres.value);
-const canViewAttendance = computed(() => canInCompany('attendances.view'));
 const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
 const canManageDrivers = computed(() => canInCompany('drivers.manage'));
 const canManageTrips = computed(() => canInCompany('trips.manage'));
@@ -205,14 +219,6 @@ const quickActions = computed(() => {
         });
     }
 
-    if (canViewAttendance.value) {
-        actions.push({
-            label: 'Attendance',
-            icon: 'fas fa-calendar-check',
-            to: { name: 'attendance.index' },
-        });
-    }
-
     return actions;
 });
 
@@ -221,6 +227,7 @@ const showDocumentsModal = ref(false);
 const showDriverModal = ref(false);
 const documentsVehicle = ref(null);
 const initialDocumentId = ref(null);
+const initialDocumentAction = ref(null);
 const editingDriver = ref(null);
 const driverSaving = ref(false);
 
@@ -292,13 +299,13 @@ function closeComplianceModal() {
     showComplianceModal.value = false;
 }
 
-function openDocumentFromAlert(document) {
-    showComplianceModal.value = false;
+function openDocumentFromAlert(document, action = 'renew') {
     documentsVehicle.value = {
         id: document.vehicle_id,
         registration_number: document.vehicle_registration,
     };
     initialDocumentId.value = document.id;
+    initialDocumentAction.value = action;
     showDocumentsModal.value = true;
 }
 
@@ -306,6 +313,7 @@ function closeDocumentsModal() {
     showDocumentsModal.value = false;
     documentsVehicle.value = null;
     initialDocumentId.value = null;
+    initialDocumentAction.value = null;
 }
 
 async function openDriverFromAlert(license) {
@@ -350,7 +358,49 @@ async function handleDriverUpdate(payload) {
 }
 
 async function onComplianceItemSaved() {
-    await loadDashboard();
+    await refreshComplianceData();
+}
+
+async function refreshComplianceData() {
+    if (!canViewComplianceAlerts.value || !userHasCompanyContext.value) {
+        return;
+    }
+
+    complianceLoading.value = true;
+
+    try {
+        const params = {};
+
+        if (showPeriodFilter.value) {
+            params.from_date = periodFromDate.value;
+            params.to_date = periodToDate.value;
+        }
+
+        const [statsResponse, alerts] = await Promise.all([
+            api.get('/app/dashboard/stats', { params }),
+            fetchComplianceAlerts(),
+        ]);
+
+        if (!alerts.requiresCompany) {
+            fleetStats.value = statsResponse.data.fleet ?? fleetStats.value;
+
+            const documents = sortDocumentsByUrgency(alerts.documents ?? []);
+            const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
+
+            compliancePreview.value = {
+                documents: documents.slice(0, 5),
+                licenses: licenses.slice(0, 5),
+            };
+        }
+
+        if (showComplianceModal.value && complianceModalRef.value?.refreshAlerts) {
+            await complianceModalRef.value.refreshAlerts();
+        }
+    } catch {
+        // Keep existing data on refresh failure.
+    } finally {
+        complianceLoading.value = false;
+    }
 }
 
 async function loadCompliancePreview() {
@@ -371,21 +421,8 @@ async function loadCompliancePreview() {
             return;
         }
 
-        const documents = [...alerts.documents].sort((left, right) => {
-            if (left.status === right.status) {
-                return String(left.expiry_date).localeCompare(String(right.expiry_date));
-            }
-
-            return left.status === 'expired' ? -1 : 1;
-        });
-
-        const licenses = [...alerts.licenses].sort((left, right) => {
-            if (left.status === right.status) {
-                return String(left.license_expiry_date).localeCompare(String(right.license_expiry_date));
-            }
-
-            return left.status === 'expired' ? -1 : 1;
-        });
+        const documents = sortDocumentsByUrgency(alerts.documents ?? []);
+        const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
 
         compliancePreview.value = {
             documents: documents.slice(0, 5),
@@ -424,14 +461,24 @@ async function loadDashboard() {
         tyreStats.value = data.tyres ?? null;
 
         await loadCompliancePreview();
-    } catch {
-        loadError.value = 'Could not load dashboard data.';
+    } catch (error) {
+        const validationMessage =
+            error?.response?.data?.errors?.from_date?.[0] ??
+            error?.response?.data?.errors?.to_date?.[0];
+
+        loadError.value = validationMessage ?? 'Could not load dashboard data.';
     } finally {
         loading.value = false;
     }
 }
 
 onMounted(loadDashboard);
+
+useOperationalDataInvalidation('dashboard', () => {
+    if (!showRolePlaceholder.value) {
+        loadDashboard();
+    }
+});
 
 watch(
     () => user.value?.effective_tenant_id ?? user.value?.company_id,

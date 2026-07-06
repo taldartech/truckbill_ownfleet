@@ -4,9 +4,7 @@ namespace App\Modules\TripManagement\Services;
 
 use App\DriverAssignment;
 use App\Enums\TripStatus;
-use App\TyreInstallation;
 use App\Vehicle;
-use App\Support\TyrePositionCatalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
@@ -20,11 +18,8 @@ class VehicleTripEligibilityService
 
     public const REASON_OPEN_TRIP_EXISTS = 'OPEN_TRIP_EXISTS';
 
-    public const REASON_STEER_TYRES_MISSING = 'STEER_TYRES_MISSING';
-
     public function __construct(
         private readonly TripValidationService $tripValidation,
-        private readonly TyrePositionCatalog $positionCatalog,
     ) {}
 
     /**
@@ -163,14 +158,6 @@ SQL,
             }
         }
 
-        $missingSteer = $this->missingSteerPositionLabels($vehicle);
-        if ($missingSteer !== []) {
-            return $this->ineligible(
-                self::REASON_STEER_TYRES_MISSING,
-                'Steer tyres missing: '.implode(', ', $missingSteer),
-            );
-        }
-
         return [
             'selectable' => true,
             'reason_code' => null,
@@ -202,34 +189,6 @@ SQL,
         throw \Illuminate\Validation\ValidationException::withMessages([
             $field => [$result['reason_label'] ?? 'This truck cannot be used for a new trip.'],
         ]);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function missingSteerPositionLabels(Vehicle $vehicle): array
-    {
-        $installedCodes = TyreInstallation::query()
-            ->where('vehicle_id', $vehicle->id)
-            ->whereNull('removed_at')
-            ->pluck('position_code')
-            ->map(fn ($code) => (string) $code)
-            ->all();
-
-        return collect($this->positionCatalog->positionsForVehicle($vehicle))
-            ->filter(function (array $slot) use ($installedCodes): bool {
-                if (($slot['is_spare'] ?? false) === true) {
-                    return false;
-                }
-
-                $code = (string) ($slot['code'] ?? '');
-
-                return $this->positionCatalog->isSteerPosition($code)
-                    && ! in_array($code, $installedCodes, true);
-            })
-            ->map(fn (array $slot) => (string) ($slot['label'] ?? $slot['code']))
-            ->values()
-            ->all();
     }
 
     /**

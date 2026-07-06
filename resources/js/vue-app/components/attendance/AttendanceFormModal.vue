@@ -1,31 +1,23 @@
 <template>
-    <div
-        :id="modalId"
-        ref="modalElement"
-        class="modal fade"
-        tabindex="-1"
-        :aria-labelledby="`${modalId}Label`"
-        aria-hidden="true"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="displayFormError"
+        as-form
+        @close="close"
+        @submit="submit"
     >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-gradient-primary">
-                    <div>
-                        <h5 :id="`${modalId}Label`" class="modal-title mb-0">
-                            <i class="bi bi-calendar-check"></i>
-                            {{ isEdit ? 'Edit Attendance' : 'Mark Attendance' }}
-                        </h5>
-                        <p v-if="contextSummary" class="small mb-0 mt-1 text-white-50">{{ contextSummary }}</p>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Close" @click="close"></button>
-                </div>
-                <form novalidate @submit.prevent="submit">
-                    <div class="modal-body">
-                        <div v-if="formError || contextError" class="alert alert-danger py-2">
-                            {{ formError || contextError }}
-                        </div>
+        <template #title>
+            <div>
+                <span>
+                    <i class="bi bi-calendar-check"></i>
+                    {{ isEdit ? 'Edit Attendance' : 'Mark Attendance' }}
+                </span>
+                <p v-if="contextSummary" class="small mb-0 mt-1 text-white-50">{{ contextSummary }}</p>
+            </div>
+        </template>
 
-                        <div v-if="isFutureDate" class="alert alert-info py-2 small mb-3">
+        <div v-if="isFutureDate" class="alert alert-info py-2 small mb-3">
                             <template v-if="isEdit">
                                 Future date: <strong>P — Present</strong> removes a planned Absent/Substitute.
                                 Present is applied automatically when this day arrives.
@@ -81,22 +73,19 @@
                                 {{ fieldErrorMessage(fieldErrors, 'temporary_assignment_remarks') }}
                             </div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-                        <button type="submit" class="btn btn-primary" :disabled="saving">
-                            {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Save Attendance' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="close">Cancel</button>
+            <button type="submit" class="btn btn-primary" :disabled="saving">
+                {{ saving ? 'Saving...' : isEdit ? 'Update' : 'Save Attendance' }}
+            </button>
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useBootstrapModal } from '../../composables/useBootstrapModal';
+import AppModal from '../ui/AppModal.vue';
 import AppSelect from '../ui/AppSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import {
@@ -123,12 +112,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit', 'delete']);
 
-const modalElement = ref(null);
-const { show: showBootstrapModal, hide: hideBootstrapModal } = useBootstrapModal(modalElement, {
-    backdrop: false,
-    onHidden: () => emit('close'),
-});
-
 const isEdit = computed(() => props.mode === 'edit');
 
 const attendanceExceptionOptions = computed(() => {
@@ -154,6 +137,8 @@ const isFutureDate = computed(() => {
 
 const form = ref(emptyForm());
 const contextError = ref('');
+
+const displayFormError = computed(() => props.formError || contextError.value);
 
 const alternateDrivers = computed(() =>
     props.drivers.filter((driver) => driver.id !== form.value.primary_driver_id),
@@ -329,16 +314,9 @@ function ensureContextFields() {
 watch(
     () => props.show,
     (visible) => {
-        if (!modalElement.value) {
-            return;
-        }
-
         if (visible) {
             contextError.value = '';
             fillForm(props.attendance);
-            showBootstrapModal();
-        } else {
-            hideBootstrapModal();
         }
     },
 );

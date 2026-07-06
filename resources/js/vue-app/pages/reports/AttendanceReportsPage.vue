@@ -98,15 +98,15 @@
             <AppIndexPaginationFooter
                 page-id="attendanceReports"
                 :loading="loading"
-                :current-page="pagination.current_page"
-                :last-page="pagination.last_page"
-                :per-page="50"
+                :current-page="pagination.currentPage"
+                :last-page="pagination.lastPage"
+                :per-page="pagination.perPage"
                 :total="pagination.total"
                 :from="pagination.from"
                 :to="pagination.to"
                 item-label="records"
-                :per-page-options="[50]"
                 @page-change="loadReport"
+                @update:per-page="onPerPageUpdate"
             />
         </div>
     </div>
@@ -126,6 +126,7 @@ import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import { formatDate, toDateInputValue } from '../../utils/datetime';
 import { thisMonthDateRange } from '../../utils/dateRangePresets';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
@@ -152,6 +153,7 @@ const driverSelectOptions = computed(() =>
 );
 const rows = ref([]);
 const loading = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
 
 function defaultFilters() {
     const { from_date } = thisMonthDateRange();
@@ -179,16 +181,8 @@ const filtersActive = computed(() => {
     );
 });
 
-const pagination = reactive({
-    current_page: 1,
-    last_page: 1,
-    from: 0,
-    to: 0,
-    total: 0,
-});
-
-function buildParams(page = 1) {
-    const params = { page, per_page: 50 };
+function buildFilterParams() {
+    const params = {};
 
     if (filters.from_date) {
         params.from_date = filters.from_date;
@@ -213,6 +207,14 @@ function buildParams(page = 1) {
     return params;
 }
 
+function buildParams(page = 1) {
+    return {
+        ...buildFilterParams(),
+        page,
+        per_page: pagination.perPage,
+    };
+}
+
 async function loadReport(page = 1) {
     if (needsCompanySelection.value) {
         return;
@@ -223,20 +225,22 @@ async function loadReport(page = 1) {
     try {
         const data = await fetchAttendanceReport(buildParams(page));
         rows.value = data.data ?? [];
-        pagination.current_page = data.meta?.current_page ?? 1;
-        pagination.last_page = data.meta?.last_page ?? 1;
-        pagination.from = data.meta?.from ?? 0;
-        pagination.to = data.meta?.to ?? 0;
-        pagination.total = data.meta?.total ?? 0;
+        syncFromMeta(data.meta, rows.value.length);
     } catch (error) {
         if (!handleCompanyContextError(error, 'Could not load attendance report.')) {
             toast.error('Could not load attendance report.');
         }
 
         rows.value = [];
+        resetPagination();
     } finally {
         loading.value = false;
     }
+}
+
+function onPerPageUpdate(perPage) {
+    pagination.perPage = perPage;
+    loadReport(1);
 }
 
 function clearFilters() {
@@ -245,7 +249,7 @@ function clearFilters() {
 }
 
 function exportCsv() {
-    window.location.href = attendanceReportExportUrl(buildParams());
+    window.location.href = attendanceReportExportUrl(buildFilterParams());
 }
 
 onMounted(async () => {

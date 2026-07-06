@@ -107,7 +107,7 @@
                             outline
                             size="sm"
                             icon="bi bi-x-lg"
-                            label="Exit"
+                            label="Cancel"
                             :to="tripListReturnTo"
                         />
                         <AppButton
@@ -148,6 +148,7 @@ import {
     canManageTripExpenses,
     expenseTotalsBySequence as computeExpenseTotalsBySequence,
     fetchTrip,
+    isTripArchived,
     resolveTripEditAccess,
     updateTrip,
     validateTripPayload,
@@ -327,6 +328,13 @@ async function loadTrip() {
     try {
         const trip = await fetchTrip(route.params.id);
 
+        if (isTripArchived(trip)) {
+            toast.error('This trip has been archived and cannot be edited.');
+            await router.replace({ name: 'trips.index', query: { show_archived: '1' } });
+
+            return;
+        }
+
         if (!canFullEditTrip(trip.status, user.value)) {
             const access = resolveTripEditAccess(trip.status, user.value);
 
@@ -416,6 +424,7 @@ async function prepareSave() {
             mode: 'edit',
             previousStatus: originalStatus.value,
             user: user.value,
+            tripType: form.trip_type,
         },
     );
 

@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ArchiveTripRequest;
 use App\Http\Requests\CheckTripWindowRequest;
+use App\Http\Requests\DeleteTripRequest;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\UpdateTripRequest;
 use App\Http\Resources\TripResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Modules\TripManagement\Services\TripService;
 use App\Modules\TripManagement\Services\TripValidationService;
+use App\Support\ArchivedTripGuard;
+use App\Support\TripArchiveImpact;
 use App\Trip;
 use App\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -126,6 +130,7 @@ class TripController extends Controller
             'trip_number',
             'vehicle_search',
             'driver_search',
+            'archived',
         ]);
 
         return TripResource::collection($this->tripService->paginate($perPage, $filters));
@@ -143,8 +148,10 @@ class TripController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function show(Trip $trip): TripResource
+    public function show(string $trip): TripResource
     {
+        $trip = ArchivedTripGuard::findForShow($trip);
+
         $this->authorize('view', $trip);
 
         $trip->load([
@@ -162,6 +169,8 @@ class TripController extends Controller
 
     public function update(UpdateTripRequest $request, Trip $trip): TripResource
     {
+        ArchivedTripGuard::ensureModifiable($trip);
+
         $trip = $this->tripService->update(
             $trip,
             $request->validated(),
@@ -171,10 +180,43 @@ class TripController extends Controller
         return new TripResource($trip);
     }
 
-    public function destroy(Request $request, Trip $trip): Response
+    public function archiveImpact(Trip $trip): JsonResponse
     {
-        $this->authorize('delete', $trip);
-        $this->tripService->delete($trip, $request->user()?->id);
+        ArchivedTripGuard::ensureModifiable($trip);
+
+        $this->authorize('archive', $trip);
+
+        return response()->json(TripArchiveImpact::forTrip($trip));
+    }
+
+    /**
+     * @deprecated Use archiveImpact()
+     */
+    public function deletionImpact(Trip $trip): JsonResponse
+    {
+        return $this->archiveImpact($trip);
+    }
+
+    public function archive(ArchiveTripRequest $request, Trip $trip): Response
+    {
+        ArchivedTripGuard::ensureModifiable($trip);
+
+        $this->tripService->archive(
+            $trip,
+            $request->validated('archive_reason'),
+            $request->user(),
+        );
+
+        return response()->noContent();
+    }
+
+    public function destroy(DeleteTripRequest $request, Trip $trip): Response
+    {
+        $this->tripService->archive(
+            $trip,
+            $request->validated('deletion_reason'),
+            $request->user(),
+        );
 
         return response()->noContent();
     }

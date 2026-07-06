@@ -13,8 +13,6 @@ use Illuminate\Support\Collection;
 
 class TripReportService
 {
-    private const REPORT_ROW_LIMIT = 500;
-
     public function __construct(private readonly TripRepository $tripRepository) {}
 
     /**
@@ -34,7 +32,6 @@ class TripReportService
         $rows = $this->tripRepository->filteredQuery($filters)
             ->with(['vehicle', 'driver'])
             ->latest('start_at')
-            ->limit(self::REPORT_ROW_LIMIT)
             ->get()
             ->map(fn (Trip $trip): array => [
                 'trip_number' => $trip->trip_number,
@@ -60,7 +57,6 @@ class TripReportService
     {
         $rows = $this->tripRepository->filteredQuery($filters)
             ->with('vehicle')
-            ->limit(self::REPORT_ROW_LIMIT)
             ->get()
             ->groupBy('vehicle_id')
             ->map(function (Collection $trips): array {
@@ -89,7 +85,6 @@ class TripReportService
     {
         $rows = $this->tripRepository->filteredQuery($filters)
             ->with('driver')
-            ->limit(self::REPORT_ROW_LIMIT)
             ->get()
             ->groupBy('driver_id')
             ->map(function (Collection $trips): array {
@@ -118,7 +113,6 @@ class TripReportService
     {
         $rows = $this->tripRepository->filteredQuery($filters)
             ->with(['vehicle', 'driver', 'routeLegs'])
-            ->limit(self::REPORT_ROW_LIMIT)
             ->get()
             ->map(function (Trip $trip): array {
                 $distances = $this->resolveLoadDistances($trip);
@@ -146,12 +140,10 @@ class TripReportService
     public function expenseSummary(array $filters = []): array
     {
         $tripIds = $this->tripRepository->filteredQuery($filters)
-            ->limit(self::REPORT_ROW_LIMIT)
             ->pluck('id');
 
         $rows = TripExpense::query()
             ->whereIn('trip_id', $tripIds)
-            ->limit(5000)
             ->get()
             ->groupBy(fn (TripExpense $expense) => $expense->expense_type->value ?? (string) $expense->expense_type)
             ->map(fn (Collection $items, string $type): array => [
@@ -173,13 +165,11 @@ class TripReportService
     public function routeProfitability(array $filters = []): array
     {
         $tripIds = $this->tripRepository->filteredQuery($filters)
-            ->limit(self::REPORT_ROW_LIMIT)
             ->pluck('id');
 
         $legs = TripRouteLeg::query()
             ->whereIn('trip_id', $tripIds)
             ->with(['expenses', 'trip:id,total_distance_km'])
-            ->limit(5000)
             ->get();
 
         $legsByTrip = $legs->groupBy('trip_id');

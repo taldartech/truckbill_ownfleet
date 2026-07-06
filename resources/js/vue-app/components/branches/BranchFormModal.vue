@@ -1,146 +1,139 @@
 <template>
-    <div
-        :id="modalId"
-        class="modal fade"
-        tabindex="-1"
-        :class="{ show: show }"
-        :style="show ? { display: 'block' } : {}"
-        :aria-hidden="!show"
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        @close="$emit('close')"
+        @submit="handleSubmit"
     >
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form @submit.prevent="handleSubmit">
-                    <div class="modal-header">
-                        <h5 class="modal-title">{{ isEdit ? 'Edit Branch' : 'Register Branch' }}</h5>
-                        <button type="button" class="btn-close" aria-label="Close" @click="$emit('close')" />
-                    </div>
-                    <div class="modal-body">
-                        <div v-if="formError" class="alert alert-danger py-2">{{ formError }}</div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label" for="branch_company_id">Company *</label>
-                                <AppSelect
-                                    input-id="branch_company_id"
-                                    v-model="form.company_id"
-                                    :options="companySelectOptions"
-                                    placeholder="Select company"
-                                    search-placeholder="Search company…"
-                                    :disabled="isEdit"
-                                    :invalid="Boolean(fieldErrors.company_id)"
-                                    :error-message="fieldErrors.company_id?.[0] ?? ''"
-                                />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="branch_name">Branch Name *</label>
-                                <input
-                                    id="branch_name"
-                                    v-model="form.branch_name"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.branch_name }"
-                                    required
-                                />
-                                <div v-if="fieldErrors.branch_name" class="invalid-feedback d-block">
-                                    {{ fieldErrors.branch_name[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="branch_contact_number">Contact Number *</label>
-                                <input
-                                    id="branch_contact_number"
-                                    :value="form.branch_contact_number"
-                                    type="tel"
-                                    inputmode="numeric"
-                                    maxlength="10"
-                                    autocomplete="tel"
-                                    class="form-control"
-                                    placeholder="10-digit mobile"
-                                    :class="{ 'is-invalid': fieldErrors.branch_contact_number || contactClientError }"
-                                    required
-                                    @keydown="allowNumericKeydown"
-                                    @input="onContactNumberInput"
-                                />
-                                <div v-if="contactClientError" class="invalid-feedback d-block">
-                                    {{ contactClientError }}
-                                </div>
-                                <div v-if="fieldErrors.branch_contact_number" class="invalid-feedback d-block">
-                                    {{ fieldErrors.branch_contact_number[0] }}
-                                </div>
-                                <div v-if="selectedCompanyContact" class="form-text">
-                                    Company contact: {{ selectedCompanyContact }}. You may reuse this number on
-                                    multiple branches of the same company.
-                                </div>
-                                <div v-else class="form-text">
-                                    Use a unique number that is not already assigned to any company or branch.
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="head_office">Head Office</label>
-                                <AppSelect
-                                    input-id="head_office"
-                                    v-model="form.head_office"
-                                    :options="headOfficeOptions"
-                                    placeholder="Select"
-                                    search-placeholder="Search…"
-                                    :invalid="Boolean(fieldErrors.head_office)"
-                                    :error-message="fieldErrors.head_office?.[0] ?? ''"
-                                />
-                                <div class="form-text">Only one head office is allowed per company.</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="trip_sequence_start">Trip Starting Number</label>
-                                <input
-                                    id="trip_sequence_start"
-                                    v-model="form.trip_sequence_start"
-                                    type="text"
-                                    inputmode="numeric"
-                                    pattern="[0-9]*"
-                                    class="form-control"
-                                    placeholder="0001"
-                                    :class="{ 'is-invalid': fieldErrors.trip_sequence_start || tripSequenceClientError }"
-                                    :disabled="isTripSequenceStartLocked"
-                                    @input="onTripSequenceStartInput"
-                                />
-                                <div v-if="tripSequenceClientError" class="invalid-feedback d-block">
-                                    {{ tripSequenceClientError }}
-                                </div>
-                                <div v-if="fieldErrors.trip_sequence_start" class="invalid-feedback d-block">
-                                    {{ fieldErrors.trip_sequence_start[0] }}
-                                </div>
-                                <div v-if="isTripSequenceStartLocked" class="form-text">
-                                    This branch already has trips. The next trip will continue from the last number.
-                                </div>
-                                <div v-else class="form-text">
-                                    Default is 0001. Type any number such as 500, 1000, or 10000.
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label" for="branch_address">Address</label>
-                                <textarea
-                                    id="branch_address"
-                                    v-model="form.branch_address"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': fieldErrors.branch_address }"
-                                    rows="3"
-                                />
-                                <div v-if="fieldErrors.branch_address" class="invalid-feedback d-block">
-                                    {{ fieldErrors.branch_address[0] }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-                        <AppButton type="submit" :label="isEdit ? 'Update' : 'Save'" :loading="saving" />
-                    </div>
-                </form>
+        <template #title>
+            {{ isEdit ? 'Edit Branch' : 'Register Branch' }}
+        </template>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="branch_company_id">Company *</label>
+                <AppSelect
+                    input-id="branch_company_id"
+                    v-model="form.company_id"
+                    :options="companySelectOptions"
+                    placeholder="Select company"
+                    search-placeholder="Search company…"
+                    :disabled="isEdit"
+                    :invalid="Boolean(fieldErrors.company_id)"
+                    :error-message="fieldErrors.company_id?.[0] ?? ''"
+                />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="branch_name">Branch Name *</label>
+                <input
+                    id="branch_name"
+                    v-model="form.branch_name"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.branch_name }"
+                    required
+                />
+                <div v-if="fieldErrors.branch_name" class="invalid-feedback d-block">
+                    {{ fieldErrors.branch_name[0] }}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="branch_contact_number">Contact Number *</label>
+                <input
+                    id="branch_contact_number"
+                    :value="form.branch_contact_number"
+                    type="tel"
+                    inputmode="numeric"
+                    maxlength="10"
+                    autocomplete="tel"
+                    class="form-control"
+                    placeholder="10-digit mobile"
+                    :class="{ 'is-invalid': fieldErrors.branch_contact_number || contactClientError }"
+                    required
+                    @keydown="allowNumericKeydown"
+                    @input="onContactNumberInput"
+                />
+                <div v-if="contactClientError" class="invalid-feedback d-block">
+                    {{ contactClientError }}
+                </div>
+                <div v-if="fieldErrors.branch_contact_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.branch_contact_number[0] }}
+                </div>
+                <div v-if="selectedCompanyContact" class="form-text">
+                    Company contact: {{ selectedCompanyContact }}. You may reuse this number on
+                    multiple branches of the same company.
+                </div>
+                <div v-else class="form-text">
+                    Use a unique number that is not already assigned to any company or branch.
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="head_office">Head Office</label>
+                <AppSelect
+                    input-id="head_office"
+                    v-model="form.head_office"
+                    :options="headOfficeOptions"
+                    placeholder="Select"
+                    search-placeholder="Search…"
+                    :invalid="Boolean(fieldErrors.head_office)"
+                    :error-message="fieldErrors.head_office?.[0] ?? ''"
+                />
+                <div class="form-text">Only one head office is allowed per company.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="trip_sequence_start">Trip Starting Number</label>
+                <input
+                    id="trip_sequence_start"
+                    v-model="form.trip_sequence_start"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    class="form-control"
+                    placeholder="0001"
+                    :class="{ 'is-invalid': fieldErrors.trip_sequence_start || tripSequenceClientError }"
+                    :disabled="isTripSequenceStartLocked"
+                    @input="onTripSequenceStartInput"
+                />
+                <div v-if="tripSequenceClientError" class="invalid-feedback d-block">
+                    {{ tripSequenceClientError }}
+                </div>
+                <div v-if="fieldErrors.trip_sequence_start" class="invalid-feedback d-block">
+                    {{ fieldErrors.trip_sequence_start[0] }}
+                </div>
+                <div v-if="isTripSequenceStartLocked" class="form-text">
+                    This branch already has trips. The next trip will continue from the last number.
+                </div>
+                <div v-else class="form-text">
+                    Default is 0001. Type any number such as 500, 1000, or 10000.
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="branch_address">Address</label>
+                <textarea
+                    id="branch_address"
+                    v-model="form.branch_address"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.branch_address }"
+                    rows="3"
+                />
+                <div v-if="fieldErrors.branch_address" class="invalid-feedback d-block">
+                    {{ fieldErrors.branch_address[0] }}
+                </div>
             </div>
         </div>
-    </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
+            <AppButton type="submit" :label="isEdit ? 'Update' : 'Save'" :loading="saving" />
+        </template>
+    </AppModal>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import AppModal from '../ui/AppModal.vue';
 import AppButton from '../ui/AppButton.vue';
 import AppSelect from '../ui/AppSelect.vue';
 import { allowNumericKeydown, isValidMobile, normalizeMobile } from '../../utils/phone';

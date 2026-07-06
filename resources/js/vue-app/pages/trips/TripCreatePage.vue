@@ -76,7 +76,7 @@
                         outline
                         size="sm"
                         icon="bi bi-x-lg"
-                        label="Exit"
+                        label="Cancel"
                         :to="tripListReturnTo"
                     />
                     <AppButton

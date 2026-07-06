@@ -1,0 +1,238 @@
+.app-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1055;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: rgba(15, 23, 42, 0.55);
+    overflow-y: auto;
+}
+
+.app-modal-overlay--dismissible {
+    cursor: pointer;
+}
+
+.app-modal {
+    width: calc(100% - 1rem);
+    margin: auto;
+    cursor: default;
+    max-height: 90vh;
+}
+
+.app-modal--lg {
+    max-width: 800px;
+}
+
+.app-modal--xl {
+    max-width: 1140px;
+}
+
+.app-modal__content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    border: 0;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+.app-modal__header {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+}
+
+.app-modal__header .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.app-modal__shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.app-modal__form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.app-modal__body {
+    flex: 1;
+    min-height: 0;
+    padding: 0.75rem 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.app-modal__body .form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.app-modal__body .invalid-feedback {
+    font-size: 0.75rem;
+}
+
+.app-modal__footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    border-top: 1px solid #dee2e6;
+    background: #fff;
+}
+
+.app-modal__footer--center {
+    justify-content: center;
+    border-top: 0;
+    padding-top: 0;
+    padding-bottom: 1rem;
+}
+
+/* Confirm modal variant */
+.app-confirm-modal__content {
+    border-radius: 1rem;
+    position: relative;
+}
+
+.app-confirm-modal__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+}
+
+.app-confirm-modal__icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    line-height: 1;
+    background: rgba(47, 179, 111, 0.12);
+    color: var(--brand-primary, #2fb36f);
+}
+
+.app-confirm-modal__icon--danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--brand-danger, #ef4444);
+}
+
+.app-confirm-modal__icon--warning {
+    background: rgba(217, 119, 6, 0.12);
+    color: var(--brand-warning, #d97706);
+}
+
+.app-confirm-modal__icon--success {
+    background: rgba(47, 179, 111, 0.12);
+    color: var(--brand-primary, #2fb36f);
+}
+
+.app-confirm-modal__title {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.app-confirm-card {
+    background: #fff;
+    border-radius: 0.85rem;
+    box-shadow: 0 0.125rem 0.5rem rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.app-confirm-card__section-title {
+    padding: 0.65rem 0.9rem 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.app-confirm-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.app-confirm-card__body {
+    padding: 0.75rem 0.9rem;
+}
+
+.app-confirm-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.app-confirm-row:last-child {
+    border-bottom: 0;
+}
+
+.app-confirm-row__label {
+    color: #64748b;
+    font-size: 0.8rem;
+}
+
+.app-confirm-row__value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: right;
+}
+
+.app-confirm-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 0.65rem;
+    background: rgba(47, 179, 111, 0.08);
+    color: var(--brand-text-accent, #23965c);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.app-confirm-modal__content .app-modal__footer .btn:disabled {
+    background-color: #cbd5e1 !important;
+    border-color: #cbd5e1 !important;
+    color: #64748b !important;
+    opacity: 1;
+}
+
+@media (max-width: 575.98px) {
+    .app-modal {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    .app-modal__footer {
+        flex-wrap: wrap;
+        justify-content: stretch;
+    }
+
+    .app-modal__footer .btn {
+        flex: 1 1 auto;
+    }
+}

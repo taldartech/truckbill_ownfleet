@@ -287,6 +287,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.next-number');
             Route::get('/trips/check-window', [\App\Http\Controllers\Api\TripController::class, 'checkTripWindow'])
                 ->name('trips.check-window');
+            Route::get('/trips/{trip}/archive-impact', [\App\Http\Controllers\Api\TripController::class, 'archiveImpact'])
+                ->name('trips.archive-impact');
+            Route::get('/trips/{trip}/deletion-impact', [\App\Http\Controllers\Api\TripController::class, 'deletionImpact'])
+                ->name('trips.deletion-impact');
+            Route::post('/trips/{trip}/archive', [\App\Http\Controllers\Api\TripController::class, 'archive'])
+                ->name('trips.archive');
             Route::get('/vehicles/{vehicle}/primary-driver', [\App\Http\Controllers\Api\TripController::class, 'vehiclePrimaryDriver'])
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);

@@ -80,60 +80,22 @@
             @confirm="onStatusModalConfirm"
         />
 
-        <Teleport to="body">
-            <div
-                v-if="showSimpleConfirm"
-                class="modal fade show d-block trip-status-simple-confirm"
-                tabindex="-1"
-                style="background: rgba(0, 0, 0, 0.45)"
-                @click.self="cancelSimpleConfirm"
-            >
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-gradient-primary text-white">
-                            <h5 class="modal-title text-white mb-0">Change Trip Status</h5>
-                            <button
-                                type="button"
-                                class="btn-close btn-close-white"
-                                :disabled="saving"
-                                @click="cancelSimpleConfirm"
-                            ></button>
-                        </div>
-                        <div class="modal-body">
-                            <div v-if="saveError" class="alert alert-danger py-2 mb-3">{{ saveError }}</div>
-                            <p class="mb-0 text-center">
-                                Are you sure you want to change the status to
-                                <strong>{{ pendingStatusLabel }}</strong>?
-                            </p>
-                        </div>
-                        <div class="modal-footer justify-content-center gap-2">
-                            <button
-                                type="button"
-                                class="btn btn-secondary"
-                                :disabled="saving"
-                                @click="cancelSimpleConfirm"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                class="btn btn-primary"
-                                :disabled="saving"
-                                @click="confirmSimpleStatusChange"
-                            >
-                                <span
-                                    v-if="saving"
-                                    class="spinner-border spinner-border-sm me-1"
-                                    role="status"
-                                    aria-hidden="true"
-                                ></span>
-                                Yes, Change Status
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
+        <AppConfirmModal
+            :show="showSimpleConfirm"
+            title="Change Trip Status"
+            :loading="saving"
+            confirm-label="Yes, Change Status"
+            loading-label="Saving…"
+            @cancel="cancelSimpleConfirm"
+            @confirm="confirmSimpleStatusChange"
+        >
+            <template #message>
+                Are you sure you want to change the status to
+                <strong>{{ pendingStatusLabel }}</strong>?
+            </template>
+
+            <div v-if="saveError" class="alert alert-danger py-2 mb-0">{{ saveError }}</div>
+        </AppConfirmModal>
     </div>
 </template>
 
@@ -150,6 +112,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useTripForm } from '../../composables/useTripForm';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate, isDateAfter, toDateInputValue } from '../../utils/datetime';
+import AppConfirmModal from '../ui/AppConfirmModal.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({

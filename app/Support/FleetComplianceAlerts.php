@@ -35,12 +35,13 @@ class FleetComplianceAlerts
                                     $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
                                 );
                         });
-                })
-                ->orderBy('expiry_date');
+                });
 
             foreach ($documentQuery->get() as $document) {
                 $documents[] = self::formatDocumentAlert($document, $today);
             }
+
+            $documents = VehicleDocumentStatus::sortByUrgency($documents);
         }
 
         if ($user->hasPermission('drivers.view')) {
@@ -51,12 +52,13 @@ class FleetComplianceAlerts
                     'license_expiry_date',
                     '<=',
                     $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
-                )
-                ->orderBy('license_expiry_date');
+                );
 
             foreach ($driverQuery->get(['id', 'name', 'license_number', 'license_expiry_date']) as $driver) {
                 $expiryDate = Carbon::parse($driver->license_expiry_date)->startOfDay();
+                $daysRemaining = (int) $today->diffInDays($expiryDate, false);
                 $isExpired = $expiryDate->lt($today);
+                $status = VehicleDocumentStatus::compute($expiryDate, self::DOCUMENT_EXPIRY_WINDOW_DAYS, $today);
 
                 $licenses[] = [
                     'driver_id' => $driver->id,
@@ -64,9 +66,12 @@ class FleetComplianceAlerts
                     'license_number' => $driver->license_number,
                     'license_expiry_date' => $expiryDate->toDateString(),
                     'status' => $isExpired ? 'expired' : 'expiring',
-                    'days_remaining' => (int) $today->diffInDays($expiryDate, false),
+                    'days_remaining' => $daysRemaining,
+                    ...$status,
                 ];
             }
+
+            $licenses = VehicleDocumentStatus::sortByUrgency($licenses);
         }
 
         return [
@@ -88,6 +93,12 @@ class FleetComplianceAlerts
             ?? $enumType?->label()
             ?? $code;
 
+        $status = VehicleDocumentStatus::compute(
+            $expiryDate,
+            $document->reminder_days_before,
+            $today,
+        );
+
         return [
             'id' => $document->id,
             'vehicle_id' => $document->vehicle_id,
@@ -95,8 +106,9 @@ class FleetComplianceAlerts
             'document_type' => $code,
             'document_type_label' => $label,
             'expiry_date' => $expiryDate?->toDateString(),
+            'reminder_days_before' => $document->reminder_days_before,
             'status' => $isExpired ? 'expired' : 'expiring',
-            'days_remaining' => $expiryDate !== null ? (int) $today->diffInDays($expiryDate, false) : null,
+            ...$status,
         ];
     }
 }
