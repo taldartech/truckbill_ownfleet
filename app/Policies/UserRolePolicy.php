@@ -10,7 +10,8 @@ class UserRolePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('roles.view');
+        return RoleHierarchy::managesSuperAdmins($user)
+            && $user->hasPermission('roles.view');
     }
 
     public function view(User $user, UserRole $userRole): bool

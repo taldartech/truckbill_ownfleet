@@ -2,7 +2,7 @@ import api from '../api';
 import { LoadCategory, loadCategoryMeta } from '../constants/loadCategory';
 import { calculatePerformanceSummary } from '../utils/tripFuelCalculator';
 import { thisMonthDateRange } from '../utils/dateRangePresets';
-import { dateOnlyFromDatetimeLocal, toDateInputValue, isDateAfter } from '../utils/datetime';
+import { dateOnlyFromDatetimeLocal } from '../utils/datetime';
 
 const tripsBase = '/app/api/trips';
 
@@ -530,20 +530,6 @@ export function validateTripStatusChange(
     if (payload.status === 'COMPLETED') {
         if (!payload.start_at) {
             errors.start_at = ['Trip start date is required before completing. Edit the trip and set the start date first.'];
-        }
-
-        const today = toDateInputValue();
-
-        if (startDate && isDateAfter(startDate, today)) {
-            errors.status = ['This trip cannot be completed before its start date.'];
-        }
-
-        if (arrivalDate && isDateAfter(arrivalDate, today)) {
-            errors.actual_arrival_at = ['Actual arrival date cannot be in the future.'];
-        }
-
-        if (endDate && isDateAfter(endDate, today)) {
-            errors.end_at = ['End date cannot be in the future.'];
         }
 
         if (!payload.end_at) {

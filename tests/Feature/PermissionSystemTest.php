@@ -93,7 +93,7 @@ class PermissionSystemTest extends TestCase
         $this->assertFalse($user->canDeleteOperationalRecords());
     }
 
-    public function test_super_admin_receives_all_catalog_permissions(): void
+    public function test_super_admin_receives_operational_permissions_but_not_master_admin_only(): void
     {
         $tenant = Tenant::query()->create([
             'name' => 'Super Tenant',
@@ -113,9 +113,18 @@ class PermissionSystemTest extends TestCase
         $user->load('userRole.permissions');
 
         $this->assertSame(
-            Permission::query()->count(),
+            count(\App\Support\PermissionCatalog::superAdminSlugs()),
             count($user->permissionSlugs()),
         );
+
+        foreach (\App\Support\PermissionCatalog::masterAdminOnlySlugs() as $slug) {
+            $this->assertFalse($user->hasPermission($slug), "Super admin must not have [{$slug}].");
+        }
+
+        $this->assertTrue($user->hasPermission('users.view'));
+        $this->assertTrue($user->hasPermission('branches.view'));
+        $this->assertTrue(Gate::forUser($user)->denies('viewAny', \App\UserRole::class));
+        $this->assertTrue(Gate::forUser($user)->denies('viewAny', \App\Permission::class));
     }
 
     public function test_effective_tenant_id_is_cached_per_user_instance(): void

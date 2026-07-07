@@ -22,6 +22,34 @@ final class PermissionCatalog
         return array_keys(self::definitions());
     }
 
+    /**
+     * Platform RBAC slugs reserved for master_admin only (never granted to super_admin).
+     *
+     * @return list<string>
+     */
+    public static function masterAdminOnlySlugs(): array
+    {
+        return [
+            'roles.view',
+            'roles.manage',
+            'permissions.view',
+            'permissions.manage',
+            'super_admins.view',
+            'super_admins.manage',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function superAdminSlugs(): array
+    {
+        return array_values(array_diff(
+            self::slugs(),
+            self::masterAdminOnlySlugs(),
+        ));
+    }
+
     public static function validate(): void
     {
         $definitions = self::definitions();

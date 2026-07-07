@@ -111,7 +111,6 @@ import {
 import { useAppToast } from '../../composables/useAppToast';
 import { useTripForm } from '../../composables/useTripForm';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
-import { formatDate, isDateAfter, toDateInputValue } from '../../utils/datetime';
 import AppConfirmModal from '../ui/AppConfirmModal.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
@@ -248,18 +247,9 @@ async function requestStatusChange(newStatus) {
     saveError.value = '';
     pendingStatus.value = newStatus;
 
-    if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
+        if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
         if (!form.start_at) {
             toast.error('Trip start date is required. Edit the trip, set the start date, then change the status.');
-            showStatusModal.value = true;
-
-            return;
-        }
-
-        if (newStatus === 'COMPLETED' && isDateAfter(form.start_at, toDateInputValue())) {
-            toast.error(
-                `This trip starts on ${formatDate(form.start_at)}. It cannot be completed before that date.`,
-            );
             showStatusModal.value = true;
 
             return;

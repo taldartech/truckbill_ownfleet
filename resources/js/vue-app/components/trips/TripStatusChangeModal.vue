@@ -100,10 +100,6 @@
                                 <i class="bi bi-exclamation-triangle me-1"></i>
                                 This trip has no <strong>start date</strong>. Open the trip, set the start date, then try completing again.
                             </div>
-                            <div v-else-if="tripStartIsFuture" class="alert alert-warning mb-0">
-                                <i class="bi bi-exclamation-triangle me-1"></i>
-                                This trip starts on <strong>{{ formatDate(startAt) }}</strong>. It cannot be completed before that date.
-                            </div>
                             <div v-else-if="!hasStartMeterReading" class="alert alert-warning mb-0">
                                 <i class="bi bi-exclamation-triangle me-1"></i>
                                 This trip has no <strong>start meter reading</strong>. Open the trip, set the start meter reading, then try completing again.
@@ -148,7 +144,6 @@
                                     v-model="actualArrivalAt"
                                     :invalid="!!fieldErrors.actual_arrival_at"
                                     :min="actualArrivalMin || undefined"
-                                    :max="completionMaxDate || undefined"
                                     required
                                 />
                                 <div class="form-text">When did the truck actually arrive back?</div>
@@ -176,7 +171,6 @@
                                     v-model="endAt"
                                     :invalid="!!fieldErrors.end_at"
                                     :min="endDateMin || undefined"
-                                    :max="completionMaxDate || undefined"
                                     required
                                 />
                                 <div class="form-text">Must be on or after the actual arrival date.</div>
@@ -216,7 +210,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
-import { toDateInputFromIso, toDateInputValue, formatDate, isDateAfter } from '../../utils/datetime';
+import { toDateInputFromIso, toDateInputValue, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 import AppButton from '../ui/AppButton.vue';
 import AppModal from '../ui/AppModal.vue';
@@ -270,20 +264,8 @@ const hasStartMeterReading = computed(() => {
     return Number.isFinite(value) && value > 0;
 });
 
-const todayDate = computed(() => toDateInputValue());
-
-const tripStartIsFuture = computed(() => {
-    if (!tripStartDateMin.value) {
-        return false;
-    }
-
-    return isDateAfter(tripStartDateMin.value, todayDate.value);
-});
-
-const completionMaxDate = computed(() => todayDate.value);
-
 const canSubmit = computed(() => {
-    if (!hasStartDate.value || tripStartIsFuture.value) {
+    if (!hasStartDate.value) {
         return false;
     }
 
@@ -324,31 +306,23 @@ function initCompletionDates() {
     const existingArrival = toDateInputFromIso(props.actualArrivalAtValue);
     const today = toDateInputValue();
 
-    if (!startMin || isDateAfter(startMin, today)) {
+    if (!startMin) {
         actualArrivalAt.value = existingArrival || '';
         endAt.value = existingEnd || '';
 
         return;
     }
 
-    actualArrivalAt.value = existingArrival || today;
+    actualArrivalAt.value = existingArrival || startMin || today;
 
     if (actualArrivalAt.value < startMin) {
         actualArrivalAt.value = startMin;
-    }
-
-    if (isDateAfter(actualArrivalAt.value, today)) {
-        actualArrivalAt.value = today;
     }
 
     endAt.value = existingEnd || actualArrivalAt.value || today;
 
     if (endAt.value < startMin) {
         endAt.value = startMin;
-    }
-
-    if (isDateAfter(endAt.value, today)) {
-        endAt.value = today;
     }
 
     if (actualArrivalAt.value && endAt.value < actualArrivalAt.value) {
@@ -426,18 +400,6 @@ function validate() {
     if (props.status === 'COMPLETED') {
         if (!hasStartDate.value) {
             fieldErrors.start_at = 'Trip start date is required before completing this trip.';
-        }
-
-        if (tripStartIsFuture.value) {
-            fieldErrors.status = `This trip cannot be completed before ${formatDate(props.startAt)}.`;
-        }
-
-        if (actualArrivalAt.value && isDateAfter(actualArrivalAt.value, todayDate.value)) {
-            fieldErrors.actual_arrival_at = 'Actual arrival date cannot be in the future.';
-        }
-
-        if (endAt.value && isDateAfter(endAt.value, todayDate.value)) {
-            fieldErrors.end_at = 'End date cannot be in the future.';
         }
 
         if (!endAt.value) {

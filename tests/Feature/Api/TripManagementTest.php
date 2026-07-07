@@ -2062,7 +2062,7 @@ class TripManagementTest extends TestCase
             ->assertJsonValidationErrors(['start_at']);
     }
 
-    public function test_complete_trip_rejects_before_start_date(): void
+    public function test_complete_trip_allows_future_start_and_completion_dates(): void
     {
         \Illuminate\Support\Carbon::setTestNow('2026-07-03 10:00:00');
 
@@ -2083,8 +2083,8 @@ class TripManagementTest extends TestCase
                     'actual_arrival_at' => '2026-07-11 20:00:00',
                     'end_meter_reading_km' => 10500,
                 ])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors(['status']);
+                ->assertOk()
+                ->assertJsonPath('data.status', TripStatus::Completed->value);
         } finally {
             \Illuminate\Support\Carbon::setTestNow();
         }

@@ -614,14 +614,6 @@ class TripValidationService
 
             $this->assertMeterReadingsOnComplete($trip, $data);
 
-            $startDay = Carbon::parse($startAt)->startOfDay();
-
-            if (now()->startOfDay()->lt($startDay)) {
-                throw ValidationException::withMessages([
-                    'status' => ['This trip cannot be completed before its start date ('.$startDay->format('d/M/Y').').'],
-                ]);
-            }
-
             $this->assertCompletionDatesAreValid($trip, $data);
         }
 
@@ -761,20 +753,6 @@ class TripValidationService
         if ($end < $start) {
             throw ValidationException::withMessages([
                 'end_at' => ['End date cannot be before the trip start date.'],
-            ]);
-        }
-
-        $today = now()->toDateString();
-
-        if ($arrival > $today) {
-            throw ValidationException::withMessages([
-                'actual_arrival_at' => ['Actual arrival date cannot be in the future.'],
-            ]);
-        }
-
-        if ($end > $today) {
-            throw ValidationException::withMessages([
-                'end_at' => ['End date cannot be in the future.'],
             ]);
         }
     }

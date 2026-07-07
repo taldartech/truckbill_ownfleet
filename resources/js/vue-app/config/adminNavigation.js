@@ -182,18 +182,21 @@ export const adminNavigation = [
                 icon: 'bi bi-person-badge nav-icon',
                 to: '/access/roles',
                 permission: 'roles.view',
+                roles: ['master_admin'],
             },
             {
                 label: 'Permissions',
                 icon: 'bi bi-key nav-icon',
                 to: '/access/permissions',
                 permission: 'permissions.view',
+                roles: ['master_admin'],
             },
             {
                 label: 'Super Admins',
                 icon: 'bi bi-person-gear nav-icon',
                 to: '/access/users',
                 permission: 'super_admins.view',
+                roles: ['master_admin'],
             },
             {
                 label: 'Users',

@@ -193,7 +193,7 @@ class PermissionSeeder extends Seeder
 
         foreach (self::ROLE_PERMISSIONS as $roleId => $slugs) {
             $resolvedSlugs = $roleId === UserRole::SUPER_ADMIN
-                ? PermissionCatalog::slugs()
+                ? PermissionCatalog::superAdminSlugs()
                 : $slugs;
 
             foreach ($resolvedSlugs as $slug) {

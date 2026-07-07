@@ -230,19 +230,19 @@ const router = createRouter({
                     path: 'access/roles',
                     name: 'access.roles',
                     component: () => import('./pages/access/RolesIndexPage.vue'),
-                    meta: { allowWithoutTenant: true, permission: 'roles.view' },
+                    meta: { allowWithoutTenant: true, permission: 'roles.view', roles: ['master_admin'] },
                 },
                 {
                     path: 'access/roles/:roleId/permissions',
                     name: 'access.roles.permissions',
                     component: () => import('./pages/access/RolePermissionsPage.vue'),
-                    meta: { allowWithoutTenant: true, permission: 'roles.view' },
+                    meta: { allowWithoutTenant: true, permission: 'roles.view', roles: ['master_admin'] },
                 },
                 {
                     path: 'access/permissions',
                     name: 'access.permissions',
                     component: () => import('./pages/access/PermissionsIndexPage.vue'),
-                    meta: { allowWithoutTenant: true, permission: 'permissions.view' },
+                    meta: { allowWithoutTenant: true, permission: 'permissions.view', roles: ['master_admin'] },
                 },
                 {
                     path: 'access/users',
@@ -251,6 +251,7 @@ const router = createRouter({
                     meta: {
                         allowWithoutTenant: true,
                         permission: ['users.view', 'super_admins.view'],
+                        roles: ['master_admin', 'super_admin'],
                     },
                 },
             ],
@@ -324,6 +325,16 @@ router.beforeEach(async (to) => {
 
     if (user.role === 'master_admin' && to.meta.requiresTenant) {
         return { name: 'companies.index' };
+    }
+
+    if (to.meta.roles?.length && !to.meta.roles.includes(user.role)) {
+        return {
+            name: 'dashboard',
+            query: {
+                denied: '1',
+                from: to.name ?? to.path,
+            },
+        };
     }
 
     if (to.meta.permission) {

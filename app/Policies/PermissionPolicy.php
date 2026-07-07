@@ -3,13 +3,15 @@
 namespace App\Policies;
 
 use App\Permission;
+use App\Support\RoleHierarchy;
 use App\User;
 
 class PermissionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('permissions.view');
+        return RoleHierarchy::managesSuperAdmins($user)
+            && $user->hasPermission('permissions.view');
     }
 
     public function view(User $user, Permission $permission): bool

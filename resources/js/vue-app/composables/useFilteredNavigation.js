@@ -1,7 +1,7 @@
 import { computed } from 'vue';
 import { usePermissions } from './usePermissions';
 
-function filterNavItems(items, can, canInCompany, requiresCompanySelection) {
+function filterNavItems(items, can, canInCompany, requiresCompanySelection, userRole) {
     return items
         .map((item) => {
             if (item.children) {
@@ -10,6 +10,7 @@ function filterNavItems(items, can, canInCompany, requiresCompanySelection) {
                     can,
                     canInCompany,
                     requiresCompanySelection,
+                    userRole,
                 );
 
                 if (children.length === 0) {
@@ -17,6 +18,10 @@ function filterNavItems(items, can, canInCompany, requiresCompanySelection) {
                 }
 
                 return { ...item, children };
+            }
+
+            if (item.roles?.length && !item.roles.includes(userRole)) {
+                return null;
             }
 
             if (item.requiresTenant && requiresCompanySelection) {
@@ -56,6 +61,7 @@ export function useFilteredNavigation(items, userRef = null) {
             can,
             canInCompany,
             Boolean(current?.requires_company_selection),
+            current?.role ?? null,
         );
     });
 }
