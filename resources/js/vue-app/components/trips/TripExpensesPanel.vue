@@ -28,7 +28,7 @@
                 </div>
             </button>
             <div v-show="!isCollapsed('general')" class="stop-expense-card__body">
-                <QuickExpensePills v-if="!readonly" @add="(type) => quickAdd('', type)" />
+                <QuickExpensePills v-if="!readonly" scope="whole-trip" @add="(type) => quickAdd('', type)" />
                 <div v-if="generalItems.length > 0" class="expense-entries-scroll">
                     <div
                         class="expense-entry-columns"
@@ -97,7 +97,7 @@
                 </div>
             </button>
             <div v-show="!isCollapsed(stop.key)" class="stop-expense-card__body">
-                <QuickExpensePills v-if="!readonly" @add="(type) => quickAdd(stop.sequence, type)" />
+                <QuickExpensePills v-if="!readonly" scope="stop" @add="(type) => quickAdd(stop.sequence, type)" />
                 <div v-if="stop.items.length > 0" class="expense-entries-scroll">
                     <div
                         class="expense-entry-columns"
@@ -177,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { getLegacyFuelWarning, isDieselExpenseType, legLoadCategoryMeta } from '../../api/trips';
 import QuickExpensePills from './QuickExpensePills.vue';
 import TripExpenseEntry from './TripExpenseEntry.vue';
@@ -230,7 +230,23 @@ function legacyWarningFor(index) {
 }
 
 const collapsed = reactive({});
+const collapseInitialized = ref(false);
 const lastFocusedIndex = ref(-1);
+
+watch(
+    () => props.routeLegs,
+    (legs) => {
+        if (collapseInitialized.value || legs.length === 0) {
+            return;
+        }
+
+        collapsed.general = true;
+        const firstSequence = Number(legs[0]?.sequence_no ?? 1);
+        collapsed[`stop-${firstSequence}`] = false;
+        collapseInitialized.value = true;
+    },
+    { immediate: true },
+);
 
 const grandTotal = computed(() =>
     props.expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
@@ -242,7 +258,7 @@ const generalSubtotal = computed(() => sumItems(generalItems.value));
 
 const stopCards = computed(() =>
     props.routeLegs.map((leg, index) => {
-        const sequence = index + 1;
+        const sequence = Number(leg.sequence_no ?? index + 1);
         const items = collectItems(sequence);
         const meta = legLoadCategoryMeta(leg.weight_ton, props.maxLoadTon);
 

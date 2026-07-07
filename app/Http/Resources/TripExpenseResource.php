@@ -16,7 +16,7 @@ class TripExpenseResource extends JsonResource
             'id' => $this->id,
             'trip_id' => $this->trip_id,
             'trip_route_leg_id' => $this->trip_route_leg_id,
-            'route_leg_sequence' => $this->whenLoaded('routeLeg', fn () => $this->routeLeg?->sequence_no),
+            'route_leg_sequence' => $this->routeLeg?->sequence_no,
             'expense_type' => $this->expense_type?->value ?? $this->expense_type,
             'other_type' => $this->other_type,
             'expense_date' => $this->expense_date?->toDateString(),

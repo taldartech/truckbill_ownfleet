@@ -367,23 +367,27 @@ export function useTripForm() {
                     remarks: leg.remarks || null,
                 };
             }),
-            expenses: includeExpenses
-                ? form.expenses
-                      .filter((e) => Number(e.amount) > 0)
-                      .map((e) => ({
-                          expense_type: e.expense_type,
-                          expense_date: e.expense_date || form.start_at || null,
-                          amount: e.amount,
-                          fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
-                          fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
-                          fuel_odometer_km:
-                              e.fuel_odometer_km === '' || e.fuel_odometer_km == null ? null : Number(e.fuel_odometer_km),
-                          route_leg_sequence: e.route_leg_sequence || null,
-                          other_type: e.expense_type === 'OTHER' ? e.other_type || null : null,
-                          notes: e.notes || null,
-                      }))
-                : [],
         };
+
+        if (includeExpenses) {
+            payload.expenses = form.expenses
+                .filter((e) => Number(e.amount) > 0)
+                .map((e) => ({
+                    expense_type: e.expense_type,
+                    expense_date: e.expense_date || form.start_at || null,
+                    amount: e.amount,
+                    fuel_liters: e.fuel_liters === '' || e.fuel_liters == null ? null : Number(e.fuel_liters),
+                    fuel_rate: e.fuel_rate === '' || e.fuel_rate == null ? null : Number(e.fuel_rate),
+                    fuel_odometer_km:
+                        e.fuel_odometer_km === '' || e.fuel_odometer_km == null ? null : Number(e.fuel_odometer_km),
+                    route_leg_sequence:
+                        e.route_leg_sequence === '' || e.route_leg_sequence == null
+                            ? null
+                            : Number(e.route_leg_sequence),
+                    other_type: e.expense_type === 'OTHER' ? e.other_type || null : null,
+                    notes: e.notes || null,
+                }));
+        }
 
         if (mode === 'create') {
             payload.vehicle_id = form.vehicle_id;

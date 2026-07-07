@@ -8,11 +8,13 @@ use App\Concerns\UsesUuid;
 use App\Enums\TripExpenseType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TripExpense extends Model
 {
     use TenantScoped;
     use BranchScoped;
+    use SoftDeletes;
     use UsesUuid;
 
     protected $fillable = [

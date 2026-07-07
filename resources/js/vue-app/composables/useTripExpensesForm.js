@@ -153,7 +153,10 @@ export function useTripExpensesForm() {
                             expense.fuel_odometer_km === '' || expense.fuel_odometer_km == null
                                 ? null
                                 : Math.trunc(Number(expense.fuel_odometer_km)),
-                        route_leg_sequence: expense.route_leg_sequence || null,
+                        route_leg_sequence:
+                            expense.route_leg_sequence === '' || expense.route_leg_sequence == null
+                                ? null
+                                : Number(expense.route_leg_sequence),
                         other_type: expense.expense_type === 'OTHER' ? expense.other_type || null : null,
                         notes: expense.notes || null,
                     };

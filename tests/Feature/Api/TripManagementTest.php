@@ -222,6 +222,50 @@ class TripManagementTest extends TestCase
         $this->assertNotNull($dieselExpense);
         $this->assertSame('2026-06-02', $dieselExpense->expense_date?->toDateString());
         $this->assertSame('12450.00', (string) $dieselExpense->fuel_odometer_km);
+        $this->assertNotNull($dieselExpense->trip_route_leg_id);
+        $response->assertJsonPath('data.expenses.0.route_leg_sequence', 1);
+    }
+
+    public function test_stop_expense_route_leg_sequence_is_persisted_and_returned(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::LoadingCharges->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1000,
+                        'route_leg_sequence' => 1,
+                    ],
+                    [
+                        'expense_type' => TripExpenseType::UnloadingCharges->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 999.99,
+                        'route_leg_sequence' => 1,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.route_leg_sequence', 1)
+            ->assertJsonPath('data.expenses.1.route_leg_sequence', 1);
+
+        $loadingExpense = TripExpense::query()
+            ->where('trip_id', $trip->id)
+            ->where('expense_type', TripExpenseType::LoadingCharges->value)
+            ->first();
+
+        $this->assertNotNull($loadingExpense?->trip_route_leg_id);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/trips/{$trip->id}")
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.route_leg_sequence', 1)
+            ->assertJsonPath('data.expenses.1.route_leg_sequence', 1);
     }
 
     public function test_diesel_expense_meter_reading_must_stay_within_trip_meter_range(): void
@@ -709,6 +753,80 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.total_expense_amount', '8700.00');
 
         $this->assertDatabaseCount('trip_expenses', 2);
+    }
+
+    public function test_updating_trip_without_expenses_preserves_existing_expenses(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 900,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $expenseId = $createResponse->json('data.expenses.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'notes' => 'Updated trip notes only',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '900.00')
+            ->assertJsonPath('data.notes', 'Updated trip notes only');
+
+        $this->assertDatabaseHas('trip_expenses', [
+            'id' => $expenseId,
+            'amount' => '900.00',
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseCount('trip_expenses', 1);
+    }
+
+    public function test_updating_trip_expenses_soft_deletes_previous_rows(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 500,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $originalExpenseId = $createResponse->json('data.expenses.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Parking->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 300,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '300.00');
+
+        $this->assertSoftDeleted('trip_expenses', ['id' => $originalExpenseId]);
+        $this->assertDatabaseCount('trip_expenses', 2);
+        $this->assertSame(1, TripExpense::query()->where('trip_id', $tripId)->count());
     }
 
     public function test_cannot_update_route_when_leg_has_expenses(): void

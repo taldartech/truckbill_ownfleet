@@ -224,7 +224,8 @@ class TripService
 
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
-            $expenses = $data['expenses'] ?? null;
+            $shouldSyncExpenses = array_key_exists('expenses', $data);
+            $expenses = $shouldSyncExpenses ? $data['expenses'] : null;
             unset($data['route_legs'], $data['expenses'], $data['trip_number']);
 
             if (isset($data['status'])) {
@@ -246,7 +247,7 @@ class TripService
                 $this->tripValidation->assertRouteLegsAreValid($routeLegs, $startStationId ?: null, $tripType);
             }
 
-            if ($expenses !== null) {
+            if ($shouldSyncExpenses) {
                 $existingExpenses = $trip->expenses()->get()->all();
 
                 $this->tripValidation->assertExpensesAreValid(
@@ -342,9 +343,9 @@ class TripService
                 $this->syncRouteLegs($trip->fresh(), $routeLegs);
             }
 
-            if ($expenses !== null) {
+            if ($shouldSyncExpenses) {
                 $trip->expenses()->delete();
-                $this->syncExpenses($trip->fresh(), $expenses, $userId);
+                $this->syncExpenses($trip->fresh(), $expenses ?? [], $userId);
             }
 
             $this->recalculateTotals($trip->fresh());

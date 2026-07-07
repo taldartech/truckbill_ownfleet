@@ -214,6 +214,11 @@ export const QUICK_EXPENSE_PILLS = [
     { value: 'OTHER', label: 'Other', icon: 'bi-plus-lg', className: 'pill-other' },
 ];
 
+/** Trip-wide expenses (tolls/permits that are not tied to a single stop). */
+export const WHOLE_TRIP_QUICK_EXPENSE_PILLS = QUICK_EXPENSE_PILLS.filter(
+    (pill) => !['LOADING_CHARGES', 'UNLOADING_CHARGES'].includes(pill.value),
+);
+
 export function emptyRouteStop(
     sequence = 1,
     fromStationId = '',

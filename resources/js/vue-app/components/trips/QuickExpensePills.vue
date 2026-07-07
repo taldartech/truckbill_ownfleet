@@ -17,11 +17,20 @@
 </template>
 
 <script setup>
-import { QUICK_EXPENSE_PILLS } from '../../api/trips';
+import { computed } from 'vue';
+import { QUICK_EXPENSE_PILLS, WHOLE_TRIP_QUICK_EXPENSE_PILLS } from '../../api/trips';
+
+const props = defineProps({
+    scope: {
+        type: String,
+        default: 'stop',
+        validator: (value) => ['stop', 'whole-trip'].includes(value),
+    },
+});
 
 defineEmits(['add']);
 
-const pills = QUICK_EXPENSE_PILLS;
+const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS));
 </script>
 
 <style scoped>
