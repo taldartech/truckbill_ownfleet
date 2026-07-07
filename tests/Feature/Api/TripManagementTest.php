@@ -888,6 +888,58 @@ class TripManagementTest extends TestCase
         $this->assertDatabaseCount('trip_expenses', 1);
     }
 
+    public function test_status_change_preserves_trip_expenses_and_route_leg_links(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(TripType::OneWay->value), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-10 09:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                ],
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::LoadingCharges->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1000,
+                        'route_leg_sequence' => 1,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $expenseId = $createResponse->json('data.expenses.0.id');
+        $routeLegId = $createResponse->json('data.route_legs.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'status' => TripStatus::InProgress->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::InProgress->value)
+            ->assertJsonPath('data.total_expense_amount', '1000.00');
+
+        $this->assertDatabaseHas('trip_expenses', [
+            'id' => $expenseId,
+            'trip_route_leg_id' => $routeLegId,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseCount('trip_expenses', 1);
+    }
+
     public function test_updating_trip_expenses_soft_deletes_previous_rows(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');

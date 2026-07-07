@@ -38,7 +38,7 @@
                     class="btn btn-outline-danger btn-sm"
                     @click="openDamage"
                 >
-                    Damage
+                    Repair
                 </button>
                 <button
                     v-if="tyre.status !== 'SCRAPPED'"
@@ -642,7 +642,7 @@
 
         <TyreActionModal
             v-if="showDamage"
-            title="Record Damage"
+            title="Record Repair"
             :form-error="formError"
             :saving="actionSaving"
             @close="closeDamage"
@@ -927,7 +927,7 @@ function resetActionForm() {
 const tabs = [
     { key: 'installations', label: 'Installation History' },
     { key: 'rotations', label: 'Rotations' },
-    { key: 'damages', label: 'Damage' },
+    { key: 'damages', label: 'Repair' },
     { key: 'expenses', label: 'Expenses' },
 ];
 
@@ -935,7 +935,7 @@ const historyTypeOptions = [
     { value: 'installed', label: 'Install' },
     { value: 'removed', label: 'Remove' },
     { value: 'rotation', label: 'Rotation' },
-    { value: 'damage', label: 'Damage' },
+    { value: 'damage', label: 'Repair' },
     { value: 'replacement', label: 'Replace' },
     { value: 'scrapped', label: 'Scrap' },
     { value: 'expense', label: 'Expense' },

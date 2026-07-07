@@ -356,7 +356,7 @@ class TyreService
     {
         return DB::transaction(function () use ($tyre, $data): TyreDamage {
             if ($tyre->status === TyreStatus::Scrapped) {
-                throw ValidationException::withMessages(['tyre' => 'Cannot record damage on a scrapped tyre.']);
+                throw ValidationException::withMessages(['tyre' => 'Cannot record repair on a scrapped tyre.']);
             }
 
             $active = $tyre->activeInstallation;

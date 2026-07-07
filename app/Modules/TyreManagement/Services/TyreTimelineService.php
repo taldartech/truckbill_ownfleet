@@ -288,7 +288,7 @@ class TyreTimelineService
             'installed' => 'Install',
             'removed' => 'Remove',
             'rotation' => 'Rotation',
-            'damage' => 'Damage',
+            'damage' => 'Repair',
             'replacement' => 'Replace',
             'scrapped' => 'Scrap',
             'expense' => 'Expense',

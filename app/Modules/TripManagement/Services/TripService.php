@@ -438,9 +438,6 @@ class TripService
     /**
      * @param  list<array<string, mixed>>  $routeLegs
      */
-    /**
-     * @param  list<array<string, mixed>>  $routeLegs
-     */
     private function replaceRouteLegs(Trip $trip, array $routeLegs): void
     {
         $expenseSequencesById = TripExpense::query()
