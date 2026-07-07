@@ -950,7 +950,7 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.0.trip_type', TripType::RoundTrip->value);
     }
 
-    public function test_moderator_can_view_trips_but_not_create_or_archive(): void
+    public function test_moderator_can_view_and_create_trips_but_not_archive(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
         $this->actingAs($user);
@@ -983,12 +983,29 @@ class TripManagementTest extends TestCase
                     ],
                 ],
             ]))
-            ->assertForbidden();
+            ->assertCreated();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips/'.$trip->id.'/archive', [
                 'archive_reason' => 'Created by mistake during testing.',
             ])
+            ->assertForbidden();
+    }
+
+    public function test_moderator_cannot_update_trip_or_view_archived_list(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        $this->actingAs($user);
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'notes' => 'Moderator should not update this trip.',
+            ])
+            ->assertForbidden();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?archived=archived')
             ->assertForbidden();
     }
 
@@ -2171,7 +2188,7 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.0.archive_reason', 'Created by mistake during testing.');
     }
 
-    public function test_admin_can_archive_completed_trip_with_reason(): void
+    public function test_admin_cannot_archive_completed_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -2181,8 +2198,40 @@ class TripManagementTest extends TestCase
         $trip->update(['status' => TripStatus::Completed->value]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id.'/archive-impact')
+            ->assertOk()
+            ->assertJsonPath('can_archive', false)
+            ->assertJsonPath('block_reason', 'Only Super Admin can archive or delete completed trips.');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips/'.$trip->id.'/archive', [
                 'archive_reason' => 'Completed trip entered by mistake during testing.',
+            ])
+            ->assertForbidden();
+
+        $this->assertNotNull(Trip::query()->find($trip->id));
+    }
+
+    public function test_super_admin_can_archive_completed_trip_with_reason(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('super_admin');
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, \App\Branch::query()->findOrFail($vehicle->branch_id));
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['status' => TripStatus::Completed->value]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $vehicle->branch_id)
+            ->getJson('/api/trips/'.$trip->id.'/archive-impact')
+            ->assertOk()
+            ->assertJsonPath('can_archive', true);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $vehicle->branch_id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Completed trip removed by super admin during testing.',
             ])
             ->assertNoContent();
 

@@ -14,7 +14,7 @@ class DriverAdvanceController extends Controller
 {
     public function ledger(Driver $driver): JsonResponse
     {
-        $this->authorize('view', $driver);
+        $this->authorize('viewAdvances', $driver);
 
         $entries = DriverAdvanceEntry::query()
             ->where('driver_id', $driver->id)

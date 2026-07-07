@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Drivers Management">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -29,12 +29,12 @@
                             <th>Mobile</th>
                             <th>License Number</th>
                             <th>Address</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 150px">Actions</th>
+                            <th v-if="showRowActions" class="app-index-actions-cell" style="width: 150px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="drivers.length === 0">
-                            <td :colspan="canManage ? 6 : 5" class="text-center text-muted py-4">
+                            <td :colspan="showRowActions ? 6 : 5" class="text-center text-muted py-4">
                                 No drivers found.
                             </td>
                         </tr>
@@ -47,11 +47,15 @@
                             <td>{{ formatPhone(driver.phone) }}</td>
                             <td>{{ driver.license_number || '—' }}</td>
                             <td>{{ formatAddress(driver.address) }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
+                            <td v-if="showRowActions" class="app-index-actions-cell">
                                 <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openEdit(driver)" />
-                                    <AppCrudActionButton action="advance" @click="openAdvance(driver)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(driver)" />
+                                    <AppCrudActionButton v-if="canEdit" action="edit" @click="openEdit(driver)" />
+                                    <AppCrudActionButton
+                                        v-if="canViewAdvances"
+                                        action="advance"
+                                        @click="openAdvance(driver)"
+                                    />
+                                    <AppCrudActionButton v-if="canArchive" action="delete" @click="handleDelete(driver)" />
                                 </AppTableActions>
                             </td>
                         </tr>
@@ -101,11 +105,28 @@
             :show="showAdvance"
             :driver-id="advanceDriver?.id ?? null"
             :driver-name="advanceDriver?.name ?? ''"
-            :can-manage="canManage"
+            :can-manage="canManageAdvances"
             :saving="advanceSaving"
             :field-errors="advanceFieldErrors"
             @close="closeAdvance"
+            @loaded="handleAdvanceLoaded"
             @submit="handleAdvanceSubmit"
+        />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
+
+        <MasterCrudSaveConfirmModal
+            :show="showAdvanceSaveConfirm"
+            :summary="advanceSaveConfirmSummary"
+            :saving="advanceSaving"
+            @cancel="cancelAdvanceSaveConfirm"
+            @confirm="confirmAdvanceSave"
         />
     </div>
 </template>
@@ -124,12 +145,33 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { buildDriverAdvanceFields, buildDriverFields } from '../../utils/masterCrudSaveConfirm';
 
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const {
+    showSaveConfirm: showAdvanceSaveConfirm,
+    saveConfirmSummary: advanceSaveConfirmSummary,
+    pendingPayload: pendingAdvancePayload,
+    promptSaveConfirm: promptAdvanceSaveConfirm,
+    cancelSaveConfirm: cancelAdvanceSaveConfirm,
+    finishSaveConfirm: finishAdvanceSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const pendingDriverMode = ref('create');
+const advanceWalletBalance = ref(null);
 
 const pageId = 'driversIndex';
 
@@ -142,7 +184,16 @@ const {
 } = useApiFormErrors();
 
 const { canInCompany } = usePermissions();
-const canManage = computed(() => canInCompany('drivers.manage'));
+const canCreate = computed(() => canInCompany('drivers.create'));
+const canEdit = computed(() => canInCompany('drivers.edit'));
+const canArchive = computed(() => canInCompany('drivers.archive'));
+const canViewAdvances = computed(
+    () => canInCompany('driver_advances.view') || canInCompany('drivers.view'),
+);
+const canManageAdvances = computed(() => canInCompany('driver_advances.manage'));
+const showRowActions = computed(
+    () => canEdit.value || canArchive.value || canViewAdvances.value,
+);
 
 const drivers = ref([]);
 const loading = ref(true);
@@ -247,11 +298,36 @@ function openAdvance(driver) {
 function closeAdvance() {
     showAdvance.value = false;
     advanceDriver.value = null;
+    advanceWalletBalance.value = null;
     clearAdvanceErrors();
 }
 
-async function handleAdvanceSubmit(payload) {
+function handleAdvanceLoaded(data) {
+    advanceWalletBalance.value = Number(data?.balance ?? 0);
+}
+
+function handleAdvanceSubmit(payload) {
     if (!advanceDriver.value?.id) {
+        return;
+    }
+
+    clearAdvanceErrors();
+
+    promptAdvanceSaveConfirm({
+        payload,
+        entityLabel: 'Advance Entry',
+        mode: 'create',
+        fields: buildDriverAdvanceFields(payload, {
+            driverName: advanceDriver.value.name ?? '',
+            walletBalance: advanceWalletBalance.value,
+        }),
+    });
+}
+
+async function confirmAdvanceSave() {
+    const payload = pendingAdvancePayload.value;
+
+    if (!payload || !advanceDriver.value?.id) {
         return;
     }
 
@@ -261,8 +337,12 @@ async function handleAdvanceSubmit(payload) {
     try {
         await createDriverAdvanceEntry(advanceDriver.value.id, payload);
         toast.success('Advance entry saved.');
+        finishAdvanceSaveConfirm();
+        advanceModalRef.value?.resetForm?.();
         await advanceModalRef.value?.loadLedger();
     } catch (error) {
+        finishAdvanceSaveConfirm();
+
         if (applyAdvanceApiError(error)) {
             if (advanceFormError.value) {
                 toast.error(advanceFormError.value);
@@ -305,24 +385,38 @@ function applyValidationError(error) {
     toast.error('Unable to save driver. Please try again.');
 }
 
-async function handleCreate(payload) {
-    saving.value = true;
+function handleCreate(payload) {
     clearErrors();
+    pendingDriverMode.value = 'create';
 
-    try {
-        await createDriver(payload);
-        toast.success('Driver has been added successfully.');
-        closeCreate();
-        await loadDrivers(1);
-    } catch (error) {
-        applyValidationError(error);
-    } finally {
-        saving.value = false;
-    }
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Driver',
+        mode: 'create',
+        fields: buildDriverFields(payload, null),
+    });
 }
 
-async function handleUpdate(payload) {
+function handleUpdate(payload) {
     if (!editingDriver.value?.id) {
+        return;
+    }
+
+    clearErrors();
+    pendingDriverMode.value = 'edit';
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Driver',
+        mode: 'edit',
+        fields: buildDriverFields(payload, editingDriver.value),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
         return;
     }
 
@@ -330,11 +424,21 @@ async function handleUpdate(payload) {
     clearErrors();
 
     try {
-        await updateDriver(editingDriver.value.id, payload);
-        toast.success('Driver has been updated successfully.');
-        closeEdit();
-        await loadDrivers();
+        if (pendingDriverMode.value === 'edit' && editingDriver.value?.id) {
+            await updateDriver(editingDriver.value.id, payload);
+            toast.success('Driver has been updated successfully.');
+            finishSaveConfirm();
+            closeEdit();
+            await loadDrivers();
+        } else {
+            await createDriver(payload);
+            toast.success('Driver has been added successfully.');
+            finishSaveConfirm();
+            closeCreate();
+            await loadDrivers(1);
+        }
     } catch (error) {
+        finishSaveConfirm();
         applyValidationError(error);
     } finally {
         saving.value = false;

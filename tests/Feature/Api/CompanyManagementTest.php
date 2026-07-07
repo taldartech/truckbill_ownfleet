@@ -33,6 +33,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'ABC Transport',
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => 'ABCDE1234F',
+                'contact_person' => 'ABC Contact',
                 'contact_number' => '9876543211',
             ])
             ->assertCreated()
@@ -239,7 +240,7 @@ class CompanyManagementTest extends TestCase
             ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['pan_number', 'contact_number']);
+        $response->assertJsonValidationErrors(['pan_number', 'contact_number', 'contact_person']);
     }
 
     public function test_cannot_create_company_with_only_pan_number(): void
@@ -253,7 +254,7 @@ class CompanyManagementTest extends TestCase
             ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['contact_number']);
+        $response->assertJsonValidationErrors(['contact_number', 'contact_person']);
     }
 
     public function test_cannot_update_company_to_remove_pan_or_contact_number(): void
@@ -262,6 +263,7 @@ class CompanyManagementTest extends TestCase
         $tenant = $this->createOwnedTenant($superAdmin, 'Identity Co', [
             'gst_number' => '27AAAAA0000A1Z5',
             'pan_number' => 'ABCDE1234F',
+            'contact_person' => 'Identity Contact',
             'contact_number' => '9876543210',
         ]);
 
@@ -269,11 +271,12 @@ class CompanyManagementTest extends TestCase
             ->putJson('/app/api/companies/'.$tenant->id, [
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => '',
+                'contact_person' => '',
                 'contact_number' => '',
             ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['pan_number', 'contact_number']);
+        $response->assertJsonValidationErrors(['pan_number', 'contact_number', 'contact_person']);
     }
 
     public function test_cannot_create_company_with_duplicate_gst_or_pan(): void
@@ -285,6 +288,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'First Transport',
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => 'ABCDE1234F',
+                'contact_person' => 'First Contact',
                 'contact_number' => '9876543212',
             ])
             ->assertCreated();
@@ -294,6 +298,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Second Transport',
                 'gst_number' => '27aaaaa0000a1z5',
                 'pan_number' => 'abcde1234f',
+                'contact_person' => 'Second Contact',
                 'contact_number' => '9876543213',
             ]);
 
@@ -309,6 +314,7 @@ class CompanyManagementTest extends TestCase
         $tenant->update([
             'gst_number' => '27AAAAA0000A1Z5',
             'pan_number' => 'ABCDE1234F',
+            'contact_person' => 'Update Contact',
             'contact_number' => '9876543214',
         ]);
 
@@ -317,6 +323,7 @@ class CompanyManagementTest extends TestCase
                 'name' => 'Updated Co',
                 'gst_number' => '27AAAAA0000A1Z5',
                 'pan_number' => 'ABCDE1234F',
+                'contact_person' => 'Update Contact',
                 'contact_number' => '9876543214',
             ])
             ->assertOk()
@@ -352,6 +359,7 @@ class CompanyManagementTest extends TestCase
             ->postJson('/app/api/companies', [
                 'name' => 'Contact Co',
                 'pan_number' => 'ABCDE1234G',
+                'contact_person' => 'Contact Person',
                 'contact_number' => '9876543210',
             ])
             ->assertCreated();

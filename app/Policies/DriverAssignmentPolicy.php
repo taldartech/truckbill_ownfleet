@@ -22,7 +22,7 @@ class DriverAssignmentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('driver_assignments.manage')
+        return $user->hasPermission('driver_assignments.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -30,11 +30,14 @@ class DriverAssignmentPolicy
     public function update(User $user, DriverAssignment $driverAssignment): bool
     {
         return CurrentTenant::id() === $driverAssignment->tenant_id
-            && $this->create($user);
+            && $user->hasPermission('driver_assignments.edit')
+            && $user->canAccessCompanyPanel();
     }
 
     public function delete(User $user, DriverAssignment $driverAssignment): bool
     {
-        return $this->update($user, $driverAssignment);
+        return CurrentTenant::id() === $driverAssignment->tenant_id
+            && $user->hasPermission('driver_assignments.edit')
+            && $user->canAccessCompanyPanel();
     }
 }

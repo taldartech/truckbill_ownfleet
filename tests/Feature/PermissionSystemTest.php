@@ -45,18 +45,18 @@ class PermissionSystemTest extends TestCase
         $this->assertTrue(Gate::forUser($user)->allows('create', \App\Driver::class));
     }
 
-    public function test_moderator_cannot_manage_drivers(): void
+    public function test_moderator_has_create_and_view_permissions_without_full_manage(): void
     {
         $tenant = Tenant::query()->create([
-            'name' => 'Acct Tenant',
-            'slug' => 'acct-tenant',
+            'name' => 'Moderator Tenant',
+            'slug' => 'moderator-tenant',
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
-            'name' => 'Accountant',
+            'name' => 'Moderator',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'user_role_id' => UserRole::MODERATOR,
@@ -65,11 +65,57 @@ class PermissionSystemTest extends TestCase
         $user->load('userRole.permissions');
 
         $this->assertTrue($user->hasPermission('drivers.view'));
-        $this->assertFalse($user->hasPermission('drivers.manage'));
-        $this->assertTrue($user->hasPermission('stations.view'));
-        $this->assertFalse($user->hasPermission('stations.manage'));
-        $this->assertTrue($user->hasPermission('trips.view'));
-        $this->assertFalse($user->hasPermission('trips.manage'));
+        $this->assertTrue($user->hasPermission('drivers.create'));
+        $this->assertTrue($user->hasPermission('drivers.manage'));
+        $this->assertTrue($user->hasPermission('vehicles.create'));
+        $this->assertFalse($user->hasPermission('vehicles.edit'));
+        $this->assertTrue($user->hasPermission('trips.create'));
+        $this->assertTrue($user->hasPermission('attendances.create'));
+        $this->assertTrue($user->hasPermission('attendance.bulk_mark'));
+        $this->assertTrue($user->hasPermission('stations.create'));
+        $this->assertTrue($user->hasPermission('brokers.create'));
+        $this->assertTrue($user->hasPermission('customers.create'));
+        $this->assertTrue($user->hasPermission('tyre_layouts.create'));
+        $this->assertFalse($user->hasPermission('locations.create'));
+        $this->assertFalse($user->hasPermission('reports.export'));
+        $this->assertFalse($user->hasPermission('attendance_reports.export'));
+        $this->assertFalse($user->hasPermission('vehicles.delete'));
+        $this->assertFalse($user->hasPermission('maintenance.edit'));
+        $this->assertTrue($user->hasPermission('vehicle_documents.create'));
+        $this->assertTrue($user->hasPermission('vehicle_documents.edit'));
+        $this->assertFalse($user->hasPermission('trips.archive'));
+        $this->assertFalse($user->hasPermission('trips.view_archived'));
+        $this->assertFalse($user->hasPermission('trips.edit'));
+        $this->assertFalse($user->hasPermission('wages.view'));
+        $this->assertFalse($user->hasPermission('fleet_monthly_report.view'));
+        $this->assertTrue(Gate::forUser($user)->allows('create', \App\Driver::class));
+        $this->assertFalse($user->canUpdateOperationalRecords());
+        $this->assertFalse($user->canDeleteOperationalRecords());
+    }
+
+    public function test_super_admin_receives_all_catalog_permissions(): void
+    {
+        $tenant = Tenant::query()->create([
+            'name' => 'Super Tenant',
+            'slug' => 'super-tenant',
+            'timezone' => 'Asia/Kolkata',
+            'is_active' => true,
+        ]);
+
+        $user = User::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Super Admin',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $user->load('userRole.permissions');
+
+        $this->assertSame(
+            Permission::query()->count(),
+            count($user->permissionSlugs()),
+        );
     }
 
     public function test_effective_tenant_id_is_cached_per_user_instance(): void
@@ -124,8 +170,9 @@ class PermissionSystemTest extends TestCase
 
     public function test_permission_seeder_creates_expected_slugs(): void
     {
-        $this->assertGreaterThanOrEqual(8, Permission::query()->count());
+        $this->assertGreaterThanOrEqual(80, Permission::query()->count());
         $this->assertDatabaseHas('permissions', ['slug' => 'drivers.manage']);
+        $this->assertDatabaseHas('permissions', ['slug' => 'drivers.create']);
         $this->assertGreaterThan(0, \Illuminate\Support\Facades\DB::table('permission_user_role')->count());
     }
 }

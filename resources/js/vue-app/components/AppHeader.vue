@@ -40,7 +40,7 @@
                                 type="button"
                                 class="app-header-company-context__exit"
                                 title="Exit branch context"
-                                @click="handleExitCompany"
+                                @click="showExitConfirm = true"
                             >
                                 <i class="fas fa-sign-out-alt"></i>Exit
                             </button>
@@ -147,6 +147,23 @@
             </div>
         </div>
 
+        <AppConfirmModal
+            :show="showExitConfirm"
+            title="Exit branch context?"
+            :loading="exitingCompany"
+            icon="bi bi-box-arrow-right"
+            icon-tone="warning"
+            cancel-label="Stay"
+            confirm-label="Yes, Exit"
+            loading-label="Exiting…"
+            confirm-variant="warning"
+            @cancel="showExitConfirm = false"
+            @confirm="handleExitCompany"
+        >
+            <template #message>
+                You will leave <strong>{{ branchName || companyName }}</strong> and return to branch selection.
+            </template>
+        </AppConfirmModal>
     </nav>
 </template>
 
@@ -164,6 +181,7 @@ import {
 } from '../api/notifications';
 import { formatDisplay, toAppTimezoneIso, toDateInputValue, addDaysToDateInput } from '../utils/datetime';
 import AppSelect from './ui/AppSelect.vue';
+import AppConfirmModal from './ui/AppConfirmModal.vue';
 const props = defineProps({
     user: {
         type: Object,
@@ -184,6 +202,8 @@ const notificationsLoading = ref(false);
 const unreadCount = ref(0);
 const switchableBranches = ref([]);
 const selectedBranchId = ref('');
+const showExitConfirm = ref(false);
+const exitingCompany = ref(false);
 let pollTimer = null;
 
 const needsBranchSelection = computed(
@@ -390,14 +410,19 @@ async function handleBranchSwitch() {
 }
 
 async function handleExitCompany() {
+    exitingCompany.value = true;
+
     try {
         const data = await exitCompany();
         const user = data?.user ?? (await fetchCurrentUser());
         window.__AUTH_USER__ = user;
         emit('user-updated', user);
+        showExitConfirm.value = false;
         await router.push({ name: 'branches.index' });
     } catch {
         window.location.href = '/company/exit';
+    } finally {
+        exitingCompany.value = false;
     }
 }
 

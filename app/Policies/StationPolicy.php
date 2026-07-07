@@ -22,7 +22,7 @@ class StationPolicy
 
     public function create(User $user): bool
     {
-        return ($user->hasPermission('stations.manage') || $user->hasPermission('trips.manage'))
+        return ($user->hasPermission('stations.create') || $user->hasPermission('trips.create'))
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -30,7 +30,7 @@ class StationPolicy
     public function update(User $user, Station $station): bool
     {
         return CurrentTenant::id() === $station->tenant_id
-            && $user->hasPermission('stations.manage')
+            && $user->hasPermission('stations.edit')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }

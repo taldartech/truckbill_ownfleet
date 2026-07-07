@@ -31,7 +31,7 @@
                                 <th>Expiry</th>
                                 
                                 <th>Status</th>
-                                <th v-if="canManageDocuments" class="text-end compliance-actions-col">Action</th>
+                                <th v-if="canEditDocuments" class="text-end compliance-actions-col">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -47,10 +47,10 @@
                                 <td>
                                     <DocumentStatusBadge :document="document" soft />
                                 </td>
-                                <td v-if="canManageDocuments" class="text-end">
+                                <td v-if="canEditDocuments" class="text-end">
                                     <div class="compliance-actions">
                                         <AppButton
-                                            v-if="canManageDocuments"
+                                            v-if="canEditDocuments"
                                             size="sm"
                                             variant="secondary"
                                             outline
@@ -59,7 +59,7 @@
                                             @click="selectDocument(document, 'edit')"
                                         />
                                         <AppButton
-                                            v-if="canManageDocuments && canRenewDocument(document)"
+                                            v-if="canEditDocuments && canRenewDocument(document)"
                                             size="sm"
                                             variant="primary"
                                             icon="fas fa-rotate-right"
@@ -167,7 +167,7 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    canManageDocuments: {
+    canEditDocuments: {
         type: Boolean,
         default: false,
     },

@@ -28,7 +28,8 @@ class StatePolicy
 
     public function update(User $user, State $state): bool
     {
-        return $state->country_id === IndiaCountry::id()
+        return $user->canUpdateOperationalRecords()
+            && $state->country_id === IndiaCountry::id()
             && $user->hasPermission('locations.manage')
             && $user->canAccessCompanyPanel();
     }

@@ -14,7 +14,7 @@ class StoreDriverAdvanceEntryRequest extends FormRequest
         $driver = $this->route('driver');
 
         return $driver instanceof Driver
-            && ($this->user()?->can('update', $driver) ?? false);
+            && ($this->user()?->can('manageAdvances', $driver) ?? false);
     }
 
     /**

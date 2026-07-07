@@ -21,7 +21,7 @@ class VehicleDocumentStatusTest extends TestCase
 
         $this->assertSame('expired', $status['status_tier']);
         $this->assertSame('18 Days Overdue', $status['status_label']);
-        $this->assertSame('18d', $status['status_sublabel']);
+        $this->assertNull($status['status_sublabel']);
         $this->assertSame(-18, $status['days_remaining']);
         $this->assertSame('danger', $status['badge_color']);
         $this->assertSame('danger', $status['row_color']);

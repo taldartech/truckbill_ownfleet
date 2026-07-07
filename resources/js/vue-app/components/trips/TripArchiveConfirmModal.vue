@@ -6,12 +6,15 @@
         :loading="archiving"
         icon="bi bi-archive"
         icon-tone="danger"
+        size="xl"
         :confirm-label="summary.confirmLabel"
         :loading-label="summary.archivingLabel"
         confirm-variant="danger"
         confirm-icon="bi bi-archive"
         :confirm-disabled="!canConfirm"
         :show-confirm="summary.canArchive"
+        :content-class="['app-confirm-modal__content', 'app-confirm-modal__content--compact', 'border-0', 'shadow-lg']"
+        body-class="app-confirm-modal__body--compact"
         @cancel="$emit('cancel')"
         @confirm="onConfirm"
     >
@@ -19,21 +22,21 @@
             {{ summary.blockReason }}
         </div>
 
-        <div v-else class="text-start">
-            <div class="app-confirm-banner mb-3">
+        <div v-else class="text-start trip-archive-confirm">
+            <div class="app-confirm-banner trip-archive-confirm__notice mb-2">
                 <i class="bi bi-info-circle"></i>
                 <span>{{ summary.permanentNotice }}</span>
             </div>
 
-            <div class="row g-3 mb-3">
+            <div class="row g-2 mb-2">
                 <div class="col-md-6">
-                    <div class="app-confirm-card h-100">
+                    <div class="app-confirm-card h-100 trip-archive-confirm__card">
                         <div class="app-confirm-card__section-title">Trip Summary</div>
-                        <div class="app-confirm-card__body">
+                        <div class="app-confirm-card__body trip-archive-confirm__card-body">
                             <div
                                 v-for="row in summary.tripSummary"
                                 :key="row.label"
-                                class="app-confirm-row"
+                                class="app-confirm-row trip-archive-confirm__row"
                             >
                                 <span class="app-confirm-row__label">{{ row.label }}</span>
                                 <span class="app-confirm-row__value">{{ row.value }}</span>
@@ -43,13 +46,13 @@
                 </div>
 
                 <div v-if="summary.linkedRecordRows.length" class="col-md-6">
-                    <div class="app-confirm-card h-100">
+                    <div class="app-confirm-card h-100 trip-archive-confirm__card">
                         <div class="app-confirm-card__section-title">Linked Records</div>
-                        <div class="app-confirm-card__body">
+                        <div class="app-confirm-card__body trip-archive-confirm__card-body">
                             <div
                                 v-for="row in summary.linkedRecordRows"
                                 :key="row.key"
-                                class="app-confirm-row"
+                                class="app-confirm-row trip-archive-confirm__row"
                             >
                                 <span class="app-confirm-row__label">
                                     <i v-if="row.icon" :class="row.icon" class="me-1"></i>
@@ -59,7 +62,7 @@
                             </div>
                             <div
                                 v-if="summary.totalExpenseRow"
-                                class="app-confirm-row trip-archive-confirm__total-row"
+                                class="app-confirm-row trip-archive-confirm__row trip-archive-confirm__total-row"
                             >
                                 <span class="app-confirm-row__label">
                                     <i class="bi bi-currency-rupee me-1"></i>
@@ -76,16 +79,12 @@
 
             <div
                 v-if="summary.hasFinancialWarning"
-                class="trip-archive-confirm__warning mb-3"
+                class="trip-archive-confirm__warning-ack mb-2"
             >
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>{{ summary.financialWarningMessage }}</span>
-            </div>
-
-            <div
-                v-if="summary.hasFinancialWarning"
-                class="trip-archive-confirm__ack mb-3"
-            >
+                <div class="trip-archive-confirm__warning-text">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>{{ summary.financialWarningMessage }}</span>
+                </div>
                 <div class="form-check mb-0">
                     <input
                         id="trip-archive-financial-ack"
@@ -95,18 +94,18 @@
                         :disabled="archiving"
                     />
                     <label class="form-check-label" for="trip-archive-financial-ack">
-                        I understand this will permanently remove operational financial records
+                        I understand financial records will be removed from active reports
                     </label>
                 </div>
             </div>
 
-            <div>
-                <label class="form-label">Reason for Archive <span class="text-danger">*</span></label>
+            <div class="trip-archive-confirm__reason">
+                <label class="form-label mb-1">Reason for Archive <span class="text-danger">*</span></label>
                 <textarea
                     v-model="archiveReason"
-                    class="form-control"
+                    class="form-control form-control-sm"
                     rows="2"
-                    placeholder="Why is this trip being archived? e.g. Duplicate trip created."
+                    placeholder="Why is this trip being archived?"
                     :class="{ 'is-invalid': fieldErrors.archive_reason }"
                     :disabled="archiving"
                 ></textarea>
@@ -170,45 +169,63 @@ function onConfirm() {
 </script>
 
 <style scoped>
-.trip-archive-confirm__warning {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.65rem 0.85rem;
-    border-radius: 0.75rem;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: var(--brand-danger-dark, #dc2626);
-    font-size: 0.85rem;
-    line-height: 1.45;
-}
-
-.trip-archive-confirm__warning i {
-    flex-shrink: 0;
-    margin-top: 0.1rem;
-}
-
-.trip-archive-confirm__ack {
-    padding: 0.65rem 0.85rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background: #f8fafc;
-}
-
-.trip-archive-confirm__ack .form-check-label {
+.trip-archive-confirm__notice {
     font-size: 0.8125rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.trip-archive-confirm__card-body {
+    padding: 0.45rem 0.75rem 0.55rem;
+}
+
+.trip-archive-confirm__row {
+    padding: 0.3rem 0;
+}
+
+.trip-archive-confirm__warning-ack {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.65rem;
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.trip-archive-confirm__warning-text {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--brand-danger-dark, #dc2626);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    flex: 1 1 220px;
+}
+
+.trip-archive-confirm__warning-text i {
+    flex-shrink: 0;
+}
+
+.trip-archive-confirm__warning-ack .form-check-label {
+    font-size: 0.75rem;
     font-weight: 500;
     color: #334155;
     cursor: pointer;
 }
 
 .trip-archive-confirm__total-row {
-    margin-top: 0.35rem;
-    padding-top: 0.55rem;
+    margin-top: 0.15rem;
+    padding-top: 0.35rem;
     border-top: 1px dashed #e2e8f0;
 }
 
 .trip-archive-confirm__total-value {
     color: var(--brand-danger, #ef4444);
+}
+
+.trip-archive-confirm__reason .form-label {
+    font-size: 0.8125rem;
 }
 </style>

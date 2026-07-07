@@ -609,6 +609,72 @@ class DriverManagementModuleTest extends TestCase
         $updateResponse->assertForbidden();
     }
 
+    public function test_moderator_can_create_driver_but_not_update_or_delete(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('moderator');
+        $driver = $this->createDriver($tenant, 'Existing Driver', 700);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/drivers', [
+                'name' => 'Moderator Driver',
+                'phone' => fake()->numerify('9#########'),
+                'license_number' => strtoupper(fake()->bothify('DL-#####')),
+                'license_expiry_date' => now()->addYear()->toDateString(),
+                'joining_date' => '2024-01-15',
+                'daily_wage' => 800,
+                'is_active' => true,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/drivers/{$driver->id}", [
+                'name' => 'Should Not Update',
+            ])
+            ->assertForbidden();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/drivers/{$driver->id}")
+            ->assertForbidden();
+    }
+
+    public function test_moderator_can_create_driver_assignment_but_not_update_or_delete(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('moderator');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Assignable Driver', 650);
+
+        $assignment = \App\DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => now()->toDateString(),
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $this->createDriver($tenant, 'Second Driver', 600)->id,
+                'assigned_from' => now()->addDay()->toDateString(),
+                'is_primary' => false,
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/driver-assignments/{$assignment->id}", [
+                'assigned_to' => now()->addDays(3)->toDateString(),
+            ])
+            ->assertForbidden();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/driver-assignments/{$assignment->id}")
+            ->assertForbidden();
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */

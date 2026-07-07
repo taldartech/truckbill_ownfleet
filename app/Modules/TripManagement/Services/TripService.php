@@ -385,8 +385,20 @@ class TripService
     {
         ArchivedTripGuard::ensureModifiable($trip);
 
+        $status = $trip->status instanceof TripStatus
+            ? $trip->status
+            : TripStatus::tryFrom((string) $trip->status);
+
+        if (! TripArchiveImpact::isArchivable($status, $user)) {
+            throw ValidationException::withMessages([
+                'trip' => [$status === TripStatus::Completed
+                    ? 'Only Super Admin can archive or delete completed trips.'
+                    : 'This trip cannot be archived or deleted.'],
+            ]);
+        }
+
         DB::transaction(function () use ($trip, $archiveReason, $user): void {
-            $impact = TripArchiveImpact::forTrip($trip);
+            $impact = TripArchiveImpact::forTrip($trip, $user);
             $userId = $user?->id;
             $archivedAt = now();
 

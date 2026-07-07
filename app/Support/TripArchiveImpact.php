@@ -6,6 +6,7 @@ use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Trip;
 use App\TripExpense;
+use App\User;
 
 class TripArchiveImpact
 {
@@ -17,24 +18,31 @@ class TripArchiveImpact
         return [
             TripStatus::Created,
             TripStatus::InProgress,
-            TripStatus::Completed,
             TripStatus::Cancelled,
         ];
     }
 
-    public static function isArchivable(?TripStatus $status): bool
+    public static function isArchivable(?TripStatus $status, ?User $user = null): bool
     {
         if ($status === null) {
             return false;
         }
 
-        return in_array($status, self::archivableStatuses(), true);
+        if (in_array($status, self::archivableStatuses(), true)) {
+            return true;
+        }
+
+        if ($status === TripStatus::Completed && $user !== null) {
+            return RoleHierarchy::isSuperAdminRole((int) $user->user_role_id);
+        }
+
+        return false;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public static function forTrip(Trip $trip): array
+    public static function forTrip(Trip $trip, ?User $user = null): array
     {
         $trip->loadMissing(['vehicle', 'driver', 'routeLegs', 'expenses']);
 
@@ -49,6 +57,8 @@ class TripArchiveImpact
         if ($totalExpenseAmount <= 0 && $expensesCount > 0) {
             $totalExpenseAmount = (float) $trip->expenses->sum('amount');
         }
+
+        $canArchive = self::isArchivable($status, $user);
 
         return [
             'trip' => [
@@ -70,8 +80,12 @@ class TripArchiveImpact
             'warnings' => [
                 'has_financial_records' => $totalExpenseAmount > 0,
             ],
-            'can_archive' => true,
-            'block_reason' => null,
+            'can_archive' => $canArchive,
+            'block_reason' => $canArchive
+                ? null
+                : ($status === TripStatus::Completed
+                    ? 'Only Super Admin can archive or delete completed trips.'
+                    : 'This trip cannot be archived or deleted.'),
         ];
     }
 
@@ -134,9 +148,9 @@ class TripArchiveImpact
 /** @deprecated Use TripArchiveImpact */
 class TripDeletionImpact extends TripArchiveImpact
 {
-    public static function forTrip(Trip $trip): array
+    public static function forTrip(Trip $trip, ?User $user = null): array
     {
-        $impact = parent::forTrip($trip);
+        $impact = parent::forTrip($trip, $user);
         $impact['can_delete'] = $impact['can_archive'];
 
         return $impact;

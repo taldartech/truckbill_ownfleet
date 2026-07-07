@@ -20,7 +20,7 @@
         </template>
 
         <div
-                        v-if="isDashboardContext && showAddPanel && canManage"
+                        v-if="isDashboardContext && showAddPanel && canCreate"
                         class="card mb-3 border-primary-subtle"
                     >
                         <div class="card-header d-flex justify-content-between align-items-center py-2">
@@ -33,7 +33,7 @@
                                 :document-types="addDocumentTypeOptions"
                                 :field-errors="fieldErrors"
                                 :document-type-disabled="false"
-                                :show-type-quick-add="canManage"
+                                :show-type-quick-add="canCreate"
                                 @quick-add-type="showTypeQuickAdd = true"
                             />
                             <div class="d-flex gap-2 mt-3">
@@ -102,7 +102,7 @@
                                 {{ isDashboardContext ? 'Documents' : 'Documents List' }}
                             </h3>
                             <button
-                                v-if="canManage && showAddButton"
+                                v-if="canCreate && showAddButton"
                                 type="button"
                                 class="btn btn-primary btn-sm"
                                 title="Add document"
@@ -130,7 +130,7 @@
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-if="!isDashboardContext && canManage && showDocForm"
+                                        v-if="!isDashboardContext && canCreate && showDocForm && !editingDocument"
                                         class="vehicle-doc-form-row"
                                     >
                                         <td>
@@ -146,7 +146,7 @@
                                                     :disabled="Boolean(editingDocument)"
                                                 />
                                                 <button
-                                                    v-if="canManage"
+                                                    v-if="canCreate"
                                                     type="button"
                                                     class="btn btn-outline-success btn-sm doc-type-picker__add"
                                                     title="Quick add document type"
@@ -205,7 +205,7 @@
                                                     class="btn btn-sm btn-success"
                                                     title="Save"
                                                     :disabled="saving"
-                                                    @click="saveDocument('update')"
+                                                    @click="saveDocument('add')"
                                                 >
                                                     <i class="bi bi-check-lg"></i>
                                                 </button>
@@ -226,7 +226,7 @@
                                         <td :colspan="tableColspan" class="text-center text-muted py-4">
                                             No documents added yet.
                                             <button
-                                                v-if="canManage"
+                                                v-if="canCreate"
                                                 type="button"
                                                 class="btn btn-link btn-sm"
                                                 @click="openAddForm"
@@ -237,10 +237,7 @@
                                     </tr>
 
                                     <template v-for="doc in sortedDocuments" :key="doc.id">
-                                        <tr
-                                            v-show="!(showDocForm && editingDocument?.id === doc.id)"
-                                            :class="rowBorderClass(doc)"
-                                        >
+                                        <tr :class="rowBorderClass(doc)">
                                             <td>
                                                 <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
                                                 <small v-if="!isDashboardContext" class="text-muted">{{ doc.document_type }}</small>
@@ -256,7 +253,7 @@
                                                 <template v-if="isDashboardContext">
                                                     <div class="compliance-actions">
                                                         <AppButton
-                                                            v-if="canManage"
+                                                            v-if="canEdit"
                                                             size="sm"
                                                             variant="secondary"
                                                             outline
@@ -265,7 +262,7 @@
                                                             @click="editDocument(doc)"
                                                         />
                                                         <AppButton
-                                                            v-if="canManage && canRenewDocument(doc)"
+                                                            v-if="canEdit && canRenewDocument(doc)"
                                                             size="sm"
                                                             variant="primary"
                                                             icon="fas fa-rotate-right"
@@ -274,18 +271,94 @@
                                                         />
                                                     </div>
                                                 </template>
-                                                <AppTableActions v-else-if="canManage">
+                                                <AppTableActions v-else-if="canEdit || canDelete">
                                                     <AppCrudActionButton
+                                                        v-if="canEdit"
                                                         action="edit"
                                                         title="Edit document"
                                                         @click="editDocument(doc)"
                                                     />
                                                     <AppCrudActionButton
+                                                        v-if="canDelete"
                                                         action="delete"
                                                         title="Delete document"
                                                         @click="removeDocument(doc)"
                                                     />
                                                 </AppTableActions>
+                                            </td>
+                                        </tr>
+
+                                        <tr
+                                            v-if="!isDashboardContext && editingDocument?.id === doc.id"
+                                            class="vehicle-doc-form-row"
+                                        >
+                                            <td>
+                                                <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
+                                                <small class="text-muted">{{ doc.document_type }}</small>
+                                            </td>
+                                            <td>
+                                                <AppDateInput
+                                                    v-model="docForm.issue_date"
+                                                    size="sm"
+                                                    :invalid="hasFieldError(fieldErrors, 'issue_date')"
+                                                    required
+                                                />
+                                                <div
+                                                    v-if="fieldErrorMessage(fieldErrors, 'issue_date')"
+                                                    class="invalid-feedback d-block"
+                                                >
+                                                    {{ fieldErrorMessage(fieldErrors, 'issue_date') }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <AppDateInput
+                                                    v-model="docForm.expiry_date"
+                                                    size="sm"
+                                                    :invalid="hasFieldError(fieldErrors, 'expiry_date')"
+                                                    :min="docForm.issue_date || undefined"
+                                                    required
+                                                />
+                                                <div
+                                                    v-if="fieldErrorMessage(fieldErrors, 'expiry_date')"
+                                                    class="invalid-feedback d-block"
+                                                >
+                                                    {{ fieldErrorMessage(fieldErrors, 'expiry_date') }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input
+                                                    v-model="docForm.reminder_days_before"
+                                                    v-no-scroll-change
+                                                    type="number"
+                                                    min="1"
+                                                    max="90"
+                                                    class="form-control form-control-sm"
+                                                />
+                                            </td>
+                                            <td>
+                                                <DocumentStatusBadge :document="doc" />
+                                            </td>
+                                            <td v-if="showActionsColumn" class="app-index-actions-cell">
+                                                <div class="d-flex gap-1">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-success"
+                                                        title="Save"
+                                                        :disabled="saving"
+                                                        @click="saveDocument('update')"
+                                                    >
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        title="Cancel"
+                                                        :disabled="saving"
+                                                        @click="cancelEdit"
+                                                    >
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -379,7 +452,9 @@ const toast = useAppToast();
 const props = defineProps({
     show: { type: Boolean, default: false },
     vehicle: { type: Object, default: null },
-    canManage: { type: Boolean, default: false },
+    canCreate: { type: Boolean, default: false },
+    canEdit: { type: Boolean, default: false },
+    canDelete: { type: Boolean, default: false },
     modalId: { type: String, required: true },
     initialDocumentId: { type: String, default: null },
     initialAction: { type: String, default: null },
@@ -406,7 +481,7 @@ const isDashboardContext = computed(() => props.context === 'dashboard');
 
 const sortedDocuments = computed(() => sortDocumentsByUrgency(documents.value));
 
-const showActionsColumn = computed(() => props.canManage);
+const showActionsColumn = computed(() => props.canEdit || props.canDelete);
 
 const showAddButton = computed(() => {
     if (isDashboardContext.value) {
@@ -491,6 +566,12 @@ function resetDocForm() {
     docForm.value = emptyDocForm();
 }
 
+function cancelEdit() {
+    editingDocument.value = null;
+    clearErrors();
+    docForm.value = emptyDocForm();
+}
+
 function cancelRenew() {
     renewingDocument.value = null;
     clearErrors();
@@ -567,14 +648,16 @@ function openInitialDocumentIfNeeded() {
     if (isDashboardContext.value) {
         if (props.initialAction === 'renew' && canRenewDocument(document)) {
             renewDocument(document);
-        } else if (props.canManage) {
+        } else if (props.canEdit) {
             editDocument(document);
         }
 
         return;
     }
 
-    editDocument(document);
+    if (props.canEdit) {
+        editDocument(document);
+    }
 }
 
 watch(
@@ -610,6 +693,7 @@ function editDocument(doc) {
     editingDocument.value = doc;
     renewingDocument.value = null;
     showAddPanel.value = false;
+    showDocForm.value = false;
     clearErrors();
     docForm.value = {
         document_type: doc.document_type,
@@ -617,10 +701,6 @@ function editDocument(doc) {
         expiry_date: doc.expiry_date ?? '',
         reminder_days_before: doc.reminder_days_before ?? 7,
     };
-
-    if (!isDashboardContext.value) {
-        showDocForm.value = true;
-    }
 }
 
 function validateDocForm() {

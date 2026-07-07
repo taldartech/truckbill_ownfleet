@@ -60,6 +60,15 @@
                     <template #trip-save-actions>
                         <button
                             v-if="canSave"
+                            type="button"
+                            class="btn btn-sm trip-header-btn trip-header-btn--back me-1"
+                            :disabled="saving"
+                            @click="handleSubmit('expenses')"
+                        >
+                            <i class="bi bi-receipt me-1"></i>Update & Add Expenses
+                        </button>
+                        <button
+                            v-if="canSave"
                             type="submit"
                             class="btn btn-sm trip-header-btn trip-header-btn--update"
                             :disabled="saving"
@@ -94,7 +103,19 @@
                             />
                         </template>
                         <AppButton
-                            v-if="canManageExpenses"
+                            v-if="canSave"
+                            type="button"
+                            variant="success"
+                            outline
+                            size="sm"
+                            icon="bi bi-receipt"
+                            label="Update & Add Expenses"
+                            :loading="saving"
+                            :disabled="saving"
+                            @click="handleSubmit('expenses')"
+                        />
+                        <AppButton
+                            v-else-if="canManageExpenses"
                             variant="success"
                             outline
                             size="sm"
@@ -116,7 +137,7 @@
                             variant="primary"
                             size="sm"
                             icon="bi bi-floppy-fill"
-                            label="Save"
+                            label="Update"
                             :loading="saving"
                             :disabled="saving"
                         />
@@ -187,13 +208,13 @@ const {
 } = useTripForm();
 
 const canQuickAddStation = computed(
-    () => canInCompany('stations.manage') || canInCompany('trips.manage'),
+    () => canInCompany('stations.manage') || canInCompany('trips.edit'),
 );
 const canQuickAddBroker = computed(
-    () => canInCompany('brokers.manage') || canInCompany('trips.manage'),
+    () => canInCompany('brokers.manage') || canInCompany('trips.edit'),
 );
 const canQuickAddCustomer = computed(
-    () => canInCompany('customers.manage') || canInCompany('trips.manage'),
+    () => canInCompany('customers.manage') || canInCompany('trips.edit'),
 );
 
 const stations = ref([]);
@@ -221,7 +242,7 @@ const isTerminalStatus = computed(
     () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
 );
 
-const canManage = computed(() => canInCompany('trips.manage'));
+const canManage = computed(() => canInCompany('trips.edit'));
 const canManageExpenses = computed(
     () => canManage.value && canManageTripExpenses(form.status, user.value),
 );

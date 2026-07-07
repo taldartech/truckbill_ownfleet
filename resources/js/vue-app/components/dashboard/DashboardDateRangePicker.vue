@@ -111,6 +111,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
 import {
     DATE_RANGE_PRESETS,
     detectDateRangePreset,
@@ -281,7 +282,17 @@ function updatePanelPosition() {
     };
 }
 
+function closeDropdown() {
+    if (!isOpen.value) {
+        return;
+    }
+
+    isOpen.value = false;
+    releaseExclusiveDropdown(closeDropdown);
+}
+
 function openDropdown() {
+    claimExclusiveDropdown(closeDropdown);
     resetDraftFromApplied();
     isOpen.value = true;
 
@@ -336,12 +347,12 @@ function applyDraft() {
         to_date: appliedToDate.value,
     });
 
-    isOpen.value = false;
+    closeDropdown();
 }
 
 function cancelDraft() {
     resetDraftFromApplied();
-    isOpen.value = false;
+    closeDropdown();
 }
 
 function onDocumentClick(event) {
@@ -382,6 +393,11 @@ onBeforeUnmount(() => {
     document.removeEventListener('keydown', onDocumentKeydown);
     window.removeEventListener('resize', onViewportChange);
     window.removeEventListener('scroll', onViewportChange, true);
+    releaseExclusiveDropdown(closeDropdown);
+
+    if (isOpen.value) {
+        closeDropdown();
+    }
 });
 
 watch(draftPreset, () => {

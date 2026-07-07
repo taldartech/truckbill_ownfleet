@@ -22,7 +22,7 @@ class AttendancePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('attendances.manage')
+        return $user->hasPermission('attendances.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -30,7 +30,9 @@ class AttendancePolicy
     public function update(User $user, Attendance $attendance): bool
     {
         return CurrentTenant::id() === $attendance->tenant_id
-            && $this->create($user);
+            && $user->hasPermission('attendances.create')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 
     public function delete(User $user, Attendance $attendance): bool
@@ -41,7 +43,7 @@ class AttendancePolicy
 
     public function bulkMark(User $user): bool
     {
-        return $user->hasPermission('attendances.bulk_manage')
+        return $user->hasAnyPermission(['attendance.bulk_mark', 'attendances.bulk_manage'])
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }

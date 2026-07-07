@@ -30,7 +30,7 @@
                                 <th>Document</th>
                                 <th>Expiry</th>
                                 <th>Status</th>
-                                <th v-if="canManageDocuments" class="text-end" style="width: 3.5rem">Action</th>
+                                <th v-if="canEditDocuments" class="text-end" style="width: 3.5rem">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -40,8 +40,8 @@
                                 :class="['dashboard-panel__row', rowBorderClass(document)]"
                                 tabindex="0"
                                 role="button"
-                                @click="canManageDocuments && $emit('edit-document', document)"
-                                @keydown.enter.prevent="canManageDocuments && $emit('edit-document', document)"
+                                @click="canEditDocuments && $emit('edit-document', document)"
+                                @keydown.enter.prevent="canEditDocuments && $emit('edit-document', document)"
                             >
                                 <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
                                 <td>{{ document.document_type_label }}</td>
@@ -49,7 +49,7 @@
                                 <td>
                                     <DocumentStatusBadge :document="document" soft />
                                 </td>
-                                <td v-if="canManageDocuments" class="text-end">
+                                <td v-if="canEditDocuments" class="text-end">
                                     <div class="compliance-actions">
                                         <AppButton
                                             v-if="canRenewDocument(document)"
@@ -151,7 +151,7 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    canManageDocuments: {
+    canEditDocuments: {
         type: Boolean,
         default: false,
     },

@@ -100,6 +100,7 @@
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { searchVehiclesForTripSelection } from '../../api/vehicles';
+import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
 import PickerListFooter from '../ui/PickerListFooter.vue';
 
 const props = defineProps({
@@ -195,29 +196,41 @@ function focusTrigger() {
     focusWithoutScroll(trigger);
 }
 
+function closeDropdown({ restoreTriggerFocus = false } = {}) {
+    if (!isOpen.value) {
+        return;
+    }
+
+    isOpen.value = false;
+    releaseExclusiveDropdown(closeDropdown);
+
+    if (restoreTriggerFocus) {
+        nextTick(focusTrigger);
+    }
+}
+
+function openDropdown() {
+    claimExclusiveDropdown(closeDropdown);
+    searchQuery.value = '';
+    items.value = [];
+    highlightedIndex.value = -1;
+    isOpen.value = true;
+
+    nextTick(() => {
+        updateDropdownPosition();
+        focusWithoutScroll(searchInputRef.value);
+    });
+}
+
 function toggleDropdown() {
     if (props.disabled) {
         return;
     }
 
-    isOpen.value = !isOpen.value;
-
     if (isOpen.value) {
-        searchQuery.value = '';
-        items.value = [];
-        highlightedIndex.value = -1;
-        nextTick(() => {
-            updateDropdownPosition();
-            focusWithoutScroll(searchInputRef.value);
-        });
-    }
-}
-
-function closeDropdown({ restoreTriggerFocus = false } = {}) {
-    isOpen.value = false;
-
-    if (restoreTriggerFocus) {
-        nextTick(focusTrigger);
+        closeDropdown();
+    } else {
+        openDropdown();
     }
 }
 
@@ -375,6 +388,11 @@ onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
     window.removeEventListener('resize', handleReposition);
     window.removeEventListener('scroll', handleReposition, true);
+    releaseExclusiveDropdown(closeDropdown);
+
+    if (isOpen.value) {
+        closeDropdown();
+    }
 });
 </script>
 

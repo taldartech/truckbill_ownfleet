@@ -350,7 +350,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         hasChanges,
         showExpensesAction: (mode === 'create' || mode === 'edit') && options.showExpensesAction !== false,
         confirmLabel: mode === 'create' ? 'Yes, Save Trip' : 'Yes, Update Trip',
-        expensesActionLabel: mode === 'create' ? 'Save & Add Expenses' : 'Save & Manage Expenses',
+        expensesActionLabel: mode === 'create' ? 'Save & Add Expenses' : 'Update & Add Expenses',
         changeSummary:
             mode === 'edit' && hasChanges
                 ? [

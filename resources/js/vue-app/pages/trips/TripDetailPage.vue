@@ -475,7 +475,7 @@ const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } 
     useRequireCompanyContext();
 const { tripListReturnTo } = useTripListReturn();
 
-const canManage = computed(() => canInCompany('trips.manage'));
+const canManage = computed(() => canInCompany('trips.edit'));
 
 const trip = ref(null);
 const loading = ref(true);

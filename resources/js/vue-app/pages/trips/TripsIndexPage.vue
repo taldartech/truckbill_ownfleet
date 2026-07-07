@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Trip Management">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="goToCreate" />
             </template>
         </AppIndexPageHeader>
@@ -15,6 +15,7 @@
         <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
             <template #header-actions>
                 <AppButton
+                    v-if="canViewArchived"
                     size="sm"
                     :variant="filters.show_archived ? 'warning' : 'secondary'"
                     :outline="!filters.show_archived"
@@ -137,7 +138,7 @@
                                 <TripInlineStatusActions
                                     v-if="!showingArchived"
                                     :trip="trip"
-                                    :can-manage="canManage"
+                                    :can-manage="canEdit"
                                     @updated="onTripStatusUpdated(trip, $event)"
                                 />
                                 <span
@@ -187,22 +188,22 @@
                                     <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
                                     <template v-if="!showingArchived">
                                         <AppCrudActionButton
-                                            v-if="canManage && canManageTripExpensesFor(trip)"
+                                            v-if="canEdit && canManageTripExpensesFor(trip)"
                                             action="expenses"
                                             title="Trip expenses"
                                             @click="goToExpenses(trip)"
                                         />
                                         <AppCrudActionButton
-                                            v-if="canManage"
+                                            v-if="canEdit"
                                             action="edit"
                                             :disabled="!canEditTrip(trip)"
                                             :title="tripEditTitle(trip)"
                                             @click="goToEdit(trip)"
                                         />
                                         <AppCrudActionButton
-                                            v-if="canArchive"
+                                            v-if="canArchiveTripRow(trip)"
                                             action="archive"
-                                            title="Archive trip"
+                                            :title="tripArchiveTitle(trip)"
                                             @click="handleArchive(trip)"
                                         />
                                     </template>
@@ -259,6 +260,8 @@ import {
     isTerminalTripStatus,
     listTrips,
     canFullEditTrip,
+    canArchiveTrip,
+    tripArchiveDisabledTitle,
     canManageTripExpenses,
     tripEditDisabledTitle,
     tripStatusMeta,
@@ -308,8 +311,10 @@ const toast = useAppToast();
 const currentUser = inject('currentUser', ref(null));
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany, user } = usePermissions(currentUser);
-const canManage = computed(() => canInCompany('trips.manage'));
+const canCreate = computed(() => canInCompany('trips.create'));
+const canEdit = computed(() => canInCompany('trips.edit'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const canViewArchived = computed(() => canInCompany('trips.view_archived'));
 const showingArchived = computed(() => Boolean(filters.show_archived));
 const tableColspan = computed(() => {
     if (showingArchived.value) {
@@ -319,7 +324,7 @@ const tableColspan = computed(() => {
     return showActions.value ? 8 : 7;
 });
 const canView = computed(() => canInCompany('trips.view'));
-const canOpenTrip = computed(() => canView.value || canManage.value);
+const canOpenTrip = computed(() => canView.value || canEdit.value);
 const showActions = computed(() => canOpenTrip.value);
 
 const { applyApiError } = useApiFormErrors();
@@ -478,6 +483,14 @@ function canEditTrip(trip) {
     return canFullEditTrip(trip.status, user.value);
 }
 
+function canArchiveTripRow(trip) {
+    return canArchive.value && canArchiveTrip(trip.status, user.value);
+}
+
+function tripArchiveTitle(trip) {
+    return tripArchiveDisabledTitle(trip.status, user.value);
+}
+
 function canManageTripExpensesFor(trip) {
     return canManageTripExpenses(trip.status, user.value);
 }
@@ -546,7 +559,7 @@ function goToCreate() {
         return false;
     }
 
-    if (!canManage.value) {
+    if (!canCreate.value) {
         toast.error('You do not have permission to create trips.');
 
         return false;
@@ -607,6 +620,12 @@ function tripStatusInfo(status) {
 }
 
 function toggleShowArchived() {
+    if (!filters.show_archived && !canViewArchived.value) {
+        toast.error('You do not have permission to view archived trips.');
+
+        return;
+    }
+
     filters.show_archived = !filters.show_archived;
     loadTrips(1);
 }
@@ -666,6 +685,12 @@ function goToExpenses(trip) {
 }
 
 async function handleArchive(trip) {
+    if (!canArchiveTripRow(trip)) {
+        toast.error(tripArchiveDisabledTitle(trip.status, user.value));
+
+        return;
+    }
+
     archiveFieldErrors.value = {};
     tripPendingArchive.value = trip;
 

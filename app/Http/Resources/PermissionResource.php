@@ -18,6 +18,8 @@ class PermissionResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->name,
             'group' => $this->group,
+            'description' => $this->description,
+            'display_order' => $this->display_order,
             'roles_count' => $this->whenCounted('userRoles'),
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),

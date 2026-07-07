@@ -22,7 +22,7 @@ class TyreLayoutPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('tyre_layouts.manage')
+        return $user->hasPermission('tyre_layouts.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -30,7 +30,7 @@ class TyreLayoutPolicy
     public function update(User $user, TyreLayout $tyreLayout): bool
     {
         return CurrentTenant::id() === $tyreLayout->tenant_id
-            && $user->hasPermission('tyre_layouts.manage')
+            && $user->hasPermission('tyre_layouts.edit')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }

@@ -99,7 +99,7 @@
                                 :total-count="complianceTotalCount"
                                 :loading="complianceLoading"
                                 :can-manage-licenses="canManageDrivers"
-                                :can-manage-documents="canManageDocuments"
+                                :can-edit-documents="canEditDocuments"
                                 @view-all="openComplianceModal"
                                 @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
                                 @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
@@ -116,7 +116,7 @@
             ref="complianceModalRef"
             :show="showComplianceModal"
             :can-manage-licenses="canManageDrivers"
-            :can-manage-documents="canManageDocuments"
+            :can-edit-documents="canEditDocuments"
             @close="closeComplianceModal"
             @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
             @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
@@ -130,7 +130,9 @@
             :vehicle="documentsVehicle"
             :initial-document-id="initialDocumentId"
             :initial-action="initialDocumentAction"
-            :can-manage="canManageDocuments"
+            :can-create="canCreateDocuments"
+            :can-edit="canEditDocuments"
+            :can-delete="canDeleteDocuments"
             @close="closeDocumentsModal"
             @saved="onComplianceItemSaved"
         />
@@ -172,7 +174,7 @@ import { formatDate } from '../utils/datetime';
 
 const complianceModalRef = ref(null);
 
-const { user, canInCompany } = usePermissions();
+const { user, canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 
 const greetingMessage = computed(() => {
     const hour = new Date().getHours();
@@ -201,9 +203,13 @@ const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const showPeriodFilter = computed(() => canViewTrips.value || canViewTyres.value);
-const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
-const canManageDrivers = computed(() => canInCompany('drivers.manage'));
-const canManageTrips = computed(() => canInCompany('trips.manage'));
+const canCreateDocuments = computed(() => canCreateInCompany('vehicle_documents'));
+const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
+const canDeleteDocuments = computed(
+    () => canDeleteRecords.value && canInCompany('vehicle_documents.manage'),
+);
+const canManageDrivers = computed(() => canInCompany('drivers.create'));
+const canManageTrips = computed(() => canInCompany('trips.create'));
 const canViewComplianceAlerts = computed(
     () => canInCompany('vehicle_documents.view') || canInCompany('drivers.view'),
 );

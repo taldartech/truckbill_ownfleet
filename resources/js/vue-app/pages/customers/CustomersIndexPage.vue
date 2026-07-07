@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Customers">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -29,12 +29,12 @@
                             <th>PAN</th>
                             <th>City</th>
                             <th>State</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="customers.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 7 : 6" class="text-center text-muted py-4">No customers found.</td>
+                            <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No customers found.</td>
                         </tr>
                         <tr v-for="customer in customers" :key="customer.id">
                             <td>{{ customer.name }}</td>
@@ -43,7 +43,7 @@
                             <td>{{ customer.pan_number || '—' }}</td>
                             <td>{{ customer.city_name || '—' }}</td>
                             <td>{{ customer.state_name || '—' }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
+                            <td v-if="canEdit" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(customer)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(customer)" />
@@ -149,6 +149,14 @@
                 <AppButton type="submit" label="Save" :loading="saving" />
             </template>
         </AppModal>
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -163,14 +171,28 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
 import { useLocationLookups } from '../../composables/useLocationLookups';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { buildPartyLocationFields } from '../../utils/masterCrudSaveConfirm';
 import { normalizeMobile } from '../../utils/phone';
 
-const { canInCompany } = usePermissions();
-const canManage = computed(() => canInCompany('customers.manage'));
+const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const { canInCompany, canCreateInCompany, canEditInCompany } = usePermissions();
+const canCreate = computed(() => canCreateInCompany('customers') || canInCompany('trips.create'));
+const canEdit = computed(() => canEditInCompany('customers'));
 
 const {
     states,
@@ -255,11 +277,8 @@ function closeModal() {
     resetLocationFields();
 }
 
-async function save() {
-    saving.value = true;
-    clearErrors();
-
-    const payload = {
+function buildPayload() {
+    return {
         name: form.name.trim(),
         country_id: countryId.value || indiaCountry.value?.id,
         state_id: stateId.value,
@@ -269,17 +288,43 @@ async function save() {
         contact_number: normalizeMobile(form.contact_number),
         address: form.address.trim() || null,
     };
+}
+
+function save() {
+    clearErrors();
+    const payload = buildPayload();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Customer',
+        mode: editing.value ? 'edit' : 'create',
+        fields: buildPartyLocationFields(payload, editing.value, { states: states.value, cities: cities.value }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
+    saving.value = true;
 
     try {
         if (editing.value) {
             await updateCustomer(editing.value.id, payload);
+            toast.success('Customer updated successfully.');
         } else {
             await createCustomer(payload);
+            toast.success('Customer added successfully.');
         }
 
+        finishSaveConfirm();
         closeModal();
         await loadCustomers();
     } catch (error) {
+        finishSaveConfirm();
         applyApiError(error, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;
@@ -291,8 +336,13 @@ async function handleDelete(customer) {
         return;
     }
 
-    await deleteCustomer(customer.id);
-    await loadCustomers();
+    try {
+        await deleteCustomer(customer.id);
+        toast.success('Customer deleted successfully.');
+        await loadCustomers();
+    } catch (error) {
+        toast.error(error.response?.data?.message ?? 'Could not delete customer.');
+    }
 }
 
 onMounted(async () => {

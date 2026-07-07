@@ -987,6 +987,28 @@ export function canManageTripExpenses(status, user) {
     return resolveTripEditAccess(status, user).canEdit;
 }
 
+export function canArchiveTrip(status, user = null) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    if (! ['COMPLETED'].includes(normalized)) {
+        return true;
+    }
+
+    return isSuperAdminUser(user);
+}
+
+export function tripArchiveDisabledTitle(status, user = null) {
+    if (! canArchiveTrip(status, user)) {
+        if (String(status ?? '').toUpperCase() === 'COMPLETED') {
+            return 'Only Super Admin can archive or delete completed trips.';
+        }
+
+        return 'This trip cannot be archived or deleted.';
+    }
+
+    return 'Archive trip';
+}
+
 export function expenseTotalsBySequence(expenses) {
     const totals = {};
 

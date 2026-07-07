@@ -48,7 +48,11 @@
                 :class="{ 'picker-dropdown-menu--fixed': attachDropdownToBody }"
                 :style="attachDropdownToBody ? dropdownStyle : undefined"
             >
-                <div class="picker-search-wrap" :class="{ 'picker-search-wrap--plain': plain }">
+                <div
+                    v-if="showSearchInput"
+                    class="picker-search-wrap"
+                    :class="{ 'picker-search-wrap--plain': plain }"
+                >
                     <i v-if="!plain" class="bi bi-search picker-search-icon"></i>
                     <input
                         ref="searchInputRef"
@@ -103,6 +107,8 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
+import { shouldShowSelectSearch } from '../../utils/selectSearchThreshold';
 import PickerListFooter from './PickerListFooter.vue';
 
 const props = defineProps({
@@ -129,6 +135,8 @@ const isOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref({});
 const suspendedModalFocus = ref(null);
+
+const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
 
 const selectedItem = computed(() =>
     props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null,
@@ -239,29 +247,46 @@ function resumeModalFocusTrap() {
     suspendedModalFocus.value = null;
 }
 
+function closeDropdown() {
+    if (!isOpen.value) {
+        return;
+    }
+
+    isOpen.value = false;
+    resumeModalFocusTrap();
+    releaseExclusiveDropdown(closeDropdown);
+}
+
+function openDropdown() {
+    claimExclusiveDropdown(closeDropdown);
+    searchQuery.value = '';
+    isOpen.value = true;
+
+    nextTick(() => {
+        suspendModalFocusTrap();
+        updateDropdownPosition();
+
+        if (showSearchInput.value) {
+            searchInputRef.value?.focus({ preventScroll: true });
+        }
+    });
+}
+
 function toggleDropdown() {
     if (props.disabled) {
         return;
     }
 
-    isOpen.value = !isOpen.value;
-
     if (isOpen.value) {
-        searchQuery.value = '';
-        nextTick(() => {
-            suspendModalFocusTrap();
-            updateDropdownPosition();
-            searchInputRef.value?.focus({ preventScroll: true });
-        });
+        closeDropdown();
     } else {
-        resumeModalFocusTrap();
+        openDropdown();
     }
 }
 
 function clearSelection() {
     emit('update:modelValue', '');
-    isOpen.value = false;
-    resumeModalFocusTrap();
+    closeDropdown();
 }
 
 function selectItem(item) {
@@ -270,8 +295,7 @@ function selectItem(item) {
     }
 
     emit('update:modelValue', item.id);
-    isOpen.value = false;
-    resumeModalFocusTrap();
+    closeDropdown();
 }
 
 function handleDocumentClick(event) {
@@ -281,10 +305,7 @@ function handleDocumentClick(event) {
         return;
     }
 
-    if (isOpen.value) {
-        isOpen.value = false;
-        resumeModalFocusTrap();
-    }
+    closeDropdown();
 }
 
 function handleReposition() {
@@ -303,15 +324,20 @@ onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
     window.removeEventListener('resize', handleReposition);
     window.removeEventListener('scroll', handleReposition, true);
-    resumeModalFocusTrap();
+    releaseExclusiveDropdown(closeDropdown);
+
+    if (isOpen.value) {
+        closeDropdown();
+    } else {
+        resumeModalFocusTrap();
+    }
 });
 
 watch(
     () => props.disabled,
     (disabled) => {
         if (disabled) {
-            isOpen.value = false;
-            resumeModalFocusTrap();
+            closeDropdown();
         }
     },
 );

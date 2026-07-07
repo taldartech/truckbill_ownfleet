@@ -23,7 +23,7 @@ class BrokerPolicy
 
     public function create(User $user): bool
     {
-        return ($user->hasPermission('brokers.manage') || $user->hasPermission('trips.manage'))
+        return ($user->hasPermission('brokers.create') || $user->hasPermission('trips.create'))
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -31,7 +31,7 @@ class BrokerPolicy
     public function update(User $user, Broker $broker): bool
     {
         return CurrentTenant::id() === $broker->tenant_id
-            && $user->hasPermission('brokers.manage')
+            && $user->hasPermission('brokers.edit')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }

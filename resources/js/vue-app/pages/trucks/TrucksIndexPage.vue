@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Truck Management">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -171,7 +171,7 @@
                                         <i class="bi bi-circle" aria-hidden="true"></i>
                                     </RouterLink>
                                     <AppCrudActionButton
-                                        v-if="canManage"
+                                        v-if="canEdit"
                                         action="edit"
                                         @click="openEdit(vehicle)"
                                     />
@@ -219,7 +219,9 @@
             modal-id="vehicleDocumentsModal"
             :show="showDocuments"
             :vehicle="documentsVehicle"
-            :can-manage="canManageDocuments"
+            :can-create="canCreateDocuments"
+            :can-edit="canEditDocuments"
+            :can-delete="canDeleteDocuments"
             @close="closeDocuments"
         />
 
@@ -230,6 +232,14 @@
             :can-manage="canManageAssignments"
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
+        />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
         />
     </div>
 </template>
@@ -258,29 +268,50 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { buildTruckFields } from '../../utils/masterCrudSaveConfirm';
 import { crudActionButtonClasses } from '../../utils/crudActionPresets';
 
 const tyreLinkClasses = crudActionButtonClasses('tyres');
 const route = useRoute();
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
 
-const { canInCompany } = usePermissions();
+const { canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
 
-const canManage = computed(() => canInCompany('vehicles.manage'));
+const canCreate = computed(() => canCreateInCompany('vehicles'));
+const canEdit = computed(() => canEditInCompany('vehicles'));
+const canManage = computed(() => canCreate.value || canEdit.value);
 const canDelete = computed(() => canInCompany('vehicles.delete'));
 const canToggleStatus = computed(() => canInCompany('vehicles.toggle_status'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewAssignments = computed(() => canInCompany('driver_assignments.view'));
-const canManageAssignments = computed(() => canInCompany('driver_assignments.manage'));
+const canCreateAssignments = computed(() => canInCompany('driver_assignments.create'));
+const canEditAssignments = computed(() => canInCompany('driver_assignments.edit'));
+const canManageAssignments = computed(
+    () => canCreateAssignments.value || canEditAssignments.value,
+);
 const canViewDocuments = computed(() => canInCompany('vehicle_documents.view'));
-const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
+const canCreateDocuments = computed(() => canCreateInCompany('vehicle_documents'));
+const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
+const canDeleteDocuments = computed(
+    () => canDeleteRecords.value && canInCompany('vehicle_documents.manage'),
+);
 
 const vehicles = ref([]);
 const loading = ref(true);
@@ -441,7 +472,24 @@ async function onAssignmentSaved() {
     await loadVehicles();
 }
 
-async function handleSubmit(payload) {
+function handleSubmit(payload) {
+    clearErrors();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Truck',
+        mode: formMode.value === 'edit' ? 'edit' : 'create',
+        fields: buildTruckFields(payload, editingVehicle.value),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
     saving.value = true;
     clearErrors();
 
@@ -454,9 +502,12 @@ async function handleSubmit(payload) {
             toast.success('Truck added successfully.');
         }
 
+        finishSaveConfirm();
         closeForm();
         await loadVehicles();
     } catch (error) {
+        finishSaveConfirm();
+
         if (!applyApiError(error, 'Please check the highlighted fields.')) {
             if (!handleCompanyContextError(error, 'Select a company before saving a truck.')) {
                 toast.error('Unable to save truck.');

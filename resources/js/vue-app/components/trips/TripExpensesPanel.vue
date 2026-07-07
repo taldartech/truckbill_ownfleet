@@ -37,7 +37,7 @@
                         <span>Date</span>
                         <span>Type</span>
                         <template v-if="sectionUsesDieselColumns(generalItems)">
-                            <span>Meter</span>
+                            <span>km</span>
                             <span>L</span>
                             <span>₹/L</span>
                         </template>
@@ -106,7 +106,7 @@
                         <span>Date</span>
                         <span>Type</span>
                         <template v-if="sectionUsesDieselColumns(stop.items)">
-                            <span>Meter</span>
+                            <span>km</span>
                             <span>L</span>
                             <span>₹/L</span>
                         </template>
@@ -504,21 +504,21 @@ defineExpose({ grandTotal, focusExpenseField });
 }
 
 .expense-entry-columns--wide {
-    grid-template-columns: 6.75rem 7.25rem 5.25rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
-    min-width: 42rem;
+    grid-template-columns: 8rem 14rem 5rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    min-width: 49rem;
 }
 
 .expense-entry-columns--narrow {
-    grid-template-columns: 6.75rem 7.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
-    min-width: 28rem;
+    grid-template-columns: 8rem 14rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    min-width: 35rem;
 }
 
 .expense-entries-scroll :deep(.trip-expense-entry--wide) {
-    min-width: 42rem;
+    min-width: 49rem;
 }
 
 .expense-entries-scroll :deep(.trip-expense-entry--narrow) {
-    min-width: 28rem;
+    min-width: 35rem;
 }
 
 @media (max-width: 992px) {

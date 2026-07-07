@@ -111,7 +111,7 @@ class PhaseOneCloseTest extends TestCase
 
         $this->actingAs($user)
             ->get('/app/api/reports/attendance/export')
-            ->assertOk();
+            ->assertForbidden();
     }
 
     public function test_admin_can_export_attendance_report_csv(): void
@@ -189,11 +189,26 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('data.0.current_primary_assignment.driver.name', 'Primary On Truck');
     }
 
-    public function test_moderator_cannot_create_driver_assignment(): void
+    public function test_moderator_can_create_driver_assignment(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
-        $vehicle = $this->createVehicle($tenant);
-        $driver = $this->createDriver($tenant, 'Target Driver', 500);
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = Vehicle::query()->create(array_merge($operational, [
+            'registration_number' => strtoupper(fake()->bothify('??##??####')),
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 1000,
+        ]));
+        $driver = Driver::query()->create(array_merge($operational, [
+            'name' => 'Target Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => strtoupper(fake()->bothify('DL-#####')),
+            'license_expiry_date' => now()->addYear()->toDateString(),
+            'daily_wage' => 500,
+            'is_active' => true,
+        ]));
 
         $this->actingAs($user)
             ->postJson('/app/api/driver-assignments', [
@@ -202,7 +217,7 @@ class PhaseOneCloseTest extends TestCase
                 'assigned_from' => now()->toDateString(),
                 'is_primary' => true,
             ])
-            ->assertForbidden();
+            ->assertCreated();
     }
 
     public function test_expiring_documents_count_appears_for_roles_with_document_view(): void

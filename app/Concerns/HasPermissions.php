@@ -2,17 +2,27 @@
 
 namespace App\Concerns;
 
+use App\Support\PermissionAliasResolver;
+use App\Support\PermissionCache;
+
 trait HasPermissions
 {
     /** @var list<string>|null */
     private ?array $permissionSlugsCache = null;
+
+    private ?int $permissionSlugsCacheGeneration = null;
 
     /**
      * @return list<string>
      */
     public function permissionSlugs(): array
     {
-        if ($this->permissionSlugsCache !== null) {
+        $generation = PermissionCache::generation();
+
+        if (
+            $this->permissionSlugsCache !== null
+            && $this->permissionSlugsCacheGeneration === $generation
+        ) {
             return $this->permissionSlugsCache;
         }
 
@@ -23,12 +33,20 @@ trait HasPermissions
             ->values()
             ->all() ?? [];
 
+        $this->permissionSlugsCacheGeneration = $generation;
+
         return $this->permissionSlugsCache;
     }
 
     public function hasPermission(string $slug): bool
     {
-        return in_array($slug, $this->permissionSlugs(), true);
+        $owned = $this->permissionSlugs();
+
+        if (in_array($slug, $owned, true)) {
+            return true;
+        }
+
+        return PermissionAliasResolver::matches($slug, $owned);
     }
 
     public function hasAnyPermission(array $slugs): bool
@@ -40,5 +58,11 @@ trait HasPermissions
         }
 
         return false;
+    }
+
+    public function clearPermissionCache(): void
+    {
+        $this->permissionSlugsCache = null;
+        $this->permissionSlugsCacheGeneration = null;
     }
 }

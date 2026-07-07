@@ -23,7 +23,7 @@ class CustomerPolicy
 
     public function create(User $user): bool
     {
-        return ($user->hasPermission('customers.manage') || $user->hasPermission('trips.manage'))
+        return ($user->hasPermission('customers.create') || $user->hasPermission('trips.create'))
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -31,7 +31,7 @@ class CustomerPolicy
     public function update(User $user, Customer $customer): bool
     {
         return CurrentTenant::id() === $customer->tenant_id
-            && $user->hasPermission('customers.manage')
+            && $user->hasPermission('customers.edit')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }

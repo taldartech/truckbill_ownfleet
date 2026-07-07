@@ -6,8 +6,8 @@
         :dismissible="true"
         :close-on-escape="true"
         :show-header="false"
-        :content-class="['app-confirm-modal__content', 'border-0', 'shadow-lg']"
-        :body-class="'p-4 pt-5'"
+        :content-class="['app-confirm-modal__content', 'border-0', 'shadow-lg', contentClass]"
+        :body-class="['p-4 pt-5', bodyClass]"
         :footer-class="'app-modal__footer--center border-0 gap-2'"
         @close="onCancel"
     >
@@ -84,6 +84,8 @@ const props = defineProps({
     confirmIcon: { type: String, default: '' },
     confirmDisabled: { type: Boolean, default: false },
     showConfirm: { type: Boolean, default: true },
+    contentClass: { type: [String, Object, Array], default: '' },
+    bodyClass: { type: [String, Object, Array], default: '' },
 });
 
 const emit = defineEmits(['cancel', 'confirm']);

@@ -11,8 +11,11 @@ class DriverPolicy
     public function viewAny(User $user): bool
     {
         return ($user->hasPermission('drivers.view')
+            || $user->hasPermission('trips.create')
             || $user->hasPermission('trips.manage')
-            || $user->hasPermission('attendances.manage'))
+            || $user->hasPermission('attendances.create')
+            || $user->hasPermission('attendances.manage')
+            || $user->hasPermission('attendance.bulk_mark'))
             && $user->canAccessCompanyPanel();
     }
 
@@ -24,7 +27,7 @@ class DriverPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('drivers.manage')
+        return $user->hasPermission('drivers.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -32,11 +35,28 @@ class DriverPolicy
     public function update(User $user, Driver $driver): bool
     {
         return CurrentTenant::id() === $driver->tenant_id
-            && $this->create($user);
+            && $user->hasPermission('drivers.edit')
+            && $user->canAccessCompanyPanel();
     }
 
     public function delete(User $user, Driver $driver): bool
     {
-        return $this->update($user, $driver);
+        return CurrentTenant::id() === $driver->tenant_id
+            && $user->hasPermission('drivers.archive')
+            && $user->canAccessCompanyPanel();
+    }
+
+    public function viewAdvances(User $user, Driver $driver): bool
+    {
+        return CurrentTenant::id() === $driver->tenant_id
+            && ($user->hasPermission('driver_advances.view') || $user->hasPermission('drivers.view'))
+            && $user->canAccessCompanyPanel();
+    }
+
+    public function manageAdvances(User $user, Driver $driver): bool
+    {
+        return CurrentTenant::id() === $driver->tenant_id
+            && $user->hasPermission('driver_advances.manage')
+            && $user->canAccessCompanyPanel();
     }
 }

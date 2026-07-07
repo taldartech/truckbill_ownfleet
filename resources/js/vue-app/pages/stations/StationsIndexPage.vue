@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Stations">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -26,18 +26,18 @@
                             <th>Name</th>
                             <th>City</th>
                             <th>State</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="stations.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No stations found.</td>
+                            <td :colspan="canEdit ? 4 : 3" class="text-center text-muted py-4">No stations found.</td>
                         </tr>
                         <tr v-for="station in stations" :key="station.id">
                             <td>{{ station.name }}</td>
                             <td>{{ station.city_name || '—' }}</td>
                             <td>{{ station.state_name || '—' }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
+                            <td v-if="canEdit" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(station)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(station)" />
@@ -88,6 +88,14 @@
                 <AppButton type="submit" label="Save" :loading="saving" />
             </template>
         </AppModal>
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -102,13 +110,27 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
 import { useLocationLookups } from '../../composables/useLocationLookups';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { buildStationFields } from '../../utils/masterCrudSaveConfirm';
 
-const { canInCompany } = usePermissions();
-const canManage = computed(() => canInCompany('stations.manage'));
+const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const { canInCompany, canCreateInCompany, canEditInCompany } = usePermissions();
+const canCreate = computed(() => canCreateInCompany('stations') || canInCompany('trips.create'));
+const canEdit = computed(() => canEditInCompany('stations'));
 
 const {
     states,
@@ -175,27 +197,50 @@ function closeModal() {
     resetLocationFields();
 }
 
-async function save() {
-    saving.value = true;
-    clearErrors();
-
-    const payload = {
+function buildPayload() {
+    return {
         name: form.name.trim(),
         country_id: countryId.value || indiaCountry.value?.id,
         state_id: stateId.value,
         city_id: cityId.value,
     };
+}
+
+function save() {
+    clearErrors();
+    const payload = buildPayload();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Station',
+        mode: editing.value ? 'edit' : 'create',
+        fields: buildStationFields(payload, editing.value, { states: states.value, cities: cities.value }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
+    saving.value = true;
 
     try {
         if (editing.value) {
             await updateStation(editing.value.id, payload);
+            toast.success('Station updated successfully.');
         } else {
             await createStation(payload);
+            toast.success('Station added successfully.');
         }
 
+        finishSaveConfirm();
         closeModal();
         await loadStations();
     } catch (error) {
+        finishSaveConfirm();
         applyApiError(error, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;
@@ -207,8 +252,13 @@ async function handleDelete(station) {
         return;
     }
 
-    await deleteStation(station.id);
-    await loadStations();
+    try {
+        await deleteStation(station.id);
+        toast.success('Station deleted successfully.');
+        await loadStations();
+    } catch (error) {
+        toast.error(error.response?.data?.message ?? 'Could not delete station.');
+    }
 }
 
 onMounted(async () => {

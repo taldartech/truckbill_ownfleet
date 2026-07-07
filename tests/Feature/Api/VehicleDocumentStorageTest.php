@@ -8,6 +8,7 @@ use App\Tenant;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
+use App\VehicleDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -163,6 +164,89 @@ class VehicleDocumentStorageTest extends TestCase
             ->assertJsonValidationErrors(['document_type']);
     }
 
+    public function test_moderator_can_create_and_update_vehicle_document_but_not_delete(): void
+    {
+        [$tenant, $moderator] = $this->createTenantUser('moderator');
+        $moderator = $this->assignBranchIfRequired($moderator, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = $this->createVehicle($tenant, $operational);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        $create = $this->actingAs($moderator)
+            ->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->postJson('/api/vehicle-documents', [
+                'vehicle_id' => $vehicle->id,
+                'document_type' => VehicleDocumentType::Insurance->value,
+                'issue_date' => now()->toDateString(),
+                'expiry_date' => now()->addYear()->toDateString(),
+                'reminder_days_before' => 14,
+            ]);
+
+        $create->assertCreated();
+        $documentId = $create->json('data.id');
+
+        $this->actingAs($moderator)
+            ->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->putJson("/api/vehicle-documents/{$documentId}", [
+                'vehicle_id' => $vehicle->id,
+                'document_type' => VehicleDocumentType::Insurance->value,
+                'issue_date' => now()->subMonth()->toDateString(),
+                'expiry_date' => now()->addMonths(11)->toDateString(),
+                'reminder_days_before' => 7,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.reminder_days_before', 7);
+
+        $this->actingAs($moderator)
+            ->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->delete("/api/vehicle-documents/{$documentId}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('vehicle_documents', ['id' => $documentId]);
+    }
+
+    public function test_admin_can_update_and_delete_vehicle_document(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $admin = $this->assignBranchIfRequired($admin, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = $this->createVehicle($tenant, $operational);
+        DocumentTypeDefaults::seedForTenant($tenant->id);
+
+        $document = VehicleDocument::query()->create([
+            ...$operational,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => VehicleDocumentType::Insurance->value,
+            'issue_date' => now()->toDateString(),
+            'expiry_date' => now()->addYear()->toDateString(),
+            'reminder_days_before' => 14,
+        ]);
+
+        $this->actingAs($admin)
+            ->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->putJson("/api/vehicle-documents/{$document->id}", [
+                'vehicle_id' => $vehicle->id,
+                'document_type' => VehicleDocumentType::Insurance->value,
+                'issue_date' => now()->subMonth()->toDateString(),
+                'expiry_date' => now()->addMonths(11)->toDateString(),
+                'reminder_days_before' => 10,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.reminder_days_before', 10);
+
+        $this->actingAs($admin)
+            ->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
+            ->delete("/api/vehicle-documents/{$document->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('vehicle_documents', ['id' => $document->id]);
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */
@@ -186,13 +270,13 @@ class VehicleDocumentStorageTest extends TestCase
         return [$tenant, $user];
     }
 
-    private function createVehicle(Tenant $tenant): Vehicle
+    private function createVehicle(Tenant $tenant, array $attributes = []): Vehicle
     {
-        return Vehicle::query()->create([
+        return Vehicle::query()->create(array_merge([
             'tenant_id' => $tenant->id,
             'registration_number' => 'MH12AB1234',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 0,
-        ]);
+        ], $attributes));
     }
 }

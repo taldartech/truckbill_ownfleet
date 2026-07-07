@@ -220,6 +220,14 @@
             @close="closeCityEdit"
             @submit="handleCityUpdate"
         />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="locationConfirmSaving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -239,13 +247,26 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { buildCityFields, buildStateFields } from '../../utils/masterCrudSaveConfirm';
 
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('locations.manage'));
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const pendingLocationSaveKind = ref(null);
+const locationConfirmSaving = computed(() => stateSaving.value || citySaving.value);
 
 const {
     fieldErrors: stateFieldErrors,
@@ -470,81 +491,120 @@ function closeCityEdit() {
     clearCityErrors();
 }
 
-async function handleStateCreate(payload) {
-    stateSaving.value = true;
+function handleStateCreate(payload) {
     clearStateErrors();
+    pendingLocationSaveKind.value = 'state-create';
 
-    try {
-        await createState(payload);
-        toast.success('State has been added successfully.');
-        closeStateCreate();
-        await Promise.all([loadStateOptions(), loadStates(1)]);
-    } catch (error) {
-        applyStateValidationError(error);
-    } finally {
-        stateSaving.value = false;
-    }
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'State',
+        mode: 'create',
+        fields: buildStateFields(payload, null),
+    });
 }
 
-async function handleStateUpdate(payload) {
+function handleStateUpdate(payload) {
     if (!editingState.value?.id) {
         return;
     }
 
-    stateSaving.value = true;
     clearStateErrors();
+    pendingLocationSaveKind.value = 'state-update';
 
-    try {
-        await updateState(editingState.value.id, payload);
-        toast.success('State has been updated successfully.');
-        closeStateEdit();
-        await Promise.all([loadStateOptions(), loadStates(statePagination.currentPage)]);
-    } catch (error) {
-        applyStateValidationError(error);
-    } finally {
-        stateSaving.value = false;
-    }
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'State',
+        mode: 'edit',
+        fields: buildStateFields(payload, editingState.value),
+    });
 }
 
-async function handleCityCreate(payload) {
-    citySaving.value = true;
+function handleCityCreate(payload) {
     clearCityErrors();
+    pendingLocationSaveKind.value = 'city-create';
 
-    try {
-        await createCity(payload);
-        toast.success('City has been added successfully.');
-        closeCityCreate();
-        await Promise.all([
-            loadCities(cityPagination.currentPage),
-            loadStates(statePagination.currentPage),
-        ]);
-    } catch (error) {
-        applyCityValidationError(error);
-    } finally {
-        citySaving.value = false;
-    }
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'City',
+        mode: 'create',
+        fields: buildCityFields(payload, null, { states: stateOptions.value }),
+    });
 }
 
-async function handleCityUpdate(payload) {
+function handleCityUpdate(payload) {
     if (!editingCity.value?.id) {
         return;
     }
 
-    citySaving.value = true;
     clearCityErrors();
+    pendingLocationSaveKind.value = 'city-update';
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'City',
+        mode: 'edit',
+        fields: buildCityFields(payload, editingCity.value, { states: stateOptions.value }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+    const kind = pendingLocationSaveKind.value;
+
+    if (!payload || !kind) {
+        return;
+    }
+
+    if (kind.startsWith('state')) {
+        stateSaving.value = true;
+    } else {
+        citySaving.value = true;
+    }
 
     try {
-        await updateCity(editingCity.value.id, payload);
-        toast.success('City has been updated successfully.');
-        closeCityEdit();
-        await Promise.all([
-            loadCities(cityPagination.currentPage),
-            loadStates(statePagination.currentPage),
-        ]);
+        if (kind === 'state-create') {
+            await createState(payload);
+            toast.success('State has been added successfully.');
+            finishSaveConfirm();
+            closeStateCreate();
+            await Promise.all([loadStateOptions(), loadStates(1)]);
+        } else if (kind === 'state-update') {
+            await updateState(editingState.value.id, payload);
+            toast.success('State has been updated successfully.');
+            finishSaveConfirm();
+            closeStateEdit();
+            await Promise.all([loadStateOptions(), loadStates(statePagination.currentPage)]);
+        } else if (kind === 'city-create') {
+            await createCity(payload);
+            toast.success('City has been added successfully.');
+            finishSaveConfirm();
+            closeCityCreate();
+            await Promise.all([
+                loadCities(cityPagination.currentPage),
+                loadStates(statePagination.currentPage),
+            ]);
+        } else if (kind === 'city-update') {
+            await updateCity(editingCity.value.id, payload);
+            toast.success('City has been updated successfully.');
+            finishSaveConfirm();
+            closeCityEdit();
+            await Promise.all([
+                loadCities(cityPagination.currentPage),
+                loadStates(statePagination.currentPage),
+            ]);
+        }
     } catch (error) {
-        applyCityValidationError(error);
+        finishSaveConfirm();
+
+        if (kind.startsWith('state')) {
+            applyStateValidationError(error);
+        } else {
+            applyCityValidationError(error);
+        }
     } finally {
+        stateSaving.value = false;
         citySaving.value = false;
+        pendingLocationSaveKind.value = null;
     }
 }
 

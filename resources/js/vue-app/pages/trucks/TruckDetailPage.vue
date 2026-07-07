@@ -124,7 +124,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Documents</strong>
                             <button
-                                v-if="canManageDocuments"
+                                v-if="canCreateDocuments || canEditDocuments"
                                 type="button"
                                 class="btn btn-sm btn-outline-primary"
                                 @click="openDocuments"
@@ -355,7 +355,9 @@
             modal-id="truckDetailDocumentsModal"
             :show="showDocuments"
             :vehicle="vehicle"
-            :can-manage="canManageDocuments"
+            :can-create="canCreateDocuments"
+            :can-edit="canEditDocuments"
+            :can-delete="canDeleteDocuments"
             @close="closeDocuments"
             @saved="loadVehicle"
         />
@@ -390,16 +392,24 @@ import { formatDate, formatDateTime } from '../../utils/datetime';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
-const { canInCompany } = usePermissions();
+const { canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
 
 const canManage = computed(() => canInCompany('vehicles.manage'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewAssignments = computed(() => canInCompany('driver_assignments.view'));
-const canManageAssignments = computed(() => canInCompany('driver_assignments.manage'));
+const canCreateAssignments = computed(() => canInCompany('driver_assignments.create'));
+const canEditAssignments = computed(() => canInCompany('driver_assignments.edit'));
+const canManageAssignments = computed(
+    () => canCreateAssignments.value || canEditAssignments.value,
+);
 const canViewDocuments = computed(() => canInCompany('vehicle_documents.view'));
-const canManageDocuments = computed(() => canInCompany('vehicle_documents.manage'));
+const canCreateDocuments = computed(() => canCreateInCompany('vehicle_documents'));
+const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
+const canDeleteDocuments = computed(
+    () => canDeleteRecords.value && canInCompany('vehicle_documents.manage'),
+);
 const canViewMaintenance = computed(() => canInCompany('maintenance.view'));
 const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
 

@@ -217,5 +217,5 @@ watch(
     },
 );
 
-defineExpose({ loadLedger, setBalance: (v) => { balance.value = v; } });
+defineExpose({ loadLedger, resetForm, setBalance: (v) => { balance.value = v; } });
 </script>

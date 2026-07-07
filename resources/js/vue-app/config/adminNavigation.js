@@ -26,7 +26,7 @@ export const adminNavigation = [
                 icon: 'bi bi-plus-circle nav-icon',
                 to: { name: 'trips.create' },
                 activeNames: ['trips.create'],
-                permission: 'trips.manage',
+                permission: 'trips.create',
                 requiresTenant: true,
             },
         ],

@@ -59,6 +59,28 @@ class VehicleManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_moderator_can_create_vehicle_but_not_update(): void
+    {
+        [$tenant, $moderator] = $this->createTenantUser('moderator');
+        $vehicle = $this->createVehicle($tenant);
+
+        $this->actingAs($moderator)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ99ZZ9999',
+                'vehicle_type' => 'TRUCK',
+                'make' => 'Tata',
+                'model' => 'LPT',
+                'odometer_km' => 0,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($moderator)
+            ->putJson("/app/api/vehicles/{$vehicle->id}", [
+                'make' => 'Should Not Update',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_super_admin_can_soft_delete_vehicle(): void
     {
         $superAdmin = $this->createSuperAdmin();

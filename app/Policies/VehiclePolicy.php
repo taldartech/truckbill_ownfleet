@@ -12,7 +12,10 @@ class VehiclePolicy
     {
         return ($user->hasPermission('vehicles.view')
             || $user->hasPermission('trips.manage')
-            || $user->hasPermission('attendances.manage'))
+            || $user->hasPermission('trips.create')
+            || $user->hasPermission('attendances.manage')
+            || $user->hasPermission('attendances.create')
+            || $user->hasPermission('attendance.bulk_mark'))
             && $user->canAccessCompanyPanel();
     }
 
@@ -24,7 +27,7 @@ class VehiclePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('vehicles.manage')
+        return $user->hasPermission('vehicles.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -32,7 +35,9 @@ class VehiclePolicy
     public function update(User $user, Vehicle $vehicle): bool
     {
         return CurrentTenant::id() === $vehicle->tenant_id
-            && $this->create($user);
+            && $user->hasPermission('vehicles.edit')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 
     public function delete(User $user, Vehicle $vehicle): bool

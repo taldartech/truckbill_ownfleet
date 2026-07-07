@@ -28,7 +28,8 @@ class CityPolicy
 
     public function update(User $user, City $city): bool
     {
-        return $city->state()->where('country_id', IndiaCountry::id())->exists()
+        return $user->canUpdateOperationalRecords()
+            && $city->state()->where('country_id', IndiaCountry::id())->exists()
             && $user->hasPermission('locations.manage')
             && $user->canAccessCompanyPanel();
     }

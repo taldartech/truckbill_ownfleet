@@ -96,7 +96,7 @@ export function licenseStatusFromDays(daysRemaining) {
         return {
             status_tier: 'expired',
             status_label: overdue === 1 ? '1 Day Overdue' : `${overdue} Days Overdue`,
-            status_sublabel: `${overdue}d`,
+            status_sublabel: null,
             days_remaining: daysRemaining,
             badge_color: 'danger',
             row_color: 'danger',
@@ -107,7 +107,7 @@ export function licenseStatusFromDays(daysRemaining) {
         return {
             status_tier: 'today',
             status_label: 'Expires Today',
-            status_sublabel: 'Today',
+            status_sublabel: null,
             days_remaining: 0,
             badge_color: 'warning',
             row_color: 'warning',
@@ -120,7 +120,7 @@ export function licenseStatusFromDays(daysRemaining) {
         return {
             status_tier: 'reminder',
             status_label: label,
-            status_sublabel: `${daysRemaining}d`,
+            status_sublabel: null,
             days_remaining: daysRemaining,
             badge_color: 'warning',
             row_color: 'warning',

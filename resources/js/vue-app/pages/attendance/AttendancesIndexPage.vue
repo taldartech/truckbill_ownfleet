@@ -313,10 +313,14 @@ import { formatDate, formatMonthYear, toDateInputValue, currentMonthValue } from
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
-const { canInCompany } = usePermissions();
+const { canInCompany, canAnyInCompany } = usePermissions();
 
-const canManageAttendance = computed(() => canInCompany('attendances.manage'));
-const canBulkManageAttendance = computed(() => canInCompany('attendances.bulk_manage'));
+const canManageAttendance = computed(() =>
+    canAnyInCompany(['attendances.create', 'attendances.edit', 'attendances.manage']),
+);
+const canBulkManageAttendance = computed(() =>
+    canAnyInCompany(['attendance.bulk_mark', 'attendances.bulk_manage']),
+);
 const canViewSettlement = computed(() => canInCompany('wages.view'));
 const canManageWages = computed(() => canInCompany('wages.manage'));
 const actionColspan = computed(() => (canEditAttendanceRecords.value || canManageWages.value ? 8 : 7));

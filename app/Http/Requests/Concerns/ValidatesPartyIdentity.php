@@ -37,6 +37,7 @@ trait ValidatesPartyIdentity
             'nullable',
             'string',
             'max:255',
+            'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i',
             $this->partyIdentityUniqueRule($table, 'gst_number', $ignoreId, $tenantId),
         ];
     }
@@ -97,6 +98,7 @@ trait ValidatesPartyIdentity
     protected function partyIdentityMessages(string $entity = 'customer'): array
     {
         return [
+            'gst_number.regex' => 'Please enter a valid GST number (e.g. 27AAAAA0000A1Z5).',
             'gst_number.unique' => "This GST number is already registered for another {$entity} in your company.",
             'pan_number.unique' => "This PAN number is already registered for another {$entity} in your company.",
             'pan_number.regex' => 'Please enter a valid PAN number (e.g. ABCDE1234F).',

@@ -133,6 +133,10 @@ class TripController extends Controller
             'archived',
         ]);
 
+        if (($filters['archived'] ?? null) === 'archived') {
+            $this->authorize('viewArchived', Trip::class);
+        }
+
         return TripResource::collection($this->tripService->paginate($perPage, $filters));
     }
 
@@ -184,9 +188,9 @@ class TripController extends Controller
     {
         ArchivedTripGuard::ensureModifiable($trip);
 
-        $this->authorize('archive', $trip);
+        $this->authorize('view', $trip);
 
-        return response()->json(TripArchiveImpact::forTrip($trip));
+        return response()->json(TripArchiveImpact::forTrip($trip, request()->user()));
     }
 
     /**

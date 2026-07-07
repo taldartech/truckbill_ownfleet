@@ -22,7 +22,7 @@ class VehicleDocumentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('vehicle_documents.manage')
+        return $user->hasPermission('vehicle_documents.create')
             && $user->canAccessCompanyPanel()
             && $user->effectiveTenantId() !== null;
     }
@@ -30,11 +30,17 @@ class VehicleDocumentPolicy
     public function update(User $user, VehicleDocument $vehicleDocument): bool
     {
         return CurrentTenant::id() === $vehicleDocument->tenant_id
-            && $this->create($user);
+            && $user->hasPermission('vehicle_documents.edit')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 
     public function delete(User $user, VehicleDocument $vehicleDocument): bool
     {
-        return $this->update($user, $vehicleDocument);
+        return $user->canDeleteOperationalRecords()
+            && CurrentTenant::id() === $vehicleDocument->tenant_id
+            && $user->hasPermission('vehicle_documents.manage')
+            && $user->canAccessCompanyPanel()
+            && $user->effectiveTenantId() !== null;
     }
 }

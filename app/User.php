@@ -151,6 +151,7 @@ class User extends Authenticatable
             'master_admin',
             'super_admin',
             'admin',
+            'moderator',
         ]);
     }
 
@@ -226,7 +227,12 @@ class User extends Authenticatable
 
     public function canDeleteOperationalRecords(): bool
     {
-        return ! $this->hasAnyRole(['moderator', 'accountant']);
+        return ! $this->hasAnyRole(['accountant', 'moderator']);
+    }
+
+    public function canUpdateOperationalRecords(): bool
+    {
+        return ! $this->hasAnyRole(['accountant', 'moderator']);
     }
 
     private function matchesRole(string $role): bool

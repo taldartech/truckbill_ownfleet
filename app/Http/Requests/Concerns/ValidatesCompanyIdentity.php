@@ -26,6 +26,18 @@ trait ValidatesCompanyIdentity
 
             $this->merge([$field => strtoupper(trim((string) $value))]);
         }
+
+        foreach (['gst_scheme', 'gst_type'] as $field) {
+            if (! $this->has($field)) {
+                continue;
+            }
+
+            $value = $this->input($field);
+
+            if ($value === null || trim((string) $value) === '') {
+                $this->merge([$field => null]);
+            }
+        }
     }
 
     /**
@@ -37,6 +49,7 @@ trait ValidatesCompanyIdentity
             'nullable',
             'string',
             'max:50',
+            'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i',
             $this->companyIdentityUniqueRule('gst_number', $ignoreTenantId),
         ];
     }
@@ -88,12 +101,20 @@ trait ValidatesCompanyIdentity
             if ($contact === null || trim((string) $contact) === '') {
                 $validator->errors()->add('contact_number', 'Contact number is required.');
             }
+
+            $contactPerson = $this->has('contact_person')
+                ? $this->input('contact_person')
+                : $company?->contact_person;
+
+            if ($contactPerson === null || trim((string) $contactPerson) === '') {
+                $validator->errors()->add('contact_person', 'Contact person is required.');
+            }
         });
     }
 
     private function requestTouchesCompanyForm(): bool
     {
-        foreach (['name', 'pan_number', 'contact_number', 'gst_number'] as $field) {
+        foreach (['name', 'pan_number', 'contact_number', 'contact_person', 'gst_number'] as $field) {
             if ($this->has($field)) {
                 return true;
             }
@@ -121,6 +142,8 @@ trait ValidatesCompanyIdentity
         return [
             'pan_number.required' => 'PAN number is required.',
             'contact_number.required' => 'Contact number is required.',
+            'contact_person.required' => 'Contact person is required.',
+            'gst_number.regex' => 'Please enter a valid GST number (e.g. 27AAAAA0000A1Z5).',
             'gst_number.unique' => 'This GST number is already registered for another company.',
             'pan_number.unique' => 'This PAN number is already registered for another company.',
             'contact_number.unique' => 'This contact number is already registered for another company.',

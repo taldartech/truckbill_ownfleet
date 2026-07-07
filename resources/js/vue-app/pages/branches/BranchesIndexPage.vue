@@ -119,6 +119,14 @@
             @close="closeForm"
             @submit="handleSubmit"
         />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -138,15 +146,26 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { buildBranchFields } from '../../utils/masterCrudSaveConfirm';
 
 const pageId = 'branchesIndex';
 const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 const canManage = computed(() => can('branches.manage'));
@@ -262,7 +281,24 @@ function closeForm() {
     clearErrors();
 }
 
-async function handleSubmit(payload) {
+function handleSubmit(payload) {
+    clearErrors();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Branch',
+        mode: formMode.value === 'edit' ? 'edit' : 'create',
+        fields: buildBranchFields(payload, editingBranch.value, { companies: companies.value }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
     saving.value = true;
     clearErrors();
 
@@ -275,9 +311,11 @@ async function handleSubmit(payload) {
             toast.success('Branch created successfully.');
         }
 
+        finishSaveConfirm();
         closeForm();
         await loadBranches();
     } catch (error) {
+        finishSaveConfirm();
         applyApiError(error, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;

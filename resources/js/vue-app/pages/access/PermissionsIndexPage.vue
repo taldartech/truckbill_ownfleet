@@ -68,6 +68,14 @@
             @close="closeForm"
             @submit="handleSubmit"
         />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -85,13 +93,24 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { buildPermissionFields } from '../../utils/masterCrudSaveConfirm';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
 const { can } = usePermissions();
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
 const canManage = computed(() => can('permissions.manage'));
 
 const { fieldErrors, formError: permissionFormError, clearErrors, applyApiError } = useApiFormErrors();
@@ -154,7 +173,24 @@ function closeForm() {
     clearErrors();
 }
 
-async function handleSubmit(payload) {
+function handleSubmit(payload) {
+    clearErrors();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Permission',
+        mode: formMode.value === 'edit' ? 'edit' : 'create',
+        fields: buildPermissionFields(payload, editingPermission.value),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
     saving.value = true;
     clearErrors();
 
@@ -167,9 +203,12 @@ async function handleSubmit(payload) {
             toast.success('Permission created.');
         }
 
+        finishSaveConfirm();
         closeForm();
         await loadPermissions();
     } catch (error) {
+        finishSaveConfirm();
+
         if (!applyApiError(error)) {
             toast.error('Unable to save permission.');
         }

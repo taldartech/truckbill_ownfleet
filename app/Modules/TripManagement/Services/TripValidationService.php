@@ -53,7 +53,7 @@ class TripValidationService
 
         if (
             $user !== null
-            && (int) $user->user_role_id === UserRole::ADMIN
+            && in_array((int) $user->user_role_id, [UserRole::ADMIN, UserRole::MODERATOR], true)
             && $current === TripStatus::Completed->value
         ) {
             return self::EDIT_SCOPE_EXPENSES_ONLY;

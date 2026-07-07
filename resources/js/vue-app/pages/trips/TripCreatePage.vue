@@ -167,13 +167,13 @@ const {
 } = useTripForm();
 
 const canQuickAddStation = computed(
-    () => canInCompany('stations.manage') || canInCompany('trips.manage'),
+    () => canInCompany('stations.manage') || canInCompany('trips.create'),
 );
 const canQuickAddBroker = computed(
-    () => canInCompany('brokers.manage') || canInCompany('trips.manage'),
+    () => canInCompany('brokers.manage') || canInCompany('trips.create'),
 );
 const canQuickAddCustomer = computed(
-    () => canInCompany('customers.manage') || canInCompany('trips.manage'),
+    () => canInCompany('customers.manage') || canInCompany('trips.create'),
 );
 
 const stations = ref([]);
@@ -423,7 +423,6 @@ onMounted(async () => {
     } else if (typeParam === 'round_trip') {
         form.trip_type = 'ROUND_TRIP';
     } else {
-        toast.warning('Select a trip type before creating a trip.');
         await router.replace(tripListReturnWithFlash({ create: '1' }));
 
         return;

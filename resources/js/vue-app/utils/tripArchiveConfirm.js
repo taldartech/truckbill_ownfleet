@@ -65,7 +65,7 @@ export function buildTripArchiveConfirmViewModel(impact) {
     return {
         title: 'Archive Trip',
         permanentNotice:
-            'This trip will be permanently removed from all active operational screens. This action cannot be reversed from the application.',
+            'This trip will be removed from all active screens. This cannot be undone.',
         canArchive: Boolean(impact?.can_archive ?? impact?.can_delete),
         blockReason: impact?.block_reason ?? null,
         tripSummary,

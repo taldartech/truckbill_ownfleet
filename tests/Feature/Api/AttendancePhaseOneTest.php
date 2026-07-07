@@ -132,11 +132,33 @@ class AttendancePhaseOneTest extends TestCase
             ->assertJsonValidationErrors(['wage_amount']);
     }
 
-    public function test_moderator_can_view_attendance_but_not_manage_or_wages(): void
+    public function test_moderator_can_manage_attendance_but_not_close_month(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
-        $vehicle = $this->createVehicle($tenant);
-        $driver = $this->createDriver($tenant, 'Driver', 500.00);
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = Vehicle::query()->create(array_merge($operational, [
+            'registration_number' => strtoupper(fake()->bothify('??##??####')),
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 1000,
+        ]));
+        $driver = Driver::query()->create(array_merge($operational, [
+            'name' => 'Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => strtoupper(fake()->bothify('DL-#####')),
+            'license_expiry_date' => now()->addYear()->toDateString(),
+            'daily_wage' => 500.00,
+            'is_active' => true,
+        ]));
+
+        DriverAssignment::query()->create(array_merge($operational, [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-06-01',
+            'is_primary' => true,
+        ]));
 
         Sanctum::actingAs($user);
 
@@ -148,19 +170,19 @@ class AttendancePhaseOneTest extends TestCase
             ->postJson('/api/attendances', [
                 'vehicle_id' => $vehicle->id,
                 'primary_driver_id' => $driver->id,
-                'attendance_date' => now()->addDay()->toDateString(),
+                'attendance_date' => '2026-06-15',
                 'status' => 'ABSENT',
             ])
-            ->assertForbidden();
+            ->assertCreated();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/bulk-mark', [
                 'vehicle_id' => $vehicle->id,
-                'from_date' => now()->toDateString(),
-                'to_date' => now()->addDays(2)->toDateString(),
+                'from_date' => '2026-06-16',
+                'to_date' => '2026-06-18',
                 'attendance_type' => 'ABSENT',
             ])
-            ->assertForbidden();
+            ->assertOk();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/close-month', [
@@ -169,19 +191,45 @@ class AttendancePhaseOneTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_moderator_can_view_monthly_settlement_but_not_manage_wages(): void
+    public function test_moderator_cannot_view_monthly_settlement(): void
     {
         [$tenant, $user] = $this->createTenantUser('moderator');
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicle = Vehicle::query()->create(array_merge($operational, [
+            'registration_number' => strtoupper(fake()->bothify('??##??####')),
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 1000,
+        ]));
+        $driver = Driver::query()->create(array_merge($operational, [
+            'name' => 'Payroll Driver',
+            'phone' => fake()->numerify('9#########'),
+            'license_number' => strtoupper(fake()->bothify('DL-#####')),
+            'license_expiry_date' => now()->addYear()->toDateString(),
+            'daily_wage' => 15000.00,
+            'is_active' => true,
+        ]));
+
+        DriverAssignment::query()->create(array_merge($operational, [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => now()->subMonth()->startOfMonth()->toDateString(),
+            'is_primary' => true,
+        ]));
 
         Sanctum::actingAs($user);
 
+        $month = now()->subMonth()->format('Y-m');
+
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/attendances/settlement-sheet?month='.now()->format('Y-m'))
-            ->assertOk();
+            ->getJson('/api/attendances/settlement-sheet?month='.$month)
+            ->assertForbidden();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances/close-month', [
-                'month' => now()->format('Y-m'),
+                'month' => $month,
             ])
             ->assertForbidden();
     }

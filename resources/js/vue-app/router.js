@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { clearClientAuthState, fetchCurrentUser } from './api';
+import { userHasAnyPermission } from './utils/permissionAlias';
 import AppShellLayout from './layouts/AppShellLayout.vue';
 import DashboardPage from './pages/DashboardPage.vue';
 import LoginPage from './pages/LoginPage.vue';
@@ -123,25 +124,25 @@ const router = createRouter({
                     path: 'trips/create',
                     name: 'trips.create',
                     component: () => import('./pages/trips/TripCreatePage.vue'),
-                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                    meta: { requiresTenant: true, permission: 'trips.create' },
                 },
                 {
                     path: 'trips/:id',
                     name: 'trips.show',
                     component: () => import('./pages/trips/TripDetailPage.vue'),
-                    meta: { requiresTenant: true, permission: ['trips.view', 'trips.manage'] },
+                    meta: { requiresTenant: true, permission: 'trips.view' },
                 },
                 {
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
                     component: () => import('./pages/trips/TripEditPage.vue'),
-                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                    meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {
                     path: 'trips/:id/expenses',
                     name: 'trips.expenses',
                     component: () => import('./pages/trips/TripExpensesPage.vue'),
-                    meta: { requiresTenant: true, permission: 'trips.manage' },
+                    meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {
                     path: 'stations',
@@ -330,7 +331,7 @@ router.beforeEach(async (to) => {
         const required = Array.isArray(to.meta.permission)
             ? to.meta.permission
             : [to.meta.permission];
-        const hasPermission = required.some((slug) => userPermissions.includes(slug));
+        const hasPermission = userHasAnyPermission(userPermissions, required);
         const inCompany =
             !user.requires_company_selection &&
             (user.effective_tenant_id ?? user.company_id) != null;

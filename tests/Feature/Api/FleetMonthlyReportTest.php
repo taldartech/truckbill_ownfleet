@@ -60,18 +60,14 @@ class FleetMonthlyReportTest extends TestCase
         $response->assertJsonPath('meta.total', 1);
     }
 
-    public function test_moderator_can_access_monthly_fleet_report(): void
+    public function test_moderator_cannot_access_monthly_fleet_report(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('moderator'), 0, 2);
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-06')
-            ->assertOk();
-
-        $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->get('/api/reports/fleet-monthly/export?month=2026-06')
-            ->assertOk();
+            ->assertForbidden();
     }
 
     public function test_monthly_fleet_report_includes_tyres_used_and_expense_for_truck(): void

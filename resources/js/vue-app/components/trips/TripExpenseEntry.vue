@@ -18,7 +18,7 @@
                 />
             </div>
 
-            <div class="trip-expense-entry__cell trip-expense-entry__cell--type">
+            <div class="trip-expense-entry__cell trip-expense-entry__cell--type" :title="selectedTypeLabel || undefined">
                 <AppSelect
                     v-if="!isOther"
                     v-model="expense.expense_type"
@@ -232,6 +232,12 @@ const expenseTypes = EXPENSE_FORM_TYPES;
 const isDiesel = computed(() => props.expense.expense_type === 'DIESEL');
 const isOther = computed(() => props.expense.expense_type === 'OTHER');
 
+const selectedTypeLabel = computed(() => {
+    const match = expenseTypes.find((type) => type.value === props.expense.expense_type);
+
+    return match?.label ?? '';
+});
+
 const limitHints = computed(() =>
     buildMeterLimitHints({
         startMeterKm: props.tripStartMeterKm,
@@ -249,10 +255,10 @@ const meterPlaceholder = computed(() => {
     const allowed = limitHints.value.allowed;
 
     if (allowed && allowed !== '—') {
-        return allowed.replace(/\s*KM/g, '');
+        return allowed.replace(/\s*KM/gi, ' km');
     }
 
-    return 'Meter';
+    return 'km';
 });
 
 const hasDieselCalc = computed(() => {
@@ -339,11 +345,11 @@ function formatNum(value) {
 }
 
 .trip-expense-entry--wide .trip-expense-entry__row {
-    grid-template-columns: 6.75rem 7.25rem 5.25rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    grid-template-columns: 8rem 14rem 5rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
 }
 
 .trip-expense-entry--narrow .trip-expense-entry__row {
-    grid-template-columns: 6.75rem 7.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    grid-template-columns: 8rem 14rem 6.75rem minmax(4.5rem, 1fr) 2rem;
 }
 
 .trip-expense-entry__cell--diesel-gap {
@@ -362,6 +368,11 @@ function formatNum(value) {
 
 .trip-expense-entry__cell :deep(.app-date-input) {
     min-width: 0;
+}
+
+.trip-expense-entry__cell--date :deep(.app-date-input__text) {
+    padding-right: 2.15rem;
+    letter-spacing: -0.01em;
 }
 
 .trip-expense-entry__amount {

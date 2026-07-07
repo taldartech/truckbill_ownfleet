@@ -815,12 +815,14 @@
 
         <BrokerQuickAddModal
             :show="showBrokerQuickAdd"
+            :existing-brokers="brokers"
             @close="showBrokerQuickAdd = false"
             @created="onBrokerCreated"
         />
 
         <CustomerQuickAddModal
             :show="showCustomerQuickAdd"
+            :existing-customers="customers"
             @close="showCustomerQuickAdd = false"
             @created="onCustomerCreated"
         />

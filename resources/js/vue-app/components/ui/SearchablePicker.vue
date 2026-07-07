@@ -113,7 +113,7 @@
                         :class="{ 'picker-dropdown-menu--fixed': attachDropdownToBody }"
                         :style="attachDropdownToBody ? dropdownStyle : undefined"
                     >
-                        <div class="picker-search-wrap">
+                        <div v-if="showSearchInput" class="picker-search-wrap">
                             <input
                                 v-model.trim="searchQuery"
                                 type="text"
@@ -197,6 +197,8 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from 'vue';
+import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
+import { shouldShowSelectSearch } from '../../utils/selectSearchThreshold';
 import PickerListFooter from './PickerListFooter.vue';
 
 const props = defineProps({
@@ -231,6 +233,8 @@ const infoOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref({});
 const infoStyle = ref({});
+
+const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
 
 const selectedItem = computed(() => {
     if (!props.modelValue) {
@@ -355,17 +359,33 @@ function updateInfoPosition() {
     };
 }
 
+function closeDropdown() {
+    if (!isOpen.value) {
+        return;
+    }
+
+    isOpen.value = false;
+    releaseExclusiveDropdown(closeDropdown);
+}
+
+function openDropdown() {
+    claimExclusiveDropdown(closeDropdown);
+    infoOpen.value = false;
+    searchQuery.value = '';
+    isOpen.value = true;
+
+    nextTick(() => updateDropdownPosition());
+}
+
 function toggleDropdown() {
     if (props.disabled) {
         return;
     }
 
-    infoOpen.value = false;
-    isOpen.value = !isOpen.value;
-
     if (isOpen.value) {
-        searchQuery.value = '';
-        nextTick(() => updateDropdownPosition());
+        closeDropdown();
+    } else {
+        openDropdown();
     }
 }
 
@@ -374,7 +394,7 @@ function toggleInfo() {
         return;
     }
 
-    isOpen.value = false;
+    closeDropdown();
     infoOpen.value = !infoOpen.value;
 
     if (infoOpen.value) {
@@ -384,18 +404,18 @@ function toggleInfo() {
 
 function clearSelection() {
     emit('update:modelValue', '');
-    isOpen.value = false;
+    closeDropdown();
     infoOpen.value = false;
 }
 
 function selectItem(item) {
     emit('update:modelValue', item.id);
-    isOpen.value = false;
+    closeDropdown();
     infoOpen.value = false;
 }
 
 function openQuickAdd() {
-    isOpen.value = false;
+    closeDropdown();
     infoOpen.value = false;
     emit('quick-add');
 }
@@ -411,7 +431,7 @@ function handleDocumentClick(event) {
         return;
     }
 
-    isOpen.value = false;
+    closeDropdown();
     infoOpen.value = false;
 }
 
@@ -435,6 +455,11 @@ onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
     window.removeEventListener('resize', handleReposition);
     window.removeEventListener('scroll', handleReposition, true);
+    releaseExclusiveDropdown(closeDropdown);
+
+    if (isOpen.value) {
+        closeDropdown();
+    }
 });
 
 watch(

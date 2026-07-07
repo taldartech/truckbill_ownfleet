@@ -157,12 +157,21 @@
             @close="closeForm"
             @submit="handleSubmit"
         />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
+import { listAllBranches } from '../../api/branches';
 import { listAllCompanies } from '../../api/companies';
 import { fetchDocumentAlertSettings, updateDocumentAlertSettings } from '../../api/documentAlertSettings';
 import {
@@ -178,13 +187,24 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { buildUserFields } from '../../utils/masterCrudSaveConfirm';
 
 const { can, user } = usePermissions();
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
 const managesSuperAdmins = computed(() => can('super_admins.view'));
 const managesTenantUsers = computed(() => can('users.view'));
 const canManage = computed(
@@ -354,6 +374,35 @@ function closeForm() {
 }
 
 async function handleSubmit(payload) {
+    clearErrors();
+
+    let branches = [];
+
+    try {
+        branches = await listAllBranches();
+    } catch {
+        branches = [];
+    }
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: managesSuperAdmins.value ? 'Super Admin' : 'User',
+        mode: formMode.value === 'edit' ? 'edit' : 'create',
+        fields: buildUserFields(payload, editingUser.value, {
+            roles: assignableRoles.value,
+            companies: companies.value,
+            branches,
+        }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
     saving.value = true;
     clearErrors();
 
@@ -366,9 +415,12 @@ async function handleSubmit(payload) {
             toast.success('User created.');
         }
 
+        finishSaveConfirm();
         closeForm();
         await loadUsers();
     } catch (error) {
+        finishSaveConfirm();
+
         if (!applyApiError(error)) {
             toast.error('Unable to save user.');
         }

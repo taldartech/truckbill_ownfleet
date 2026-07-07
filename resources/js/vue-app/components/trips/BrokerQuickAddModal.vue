@@ -23,6 +23,8 @@
             :states="states"
             :cities="cities"
             :field-errors="fieldErrors"
+            :local-field-errors="localFieldErrors"
+            @clear-field-error="clearLocalFieldError"
         />
 
         <template #footer>
@@ -33,17 +35,23 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { createBroker } from '../../api/brokers';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useLocationLookups } from '../../composables/useLocationLookups';
+import {
+    buildPartyDuplicateFieldErrors,
+    buildPartyTaxFieldErrors,
+} from '../../utils/partyQuickAddValidation';
 import { normalizeMobile } from '../../utils/phone';
+import { normalizeGstNumber, normalizePanNumber } from '../../utils/taxIdentity';
 import PartyQuickAddFields from '../parties/PartyQuickAddFields.vue';
 import AppButton from '../ui/AppButton.vue';
 import AppModal from '../ui/AppModal.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
+    existingBrokers: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['close', 'created']);
@@ -54,6 +62,7 @@ const panNumber = ref('');
 const contactNumber = ref('');
 const address = ref('');
 const saving = ref(false);
+const localFieldErrors = reactive({});
 const { fieldErrors, formError, applyApiError, clearErrors } = useApiFormErrors();
 
 const {
@@ -67,6 +76,16 @@ const {
     resetLocationFields,
 } = useLocationLookups();
 
+function clearLocalFieldErrors() {
+    Object.keys(localFieldErrors).forEach((key) => {
+        delete localFieldErrors[key];
+    });
+}
+
+function clearLocalFieldError(field) {
+    delete localFieldErrors[field];
+}
+
 function resetForm() {
     name.value = '';
     gstNumber.value = '';
@@ -74,6 +93,53 @@ function resetForm() {
     contactNumber.value = '';
     address.value = '';
 }
+
+function validateClientSide() {
+    clearLocalFieldErrors();
+
+    const errors = {
+        ...buildPartyTaxFieldErrors({
+            gstNumber: gstNumber.value,
+            panNumber: panNumber.value,
+        }),
+        ...buildPartyDuplicateFieldErrors({
+            name: name.value,
+            cityId: cityId.value,
+            contactNumber: contactNumber.value,
+            parties: props.existingBrokers,
+            entityLabel: 'reference',
+        }),
+    };
+
+    Object.assign(localFieldErrors, errors);
+
+    return Object.keys(errors).length === 0;
+}
+
+function syncDuplicateChecks() {
+    const duplicateErrors = buildPartyDuplicateFieldErrors({
+        name: name.value,
+        cityId: cityId.value,
+        contactNumber: contactNumber.value,
+        parties: props.existingBrokers,
+        entityLabel: 'reference',
+    });
+
+    if (duplicateErrors.name) {
+        localFieldErrors.name = duplicateErrors.name;
+    } else {
+        delete localFieldErrors.name;
+    }
+
+    if (duplicateErrors.contact_number) {
+        localFieldErrors.contact_number = duplicateErrors.contact_number;
+    } else {
+        delete localFieldErrors.contact_number;
+    }
+}
+
+watch([name, cityId], syncDuplicateChecks);
+watch(contactNumber, syncDuplicateChecks);
 
 watch(
     () => props.show,
@@ -84,6 +150,7 @@ watch(
 
         resetForm();
         clearErrors();
+        clearLocalFieldErrors();
         resetLocationFields();
         await initialize();
     },
@@ -91,6 +158,13 @@ watch(
 
 async function submit() {
     clearErrors();
+
+    if (!validateClientSide()) {
+        formError.value = 'Please check the highlighted fields.';
+
+        return;
+    }
+
     saving.value = true;
 
     try {
@@ -99,8 +173,8 @@ async function submit() {
             country_id: countryId.value || indiaCountry.value?.id,
             state_id: stateId.value,
             city_id: cityId.value,
-            gst_number: gstNumber.value.trim() || null,
-            pan_number: panNumber.value.trim().toUpperCase() || null,
+            gst_number: normalizeGstNumber(gstNumber.value) || null,
+            pan_number: normalizePanNumber(panNumber.value) || null,
             contact_number: normalizeMobile(contactNumber.value) || null,
             address: address.value.trim() || null,
         });

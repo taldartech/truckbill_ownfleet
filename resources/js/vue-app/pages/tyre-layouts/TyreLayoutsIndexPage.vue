@@ -1,7 +1,7 @@
 <template>
     <div class="container mt-4 app-index-page">
         <AppIndexPageHeader title="Tyre Layouts">
-            <template v-if="canManage" #actions>
+            <template v-if="canCreate" #actions>
                 <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
             </template>
         </AppIndexPageHeader>
@@ -33,12 +33,12 @@
                             <th>Positions</th>
                             <th>Spares</th>
                             <th>Status</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="layouts.length === 0">
-                            <td :colspan="canManage ? 7 : 6" class="text-center text-muted">No layouts found.</td>
+                            <td :colspan="canEdit ? 7 : 6" class="text-center text-muted">No layouts found.</td>
                         </tr>
                         <tr v-for="layout in layouts" :key="layout.id">
                             <td>{{ layout.name }}</td>
@@ -51,7 +51,7 @@
                                     {{ layout.is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
-                            <td v-if="canManage" class="app-index-actions-cell">
+                            <td v-if="canEdit" class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="edit" @click="openEdit(layout)" />
                                     <AppCrudActionButton action="delete" @click="handleDelete(layout)" />
@@ -180,6 +180,14 @@
                 <AppButton type="submit" label="Save" :loading="saving" />
             </template>
         </AppModal>
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -204,16 +212,28 @@ import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
 import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { buildTyreLayoutFields } from '../../utils/masterCrudSaveConfirm';
 
 const toast = useAppToast();
-const { canInCompany } = usePermissions();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
+const { canCreateInCompany, canEditInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } = useRequireCompanyContext();
-const canManage = computed(() => canInCompany('tyre_layouts.manage'));
+const canCreate = computed(() => canCreateInCompany('tyre_layouts'));
+const canEdit = computed(() => canEditInCompany('tyre_layouts'));
 
 const layouts = ref([]);
 const loading = ref(true);
@@ -353,12 +373,40 @@ function buildPayload() {
     return payload;
 }
 
-async function save() {
-    saving.value = true;
+function save() {
     clearErrors();
+
     try {
         guardCompanyContext();
-        const payload = buildPayload();
+    } catch (e) {
+        handleCompanyContextError(e);
+
+        return;
+    }
+
+    const payload = buildPayload();
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Tyre Layout',
+        mode: editing.value ? 'edit' : 'create',
+        fields: buildTyreLayoutFields(payload, editing.value, { layoutTypeLabel }),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
+    saving.value = true;
+    clearErrors();
+
+    try {
+        guardCompanyContext();
+
         if (editing.value) {
             await updateTyreLayout(editing.value.id, payload);
             toast.success('Layout updated.');
@@ -366,9 +414,12 @@ async function save() {
             await createTyreLayout(payload);
             toast.success('Layout created.');
         }
+
+        finishSaveConfirm();
         showModal.value = false;
         await loadLayouts();
     } catch (e) {
+        finishSaveConfirm();
         applyApiError(e, 'Please check the highlighted fields.');
     } finally {
         saving.value = false;

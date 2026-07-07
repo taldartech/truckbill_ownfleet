@@ -93,6 +93,14 @@
             @close="closeForm"
             @submit="handleSubmit"
         />
+
+        <MasterCrudSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
     </div>
 </template>
 
@@ -108,13 +116,24 @@ import {
 import CompanyFormModal from '../../components/companies/CompanyFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { formatDate } from '../../utils/datetime';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { buildCompanyFields } from '../../utils/masterCrudSaveConfirm';
 
 const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
+const {
+    showSaveConfirm,
+    saveConfirmSummary,
+    pendingPayload,
+    promptSaveConfirm,
+    cancelSaveConfirm,
+    finishSaveConfirm,
+} = useMasterCrudSaveConfirm();
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 
@@ -183,7 +202,25 @@ function closeForm() {
     companyFormError.value = '';
 }
 
-async function handleSubmit(payload) {
+function handleSubmit(payload) {
+    fieldErrors.value = {};
+    companyFormError.value = '';
+
+    promptSaveConfirm({
+        payload,
+        entityLabel: 'Company',
+        mode: formMode.value === 'edit' ? 'edit' : 'create',
+        fields: buildCompanyFields(payload, editingCompany.value),
+    });
+}
+
+async function confirmSave() {
+    const payload = pendingPayload.value;
+
+    if (!payload) {
+        return;
+    }
+
     saving.value = true;
     fieldErrors.value = {};
     companyFormError.value = '';
@@ -197,9 +234,12 @@ async function handleSubmit(payload) {
             toast.success('Company created successfully.');
         }
 
+        finishSaveConfirm();
         closeForm();
         await loadCompanies();
     } catch (error) {
+        finishSaveConfirm();
+
         if (error.response?.status === 422) {
             fieldErrors.value = error.response.data.errors ?? {};
             companyFormError.value =
