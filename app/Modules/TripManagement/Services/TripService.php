@@ -339,8 +339,10 @@ class TripService
 
             if ($routeLegs !== null) {
                 $this->tripValidation->assertRouteLegsCanBeUpdated($trip, $routeLegs);
-                $trip->routeLegs()->delete();
-                $this->syncRouteLegs($trip->fresh(), $routeLegs);
+
+                if (! $this->routeLegsMatchExisting($trip, $routeLegs)) {
+                    $this->replaceRouteLegs($trip, $routeLegs);
+                }
             }
 
             if ($shouldSyncExpenses) {
@@ -436,6 +438,104 @@ class TripService
     /**
      * @param  list<array<string, mixed>>  $routeLegs
      */
+    /**
+     * @param  list<array<string, mixed>>  $routeLegs
+     */
+    private function replaceRouteLegs(Trip $trip, array $routeLegs): void
+    {
+        $expenseSequencesById = TripExpense::query()
+            ->where('trip_id', $trip->id)
+            ->whereNotNull('trip_route_leg_id')
+            ->with('routeLeg:id,sequence_no')
+            ->get()
+            ->mapWithKeys(fn (TripExpense $expense): array => [
+                $expense->id => $expense->routeLeg?->sequence_no,
+            ])
+            ->filter(fn (?int $sequence): bool => $sequence !== null);
+
+        $trip->routeLegs()->delete();
+        $this->syncRouteLegs($trip->fresh(), $routeLegs);
+
+        if ($expenseSequencesById->isEmpty()) {
+            return;
+        }
+
+        $newLegsBySequence = $trip->fresh()->routeLegs()->get()->keyBy('sequence_no');
+
+        foreach ($expenseSequencesById as $expenseId => $sequenceNo) {
+            $newLegId = $newLegsBySequence->get($sequenceNo)?->id;
+
+            if ($newLegId === null) {
+                continue;
+            }
+
+            TripExpense::query()
+                ->where('id', $expenseId)
+                ->update(['trip_route_leg_id' => $newLegId]);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $routeLegs
+     */
+    private function routeLegsMatchExisting(Trip $trip, array $routeLegs): bool
+    {
+        $existing = $trip->routeLegs()->orderBy('sequence_no')->get();
+
+        if ($existing->count() !== count($routeLegs)) {
+            return false;
+        }
+
+        foreach ($routeLegs as $index => $leg) {
+            $current = $existing[$index] ?? null;
+
+            if ($current === null) {
+                return false;
+            }
+
+            $expectedSequence = (int) ($leg['sequence_no'] ?? ($index + 1));
+
+            if ((int) $current->sequence_no !== $expectedSequence) {
+                return false;
+            }
+
+            if ((int) ($current->from_station_id ?? 0) !== (int) ($leg['from_station_id'] ?? 0)) {
+                return false;
+            }
+
+            if ((int) ($current->to_station_id ?? 0) !== (int) ($leg['to_station_id'] ?? 0)) {
+                return false;
+            }
+
+            $currentCustomer = $current->customer_id !== null ? (int) $current->customer_id : null;
+            $newCustomer = isset($leg['customer_id']) && $leg['customer_id'] !== '' && $leg['customer_id'] !== null
+                ? (int) $leg['customer_id']
+                : null;
+
+            if ($currentCustomer !== $newCustomer) {
+                return false;
+            }
+
+            $currentWeight = round((float) ($current->weight_ton ?? 0), 3);
+            $newWeight = isset($leg['weight_ton']) && $leg['weight_ton'] !== '' && $leg['weight_ton'] !== null
+                ? round((float) $leg['weight_ton'], 3)
+                : 0.0;
+
+            if ($currentWeight !== $newWeight) {
+                return false;
+            }
+
+            $currentFreight = round((float) ($current->freight_amount ?? 0), 2);
+            $newFreight = round((float) ($leg['freight_amount'] ?? 0), 2);
+
+            if ($currentFreight !== $newFreight) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function syncRouteLegs(Trip $trip, array $routeLegs): void
     {
         $stationNames = Station::query()
@@ -525,6 +625,17 @@ class TripService
 
             if ($legId === null && isset($expense['route_leg_sequence'])) {
                 $legId = $legsBySequence->get((int) $expense['route_leg_sequence'])?->id;
+            }
+
+            if (
+                $legId === null
+                && $legsBySequence->count() === 1
+                && in_array($expenseType, [
+                    TripExpenseType::LoadingCharges->value,
+                    TripExpenseType::UnloadingCharges->value,
+                ], true)
+            ) {
+                $legId = $legsBySequence->first()?->id;
             }
 
             if ($expenseType === TripExpenseType::Diesel->value) {

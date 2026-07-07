@@ -1,5 +1,5 @@
 import { reactive, watch } from 'vue';
-import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric } from '../api/trips';
+import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric, resolveExpenseRouteLegSequence } from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -212,6 +212,7 @@ export function useTripForm() {
             const customerId = leg.customer_id ?? '';
 
             return {
+                id: leg.id ?? null,
                 from_station_id: leg.from_station_id ?? '',
                 to_station_id: leg.to_station_id ?? '',
                 customer_id: customerId,
@@ -258,7 +259,7 @@ export function useTripForm() {
                 expense.fuel_odometer_km != null && expense.fuel_odometer_km !== ''
                     ? Number(expense.fuel_odometer_km)
                     : '',
-            route_leg_sequence: expense.route_leg_sequence ?? '',
+            route_leg_sequence: resolveExpenseRouteLegSequence(expense, form.route_legs),
             notes: expense.notes ?? '',
             other_type: expense.other_type ?? '',
         }));

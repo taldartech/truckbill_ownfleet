@@ -6,6 +6,7 @@ import {
     emptyExpense,
     isActiveFuelRow,
     isDieselExpenseType,
+    resolveExpenseRouteLegSequence,
 } from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
@@ -25,7 +26,7 @@ function mapExpenseRow(expense, form) {
             expense.fuel_odometer_km != null && expense.fuel_odometer_km !== ''
                 ? Number(expense.fuel_odometer_km)
                 : '',
-        route_leg_sequence: expense.route_leg_sequence ?? '',
+        route_leg_sequence: resolveExpenseRouteLegSequence(expense, form.route_legs),
         notes: expense.notes ?? '',
         other_type: expense.other_type ?? '',
         _fuelDirty: false,
@@ -93,6 +94,7 @@ export function useTripExpensesForm() {
                 : '';
 
         form.route_legs = (trip.route_legs ?? []).map((leg) => ({
+            id: leg.id ?? null,
             from_station_id: leg.from_station_id ?? '',
             to_station_id: leg.to_station_id ?? '',
             from_city: leg.from_city ?? leg.from_location ?? '',

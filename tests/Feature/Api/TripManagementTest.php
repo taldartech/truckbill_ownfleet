@@ -268,6 +268,103 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.expenses.1.route_leg_sequence', 1);
     }
 
+    public function test_trip_update_with_unchanged_route_legs_preserves_expense_trip_route_leg_id(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::LoadingCharges->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1000,
+                        'route_leg_sequence' => 1,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $expenseId = $createResponse->json('data.expenses.0.id');
+        $routeLegId = $createResponse->json('data.route_legs.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'notes' => 'Trip updated without route changes',
+                'route_legs' => $createResponse->json('data.route_legs'),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.notes', 'Trip updated without route changes')
+            ->assertJsonPath('data.expenses.0.route_leg_sequence', 1);
+
+        $this->assertDatabaseHas('trip_expenses', [
+            'id' => $expenseId,
+            'trip_route_leg_id' => $routeLegId,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_single_leg_trip_auto_assigns_loading_and_unloading_to_stop(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(TripType::OneWay->value), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-10 09:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::LoadingCharges->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 1000,
+                    ],
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 500,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expenses.0.route_leg_sequence', 1)
+            ->assertJsonPath('data.expenses.1.route_leg_sequence', null);
+
+        $loadingExpense = TripExpense::query()
+            ->where('trip_id', $tripId)
+            ->where('expense_type', TripExpenseType::LoadingCharges->value)
+            ->first();
+
+        $tollExpense = TripExpense::query()
+            ->where('trip_id', $tripId)
+            ->where('expense_type', TripExpenseType::Toll->value)
+            ->first();
+
+        $this->assertNotNull($loadingExpense?->trip_route_leg_id);
+        $this->assertNull($tollExpense?->trip_route_leg_id);
+    }
+
     public function test_diesel_expense_meter_reading_must_stay_within_trip_meter_range(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');

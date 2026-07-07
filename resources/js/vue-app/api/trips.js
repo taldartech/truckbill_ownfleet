@@ -609,6 +609,26 @@ export function validateTripStatusChange(
     return errors;
 }
 
+export function resolveExpenseRouteLegSequence(expense, routeLegs = []) {
+    if (expense?.route_leg_sequence != null && expense.route_leg_sequence !== '') {
+        return Number(expense.route_leg_sequence);
+    }
+
+    const legId = expense?.trip_route_leg_id;
+
+    if (!legId) {
+        return '';
+    }
+
+    const leg = routeLegs.find((item) => String(item.id) === String(legId));
+
+    if (leg?.sequence_no != null && leg.sequence_no !== '') {
+        return Number(leg.sequence_no);
+    }
+
+    return '';
+}
+
 export function emptyExpense({ defaultDate = '', expenseType = 'DIESEL', dieselRatePerLiter = null } = {}) {
     const normalizedType = expenseType || 'DIESEL';
     const dieselRate =
