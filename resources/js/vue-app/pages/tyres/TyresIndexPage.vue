@@ -205,7 +205,7 @@
         </AppIndexListCard>
 
         <AppModal
-            :show="showModal"
+            :show="showModal && !showSaveConfirm"
             :loading="saving"
             :form-error="formError"
             as-form

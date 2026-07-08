@@ -202,6 +202,13 @@
     font-size: 0.875rem;
 }
 
+.app-index-table__truncate-col {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .app-index-page--standard .app-index-list-card > .card-body > .table-responsive,
 .references-index-page .app-index-list-card > .card-body > .table-responsive {
     padding: 0;

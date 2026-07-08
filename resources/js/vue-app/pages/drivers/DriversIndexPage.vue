@@ -65,7 +65,7 @@
                         <th>Name</th>
                         <th>Mobile</th>
                         <th>License Number</th>
-                        <th>Address</th>
+                        <th class="app-index-table__truncate-col">Address</th>
                         <th v-if="showRowActions" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
                     </tr>
                 </thead>
@@ -83,7 +83,12 @@
                         </td>
                         <td>{{ formatPhone(driver.phone) }}</td>
                         <td>{{ driver.license_number || '—' }}</td>
-                        <td>{{ formatAddress(driver.address) }}</td>
+                        <td
+                            class="app-index-table__truncate-col"
+                            :title="addressValue(driver.address) || undefined"
+                        >
+                            {{ formatAddress(driver.address) }}
+                        </td>
                         <td v-if="showRowActions" class="app-index-actions-cell text-end">
                             <div class="app-index-table-actions">
                                 <button
@@ -273,10 +278,12 @@ function formatPhone(phone) {
     return value || '—';
 }
 
-function formatAddress(address) {
-    const value = String(address ?? '').trim();
+function addressValue(address) {
+    return String(address ?? '').trim();
+}
 
-    return value || '—';
+function formatAddress(address) {
+    return addressValue(address) || '—';
 }
 
 function rowNumber(index) {

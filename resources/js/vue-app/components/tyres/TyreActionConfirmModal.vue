@@ -5,6 +5,7 @@
         :loading="loading"
         :dismissible="!loading"
         :close-on-escape="!loading"
+        elevated
         header-gradient
         :content-class="['tyre-action-confirm-modal__content', 'border-0', 'shadow-lg']"
         body-class="tyre-action-confirm-modal__body p-4"

@@ -322,7 +322,7 @@
         </template>
 
         <TyreActionModal
-            v-if="showInstall"
+            v-if="showInstall && !showActionConfirm"
             title="Install Tyre"
             :form-error="formError"
             :saving="actionSaving"
@@ -383,7 +383,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showReplace"
+            v-if="showReplace && !showActionConfirm"
             title="Replace Tyre on Truck"
             :form-error="formError"
             :saving="actionSaving"
@@ -440,7 +440,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showRotate"
+            v-if="showRotate && !showActionConfirm"
             title="Rotate Tyre"
             :form-error="formError"
             :saving="actionSaving"
@@ -523,7 +523,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showRemove"
+            v-if="showRemove && !showActionConfirm"
             title="Remove Tyre from Truck"
             :form-error="formError"
             :saving="actionSaving"
@@ -564,7 +564,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showUpdateKm"
+            v-if="showUpdateKm && !showActionConfirm"
             title="Update from Meter Reading"
             :form-error="formError"
             :saving="actionSaving"
@@ -600,7 +600,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showScrap"
+            v-if="showScrap && !showActionConfirm"
             title="Scrap / Sell Tyre"
             :form-error="formError"
             :saving="actionSaving"
@@ -645,7 +645,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showInspection"
+            v-if="showInspection && !showActionConfirm"
             title="Record Tyre Inspection"
             :form-error="formError"
             :saving="actionSaving"
@@ -715,7 +715,7 @@
         </TyreActionModal>
 
         <TyreActionModal
-            v-if="showDamage"
+            v-if="showDamage && !showActionConfirm"
             :title="damageModalMode === 'recapped' ? 'Record Regrip' : 'Record Repair'"
             :form-error="formError"
             :saving="actionSaving"

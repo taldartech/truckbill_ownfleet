@@ -3,8 +3,11 @@
         <div
             v-if="show"
             data-app-modal
-            class="modal fade show d-block app-modal-overlay"
-            :class="{ 'app-modal-overlay--dismissible': dismissible && !loading }"
+            class="modal fade show app-modal-overlay"
+            :class="{
+                'app-modal-overlay--dismissible': dismissible && !loading,
+                'app-modal-overlay--elevated': elevated,
+            }"
             tabindex="-1"
             role="dialog"
             :aria-modal="true"
@@ -109,6 +112,7 @@ const props = defineProps({
     contentClass: { type: [String, Object, Array], default: '' },
     bodyClass: { type: [String, Object, Array], default: '' },
     footerClass: { type: [String, Object, Array], default: '' },
+    elevated: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'submit']);
