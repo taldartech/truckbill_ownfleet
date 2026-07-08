@@ -1,141 +1,155 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Service Records">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Add Maintenance" @click="goToCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before managing maintenance records.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
-            <div class="maintenance-filter-period">
-                <DashboardDateRangePicker
-                    v-model:from-date="filters.from_date"
-                    v-model:to-date="filters.to_date"
-                    label="Date Range *"
-                    panel-align="start"
-                    :preset-keys="datePresetKeys"
-                    :max-months="MAX_LIST_DATE_RANGE_MONTHS"
-                    @change="onDateRangeChange"
-                />
-            </div>
-            <div>
-                <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
-                <VehicleSelect
-                    :input-id="`${pageId}_vehicle`"
-                    v-model="filters.vehicle_id"
-                    :vehicles="vehicles"
-                    placeholder="All trucks"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
-                <MaintenanceServiceTypeSelect
-                    :input-id="`${pageId}_service_type`"
-                    v-model="filters.maintenance_service_type_id"
-                    :service-types="serviceTypes"
-                    placeholder="All types"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label">Status</label>
-                <AppSelect
-                    v-model="filters.due_status"
-                    :options="dueStatusOptions"
-                    placeholder="All statuses"
-                    search-placeholder="Search status…"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Service Records" :loading="loading" loading-text="Loading service records…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="maintenance-records-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Add maintenance"
+                    @click="goToCreate"
+                >
+                    Add Maintenance
+                </AppIndexHeaderButton>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-body">
-                <div v-if="!filtersApplied" class="text-center text-muted py-4">
-                    Select a date range and click Apply to view service records.
-                </div>
-                <div v-else-if="loading" class="text-center py-4 text-muted">Loading service records…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 70px">#</th>
-                                <th>Date</th>
-                                <th>Truck</th>
-                                <th>Service Type</th>
-                                <th>Provider</th>
-                                <th class="text-end">Meter Reading</th>
-                                <th class="text-end">Cost</th>
-                                <th>Status</th>
-                                <th>Next Due</th>
-                                <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 160px">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="records.length === 0">
-                                <td :colspan="hasRowActions ? 10 : 9" class="text-center text-muted py-4">
-                                    No service records found for selected filters.
-                                </td>
-                            </tr>
-                            <tr v-for="(record, index) in records" :key="record.id">
-                                <td class="text-center">{{ rowNumber(index) }}</td>
-                                <td>{{ formatDate(record.service_date) }}</td>
-                                <td>
-                                    <RouterLink
-                                        v-if="canView && record.vehicle?.id"
-                                        :to="{ name: 'trucks.show', params: { vehicleId: record.vehicle.id } }"
-                                        class="text-decoration-none fw-semibold"
-                                    >
-                                        {{ vehicleLabel(record) }}
-                                    </RouterLink>
-                                    <span v-else>{{ vehicleLabel(record) }}</span>
-                                </td>
-                                <td>{{ record.service_type_label ?? record.service_type ?? '—' }}</td>
-                                <td>{{ record.service_provider || '—' }}</td>
-                                <td class="text-end">{{ formatOdometer(record.odometer_km) }}</td>
-                                <td class="text-end">{{ formatAmount(record.cost_amount) }}</td>
-                                <td>
-                                    <span class="badge" :class="statusMeta(record).badge">{{ statusMeta(record).label }}</span>
-                                </td>
-                                <td>{{ dueSummary(record) }}</td>
-                                <td v-if="hasRowActions" class="app-index-actions-cell">
-                                    <AppTableActions>
-                                        <AppCrudActionButton
-                                            v-if="canView"
-                                            action="view"
-                                            title="View record"
-                                            @click="goToView(record)"
-                                        />
-                                        <AppCrudActionButton v-if="canEdit" action="edit" @click="goToEdit(record)" />
-                                        <AppCrudActionButton v-if="canDelete" action="delete" @click="openDelete(record)" />
-                                    </AppTableActions>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <AppIndexPaginationFooter
-                :page-id="pageId"
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="maintenance-records-filters-panel"
                 :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="records"
-                :per-page-options="[10, 25, 50]"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+                @search="applyFilters"
+                @reset="clearFilters"
+            >
+                <div class="maintenance-filter-period">
+                    <DashboardDateRangePicker
+                        v-model:from-date="filters.from_date"
+                        v-model:to-date="filters.to_date"
+                        label="Date Range *"
+                        panel-align="start"
+                        :preset-keys="datePresetKeys"
+                        :max-months="MAX_LIST_DATE_RANGE_MONTHS"
+                        @change="onDateRangeChange"
+                    />
+                </div>
+                <div>
+                    <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
+                    <VehicleSelect
+                        :input-id="`${pageId}_vehicle`"
+                        v-model="filters.vehicle_id"
+                        :vehicles="vehicles"
+                        placeholder="All trucks"
+                        :disabled="loading"
+                    />
+                </div>
+                <div>
+                    <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
+                    <MaintenanceServiceTypeSelect
+                        :input-id="`${pageId}_service_type`"
+                        v-model="filters.maintenance_service_type_id"
+                        :service-types="serviceTypes"
+                        placeholder="All types"
+                        :disabled="loading"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <AppSelect
+                        v-model="filters.due_status"
+                        :options="dueStatusOptions"
+                        placeholder="All statuses"
+                        search-placeholder="Search status…"
+                        :disabled="loading"
+                    />
+                </div>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 70px">#</th>
+                        <th>Date</th>
+                        <th>Truck</th>
+                        <th>Service Type</th>
+                        <th>Provider</th>
+                        <th class="text-end">Meter Reading</th>
+                        <th class="text-end">Cost</th>
+                        <th>Status</th>
+                        <th>Next Due</th>
+                        <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 160px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="!filtersApplied" class="app-index-empty-row">
+                        <td :colspan="hasRowActions ? 10 : 9" class="text-center text-muted py-4">
+                            Select a date range and click Search to view service records.
+                        </td>
+                    </tr>
+                    <tr v-else-if="records.length === 0" class="app-index-empty-row">
+                        <td :colspan="hasRowActions ? 10 : 9" class="text-center text-muted py-4">
+                            No service records found for selected filters.
+                        </td>
+                    </tr>
+                    <tr v-for="(record, index) in records" :key="record.id">
+                        <td class="text-center">{{ rowNumber(index) }}</td>
+                        <td>{{ formatDate(record.service_date) }}</td>
+                        <td>
+                            <RouterLink
+                                v-if="canView && record.vehicle?.id"
+                                :to="{ name: 'trucks.show', params: { vehicleId: record.vehicle.id } }"
+                                class="text-decoration-none fw-semibold"
+                            >
+                                {{ vehicleLabel(record) }}
+                            </RouterLink>
+                            <span v-else>{{ vehicleLabel(record) }}</span>
+                        </td>
+                        <td>{{ record.service_type_label ?? record.service_type ?? '—' }}</td>
+                        <td>{{ record.service_provider || '—' }}</td>
+                        <td class="text-end">{{ formatOdometer(record.odometer_km) }}</td>
+                        <td class="text-end">{{ formatAmount(record.cost_amount) }}</td>
+                        <td>
+                            <span class="badge" :class="statusMeta(record).badge">{{ statusMeta(record).label }}</span>
+                        </td>
+                        <td>{{ dueSummary(record) }}</td>
+                        <td v-if="hasRowActions" class="app-index-actions-cell">
+                            <AppTableActions>
+                                <AppCrudActionButton
+                                    v-if="canView"
+                                    action="view"
+                                    title="View record"
+                                    @click="goToView(record)"
+                                />
+                                <AppCrudActionButton v-if="canEdit" action="edit" @click="goToEdit(record)" />
+                                <AppCrudActionButton v-if="canDelete" action="delete" @click="openDelete(record)" />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="records"
+                    aria-label="Service records pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <MaintenanceActionConfirmModal
             :show="showDeleteConfirm"
@@ -162,11 +176,11 @@ import MaintenanceActionConfirmModal from '../../components/maintenance/Maintena
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import MaintenanceServiceTypeSelect from '../../components/ui/MaintenanceServiceTypeSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useListPagination } from '../../composables/useListPagination';
@@ -202,6 +216,7 @@ const vehicles = ref([]);
 const records = ref([]);
 const loading = ref(false);
 const filtersApplied = ref(false);
+const filtersOpen = ref(false);
 const deleting = ref(false);
 const showDeleteConfirm = ref(false);
 const deleteConfirmSummary = ref(null);
@@ -222,6 +237,10 @@ const filtersActive = computed(
         filters.maintenance_service_type_id !== '' ||
         filters.due_status !== '',
 );
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 function vehicleLabel(record) {
     const label = record.vehicle?.registration_number ?? '—';
@@ -309,7 +328,6 @@ function onDateRangeChange() {
 
 function clearFilters() {
     Object.assign(filters, defaultMaintenanceListFilters());
-    pagination.perPage = 10;
     pagination.currentPage = 1;
     filtersApplied.value = false;
     records.value = [];
@@ -362,16 +380,6 @@ function goToPage(page) {
     }
 
     loadRecords(page);
-}
-
-function onPerPageUpdate(perPage) {
-    if (!filtersApplied.value) {
-        return;
-    }
-
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadRecords(1);
 }
 
 function goToCreate() {
@@ -431,6 +439,7 @@ onMounted(async () => {
 
     if (route.query.vehicle_id) {
         filters.vehicle_id = String(route.query.vehicle_id);
+        filtersOpen.value = true;
     }
 
     try {

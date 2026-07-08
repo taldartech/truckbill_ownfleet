@@ -6,10 +6,15 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function listCompanies(page = 1) {
-    const { data } = await api.get(companiesBase, { params: { page, per_page: 500 } });
+export async function listCompanies({ page = 1, perPage = 10 } = {}) {
+    const { data } = await api.get(companiesBase, {
+        params: { page, per_page: perPage },
+    });
 
-    return data;
+    return {
+        data: data.data ?? [],
+        meta: data.meta ?? {},
+    };
 }
 
 export async function listAllCompanies() {

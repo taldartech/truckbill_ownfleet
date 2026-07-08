@@ -1,79 +1,129 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Drivers Management">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard">
+        <AppIndexListCard title="Drivers Management" :loading="loading" loading-text="Loading drivers…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="drivers-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Create driver"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadDrivers(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="searchQuery"
-                    :input-id="`${pageId}_search`"
-                    placeholder="Search name, mobile, license…"
-                    aria-label="Search drivers"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="drivers-filters-panel"
+                :loading="loading"
+                @search="loadDrivers(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="driversIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="searchQuery"
+                        input-id="driversIndex_search"
+                        placeholder="Search name, mobile, license…"
+                        aria-label="Search drivers"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadDrivers(1)"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ searchQuery.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
 
-        <AppIndexListCard title="Drivers List" :loading="loading" loading-text="Loading drivers…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 70px">#</th>
-                            <th>Name</th>
-                            <th>Mobile</th>
-                            <th>License Number</th>
-                            <th>Address</th>
-                            <th v-if="showRowActions" class="app-index-actions-cell" style="width: 150px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="drivers.length === 0">
-                            <td :colspan="showRowActions ? 6 : 5" class="text-center text-muted py-4">
-                                No drivers found.
-                            </td>
-                        </tr>
-                        <tr v-for="(driver, index) in drivers" :key="driver.id">
-                            <td class="text-center">{{ rowNumber(index) }}</td>
-                            <td>
-                                <strong>{{ driver.name }}</strong>
-                                <span v-if="!driver.is_active" class="badge bg-secondary ms-1">Inactive</span>
-                            </td>
-                            <td>{{ formatPhone(driver.phone) }}</td>
-                            <td>{{ driver.license_number || '—' }}</td>
-                            <td>{{ formatAddress(driver.address) }}</td>
-                            <td v-if="showRowActions" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton v-if="canEdit" action="edit" @click="openEdit(driver)" />
-                                    <AppCrudActionButton
-                                        v-if="canViewAdvances"
-                                        action="advance"
-                                        @click="openAdvance(driver)"
-                                    />
-                                    <AppCrudActionButton v-if="canArchive" action="delete" @click="handleDelete(driver)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 70px">#</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>License Number</th>
+                        <th>Address</th>
+                        <th v-if="showRowActions" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="drivers.length === 0" class="app-index-empty-row">
+                        <td :colspan="showRowActions ? 6 : 5" class="text-center text-muted py-4">
+                            No drivers found.
+                        </td>
+                    </tr>
+                    <tr v-for="(driver, index) in drivers" :key="driver.id">
+                        <td class="text-center">{{ rowNumber(index) }}</td>
+                        <td>
+                            <strong>{{ driver.name }}</strong>
+                            <span v-if="!driver.is_active" class="badge bg-secondary ms-1">Inactive</span>
+                        </td>
+                        <td>{{ formatPhone(driver.phone) }}</td>
+                        <td>{{ driver.license_number || '—' }}</td>
+                        <td>{{ formatAddress(driver.address) }}</td>
+                        <td v-if="showRowActions" class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
+                                <button
+                                    v-if="canEdit"
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(driver)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <AppCrudActionButton
+                                    v-if="canViewAdvances"
+                                    action="advance"
+                                    @click="openAdvance(driver)"
+                                />
+                                <button
+                                    v-if="canArchive"
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
+                                    @click="handleDelete(driver)"
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    :page-id="pageId"
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
                     :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
                     item-label="drivers"
+                    aria-label="Drivers pagination"
                     @page-change="goToPage"
-                    @update:per-page="onPerPageUpdate"
                 />
             </template>
         </AppIndexListCard>
@@ -137,14 +187,12 @@ import { createDriverAdvanceEntry } from '../../api/driverAdvances';
 import { createDriver, deleteDriver, listDrivers, updateDriver } from '../../api/drivers';
 import DriverAdvanceModal from '../../components/drivers/DriverAdvanceModal.vue';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useAppToast } from '../../composables/useAppToast';
@@ -172,8 +220,6 @@ const {
 } = useMasterCrudSaveConfirm();
 const pendingDriverMode = ref('create');
 const advanceWalletBalance = ref(null);
-
-const pageId = 'driversIndex';
 
 const { fieldErrors, formError: driverFormError, clearErrors, applyApiError } = useApiFormErrors();
 const {
@@ -206,9 +252,14 @@ const advanceDriver = ref(null);
 const advanceSaving = ref(false);
 const advanceModalRef = ref(null);
 const searchQuery = ref('');
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
+const filtersOpen = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => searchQuery.value.trim() !== '');
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 function clearFilters() {
     searchQuery.value = '';
@@ -259,12 +310,6 @@ function goToPage(page) {
     }
 
     loadDrivers(page);
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadDrivers(1);
 }
 
 function openCreate() {
@@ -467,5 +512,9 @@ async function handleDelete(driver) {
 
 onMounted(() => {
     loadDrivers();
+
+    if (searchQuery.value.trim() !== '') {
+        filtersOpen.value = true;
+    }
 });
 </script>

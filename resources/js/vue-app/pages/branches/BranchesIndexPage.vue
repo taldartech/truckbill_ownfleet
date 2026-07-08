@@ -1,38 +1,86 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Branch Management">
-            <template v-if="canManage" #actions>
-                <AppButton icon="bi bi-plus" label="Add Branch" @click="openCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="searchQuery"
-                    :input-id="`${pageId}_search`"
-                    placeholder="Search branch, company, contact…"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label">Company</label>
-                <AppSelect
-                    v-model="companyFilter"
-                    :options="companySelectOptions"
-                    placeholder="All companies"
-                    search-placeholder="Search company…"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Branch Management" :loading="loading" loading-text="Loading branches…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="branches-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Add Branch"
+                    @click="openCreate"
+                >
+                    Add Branch
+                </AppIndexHeaderButton>
+            </template>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading branches…">
-            <table class="table table-hover align-middle mb-0">
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="branches-filters-panel"
+                :loading="loading"
+                @search="loadBranches(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="branchesIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="searchQuery"
+                        input-id="branchesIndex_search"
+                        placeholder="Search branch, company, contact…"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadBranches(1)"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Company</label>
+                    <AppSelect
+                        v-model="companyFilter"
+                        :options="companySelectOptions"
+                        placeholder="All companies"
+                        search-placeholder="Search company…"
+                        :disabled="loading"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="searchQuery.trim()" class="app-index-active-search__pill">
+                            {{ searchQuery.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearSearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="companyFilter" class="app-index-active-search__pill">
+                            {{ activeCompanyLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear company filter"
+                                title="Clear company"
+                                @click="clearCompanyFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
                         <th style="width: 60px">#</th>
@@ -41,7 +89,7 @@
                         <th>Contact</th>
                         <th>Address</th>
                         <th>Head Office</th>
-                        <th class="app-index-actions-cell" style="width: 220px">Actions</th>
+                        <th class="app-index-actions-cell text-end" style="width: 220px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,8 +114,8 @@
                             <span v-if="branch.head_office" class="badge bg-primary">Head Office</span>
                             <span v-else class="text-muted">—</span>
                         </td>
-                        <td class="app-index-actions-cell">
-                            <AppTableActions>
+                        <td class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
                                 <AppButton
                                     v-if="canEnter"
                                     size="sm"
@@ -76,34 +124,39 @@
                                     :disabled="isActiveBranch(branch.id)"
                                     @click="handleEnter(branch)"
                                 />
-                                <AppCrudActionButton
+                                <button
                                     v-if="canManage"
-                                    action="edit"
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
                                     @click="openEdit(branch)"
-                                />
-                                <AppCrudActionButton
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <button
                                     v-if="canManage"
-                                    action="delete"
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
                                     @click="handleDelete(branch)"
-                                />
-                            </AppTableActions>
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    :page-id="pageId"
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
                     :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
                     item-label="branches"
+                    aria-label="Branches pagination"
                     @page-change="goToPage"
-                    @update:per-page="onPerPageUpdate"
                 />
             </template>
         </AppIndexListCard>
@@ -139,13 +192,11 @@ import { createBranch, deleteBranch, enterBranch, fetchBranchDeletionImpact, lis
 import BranchFormModal from '../../components/branches/BranchFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
-import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -154,7 +205,6 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { usePermissions } from '../../composables/usePermissions';
 import { buildBranchFields } from '../../utils/masterCrudSaveConfirm';
 
-const pageId = 'branchesIndex';
 const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
@@ -196,13 +246,24 @@ const formMode = ref('create');
 const editingBranch = ref(null);
 const searchQuery = ref('');
 const companyFilter = ref('');
+const filtersOpen = ref(false);
 
 const { fieldErrors, formError: branchFormError, clearErrors, applyApiError } = useApiFormErrors();
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(
     () => searchQuery.value.trim() !== '' || companyFilter.value !== '',
 );
+
+const activeCompanyLabel = computed(() => {
+    const match = companySelectOptions.value.find((option) => String(option.id) === String(companyFilter.value));
+
+    return match?.label ?? 'Company';
+});
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 function rowNumber(index) {
     return pagination.from > 0 ? pagination.from + index : index + 1;
@@ -238,7 +299,14 @@ async function loadBranches(page = pagination.currentPage) {
     }
 }
 
-function applyFilters() {
+function clearSearchFilter() {
+    searchQuery.value = '';
+    pagination.currentPage = 1;
+    loadBranches(1);
+}
+
+function clearCompanyFilter() {
+    companyFilter.value = '';
     pagination.currentPage = 1;
     loadBranches(1);
 }
@@ -246,18 +314,16 @@ function applyFilters() {
 function clearFilters() {
     searchQuery.value = '';
     companyFilter.value = '';
-    applyFilters();
+    pagination.currentPage = 1;
+    loadBranches(1);
 }
 
 function goToPage(page) {
-    pagination.currentPage = page;
-    loadBranches(page);
-}
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
 
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadBranches(1);
+    loadBranches(page);
 }
 
 function openCreate() {
@@ -409,5 +475,9 @@ function buildBranchDeleteMessage(branchName, impact) {
 onMounted(async () => {
     await loadCompanies();
     await loadBranches();
+
+    if (filtersActive.value) {
+        filtersOpen.value = true;
+    }
 });
 </script>

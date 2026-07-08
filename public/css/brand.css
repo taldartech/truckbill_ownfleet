@@ -707,10 +707,10 @@ a.btn-outline-secondary:hover {
     color: var(--brand-text-on-green) !important;
 }
 
-/* Keep utility / nested headers neutral */
+/* Keep utility / nested headers neutral — branded list cards stay green (partload parity) */
 .app-index-filters > .card-header,
-.modal .card > .card-header,
-.card .card > .card-header,
+.modal .card:not(.app-index-list-card) > .card-header,
+.card .card:not(.app-index-list-card) > .card-header,
 .role-permissions-group__header {
     background: rgba(0, 0, 0, 0.03) !important;
     color: var(--brand-text-primary) !important;
@@ -718,10 +718,65 @@ a.btn-outline-secondary:hover {
 }
 
 .app-index-filters > .card-header :is(h1, h2, h3, h4, h5, h6, .card-title, strong),
-.modal .card > .card-header :is(h1, h2, h3, h4, h5, h6, .card-title, strong),
-.card .card > .card-header :is(h1, h2, h3, h4, h5, h6, .card-title, strong),
+.modal .card:not(.app-index-list-card) > .card-header :is(h1, h2, h3, h4, h5, h6, .card-title, strong),
+.card .card:not(.app-index-list-card) > .card-header :is(h1, h2, h3, h4, h5, h6, .card-title, strong),
 .role-permissions-group__header :is(h1, h2, h3, h4, h5, h6, .card-title, strong) {
     color: var(--brand-text-primary) !important;
+}
+
+.modal .app-index-list-card > .card-header {
+    background: var(--brand-gradient) !important;
+    border-bottom: none !important;
+    color: var(--brand-text-on-green) !important;
+    padding: 0.65rem 1rem;
+}
+
+.modal .app-index-list-card > .card-header .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--brand-text-on-green) !important;
+}
+
+.modal .app-index-list-card > .card-header .app-index-card-toolbar {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.modal .app-index-list-card > .card-header .app-index-header-btn,
+.modal .app-index-list-card > .card-header .app-index-header-btn.btn-brand-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background-color: #fff !important;
+    border: 1px solid #fff !important;
+    color: var(--brand-primary, #2fb36f) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.modal .app-index-list-card > .card-header .app-index-header-btn:hover,
+.modal .app-index-list-card > .card-header .app-index-header-btn.btn-brand-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    border-color: #fff !important;
+    color: var(--brand-primary-dark, #23965c) !important;
+}
+
+.modal .app-index-list-card > .card-header .app-index-header-btn:hover .app-index-header-btn__icon::before {
+    color: var(--brand-primary-dark, #23965c);
+}
+
+.modal .app-index-list-card > .card-header .btn-primary {
+    background-color: #fff !important;
+    border-color: #fff !important;
+    color: var(--brand-primary, #2fb36f) !important;
+}
+
+.modal .app-index-list-card > .card-header .btn-primary:hover {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    border-color: #fff !important;
+    color: var(--brand-primary-dark, #23965c) !important;
 }
 
 .modal-header:not(.bg-danger):not(.bg-warning):not(.bg-warning-subtle) {

@@ -1,123 +1,112 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Maintenance Reports">
-            <template v-if="canExport" #actions>
-                <AppButton
-                    icon="bi bi-file-earmark-excel"
-                    label="Export Excel"
-                    outline
-                    @click="exportExcel"
-                />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page report-index-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> to view maintenance reports.
         </div>
 
         <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Report</label>
-                <AppSelect
-                    v-model="reportType"
-                    :options="reportTypes"
-                    placeholder="Select report"
-                    search-placeholder="Search report…"
-                    @change="clearErrors"
-                />
-            </div>
-            <div>
-                <label class="form-label">From</label>
-                <AppDateInput
-                    v-model="filters.from"
-                    :max="todayMax"
-                    :invalid="!!fieldErrors.from"
-                    @input="onFromChange"
-                />
-                <div v-if="fieldErrors.from" class="invalid-feedback d-block">
-                    {{ fieldErrors.from[0] }}
-                </div>
-            </div>
-            <div>
-                <label class="form-label">To</label>
-                <AppDateInput
-                    v-model="filters.to"
-                    :min="filters.from || undefined"
-                    :max="filtersToMax"
-                    :invalid="!!fieldErrors.to"
-                    @input="clearFieldError('to')"
-                />
-                <div v-if="fieldErrors.to" class="invalid-feedback d-block">
-                    {{ fieldErrors.to[0] }}
-                </div>
-                <div class="form-text">Maximum {{ MAX_REPORT_DATE_RANGE_MONTHS }} months. No future dates.</div>
-            </div>
-            <div v-if="reportType === 'cost'">
-                <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
-                <MaintenanceServiceTypeSelect
-                    :input-id="`${pageId}_service_type`"
-                    v-model="filters.maintenance_service_type_id"
-                    :service-types="serviceTypes"
-                    placeholder="All types"
-                />
-            </div>
-            <div v-if="reportType === 'truck'">
-                <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
-                <VehicleSelect
-                    :input-id="`${pageId}_vehicle`"
-                    v-model="filters.vehicle_id"
-                    :vehicles="vehicles"
-                    placeholder="All trucks"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Maintenance Reports">
+            <template v-if="canExport" #toolbar>
+                <button type="button" class="btn btn-brand-secondary btn-sm report-header-btn" @click="exportExcel">
+                    Export Excel
+                </button>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">{{ currentLabel }}</h3>
-            </div>
-            <div class="card-body">
-                <div v-if="loading" class="text-muted text-center py-4">Loading…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead v-if="columns.length" class="table-light">
-                            <tr>
-                                <th v-for="col in columns" :key="col">{{ formatColumn(col) }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="rows.length === 0">
-                                <td :colspan="columns.length || 1" class="text-center text-muted py-4">
-                                    {{ emptyTableMessage }}
-                                </td>
-                            </tr>
-                            <tr
-                                v-for="(row, index) in displayRows"
-                                :key="index"
-                                :class="{ 'table-secondary fw-semibold': row.service_type === '_grand_total' }"
-                            >
-                                <td v-for="col in columns" :key="col">{{ formatCell(row, col, index) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
+                <div>
+                    <label class="form-label">Report</label>
+                    <AppSelect
+                        v-model="reportType"
+                        :options="reportTypes"
+                        placeholder="Select report"
+                        search-placeholder="Search report…"
+                        @change="clearErrors"
+                    />
                 </div>
+                <div>
+                    <label class="form-label">From</label>
+                    <AppDateInput
+                        v-model="filters.from"
+                        :max="todayMax"
+                        :invalid="!!fieldErrors.from"
+                        @input="onFromChange"
+                    />
+                    <div v-if="fieldErrors.from" class="invalid-feedback d-block">
+                        {{ fieldErrors.from[0] }}
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label">To</label>
+                    <AppDateInput
+                        v-model="filters.to"
+                        :min="filters.from || undefined"
+                        :max="filtersToMax"
+                        :invalid="!!fieldErrors.to"
+                        @input="clearFieldError('to')"
+                    />
+                    <div v-if="fieldErrors.to" class="invalid-feedback d-block">
+                        {{ fieldErrors.to[0] }}
+                    </div>
+                    <div class="form-text">Maximum {{ MAX_REPORT_DATE_RANGE_MONTHS }} months. No future dates.</div>
+                </div>
+                <div v-if="reportType === 'cost'">
+                    <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
+                    <MaintenanceServiceTypeSelect
+                        :input-id="`${pageId}_service_type`"
+                        v-model="filters.maintenance_service_type_id"
+                        :service-types="serviceTypes"
+                        placeholder="All types"
+                    />
+                </div>
+                <div v-if="reportType === 'truck'">
+                    <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
+                    <VehicleSelect
+                        :input-id="`${pageId}_vehicle`"
+                        v-model="filters.vehicle_id"
+                        :vehicles="vehicles"
+                        placeholder="All trucks"
+                    />
+                </div>
+            </AppReportFiltersPanel>
+
+            <div class="report-results-meta px-3 py-2 border-bottom">
+                <span class="report-results-meta__title">{{ currentLabel }}</span>
             </div>
-            <AppIndexPaginationFooter
-                :page-id="pageId"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="records"
-                @page-change="loadReport"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+
+            <div v-if="loading" class="text-muted text-center py-4">Loading…</div>
+            <table v-else class="table table-striped table-hover align-middle mb-0 report-table">
+                <thead v-if="columns.length" class="table-light">
+                    <tr>
+                        <th v-for="col in columns" :key="col">{{ formatColumn(col) }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="rows.length === 0">
+                        <td :colspan="columns.length || 1" class="text-center text-muted py-4">
+                            {{ emptyTableMessage }}
+                        </td>
+                    </tr>
+                    <tr
+                        v-for="(row, index) in displayRows"
+                        :key="index"
+                        :class="{ 'table-secondary fw-semibold': row.service_type === '_grand_total' }"
+                    >
+                        <td v-for="col in columns" :key="col">{{ formatCell(row, col, index) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="records"
+                    aria-label="Maintenance reports pagination"
+                    @page-change="loadReport"
+                />
+            </template>
+        </AppIndexListCard>
     </div>
 </template>
 
@@ -127,11 +116,10 @@ import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
 import { exportMaintenanceReport, fetchMaintenanceCostSummary, fetchMaintenanceTruckWiseReport } from '../../api/maintenanceReports';
 import { withReportPagination } from '../../api/reportPagination';
 import { listAllVehicles } from '../../api/vehicles';
-import AppButton from '../../components/ui/AppButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppReportFiltersPanel from '../../components/ui/AppReportFiltersPanel.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import MaintenanceServiceTypeSelect from '../../components/ui/MaintenanceServiceTypeSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -170,15 +158,7 @@ const rows = ref([]);
 const grandTotalRow = ref(null);
 const loading = ref(false);
 const reportLoaded = ref(false);
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
-
-const filtersActive = computed(
-    () =>
-        filters.from !== '' ||
-        filters.to !== '' ||
-        filters.maintenance_service_type_id !== '' ||
-        filters.vehicle_id !== '',
-);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersToMax = computed(() => {
     if (!filters.from) {
@@ -343,11 +323,6 @@ async function loadReport(page = 1) {
     } finally {
         loading.value = false;
     }
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    loadReport(1);
 }
 
 function clearFilters() {

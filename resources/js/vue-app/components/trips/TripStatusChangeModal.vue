@@ -4,17 +4,33 @@
         :loading="saving"
         :form-error="saveError || formError"
         :header-gradient="status !== 'CANCELLED'"
-        :content-class="status === 'CANCELLED' ? 'trip-status-modal--cancelled' : ''"
+        :content-class="[
+            'trip-status-modal__content',
+            status === 'CANCELLED' ? 'trip-status-modal--cancelled' : '',
+        ]"
+        body-class="trip-status-modal__body"
         dismissible
         as-form
         @close="$emit('cancel')"
         @submit="submit"
     >
-        <template #title>
-            <span class="text-white">
-                <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
-                {{ modalTitle }}
-            </span>
+        <template #header>
+            <div class="trip-status-modal__header-main">
+                <h5 class="modal-title mb-0 text-white d-flex align-items-center gap-2">
+                    <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
+                    {{ modalTitle }}
+                </h5>
+                <div class="trip-status-modal__header-meta">
+                    <span class="trip-status-modal__header-meta-item">
+                        <span class="trip-status-modal__header-label">Trip Number</span>
+                        <span class="trip-status-modal__header-value">{{ tripNumber || '—' }}</span>
+                    </span>
+                    <span class="trip-status-modal__header-meta-item">
+                        <span class="trip-status-modal__header-label">Truck Number</span>
+                        <span class="trip-status-modal__header-value">{{ truckNumber || '—' }}</span>
+                    </span>
+                </div>
+            </div>
         </template>
 
         <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
@@ -26,6 +42,10 @@
                             </div>
                             <h6 class="mb-2">{{ finalConfirmTitle }}</h6>
                             <p class="text-muted small mb-0">{{ finalConfirmMessage }}</p>
+                            <TripStatusChangeUpdatesPanel
+                                class="mt-3 text-start"
+                                :items="statusUpdateItems"
+                            />
                         </div>
 
                         <template v-else-if="status === 'CANCELLED'">
@@ -38,9 +58,6 @@
                                 This trip has no <strong>start meter reading</strong>. Open the trip, set the start meter reading, then try cancelling again.
                             </div>
                             <template v-else>
-                            <p class="text-muted small mb-3">
-                                Please enter when this trip was cancelled, the end meter reading, and why.
-                            </p>
                             <div class="status-readonly-strip mb-3">
                                 <div class="status-readonly-strip__item">
                                     <span class="status-readonly-strip__label">Start Meter Reading</span>
@@ -92,6 +109,10 @@
                                     {{ fieldErrors.cancellation_reason }}
                                 </div>
                             </div>
+                            <TripStatusChangeUpdatesPanel
+                                class="mt-3"
+                                :items="statusUpdateItems"
+                            />
                             </template>
                         </template>
 
@@ -105,9 +126,6 @@
                                 This trip has no <strong>start meter reading</strong>. Open the trip, set the start meter reading, then try completing again.
                             </div>
                             <template v-else>
-                            <p class="text-muted small mb-3">
-                                Confirm trip completion dates and meter reading before saving.
-                            </p>
                             <div class="status-readonly-strip mb-3">
                                 <div class="status-readonly-strip__item">
                                     <span class="status-readonly-strip__label">Start Date</span>
@@ -178,6 +196,10 @@
                                     {{ fieldErrors.end_at }}
                                 </div>
                             </div>
+                            <TripStatusChangeUpdatesPanel
+                                class="mt-3"
+                                :items="statusUpdateItems"
+                            />
                             </template>
                         </template>
 
@@ -212,12 +234,17 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { toDateInputFromIso, toDateInputValue, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
+import { buildTripStatusChangeUpdateItems } from '../../utils/trip-status-change-info';
 import AppButton from '../ui/AppButton.vue';
 import AppModal from '../ui/AppModal.vue';
+import TripStatusChangeUpdatesPanel from './TripStatusChangeUpdatesPanel.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
     status: { type: String, default: '' },
+    fromStatus: { type: String, default: '' },
+    tripNumber: { type: String, default: '' },
+    truckNumber: { type: String, default: '' },
     startAt: { type: String, default: '' },
     endAtValue: { type: String, default: '' },
     actualArrivalAtValue: { type: String, default: '' },
@@ -295,6 +322,22 @@ const completionArrivalTiming = computed(() => {
 
     return 'late';
 });
+
+const statusUpdateItems = computed(() =>
+    buildTripStatusChangeUpdateItems({
+        fromStatus: props.fromStatus,
+        toStatus: props.status,
+        confirmPayload: awaitingFinalConfirm.value
+            ? pendingConfirmPayload.value
+            : {
+                  end_at: endAt.value,
+                  actual_arrival_at: actualArrivalAt.value,
+                  end_meter_reading_km: endMeterReadingKm.value,
+                  cancelled_at: cancelledAt.value,
+                  cancellation_reason: cancellationReason.value,
+              },
+    }),
+);
 
 function formatMeter(value) {
     return formatMeterKm(value);
@@ -475,8 +518,53 @@ function finalConfirm() {
 </script>
 
 <style scoped>
+:deep(.trip-status-modal__content) {
+    max-height: none;
+}
+
+:deep(.trip-status-modal__body) {
+    overflow: visible !important;
+}
+
 :deep(.trip-status-modal--cancelled .app-modal__header) {
     background-color: var(--bs-danger);
+    color: #fff;
+}
+
+.trip-status-modal__header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.trip-status-modal__header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 1rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.trip-status-modal__header-meta-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.trip-status-modal__header-label {
+    opacity: 0.9;
+}
+
+.trip-status-modal__header-label::after {
+    content: ':';
+}
+
+.trip-status-modal__header-value {
+    font-weight: 700;
     color: #fff;
 }
 

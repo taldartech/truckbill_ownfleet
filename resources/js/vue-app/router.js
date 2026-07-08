@@ -127,6 +127,16 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.create' },
                 },
                 {
+                    path: 'trips/archived',
+                    name: 'trips.archived',
+                    component: () => import('./pages/trips/TripsArchivedIndexPage.vue'),
+                    meta: {
+                        requiresTenant: true,
+                        permission: 'trips.view_archived',
+                        roles: ['super_admin', 'admin'],
+                    },
+                },
+                {
                     path: 'trips/:id',
                     name: 'trips.show',
                     component: () => import('./pages/trips/TripDetailPage.vue'),
@@ -325,6 +335,22 @@ router.beforeEach(async (to) => {
 
     if (user.role === 'master_admin' && to.meta.requiresTenant) {
         return { name: 'companies.index' };
+    }
+
+    if (to.name === 'trips.index') {
+        const showArchived = String(to.query.show_archived ?? '');
+
+        if (['1', 'true'].includes(showArchived)) {
+            const nextQuery = { ...to.query };
+
+            delete nextQuery.show_archived;
+
+            return {
+                name: 'trips.archived',
+                query: nextQuery,
+                replace: true,
+            };
+        }
     }
 
     if (to.meta.roles?.length && !to.meta.roles.includes(user.role)) {

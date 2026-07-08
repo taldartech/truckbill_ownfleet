@@ -6,6 +6,21 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
+export async function listCustomers({ page = 1, perPage = 15, search = '' } = {}) {
+    const { data } = await api.get(base, {
+        params: {
+            page,
+            per_page: perPage,
+            ...(search ? { search } : {}),
+        },
+    });
+
+    return {
+        data: data.data ?? [],
+        meta: data.meta ?? {},
+    };
+}
+
 export async function listAllCustomers({ search } = {}) {
     const { data } = await api.get(base, {
         params: {

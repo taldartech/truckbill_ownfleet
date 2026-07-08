@@ -1,61 +1,101 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Permission Management">
-            <template v-if="canManage" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard permissions-index-page">
+        <AppIndexListCard title="Permission Management" :loading="loading" loading-text="Loading permissions…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="permissions-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Create permission"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Permissions List</h3>
-            </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading permissions…</div>
-                <table v-else class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Slug</th>
-                            <th>Name</th>
-                            <th>Group</th>
-                            <th>Roles</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="permissions.length === 0">
-                            <td :colspan="canManage ? 5 : 4" class="text-center text-muted">No permissions found.</td>
-                        </tr>
-                        <tr v-for="permission in permissions" :key="permission.id">
-                            <td><code>{{ permission.slug }}</code></td>
-                            <td>{{ permission.name }}</td>
-                            <td>{{ permission.group }}</td>
-                            <td>{{ permission.roles_count ?? 0 }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openEdit(permission)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(permission)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="permissionsIndex"
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="permissions-filters-panel"
                 :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="permissions"
-                :per-page-options="[15, 25, 50]"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+                @search="loadPermissions(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="permissionsIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="search"
+                        input-id="permissionsIndex_search"
+                        placeholder="Search slug or name"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadPermissions(1)"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Slug</th>
+                        <th>Name</th>
+                        <th>Group</th>
+                        <th>Roles</th>
+                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="permissions.length === 0" class="app-index-empty-row">
+                        <td :colspan="tableColspan" class="text-center text-muted py-4">No permissions found.</td>
+                    </tr>
+                    <tr v-for="permission in permissions" :key="permission.id">
+                        <td><code>{{ permission.slug }}</code></td>
+                        <td>{{ permission.name }}</td>
+                        <td>{{ permission.group }}</td>
+                        <td>{{ permission.roles_count ?? 0 }}</td>
+                        <td v-if="canManage" class="app-index-actions-cell">
+                            <AppTableActions>
+                                <AppCrudActionButton action="edit" @click="openEdit(permission)" />
+                                <AppCrudActionButton action="delete" @click="handleDelete(permission)" />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="permissions"
+                    aria-label="Permissions pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <PermissionFormModal
             modal-id="permissionFormModal"
@@ -80,7 +120,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     createPermission,
     deletePermission,
@@ -88,10 +128,12 @@ import {
     updatePermission,
 } from '../../api/permissions';
 import PermissionFormModal from '../../components/access/PermissionFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
@@ -112,6 +154,7 @@ const {
     finishSaveConfirm,
 } = useMasterCrudSaveConfirm();
 const canManage = computed(() => can('permissions.manage'));
+const tableColspan = computed(() => (canManage.value ? 5 : 4));
 
 const { fieldErrors, formError: permissionFormError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -121,13 +164,33 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingPermission = ref(null);
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(50);
+const search = ref('');
+const filtersOpen = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+
+const filtersActive = computed(() => search.value.trim() !== '');
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
+function clearFilters() {
+    search.value = '';
+    pagination.currentPage = 1;
+    loadPermissions(1);
+}
 
 async function loadPermissions(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        const response = await listPermissions({ page, per_page: pagination.perPage });
+        const params = { page, per_page: pagination.perPage };
+
+        if (search.value.trim()) {
+            params.search = search.value.trim();
+        }
+
+        const response = await listPermissions(params);
         permissions.value = response.data ?? [];
         syncFromMeta(response.meta, permissions.value.length);
     } catch {
@@ -145,12 +208,6 @@ function goToPage(page) {
     }
 
     loadPermissions(page);
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadPermissions(1);
 }
 
 function openCreate() {

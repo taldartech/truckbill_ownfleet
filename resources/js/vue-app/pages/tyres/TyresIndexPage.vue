@@ -1,85 +1,143 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Tyre Management">
-            <template #actions>
-                <RouterLink
-                    v-if="vehicleFilter && truckFilterApplicable"
-                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
-                    class="btn btn-outline-success btn-sm"
-                >
-                    <i class="bi bi-grid-3x3-gap"></i> Positions
-                </RouterLink>
-                <AppButton v-if="canManage" icon="bi bi-plus" label="Add Tyre" @click="openCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="search"
-                    input-id="tyresIndex_search"
-                    placeholder="Tyre number, brand, size…"
-                    max-width="100%"
-                    :disabled="loading"
-                    @keydown.enter.prevent="applyFilters"
-                />
-            </div>
-            <div v-if="truckFilterApplicable">
-                <label class="form-label" for="tyresIndex_vehicle">Truck</label>
-                <VehicleSelect
-                    input-id="tyresIndex_vehicle"
-                    v-model="vehicleFilter"
-                    :vehicles="vehicles"
-                    placeholder="All trucks"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label">Status</label>
-                <AppSelect
-                    v-model="statusFilter"
-                    :options="tyreStatuses"
-                    placeholder="All statuses"
-                    search-placeholder="Search status…"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Tyre Management" :loading="loading" loading-text="Loading tyres…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="tyres-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <RouterLink
+                    v-if="vehicleFilter && truckFilterApplicable"
+                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
+                    class="btn btn-brand-secondary btn-sm app-index-header-btn"
+                >
+                    <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                    Positions
+                </RouterLink>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Add tyre"
+                    @click="openCreate"
+                >
+                    Add Tyre
+                </AppIndexHeaderButton>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-body">
-                <div v-if="!filtersApplied" class="text-center text-muted py-4">
-                    Select filters and click Apply to view tyres.
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="tyres-filters-panel"
+                :loading="loading"
+                @search="applyFilters"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="tyresIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="search"
+                        input-id="tyresIndex_search"
+                        placeholder="Tyre number, brand, size…"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter.prevent="applyFilters"
+                    />
                 </div>
-                <div v-else-if="loading" class="text-center py-4 text-muted">Loading tyres…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Tyre #</th>
-                            <th>Brand</th>
-                            <th>Size</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Life used</th>
-                            <th>Warranty</th>
-                            <th>Truck / Position</th>
-                            <th>Purchase</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 140px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="tyres.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 10 : 9" class="text-center text-muted py-4">
-                                No tyres found for selected filters.
-                            </td>
-                        </tr>
-                        <tr v-for="tyre in tyres" :key="tyre.id">
+                <div v-if="truckFilterApplicable">
+                    <label class="form-label" for="tyresIndex_vehicle">Truck</label>
+                    <VehicleSelect
+                        input-id="tyresIndex_vehicle"
+                        v-model="vehicleFilter"
+                        :vehicles="vehicles"
+                        placeholder="All trucks"
+                        :disabled="loading"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <AppSelect
+                        v-model="statusFilter"
+                        :options="tyreStatuses"
+                        placeholder="All statuses"
+                        search-placeholder="Search status…"
+                        :disabled="loading"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="search.trim()" class="app-index-active-search__pill">
+                            {{ search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearSearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="statusFilter" class="app-index-active-search__pill">
+                            {{ activeStatusLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear status filter"
+                                title="Clear status"
+                                @click="clearStatusFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="truckFilterApplicable && vehicleFilter" class="app-index-active-search__pill">
+                            {{ activeVehicleLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear truck filter"
+                                title="Clear truck"
+                                @click="clearVehicleFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tyre #</th>
+                        <th>Brand</th>
+                        <th>Size</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Life used</th>
+                        <th>Warranty</th>
+                        <th>Truck / Position</th>
+                        <th>Purchase</th>
+                        <th v-if="canManage" class="app-index-actions-cell" style="width: 140px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="!filtersApplied" class="app-index-empty-row">
+                        <td :colspan="canManage ? 10 : 9" class="text-center text-muted py-4">
+                            Select filters and click Search to view tyres.
+                        </td>
+                    </tr>
+                    <tr v-else-if="tyres.length === 0" class="app-index-empty-row">
+                        <td :colspan="canManage ? 10 : 9" class="text-center text-muted py-4">
+                            No tyres found for selected filters.
+                        </td>
+                    </tr>
+                    <tr v-for="tyre in tyres" :key="tyre.id">
                             <td>
                                 <RouterLink
                                     :to="{ name: 'tyres.show', params: { id: tyre.id } }"
@@ -132,25 +190,19 @@
                                 </AppTableActions>
                             </td>
                         </tr>
-                    </tbody>
-                    </table>
-                </div>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="tyresIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="tyres"
-                :per-page-options="[15, 25, 50]"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="tyres"
+                    aria-label="Tyres pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <AppModal
             :show="showModal"
@@ -161,7 +213,7 @@
             body-class="tyre-form-body"
             footer-class="tyre-form-footer"
             @close="closeModal"
-            @submit="save"
+            @submit="requestSaveConfirm('save')"
         >
             <template #header>
                 <div>
@@ -337,11 +389,27 @@
                     size="sm"
                     label="Save & Add Another"
                     :loading="saving"
-                    @click="saveAndNext"
+                    @click="requestSaveConfirm('saveAndNext')"
                 />
                 <AppButton type="submit" variant="primary" size="sm" label="Save" :loading="saving" />
             </template>
         </AppModal>
+
+        <TyreActionConfirmModal
+            :show="showSaveConfirm"
+            :title="saveConfirmSummary?.title ?? 'Confirm Tyre'"
+            :message="saveConfirmSummary?.message ?? ''"
+            :loading="saving"
+            :confirm-label="saveConfirmSummary?.confirmLabel ?? 'Yes, Save Tyre'"
+            :icon-tone="saveConfirmSummary?.iconTone ?? 'primary'"
+            :tyre-serial="saveConfirmSummary?.tyreSerial ?? ''"
+            :truck-number="saveConfirmSummary?.truckNumber ?? ''"
+            :position="saveConfirmSummary?.position ?? ''"
+            :show-truck="saveConfirmSummary?.showTruck ?? false"
+            :items="saveConfirmSummary?.items ?? []"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSaveTyre"
+        />
     </div>
 </template>
 
@@ -351,14 +419,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppModal from '../../components/ui/AppModal.vue';
+import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -377,6 +447,7 @@ import {
     tyreStatusBadgeClass,
     warrantyBadgeClass,
 } from '../../utils/tyreDisplay';
+import { buildTyreSaveConfirmSummary } from '../../utils/tyre-save-confirm-info';
 
 const DEFAULT_TYRE_TYPE = 'RADIAL';
 
@@ -466,6 +537,7 @@ const tyreStatuses = TYRE_STATUSES;
 const tyres = ref([]);
 const loading = ref(false);
 const filtersApplied = ref(false);
+const filtersOpen = ref(false);
 const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('');
@@ -475,10 +547,12 @@ const truckFilterApplicable = computed(
 );
 const vehicles = ref([]);
 const showModal = ref(false);
+const showSaveConfirm = ref(false);
+const pendingSaveMode = ref('save');
 const editing = ref(null);
 const serialNumberInputRef = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
-const { pagination, syncFromMeta } = useListPagination(15);
+const { pagination, syncFromMeta } = useListPagination(10);
 
 const form = reactive({
     serial_number: '',
@@ -497,6 +571,22 @@ const form = reactive({
 const filtersActive = computed(
     () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
 );
+
+const activeStatusLabel = computed(() => {
+    const match = tyreStatuses.find((option) => option.value === statusFilter.value);
+
+    return match?.label ?? formatTyreStatus(statusFilter.value);
+});
+
+const activeVehicleLabel = computed(() => {
+    const match = vehicles.value.find((vehicle) => String(vehicle.id) === String(vehicleFilter.value));
+
+    return match?.registration_number ?? 'Selected truck';
+});
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 const minimumRecordedKm = computed(() => Number(editing.value?.minimum_recorded_km ?? 0));
 
@@ -528,6 +618,14 @@ const modalHeaderMetaText = computed(() => {
     return parts.join(' · ');
 });
 
+const saveConfirmSummary = computed(() =>
+    buildTyreSaveConfirmSummary({
+        editing: editing.value,
+        form,
+        editingTyre: editing.value,
+    }),
+);
+
 function clearTruckFilterIfNeeded() {
     if (truckFilterApplicable.value) {
         return;
@@ -554,8 +652,31 @@ function clearFilters() {
     tyres.value = [];
     syncFromMeta({}, 0);
     pagination.currentPage = 1;
-    pagination.perPage = 15;
     syncVehicleQuery();
+}
+
+function clearSearchFilter() {
+    search.value = '';
+
+    if (filtersApplied.value) {
+        applyFilters();
+    }
+}
+
+function clearStatusFilter() {
+    statusFilter.value = '';
+
+    if (filtersApplied.value) {
+        applyFilters();
+    }
+}
+
+function clearVehicleFilter() {
+    vehicleFilter.value = '';
+
+    if (filtersApplied.value) {
+        applyFilters();
+    }
 }
 
 function syncVehicleQuery() {
@@ -645,16 +766,6 @@ function closeModal() {
 
 function goToDetail(id) {
     router.push({ name: 'tyres.show', params: { id } });
-}
-
-function onPerPageUpdate(perPage) {
-    if (!filtersApplied.value) {
-        return;
-    }
-
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadTyres(1);
 }
 
 async function loadTyres(page = 1) {
@@ -755,58 +866,55 @@ async function persistTyre() {
     await createTyre(payload);
 }
 
-async function save() {
-    saving.value = true;
+function requestSaveConfirm(mode = 'save') {
     clearErrors();
 
     if (!validateForm()) {
-        saving.value = false;
         return;
     }
+
+    pendingSaveMode.value = mode;
+    showSaveConfirm.value = true;
+}
+
+function cancelSaveConfirm() {
+    if (saving.value) {
+        return;
+    }
+
+    showSaveConfirm.value = false;
+    pendingSaveMode.value = 'save';
+}
+
+async function confirmSaveTyre() {
+    saving.value = true;
 
     try {
         await persistTyre();
         toast.success(editing.value ? 'Tyre updated successfully.' : 'Tyre added successfully.');
-        closeModal();
+        showSaveConfirm.value = false;
 
-        if (filtersApplied.value) {
-            await loadTyres(pagination.currentPage);
+        if (pendingSaveMode.value === 'saveAndNext') {
+            if (filtersApplied.value) {
+                await loadTyres(pagination.currentPage);
+            }
+
+            form.serial_number = '';
+            await nextTick();
+            serialNumberInputRef.value?.focus();
+        } else {
+            closeModal();
+
+            if (filtersApplied.value) {
+                await loadTyres(pagination.currentPage);
+            }
         }
     } catch (error) {
+        showSaveConfirm.value = false;
         applyApiError(error, friendlyApiErrorMessage(error, 'Unable to save the tyre. Please check the form and try again.'));
     } finally {
         saving.value = false;
-    }
-}
-
-async function saveAndNext() {
-    if (editing.value) {
-        return;
-    }
-
-    saving.value = true;
-    clearErrors();
-
-    if (!validateForm()) {
-        saving.value = false;
-        return;
-    }
-
-    try {
-        await persistTyre();
-        toast.success('Tyre added successfully.');
-
-        if (filtersApplied.value) {
-            await loadTyres(pagination.currentPage);
-        }
-
-        form.serial_number = '';
-        await nextTick();
-        serialNumberInputRef.value?.focus();
-    } catch (error) {
-        applyApiError(error, friendlyApiErrorMessage(error, 'Unable to save the tyre. Please check the form and try again.'));
-    } finally {
-        saving.value = false;
+        pendingSaveMode.value = 'save';
     }
 }
 
@@ -843,6 +951,10 @@ watch(showModal, async (open) => {
 
 onMounted(async () => {
     applyRouteFilters();
+
+    if (filtersActive.value) {
+        filtersOpen.value = true;
+    }
 
     try {
         vehicles.value = await listAllVehicles();

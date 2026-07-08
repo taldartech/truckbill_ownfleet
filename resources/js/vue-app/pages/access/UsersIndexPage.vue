@@ -1,12 +1,79 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader :title="pageTitle">
-            <template v-if="canCreateUsers" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard users-index-page">
+        <AppIndexListCard :title="pageTitle" :loading="loading" loading-text="Loading users…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    v-if="canCreateUsers"
+                    icon="plus"
+                    aria-label="Create user"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <div v-if="showCompanyAlertSettings" class="card mb-3">
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th v-if="showCompanyColumn">Company</th>
+                        <th v-if="showBranchColumn">Branch</th>
+                        <th v-if="showDocumentAlertsColumn">Document Alerts</th>
+                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="users.length === 0" class="app-index-empty-row">
+                        <td :colspan="tableColspan" class="text-center text-muted py-4">No users found.</td>
+                    </tr>
+                    <tr v-for="user in users" :key="user.id">
+                        <td>
+                            <strong>{{ user.name }}</strong>
+                            <span v-if="user.is_protected" class="badge bg-secondary ms-1">Protected</span>
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.role_label }}</td>
+                        <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
+                        <td v-if="showBranchColumn">{{ user.branch_name ?? '—' }}</td>
+                        <td v-if="showDocumentAlertsColumn">
+                            <span v-if="user.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
+                                Live
+                            </span>
+                            <span v-if="user.document_alerts_email" class="badge bg-info-subtle text-info-emphasis me-1">
+                                Email
+                            </span>
+                            <span
+                                v-if="!user.document_alerts_live && !user.document_alerts_email"
+                                class="text-muted small"
+                            >
+                                Off
+                            </span>
+                        </td>
+                        <td v-if="canManage" class="app-index-actions-cell">
+                            <AppTableActions v-if="!user.is_protected">
+                                <AppCrudActionButton action="edit" @click="openEdit(user)" />
+                                <AppCrudActionButton action="delete" @click="handleDelete(user)" />
+                            </AppTableActions>
+                            <span v-else class="text-muted small">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="users"
+                    aria-label="Users pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
+
+        <div v-if="showCompanyAlertSettings" class="card mb-3 mt-3">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
                     <div>
@@ -16,7 +83,7 @@
                         </h3>
                         <p class="text-muted small mb-0">
                             Turn channels on or off for the entered company. Enable alerts per user when creating or
-                            editing them below.
+                            editing them above.
                         </p>
                     </div>
                     <button
@@ -62,86 +129,10 @@
             </div>
         </div>
 
-        <div v-else-if="showCompanyAlertSettingsNotice" class="alert alert-info">
+        <div v-else-if="showCompanyAlertSettingsNotice" class="alert alert-info mt-3">
             Enter a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             to configure company-wide document alert channels.
-        </div>
-
-        <div class="card app-index-list-card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">{{ listTitle }}</h3>
-            </div>
-            <div class="card-body table-responsive">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading users…</div>
-                <table v-else class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th v-if="showCompanyColumn">Company</th>
-                            <th v-if="showBranchColumn">Branch</th>
-                            <th v-if="showDocumentAlertsColumn">Document Alerts</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="users.length === 0">
-                            <td
-                                :colspan="tableColspan"
-                                class="text-center text-muted"
-                            >
-                                No users found.
-                            </td>
-                        </tr>
-                        <tr v-for="user in users" :key="user.id">
-                            <td>
-                                <strong>{{ user.name }}</strong>
-                                <span v-if="user.is_protected" class="badge bg-secondary ms-1">Protected</span>
-                            </td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.role_label }}</td>
-                            <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
-                            <td v-if="showBranchColumn">{{ user.branch_name ?? '—' }}</td>
-                            <td v-if="showDocumentAlertsColumn">
-                                <span v-if="user.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
-                                    Live
-                                </span>
-                                <span v-if="user.document_alerts_email" class="badge bg-info-subtle text-info-emphasis me-1">
-                                    Email
-                                </span>
-                                <span
-                                    v-if="!user.document_alerts_live && !user.document_alerts_email"
-                                    class="text-muted small"
-                                >
-                                    Off
-                                </span>
-                            </td>
-                            <td v-if="canManage" class="app-index-actions-cell">
-                                <AppTableActions v-if="!user.is_protected">
-                                    <AppCrudActionButton action="edit" @click="openEdit(user)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(user)" />
-                                </AppTableActions>
-                                <span v-else class="text-muted small">—</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="usersIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="users"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
         </div>
 
         <UserFormModal
@@ -182,10 +173,10 @@ import {
     updateManagedUser,
 } from '../../api/managedUsers';
 import UserFormModal from '../../components/access/UserFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
@@ -215,9 +206,6 @@ const canCreateUsers = computed(
 );
 const pageTitle = computed(() =>
     managesSuperAdmins.value ? 'Super Admin Management' : 'User Management',
-);
-const listTitle = computed(() =>
-    managesSuperAdmins.value ? 'Super Admins List' : 'Company Users List',
 );
 const showCompanyColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
 const showBranchColumn = computed(() => managesTenantUsers.value && !managesSuperAdmins.value);
@@ -269,7 +257,7 @@ const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingUser = ref(null);
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 async function loadUsers(page = pagination.currentPage) {
     loading.value = true;
@@ -345,12 +333,6 @@ function goToPage(page) {
     }
 
     loadUsers(page);
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadUsers(1);
 }
 
 function openCreate() {

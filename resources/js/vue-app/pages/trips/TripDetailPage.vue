@@ -3,7 +3,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
             <div>
                 <RouterLink :to="tripListReturnTo" class="text-decoration-none small">
-                    <i class="bi bi-arrow-left"></i> Back to Trips
+                    <i class="bi bi-arrow-left"></i> {{ trip?.is_archived ? 'Back to Archived Trips' : 'Back to Trips' }}
                 </RouterLink>
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     <h3 class="mb-0">{{ trip?.trip_number ?? 'Trip Details' }}</h3>
@@ -463,7 +463,7 @@ import TripInlineStatusActions from '../../components/trips/TripInlineStatusActi
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { usePermissions } from '../../composables/usePermissions';
-import { useTripListReturn } from '../../composables/useTripListReturn';
+import { useTripDetailListReturn } from '../../composables/useTripListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
@@ -473,12 +473,12 @@ const toast = useAppToast();
 const { canInCompany, user } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
-const { tripListReturnTo } = useTripListReturn();
-
-const canManage = computed(() => canInCompany('trips.edit'));
 
 const trip = ref(null);
 const loading = ref(true);
+const { tripListReturnTo } = useTripDetailListReturn(trip);
+
+const canManage = computed(() => canInCompany('trips.edit'));
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const routeSummary = computed(() => {

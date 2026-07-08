@@ -1076,7 +1076,6 @@ export function defaultTripListFilters() {
         broker_id: '',
         status: '',
         trip_type: '',
-        show_archived: false,
     };
 }
 

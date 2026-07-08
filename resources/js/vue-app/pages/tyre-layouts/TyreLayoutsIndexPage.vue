@@ -1,79 +1,126 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Tyre Layouts">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before managing tyre layouts.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadLayouts(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="search"
-                    input-id="tyreLayoutsIndex_search"
-                    placeholder="Search name or code"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Tyre Layouts" :loading="loading" loading-text="Loading layouts…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="tyre-layouts-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Add Tyre Layout"
+                    @click="openCreate"
+                >
+                    Add Tyre Layout
+                </AppIndexHeaderButton>
+            </template>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading layouts…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>Code</th>
-                            <th>Type</th>
-                            <th>Positions</th>
-                            <th>Spares</th>
-                            <th>Status</th>
-                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="layouts.length === 0">
-                            <td :colspan="canEdit ? 7 : 6" class="text-center text-muted">No layouts found.</td>
-                        </tr>
-                        <tr v-for="layout in layouts" :key="layout.id">
-                            <td>{{ layout.name }}</td>
-                            <td><code>{{ layout.code }}</code></td>
-                            <td>{{ layoutTypeLabel(layout.layout_type) }}</td>
-                            <td>{{ layout.position_count }}</td>
-                            <td>{{ layout.layout_type === 'legacy_dual_rear' ? 1 : layout.spare_count }}</td>
-                            <td>
-                                <span class="badge" :class="layout.is_active ? 'bg-success' : 'bg-secondary'">
-                                    {{ layout.is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            <td v-if="canEdit" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openEdit(layout)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(layout)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="tyre-layouts-filters-panel"
+                :loading="loading"
+                @search="loadLayouts(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="tyreLayoutsIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="search"
+                        input-id="tyreLayoutsIndex_search"
+                        placeholder="Search name or code"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadLayouts(1)"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Positions</th>
+                        <th>Spares</th>
+                        <th>Status</th>
+                        <th v-if="canEdit" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="layouts.length === 0" class="app-index-empty-row">
+                        <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No layouts found.</td>
+                    </tr>
+                    <tr v-for="layout in layouts" :key="layout.id">
+                        <td>{{ layout.name }}</td>
+                        <td><code>{{ layout.code }}</code></td>
+                        <td>{{ layoutTypeLabel(layout.layout_type) }}</td>
+                        <td>{{ layout.position_count }}</td>
+                        <td>{{ layout.layout_type === 'legacy_dual_rear' ? 1 : layout.spare_count }}</td>
+                        <td>
+                            <span class="badge" :class="layout.is_active ? 'bg-success' : 'bg-secondary'">
+                                {{ layout.is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                        </td>
+                        <td v-if="canEdit" class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(layout)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
+                                    @click="handleDelete(layout)"
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    page-id="tyreLayoutsIndex"
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
                     :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
                     item-label="layouts"
-                    :per-page-options="[10, 15, 25, 50]"
-                    @page-change="loadLayouts"
-                    @update:per-page="onPerPageUpdate"
+                    aria-label="Tyre layouts pagination"
+                    @page-change="goToPage"
                 />
             </template>
         </AppIndexListCard>
@@ -205,13 +252,11 @@ import {
 import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
-import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -239,12 +284,13 @@ const layouts = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const filtersOpen = ref(false);
 const showModal = ref(false);
 const editing = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 const form = ref(emptyForm());
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => search.value.trim() !== '');
 
@@ -253,8 +299,13 @@ const layoutTypeSelectOptions = [
     { value: 'legacy_dual_rear', label: 'Legacy (front + dual rear + 1 spare)' },
 ];
 
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
 function clearFilters() {
     search.value = '';
+    pagination.currentPage = 1;
     loadLayouts(1);
 }
 
@@ -327,9 +378,12 @@ async function loadLayouts(page = pagination.currentPage) {
     }
 }
 
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    loadLayouts(1);
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
+
+    loadLayouts(page);
 }
 
 function openCreate() {
@@ -445,5 +499,11 @@ async function handleDelete(layout) {
     }
 }
 
-onMounted(loadLayouts);
+onMounted(async () => {
+    await loadLayouts();
+
+    if (search.value.trim() !== '') {
+        filtersOpen.value = true;
+    }
+});
 </script>

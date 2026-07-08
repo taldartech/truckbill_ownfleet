@@ -1,81 +1,148 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Truck Management">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before adding trucks.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadVehicles(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="filters.search"
-                    input-id="trucksIndex_search"
-                    placeholder="Registration, make, model…"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label">Truck type</label>
-                <AppSelect
-                    v-model="filters.vehicle_type"
-                    :options="vehicleTypes"
-                    placeholder="All types"
-                    search-placeholder="Search type…"
-                />
-            </div>
-            <div>
-                <label class="form-label">Status</label>
-                <AppSelect
-                    v-model="filters.status"
-                    :options="truckStatusFilterOptions"
-                    placeholder="All statuses"
-                    search-placeholder="Search status…"
-                />
-            </div>
-            <div>
-                <label class="form-label">Primary driver</label>
-                <AppSelect
-                    v-model="filters.primary_driver"
-                    :options="primaryDriverFilterOptions"
-                    placeholder="All trucks"
-                    search-placeholder="Search…"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Truck Management" :loading="loading" loading-text="Loading trucks…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="trucks-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Create truck"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-body">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading trucks…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Registration</th>
-                            <th>Type</th>
-                            <th>Tyre layout</th>
-                            <th>Make / Model</th>
-                            <th>Primary Driver</th>
-                            <th>Meter Reading (KM)</th>
-                            <th>Status</th>
-                            <th class="app-index-actions-cell" style="width: 160px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="vehicles.length === 0">
-                            <td colspan="8" class="text-center text-muted">
-                                {{ filtersActive ? 'No trucks found for selected filters.' : 'No trucks found. Add your first truck.' }}
-                            </td>
-                        </tr>
-                        <tr v-for="vehicle in vehicles" :key="vehicle.id">
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="trucks-filters-panel"
+                :loading="loading"
+                @search="loadVehicles(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="trucksIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="filters.search"
+                        input-id="trucksIndex_search"
+                        placeholder="Registration, make, model…"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadVehicles(1)"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Truck type</label>
+                    <AppSelect
+                        v-model="filters.vehicle_type"
+                        :options="vehicleTypes"
+                        placeholder="All types"
+                        search-placeholder="Search type…"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <AppSelect
+                        v-model="filters.status"
+                        :options="truckStatusFilterOptions"
+                        placeholder="All statuses"
+                        search-placeholder="Search status…"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Primary driver</label>
+                    <AppSelect
+                        v-model="filters.primary_driver"
+                        :options="primaryDriverFilterOptions"
+                        placeholder="All trucks"
+                        search-placeholder="Search…"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="filters.search.trim()" class="app-index-active-search__pill">
+                            {{ filters.search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearSearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.vehicle_type" class="app-index-active-search__pill">
+                            {{ activeVehicleTypeLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear truck type filter"
+                                title="Clear truck type"
+                                @click="clearVehicleTypeFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.status" class="app-index-active-search__pill">
+                            {{ activeStatusLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear status filter"
+                                title="Clear status"
+                                @click="clearStatusFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.primary_driver" class="app-index-active-search__pill">
+                            {{ activePrimaryDriverLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear primary driver filter"
+                                title="Clear primary driver"
+                                @click="clearPrimaryDriverFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Registration</th>
+                        <th>Type</th>
+                        <th>Tyre layout</th>
+                        <th>Make / Model</th>
+                        <th>Primary Driver</th>
+                        <th>Meter Reading (KM)</th>
+                        <th>Status</th>
+                        <th class="app-index-actions-cell" style="width: 160px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="vehicles.length === 0" class="app-index-empty-row">
+                        <td colspan="8" class="text-center text-muted py-4">
+                            {{ filtersActive ? 'No trucks found for selected filters.' : 'No trucks found. Add your first truck.' }}
+                        </td>
+                    </tr>
+                    <tr v-for="vehicle in vehicles" :key="vehicle.id">
                             <td>
                                 <RouterLink
                                     :to="{ name: 'trucks.show', params: { vehicleId: vehicle.id } }"
@@ -183,24 +250,19 @@
                                 </AppTableActions>
                             </td>
                         </tr>
-                    </tbody>
-                    </table>
-                </div>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="trucksIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="trucks"
-                @page-change="goToPage"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="trucks"
+                    aria-label="Trucks pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <VehicleFormModal
             modal-id="vehicleFormModal"
@@ -260,12 +322,12 @@ import { listAllTruckTypes } from '../../api/truckTypes';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
@@ -315,6 +377,7 @@ const canDeleteDocuments = computed(
 
 const vehicles = ref([]);
 const loading = ref(true);
+const filtersOpen = ref(false);
 const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
@@ -343,7 +406,7 @@ const primaryDriverFilterOptions = [
 ];
 const filters = reactive(defaultVehicleListFilters());
 const defaultFilters = defaultVehicleListFilters();
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(25);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => {
     return (
@@ -353,6 +416,28 @@ const filtersActive = computed(() => {
         filters.primary_driver !== defaultFilters.primary_driver
     );
 });
+
+const activeVehicleTypeLabel = computed(() => {
+    const match = vehicleTypes.value.find((option) => option.value === filters.vehicle_type);
+
+    return match?.label ?? filters.vehicle_type;
+});
+
+const activeStatusLabel = computed(() => {
+    const match = truckStatusFilterOptions.find((option) => option.value === filters.status);
+
+    return match?.label ?? filters.status;
+});
+
+const activePrimaryDriverLabel = computed(() => {
+    const match = primaryDriverFilterOptions.find((option) => option.value === filters.primary_driver);
+
+    return match?.label ?? filters.primary_driver;
+});
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 function formatMakeModel(vehicle) {
     const parts = [vehicle.make, vehicle.model].filter(Boolean);
@@ -416,14 +501,28 @@ function goToPage(page) {
     loadVehicles(page);
 }
 
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
+function clearFilters() {
+    Object.assign(filters, defaultVehicleListFilters());
     loadVehicles(1);
 }
 
-function clearFilters() {
-    Object.assign(filters, defaultVehicleListFilters());
+function clearSearchFilter() {
+    filters.search = defaultFilters.search;
+    loadVehicles(1);
+}
+
+function clearVehicleTypeFilter() {
+    filters.vehicle_type = defaultFilters.vehicle_type;
+    loadVehicles(1);
+}
+
+function clearStatusFilter() {
+    filters.status = defaultFilters.status;
+    loadVehicles(1);
+}
+
+function clearPrimaryDriverFilter() {
+    filters.primary_driver = defaultFilters.primary_driver;
     loadVehicles(1);
 }
 
@@ -594,6 +693,11 @@ onMounted(async () => {
 
     if (ok === true) {
         await resolveVehicleSearchFromRoute();
+
+        if (filtersActive.value) {
+            filtersOpen.value = true;
+        }
+
         await Promise.all([loadTruckTypes(), loadVehicles()]);
     }
 });

@@ -1,6 +1,6 @@
 <template>
     <div class="attendance-day-panel">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div v-if="showDateControls" class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="loading" @click="shiftDay(-1)">
                 <i class="bi bi-chevron-left"></i>
             </button>
@@ -250,6 +250,10 @@ const props = defineProps({
     dateInputId: {
         type: String,
         default: 'attendance_day_date',
+    },
+    showDateControls: {
+        type: Boolean,
+        default: true,
     },
 });
 

@@ -66,6 +66,9 @@
         <TripStatusChangeModal
             :show="showStatusModal"
             :status="pendingStatus"
+            :from-status="originalStatus || trip.status"
+            :trip-number="statusContext.tripNumber"
+            :truck-number="statusContext.truckNumber"
             :start-at="form.start_at"
             :end-at-value="form.end_at"
             :actual-arrival-at-value="form.actual_arrival_at"
@@ -94,6 +97,17 @@
                 <strong>{{ pendingStatusLabel }}</strong>?
             </template>
 
+            <TripStatusChangeContextStrip
+                class="mb-3 text-start"
+                :trip-number="statusContext.tripNumber"
+                :truck-number="statusContext.truckNumber"
+            />
+
+            <TripStatusChangeUpdatesPanel
+                class="mb-3 text-start"
+                :items="statusUpdateItems"
+            />
+
             <div v-if="saveError" class="alert alert-danger py-2 mb-0">{{ saveError }}</div>
         </AppConfirmModal>
     </div>
@@ -111,8 +125,14 @@ import {
 import { useAppToast } from '../../composables/useAppToast';
 import { useTripForm } from '../../composables/useTripForm';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
+import {
+    buildTripStatusChangeUpdateItems,
+    resolveTripStatusChangeContext,
+} from '../../utils/trip-status-change-info';
 import AppConfirmModal from '../ui/AppConfirmModal.vue';
+import TripStatusChangeContextStrip from './TripStatusChangeContextStrip.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
+import TripStatusChangeUpdatesPanel from './TripStatusChangeUpdatesPanel.vue';
 
 const props = defineProps({
     trip: { type: Object, required: true },
@@ -131,11 +151,25 @@ const showSimpleConfirm = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
 const truckRunningMeterKm = ref('');
+const vehicleRegistration = ref('');
 const saveError = ref('');
 
 const statusMeta = computed(() => tripStatusMeta(props.trip.status));
 const nextStatuses = computed(() => tripAllowedNextStatuses(props.trip.status));
 const pendingStatusLabel = computed(() => tripStatusMeta(pendingStatus.value).label);
+const statusContext = computed(() =>
+    resolveTripStatusChangeContext({
+        trip: props.trip,
+        form,
+        vehicleRegistration: vehicleRegistration.value,
+    }),
+);
+const statusUpdateItems = computed(() =>
+    buildTripStatusChangeUpdateItems({
+        fromStatus: originalStatus.value || props.trip.status,
+        toStatus: pendingStatus.value,
+    }),
+);
 
 function resolveSaveError(error, fallback) {
     const { message } = extractValidationErrors(error);
@@ -192,6 +226,7 @@ async function ensureTripLoaded() {
     populateFromTrip(fullTrip);
     originalStatus.value = fullTrip.status ?? 'CREATED';
     truckRunningMeterKm.value = fullTrip.vehicle?.odometer_km ?? '';
+    vehicleRegistration.value = fullTrip.vehicle?.registration_number ?? '';
 
     return fullTrip;
 }

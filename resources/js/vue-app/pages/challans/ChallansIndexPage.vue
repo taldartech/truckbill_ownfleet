@@ -1,36 +1,84 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Challan Management">
-            <template v-if="canManage" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard">
+        <AppIndexListCard title="Challan Management" :loading="loading" loading-text="Loading challans…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="challans-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Create challan"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="applyFilters" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="searchQuery"
-                    :input-id="`${pageId}_search`"
-                    placeholder="Search challan, truck, driver…"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-            <div>
-                <label class="form-label">Status</label>
-                <AppSelect
-                    v-model="statusFilter"
-                    :options="challanStatusOptions"
-                    placeholder="All statuses"
-                    search-placeholder="Search status…"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="challans-filters-panel"
+                :loading="loading"
+                @search="loadChallans(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="challansIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="searchQuery"
+                        input-id="challansIndex_search"
+                        placeholder="Search challan, truck, driver…"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadChallans(1)"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <AppSelect
+                        v-model="statusFilter"
+                        :options="challanStatusOptions"
+                        placeholder="All statuses"
+                        search-placeholder="Search status…"
+                        :disabled="loading"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="searchQuery.trim()" class="app-index-active-search__pill">
+                            {{ searchQuery.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearSearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="statusFilter" class="app-index-active-search__pill">
+                            {{ activeStatusLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear status filter"
+                                title="Clear status"
+                                @click="clearStatusFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading challans…">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
                         <th style="width: 70px">#</th>
@@ -41,7 +89,7 @@
                         <th>Violation</th>
                         <th class="text-end">Amount</th>
                         <th>Status</th>
-                        <th v-if="hasRowActions" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                        <th v-if="hasRowActions" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,28 +114,41 @@
                                 {{ challan.status === 'PAID' ? 'Paid' : 'Unpaid' }}
                             </span>
                         </td>
-                        <td v-if="hasRowActions" class="app-index-actions-cell">
-                            <AppTableActions>
-                                <AppCrudActionButton v-if="canManage" action="edit" @click="openEdit(challan)" />
-                                <AppCrudActionButton v-if="canDelete" action="delete" @click="handleDelete(challan)" />
-                            </AppTableActions>
+                        <td v-if="hasRowActions" class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
+                                <button
+                                    v-if="canManage"
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(challan)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    v-if="canDelete"
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
+                                    @click="handleDelete(challan)"
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    :page-id="pageId"
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
                     :loading="loading"
-                    :current-page="pagination.currentPage"
-                    :last-page="pagination.lastPage"
-                    :per-page="pagination.perPage"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
                     item-label="challans"
+                    aria-label="Challans pagination"
                     @page-change="goToPage"
-                    @update:per-page="onPerPageUpdate"
                 />
             </template>
         </AppIndexListCard>
@@ -118,25 +179,21 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { createChallan, deleteChallan, listChallans, updateChallan } from '../../api/challans';
 import ChallanFormModal from '../../components/challans/ChallanFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
-import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate } from '../../utils/datetime';
-
-const pageId = 'challansIndex';
 
 const challanStatusOptions = [
     { value: 'UNPAID', label: 'Unpaid' },
@@ -159,19 +216,29 @@ const showEdit = ref(false);
 const editingChallan = ref(null);
 const searchQuery = ref('');
 const statusFilter = ref('');
-
-const pagination = reactive({
-    currentPage: 1,
-    lastPage: 1,
-    perPage: 25,
-    total: 0,
-    from: 0,
-    to: 0,
-});
+const filtersOpen = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => searchQuery.value.trim() !== '' || statusFilter.value !== '');
 
-function applyFilters() {
+const activeStatusLabel = computed(() => {
+    const match = challanStatusOptions.find((option) => option.value === statusFilter.value);
+
+    return match?.label ?? statusFilter.value;
+});
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
+function clearSearchFilter() {
+    searchQuery.value = '';
+    pagination.currentPage = 1;
+    loadChallans(1);
+}
+
+function clearStatusFilter() {
+    statusFilter.value = '';
     pagination.currentPage = 1;
     loadChallans(1);
 }
@@ -179,7 +246,8 @@ function applyFilters() {
 function clearFilters() {
     searchQuery.value = '';
     statusFilter.value = '';
-    applyFilters();
+    pagination.currentPage = 1;
+    loadChallans(1);
 }
 
 function formatAmount(amount) {
@@ -223,19 +291,11 @@ async function loadChallans(page = pagination.currentPage) {
         });
 
         challans.value = response.data;
-        pagination.currentPage = response.meta.current_page ?? page;
-        pagination.lastPage = response.meta.last_page ?? 1;
-        pagination.total = response.meta.total ?? challans.value.length;
-        pagination.from = response.meta.from ?? (challans.value.length > 0 ? 1 : 0);
-        pagination.to = response.meta.to ?? challans.value.length;
+        syncFromMeta(response.meta, challans.value.length);
     } catch {
         toast.error('Could not load challans.');
         challans.value = [];
-        pagination.currentPage = 1;
-        pagination.lastPage = 1;
-        pagination.total = 0;
-        pagination.from = 0;
-        pagination.to = 0;
+        resetPagination();
     } finally {
         loading.value = false;
     }
@@ -247,12 +307,6 @@ function goToPage(page) {
     }
 
     loadChallans(page);
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    pagination.currentPage = 1;
-    loadChallans(1);
 }
 
 function openCreate() {
@@ -348,6 +402,10 @@ onMounted(() => {
         loadChallans();
     } else {
         loading.value = false;
+    }
+
+    if (filtersActive.value) {
+        filtersOpen.value = true;
     }
 });
 </script>

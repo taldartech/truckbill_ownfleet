@@ -29,6 +29,15 @@ export const adminNavigation = [
                 permission: 'trips.create',
                 requiresTenant: true,
             },
+            {
+                label: 'Archived Trips',
+                icon: 'bi bi-archive nav-icon',
+                to: '/trips/archived',
+                activeNames: ['trips.archived'],
+                permission: 'trips.view_archived',
+                roles: ['super_admin', 'admin'],
+                requiresTenant: true,
+            },
         ],
     },
     {

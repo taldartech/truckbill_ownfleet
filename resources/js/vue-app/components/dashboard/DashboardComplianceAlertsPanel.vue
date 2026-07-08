@@ -34,34 +34,40 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                v-for="document in documents"
-                                :key="`doc-${document.id}`"
-                                :class="['dashboard-panel__row', rowBorderClass(document)]"
-                                tabindex="0"
-                                role="button"
-                                @click="canEditDocuments && $emit('edit-document', document)"
-                                @keydown.enter.prevent="canEditDocuments && $emit('edit-document', document)"
-                            >
-                                <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
-                                <td>{{ document.document_type_label }}</td>
-                                <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
-                                <td>
-                                    <DocumentStatusBadge :document="document" soft />
-                                </td>
-                                <td v-if="canEditDocuments" class="text-end">
-                                    <div class="compliance-actions">
-                                        <AppButton
-                                            v-if="canRenewDocument(document)"
-                                            size="sm"
-                                            variant="primary"
-                                            icon="fas fa-rotate-right"
-                                            title="Renew Now"
-                                            @click.stop="$emit('renew-document', document)"
+                            <template v-for="document in documents" :key="`doc-${document.id}`">
+                                <tr :class="['dashboard-panel__row', rowBorderClass(document)]">
+                                    <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
+                                    <td>{{ document.document_type_label }}</td>
+                                    <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
+                                    <td>
+                                        <DocumentStatusBadge :document="document" soft />
+                                    </td>
+                                    <td v-if="canEditDocuments" class="text-end">
+                                        <div class="compliance-actions">
+                                            <AppButton
+                                                v-if="canRenewDocument(document)"
+                                                size="sm"
+                                                variant="primary"
+                                                icon="fas fa-rotate-right"
+                                                title="Renew Now"
+                                                @click.stop="startRenew(document)"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="renewingDocumentId === document.id"
+                                    class="dashboard-panel__renew-row"
+                                >
+                                    <td :colspan="documentTableColspan">
+                                        <DocumentRenewInlineForm
+                                            :document="document"
+                                            @saved="handleRenewSaved"
+                                            @cancel="cancelRenew"
                                         />
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
@@ -123,10 +129,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { canRenewDocument, canUpdateLicense, rowBorderClass } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
+import DocumentRenewInlineForm from '../trucks/DocumentRenewInlineForm.vue';
 import AppButton from '../ui/AppButton.vue';
 import './complianceAlerts.css';
 
@@ -157,11 +164,27 @@ const props = defineProps({
     },
 });
 
-defineEmits(['view-all', 'edit-document', 'renew-document', 'edit-license']);
+const emit = defineEmits(['view-all', 'edit-license', 'saved']);
+
+const renewingDocumentId = ref(null);
 
 const isEmpty = computed(() => props.documents.length === 0 && props.licenses.length === 0);
+const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 
 const showViewAll = computed(() => !props.loading && props.totalCount > 0);
+
+function startRenew(document) {
+    renewingDocumentId.value = document.id;
+}
+
+function cancelRenew() {
+    renewingDocumentId.value = null;
+}
+
+function handleRenewSaved(payload) {
+    renewingDocumentId.value = null;
+    emit('saved', payload);
+}
 </script>
 
 <style scoped>
@@ -212,16 +235,6 @@ const showViewAll = computed(() => !props.loading && props.totalCount > 0);
     font-size: 0.88rem;
 }
 
-.dashboard-panel__row {
-    cursor: pointer;
-}
-
-.dashboard-panel__row:hover,
-.dashboard-panel__row:focus {
-    background: rgba(47, 179, 111, 0.04);
-    outline: none;
-}
-
 .dashboard-panel__row--disabled {
     cursor: default;
 }
@@ -229,5 +242,10 @@ const showViewAll = computed(() => !props.loading && props.totalCount > 0);
 .dashboard-panel__row--disabled:hover,
 .dashboard-panel__row--disabled:focus {
     background: transparent;
+}
+
+.dashboard-panel__renew-row > td {
+    background: rgba(248, 250, 252, 0.9);
+    border-top: none;
 }
 </style>

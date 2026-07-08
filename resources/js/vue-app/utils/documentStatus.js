@@ -1,3 +1,5 @@
+import { addDaysToDateInput, toDateInputValue } from './datetime';
+
 /**
  * @param {Array<{ days_remaining?: number|null }>} documents
  */
@@ -8,6 +10,36 @@ export function sortDocumentsByUrgency(documents) {
 
         return leftDays - rightDays;
     });
+}
+
+/**
+ * @param {{
+ *     document_type?: string,
+ *     issue_date?: string|null,
+ *     expiry_date?: string|null,
+ *     reminder_days_before?: number|null,
+ * }} document
+ */
+export function defaultRenewFormValues(document) {
+    const today = toDateInputValue();
+    let validityDays = 365;
+
+    if (document.issue_date && document.expiry_date) {
+        const issue = new Date(document.issue_date);
+        const expiry = new Date(document.expiry_date);
+        const diff = Math.round((expiry - issue) / (1000 * 60 * 60 * 24));
+
+        if (diff > 0) {
+            validityDays = diff;
+        }
+    }
+
+    return {
+        document_type: document.document_type ?? '',
+        issue_date: today,
+        expiry_date: addDaysToDateInput(today, validityDays),
+        reminder_days_before: document.reminder_days_before ?? 7,
+    };
 }
 
 /**

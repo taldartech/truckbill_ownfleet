@@ -36,37 +36,8 @@
                 @vehicle-selected="onVehicleSelected"
                 @clear-field-error="clearFieldError"
             >
-                <template #trip-nav-actions>
-                    <RouterLink
-                        :to="tripListReturnTo"
-                        class="btn btn-sm trip-header-btn trip-header-btn--back"
-                    >
-                        <i class="bi bi-arrow-left me-1"></i>Cancel
-                    </RouterLink>
-                </template>
-                <template #trip-save-actions>
-                    <button
-                        type="button"
-                        class="btn btn-sm trip-header-btn trip-header-btn--back me-1"
-                        :disabled="saving"
-                        @click="handleSubmit('expenses')"
-                    >
-                        <i class="bi bi-receipt me-1"></i>Create & Add Expenses
-                    </button>
-                    <button
-                        type="submit"
-                        class="btn btn-sm trip-header-btn trip-header-btn--update"
-                        :disabled="saving"
-                    >
-                        <span
-                            v-if="saving"
-                            class="spinner-border spinner-border-sm me-1"
-                            role="status"
-                            aria-hidden="true"
-                        ></span>
-                        <i v-else class="bi bi-floppy-fill me-1"></i>Create Trip
-                    </button>
-                </template>
+               
+                
             </TripForm>
 
             <div class="trip-form-actions card shadow-sm">
@@ -89,17 +60,7 @@
                         :disabled="saving"
                         @click="handleClearForm"
                     />
-                    <AppButton
-                        type="button"
-                        variant="success"
-                        outline
-                        size="sm"
-                        icon="bi bi-receipt"
-                        label="Save & Add Expenses"
-                        :loading="saving"
-                        :disabled="saving"
-                        @click="handleSubmit('expenses')"
-                    />
+                  
                     <AppButton
                         type="submit"
                         variant="primary"
@@ -246,12 +207,17 @@ function onCustomerCreated({ customer, legIndex = null }) {
 
 function handleAddStop() {
     if (!form.start_station_id) {
+        fieldErrors.value = {
+            ...fieldErrors.value,
+            start_station_id: ['Select the start station before adding a stop.'],
+        };
         toast.warning('Select a start station first.');
         scrollToFirstFormError();
 
         return;
     }
 
+    clearFieldError('start_station_id');
     addStop();
 }
 

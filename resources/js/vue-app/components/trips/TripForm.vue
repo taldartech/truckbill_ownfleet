@@ -488,23 +488,22 @@
                 </h3>
                 <div v-if="!isFormLocked" class="trip-header-actions">
                     <div class="trip-header-actions__group">
-                        <button
-                            type="button"
-                            class="btn btn-sm trip-header-btn trip-header-btn--add-stop"
-                            :disabled="!form.start_station_id"
+                        <AppIndexHeaderButton
+                            icon="plus"
+                            aria-label="Add route stop"
                             @click="$emit('add-stop')"
                         >
-                            <i class="bi bi-plus-lg me-1"></i>Add Stop
-                        </button>
-                        <button
+                            Add Stop
+                        </AppIndexHeaderButton>
+                        <AppIndexHeaderButton
                             v-if="isRoundTrip"
-                            type="button"
-                            class="btn btn-sm trip-header-btn trip-header-btn--return"
+                            icon="return"
+                            aria-label="Return route to start station"
                             :disabled="!canReturnToStart"
                             @click="$emit('return-to-start')"
                         >
-                            <i class="bi bi-arrow-return-left me-1"></i>Return to Start
-                        </button>
+                            Return to Start
+                        </AppIndexHeaderButton>
                     </div>
                 </div>
             </div>
@@ -521,7 +520,7 @@
                             :invalid="Boolean(fieldErrors.start_station_id)"
                             :error-message="fieldErrorMessage('start_station_id')"
                             :can-quick-add="canQuickAddStation"
-                            @update:model-value="$emit('start-station-change')"
+                            @update:model-value="handleStartStationPickerChange"
                             @quick-add="showStationQuickAdd = true"
                         />
                         <input
@@ -830,6 +829,9 @@
         <TripStatusChangeModal
             :show="showStatusModal"
             :status="pendingStatus"
+            :from-status="form.status"
+            :trip-number="form.trip_number || tripNumberDisplay"
+            :truck-number="snapshotVehicleLabel"
             :start-at="form.start_at"
             :end-at-value="form.end_at"
             :actual-arrival-at-value="form.actual_arrival_at"
@@ -859,6 +861,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
 import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
+import AppIndexHeaderButton from '../ui/AppIndexHeaderButton.vue';
 import SearchablePicker from '../ui/SearchablePicker.vue';
 import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
 import TripExpensesPanel from './TripExpensesPanel.vue';
@@ -1339,6 +1342,11 @@ function partyLabel(items, entityId, fallbackName = '') {
     const match = items.find((item) => String(item.id) === String(entityId));
 
     return match?.name ?? fallbackName ?? `#${entityId}`;
+}
+
+function handleStartStationPickerChange() {
+    emit('start-station-change');
+    emit('clear-field-error', 'start_station_id');
 }
 
 function fieldErrorMessage(field) {

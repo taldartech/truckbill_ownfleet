@@ -1,95 +1,87 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Trip Reports">
-            <template v-if="canExport" #actions>
-                <AppButton
-                    icon="bi bi-file-earmark-excel"
-                    label="Export Excel"
-                    outline
-                    @click="exportExcel"
-                />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page report-index-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> to view trip reports.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Report Type</label>
-                <AppSelect
-                    v-model="reportType"
-                    :options="reportTypes"
-                    placeholder="Select report"
-                    search-placeholder="Search report…"
-                />
-            </div>
-            <div>
-                <label class="form-label">From Date</label>
-                <AppDateInput v-model="filters.from_date" />
-            </div>
-            <div>
-                <label class="form-label">To Date</label>
-                <AppDateInput v-model="filters.to_date" />
-            </div>
-            <div>
-                <label class="form-label" for="tripReports_vehicle">Truck</label>
-                <VehicleSelect
-                    input-id="tripReports_vehicle"
-                    v-model="filters.vehicle_id"
-                    :vehicles="vehicles"
-                    placeholder="All trucks"
-                />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard title="Trip Reports">
+            <template v-if="canExport" #toolbar>
+                <button type="button" class="btn btn-brand-secondary btn-sm report-header-btn" @click="exportExcel">
+                    Export Excel
+                </button>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title mb-0">{{ currentReportLabel }}</h3>
-                <span v-if="!loading && tripCount !== null" class="badge bg-secondary">
+            <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
+                <div>
+                    <label class="form-label">Report Type</label>
+                    <AppSelect
+                        v-model="reportType"
+                        :options="reportTypes"
+                        placeholder="Select report"
+                        search-placeholder="Search report…"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">From Date</label>
+                    <AppDateInput v-model="filters.from_date" />
+                </div>
+                <div>
+                    <label class="form-label">To Date</label>
+                    <AppDateInput v-model="filters.to_date" />
+                </div>
+                <div>
+                    <label class="form-label" for="tripReports_vehicle">Truck</label>
+                    <VehicleSelect
+                        input-id="tripReports_vehicle"
+                        v-model="filters.vehicle_id"
+                        :vehicles="vehicles"
+                        placeholder="All trucks"
+                    />
+                </div>
+            </AppReportFiltersPanel>
+
+            <div
+                v-if="!loading && tripCount !== null"
+                class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
+            >
+                <span class="report-results-meta__title">{{ currentReportLabel }}</span>
+                <span class="badge bg-secondary">
                     {{ tripCount }} {{ tripCount === 1 ? 'trip' : 'trips' }}
                 </span>
             </div>
-            <div class="card-body">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
-                <div v-else-if="columns.length" class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th v-for="col in columns" :key="col">{{ formatColumn(col) }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="rows.length === 0">
-                                <td :colspan="columns.length" class="text-center text-muted py-4">
-                                    No data for selected filters.
-                                </td>
-                            </tr>
-                            <tr v-for="(row, index) in rows" :key="index">
-                                <td v-for="col in columns" :key="col">{{ formatCell(col, row[col]) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div v-else-if="!loading" class="text-center text-muted py-4">No data for selected filters.</div>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="tripReports"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="records"
-                @page-change="loadReport"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+
+            <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
+            <table v-else-if="columns.length" class="table table-striped table-hover align-middle mb-0 report-table">
+                <thead class="table-light">
+                    <tr>
+                        <th v-for="col in columns" :key="col">{{ formatColumn(col) }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="rows.length === 0">
+                        <td :colspan="columns.length" class="text-center text-muted py-4">
+                            No data for selected filters.
+                        </td>
+                    </tr>
+                    <tr v-for="(row, index) in rows" :key="index">
+                        <td v-for="col in columns" :key="col">{{ formatCell(col, row[col]) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div v-else class="text-center text-muted py-4">No data for selected filters.</div>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="records"
+                    aria-label="Trip reports pagination"
+                    @page-change="loadReport"
+                />
+            </template>
+        </AppIndexListCard>
     </div>
 </template>
 
@@ -100,11 +92,10 @@ import { listAllVehicles } from '../../api/vehicles';
 import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
 import { withReportPagination } from '../../api/reportPagination';
-import AppButton from '../../components/ui/AppButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppReportFiltersPanel from '../../components/ui/AppReportFiltersPanel.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { formatTableCell } from '../../utils/datetime';
 import { useListPagination } from '../../composables/useListPagination';
@@ -124,7 +115,7 @@ const vehicles = ref([]);
 const rows = ref([]);
 const tripCount = ref(null);
 const loading = ref(false);
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 function defaultFilters() {
     return {
@@ -134,16 +125,6 @@ function defaultFilters() {
 }
 
 const filters = reactive(defaultFilters());
-
-const filtersActive = computed(() => {
-    const defaults = defaultFilters();
-
-    return (
-        filters.vehicle_id !== defaults.vehicle_id ||
-        filters.from_date !== defaults.from_date ||
-        filters.to_date !== defaults.to_date
-    );
-});
 
 const currentReportLabel = computed(
     () => reportTypes.find((t) => t.value === reportType.value)?.label ?? 'Trip Report',
@@ -212,11 +193,6 @@ async function loadReport(page = 1) {
     } finally {
         loading.value = false;
     }
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    loadReport(1);
 }
 
 function clearFilters() {

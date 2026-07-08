@@ -57,60 +57,23 @@
                         </div>
                     </div>
 
-                    <div
-                        v-if="isDashboardContext && editingDocument && !showAddPanel"
-                        class="card mb-3 border-primary-subtle"
-                    >
-                        <div class="card-header d-flex justify-content-between align-items-center py-2">
-                            <h6 class="mb-0">
-                                Edit — {{ editingDocument.document_type_label ?? editingDocument.document_type }}
-                            </h6>
-                            <button type="button" class="btn-close btn-sm" @click="resetDocForm"></button>
-                        </div>
-                        <div class="card-body">
-                            <DocumentFormFields
-                                v-model="docForm"
-                                :document-types="[{ id: editingDocument.document_type, label: editingDocument.document_type_label ?? editingDocument.document_type }]"
-                                :field-errors="fieldErrors"
-                                :document-type-disabled="true"
-                                :hide-type="true"
-                            />
-                            <div class="d-flex gap-2 mt-3">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-success"
-                                    :disabled="saving"
-                                    @click="saveDocument('update')"
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-secondary"
-                                    :disabled="saving"
-                                    @click="resetDocForm"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="card app-index-list-card vehicle-doc-table-card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title mb-0">
                                 {{ isDashboardContext ? 'Documents' : 'Documents List' }}
                             </h3>
-                            <button
+                            <div
                                 v-if="canCreate && showAddButton"
-                                type="button"
-                                class="btn btn-primary btn-sm"
-                                title="Add document"
-                                @click="openAddForm"
+                                class="app-index-card-toolbar d-flex flex-wrap gap-2 align-items-center"
                             >
-                                <i class="bi bi-plus-lg me-1"></i>
-                                Add Document
-                            </button>
+                                <AppIndexHeaderButton
+                                    icon="plus"
+                                    aria-label="Add document"
+                                    @click="openAddForm"
+                                >
+                                    Add Document
+                                </AppIndexHeaderButton>
+                            </div>
                         </div>
                         <div ref="tableScrollRef" class="card-body table-responsive p-0" :class="{ 'compliance-table': isDashboardContext }">
                             <div v-if="loading" class="text-muted text-center py-4">Loading documents…</div>
@@ -252,15 +215,6 @@
                                             <td v-if="showActionsColumn" class="app-index-actions-cell">
                                                 <template v-if="isDashboardContext">
                                                     <div class="compliance-actions">
-                                                        <AppButton
-                                                            v-if="canEdit"
-                                                            size="sm"
-                                                            variant="secondary"
-                                                            outline
-                                                            icon="fas fa-pen"
-                                                            title="Edit"
-                                                            @click="editDocument(doc)"
-                                                        />
                                                         <AppButton
                                                             v-if="canEdit && canRenewDocument(doc)"
                                                             size="sm"
@@ -430,6 +384,7 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import {
     canRenewDocument,
+    defaultRenewFormValues,
     formatDaysLeft,
     rowBorderClass,
     sortDocumentsByUrgency,
@@ -438,6 +393,7 @@ import { formatDate } from '../../utils/datetime';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppButton from '../ui/AppButton.vue';
+import AppIndexHeaderButton from '../ui/AppIndexHeaderButton.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
 import SearchableSelect from '../ui/SearchableSelect.vue';
@@ -648,8 +604,6 @@ function openInitialDocumentIfNeeded() {
     if (isDashboardContext.value) {
         if (props.initialAction === 'renew' && canRenewDocument(document)) {
             renewDocument(document);
-        } else if (props.canEdit) {
-            editDocument(document);
         }
 
         return;
@@ -681,12 +635,7 @@ function renewDocument(doc) {
     editingDocument.value = null;
     showAddPanel.value = false;
     clearErrors();
-    docForm.value = {
-        document_type: doc.document_type,
-        issue_date: doc.issue_date ?? '',
-        expiry_date: doc.expiry_date ?? '',
-        reminder_days_before: doc.reminder_days_before ?? 7,
-    };
+    docForm.value = defaultRenewFormValues(doc);
 }
 
 function editDocument(doc) {

@@ -1,234 +1,299 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Trip Management">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="goToCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before managing trips.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadTrips(1)" @clear="clearFilters">
-            <template #header-actions>
-                <AppButton
-                    v-if="canViewArchived"
-                    size="sm"
-                    :variant="filters.show_archived ? 'warning' : 'secondary'"
-                    :outline="!filters.show_archived"
-                    icon="bi bi-archive"
-                    label="Show archived"
-                    :disabled="loading"
-                    @click="toggleShowArchived"
-                />
+        <AppIndexListCard title="Trip Management" :loading="loading" loading-text="Loading trips…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="trips-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Create trip"
+                    @click="goToCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
             </template>
-            <div class="trips-filter-search">
-                <label class="form-label" for="trips_search">Search</label>
-                <AppIndexSearchInput
-                    v-model="filters.search"
-                    input-id="trips_search"
-                    placeholder="Trip #, truck registration, primary or substitute driver…"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-                <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-1">
-                    Search looks across all trips and ignores the date range.
-                </div>
-            </div>
-            <div class="trips-filter-period">
-                <DashboardDateRangePicker
-                    v-model:from-date="filters.from_date"
-                    v-model:to-date="filters.to_date"
-                    label="Trip Date"
-                    panel-align="start"
-                    :preset-keys="tripDatePresetKeys"
-                    @change="onDateRangeChange"
-                />
-            </div>
-            <div>
-                <label class="form-label">Status</label>
-                <AppSelect
-                    v-model="filters.status"
-                    :options="tripStatuses"
-                    placeholder="All statuses"
-                    search-placeholder="Search status…"
-                />
-            </div>
-            <div>
-                <label class="form-label">Trip Type</label>
-                <AppSelect
-                    v-model="filters.trip_type"
-                    :options="tripTypes"
-                    placeholder="All trip types"
-                    search-placeholder="Search trip type…"
-                />
-            </div>
-            <div>
-                <label class="form-label">Customer</label>
-                <SearchablePicker
-                    v-model="filters.customer_id"
-                    :items="customers"
-                    placeholder="All customers"
-                    search-placeholder="Search customer…"
-                    empty-message="No customer found."
-                    view-title="Customer details"
-                />
-            </div>
-          
-        </AppIndexFiltersCard>
 
-        <div class="card app-index-list-card">
-            <div class="card-body">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading trips…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Trip #</th>
-                            <th>Truck</th>
-                            <th>Driver</th>
-                            <th class="trips-status-col">Status</th>
-                            <th v-if="showingArchived" class="trips-archived-col">Archived At</th>
-                            <th v-if="showingArchived" class="trips-archive-reason-col">Archive Reason</th>
-                            <th v-if="!showingArchived" class="trips-period-col">Trip Date</th>
-                            <th v-if="!showingArchived" class="trips-route-col">Route</th>
-                            <th v-if="!showingArchived" class="trips-financials-col">Freight / Expense / Profit</th>
-                            <th v-if="showActions && !showingArchived" class="app-index-actions-cell" style="width: 180px">Actions</th>
-                            <th v-if="showActions && showingArchived" class="app-index-actions-cell" style="width: 80px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="trips.length === 0">
-                            <td :colspan="tableColspan" class="text-center text-muted py-4">
-                                {{ showingArchived ? 'No archived trips found for selected filters.' : 'No trips found for selected filters.' }}
-                            </td>
-                        </tr>
-                        <tr v-for="trip in trips" :key="trip.id">
-                            <td>
-                                <div class="trips-trip-cell">
-                                    <RouterLink
-                                        v-if="canOpenTrip"
-                                        :to="{ name: 'trips.show', params: { id: trip.id } }"
-                                        class="trip-number-link fw-semibold text-decoration-none"
-                                    >
-                                        {{ trip.trip_number || '—' }}
-                                    </RouterLink>
-                                    <strong v-else>{{ trip.trip_number || '—' }}</strong>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="trips-filters-panel"
+                :loading="loading"
+                @search="loadTrips(1)"
+                @reset="clearFilters"
+            >
+                <div class="trips-filter-search">
+                    <label class="form-label" for="trips_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="filters.search"
+                        input-id="trips_search"
+                        placeholder="Trip #, truck registration, primary or substitute driver…"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadTrips(1)"
+                    />
+                    <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-1">
+                        Search looks across all trips and ignores the date range.
+                    </div>
+                </div>
+                <div class="trips-filter-period">
+                    <DashboardDateRangePicker
+                        v-model:from-date="filters.from_date"
+                        v-model:to-date="filters.to_date"
+                        label="Trip Date"
+                        panel-align="start"
+                        :preset-keys="tripDatePresetKeys"
+                        :block-future-dates="false"
+                        @change="onDateRangeChange"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <AppSelect
+                        v-model="filters.status"
+                        :options="tripStatuses"
+                        placeholder="All statuses"
+                        search-placeholder="Search status…"
+                        :disabled="loading"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Trip Type</label>
+                    <AppSelect
+                        v-model="filters.trip_type"
+                        :options="tripTypes"
+                        placeholder="All trip types"
+                        search-placeholder="Search trip type…"
+                        :disabled="loading"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Customer</label>
+                    <SearchablePicker
+                        v-model="filters.customer_id"
+                        :items="customers"
+                        placeholder="All customers"
+                        search-placeholder="Search customer…"
+                        empty-message="No customer found."
+                        view-title="Customer details"
+                    />
+                </div>
+                <div>
+                    <label class="form-label">Reference</label>
+                    <SearchablePicker
+                        v-model="filters.broker_id"
+                        :items="brokers"
+                        placeholder="All references"
+                        search-placeholder="Search reference…"
+                        empty-message="No reference found."
+                        view-title="Reference details"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="filters.search.trim()" class="app-index-active-search__pill">
+                            {{ filters.search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearSearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="dateRangeFilterActive" class="app-index-active-search__pill">
+                            {{ activeDateRangeLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear date range filter"
+                                title="Clear date range"
+                                @click="clearDateRangeFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.status" class="app-index-active-search__pill">
+                            {{ activeStatusLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear status filter"
+                                title="Clear status"
+                                @click="clearStatusFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.trip_type" class="app-index-active-search__pill">
+                            {{ activeTripTypeLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear trip type filter"
+                                title="Clear trip type"
+                                @click="clearTripTypeFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.customer_id" class="app-index-active-search__pill">
+                            {{ activeCustomerLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear customer filter"
+                                title="Clear customer"
+                                @click="clearCustomerFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="filters.broker_id" class="app-index-active-search__pill">
+                            {{ activeBrokerLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear reference filter"
+                                title="Clear reference"
+                                @click="clearBrokerFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Trip #</th>
+                        <th>Truck</th>
+                        <th>Driver</th>
+                        <th class="trips-status-col">Status</th>
+                        <th class="trips-period-col">Trip Date</th>
+                        <th class="trips-route-col">Route</th>
+                        <th class="trips-financials-col">Freight / Expense / Profit</th>
+                        <th v-if="showActions" class="app-index-actions-cell text-end" style="width: 180px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="trips.length === 0" class="app-index-empty-row">
+                        <td :colspan="tableColspan" class="text-center text-muted py-4">
+                            No trips found for selected filters.
+                        </td>
+                    </tr>
+                    <tr v-for="trip in trips" :key="trip.id">
+                        <td>
+                            <div class="trips-trip-cell">
+                                <RouterLink
+                                    v-if="canOpenTrip"
+                                    :to="{ name: 'trips.show', params: { id: trip.id } }"
+                                    class="trip-number-link fw-semibold text-decoration-none"
+                                >
+                                    {{ trip.trip_number || '—' }}
+                                </RouterLink>
+                                <strong v-else>{{ trip.trip_number || '—' }}</strong>
+                                <span
+                                    class="trip-type-badge"
+                                    :class="tripTypeInfo(trip.trip_type).badge"
+                                    :title="tripTypeInfo(trip.trip_type).label"
+                                >
+                                    <i class="bi" :class="tripTypeInfo(trip.trip_type).icon" aria-hidden="true"></i>
+                                    <span class="trip-type-badge__label">{{ tripTypeInfo(trip.trip_type).label }}</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
+                        <td>
+                            <div>{{ trip.driver?.name ?? '—' }}</div>
+                            <div v-if="trip.substitute_driver?.name" class="small text-muted">
+                                Substitute: {{ trip.substitute_driver.name }}
+                            </div>
+                        </td>
+                        <td class="trips-status-col">
+                            <TripInlineStatusActions
+                                :trip="trip"
+                                :can-manage="canEdit"
+                                @updated="onTripStatusUpdated(trip, $event)"
+                            />
+                        </td>
+                        <td class="trips-period-col small">
+                            <div>{{ formatDate(trip.start_at) }}</div>
+                            <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
+                        </td>
+                        <td class="trips-route-col small" :title="formatRoute(trip)">
+                            {{ formatRoute(trip) }}
+                        </td>
+                        <td class="trips-financials-col">
+                            <div class="trips-financials" :title="financialSummaryTitle(trip)">
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Freight</span>
+                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
+                                </div>
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Expense</span>
+                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
+                                </div>
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Profit</span>
                                     <span
-                                        class="trip-type-badge"
-                                        :class="tripTypeInfo(trip.trip_type).badge"
-                                        :title="tripTypeInfo(trip.trip_type).label"
+                                        class="trips-financials__val"
+                                        :class="tripProfit(trip) >= 0 ? 'text-success' : 'text-danger'"
                                     >
-                                        <i class="bi" :class="tripTypeInfo(trip.trip_type).icon" aria-hidden="true"></i>
-                                        <span class="trip-type-badge__label">{{ tripTypeInfo(trip.trip_type).label }}</span>
+                                        ₹{{ formatCompactMoney(tripProfit(trip)) }}
                                     </span>
                                 </div>
-                            </td>
-                            <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
-                            <td>
-                                <div>{{ trip.driver?.name ?? '—' }}</div>
-                                <div v-if="trip.substitute_driver?.name" class="small text-muted">
-                                    Substitute: {{ trip.substitute_driver.name }}
-                                </div>
-                            </td>
-                            <td class="trips-status-col">
-                                <TripInlineStatusActions
-                                    v-if="!showingArchived"
-                                    :trip="trip"
-                                    :can-manage="canEdit"
-                                    @updated="onTripStatusUpdated(trip, $event)"
+                            </div>
+                        </td>
+                        <td v-if="showActions" class="app-index-actions-cell text-end">
+                            <AppTableActions>
+                                <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
+                                <AppCrudActionButton
+                                    v-if="canEdit && canManageTripExpensesFor(trip)"
+                                    action="expenses"
+                                    title="Trip expenses"
+                                    @click="goToExpenses(trip)"
                                 />
-                                <span
-                                    v-else
-                                    class="badge"
-                                    :class="tripStatusInfo(trip.status).badge"
-                                >
-                                    {{ tripStatusInfo(trip.status).label }}
-                                </span>
-                            </td>
-                            <td v-if="showingArchived" class="trips-archived-col small">
-                                {{ formatDate(trip.archived_at) }}
-                            </td>
-                            <td v-if="showingArchived" class="trips-archive-reason-col small text-muted">
-                                {{ trip.archive_reason || '—' }}
-                            </td>
-                            <td v-if="!showingArchived" class="trips-period-col small">
-                                <div>{{ formatDate(trip.start_at) }}</div>
-                                <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
-                            </td>
-                            <td v-if="!showingArchived" class="trips-route-col small" :title="formatRoute(trip)">
-                                {{ formatRoute(trip) }}
-                            </td>
-                            <td v-if="!showingArchived" class="trips-financials-col">
-                                <div class="trips-financials" :title="financialSummaryTitle(trip)">
-                                    <div class="trips-financials__row">
-                                        <span class="trips-financials__label">Freight</span>
-                                        <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
-                                    </div>
-                                    <div class="trips-financials__row">
-                                        <span class="trips-financials__label">Expense</span>
-                                        <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
-                                    </div>
-                                    <div class="trips-financials__row">
-                                        <span class="trips-financials__label">Profit</span>
-                                        <span
-                                            class="trips-financials__val"
-                                            :class="tripProfit(trip) >= 0 ? 'text-success' : 'text-danger'"
-                                        >
-                                            ₹{{ formatCompactMoney(tripProfit(trip)) }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td v-if="showActions" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
-                                    <template v-if="!showingArchived">
-                                        <AppCrudActionButton
-                                            v-if="canEdit && canManageTripExpensesFor(trip)"
-                                            action="expenses"
-                                            title="Trip expenses"
-                                            @click="goToExpenses(trip)"
-                                        />
-                                        <AppCrudActionButton
-                                            v-if="canEdit"
-                                            action="edit"
-                                            :disabled="!canEditTrip(trip)"
-                                            :title="tripEditTitle(trip)"
-                                            @click="goToEdit(trip)"
-                                        />
-                                        <AppCrudActionButton
-                                            v-if="canArchiveTripRow(trip)"
-                                            action="archive"
-                                            :title="tripArchiveTitle(trip)"
-                                            @click="handleArchive(trip)"
-                                        />
-                                    </template>
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
-                    </table>
-                </div>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="tripsIndex"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="trips"
-                :per-page-options="[15, 25, 50]"
-                @page-change="loadTrips"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    :disabled="!canEditTrip(trip)"
+                                    :title="tripEditTitle(trip)"
+                                    @click="goToEdit(trip)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canArchiveTripRow(trip)"
+                                    action="archive"
+                                    :title="tripArchiveTitle(trip)"
+                                    @click="handleArchive(trip)"
+                                />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="trips"
+                    aria-label="Trips pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <TripTypeSelectModal
             :show="showTripTypeModal"
@@ -257,14 +322,12 @@ import {
     archiveTrip,
     defaultTripListFilters,
     fetchTripArchiveImpact,
-    isTerminalTripStatus,
     listTrips,
     canFullEditTrip,
     canArchiveTrip,
     tripArchiveDisabledTitle,
     canManageTripExpenses,
     tripEditDisabledTitle,
-    tripStatusMeta,
     tripTypeMeta,
     TRIP_STATUSES,
     TRIP_TYPES,
@@ -273,15 +336,15 @@ import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmMo
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import SearchablePicker from '../../components/ui/SearchablePicker.vue';
 import { TRIP_LIST_DATE_PRESET_KEYS } from '../../utils/dateRangePresets';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -314,15 +377,7 @@ const { canInCompany, user } = usePermissions(currentUser);
 const canCreate = computed(() => canInCompany('trips.create'));
 const canEdit = computed(() => canInCompany('trips.edit'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
-const canViewArchived = computed(() => canInCompany('trips.view_archived'));
-const showingArchived = computed(() => Boolean(filters.show_archived));
-const tableColspan = computed(() => {
-    if (showingArchived.value) {
-        return showActions.value ? 8 : 7;
-    }
-
-    return showActions.value ? 8 : 7;
-});
+const tableColspan = computed(() => (showActions.value ? 8 : 7));
 const canView = computed(() => canInCompany('trips.view'));
 const canOpenTrip = computed(() => canView.value || canEdit.value);
 const showActions = computed(() => canOpenTrip.value);
@@ -342,10 +397,11 @@ const tripPendingArchive = ref(null);
 const tripStatuses = TRIP_STATUSES;
 const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
+const filtersOpen = ref(false);
 
 const filters = reactive(defaultTripListFilters());
 
-const { pagination, syncFromMeta } = useListPagination(15);
+const { pagination, syncFromMeta } = useListPagination(10);
 
 const defaultFilters = defaultTripListFilters();
 const searchAutoLoadReady = ref(false);
@@ -360,6 +416,12 @@ const tenantId = computed(
 
 const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
+const dateRangeFilterActive = computed(
+    () =>
+        !searchIgnoresDateRange.value &&
+        (filters.from_date !== defaultFilters.from_date || filters.to_date !== defaultFilters.to_date),
+);
+
 const filtersActive = computed(() => {
     return (
         filters.from_date !== defaultFilters.from_date ||
@@ -368,10 +430,39 @@ const filtersActive = computed(() => {
         filters.customer_id !== '' ||
         filters.broker_id !== '' ||
         filters.status !== '' ||
-        filters.trip_type !== '' ||
-        filters.show_archived
+        filters.trip_type !== ''
     );
 });
+
+const activeDateRangeLabel = computed(() => `${filters.from_date} – ${filters.to_date}`);
+
+const activeStatusLabel = computed(() => {
+    const match = tripStatuses.find((option) => String(option.value) === String(filters.status));
+
+    return match?.label ?? 'Status';
+});
+
+const activeTripTypeLabel = computed(() => {
+    const match = tripTypes.find((option) => String(option.value) === String(filters.trip_type));
+
+    return match?.label ?? 'Trip type';
+});
+
+const activeCustomerLabel = computed(() => {
+    const match = customers.value.find((customer) => String(customer.id) === String(filters.customer_id));
+
+    return match?.name ?? 'Customer';
+});
+
+const activeBrokerLabel = computed(() => {
+    const match = brokers.value.find((broker) => String(broker.id) === String(filters.broker_id));
+
+    return match?.name ?? 'Reference';
+});
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 function currentListState() {
     return {
@@ -382,7 +473,6 @@ function currentListState() {
         trip_type: filters.trip_type,
         customer_id: filters.customer_id,
         broker_id: filters.broker_id,
-        show_archived: filters.show_archived,
         page: pagination.currentPage,
         per_page: pagination.perPage,
     };
@@ -396,9 +486,8 @@ function applyListState(state) {
     filters.trip_type = state.trip_type ?? '';
     filters.customer_id = state.customer_id ?? '';
     filters.broker_id = state.broker_id ?? '';
-    filters.show_archived = Boolean(state.show_archived);
     pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
-    pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 15;
+    pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 10;
 }
 
 function listStatesEqual(left, right) {
@@ -410,7 +499,6 @@ function listStatesEqual(left, right) {
         left.trip_type === right.trip_type &&
         String(left.customer_id) === String(right.customer_id) &&
         String(left.broker_id) === String(right.broker_id) &&
-        Boolean(left.show_archived) === Boolean(right.show_archived) &&
         Number(left.page) === Number(right.page) &&
         Number(left.per_page) === Number(right.per_page)
     );
@@ -473,10 +561,6 @@ function financialSummaryTitle(trip) {
 
 function tripTypeInfo(type) {
     return tripTypeMeta(type);
-}
-
-function isTerminalTrip(trip) {
-    return isTerminalTripStatus(trip.status);
 }
 
 function canEditTrip(trip) {
@@ -588,13 +672,52 @@ function onTripTypeSelected(tripType) {
     router.push({ name: 'trips.create', query: { type: typeQuery } });
 }
 
+function reloadFromFilters(page = 1) {
+    pagination.currentPage = page;
+    syncListStateToRoute();
+    loadTrips(page);
+}
+
+function clearSearchFilter() {
+    clearTimeout(searchDebounceTimer);
+    skipNextSearchWatch = true;
+    filters.search = '';
+    reloadFromFilters(1);
+}
+
+function clearDateRangeFilter() {
+    filters.from_date = defaultFilters.from_date;
+    filters.to_date = defaultFilters.to_date;
+    reloadFromFilters(1);
+}
+
+function clearStatusFilter() {
+    filters.status = '';
+    reloadFromFilters(1);
+}
+
+function clearTripTypeFilter() {
+    filters.trip_type = '';
+    reloadFromFilters(1);
+}
+
+function clearCustomerFilter() {
+    filters.customer_id = '';
+    reloadFromFilters(1);
+}
+
+function clearBrokerFilter() {
+    filters.broker_id = '';
+    reloadFromFilters(1);
+}
+
 function clearFilters() {
     clearTimeout(searchDebounceTimer);
     skipNextSearchWatch = true;
     clearTripListStateFromSession(tenantId.value);
     Object.assign(filters, defaultTripListFilters());
     pagination.currentPage = 1;
-    pagination.perPage = 15;
+    pagination.perPage = 10;
     syncListStateToRoute();
     loadTrips(1);
 }
@@ -606,28 +729,16 @@ function scheduleSearchLoad() {
     }, 350);
 }
 
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    loadTrips(1);
-}
-
 function onDateRangeChange() {
     loadTrips(1);
 }
 
-function tripStatusInfo(status) {
-    return tripStatusMeta(status);
-}
-
-function toggleShowArchived() {
-    if (!filters.show_archived && !canViewArchived.value) {
-        toast.error('You do not have permission to view archived trips.');
-
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
         return;
     }
 
-    filters.show_archived = !filters.show_archived;
-    loadTrips(1);
+    loadTrips(page);
 }
 
 async function loadTrips(page = 1) {
@@ -639,7 +750,7 @@ async function loadTrips(page = 1) {
         const result = await listTrips({
             page,
             perPage: pagination.perPage,
-            archived: filters.show_archived ? 'archived' : 'active',
+            archived: 'active',
             search: search || undefined,
             from_date: search ? undefined : filters.from_date || undefined,
             to_date: search ? undefined : filters.to_date || undefined,
@@ -844,6 +955,10 @@ onMounted(async () => {
 
     if (!hasFilterQueryParams(route.query) && loadTripListStateFromSession(tenantId.value)) {
         syncListStateToRoute();
+    }
+
+    if (hasFilterQueryParams(route.query) || filtersActive.value) {
+        filtersOpen.value = true;
     }
 
     listReady.value = true;

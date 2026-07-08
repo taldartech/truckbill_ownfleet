@@ -41,6 +41,14 @@
                     Repair
                 </button>
                 <button
+                    v-if="tyre.active_installation"
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    @click="openRegrip"
+                >
+                    Regrip
+                </button>
+                <button
                     v-if="tyre.status !== 'SCRAPPED'"
                     type="button"
                     class="btn btn-outline-info btn-sm"
@@ -158,7 +166,19 @@
                         <div class="card-header"><strong>Current Position</strong></div>
                         <div class="card-body">
                             <template v-if="tyre.active_installation">
-                                <div>{{ tyre.active_installation.vehicle_registration }}</div>
+                                <RouterLink
+                                    v-if="tyre.active_installation.vehicle_id"
+                                    :to="{
+                                        name: 'vehicles.tyres',
+                                        params: { vehicleId: tyre.active_installation.vehicle_id },
+                                    }"
+                                    class="tyre-current-truck-link"
+                                >
+                                    {{ tyre.active_installation.vehicle_registration }}
+                                </RouterLink>
+                                <div v-else class="tyre-current-truck-link tyre-current-truck-link--static">
+                                    {{ tyre.active_installation.vehicle_registration }}
+                                </div>
                                 <div class="text-muted">{{ tyre.active_installation.position_label }}</div>
                                 <div class="small">
                                     Since {{ formatDate(tyre.active_installation.installed_at) }}
@@ -307,8 +327,16 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeInstall"
-            @submit="submitInstall"
+            @submit="requestActionConfirm('install')"
         >
+            <TyreActionContextStrip
+                class="mb-3"
+                :tyre-serial="tyre?.serial_number"
+                :truck-number="installContextTruckNumber"
+                :vehicle-id="actionForm.vehicle_id"
+                :position="installContextPosition"
+                :show-truck="!!actionForm.vehicle_id"
+            />
             <div class="mb-2">
                 <label class="form-label" for="installTyre_vehicle">Truck</label>
                 <VehicleSelect
@@ -360,12 +388,16 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeReplace"
-            @submit="submitReplace"
+            @submit="requestActionConfirm('replace')"
         >
-            <div class="alert alert-info small py-2">
-                Position: <strong>{{ tyre?.active_installation?.position_label }}</strong> · Truck:
-                <strong>{{ tyre?.active_installation?.vehicle_registration }}</strong>
-            </div>
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
             <div class="mb-2">
                 <label class="form-label">New tyre (from stock)</label>
                 <AppSelect
@@ -413,9 +445,16 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeRotate"
-            @submit="submitRotate"
+            @submit="requestActionConfirm('rotate')"
         >
-            
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
             <div class="mb-2">
                 <label class="form-label">Previous Position</label>
                 <input :value="tyre?.active_installation?.position_label" class="form-control" disabled />
@@ -489,8 +528,16 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeRemove"
-            @submit="submitRemove"
+            @submit="requestActionConfirm('remove')"
         >
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
             <div class="mb-2">
                 <label class="form-label">Remove date</label>
                 <AppDateInput v-model="actionForm.removed_at" required />
@@ -522,8 +569,16 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeUpdateKm"
-            @submit="submitUpdateKm"
+            @submit="requestActionConfirm('updateKm')"
         >
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
                 <input
@@ -550,8 +605,13 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeScrap"
-            @submit="submitScrap"
+            @submit="requestActionConfirm('scrap')"
         >
+            <TyreActionContextStrip
+                class="mb-3"
+                :tyre-serial="tyre?.serial_number"
+                :show-truck="false"
+            />
             <div v-if="lifeSummary" class="alert alert-secondary small py-2">
                 <div><strong>Total KM used:</strong> {{ lifeSummary.total_km_used }} km</div>
                 <div><strong>Life used:</strong> {{ lifeSummary.life_used_percent }}%</div>
@@ -590,8 +650,22 @@
             :form-error="formError"
             :saving="actionSaving"
             @close="closeInspection"
-            @submit="submitInspection"
+            @submit="requestActionConfirm('inspection')"
         >
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
+            <TyreActionContextStrip
+                v-else
+                class="mb-3"
+                :tyre-serial="tyre?.serial_number"
+                :show-truck="false"
+            />
             <div class="mb-2">
                 <label class="form-label">Inspection date</label>
                 <AppDateInput v-model="actionForm.inspected_at" required />
@@ -642,22 +716,30 @@
 
         <TyreActionModal
             v-if="showDamage"
-            title="Record Repair"
+            :title="damageModalMode === 'recapped' ? 'Record Regrip' : 'Record Repair'"
             :form-error="formError"
             :saving="actionSaving"
             @close="closeDamage"
-            @submit="submitDamage"
+            @submit="requestActionConfirm('damage')"
         >
-            <div class="mb-2">
+            <TyreActionContextStrip
+                v-if="tyre?.active_installation"
+                class="mb-3"
+                :tyre-serial="tyre.serial_number"
+                :truck-number="tyre.active_installation.vehicle_registration"
+                :vehicle-id="activeVehicleId"
+                :position="tyre.active_installation.position_label"
+            />
+            <div v-if="damageModalMode === 'repair'" class="mb-2">
                 <label class="form-label">Type</label>
                 <AppSelect
                     v-model="actionForm.damage_type"
-                    :options="damageTypeSelectOptions"
+                    :options="repairTypeSelectOptions"
                     placeholder="Select type"
                     search-placeholder="Search type…"
                 />
             </div>
-            <div v-if="actionForm.damage_type === 'RECAPPED'" class="mb-2">
+            <div v-if="damageModalMode === 'recapped'" class="mb-2">
                 <label class="form-label">New expected life (km) *</label>
                 <input
                     v-model.number="actionForm.expected_life_km"
@@ -672,19 +754,22 @@
                 />
                 <div class="form-text">
                     Current expected life: {{ tyre?.expected_life_km ?? 40000 }} km.
-                    Increase or decrease based on recap quality.
+                    Enter the new expected life after regrip — you can increase or decrease this value.
                 </div>
                 <div v-if="hasFieldError(fieldErrors, 'expected_life_km')" class="invalid-feedback d-block">
                     {{ fieldErrorMessage(fieldErrors, 'expected_life_km') }}
                 </div>
             </div>
             <div class="mb-2">
-                <label class="form-label">Position on truck</label>
-                <input :value="tyre?.active_installation?.position_label || '—'" class="form-control" disabled />
-            </div>
-            <div class="mb-2">
                 <label class="form-label">Date</label>
-                <AppDateInput v-model="actionForm.occurred_at" required />
+                <AppDateInput
+                    v-model="actionForm.occurred_at"
+                    required
+                    :invalid="hasFieldError(fieldErrors, 'occurred_at')"
+                />
+                <div v-if="hasFieldError(fieldErrors, 'occurred_at')" class="invalid-feedback d-block">
+                    {{ fieldErrorMessage(fieldErrors, 'occurred_at') }}
+                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -695,18 +780,57 @@
                     min="0"
                     step="0.01"
                     class="form-control"
+                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'odometer_km') }"
                     required
                 />
+                <div v-if="hasFieldError(fieldErrors, 'odometer_km')" class="invalid-feedback d-block">
+                    {{ fieldErrorMessage(fieldErrors, 'odometer_km') }}
+                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Description</label>
-                <input v-model="actionForm.damage_description" type="text" class="form-control" placeholder="Puncture, burst…" />
+                <input
+                    v-model="actionForm.damage_description"
+                    type="text"
+                    class="form-control"
+                    :placeholder="damageModalMode === 'recapped' ? 'Regrip notes…' : 'Puncture, burst…'"
+                />
             </div>
             <div class="mb-2">
-                <label class="form-label">Repair Cost</label>
-                <input v-model.number="actionForm.repair_cost" v-no-scroll-change type="number" min="0" step="0.01" class="form-control" />
+                <label class="form-label">{{ damageModalMode === 'recapped' ? 'Regrip Cost *' : 'Repair Cost *' }}</label>
+                <input
+                    v-model.number="actionForm.repair_cost"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    :class="{ 'is-invalid': hasFieldError(fieldErrors, 'repair_cost') }"
+                    required
+                />
+                <div v-if="hasFieldError(fieldErrors, 'repair_cost')" class="invalid-feedback d-block">
+                    {{ fieldErrorMessage(fieldErrors, 'repair_cost') }}
+                </div>
             </div>
         </TyreActionModal>
+
+        <TyreActionConfirmModal
+            :show="showActionConfirm"
+            :title="actionConfirmSummary?.title ?? 'Confirm Action'"
+            :message="actionConfirmSummary?.message ?? ''"
+            :loading="actionSaving"
+            :confirm-label="actionConfirmSummary?.confirmLabel ?? 'Yes, Confirm'"
+            :confirm-variant="actionConfirmVariant"
+            :icon-tone="actionConfirmSummary?.iconTone ?? 'primary'"
+            :tyre-serial="actionConfirmSummary?.context?.tyreSerial ?? ''"
+            :truck-number="actionConfirmSummary?.context?.truckNumber ?? ''"
+            :vehicle-id="confirmContextVehicleId"
+            :position="actionConfirmSummary?.context?.position ?? ''"
+            :show-truck="actionConfirmSummary?.context?.truckNumber !== '—'"
+            :items="actionConfirmSummary?.items ?? []"
+            @cancel="cancelActionConfirm"
+            @confirm="confirmTyreAction"
+        />
     </div>
 </template>
 
@@ -731,6 +855,8 @@ import {
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
+import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
+import TyreActionContextStrip from '../../components/tyres/TyreActionContextStrip.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
@@ -744,6 +870,7 @@ import {
     tyreStatusBadgeClass,
     warrantyBadgeClass,
 } from '../../utils/tyreDisplay';
+import { buildTyreActionConfirmSummary } from '../../utils/tyre-action-confirm-info';
 
 function formatWarrantyDate(value) {
     return formatDate(value);
@@ -772,11 +899,14 @@ const stockTyres = ref([]);
 const showInstall = ref(false);
 const showRotate = ref(false);
 const showDamage = ref(false);
+const damageModalMode = ref('repair');
 const showReplace = ref(false);
 const showRemove = ref(false);
 const showUpdateKm = ref(false);
 const showScrap = ref(false);
 const showInspection = ref(false);
+const showActionConfirm = ref(false);
+const pendingAction = ref(null);
 const replacePreview = ref(null);
 const removePreview = ref(null);
 
@@ -825,12 +955,11 @@ const rotatePositionSelectOptions = computed(() =>
     })),
 );
 
-const damageTypeSelectOptions = [
+const repairTypeSelectOptions = [
     { value: 'PUNCTURE', label: 'Puncture' },
     { value: 'BURST', label: 'Burst' },
     { value: 'CUT', label: 'Cut' },
     { value: 'SIDEWALL', label: 'Sidewall' },
-    { value: 'RECAPPED', label: 'Recapped' },
     { value: 'OTHER', label: 'Other' },
 ];
 
@@ -848,6 +977,67 @@ const installLifeLabel = computed(() => {
     const stockKm = lifeSummary.value?.stock_km ?? 0;
 
     return stockKm > 0 ? 'Used tyre' : 'New tyre';
+});
+
+const installContextTruckNumber = computed(() => {
+    if (!actionForm.vehicle_id) {
+        return '—';
+    }
+
+    const vehicle = vehicles.value.find((row) => row.id === actionForm.vehicle_id);
+
+    return vehicle?.registration_number ?? '—';
+});
+
+const installContextPosition = computed(() => {
+    if (!actionForm.position_code) {
+        return '';
+    }
+
+    return installPositionSelectOptions.value.find((option) => option.value === actionForm.position_code)?.label ?? '';
+});
+
+const actionConfirmSummary = computed(() => {
+    if (!pendingAction.value) {
+        return null;
+    }
+
+    return buildTyreActionConfirmSummary({
+        action: pendingAction.value,
+        tyre: tyre.value,
+        actionForm,
+        damageModalMode: damageModalMode.value,
+        vehicles: vehicles.value,
+        stockTyres: stockTyres.value,
+        rotatePositionOptions: rotatePositionSelectOptions.value,
+        selectedRotateTarget: selectedRotateTarget.value,
+        calculatedStintKm: calculatedStintKm.value,
+        installPositionSelectOptions: installPositionSelectOptions.value,
+    });
+});
+
+const actionConfirmVariant = computed(() => {
+    const tone = actionConfirmSummary.value?.iconTone;
+
+    if (tone === 'danger') {
+        return 'danger';
+    }
+
+    if (tone === 'warning') {
+        return 'warning';
+    }
+
+    return 'success';
+});
+
+const activeVehicleId = computed(() => tyre.value?.active_installation?.vehicle_id ?? '');
+
+const confirmContextVehicleId = computed(() => {
+    if (pendingAction.value === 'install') {
+        return actionForm.vehicle_id;
+    }
+
+    return activeVehicleId.value;
 });
 
 const activeKmAtInstallation = computed(() => {
@@ -1077,12 +1267,22 @@ function openRotate() {
 function openDamage() {
     clearErrors();
     resetActionForm();
+    damageModalMode.value = 'repair';
     prefillActiveVehicleOdometer();
-    prefillRecapExpectedLife();
     showDamage.value = true;
 }
 
-function prefillRecapExpectedLife() {
+function openRegrip() {
+    clearErrors();
+    resetActionForm();
+    damageModalMode.value = 'recapped';
+    actionForm.damage_type = 'RECAPPED';
+    prefillActiveVehicleOdometer();
+    prefillRegripExpectedLife();
+    showDamage.value = true;
+}
+
+function prefillRegripExpectedLife() {
     actionForm.expected_life_km = tyre.value?.expected_life_km ?? lifeSummary.value?.expected_life_km ?? 40000;
 }
 
@@ -1159,20 +1359,6 @@ function finishTyreAction(modalRef) {
     modalRef.value = false;
     clearErrors();
     resetActionForm();
-}
-
-async function runTyreAction(action) {
-    clearErrors();
-    actionSaving.value = true;
-
-    try {
-        await action();
-    } catch (error) {
-        const mappedError = mapTyreActionApiError(error);
-        applyApiError(mappedError, 'Unable to save. Please check the form and try again.');
-    } finally {
-        actionSaving.value = false;
-    }
 }
 
 function mapTyreActionApiError(error) {
@@ -1283,7 +1469,7 @@ watch(
     () => actionForm.damage_type,
     (damageType) => {
         if (damageType === 'RECAPPED') {
-            prefillRecapExpectedLife();
+            prefillRegripExpectedLife();
         }
     },
 );
@@ -1317,145 +1503,271 @@ async function loadStockTyres() {
     stockTyres.value = res.data.filter((t) => t.id !== tyre.value?.id);
 }
 
-async function submitInstall() {
-    await runTyreAction(async () => {
-        await installTyre(tyre.value.id, {
-            vehicle_id: actionForm.vehicle_id,
-            position_code: actionForm.position_code,
-            installed_at: actionForm.installed_at,
-            km_at_installation: actionForm.km_at_installation,
-        });
-        finishTyreAction(showInstall);
-        await loadTyre();
-    });
+function requestActionConfirm(action) {
+    if (!validateActionBeforeConfirm(action)) {
+        return;
+    }
+
+    pendingAction.value = action;
+    showActionConfirm.value = true;
 }
 
-async function submitRotate() {
-    await runTyreAction(async () => {
-        await rotateTyre(tyre.value.id, {
-            rotation_date: actionForm.rotation_date,
-            previous_position: tyre.value.active_installation.position,
-            new_position: actionForm.new_position,
-            cost: actionForm.rotation_cost,
-            odometer_km: actionForm.odometer_km,
-            reason: actionForm.reason || null,
-        });
-        finishTyreAction(showRotate);
-        activeTab.value = 'rotations';
-        await loadTyre();
-    });
+function cancelActionConfirm() {
+    if (actionSaving.value) {
+        return;
+    }
+
+    showActionConfirm.value = false;
+    pendingAction.value = null;
 }
 
-async function submitDamage() {
-    await runTyreAction(async () => {
-        if (actionForm.damage_type === 'RECAPPED') {
-            const expectedLife = Number(actionForm.expected_life_km);
+async function confirmTyreAction() {
+    if (!pendingAction.value) {
+        return;
+    }
 
-            if (!Number.isFinite(expectedLife) || expectedLife < 1000) {
-                fieldErrors.value = {
-                    expected_life_km: ['Expected life must be at least 1,000 km.'],
-                };
-                formError.value = 'Please fix the highlighted fields and try again.';
+    actionSaving.value = true;
 
-                return;
+    try {
+        await executeTyreAction(pendingAction.value);
+        showActionConfirm.value = false;
+        pendingAction.value = null;
+    } catch (error) {
+        showActionConfirm.value = false;
+        applyApiError(mapTyreActionApiError(error), 'Unable to save. Please check the form and try again.');
+    } finally {
+        actionSaving.value = false;
+    }
+}
+
+function validateActionBeforeConfirm(action) {
+    if (action === 'damage') {
+        return validateDamageForm();
+    }
+
+    clearErrors();
+    const errors = {};
+
+    if (action === 'install') {
+        if (!actionForm.vehicle_id) {
+            errors.vehicle_id = ['The truck field is required.'];
+        }
+
+        if (!actionForm.position_code) {
+            errors.position_code = ['The position field is required.'];
+        }
+    }
+
+    if (action === 'rotate') {
+        if (!actionForm.new_position) {
+            errors.new_position = ['Select a new position.'];
+        }
+
+        if (actionForm.odometer_km === '' || actionForm.odometer_km == null || !Number.isFinite(Number(actionForm.odometer_km))) {
+            errors.odometer_km = ['Current meter reading is required.'];
+        }
+
+        if (actionForm.rotation_cost === '' || actionForm.rotation_cost == null || Number(actionForm.rotation_cost) < 0) {
+            errors.cost = ['Rotation cost is required.'];
+        }
+    }
+
+    if (['replace', 'remove', 'updateKm'].includes(action)) {
+        const odometer = Number(actionForm.odometer_km);
+
+        if (actionForm.odometer_km === '' || actionForm.odometer_km == null || !Number.isFinite(odometer) || odometer < 0) {
+            errors.odometer_km = ['Current meter reading is required.'];
+        } else {
+            const kmAtInstall = tyre.value?.active_installation?.km_at_installation;
+
+            if (kmAtInstall != null && odometer < kmAtInstall) {
+                errors.odometer_km = [`Meter reading cannot be less than install reading (${kmAtInstall} km).`];
             }
         }
+    }
 
-        const payload = {
-            damage_type: actionForm.damage_type,
-            occurred_at: actionForm.occurred_at,
-            repair_cost: actionForm.repair_cost || null,
-            description: actionForm.damage_description || null,
-            odometer_km: actionForm.odometer_km,
-        };
+    if (Object.keys(errors).length > 0) {
+        fieldErrors.value = errors;
+        formError.value = 'Please fix the highlighted fields and try again.';
 
-        if (actionForm.damage_type === 'RECAPPED') {
-            payload.expected_life_km = actionForm.expected_life_km;
+        return false;
+    }
+
+    return true;
+}
+
+async function executeTyreAction(action) {
+    switch (action) {
+        case 'install':
+            await installTyre(tyre.value.id, {
+                vehicle_id: actionForm.vehicle_id,
+                position_code: actionForm.position_code,
+                installed_at: actionForm.installed_at,
+                km_at_installation: actionForm.km_at_installation,
+            });
+            finishTyreAction(showInstall);
+            await loadTyre();
+            break;
+        case 'rotate':
+            await rotateTyre(tyre.value.id, {
+                rotation_date: actionForm.rotation_date,
+                previous_position: tyre.value.active_installation.position,
+                new_position: actionForm.new_position,
+                cost: actionForm.rotation_cost,
+                odometer_km: actionForm.odometer_km,
+                reason: actionForm.reason || null,
+            });
+            finishTyreAction(showRotate);
+            activeTab.value = 'rotations';
+            await loadTyre();
+            break;
+        case 'damage': {
+            const payload = {
+                damage_type: actionForm.damage_type,
+                occurred_at: actionForm.occurred_at,
+                repair_cost: actionForm.repair_cost || null,
+                description: actionForm.damage_description || null,
+                odometer_km: actionForm.odometer_km,
+            };
+
+            if (actionForm.damage_type === 'RECAPPED') {
+                payload.expected_life_km = actionForm.expected_life_km;
+            }
+
+            if (tyre.value?.active_installation?.vehicle_id) {
+                payload.vehicle_id = tyre.value.active_installation.vehicle_id;
+                payload.position_code = tyre.value.active_installation.position;
+            }
+
+            await recordTyreDamage(tyre.value.id, payload);
+            finishTyreAction(showDamage);
+            activeTab.value = 'damages';
+            await loadTyre();
+            break;
         }
+        case 'replace':
+            await replaceTyre({
+                vehicle_id: tyre.value.active_installation.vehicle_id,
+                position_code: tyre.value.active_installation.position,
+                old_tyre_id: tyre.value.id,
+                new_tyre_id: actionForm.new_tyre_id || null,
+                replaced_at: actionForm.replaced_at,
+                odometer_km: actionForm.odometer_km,
+                reason: actionForm.replace_reason || null,
+            });
+            finishTyreAction(showReplace);
+            await loadTyre();
+            break;
+        case 'remove': {
+            const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
+            if (!instId) {
+                return;
+            }
 
-        await recordTyreDamage(tyre.value.id, payload);
-        finishTyreAction(showDamage);
-        activeTab.value = 'damages';
-        await loadTyre();
-    });
+            await removeTyreInstallation(instId, {
+                removed_at: actionForm.removed_at,
+                odometer_km: actionForm.odometer_km,
+            });
+            finishTyreAction(showRemove);
+            removePreview.value = null;
+            await loadTyre();
+            break;
+        }
+        case 'updateKm': {
+            const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
+            if (!instId) {
+                return;
+            }
+
+            await updateTyreInstallationStintKm(instId, { odometer_km: actionForm.odometer_km });
+            finishTyreAction(showUpdateKm);
+            await loadTyre();
+            break;
+        }
+        case 'scrap':
+            await scrapTyre(tyre.value.id, {
+                scrapped_at: actionForm.scrapped_at,
+                scrap_sale_amount:
+                    actionForm.scrap_sale_amount === '' || actionForm.scrap_sale_amount == null
+                        ? null
+                        : actionForm.scrap_sale_amount,
+                scrap_notes: actionForm.scrap_notes || null,
+            });
+            finishTyreAction(showScrap);
+            activeTab.value = 'timeline';
+            await loadTyre();
+            break;
+        case 'inspection':
+            await recordTyreInspection(tyre.value.id, {
+                vehicle_id: tyre.value?.active_installation?.vehicle_id ?? null,
+                inspected_at: actionForm.inspected_at,
+                tread_depth_mm: actionForm.tread_depth_mm === '' ? null : actionForm.tread_depth_mm,
+                pressure_psi: actionForm.pressure_psi === '' ? null : actionForm.pressure_psi,
+                result: actionForm.inspection_result || 'PASS',
+                next_due_at: actionForm.next_due_at || null,
+                notes: actionForm.inspection_notes || null,
+            });
+            finishTyreAction(showInspection);
+            activeTab.value = 'timeline';
+            await loadTyre();
+            break;
+        default:
+            break;
+    }
 }
 
-async function submitReplace() {
-    await runTyreAction(async () => {
-        await replaceTyre({
-            vehicle_id: tyre.value.active_installation.vehicle_id,
-            position_code: tyre.value.active_installation.position,
-            old_tyre_id: tyre.value.id,
-            new_tyre_id: actionForm.new_tyre_id || null,
-            replaced_at: actionForm.replaced_at,
-            odometer_km: actionForm.odometer_km,
-            reason: actionForm.replace_reason || null,
-        });
-        finishTyreAction(showReplace);
-        await loadTyre();
-    });
-}
+function validateDamageForm() {
+    const errors = {};
 
-async function submitRemove() {
-    const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
-    if (!instId) {
-        return;
+    if (!actionForm.occurred_at) {
+        errors.occurred_at = ['Date is required.'];
     }
 
-    await runTyreAction(async () => {
-        await removeTyreInstallation(instId, {
-            removed_at: actionForm.removed_at,
-            odometer_km: actionForm.odometer_km,
-        });
-        finishTyreAction(showRemove);
-        removePreview.value = null;
-        await loadTyre();
-    });
-}
+    const odometer = Number(actionForm.odometer_km);
 
-async function submitUpdateKm() {
-    const instId = tyre.value?.active_installation?.installation_id ?? tyre.value?.active_installation?.id;
-    if (!instId) {
-        return;
+    if (actionForm.odometer_km === '' || actionForm.odometer_km == null || !Number.isFinite(odometer) || odometer < 0) {
+        errors.odometer_km = ['Current meter reading is required.'];
+    } else {
+        const kmAtInstall = tyre.value?.active_installation?.km_at_installation;
+
+        if (kmAtInstall != null && odometer < kmAtInstall) {
+            errors.odometer_km = [`Meter reading cannot be less than install reading (${kmAtInstall} km).`];
+        }
     }
 
-    await runTyreAction(async () => {
-        await updateTyreInstallationStintKm(instId, { odometer_km: actionForm.odometer_km });
-        finishTyreAction(showUpdateKm);
-        await loadTyre();
-    });
-}
+    if (actionForm.damage_type === 'RECAPPED') {
+        const expectedLife = Number(actionForm.expected_life_km);
 
-async function submitScrap() {
-    await runTyreAction(async () => {
-        await scrapTyre(tyre.value.id, {
-            scrapped_at: actionForm.scrapped_at,
-            scrap_sale_amount: actionForm.scrap_sale_amount === '' || actionForm.scrap_sale_amount == null
-                ? null
-                : actionForm.scrap_sale_amount,
-            scrap_notes: actionForm.scrap_notes || null,
-        });
-        finishTyreAction(showScrap);
-        activeTab.value = 'timeline';
-        await loadTyre();
-    });
-}
+        if (
+            actionForm.expected_life_km === '' ||
+            actionForm.expected_life_km == null ||
+            !Number.isFinite(expectedLife) ||
+            expectedLife < 1000
+        ) {
+            errors.expected_life_km = ['New expected life must be at least 1,000 km.'];
+        }
+    }
 
-async function submitInspection() {
-    await runTyreAction(async () => {
-        await recordTyreInspection(tyre.value.id, {
-            vehicle_id: tyre.value?.active_installation?.vehicle_id ?? null,
-            inspected_at: actionForm.inspected_at,
-            tread_depth_mm: actionForm.tread_depth_mm === '' ? null : actionForm.tread_depth_mm,
-            pressure_psi: actionForm.pressure_psi === '' ? null : actionForm.pressure_psi,
-            result: actionForm.inspection_result || 'PASS',
-            next_due_at: actionForm.next_due_at || null,
-            notes: actionForm.inspection_notes || null,
-        });
-        finishTyreAction(showInspection);
-        activeTab.value = 'timeline';
-        await loadTyre();
-    });
+    const repairCost = actionForm.repair_cost;
+    const isRegrip = actionForm.damage_type === 'RECAPPED';
+
+    if (
+        repairCost === '' ||
+        repairCost == null ||
+        !Number.isFinite(Number(repairCost)) ||
+        Number(repairCost) < 0
+    ) {
+        errors.repair_cost = [isRegrip ? 'Regrip cost is required.' : 'Repair cost is required.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+        fieldErrors.value = errors;
+        formError.value = 'Please fix the highlighted fields and try again.';
+
+        return false;
+    }
+
+    return true;
 }
 
 watch(showReplace, async (open) => {
@@ -1470,3 +1782,22 @@ onMounted(async () => {
     await loadTyre();
 });
 </script>
+
+<style scoped>
+.tyre-current-truck-link {
+    display: inline-block;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--brand-accent-blue, #2d8cff);
+    text-decoration: none;
+    margin-bottom: 0.15rem;
+}
+
+.tyre-current-truck-link:hover {
+    text-decoration: underline;
+}
+
+.tyre-current-truck-link--static {
+    cursor: default;
+}
+</style>

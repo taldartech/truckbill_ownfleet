@@ -1,87 +1,95 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader
-            title="Company Management"
-            
-        >
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div v-if="routeNotice" class="alert alert-warning">{{ routeNotice }}</div>
 
-        <div class="card app-index-list-card mb-4">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Companies List</h3>
-            </div>
-            <div class="card-body">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading companies…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 60px">#</th>
-                                <th>Name</th>
-                                <th>GST Number</th>
-                                <th>PAN Number</th>
-                                <th>Contact</th>
-                                <th>Plan End</th>
-                                <th class="app-index-actions-cell" style="width: 240px">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="companies.length === 0">
-                                <td colspan="7" class="text-center text-muted py-4">
-                                    <span v-if="canCreate">
-                                        No companies yet. Use the Create button to register your first company.
-                                    </span>
-                                    <span v-else>No companies yet.</span>
-                                </td>
-                            </tr>
-                            <tr v-for="(company, index) in companies" :key="company.id">
-                                <td>{{ index + 1 }}</td>
-                                <td>
-                                    {{ company.name }}
-                                    <span v-if="company.is_blocked" class="badge bg-danger ms-1">Blocked</span>
-                                    <span
-                                        v-else-if="isActiveCompany(company.id)"
-                                        class="badge bg-success ms-1"
-                                    >Active</span>
-                                </td>
-                                <td>{{ company.gst_number || '—' }}</td>
-                                <td>{{ company.pan_number || '—' }}</td>
-                                <td>
-                                    <span v-if="company.contact_person">{{ company.contact_person }}</span>
-                                    <small v-if="company.contact_number" class="d-block text-muted">{{
-                                        company.contact_number
-                                    }}</small>
-                                    <span v-if="!company.contact_person && !company.contact_number">—</span>
-                                </td>
-                                <td>{{ formatDate(company.plan_end_date) }}</td>
-                                <td class="app-index-actions-cell text-nowrap">
-                                    <AppButton
-                                        v-if="canUpdate"
-                                        size="sm"
-                                        variant="secondary"
-                                        label="Edit"
-                                        class="me-1"
-                                        @click="openEdit(company)"
-                                    />
-                                    <AppButton
-                                        v-if="canBlock"
-                                        size="sm"
-                                        :variant="company.is_blocked ? 'success' : 'warning'"
-                                        :label="company.is_blocked ? 'Unblock' : 'Block'"
-                                        @click="toggleBlock(company)"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <AppIndexListCard title="Company Management" :loading="loading" loading-text="Loading companies…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Create company"
+                    @click="openCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
+            </template>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 60px">#</th>
+                        <th>Name</th>
+                        <th>GST Number</th>
+                        <th>PAN Number</th>
+                        <th>Contact</th>
+                        <th>Plan End</th>
+                        <th class="app-index-actions-cell text-end" style="width: 240px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="companies.length === 0" class="app-index-empty-row">
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <span v-if="canCreate">
+                                No companies yet. Use the Create button to register your first company.
+                            </span>
+                            <span v-else>No companies yet.</span>
+                        </td>
+                    </tr>
+                    <tr v-for="(company, index) in companies" :key="company.id">
+                        <td>{{ rowNumber(index) }}</td>
+                        <td>
+                            {{ company.name }}
+                            <span v-if="company.is_blocked" class="badge bg-danger ms-1">Blocked</span>
+                            <span
+                                v-else-if="isActiveCompany(company.id)"
+                                class="badge bg-success ms-1"
+                            >Active</span>
+                        </td>
+                        <td>{{ company.gst_number || '—' }}</td>
+                        <td>{{ company.pan_number || '—' }}</td>
+                        <td>
+                            <span v-if="company.contact_person">{{ company.contact_person }}</span>
+                            <small v-if="company.contact_number" class="d-block text-muted">{{
+                                company.contact_number
+                            }}</small>
+                            <span v-if="!company.contact_person && !company.contact_number">—</span>
+                        </td>
+                        <td>{{ formatDate(company.plan_end_date) }}</td>
+                        <td class="app-index-actions-cell text-end text-nowrap">
+                            <div class="app-index-table-actions">
+                                <button
+                                    v-if="canUpdate"
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(company)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <AppButton
+                                    v-if="canBlock"
+                                    size="sm"
+                                    :variant="company.is_blocked ? 'success' : 'warning'"
+                                    :label="company.is_blocked ? 'Unblock' : 'Block'"
+                                    @click="toggleBlock(company)"
+                                />
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="companies"
+                    aria-label="Companies pagination"
+                    @page-change="goToPage"
+                />
+            </template>
+        </AppIndexListCard>
 
         <CompanyFormModal
             :show="showForm"
@@ -106,24 +114,26 @@
 
 <script setup>
 import { computed, inject, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import {
     createCompany,
-    listAllCompanies,
+    listCompanies,
     updateCompany,
 } from '../../api/companies';
 import CompanyFormModal from '../../components/companies/CompanyFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { formatDate } from '../../utils/datetime';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildCompanyFields } from '../../utils/masterCrudSaveConfirm';
 
-const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
 const {
@@ -136,6 +146,7 @@ const {
 } = useMasterCrudSaveConfirm();
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const companies = ref([]);
 const loading = ref(true);
@@ -160,22 +171,38 @@ function isActiveCompany(id) {
     return activeCompanyId.value === id;
 }
 
+function rowNumber(index) {
+    return pagination.from > 0 ? pagination.from + index : index + 1;
+}
+
 async function refreshUser() {
     const user = await fetchCurrentUser();
     currentUser.value = user;
     window.__AUTH_USER__ = user;
 }
 
-async function loadCompanies() {
+async function loadCompanies(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        companies.value = await listAllCompanies();
+        const response = await listCompanies({ page, perPage: pagination.perPage });
+        companies.value = response.data;
+        syncFromMeta(response.meta, companies.value.length);
     } catch (error) {
         toast.error(error.response?.data?.message ?? 'Failed to load companies.');
+        companies.value = [];
+        resetPagination();
     } finally {
         loading.value = false;
     }
+}
+
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
+
+    loadCompanies(page);
 }
 
 function openCreate() {

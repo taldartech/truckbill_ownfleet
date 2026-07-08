@@ -102,7 +102,7 @@ const DAMAGE_TYPE_LABELS = {
     BURST: 'Burst',
     CUT: 'Cut',
     SIDEWALL: 'Sidewall',
-    RECAPPED: 'Recapped',
+    RECAPPED: 'Regrip',
     OTHER: 'Other',
 };
 

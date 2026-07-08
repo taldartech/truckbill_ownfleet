@@ -13,14 +13,7 @@
                     </h3>
                     
                 </div>
-                <div v-if="hasHeaderActions" class="trip-header-actions">
-                    <div v-if="hasNavActions" class="trip-header-actions__group">
-                        <slot name="nav-actions" />
-                    </div>
-                    <div v-if="hasSaveActions" class="trip-header-actions__group">
-                        <slot name="save-actions" />
-                    </div>
-                </div>
+              
             </div>
 
             <div class="card-body trip-form-fields maintenance-form-fields">

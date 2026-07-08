@@ -1,90 +1,81 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader :title="pageTitle">
-            <template v-if="canExport" #actions>
-                <AppButton
-                    icon="bi bi-file-earmark-excel"
-                    label="Export Excel"
-                    outline
-                    @click="exportExcel"
-                />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page report-index-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> to view the monthly fleet report.
         </div>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadReport(1)" @clear="clearFilters">
-            <div>
-                <label class="form-label">Month</label>
-                <input v-model="filters.month" type="month" class="form-control" />
-            </div>
-        </AppIndexFiltersCard>
+        <AppIndexListCard :title="pageTitle">
+            <template v-if="canExport" #toolbar>
+                <button type="button" class="btn btn-brand-secondary btn-sm report-header-btn" @click="exportExcel">
+                    Export Excel
+                </button>
+            </template>
 
-        <div class="card app-index-list-card">
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h3 class="card-title mb-0">Truck-wise Summary</h3>
+            <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
+                <div>
+                    <label class="form-label">Month</label>
+                    <input v-model="filters.month" type="month" class="form-control" />
+                </div>
+            </AppReportFiltersPanel>
+
+            <div
+                class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
+            >
+                <span class="report-results-meta__title">Truck-wise Summary</span>
                 <span v-if="companyName" class="text-muted small">{{ companyName }}</span>
             </div>
-            <div class="card-body">
-                <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>S.No</th>
-                                <th>Truck No.</th>
-                                <th>Driver</th>
-                                <th class="text-end">Trips</th>
-                                <th class="text-end">K.M.</th>
-                                <th class="text-end">Diesel (L)</th>
-                                <th class="text-end">Average</th>
-                                <th class="text-end">Total Exp.</th>
-                                <th class="text-end">Tyres Used</th>
-                                <th class="text-end">Tyre Exp. (₹)</th>
-                                <th class="text-end">Saving</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="rows.length === 0">
-                                <td colspan="11" class="text-center text-muted py-4">
-                                    No trucks found for this company.
-                                </td>
-                            </tr>
-                            <tr v-for="row in rows" :key="row.s_no">
-                                <td>{{ row.s_no }}</td>
-                                <td>{{ row.registration_number }}</td>
-                                <td>{{ row.driver_name || '—' }}</td>
-                                <td class="text-end">{{ formatNumber(row.trip_count, 0) }}</td>
-                                <td class="text-end">{{ formatNumber(row.total_km) }}</td>
-                                <td class="text-end">{{ formatNumber(row.diesel_liters) }}</td>
-                                <td class="text-end">{{ formatNumber(row.average_km_per_liter) }}</td>
-                                <td class="text-end">{{ formatNumber(row.total_expense) }}</td>
-                                <td class="text-end">{{ formatNumber(row.tyres_used, 0) }}</td>
-                                <td class="text-end">{{ formatNumber(row.tyre_expense) }}</td>
-                                <td class="text-end">{{ formatNumber(row.saving) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <AppIndexPaginationFooter
-                page-id="fleetMonthlyReport"
-                :loading="loading"
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                :per-page="pagination.perPage"
-                :total="pagination.total"
-                :from="pagination.from"
-                :to="pagination.to"
-                item-label="trucks"
-                @page-change="loadReport"
-                @update:per-page="onPerPageUpdate"
-            />
-        </div>
+
+            <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
+            <table v-else class="table table-striped table-hover align-middle mb-0 report-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>S.No</th>
+                        <th>Truck No.</th>
+                        <th>Driver</th>
+                        <th class="text-end">Trips</th>
+                        <th class="text-end">K.M.</th>
+                        <th class="text-end">Diesel (L)</th>
+                        <th class="text-end">Average</th>
+                        <th class="text-end">Total Exp.</th>
+                        <th class="text-end">Tyres Used</th>
+                        <th class="text-end">Tyre Exp. (₹)</th>
+                        <th class="text-end">Saving</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="rows.length === 0">
+                        <td colspan="11" class="text-center text-muted py-4">
+                            No trucks found for this company.
+                        </td>
+                    </tr>
+                    <tr v-for="row in rows" :key="row.s_no">
+                        <td>{{ row.s_no }}</td>
+                        <td>{{ row.registration_number }}</td>
+                        <td>{{ row.driver_name || '—' }}</td>
+                        <td class="text-end">{{ formatNumber(row.trip_count, 0) }}</td>
+                        <td class="text-end">{{ formatNumber(row.total_km) }}</td>
+                        <td class="text-end">{{ formatNumber(row.diesel_liters) }}</td>
+                        <td class="text-end">{{ formatNumber(row.average_km_per_liter) }}</td>
+                        <td class="text-end">{{ formatNumber(row.total_expense) }}</td>
+                        <td class="text-end">{{ formatNumber(row.tyres_used, 0) }}</td>
+                        <td class="text-end">{{ formatNumber(row.tyre_expense) }}</td>
+                        <td class="text-end">{{ formatNumber(row.saving) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    item-label="trucks"
+                    aria-label="Fleet monthly report pagination"
+                    @page-change="loadReport"
+                />
+            </template>
+        </AppIndexListCard>
 
         <div v-if="!loading && summary" class="card app-index-list-card mt-3">
             <div class="card-header">
@@ -132,10 +123,9 @@ import {
     exportFleetMonthlyReport,
     fetchFleetMonthlyReport,
 } from '../../api/fleetMonthlyReport';
-import AppButton from '../../components/ui/AppButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
+import AppReportFiltersPanel from '../../components/ui/AppReportFiltersPanel.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
@@ -151,7 +141,7 @@ const rows = ref([]);
 const summary = ref(null);
 const companyName = ref('');
 const loading = ref(false);
-const { pagination, syncFromMeta, reset: resetPagination } = useListPagination();
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 function defaultFilters() {
     return {
@@ -160,8 +150,6 @@ function defaultFilters() {
 }
 
 const filters = reactive(defaultFilters());
-
-const filtersActive = computed(() => filters.month !== defaultFilters().month);
 
 const pageTitle = computed(() => {
     if (!filters.month) {
@@ -206,11 +194,6 @@ async function loadReport(page = 1) {
     } finally {
         loading.value = false;
     }
-}
-
-function onPerPageUpdate(perPage) {
-    pagination.perPage = perPage;
-    loadReport(1);
 }
 
 function clearFilters() {

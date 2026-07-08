@@ -1,28 +1,5 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Driver Attendance & Wages">
-            <template #actions>
-                <AppButton
-                    v-if="canViewSettlement"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-table"
-                    label="Monthly Settlement"
-                    @click="goToMonthlySettlement"
-                />
-                <AppButton
-                    v-if="canBulkManageAttendance && canEditDay"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-calendar-range"
-                    label="Bulk Mark"
-                    @click="openBulkMark"
-                />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard">
         <div
             v-if="monthLock.status !== 'open'"
             class="alert"
@@ -75,34 +52,76 @@
             </li>
         </ul>
 
-        <AppIndexFiltersCard
-            v-if="activeView === 'month'"
-            :active="listFiltersActive"
-            @apply="applyListFilters"
-            @clear="clearListFilters"
-        >
-            <div>
-                <label class="form-label" for="filter_month">Month</label>
-                <input
-                    id="filter_month"
-                    v-model="filters.month"
-                    type="month"
-                    class="form-control"
-                    aria-label="Select month"
-                    :disabled="overviewLoading || tableLoading"
-                />
-            </div>
-        </AppIndexFiltersCard>
-
         <div
             v-if="activeView === 'day'"
-            class="card mb-3 app-index-list-card"
+            class="mb-3"
             :class="{ 'daily-attendance-complete': dayAttendanceComplete }"
         >
-            <div class="card-body">
+            <AppIndexListCard title="Daily Attendance">
+                <template #toolbar>
+                    <AppIndexHeaderButton
+                        icon="filter"
+                        :aria-expanded="filtersOpen"
+                        aria-controls="attendances-day-filters-panel"
+                        aria-label="Toggle date filter"
+                        @click="toggleFilters"
+                    >
+                        Date filter
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canViewSettlement"
+                        aria-label="Monthly Settlement"
+                        @click="goToMonthlySettlement"
+                    >
+                        Monthly Settlement
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canBulkManageAttendance && canEditDay"
+                        aria-label="Bulk Mark"
+                        @click="openBulkMark"
+                    >
+                        Bulk Mark
+                    </AppIndexHeaderButton>
+                </template>
+
+                <AppIndexCollapsibleFilters
+                    v-show="filtersOpen"
+                    panel-id="attendances-day-filters-panel"
+                    :loading="dayOverviewLoading"
+                    @search="applyDayFilters"
+                    @reset="clearDayFilters"
+                >
+                    <div>
+                        <label class="form-label" for="attendances_day_date">Date</label>
+                        <AppDateInput
+                            input-id="attendances_day_date"
+                            v-model="dayDate"
+                            :max="today"
+                            :disabled="dayOverviewLoading || dailySaving"
+                        />
+                    </div>
+                    <template v-if="dayFiltersActive" #active-filters>
+                        <div class="app-index-active-search">
+                            <span class="app-index-active-search__label">Date:</span>
+                            <span class="app-index-active-search__pill">
+                                {{ formatDate(dayDate) }}
+                                <button
+                                    type="button"
+                                    aria-label="Reset to today"
+                                    title="Reset to today"
+                                    @click="clearDayFilters"
+                                >
+                                    <i class="fas fa-times" aria-hidden="true"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </template>
+                </AppIndexCollapsibleFilters>
+
                 <AttendanceDayPanel
                     ref="dayPanelRef"
                     v-model:selected-date="dayDate"
+                    :show-date-controls="false"
                     :vehicles="vehicles"
                     :drivers="drivers"
                     :overview-rows="dayOverview.rows"
@@ -113,22 +132,86 @@
                     @save="handleDailySave"
                     @complete-change="dayAttendanceComplete = $event"
                 />
-            </div>
+            </AppIndexListCard>
         </div>
 
-        <div v-else class="card mb-3 app-index-list-card month-overview-card">
-            <div class="card-body month-overview-body px-2 py-2">
-                <div v-if="overviewLoading" class="text-center py-4 text-muted">Loading overview…</div>
-                <AttendanceMonthGrid
-                    v-else
-                    :key="monthGridKey"
-                    :month="filters.month"
-                    :overview="monthOverview"
-                    :can-edit="canEditGrid"
-                    :link-trucks="true"
-                    @select="openEditFromGrid"
-                />
-            </div>
+        <div v-else class="mb-3 month-overview-card">
+            <AppIndexListCard title="Month View">
+                <template #toolbar>
+                    <AppIndexHeaderButton
+                        icon="filter"
+                        :aria-expanded="filtersOpen"
+                        aria-controls="attendances-month-filters-panel"
+                        aria-label="Toggle month filter"
+                        @click="toggleFilters"
+                    >
+                        Month filter
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canViewSettlement"
+                        aria-label="Monthly Settlement"
+                        @click="goToMonthlySettlement"
+                    >
+                        Monthly Settlement
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canBulkManageAttendance && canEditDay"
+                        aria-label="Bulk Mark"
+                        @click="openBulkMark"
+                    >
+                        Bulk Mark
+                    </AppIndexHeaderButton>
+                </template>
+
+                <AppIndexCollapsibleFilters
+                    v-show="filtersOpen"
+                    panel-id="attendances-month-filters-panel"
+                    :loading="overviewLoading"
+                    @search="applyListFilters"
+                    @reset="clearListFilters"
+                >
+                    <div>
+                        <label class="form-label" for="filter_month">Month</label>
+                        <input
+                            id="filter_month"
+                            v-model="filters.month"
+                            type="month"
+                            class="form-control"
+                            aria-label="Select month"
+                            :disabled="overviewLoading || tableLoading"
+                        />
+                    </div>
+                    <template v-if="listFiltersActive" #active-filters>
+                        <div class="app-index-active-search">
+                            <span class="app-index-active-search__label">Month:</span>
+                            <span class="app-index-active-search__pill">
+                                {{ monthLabel() }}
+                                <button
+                                    type="button"
+                                    aria-label="Clear month filter"
+                                    title="Clear month"
+                                    @click="clearListFilters"
+                                >
+                                    <i class="fas fa-times" aria-hidden="true"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </template>
+                </AppIndexCollapsibleFilters>
+
+                <div class="month-overview-body px-2 py-2">
+                    <div v-if="overviewLoading" class="text-center py-4 text-muted">Loading overview…</div>
+                    <AttendanceMonthGrid
+                        v-else
+                        :key="monthGridKey"
+                        :month="filters.month"
+                        :overview="monthOverview"
+                        :can-edit="canEditGrid"
+                        :link-trucks="true"
+                        @select="openEditFromGrid"
+                    />
+                </div>
+            </AppIndexListCard>
         </div>
 
         <div id="attendance-log" ref="attendanceLogRef">
@@ -145,94 +228,87 @@
                         Clear filter
                     </button>
                 </template>
-            <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Date</th>
-                                <th>Truck</th>
-                                <th>Primary Driver</th>
-                                <th>Status</th>
-                                <th>Alternate</th>
-                                <th>Wage</th>
-                                <th>Payment</th>
-                                <th v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell" style="width: 160px">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="attendances.length === 0">
-                                <td :colspan="actionColspan" class="text-center text-muted">
-                                    {{
-                                        detailFilters.vehicle_id
-                                            ? `No A or S records for ${selectedTruckLabel || 'this truck'}.`
-                                            : 'No A or S attendance marked for this period.'
-                                    }}
-                                </td>
-                            </tr>
-                            <tr v-for="row in attendances" :key="row.id">
-                                <td>{{ formatDate(row.attendance_date) }}</td>
-                                <td>{{ row.vehicle?.registration_number ?? '-' }}</td>
-                                <td>{{ row.primary_driver?.name ?? '-' }}</td>
-                                <td>
-                                    <span
-                                        class="badge d-inline-flex align-items-center gap-1"
-                                        :class="statusBadgeClass(row)"
-                                    >
-                                        <i class="bi" :class="statusBadgeIcon(row)"></i>
-                                        {{ statusLabel(row) }}
-                                    </span>
-                                </td>
-                                <td>{{ row.temporary_driver?.name ?? '-' }}</td>
-                                <td>{{ formatMoney(row.wage_amount) }}</td>
-                                <td>
-                                    <span
-                                        v-if="isPayable(row)"
-                                        class="badge d-inline-flex align-items-center gap-1"
+                <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Truck</th>
+                            <th>Primary Driver</th>
+                            <th>Status</th>
+                            <th>Alternate</th>
+                            <th>Wage</th>
+                            <th>Payment</th>
+                            <th v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell text-end" style="width: 160px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="attendances.length === 0" class="app-index-empty-row">
+                            <td :colspan="actionColspan" class="text-center text-muted py-4">
+                                {{
+                                    detailFilters.vehicle_id
+                                        ? `No A or S records for ${selectedTruckLabel || 'this truck'}.`
+                                        : 'No A or S attendance marked for this period.'
+                                }}
+                            </td>
+                        </tr>
+                        <tr v-for="row in attendances" :key="row.id">
+                            <td>{{ formatDate(row.attendance_date) }}</td>
+                            <td>{{ row.vehicle?.registration_number ?? '-' }}</td>
+                            <td>{{ row.primary_driver?.name ?? '-' }}</td>
+                            <td>
+                                <span
+                                    class="badge d-inline-flex align-items-center gap-1"
+                                    :class="statusBadgeClass(row)"
+                                >
+                                    <i class="bi" :class="statusBadgeIcon(row)"></i>
+                                    {{ statusLabel(row) }}
+                                </span>
+                            </td>
+                            <td>{{ row.temporary_driver?.name ?? '-' }}</td>
+                            <td>{{ formatMoney(row.wage_amount) }}</td>
+                            <td>
+                                <span
+                                    v-if="isPayable(row)"
+                                    class="badge d-inline-flex align-items-center gap-1"
+                                    :class="
+                                        row.wage_payment_status === 'paid'
+                                            ? 'bg-success'
+                                            : 'bg-warning text-dark'
+                                    "
+                                >
+                                    <i
+                                        class="bi"
                                         :class="
                                             row.wage_payment_status === 'paid'
-                                                ? 'bg-success'
-                                                : 'bg-warning text-dark'
+                                                ? 'bi-cash-coin'
+                                                : 'bi-hourglass-split'
                                         "
-                                    >
-                                        <i
-                                            class="bi"
-                                            :class="
-                                                row.wage_payment_status === 'paid'
-                                                    ? 'bi-cash-coin'
-                                                    : 'bi-hourglass-split'
-                                            "
-                                        ></i>
-                                        {{ row.wage_payment_status === 'paid' ? 'Paid' : 'Unpaid' }}
-                                    </span>
-                                    <span v-else class="text-muted">—</span>
-                                </td>
-                                <td v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell">
-                                    <AppTableActions>
-                                        <AppCrudActionButton
-                                            v-if="canEditAttendanceRecords"
-                                            action="edit"
-                                            @click="openEdit(row)"
-                                        />
-                                    </AppTableActions>
-                                </td>
-                            </tr>
-                        </tbody>
-            </table>
-            <template #footer>
-                <AppIndexPaginationFooter
-                    page-id="attendancesIndex"
-                    :loading="tableLoading"
-                    :current-page="pagination.current_page"
-                    :last-page="pagination.last_page"
-                    :per-page="pagination.per_page"
-                    :total="pagination.total"
-                    :from="pagination.from"
-                    :to="pagination.to"
-                    item-label="records"
-                    :per-page-options="[15, 25, 50]"
-                    @page-change="goToPage"
-                    @update:per-page="onAttendancePerPageUpdate"
-                />
-            </template>
+                                    ></i>
+                                    {{ row.wage_payment_status === 'paid' ? 'Paid' : 'Unpaid' }}
+                                </span>
+                                <span v-else class="text-muted">—</span>
+                            </td>
+                            <td v-if="canEditAttendanceRecords || canManageWages" class="app-index-actions-cell text-end">
+                                <div class="app-index-table-actions">
+                                    <AppCrudActionButton
+                                        v-if="canEditAttendanceRecords"
+                                        action="edit"
+                                        @click="openEdit(row)"
+                                    />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <template #footer>
+                    <AppIndexPartloadPagination
+                        :pagination="pagination"
+                        :loading="tableLoading"
+                        item-label="records"
+                        aria-label="Attendance records pagination"
+                        @page-change="goToPage"
+                    />
+                </template>
             </AppIndexListCard>
         </div>
 
@@ -298,13 +374,13 @@ import AttendanceFormModal from '../../components/attendance/AttendanceFormModal
 import AttendanceMonthGrid from '../../components/attendance/AttendanceMonthGrid.vue';
 import AttendanceSaveConfirmModal from '../../components/attendance/AttendanceSaveConfirmModal.vue';
 import { buildFormModalConfirmSummary } from '../../utils/attendanceSaveConfirm';
-import AppButton from '../../components/ui/AppButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppDateInput from '../../components/ui/AppDateInput.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
+import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
@@ -314,6 +390,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { canInCompany, canAnyInCompany } = usePermissions();
+const { pagination, syncFromMeta } = useListPagination(10);
 
 const canManageAttendance = computed(() =>
     canAnyInCompany(['attendances.create', 'attendances.edit', 'attendances.manage']),
@@ -329,6 +406,8 @@ const isMonthEditable = computed(() => monthLock.value.status === 'open');
 const canEditGrid = computed(() => canBulkManageAttendance.value && isMonthEditable.value);
 const activeView = ref('day');
 const dayDate = ref(toDateInputValue());
+const today = toDateInputValue();
+const filtersOpen = ref(false);
 const dayOverview = ref({
     summary: { marked: 0, present: 0, absent: 0, paid: 0, unpaid: 0, exceptions: 0, no_work: 0 },
     rows: [],
@@ -404,6 +483,7 @@ const detailFilters = reactive({
 });
 
 const listFiltersActive = computed(() => filters.month !== currentMonth());
+const dayFiltersActive = computed(() => dayDate.value !== today);
 
 const selectedTruckLabel = computed(() => {
     const vehicle = vehicles.value.find((item) => item.id === detailFilters.vehicle_id);
@@ -421,17 +501,12 @@ const attendanceLogTitle = computed(() => {
     return `${base} · ${selectedTruckLabel.value}`;
 });
 
-const pagination = reactive({
-    current_page: 1,
-    last_page: 1,
-    per_page: 25,
-    total: 0,
-    from: 0,
-    to: 0,
-});
-
 function currentMonth() {
     return currentMonthValue();
+}
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
 }
 
 function settlementMonth() {
@@ -469,8 +544,8 @@ function detailQueryParams() {
             ? { from_date: dayDate.value, to_date: dayDate.value }
             : monthDateRange(filters.month);
     const params = {
-        page: pagination.current_page,
-        per_page: pagination.per_page,
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
         ...range,
     };
 
@@ -553,15 +628,6 @@ function statusLabel(row) {
     return 'Present';
 }
 
-function syncPagination(meta) {
-    pagination.current_page = meta.current_page ?? 1;
-    pagination.last_page = meta.last_page ?? 1;
-    pagination.per_page = meta.per_page ?? pagination.per_page;
-    pagination.total = meta.total ?? 0;
-    pagination.from = meta.from ?? 0;
-    pagination.to = meta.to ?? 0;
-}
-
 async function loadMonthOverview() {
     overviewLoading.value = true;
 
@@ -602,7 +668,7 @@ function setActiveView(view) {
 
     if (view === 'day') {
         filters.month = dayDate.value.slice(0, 7);
-        pagination.current_page = 1;
+        pagination.currentPage = 1;
         reloadActiveView();
         return;
     }
@@ -629,11 +695,11 @@ async function loadAttendances() {
         const { rows, meta } = await listAttendancesPaginated(detailQueryParams());
 
         attendances.value = rows;
-        syncPagination(meta);
+        syncFromMeta(meta, rows.length);
     } catch {
         toast.error('Could not load attendance records.');
         attendances.value = [];
-        syncPagination({});
+        syncFromMeta({}, 0);
     } finally {
         tableLoading.value = false;
     }
@@ -655,14 +721,25 @@ async function loadLookups() {
 }
 
 function applyListFilters() {
-    pagination.current_page = 1;
+    pagination.currentPage = 1;
     reloadAll();
 }
 
 function clearListFilters() {
     filters.month = currentMonth();
-    pagination.current_page = 1;
+    pagination.currentPage = 1;
     reloadAll();
+}
+
+function applyDayFilters() {
+    pagination.currentPage = 1;
+    reloadActiveView();
+}
+
+function clearDayFilters() {
+    dayDate.value = toDateInputValue();
+    pagination.currentPage = 1;
+    reloadActiveView();
 }
 
 async function filterByTruck(vehicleId) {
@@ -671,7 +748,7 @@ async function filterByTruck(vehicleId) {
     }
 
     detailFilters.vehicle_id = vehicleId;
-    pagination.current_page = 1;
+    pagination.currentPage = 1;
     await loadAttendances();
 
     await nextTick(() => {
@@ -681,22 +758,16 @@ async function filterByTruck(vehicleId) {
 
 function clearTruckFilter() {
     detailFilters.vehicle_id = '';
-    pagination.current_page = 1;
+    pagination.currentPage = 1;
     loadAttendances();
 }
 
 function goToPage(page) {
-    if (page < 1 || page > pagination.last_page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
         return;
     }
 
-    pagination.current_page = page;
-    loadAttendances();
-}
-
-function onAttendancePerPageUpdate(perPage) {
-    pagination.per_page = perPage;
-    pagination.current_page = 1;
+    pagination.currentPage = page;
     loadAttendances();
 }
 
@@ -975,7 +1046,7 @@ watch(dayDate, (date) => {
     filters.month = date.slice(0, 7);
 
     if (activeView.value === 'day') {
-        pagination.current_page = 1;
+        pagination.currentPage = 1;
         reloadActiveView();
     }
 });
@@ -984,7 +1055,7 @@ watch(
     () => filters.month,
     (month) => {
         if (activeView.value === 'month' && month) {
-            pagination.current_page = 1;
+            pagination.currentPage = 1;
             reloadActiveView();
         }
     },

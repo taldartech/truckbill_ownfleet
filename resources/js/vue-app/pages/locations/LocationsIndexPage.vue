@@ -1,22 +1,5 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="States & Cities" subtitle="Country: India (fixed)">
-            <template v-if="canManage" #actions>
-                <AppButton
-                    v-if="activeTab === 'states'"
-                    icon="bi bi-plus"
-                    label="Create"
-                    @click="openStateCreate"
-                />
-                <AppButton
-                    v-if="activeTab === 'cities'"
-                    icon="bi bi-plus"
-                    label="Create"
-                    @click="openCityCreate"
-                />
-            </template>
-        </AppIndexPageHeader>
-
+    <div class="container mt-4 app-index-page app-index-page--standard locations-index-page">
         <ul class="nav nav-tabs mb-3">
             <li class="nav-item">
                 <button
@@ -40,134 +23,219 @@
             </li>
         </ul>
 
-        <AppIndexFiltersCard
+        <AppIndexListCard
             v-show="activeTab === 'states'"
-            :active="stateFiltersActive"
-            @apply="loadStates(1)"
-            @clear="clearStateFilters"
+            title="States"
+            :loading="loadingStates"
+            loading-text="Loading states…"
         >
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="stateSearch"
-                    input-id="locationsStates_search"
-                    placeholder="Search state or code"
-                    max-width="100%"
-                    :disabled="loadingStates"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="stateFiltersOpen"
+                    aria-controls="locations-states-filters-panel"
+                    aria-label="Toggle state search filters"
+                    @click="toggleStateFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Create state"
+                    @click="openStateCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
+            </template>
 
-        <AppIndexListCard v-show="activeTab === 'states'" :loading="loadingStates" loading-text="Loading states…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>Code</th>
-                            <th>Cities</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="states.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No states found.</td>
-                        </tr>
-                        <tr v-for="state in states" :key="state.id">
-                            <td>{{ state.name }}</td>
-                            <td>{{ state.code || '—' }}</td>
-                            <td>{{ state.cities_count ?? 0 }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openStateEdit(state)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <AppIndexCollapsibleFilters
+                v-show="stateFiltersOpen"
+                panel-id="locations-states-filters-panel"
+                :loading="loadingStates"
+                @search="loadStates(1)"
+                @reset="clearStateFilters"
+            >
+                <div>
+                    <label class="form-label" for="locationsStates_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="stateSearch"
+                        input-id="locationsStates_search"
+                        placeholder="Search state or code"
+                        max-width="100%"
+                        :disabled="loadingStates"
+                        @keydown.enter="loadStates(1)"
+                    />
+                </div>
+                <template v-if="stateFiltersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ stateSearch.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearStateFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Cities</th>
+                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="states.length === 0" class="app-index-empty-row">
+                        <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No states found.</td>
+                    </tr>
+                    <tr v-for="state in states" :key="state.id">
+                        <td>{{ state.name }}</td>
+                        <td>{{ state.code || '—' }}</td>
+                        <td>{{ state.cities_count ?? 0 }}</td>
+                        <td v-if="canManage" class="app-index-actions-cell">
+                            <AppTableActions>
+                                <AppCrudActionButton action="edit" @click="openStateEdit(state)" />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    page-id="locationsStates"
+                <AppIndexPartloadPagination
+                    :pagination="statePagination"
                     :loading="loadingStates"
-                    :current-page="statePagination.currentPage"
-                    :last-page="statePagination.lastPage"
-                    :per-page="statePagination.perPage"
-                    :total="statePagination.total"
-                    :from="statePagination.from"
-                    :to="statePagination.to"
                     item-label="states"
-                    :per-page-options="[15, 25, 50]"
-                    @page-change="loadStates"
-                    @update:per-page="onStatePerPageUpdate"
+                    aria-label="States pagination"
+                    @page-change="goToStatePage"
                 />
             </template>
         </AppIndexListCard>
 
-        <AppIndexFiltersCard
+        <AppIndexListCard
             v-show="activeTab === 'cities'"
-            :active="cityFiltersActive"
-            @apply="loadCities(1)"
-            @clear="clearCityFilters"
+            title="Cities"
+            :loading="loadingCities"
+            loading-text="Loading cities…"
         >
-            <div>
-                <label class="form-label">State</label>
-                <AppSelect
-                    v-model="cityStateFilter"
-                    :options="stateOptions"
-                    placeholder="All states"
-                    search-placeholder="Search state…"
-                    :disabled="loadingCities"
-                />
-            </div>
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="citySearch"
-                    input-id="locationsCities_search"
-                    placeholder="Search city"
-                    max-width="100%"
-                    :disabled="loadingCities"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="cityFiltersOpen"
+                    aria-controls="locations-cities-filters-panel"
+                    aria-label="Toggle city search filters"
+                    @click="toggleCityFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="plus"
+                    aria-label="Create city"
+                    @click="openCityCreate"
+                >
+                    Create
+                </AppIndexHeaderButton>
+            </template>
 
-        <AppIndexListCard v-show="activeTab === 'cities'" :loading="loadingCities" loading-text="Loading cities…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>State</th>
-                            <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="cities.length === 0" class="app-index-empty-row">
-                            <td :colspan="canManage ? 3 : 2" class="text-center text-muted py-4">No cities found.</td>
-                        </tr>
-                        <tr v-for="city in cities" :key="city.id">
-                            <td>{{ city.name }}</td>
-                            <td>{{ city.state_name || '—' }}</td>
-                            <td v-if="canManage" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openCityEdit(city)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <AppIndexCollapsibleFilters
+                v-show="cityFiltersOpen"
+                panel-id="locations-cities-filters-panel"
+                :loading="loadingCities"
+                @search="loadCities(1)"
+                @reset="clearCityFilters"
+            >
+                <div>
+                    <label class="form-label">State</label>
+                    <AppSelect
+                        v-model="cityStateFilter"
+                        :options="stateOptions"
+                        placeholder="All states"
+                        search-placeholder="Search state…"
+                        :disabled="loadingCities"
+                    />
+                </div>
+                <div>
+                    <label class="form-label" for="locationsCities_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="citySearch"
+                        input-id="locationsCities_search"
+                        placeholder="Search city"
+                        max-width="100%"
+                        :disabled="loadingCities"
+                        @keydown.enter="loadCities(1)"
+                    />
+                </div>
+                <template v-if="cityFiltersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Filtering:</span>
+                        <span v-if="cityStateFilter" class="app-index-active-search__pill">
+                            {{ activeCityStateLabel }}
+                            <button
+                                type="button"
+                                aria-label="Clear state filter"
+                                title="Clear state"
+                                @click="clearCityStateFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                        <span v-if="citySearch.trim()" class="app-index-active-search__pill">
+                            {{ citySearch.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearCitySearchFilter"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
+
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>State</th>
+                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="cities.length === 0" class="app-index-empty-row">
+                        <td :colspan="canManage ? 3 : 2" class="text-center text-muted py-4">No cities found.</td>
+                    </tr>
+                    <tr v-for="city in cities" :key="city.id">
+                        <td>{{ city.name }}</td>
+                        <td>{{ city.state_name || '—' }}</td>
+                        <td v-if="canManage" class="app-index-actions-cell">
+                            <AppTableActions>
+                                <AppCrudActionButton action="edit" @click="openCityEdit(city)" />
+                            </AppTableActions>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
             <template #footer>
-                <AppIndexPaginationFooter
-                    page-id="locationsCities"
+                <AppIndexPartloadPagination
+                    :pagination="cityPagination"
                     :loading="loadingCities"
-                    :current-page="cityPagination.currentPage"
-                    :last-page="cityPagination.lastPage"
-                    :per-page="cityPagination.perPage"
-                    :total="cityPagination.total"
-                    :from="cityPagination.from"
-                    :to="cityPagination.to"
                     item-label="cities"
-                    :per-page-options="[15, 25, 50]"
-                    @page-change="loadCities"
-                    @update:per-page="onCityPerPageUpdate"
+                    aria-label="Cities pagination"
+                    @page-change="goToCityPage"
                 />
             </template>
         </AppIndexListCard>
@@ -232,24 +300,24 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { createCity, listCities, updateCity } from '../../api/cities';
 import { listStates as listLookupStates } from '../../api/locations';
 import { createState, listStates, updateState } from '../../api/states';
 import CityFormModal from '../../components/locations/CityFormModal.vue';
 import StateFormModal from '../../components/locations/StateFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
-import AppIndexPaginationFooter from '../../components/ui/AppIndexPaginationFooter.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
+import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import { buildCityFields, buildStateFields } from '../../utils/masterCrudSaveConfirm';
@@ -293,6 +361,8 @@ const citySaving = ref(false);
 const stateSearch = ref('');
 const citySearch = ref('');
 const cityStateFilter = ref('');
+const stateFiltersOpen = ref(false);
+const cityFiltersOpen = ref(false);
 const showStateCreate = ref(false);
 const showStateEdit = ref(false);
 const showCityCreate = ref(false);
@@ -301,23 +371,8 @@ const editingState = ref(null);
 const editingCity = ref(null);
 const cityCreateStateId = ref('');
 
-const statePagination = reactive({
-    currentPage: 1,
-    perPage: 15,
-    lastPage: 1,
-    from: 0,
-    to: 0,
-    total: 0,
-});
-
-const cityPagination = reactive({
-    currentPage: 1,
-    perPage: 15,
-    lastPage: 1,
-    from: 0,
-    to: 0,
-    total: 0,
-});
+const { pagination: statePagination, syncFromMeta: syncStatePagination } = useListPagination(10);
+const { pagination: cityPagination, syncFromMeta: syncCityPagination } = useListPagination(10);
 
 const stateFiltersActive = computed(() => stateSearch.value.trim() !== '');
 
@@ -325,24 +380,49 @@ const cityFiltersActive = computed(
     () => citySearch.value.trim() !== '' || cityStateFilter.value !== '',
 );
 
+const activeCityStateLabel = computed(() => {
+    if (!cityStateFilter.value) {
+        return '';
+    }
+
+    const match = stateOptions.value.find(
+        (state) => String(state.id) === String(cityStateFilter.value),
+    );
+
+    return match?.name ?? '';
+});
+
+function toggleStateFilters() {
+    stateFiltersOpen.value = !stateFiltersOpen.value;
+}
+
+function toggleCityFilters() {
+    cityFiltersOpen.value = !cityFiltersOpen.value;
+}
+
 function clearStateFilters() {
     stateSearch.value = '';
+    statePagination.currentPage = 1;
     loadStates(1);
 }
 
 function clearCityFilters() {
     citySearch.value = '';
     cityStateFilter.value = '';
+    cityPagination.currentPage = 1;
     loadCities(1);
 }
 
-function applyPagination(target, meta) {
-    target.currentPage = meta.current_page ?? 1;
-    target.lastPage = meta.last_page ?? 1;
-    target.perPage = meta.per_page ?? target.perPage;
-    target.from = meta.from ?? 0;
-    target.to = meta.to ?? 0;
-    target.total = meta.total ?? 0;
+function clearCityStateFilter() {
+    cityStateFilter.value = '';
+    cityPagination.currentPage = 1;
+    loadCities(1);
+}
+
+function clearCitySearchFilter() {
+    citySearch.value = '';
+    cityPagination.currentPage = 1;
+    loadCities(1);
 }
 
 function applyStateValidationError(error) {
@@ -393,21 +473,27 @@ function applyCityValidationError(error) {
     toast.error('Unable to save city. Please try again.');
 }
 
-function onStatePerPageUpdate(perPage) {
-    statePagination.perPage = perPage;
-    loadStates(1);
+function goToStatePage(page) {
+    if (page < 1 || page > statePagination.lastPage || page === statePagination.currentPage) {
+        return;
+    }
+
+    loadStates(page);
 }
 
-function onCityPerPageUpdate(perPage) {
-    cityPagination.perPage = perPage;
-    loadCities(1);
+function goToCityPage(page) {
+    if (page < 1 || page > cityPagination.lastPage || page === cityPagination.currentPage) {
+        return;
+    }
+
+    loadCities(page);
 }
 
 async function loadStateOptions() {
     stateOptions.value = await listLookupStates();
 }
 
-async function loadStates(page = 1) {
+async function loadStates(page = statePagination.currentPage) {
     loadingStates.value = true;
 
     try {
@@ -418,13 +504,13 @@ async function loadStates(page = 1) {
         });
 
         states.value = result.data;
-        applyPagination(statePagination, result.meta);
+        syncStatePagination(result.meta, states.value.length);
     } finally {
         loadingStates.value = false;
     }
 }
 
-async function loadCities(page = 1) {
+async function loadCities(page = cityPagination.currentPage) {
     loadingCities.value = true;
 
     try {
@@ -436,7 +522,7 @@ async function loadCities(page = 1) {
         });
 
         cities.value = result.data;
-        applyPagination(cityPagination, result.meta);
+        syncCityPagination(result.meta, cities.value.length);
     } finally {
         loadingCities.value = false;
     }
@@ -611,5 +697,13 @@ async function confirmSave() {
 onMounted(async () => {
     await loadStateOptions();
     await Promise.all([loadStates(1), loadCities(1)]);
+
+    if (stateSearch.value.trim() !== '') {
+        stateFiltersOpen.value = true;
+    }
+
+    if (citySearch.value.trim() !== '' || cityStateFilter.value !== '') {
+        cityFiltersOpen.value = true;
+    }
 });
 </script>

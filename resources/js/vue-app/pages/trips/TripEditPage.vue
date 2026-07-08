@@ -49,39 +49,8 @@
                     @status-updated="handleStatusUpdated"
                     @clear-field-error="clearFieldError"
                 >
-                    <template #trip-nav-actions>
-                        <RouterLink
-                            :to="tripListReturnTo"
-                            class="btn btn-sm trip-header-btn trip-header-btn--back"
-                        >
-                            <i class="bi bi-arrow-left me-1"></i>Back
-                        </RouterLink>
-                    </template>
-                    <template #trip-save-actions>
-                        <button
-                            v-if="canSave"
-                            type="button"
-                            class="btn btn-sm trip-header-btn trip-header-btn--back me-1"
-                            :disabled="saving"
-                            @click="handleSubmit('expenses')"
-                        >
-                            <i class="bi bi-receipt me-1"></i>Update & Add Expenses
-                        </button>
-                        <button
-                            v-if="canSave"
-                            type="submit"
-                            class="btn btn-sm trip-header-btn trip-header-btn--update"
-                            :disabled="saving"
-                        >
-                            <span
-                                v-if="saving"
-                                class="spinner-border spinner-border-sm me-1"
-                                role="status"
-                                aria-hidden="true"
-                            ></span>
-                            <i v-else class="bi bi-floppy-fill me-1"></i>Update
-                        </button>
-                    </template>
+                   
+                   
                 </TripForm>
 
                 <div class="trip-form-actions card shadow-sm">
@@ -102,18 +71,7 @@
                                 @click="handleFooterStatusChange('CANCELLED')"
                             />
                         </template>
-                        <AppButton
-                            v-if="canSave"
-                            type="button"
-                            variant="success"
-                            outline
-                            size="sm"
-                            icon="bi bi-receipt"
-                            label="Update & Add Expenses"
-                            :loading="saving"
-                            :disabled="saving"
-                            @click="handleSubmit('expenses')"
-                        />
+                       
                         <AppButton
                             v-else-if="canManageExpenses"
                             variant="success"
@@ -308,12 +266,17 @@ function onCustomerCreated({ customer, legIndex = null }) {
 
 function handleAddStop() {
     if (!form.start_station_id) {
+        fieldErrors.value = {
+            ...fieldErrors.value,
+            start_station_id: ['Select the start station before adding a stop.'],
+        };
         toast.warning('Select a start station first.');
         scrollToFirstFormError();
 
         return;
     }
 
+    clearFieldError('start_station_id');
     addStop();
 }
 
@@ -351,7 +314,7 @@ async function loadTrip() {
 
         if (isTripArchived(trip)) {
             toast.error('This trip has been archived and cannot be edited.');
-            await router.replace({ name: 'trips.index', query: { show_archived: '1' } });
+            await router.replace({ name: 'trips.archived' });
 
             return;
         }

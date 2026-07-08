@@ -104,7 +104,7 @@
                 <h6 class="analytics-card__title">Net Profit Margin</h6>
                 <p v-if="periodLabel" class="analytics-card__hint">Date: {{ periodLabel }}</p>
                 <div class="analytics-card__chart-wrap analytics-card__chart-wrap--grow">
-                    <svg viewBox="0 0 100 65" class="gauge-svg">
+                    <svg viewBox="0 0 100 72" class="gauge-svg">
                         <defs>
                             <linearGradient id="profitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                                 <stop offset="0%" stop-color="#2fb36f" stop-opacity="0.6" />
@@ -132,10 +132,26 @@
                             :stroke-dashoffset="radialDashoffset"
                             class="gauge-fill-arc"
                         />
-                        <text x="50" y="48" text-anchor="middle" class="gauge-val-text">
-                            {{ profitMargin.toFixed(1) }}%
+                        <text
+                            x="50"
+                            y="46"
+                            text-anchor="middle"
+                            font-size="8"
+                            font-weight="800"
+                            class="gauge-val-text"
+                            :text-length="gaugeValueNeedsScaling ? 28 : undefined"
+                            :length-adjust="gaugeValueNeedsScaling ? 'spacingAndGlyphs' : undefined"
+                        >
+                            {{ profitMarginDisplay }}%
                         </text>
-                        <text x="50" y="58" text-anchor="middle" class="gauge-lbl-text">
+                        <text
+                            x="50"
+                            y="56"
+                            text-anchor="middle"
+                            font-size="4"
+                            font-weight="700"
+                            class="gauge-lbl-text"
+                        >
                             {{ profitMargin >= 0 ? 'Margin' : 'Loss Margin' }}
                         </text>
                     </svg>
@@ -391,10 +407,10 @@ const tripStatusItems = computed(() => [
 
 // Radial Gauge Config
 const radialCircumference = Math.PI * 40; // ~125.66
+const profitMarginDisplay = computed(() => profitMargin.value.toFixed(1));
+const gaugeValueNeedsScaling = computed(() => Math.abs(profitMargin.value) >= 100);
 const radialDashoffset = computed(() => {
-    const margin = Math.max(-100, Math.min(profitMargin.value, 100));
-    // scale absolute margin from 0 to 100
-    const absMargin = Math.max(0, margin);
+    const absMargin = Math.min(Math.abs(profitMargin.value), 100);
     return radialCircumference - (absMargin / 100) * radialCircumference;
 });
 
@@ -672,6 +688,7 @@ function hideTooltip() {
 .gauge-svg {
     max-width: 170px;
     height: auto;
+    overflow: visible;
 }
 
 .gauge-fill-arc {
@@ -679,14 +696,10 @@ function hideTooltip() {
 }
 
 .gauge-val-text {
-    font-size: 1.4rem;
-    font-weight: 800;
     fill: #0f172a;
 }
 
 .gauge-lbl-text {
-    font-size: 0.65rem;
-    font-weight: 700;
     fill: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.05em;

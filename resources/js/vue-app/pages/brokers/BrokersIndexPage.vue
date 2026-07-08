@@ -1,57 +1,119 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="References">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard references-index-page">
+        <AppIndexListCard title="References" :loading="loading" loading-text="Loading references…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="references-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Add New Reference"
+                    @click="openCreate"
+                >
+                    Add New Reference
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadBrokers" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="search"
-                    input-id="brokersIndex_search"
-                    placeholder="Search name, GST, PAN, contact"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="references-filters-panel"
+                :loading="loading"
+                @search="loadBrokers(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="brokersIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="search"
+                        input-id="brokersIndex_search"
+                        placeholder="Search name, GST, PAN, contact"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadBrokers(1)"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading references…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>GST</th>
-                            <th>PAN</th>
-                            <th>City</th>
-                            <th>State</th>
-                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="brokers.length === 0" class="app-index-empty-row">
-                            <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No references found.</td>
-                        </tr>
-                        <tr v-for="broker in brokers" :key="broker.id">
-                            <td>{{ broker.name }}</td>
-                            <td>{{ broker.contact_number || '—' }}</td>
-                            <td>{{ broker.gst_number || '—' }}</td>
-                            <td>{{ broker.pan_number || '—' }}</td>
-                            <td>{{ broker.city_name || '—' }}</td>
-                            <td>{{ broker.state_name || '—' }}</td>
-                            <td v-if="canEdit" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openEdit(broker)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(broker)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Contact</th>
+                        <th>GST</th>
+                        <th>PAN</th>
+                        <th>City</th>
+                        <th>State</th>
+                        <th v-if="canEdit" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="brokers.length === 0" class="app-index-empty-row">
+                        <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No references found.</td>
+                    </tr>
+                    <tr v-for="broker in brokers" :key="broker.id">
+                        <td>{{ broker.name }}</td>
+                        <td>{{ broker.contact_number || '—' }}</td>
+                        <td>{{ broker.gst_number || '—' }}</td>
+                        <td>{{ broker.pan_number || '—' }}</td>
+                        <td>{{ broker.city_name || '—' }}</td>
+                        <td>{{ broker.state_name || '—' }}</td>
+                        <td v-if="canEdit" class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(broker)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
+                                    @click="handleDelete(broker)"
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    aria-label="References pagination"
+                    @page-change="goToPage"
+                />
+            </template>
         </AppIndexListCard>
 
         <AppModal
@@ -162,19 +224,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { createBroker, deleteBroker, listAllBrokers, updateBroker } from '../../api/brokers';
+import { createBroker, deleteBroker, listBrokers, updateBroker } from '../../api/brokers';
 import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
-import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
+import { useListPagination } from '../../composables/useListPagination';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
@@ -209,6 +271,8 @@ const brokers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const filtersOpen = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
 const form = reactive({
@@ -230,19 +294,43 @@ const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors(
 
 const filtersActive = computed(() => search.value.trim() !== '');
 
-function clearFilters() {
-    search.value = '';
-    loadBrokers();
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
 }
 
-async function loadBrokers() {
+function clearFilters() {
+    search.value = '';
+    pagination.currentPage = 1;
+    loadBrokers(1);
+}
+
+async function loadBrokers(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        brokers.value = await listAllBrokers({ search: search.value || undefined });
+        const response = await listBrokers({
+            page,
+            perPage: pagination.perPage,
+            search: search.value.trim(),
+        });
+
+        brokers.value = response.data;
+        syncFromMeta(response.meta, brokers.value.length);
+    } catch {
+        toast.error('Could not load references.');
+        brokers.value = [];
+        resetPagination();
     } finally {
         loading.value = false;
     }
+}
+
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
+
+    loadBrokers(page);
 }
 
 async function openCreate() {
@@ -348,5 +436,9 @@ async function handleDelete(broker) {
 onMounted(async () => {
     await initialize();
     await loadBrokers();
+
+    if (search.value.trim() !== '') {
+        filtersOpen.value = true;
+    }
 });
 </script>

@@ -101,9 +101,8 @@
                                 :can-manage-licenses="canManageDrivers"
                                 :can-edit-documents="canEditDocuments"
                                 @view-all="openComplianceModal"
-                                @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
-                                @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
                                 @edit-license="openDriverFromAlert"
+                                @saved="onComplianceItemSaved"
                             />
                         </div>
                     </div>
@@ -118,9 +117,8 @@
             :can-manage-licenses="canManageDrivers"
             :can-edit-documents="canEditDocuments"
             @close="closeComplianceModal"
-            @edit-document="(doc) => openDocumentFromAlert(doc, 'edit')"
-            @renew-document="(doc) => openDocumentFromAlert(doc, 'renew')"
             @edit-license="openDriverFromAlert"
+            @saved="onComplianceItemSaved"
         />
 
         <VehicleDocumentsModal
@@ -303,16 +301,6 @@ function openComplianceModal() {
 
 function closeComplianceModal() {
     showComplianceModal.value = false;
-}
-
-function openDocumentFromAlert(document, action = 'renew') {
-    documentsVehicle.value = {
-        id: document.vehicle_id,
-        registration_number: document.vehicle_registration,
-    };
-    initialDocumentId.value = document.id;
-    initialDocumentAction.value = action;
-    showDocumentsModal.value = true;
 }
 
 function closeDocumentsModal() {

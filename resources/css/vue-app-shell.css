@@ -1,3 +1,5 @@
+@import './app-index-page.css';
+
 .vue-app-shell {
     font-size: 15px;
 }
@@ -631,7 +633,8 @@
 }
 
 .vue-app-shell .app-index-list-card > .card-header .app-index-search,
-.vue-app-shell .app-index-list-card > .card-header .app-index-card-toolbar {
+.vue-app-shell .app-index-list-card > .card-header .app-index-card-toolbar,
+.vue-app-shell .modal .app-index-list-card > .card-header .app-index-card-toolbar {
     margin-left: auto;
     flex-shrink: 0;
 }

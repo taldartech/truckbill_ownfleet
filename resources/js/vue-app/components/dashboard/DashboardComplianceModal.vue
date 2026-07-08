@@ -20,7 +20,7 @@
             <div v-if="documents.length" class="mb-4">
                 <h6 class="fw-bold mb-1">Vehicle Documents</h6>
                 <p class="text-muted small mb-3">
-                    Most urgent items appear first. Edit or renew from here.
+                    Most urgent items appear first. Renew from here.
                 </p>
                 <div class="table-responsive compliance-table">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -35,40 +35,40 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                v-for="document in documents"
-                                :key="document.id"
-                                :class="['compliance-alert-row', rowBorderClass(document)]"
-                            >
-                                <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
-                                <td>{{ document.document_type_label }}</td>
-                                <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
-                             
-                                <td>
-                                    <DocumentStatusBadge :document="document" soft />
-                                </td>
-                                <td v-if="canEditDocuments" class="text-end">
-                                    <div class="compliance-actions">
-                                        <AppButton
-                                            v-if="canEditDocuments"
-                                            size="sm"
-                                            variant="secondary"
-                                            outline
-                                            icon="fas fa-pen"
-                                            title="Edit"
-                                            @click="selectDocument(document, 'edit')"
+                            <template v-for="document in documents" :key="document.id">
+                                <tr :class="['compliance-alert-row', rowBorderClass(document)]">
+                                    <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
+                                    <td>{{ document.document_type_label }}</td>
+                                    <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
+                                    <td>
+                                        <DocumentStatusBadge :document="document" soft />
+                                    </td>
+                                    <td v-if="canEditDocuments" class="text-end">
+                                        <div class="compliance-actions">
+                                            <AppButton
+                                                v-if="canEditDocuments && canRenewDocument(document)"
+                                                size="sm"
+                                                variant="primary"
+                                                icon="fas fa-rotate-right"
+                                                title="Renew"
+                                                @click="startRenew(document)"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="renewingDocumentId === document.id"
+                                    class="compliance-renew-row"
+                                >
+                                    <td :colspan="documentTableColspan">
+                                        <DocumentRenewInlineForm
+                                            :document="document"
+                                            @saved="handleRenewSaved"
+                                            @cancel="cancelRenew"
                                         />
-                                        <AppButton
-                                            v-if="canEditDocuments && canRenewDocument(document)"
-                                            size="sm"
-                                            variant="primary"
-                                            icon="fas fa-rotate-right"
-                                            title="Renew"
-                                            @click="selectDocument(document, 'renew')"
-                                        />
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
@@ -149,12 +149,12 @@ import { fetchComplianceAlerts } from '../../api/dashboard';
 import {
     canRenewDocument,
     canUpdateLicense,
-    formatDaysLeft,
     rowBorderClass,
     sortDocumentsByUrgency,
 } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
+import DocumentRenewInlineForm from '../trucks/DocumentRenewInlineForm.vue';
 import AppButton from '../ui/AppButton.vue';
 import './complianceAlerts.css';
 
@@ -173,20 +173,24 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['close', 'edit-document', 'renew-document', 'edit-license']);
+const emit = defineEmits(['close', 'edit-license', 'saved']);
 
 const loading = ref(false);
 const loadError = ref('');
 const documents = ref([]);
 const licenses = ref([]);
+const renewingDocumentId = ref(null);
 
 const isEmpty = computed(() => documents.value.length === 0 && licenses.value.length === 0);
+const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 
 watch(
     () => props.show,
     async (visible) => {
         if (visible) {
             await loadAlerts();
+        } else {
+            renewingDocumentId.value = null;
         }
     },
 );
@@ -209,17 +213,22 @@ async function loadAlerts() {
 }
 
 function close() {
+    renewingDocumentId.value = null;
     emit('close');
 }
 
-function selectDocument(document, action) {
-    if (action === 'renew') {
-        emit('renew-document', document);
+function startRenew(document) {
+    renewingDocumentId.value = document.id;
+}
 
-        return;
-    }
+function cancelRenew() {
+    renewingDocumentId.value = null;
+}
 
-    emit('edit-document', document);
+async function handleRenewSaved(payload) {
+    renewingDocumentId.value = null;
+    await loadAlerts();
+    emit('saved', payload);
 }
 
 function selectLicense(license) {
@@ -246,5 +255,10 @@ defineExpose({
 
 .compliance-alert-row--disabled:hover {
     background-color: transparent;
+}
+
+.compliance-renew-row > td {
+    background: rgba(248, 250, 252, 0.9);
+    border-top: none;
 }
 </style>

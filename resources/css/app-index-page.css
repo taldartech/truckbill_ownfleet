@@ -1,0 +1,369 @@
+/* Standard index pages — References benchmark UI */
+
+.app-index-page--standard,
+.references-index-page {
+    /* alias for migrated References pilot */
+}
+
+.app-index-page--standard .app-index-list-card > .card-header .card-title,
+.references-index-page .app-index-list-card > .card-header .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.app-index-page--standard .app-index-list-card > .card-header .app-index-header-btn,
+.references-index-page .app-index-list-card > .card-header .app-index-header-btn,
+.report-index-page .app-index-list-card > .card-header .report-header-btn,
+.trip-section-card > .card-header.bg-gradient-primary .app-index-header-btn,
+.trip-section-card > .card-header.bg-success .app-index-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background-color: #fff !important;
+    border: 1px solid #fff !important;
+    color: var(--brand-primary, #2fb36f) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.app-index-page--standard .app-index-list-card > .card-header .app-index-header-btn:hover,
+.app-index-page--standard .app-index-list-card > .card-header .app-index-header-btn[aria-expanded='true'],
+.references-index-page .app-index-list-card > .card-header .app-index-header-btn:hover,
+.references-index-page .app-index-list-card > .card-header .app-index-header-btn[aria-expanded='true'],
+.report-index-page .app-index-list-card > .card-header .report-header-btn:hover,
+.trip-section-card > .card-header.bg-gradient-primary .app-index-header-btn:hover:not(:disabled),
+.trip-section-card > .card-header.bg-gradient-primary .app-index-header-btn[aria-expanded='true'],
+.trip-section-card > .card-header.bg-success .app-index-header-btn:hover:not(:disabled),
+.trip-section-card > .card-header.bg-success .app-index-header-btn[aria-expanded='true'] {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    border-color: #fff !important;
+    color: var(--brand-primary-dark, #23965c) !important;
+}
+
+.app-index-header-btn__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    line-height: 1;
+    margin-right: 0.25rem;
+}
+
+.app-index-header-btn__icon::before {
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-style: normal;
+    color: var(--brand-primary, #2fb36f);
+}
+
+.app-index-page--standard .app-index-list-card > .card-header .app-index-header-btn:hover .app-index-header-btn__icon::before,
+.app-index-page--standard .app-index-list-card > .card-header .app-index-header-btn[aria-expanded='true'] .app-index-header-btn__icon::before,
+.references-index-page .app-index-list-card > .card-header .app-index-header-btn:hover .app-index-header-btn__icon::before,
+.references-index-page .app-index-list-card > .card-header .app-index-header-btn[aria-expanded='true'] .app-index-header-btn__icon::before,
+.trip-section-card > .card-header.bg-gradient-primary .app-index-header-btn:hover:not(:disabled) .app-index-header-btn__icon::before,
+.trip-section-card > .card-header.bg-gradient-primary .app-index-header-btn[aria-expanded='true'] .app-index-header-btn__icon::before,
+.trip-section-card > .card-header.bg-success .app-index-header-btn:hover:not(:disabled) .app-index-header-btn__icon::before,
+.trip-section-card > .card-header.bg-success .app-index-header-btn[aria-expanded='true'] .app-index-header-btn__icon::before {
+    color: var(--brand-primary-dark, #23965c);
+}
+
+.app-index-header-btn__icon--filter::before {
+    content: '\f0b0';
+}
+
+.app-index-header-btn__icon--plus::before {
+    content: '\f067';
+}
+
+.app-index-header-btn__icon--export::before {
+    content: '\f1c3';
+}
+
+.app-index-header-btn__icon--return::before {
+    content: '\f359';
+}
+
+/* Collapsible filters panel */
+.app-index-collapsible-filters {
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    background: #fff;
+}
+
+.app-index-collapsible-filters__inner {
+    padding: 1rem;
+}
+
+.app-index-collapsible-filters .form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-bottom: 0.35rem;
+}
+
+.app-index-collapsible-filters__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.app-index-collapsible-filters__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+}
+
+.app-index-collapsible-filters__btn .fas {
+    color: inherit;
+    font-weight: 900;
+}
+
+.app-index-collapsible-filters__btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.app-index-active-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.app-index-active-search__label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.app-index-active-search__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--brand-primary-dark, #23965c);
+    background: var(--brand-active-bg, #e8f5ee);
+    border: 1px solid rgba(47, 179, 111, 0.25);
+    border-radius: 999px;
+}
+
+.app-index-active-search__pill button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--brand-primary-dark, #23965c);
+    cursor: pointer;
+}
+
+.app-index-active-search__pill button:hover {
+    background: rgba(47, 179, 111, 0.15);
+}
+
+/* Tables */
+.app-index-page--standard .app-index-table,
+.references-index-page .app-index-table,
+.references-index-page .references-table,
+.report-index-page .report-table {
+    font-size: 0.875rem;
+}
+
+.app-index-page--standard .app-index-table thead th,
+.references-index-page .app-index-table thead th,
+.references-index-page .references-table thead th,
+.report-index-page .report-table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.app-index-page--standard .app-index-table tbody td,
+.references-index-page .app-index-table tbody td,
+.references-index-page .references-table tbody td,
+.report-index-page .report-table tbody td {
+    font-size: 0.875rem;
+}
+
+.app-index-page--standard .app-index-list-card > .card-body > .table-responsive,
+.references-index-page .app-index-list-card > .card-body > .table-responsive {
+    padding: 0;
+}
+
+/* Row action buttons */
+.app-index-table-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem;
+}
+
+.app-index-action-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--btn-radius-sm, 0.375rem);
+}
+
+.app-index-action-btn .fas {
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.8125rem;
+    line-height: 1;
+}
+
+/* Partload pagination */
+.app-index-partload-pagination {
+    background: #f8fafc;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 0.75rem 1rem;
+}
+
+.app-index-partload-pagination__summary {
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.app-index-partload-pagination__nav {
+    margin-left: auto;
+}
+
+.app-index-partload-pagination__list {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    background: #fff;
+}
+
+.app-index-partload-pagination__list .page-item + .page-item {
+    border-left: 1px solid #dee2e6;
+}
+
+.app-index-partload-pagination__list .page-link {
+    border: 0;
+    border-radius: 0;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--brand-primary, #2fb36f);
+    background: #fff;
+    line-height: 1.4;
+}
+
+.app-index-partload-pagination__list .page-item.active .page-link {
+    background: var(--brand-primary, #2fb36f);
+    color: #fff;
+    font-weight: 600;
+}
+
+.app-index-partload-pagination__list .page-item.disabled .page-link {
+    color: #94a3b8;
+    background: #fff;
+    opacity: 0.75;
+}
+
+.app-index-partload-pagination__list .page-item--ellipsis .page-link {
+    color: #94a3b8;
+    background: #fff;
+    opacity: 1;
+    cursor: default;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    min-width: 2rem;
+    text-align: center;
+}
+
+.app-index-partload-pagination__list .page-item--ellipsis .page-link:hover {
+    background: #fff;
+    color: #94a3b8;
+}
+
+.app-index-partload-pagination__list .page-link:hover:not(:disabled) {
+    background: var(--brand-active-bg, #e8f5ee);
+    color: var(--brand-primary-dark, #23965c);
+}
+
+.app-index-partload-pagination__list .page-item.active .page-link:hover {
+    background: var(--brand-primary, #2fb36f);
+    color: #fff;
+}
+
+/* Report index pages — filters always visible */
+.report-index-page .app-report-filters-panel {
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    background: #fff;
+}
+
+.report-index-page .app-report-filters-panel__inner {
+    padding: 1rem;
+}
+
+.report-index-page .app-report-filters-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.report-index-page .app-report-filters-panel__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.report-index-page .app-report-filters-panel__btn .fas {
+    font-weight: 900;
+}
+
+.report-index-page .app-report-filters-panel .form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.report-index-page .report-results-meta {
+    background: #fff;
+    font-size: 0.875rem;
+}
+
+.report-index-page .report-results-meta__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--brand-text-primary, #111827);
+}
+
+@media (max-width: 768px) {
+    .app-index-page--standard .app-index-card-toolbar,
+    .references-index-page .app-index-card-toolbar {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .app-index-page--standard .app-index-header-btn,
+    .references-index-page .app-index-header-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}

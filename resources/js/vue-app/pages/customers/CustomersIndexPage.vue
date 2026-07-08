@@ -1,57 +1,119 @@
 <template>
-    <div class="container mt-4 app-index-page">
-        <AppIndexPageHeader title="Customers">
-            <template v-if="canCreate" #actions>
-                <AppButton icon="bi bi-plus" label="Create" @click="openCreate" />
+    <div class="container mt-4 app-index-page app-index-page--standard">
+        <AppIndexListCard title="Customers" :loading="loading" loading-text="Loading customers…">
+            <template #toolbar>
+                <AppIndexHeaderButton
+                    icon="filter"
+                    :aria-expanded="filtersOpen"
+                    aria-controls="customers-filters-panel"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    Search filter
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Add Customer"
+                    @click="openCreate"
+                >
+                    Add Customer
+                </AppIndexHeaderButton>
             </template>
-        </AppIndexPageHeader>
 
-        <AppIndexFiltersCard :active="filtersActive" @apply="loadCustomers" @clear="clearFilters">
-            <div>
-                <label class="form-label">Search</label>
-                <AppIndexSearchInput
-                    v-model="search"
-                    input-id="customersIndex_search"
-                    placeholder="Search name, GST, PAN, contact"
-                    max-width="100%"
-                    :disabled="loading"
-                />
-            </div>
-        </AppIndexFiltersCard>
+            <AppIndexCollapsibleFilters
+                v-show="filtersOpen"
+                panel-id="customers-filters-panel"
+                :loading="loading"
+                @search="loadCustomers(1)"
+                @reset="clearFilters"
+            >
+                <div>
+                    <label class="form-label" for="customersIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="search"
+                        input-id="customersIndex_search"
+                        placeholder="Search name, GST, PAN, contact"
+                        max-width="100%"
+                        :disabled="loading"
+                        @keydown.enter="loadCustomers(1)"
+                    />
+                </div>
+                <template v-if="filtersActive" #active-filters>
+                    <div class="app-index-active-search">
+                        <span class="app-index-active-search__label">Searching:</span>
+                        <span class="app-index-active-search__pill">
+                            {{ search.trim() }}
+                            <button
+                                type="button"
+                                aria-label="Clear search filter"
+                                title="Clear search"
+                                @click="clearFilters"
+                            >
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                </template>
+            </AppIndexCollapsibleFilters>
 
-        <AppIndexListCard :loading="loading" loading-text="Loading customers…">
-            <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>GST</th>
-                            <th>PAN</th>
-                            <th>City</th>
-                            <th>State</th>
-                            <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="customers.length === 0" class="app-index-empty-row">
-                            <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No customers found.</td>
-                        </tr>
-                        <tr v-for="customer in customers" :key="customer.id">
-                            <td>{{ customer.name }}</td>
-                            <td>{{ customer.contact_number || '—' }}</td>
-                            <td>{{ customer.gst_number || '—' }}</td>
-                            <td>{{ customer.pan_number || '—' }}</td>
-                            <td>{{ customer.city_name || '—' }}</td>
-                            <td>{{ customer.state_name || '—' }}</td>
-                            <td v-if="canEdit" class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <AppCrudActionButton action="edit" @click="openEdit(customer)" />
-                                    <AppCrudActionButton action="delete" @click="handleDelete(customer)" />
-                                </AppTableActions>
-                            </td>
-                        </tr>
-                    </tbody>
+            <table class="table table-striped table-hover align-middle mb-0 app-index-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Contact</th>
+                        <th>GST</th>
+                        <th>PAN</th>
+                        <th>City</th>
+                        <th>State</th>
+                        <th v-if="canEdit" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="customers.length === 0" class="app-index-empty-row">
+                        <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No customers found.</td>
+                    </tr>
+                    <tr v-for="customer in customers" :key="customer.id">
+                        <td>{{ customer.name }}</td>
+                        <td>{{ customer.contact_number || '—' }}</td>
+                        <td>{{ customer.gst_number || '—' }}</td>
+                        <td>{{ customer.pan_number || '—' }}</td>
+                        <td>{{ customer.city_name || '—' }}</td>
+                        <td>{{ customer.state_name || '—' }}</td>
+                        <td v-if="canEdit" class="app-index-actions-cell text-end">
+                            <div class="app-index-table-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    title="Edit"
+                                    aria-label="Edit"
+                                    @click="openEdit(customer)"
+                                >
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    title="Delete"
+                                    aria-label="Delete"
+                                    @click="handleDelete(customer)"
+                                >
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
+
+            <template #footer>
+                <AppIndexPartloadPagination
+                    :pagination="pagination"
+                    :loading="loading"
+                    aria-label="Customers pagination"
+                    @page-change="goToPage"
+                />
+            </template>
         </AppIndexListCard>
 
         <AppModal
@@ -162,19 +224,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { createCustomer, deleteCustomer, listAllCustomers, updateCustomer } from '../../api/customers';
+import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from '../../api/customers';
 import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
-import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexFiltersCard from '../../components/ui/AppIndexFiltersCard.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
-import AppIndexPageHeader from '../../components/ui/AppIndexPageHeader.vue';
+import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
-import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
+import { useListPagination } from '../../composables/useListPagination';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
@@ -209,6 +271,8 @@ const customers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const filtersOpen = ref(false);
+const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
 const form = reactive({
@@ -230,19 +294,43 @@ const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors(
 
 const filtersActive = computed(() => search.value.trim() !== '');
 
-function clearFilters() {
-    search.value = '';
-    loadCustomers();
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
 }
 
-async function loadCustomers() {
+function clearFilters() {
+    search.value = '';
+    pagination.currentPage = 1;
+    loadCustomers(1);
+}
+
+async function loadCustomers(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        customers.value = await listAllCustomers({ search: search.value || undefined });
+        const response = await listCustomers({
+            page,
+            perPage: pagination.perPage,
+            search: search.value.trim(),
+        });
+
+        customers.value = response.data;
+        syncFromMeta(response.meta, customers.value.length);
+    } catch {
+        toast.error('Could not load customers.');
+        customers.value = [];
+        resetPagination();
     } finally {
         loading.value = false;
     }
+}
+
+function goToPage(page) {
+    if (page < 1 || page > pagination.lastPage || page === pagination.currentPage) {
+        return;
+    }
+
+    loadCustomers(page);
 }
 
 async function openCreate() {
@@ -348,5 +436,9 @@ async function handleDelete(customer) {
 onMounted(async () => {
     await initialize();
     await loadCustomers();
+
+    if (search.value.trim() !== '') {
+        filtersOpen.value = true;
+    }
 });
 </script>
