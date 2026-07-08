@@ -75,7 +75,10 @@
                             <span class="financial-flow__val">{{ formatCurrency(totalFreight) }}</span>
                         </div>
                         <div class="financial-flow__bar-wrap">
-                            <div class="financial-flow__bar bg-success" style="width: 100%"></div>
+                            <div
+                                class="financial-flow__bar bg-success"
+                                :style="{ width: `${freightBarPct}%` }"
+                            ></div>
                         </div>
                     </div>
 
@@ -100,11 +103,11 @@
             </div>
 
             <!-- 3. Net Profit Margin -->
-            <div class="analytics-card">
+            <div class="analytics-card profit-margin-card">
                 <h6 class="analytics-card__title">Net Profit Margin</h6>
                 <p v-if="periodLabel" class="analytics-card__hint">Date: {{ periodLabel }}</p>
-                <div class="analytics-card__chart-wrap analytics-card__chart-wrap--grow">
-                    <svg viewBox="0 0 100 72" class="gauge-svg">
+                <div class="profit-margin-gauge">
+                    <svg viewBox="0 0 100 60" class="profit-margin-gauge__svg" aria-hidden="true">
                         <defs>
                             <linearGradient id="profitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                                 <stop offset="0%" stop-color="#2fb36f" stop-opacity="0.6" />
@@ -116,49 +119,55 @@
                             </linearGradient>
                         </defs>
                         <path
-                            d="M 10 55 A 40 40 0 0 1 90 55"
+                            d="M 8 52 A 42 42 0 0 1 92 52"
                             fill="none"
                             stroke="#e2e8f0"
-                            stroke-width="8"
+                            stroke-width="9"
                             stroke-linecap="round"
                         />
                         <path
-                            d="M 10 55 A 40 40 0 0 1 90 55"
+                            d="M 8 52 A 42 42 0 0 1 92 52"
                             fill="none"
                             :stroke="profitMargin >= 0 ? 'url(#profitGrad)' : 'url(#lossGrad)'"
-                            stroke-width="8"
+                            stroke-width="9"
                             stroke-linecap="round"
                             :stroke-dasharray="radialCircumference"
                             :stroke-dashoffset="radialDashoffset"
                             class="gauge-fill-arc"
                         />
-                        <text
-                            x="50"
-                            y="46"
-                            text-anchor="middle"
-                            font-size="8"
-                            font-weight="800"
-                            class="gauge-val-text"
-                            :text-length="gaugeValueNeedsScaling ? 28 : undefined"
-                            :length-adjust="gaugeValueNeedsScaling ? 'spacingAndGlyphs' : undefined"
+                    </svg>
+                    <div class="profit-margin-gauge__content">
+                        <span
+                            class="profit-margin-gauge__value"
+                            :class="profitMargin >= 0 ? 'profit-margin-gauge__value--profit' : 'profit-margin-gauge__value--loss'"
                         >
                             {{ profitMarginDisplay }}%
-                        </text>
-                        <text
-                            x="50"
-                            y="56"
-                            text-anchor="middle"
-                            font-size="4"
-                            font-weight="700"
-                            class="gauge-lbl-text"
+                        </span>
+                        <span
+                            class="profit-margin-gauge__label"
+                            :class="profitMargin >= 0 ? 'profit-margin-gauge__label--profit' : 'profit-margin-gauge__label--loss'"
                         >
-                            {{ profitMargin >= 0 ? 'Margin' : 'Loss Margin' }}
-                        </text>
-                    </svg>
+                            {{ profitMargin >= 0 ? 'Profit Margin' : 'Loss Margin' }}
+                        </span>
+                        <span v-if="gaugeValueNeedsScaling" class="profit-margin-gauge__note">
+                            Gauge capped at 100%
+                        </span>
+                    </div>
                 </div>
-                <div class="analytics-card__footer-info">
-                    <span>Freight {{ formatCurrency(totalFreight) }}</span>
-                    <span>Profit {{ formatCurrency(profitAmount) }}</span>
+                <div class="profit-margin-footer">
+                    <div class="profit-margin-footer__item">
+                        <span class="profit-margin-footer__label">Freight</span>
+                        <span class="profit-margin-footer__value">{{ formatCurrency(totalFreight) }}</span>
+                    </div>
+                    <div class="profit-margin-footer__item">
+                        <span class="profit-margin-footer__label">Profit</span>
+                        <span
+                            class="profit-margin-footer__value"
+                            :class="{ 'profit-margin-footer__value--loss': profitAmount < 0 }"
+                        >
+                            {{ formatCurrency(profitAmount) }}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -347,6 +356,8 @@ const expensePct = computed(() => {
     return Math.min((totalExpenses.value / totalFreight.value) * 100, 100);
 });
 
+const freightBarPct = computed(() => (totalFreight.value > 0 ? 100 : 0));
+
 const tripTotalCount = computed(() => Number(props.tripStats?.total_count ?? 0));
 const tripCreatedCount = computed(() => Number(props.tripStats?.created_count ?? 0));
 const tripRunningCount = computed(() => Number(props.tripStats?.in_progress_count ?? 0));
@@ -406,8 +417,21 @@ const tripStatusItems = computed(() => [
 ]);
 
 // Radial Gauge Config
-const radialCircumference = Math.PI * 40; // ~125.66
-const profitMarginDisplay = computed(() => profitMargin.value.toFixed(1));
+const radialCircumference = Math.PI * 42;
+const profitMarginDisplay = computed(() => {
+    const value = profitMargin.value;
+    const abs = Math.abs(value);
+
+    if (abs >= 1000) {
+        return `${value < 0 ? '-' : ''}${(abs / 1000).toFixed(1)}k`;
+    }
+
+    if (abs >= 100) {
+        return value.toFixed(0);
+    }
+
+    return value.toFixed(1);
+});
 const gaugeValueNeedsScaling = computed(() => Math.abs(profitMargin.value) >= 100);
 const radialDashoffset = computed(() => {
     const absMargin = Math.min(Math.abs(profitMargin.value), 100);
@@ -674,6 +698,114 @@ function hideTooltip() {
 }
 
 /* Gauge styling */
+.profit-margin-card {
+    gap: 0.5rem;
+}
+
+.profit-margin-gauge {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-height: 9.5rem;
+    padding: 0.25rem 0 0.5rem;
+}
+
+.profit-margin-gauge__svg {
+    width: min(100%, 220px);
+    height: auto;
+    overflow: visible;
+}
+
+.profit-margin-gauge__content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding-top: 1.35rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.profit-margin-gauge__value {
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+.profit-margin-gauge__value--profit {
+    color: #15803d;
+}
+
+.profit-margin-gauge__value--loss {
+    color: #dc2626;
+}
+
+.profit-margin-gauge__label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.profit-margin-gauge__label--profit {
+    color: #16a34a;
+}
+
+.profit-margin-gauge__label--loss {
+    color: #ef4444;
+}
+
+.profit-margin-gauge__note {
+    margin-top: 0.15rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.profit-margin-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 0.75rem;
+}
+
+.profit-margin-footer__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.profit-margin-footer__label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.profit-margin-footer__value {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profit-margin-footer__value--loss {
+    color: #dc2626;
+}
+
 .analytics-card__chart-wrap {
     display: flex;
     justify-content: center;
@@ -685,24 +817,8 @@ function hideTooltip() {
     flex: 1;
 }
 
-.gauge-svg {
-    max-width: 170px;
-    height: auto;
-    overflow: visible;
-}
-
 .gauge-fill-arc {
     transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.gauge-val-text {
-    fill: #0f172a;
-}
-
-.gauge-lbl-text {
-    fill: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
 .analytics-card__footer-info {

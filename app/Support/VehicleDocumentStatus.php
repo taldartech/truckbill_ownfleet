@@ -39,11 +39,9 @@ class VehicleDocumentStatus
         $daysRemaining = (int) $today->diffInDays($expiry, false);
 
         if ($daysRemaining < 0) {
-            $overdue = abs($daysRemaining);
-
             return [
                 'status_tier' => 'expired',
-                'status_label' => $overdue === 1 ? '1 Day Overdue' : "{$overdue} Days Overdue",
+                'status_label' => self::formatYmdLabel($expiry, $today, 'Overdue'),
                 'status_sublabel' => null,
                 'days_remaining' => $daysRemaining,
                 'badge_color' => 'danger',
@@ -63,11 +61,9 @@ class VehicleDocumentStatus
         }
 
         if ($daysRemaining <= $reminderDays) {
-            $label = $daysRemaining === 1 ? '1 Day Left' : "{$daysRemaining} Days Left";
-
             return [
                 'status_tier' => 'reminder',
-                'status_label' => $label,
+                'status_label' => self::formatYmdLabel($today, $expiry, 'Left'),
                 'status_sublabel' => null,
                 'days_remaining' => $daysRemaining,
                 'badge_color' => 'warning',
@@ -83,6 +79,26 @@ class VehicleDocumentStatus
             'badge_color' => 'success',
             'row_color' => 'success',
         ];
+    }
+
+    private static function formatYmdLabel(Carbon $from, Carbon $to, string $suffix): string
+    {
+        $diff = $from->diff($to);
+        $parts = [];
+
+        if ($diff->y > 0) {
+            $parts[] = "{$diff->y}Y";
+        }
+
+        if ($diff->m > 0) {
+            $parts[] = "{$diff->m}M";
+        }
+
+        if ($diff->d > 0 || $parts === []) {
+            $parts[] = "{$diff->d}D";
+        }
+
+        return implode(' ', $parts).' '.$suffix;
     }
 
     /**

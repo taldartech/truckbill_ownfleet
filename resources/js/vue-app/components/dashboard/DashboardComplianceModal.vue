@@ -7,8 +7,15 @@
         @close="close"
     >
         <template #title>
-            <i class="fas fa-shield-halved me-2"></i>
-            Compliance Alerts
+            <div>
+                <div>
+                    <i class="fas fa-shield-halved me-2"></i>
+                    Compliance Alerts
+                </div>
+                <div class="compliance-modal__date-hint">
+                    <span v-if="periodLabel">Date: {{ periodLabel }}</span>
+                </div>
+            </div>
         </template>
 
         <div v-if="loading" class="text-center py-4 text-muted">Loading alerts…</div>
@@ -110,15 +117,7 @@
                                 </td>
                                 <td v-if="canManageLicenses" class="text-end">
                                     <div class="compliance-actions">
-                                        <AppButton
-                                            size="sm"
-                                            variant="secondary"
-                                            outline
-                                            icon="fas fa-eye"
-                                            title="View"
-                                            :disabled="!canManageLicenses"
-                                            @click="selectLicense(license)"
-                                        />
+                                     
                                         <AppButton
                                             v-if="canUpdateLicense(license)"
                                             size="sm"
@@ -149,6 +148,7 @@ import { fetchComplianceAlerts } from '../../api/dashboard';
 import {
     canRenewDocument,
     canUpdateLicense,
+    complianceAlertWindowLabel,
     rowBorderClass,
     sortDocumentsByUrgency,
 } from '../../utils/documentStatus';
@@ -180,6 +180,8 @@ const loadError = ref('');
 const documents = ref([]);
 const licenses = ref([]);
 const renewingDocumentId = ref(null);
+
+const periodLabel = computed(() => complianceAlertWindowLabel());
 
 const isEmpty = computed(() => documents.value.length === 0 && licenses.value.length === 0);
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
@@ -245,6 +247,13 @@ defineExpose({
 </script>
 
 <style scoped>
+.compliance-modal__date-hint {
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
 .compliance-alert-row:hover {
     background-color: rgba(47, 179, 111, 0.04);
 }

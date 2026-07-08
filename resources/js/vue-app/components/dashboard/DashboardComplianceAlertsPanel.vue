@@ -1,10 +1,13 @@
 <template>
     <div class="dashboard-panel">
         <div class="dashboard-panel__head">
-            <h6 class="dashboard-panel__title">
-                <i class="fas fa-shield-halved me-2 text-warning"></i>
-                Compliance Alerts
-            </h6>
+            <div class="dashboard-panel__headline">
+                <h6 class="dashboard-panel__title">
+                    <i class="fas fa-shield-halved me-2 text-warning"></i>
+                    Compliance Alerts
+                </h6>
+                <p v-if="periodLabel" class="dashboard-panel__date-hint">Date: {{ periodLabel }}</p>
+            </div>
             <AppButton
                 v-if="showViewAll"
                 size="sm"
@@ -17,120 +20,136 @@
         </div>
 
         <div v-if="loading" class="dashboard-panel__empty text-muted">Loading alerts…</div>
-        <div v-else-if="isEmpty" class="dashboard-panel__empty text-muted">No compliance alerts right now.</div>
+        <template v-else>
+            <div class="compliance-summary-grid">
+                <div
+                    v-for="item in summaryItems"
+                    :key="item.key"
+                    class="compliance-summary-card"
+                    :class="`compliance-summary-card--${item.tone}`"
+                >
+                    <span class="compliance-summary-card__value">{{ item.value }}</span>
+                    <span class="compliance-summary-card__label">{{ item.label }}</span>
+                </div>
+            </div>
 
-        <div v-else class="dashboard-panel__body">
-            <div v-if="documents.length" class="mb-3">
-                <div class="dashboard-panel__subtitle">Vehicle documents</div>
-                <div class="table-responsive compliance-table">
-                    <table class="table table-sm table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Truck</th>
-                                <th>Document</th>
-                                <th>Expiry</th>
-                                <th>Status</th>
-                                <th v-if="canEditDocuments" class="text-end" style="width: 3.5rem">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template v-for="document in documents" :key="`doc-${document.id}`">
-                                <tr :class="['dashboard-panel__row', rowBorderClass(document)]">
-                                    <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
-                                    <td>{{ document.document_type_label }}</td>
-                                    <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
+            <div v-if="isEmpty" class="dashboard-panel__empty text-muted">
+                No compliance alerts right now.
+            </div>
+
+            <div v-else class="dashboard-panel__body">
+                <div v-if="documents.length" class="compliance-section">
+                    <div class="dashboard-panel__subtitle">Vehicle Documents</div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Truck</th>
+                                    <th>Document</th>
+                                    <th>Expiry</th>
+                                    <th>Status</th>
+                                    <th v-if="canEditDocuments" class="text-end" style="width: 3.5rem">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template v-for="document in documents" :key="`doc-${document.id}`">
+                                    <tr :class="['dashboard-panel__row', rowBorderClass(document)]">
+                                        <td class="fw-medium">{{ document.vehicle_registration ?? '—' }}</td>
+                                        <td>{{ document.document_type_label }}</td>
+                                        <td class="text-muted">{{ formatDate(document.expiry_date) }}</td>
+                                        <td>
+                                            <DocumentStatusBadge :document="document" soft />
+                                        </td>
+                                        <td v-if="canEditDocuments" class="text-end">
+                                            <div class="compliance-actions">
+                                                <AppButton
+                                                    v-if="canRenewDocument(document)"
+                                                    size="sm"
+                                                    variant="primary"
+                                                    icon="fas fa-rotate-right"
+                                                    title="Renew Now"
+                                                    @click.stop="startRenew(document)"
+                                                />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr
+                                        v-if="renewingDocumentId === document.id"
+                                        class="dashboard-panel__renew-row"
+                                    >
+                                        <td :colspan="documentTableColspan">
+                                            <DocumentRenewInlineForm
+                                                :document="document"
+                                                @saved="handleRenewSaved"
+                                                @cancel="cancelRenew"
+                                            />
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div v-if="licenses.length" class="compliance-section">
+                    <div class="dashboard-panel__subtitle">Driver Licenses</div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Driver</th>
+                                    <th>License</th>
+                                    <th>Expiry</th>
+                                    <th>Status</th>
+                                    <th v-if="canManageLicenses" class="text-end" style="width: 3.5rem">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="license in licenses"
+                                    :key="`lic-${license.driver_id}`"
+                                    :class="[
+                                        'dashboard-panel__row',
+                                        rowBorderClass(license),
+                                        { 'dashboard-panel__row--disabled': !canManageLicenses },
+                                    ]"
+                                    :tabindex="canManageLicenses ? 0 : -1"
+                                    :role="canManageLicenses ? 'button' : undefined"
+                                    @click="canManageLicenses && $emit('edit-license', license)"
+                                    @keydown.enter.prevent="canManageLicenses && $emit('edit-license', license)"
+                                >
+                                    <td class="fw-medium">{{ license.driver_name }}</td>
+                                    <td>{{ license.license_number ?? '—' }}</td>
+                                    <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
                                     <td>
-                                        <DocumentStatusBadge :document="document" soft />
+                                        <DocumentStatusBadge :document="license" soft />
                                     </td>
-                                    <td v-if="canEditDocuments" class="text-end">
+                                    <td v-if="canManageLicenses" class="text-end">
                                         <div class="compliance-actions">
                                             <AppButton
-                                                v-if="canRenewDocument(document)"
+                                                v-if="canUpdateLicense(license)"
                                                 size="sm"
                                                 variant="primary"
-                                                icon="fas fa-rotate-right"
-                                                title="Renew Now"
-                                                @click.stop="startRenew(document)"
+                                                outline
+                                                icon="fas fa-id-card"
+                                                title="Update license"
+                                                @click.stop="$emit('edit-license', license)"
                                             />
                                         </div>
                                     </td>
                                 </tr>
-                                <tr
-                                    v-if="renewingDocumentId === document.id"
-                                    class="dashboard-panel__renew-row"
-                                >
-                                    <td :colspan="documentTableColspan">
-                                        <DocumentRenewInlineForm
-                                            :document="document"
-                                            @saved="handleRenewSaved"
-                                            @cancel="cancelRenew"
-                                        />
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-
-            <div v-if="licenses.length">
-                <div class="dashboard-panel__subtitle">Driver licenses</div>
-                <div class="table-responsive compliance-table">
-                    <table class="table table-sm table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Driver</th>
-                                <th>License</th>
-                                <th>Expiry</th>
-                                <th>Status</th>
-                                <th v-if="canManageLicenses" class="text-end" style="width: 3.5rem">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="license in licenses"
-                                :key="`lic-${license.driver_id}`"
-                                :class="[
-                                    'dashboard-panel__row',
-                                    rowBorderClass(license),
-                                    { 'dashboard-panel__row--disabled': !canManageLicenses },
-                                ]"
-                                :tabindex="canManageLicenses ? 0 : -1"
-                                :role="canManageLicenses ? 'button' : undefined"
-                                @click="canManageLicenses && $emit('edit-license', license)"
-                                @keydown.enter.prevent="canManageLicenses && $emit('edit-license', license)"
-                            >
-                                <td class="fw-medium">{{ license.driver_name }}</td>
-                                <td>{{ license.license_number ?? '—' }}</td>
-                                <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
-                                <td>
-                                    <DocumentStatusBadge :document="license" soft />
-                                </td>
-                                <td v-if="canManageLicenses" class="text-end">
-                                    <div class="compliance-actions">
-                                        <AppButton
-                                            v-if="canUpdateLicense(license)"
-                                            size="sm"
-                                            variant="primary"
-                                            outline
-                                            icon="fas fa-id-card"
-                                            title="Update license"
-                                            @click.stop="$emit('edit-license', license)"
-                                        />
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        </template>
     </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
-import { canRenewDocument, canUpdateLicense, rowBorderClass } from '../../utils/documentStatus';
+import { canRenewDocument, canUpdateLicense, complianceAlertWindowLabel, rowBorderClass } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
 import DocumentRenewInlineForm from '../trucks/DocumentRenewInlineForm.vue';
@@ -146,9 +165,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    totalCount: {
-        type: Number,
-        default: 0,
+    summary: {
+        type: Object,
+        default: () => ({
+            total: 0,
+            expired: 0,
+            expiring: 0,
+            licenses: 0,
+        }),
     },
     loading: {
         type: Boolean,
@@ -168,10 +192,39 @@ const emit = defineEmits(['view-all', 'edit-license', 'saved']);
 
 const renewingDocumentId = ref(null);
 
+const periodLabel = computed(() => complianceAlertWindowLabel());
+
 const isEmpty = computed(() => props.documents.length === 0 && props.licenses.length === 0);
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 
-const showViewAll = computed(() => !props.loading && props.totalCount > 0);
+const showViewAll = computed(() => !props.loading && Number(props.summary?.total ?? 0) > 0);
+
+const summaryItems = computed(() => [
+    {
+        key: 'total',
+        label: 'Total Alerts',
+        value: Number(props.summary?.total ?? 0),
+        tone: 'neutral',
+    },
+    {
+        key: 'expired',
+        label: 'Expired',
+        value: Number(props.summary?.expired ?? 0),
+        tone: 'danger',
+    },
+    {
+        key: 'expiring',
+        label: 'Expiring',
+        value: Number(props.summary?.expiring ?? 0),
+        tone: 'warning',
+    },
+    {
+        key: 'licenses',
+        label: 'Licenses',
+        value: Number(props.summary?.licenses ?? 0),
+        tone: 'info',
+    },
+]);
 
 function startRenew(document) {
     renewingDocumentId.value = document.id;
@@ -191,7 +244,6 @@ function handleRenewSaved(payload) {
 .dashboard-panel {
     display: flex;
     flex-direction: column;
-    height: 100%;
     padding: 1.25rem;
     border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.25rem;
@@ -201,11 +253,15 @@ function handleRenewSaved(payload) {
 
 .dashboard-panel__head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.85rem;
+    margin-bottom: 1rem;
     flex-shrink: 0;
+}
+
+.dashboard-panel__headline {
+    min-width: 0;
 }
 
 .dashboard-panel__title {
@@ -215,10 +271,81 @@ function handleRenewSaved(payload) {
     color: #0f172a;
 }
 
+.dashboard-panel__date-hint {
+    margin: 0.2rem 0 0;
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.compliance-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.1rem;
+}
+
+.compliance-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    min-width: 0;
+}
+
+.compliance-summary-card__value {
+    font-size: 1.45rem;
+    line-height: 1.1;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.compliance-summary-card__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.compliance-summary-card--danger {
+    border-color: rgba(248, 113, 113, 0.35);
+    background: linear-gradient(180deg, #fff 0%, #fff5f5 100%);
+}
+
+.compliance-summary-card--danger .compliance-summary-card__value {
+    color: #dc2626;
+}
+
+.compliance-summary-card--warning {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: linear-gradient(180deg, #fff 0%, #fffbeb 100%);
+}
+
+.compliance-summary-card--warning .compliance-summary-card__value {
+    color: #d97706;
+}
+
+.compliance-summary-card--info {
+    border-color: rgba(96, 165, 250, 0.35);
+    background: linear-gradient(180deg, #fff 0%, #eff6ff 100%);
+}
+
+.compliance-summary-card--info .compliance-summary-card__value {
+    color: #2563eb;
+}
+
 .dashboard-panel__body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    min-width: 0;
+}
+
+.compliance-section {
+    min-width: 0;
 }
 
 .dashboard-panel__subtitle {
@@ -247,5 +374,17 @@ function handleRenewSaved(payload) {
 .dashboard-panel__renew-row > td {
     background: rgba(248, 250, 252, 0.9);
     border-top: none;
+}
+
+@media (max-width: 767.98px) {
+    .compliance-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 479.98px) {
+    .compliance-summary-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

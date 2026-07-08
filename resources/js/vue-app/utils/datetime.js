@@ -255,6 +255,81 @@ export function toAppTimezoneIso(date = new Date()) {
     return `${parts.year}-${parts.month}-${parts.day}T${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}+05:30`;
 }
 
+function daysInMonth(year, month) {
+    const normalizedMonth = ((month - 1) % 12) + 1;
+    const normalizedYear = year + Math.floor((month - 1) / 12);
+
+    return new Date(normalizedYear, normalizedMonth, 0).getDate();
+}
+
+function parseDateOnlyParts(iso) {
+    const match = String(iso ?? '')
+        .trim()
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+    };
+}
+
+/**
+ * Calendar difference between two ISO dates (YYYY-MM-DD).
+ *
+ * @returns {{ years: number, months: number, days: number }}
+ */
+export function calendarDiffYmd(fromIso, toIso) {
+    const from = parseDateOnlyParts(fromIso);
+    const to = parseDateOnlyParts(toIso);
+
+    if (!from || !to) {
+        return { years: 0, months: 0, days: 0 };
+    }
+
+    let years = to.year - from.year;
+    let months = to.month - from.month;
+    let days = to.day - from.day;
+
+    if (days < 0) {
+        months -= 1;
+        days += daysInMonth(to.year, to.month - 1);
+    }
+
+    if (months < 0) {
+        years -= 1;
+        months += 12;
+    }
+
+    return { years, months, days };
+}
+
+/**
+ * Format a calendar span as compact Y/M/D parts, e.g. "1M 3D".
+ */
+export function formatYmdDuration(fromIso, toIso) {
+    const { years, months, days } = calendarDiffYmd(fromIso, toIso);
+    const parts = [];
+
+    if (years > 0) {
+        parts.push(`${years}Y`);
+    }
+
+    if (months > 0) {
+        parts.push(`${months}M`);
+    }
+
+    if (days > 0 || parts.length === 0) {
+        parts.push(`${days}D`);
+    }
+
+    return parts.join(' ');
+}
+
 export function addDaysToDateInput(dateInput, offsetDays) {
     const match = String(dateInput ?? '')
         .trim()

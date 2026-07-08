@@ -509,7 +509,7 @@ class PhaseOneCloseTest extends TestCase
         $documents = collect($response->json('documents'));
         $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expired'));
         $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expiring'));
-        $this->assertSame('3 Days Overdue', $documents->firstWhere('document_type', 'insurance')['status_label']);
+        $this->assertSame('3D Overdue', $documents->firstWhere('document_type', 'insurance')['status_label']);
         $this->assertSame(-3, $documents->firstWhere('document_type', 'insurance')['days_remaining']);
         $this->assertLessThan(
             $documents->firstWhere('document_type', 'puc')['days_remaining'],

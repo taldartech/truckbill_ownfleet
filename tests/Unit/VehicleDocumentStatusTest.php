@@ -20,7 +20,7 @@ class VehicleDocumentStatusTest extends TestCase
         );
 
         $this->assertSame('expired', $status['status_tier']);
-        $this->assertSame('18 Days Overdue', $status['status_label']);
+        $this->assertSame('18D Overdue', $status['status_label']);
         $this->assertNull($status['status_sublabel']);
         $this->assertSame(-18, $status['days_remaining']);
         $this->assertSame('danger', $status['badge_color']);
@@ -53,7 +53,7 @@ class VehicleDocumentStatusTest extends TestCase
         );
 
         $this->assertSame('reminder', $status['status_tier']);
-        $this->assertSame('2 Days Left', $status['status_label']);
+        $this->assertSame('2D Left', $status['status_label']);
         $this->assertSame(2, $status['days_remaining']);
     }
 
@@ -70,6 +70,21 @@ class VehicleDocumentStatusTest extends TestCase
         $this->assertSame('valid', $status['status_tier']);
         $this->assertSame('Valid', $status['status_label']);
         $this->assertGreaterThan(7, $status['days_remaining']);
+    }
+
+    #[Test]
+    public function it_labels_expired_documents_using_calendar_ymd_parts(): void
+    {
+        $today = Carbon::parse('2026-07-08');
+        $status = VehicleDocumentStatus::compute(
+            Carbon::parse('2026-06-05'),
+            30,
+            $today,
+        );
+
+        $this->assertSame('expired', $status['status_tier']);
+        $this->assertSame('1M 3D Overdue', $status['status_label']);
+        $this->assertSame(-33, $status['days_remaining']);
     }
 
     #[Test]

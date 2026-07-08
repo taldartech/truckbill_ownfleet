@@ -77,34 +77,18 @@
                         />
                     </div>
 
-                    <div v-if="showComplianceSection" class="dashboard-page__compliance-row">
-                        <div class="dashboard-page__compliance-summary">
-                            <DashboardGroupedStatCard
-                                title="Compliance"
-                                :total="complianceTotalCount"
-                                total-label="Alerts"
-                                icon="fas fa-shield-halved"
-                                tone="warning"
-                                hint="Documents and licenses needing attention. Click to view and update."
-                                clickable
-                                :items="complianceBreakdownItems"
-                                @click="openComplianceModal"
-                            />
-                        </div>
-
-                        <div class="dashboard-page__compliance-alerts">
-                            <DashboardComplianceAlertsPanel
-                                :documents="compliancePreview.documents"
-                                :licenses="compliancePreview.licenses"
-                                :total-count="complianceTotalCount"
-                                :loading="complianceLoading"
-                                :can-manage-licenses="canManageDrivers"
-                                :can-edit-documents="canEditDocuments"
-                                @view-all="openComplianceModal"
-                                @edit-license="openDriverFromAlert"
-                                @saved="onComplianceItemSaved"
-                            />
-                        </div>
+                    <div v-if="showComplianceSection" class="dashboard-page__compliance">
+                        <DashboardComplianceAlertsPanel
+                            :documents="compliancePreview.documents"
+                            :licenses="compliancePreview.licenses"
+                            :summary="complianceSummary"
+                            :loading="complianceLoading"
+                            :can-manage-licenses="canManageDrivers"
+                            :can-edit-documents="canEditDocuments"
+                            @view-all="openComplianceModal"
+                            @edit-license="openDriverFromAlert"
+                            @saved="onComplianceItemSaved"
+                        />
                     </div>
                 </div>
             </template>
@@ -157,7 +141,6 @@ import { fetchComplianceAlerts } from '../api/dashboard';
 import { fetchDriver, updateDriver } from '../api/drivers';
 import DashboardAnalyticsChart from '../components/dashboard/DashboardAnalyticsChart.vue';
 import DashboardComplianceAlertsPanel from '../components/dashboard/DashboardComplianceAlertsPanel.vue';
-import DashboardGroupedStatCard from '../components/dashboard/DashboardGroupedStatCard.vue';
 import DashboardComplianceModal from '../components/dashboard/DashboardComplianceModal.vue';
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
@@ -190,6 +173,12 @@ const tyreStats = ref(null);
 const requiresCompany = ref(false);
 const complianceLoading = ref(false);
 const compliancePreview = ref({ documents: [], licenses: [] });
+const complianceSummary = ref({
+    total: 0,
+    expired: 0,
+    expiring: 0,
+    licenses: 0,
+});
 
 const defaultPeriodRange = defaultDashboardTripRange();
 const periodFromDate = ref(defaultPeriodRange.from_date);
@@ -258,42 +247,34 @@ const showCompanyRequiredNotice = computed(
 
 const todayLabel = formatDate(new Date());
 
-const complianceBreakdownItems = computed(() => {
-    const stats = fleetStats.value ?? {};
-    const items = [];
+function buildComplianceSummary(documents, licenses) {
+    const allItems = [...documents, ...licenses];
+    const expired = allItems.filter(
+        (item) => item.status === 'expired' || item.status_tier === 'expired',
+    ).length;
 
-    if (stats.expired_documents_count != null) {
-        items.push({
-            key: 'expired_docs',
-            label: 'Expired',
-            value: stats.expired_documents_count,
-        });
-    }
+    return {
+        total: allItems.length,
+        expired,
+        expiring: allItems.length - expired,
+        licenses: licenses.length,
+    };
+}
 
-    if (stats.expiring_documents_count != null) {
-        items.push({
-            key: 'expiring_docs',
-            label: 'Expiring',
-            value: stats.expiring_documents_count,
-        });
-    }
+function applyComplianceAlerts(alerts) {
+    const documents = sortDocumentsByUrgency(alerts.documents ?? []);
+    const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
 
-    if (stats.license_expiring_count != null) {
-        items.push({
-            key: 'expiring_licenses',
-            label: 'Licenses',
-            value: stats.license_expiring_count,
-        });
-    }
+    complianceSummary.value = buildComplianceSummary(documents, licenses);
+    compliancePreview.value = {
+        documents: documents.slice(0, 5),
+        licenses: licenses.slice(0, 5),
+    };
+}
 
-    return items;
-});
-
-const complianceTotalCount = computed(() =>
-    complianceBreakdownItems.value.reduce((sum, item) => sum + Number(item.value ?? 0), 0),
+const showComplianceSection = computed(
+    () => canViewComplianceAlerts.value && userHasCompanyContext.value,
 );
-
-const showComplianceSection = computed(() => complianceBreakdownItems.value.length > 0);
 
 function openComplianceModal() {
     showComplianceModal.value = true;
@@ -377,14 +358,7 @@ async function refreshComplianceData() {
 
         if (!alerts.requiresCompany) {
             fleetStats.value = statsResponse.data.fleet ?? fleetStats.value;
-
-            const documents = sortDocumentsByUrgency(alerts.documents ?? []);
-            const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
-
-            compliancePreview.value = {
-                documents: documents.slice(0, 5),
-                licenses: licenses.slice(0, 5),
-            };
+            applyComplianceAlerts(alerts);
         }
 
         if (showComplianceModal.value && complianceModalRef.value?.refreshAlerts) {
@@ -400,6 +374,7 @@ async function refreshComplianceData() {
 async function loadCompliancePreview() {
     if (!canViewComplianceAlerts.value || !userHasCompanyContext.value) {
         compliancePreview.value = { documents: [], licenses: [] };
+        complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
 
         return;
     }
@@ -411,19 +386,15 @@ async function loadCompliancePreview() {
 
         if (alerts.requiresCompany) {
             compliancePreview.value = { documents: [], licenses: [] };
+            complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
 
             return;
         }
 
-        const documents = sortDocumentsByUrgency(alerts.documents ?? []);
-        const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
-
-        compliancePreview.value = {
-            documents: documents.slice(0, 5),
-            licenses: licenses.slice(0, 5),
-        };
+        applyComplianceAlerts(alerts);
     } catch {
         compliancePreview.value = { documents: [], licenses: [] };
+        complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
     } finally {
         complianceLoading.value = false;
     }
@@ -623,45 +594,11 @@ watch(
     margin: 0;
 }
 
-.dashboard-page__compliance-row {
-    display: grid;
-    grid-template-columns: minmax(17rem, 24rem) minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: stretch;
-}
-
-.dashboard-page__compliance-summary {
-    display: flex;
-    flex-direction: column;
+.dashboard-page__compliance {
     min-width: 0;
-    min-height: 100%;
 }
 
-.dashboard-page__compliance-summary :deep(.dashboard-stat-card) {
-    flex: 1;
-}
-
-.dashboard-page__compliance-alerts {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 100%;
-}
-
-.dashboard-page__compliance-alerts :deep(.dashboard-panel) {
-    flex: 1;
-    height: 100%;
-}
-
-@media (max-width: 1199.98px) {
-    .dashboard-page__compliance-row {
-        grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
-    }
-}
-
-@media (max-width: 991.98px) {
-    .dashboard-page__compliance-row {
-        grid-template-columns: 1fr;
-    }
+.dashboard-page__compliance :deep(.dashboard-panel) {
+    height: auto;
 }
 </style>

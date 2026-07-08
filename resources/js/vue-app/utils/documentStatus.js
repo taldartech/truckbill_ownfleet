@@ -1,4 +1,17 @@
-import { addDaysToDateInput, toDateInputValue } from './datetime';
+import { addDaysToDateInput, formatYmdDuration, toDateInputValue } from './datetime';
+import { formatDateRangeLabel } from './dateRangePresets';
+
+export const COMPLIANCE_ALERT_WINDOW_DAYS = 30;
+
+/**
+ * Label for the compliance alert window: today through today + 30 days.
+ */
+export function complianceAlertWindowLabel() {
+    const today = toDateInputValue();
+    const windowEnd = addDaysToDateInput(today, COMPLIANCE_ALERT_WINDOW_DAYS);
+
+    return formatDateRangeLabel(today, windowEnd);
+}
 
 /**
  * @param {Array<{ days_remaining?: number|null }>} documents
@@ -71,10 +84,12 @@ export function statusBadgeSoftClass(document) {
 }
 
 /**
- * @param {{ days_remaining?: number|null }} document
+ * @param {{ days_remaining?: number|null, expiry_date?: string|null, license_expiry_date?: string|null }} document
  */
 export function formatDaysLeft(document) {
     const days = document?.days_remaining;
+    const expiryDate = document?.expiry_date ?? document?.license_expiry_date;
+    const today = toDateInputValue();
 
     if (days == null) {
         return '—';
@@ -84,11 +99,19 @@ export function formatDaysLeft(document) {
         return 'Today';
     }
 
-    if (days < 0) {
-        return `${Math.abs(days)} Days`;
+    if (expiryDate) {
+        if (days < 0) {
+            return formatYmdDuration(expiryDate, today);
+        }
+
+        return formatYmdDuration(today, expiryDate);
     }
 
-    return `${days} Days`;
+    if (days < 0) {
+        return `${Math.abs(days)}D`;
+    }
+
+    return `${days}D`;
 }
 
 /**
@@ -109,8 +132,12 @@ export function canUpdateLicense(license) {
 
 /**
  * @param {number|null|undefined} daysRemaining
+ * @param {string|null|undefined} expiryDate
  */
-export function licenseStatusFromDays(daysRemaining) {
+export function licenseStatusFromDays(daysRemaining, expiryDate = null) {
+    const today = toDateInputValue();
+    const resolvedExpiry = expiryDate ? String(expiryDate).trim().slice(0, 10) : null;
+
     if (daysRemaining == null) {
         return {
             status_tier: 'valid',
@@ -123,11 +150,13 @@ export function licenseStatusFromDays(daysRemaining) {
     }
 
     if (daysRemaining < 0) {
-        const overdue = Math.abs(daysRemaining);
+        const label = resolvedExpiry
+            ? `${formatYmdDuration(resolvedExpiry, today)} Overdue`
+            : `${Math.abs(daysRemaining)}D Overdue`;
 
         return {
             status_tier: 'expired',
-            status_label: overdue === 1 ? '1 Day Overdue' : `${overdue} Days Overdue`,
+            status_label: label,
             status_sublabel: null,
             days_remaining: daysRemaining,
             badge_color: 'danger',
@@ -147,7 +176,9 @@ export function licenseStatusFromDays(daysRemaining) {
     }
 
     if (daysRemaining <= 30) {
-        const label = daysRemaining === 1 ? '1 Day Left' : `${daysRemaining} Days Left`;
+        const label = resolvedExpiry
+            ? `${formatYmdDuration(today, resolvedExpiry)} Left`
+            : `${daysRemaining}D Left`;
 
         return {
             status_tier: 'reminder',
