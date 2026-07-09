@@ -10,7 +10,11 @@
         :disabled="disabled"
         :invalid="invalid"
         :error-message="errorMessage"
+        :editable="editable"
+        :input-mode="inputMode"
+        :max-length="maxLength"
         @update:model-value="onModelValueUpdate"
+        @blur="emit('blur', $event)"
     />
 </template>
 
@@ -30,9 +34,12 @@ const props = defineProps({
     invalid: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
     attachDropdownToBody: { type: Boolean, default: true },
+    editable: { type: Boolean, default: false },
+    inputMode: { type: String, default: 'text' },
+    maxLength: { type: Number, default: null },
 });
 
-const emit = defineEmits(['update:modelValue', 'change']);
+const emit = defineEmits(['update:modelValue', 'change', 'blur']);
 
 const selectItems = computed(() => buildSimpleSelectOptions(props.options));
 

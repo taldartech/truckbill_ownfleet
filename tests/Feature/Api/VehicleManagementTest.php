@@ -321,6 +321,38 @@ class VehicleManagementTest extends TestCase
             ->assertJsonPath('data.max_load_ton', '22.000');
     }
 
+    public function test_admin_cannot_create_vehicle_with_future_manufacture_year(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5056',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+                'manufacture_year' => (int) date('Y') + 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['manufacture_year']);
+    }
+
+    public function test_admin_can_create_vehicle_with_current_manufacture_year(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5057',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+                'manufacture_year' => (int) date('Y'),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.manufacture_year', (int) date('Y'));
+    }
+
     private function createVehicle(
         Tenant $tenant,
         ?string $registration = null,

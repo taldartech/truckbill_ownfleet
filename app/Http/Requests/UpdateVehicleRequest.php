@@ -62,7 +62,7 @@ class UpdateVehicleRequest extends FormRequest
             ],
             'make' => ['nullable', 'string', 'max:100'],
             'model' => ['nullable', 'string', 'max:100'],
-            'manufacture_year' => ['nullable', 'integer', 'min:1980', 'max:'.(date('Y') + 1)],
+            'manufacture_year' => ['nullable', 'integer', 'min:1980', 'max:'.date('Y')],
             'odometer_km' => ['nullable', 'numeric', 'min:0'],
             'default_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0'],
             'max_load_ton' => ['nullable', 'numeric', 'min:0'],

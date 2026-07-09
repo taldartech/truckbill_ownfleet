@@ -157,10 +157,15 @@
                                     :input-id="`${modalId}_year`"
                                     v-model="form.manufacture_year"
                                     :options="manufactureYearSelectOptions"
-                                    placeholder="Select year"
+                                    placeholder="Type or select year"
                                     search-placeholder="Search year…"
-                                    :invalid="Boolean(props.fieldErrors.manufacture_year)"
-                                    :error-message="props.fieldErrors.manufacture_year?.[0] ?? ''"
+                                    editable
+                                    input-mode="numeric"
+                                    :max-length="4"
+                                    :invalid="Boolean(manufactureYearError)"
+                                    :error-message="manufactureYearError"
+                                    :empty-message="manufactureYearEmptyMessage"
+                                    @blur="onManufactureYearBlur"
                                 />
                             </div>
                         </div>
@@ -232,6 +237,7 @@ const tyreLayoutOptions = ref([]);
 const truckTypes = ref([]);
 const showTypeQuickAdd = ref(false);
 const localRegistrationError = ref('');
+const localManufactureYearError = ref('');
 
 const truckTypeOptions = computed(() =>
     truckTypes.value.map((type) => ({
@@ -251,6 +257,28 @@ const registrationError = computed(() => {
     return props.fieldErrors.registration_number?.[0] ?? localRegistrationError.value;
 });
 
+const manufactureYearError = computed(() => {
+    return props.fieldErrors.manufacture_year?.[0] ?? localManufactureYearError.value;
+});
+
+const manufactureYearRangeMessage = computed(
+    () => `Year must be between ${MIN_MANUFACTURE_YEAR} and ${currentManufactureYear.value}.`,
+);
+
+const manufactureYearEmptyMessage = computed(() => {
+    if (localManufactureYearError.value) {
+        return localManufactureYearError.value;
+    }
+
+    const year = String(form.value.manufacture_year ?? '').trim();
+
+    if (year.length === 4) {
+        return manufactureYearRangeMessage.value;
+    }
+
+    return 'No matching years.';
+});
+
 const auditInfo = computed(() => {
     if (!isEdit.value || !props.vehicle) {
         return null;
@@ -264,8 +292,10 @@ const auditInfo = computed(() => {
     };
 });
 
+const currentManufactureYear = computed(() => new Date().getFullYear());
+
 const manufactureYearSelectOptions = computed(() => {
-    const maxYear = new Date().getFullYear() + 1;
+    const maxYear = currentManufactureYear.value;
     const years = [];
 
     for (let year = maxYear; year >= MIN_MANUFACTURE_YEAR; year--) {
@@ -342,15 +372,52 @@ function onTruckTypeCreated(truckType) {
 }
 
 watch(
+    () => form.value.manufacture_year,
+    (year) => {
+        localManufactureYearError.value = validateManufactureYearInput(year);
+    },
+);
+
+function validateManufactureYearInput(year, { requireComplete = true } = {}) {
+    if (year === '' || year == null) {
+        return '';
+    }
+
+    const yearText = String(year).trim();
+
+    if (requireComplete && yearText.length < 4) {
+        return '';
+    }
+
+    const numericYear = Number(yearText);
+
+    if (
+        !Number.isInteger(numericYear) ||
+        numericYear < MIN_MANUFACTURE_YEAR ||
+        numericYear > currentManufactureYear.value
+    ) {
+        return manufactureYearRangeMessage.value;
+    }
+
+    return '';
+}
+
+function onManufactureYearBlur() {
+    localManufactureYearError.value = validateManufactureYearInput(form.value.manufacture_year);
+}
+
+watch(
     () => props.show,
     async (visible) => {
         if (visible) {
             localRegistrationError.value = '';
+            localManufactureYearError.value = '';
             showTypeQuickAdd.value = false;
             fillForm(props.vehicle);
             await Promise.all([loadTyreLayoutOptions(), loadTruckTypes()]);
         } else {
             localRegistrationError.value = '';
+            localManufactureYearError.value = '';
             showTypeQuickAdd.value = false;
         }
     },
@@ -360,11 +427,31 @@ function close() {
     emit('close');
 }
 
+function isValidManufactureYear(year) {
+    if (year === '' || year == null) {
+        return true;
+    }
+
+    const numericYear = Number(year);
+
+    return (
+        Number.isInteger(numericYear) &&
+        numericYear >= MIN_MANUFACTURE_YEAR &&
+        numericYear <= currentManufactureYear.value
+    );
+}
+
 function submit() {
     const registrationNumber = normalizeVehicleRegistration(form.value.registration_number);
 
     if (!isValidVehicleRegistration(registrationNumber)) {
         localRegistrationError.value = VEHICLE_REGISTRATION_ERROR;
+
+        return;
+    }
+
+    if (!isValidManufactureYear(form.value.manufacture_year)) {
+        localManufactureYearError.value = manufactureYearRangeMessage.value;
 
         return;
     }

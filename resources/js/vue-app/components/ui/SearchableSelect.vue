@@ -5,7 +5,28 @@
         :class="{ 'is-invalid-select': invalid, 'is-open': isOpen }"
     >
         <div class="select-trigger-wrap">
+            <input
+                v-if="editable"
+                :id="inputId"
+                ref="editableInputRef"
+                type="text"
+                class="form-control select-trigger select-trigger--editable"
+                :inputmode="inputMode"
+                :value="String(modelValue ?? '')"
+                :placeholder="placeholder"
+                :disabled="disabled"
+                :maxlength="maxLength || undefined"
+                :aria-expanded="isOpen"
+                autocomplete="off"
+                spellcheck="false"
+                @input="onEditableInput"
+                @focus="onEditableFocus"
+                @keydown.down.prevent="openDropdown"
+                @keydown.escape="closeDropdown"
+                @blur="onEditableBlur"
+            />
             <button
+                v-else
                 :id="inputId"
                 type="button"
                 class="form-select text-start select-trigger"
@@ -24,7 +45,18 @@
                     {{ displayLabel }}
                 </span>
             </button>
-            <div class="select-trigger-chevron" aria-hidden="true">
+            <button
+                v-if="editable && !disabled"
+                type="button"
+                class="select-trigger-chevron select-trigger-chevron--button"
+                :aria-expanded="isOpen"
+                tabindex="-1"
+                @mousedown.prevent
+                @click="toggleDropdown"
+            >
+                <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+            </button>
+            <div v-else class="select-trigger-chevron" aria-hidden="true">
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
             </div>
             <div v-if="modelValue && !disabled" class="select-trigger-icons">
@@ -52,7 +84,7 @@
                 :style="attachDropdownToBody ? dropdownStyle : undefined"
             >
                 <div
-                    v-if="showSearchInput"
+                    v-if="showDropdownSearchInput"
                     class="picker-search-wrap"
                     :class="{ 'picker-search-wrap--plain': plain }"
                 >
@@ -78,6 +110,7 @@
                             'picker-option-disabled': item.disabled,
                         }"
                         :disabled="item.disabled"
+                        @mousedown.prevent
                         @click="selectItem(item)"
                     >
                         <span v-if="itemIcon(item) && !plain" class="picker-option-icon">
@@ -131,13 +164,17 @@ const props = defineProps({
     attachDropdownToBody: { type: Boolean, default: true },
     itemIconClass: { type: String, default: '' },
     plain: { type: Boolean, default: true },
+    editable: { type: Boolean, default: false },
+    inputMode: { type: String, default: 'text' },
+    maxLength: { type: Number, default: null },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'blur']);
 
 const selectRef = ref(null);
 const dropdownRef = ref(null);
 const searchInputRef = ref(null);
+const editableInputRef = ref(null);
 const isOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref({});
@@ -160,6 +197,8 @@ function resolveDropdownZIndex() {
 }
 
 const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
+
+const showDropdownSearchInput = computed(() => showSearchInput.value && !props.editable);
 
 const listScrollStyle = computed(() => {
     if (!listMaxHeight.value) {
@@ -213,7 +252,9 @@ function isSelected(item) {
 }
 
 const filteredItems = computed(() => {
-    const query = searchQuery.value.trim().toLowerCase();
+    const query = props.editable
+        ? String(props.modelValue ?? '').trim().toLowerCase()
+        : searchQuery.value.trim().toLowerCase();
 
     if (!query) {
         return props.items;
@@ -232,7 +273,7 @@ function measureDropdownChromeHeight() {
     const dropdownEl = dropdownRef.value;
 
     if (!dropdownEl) {
-        return showSearchInput.value ? 52 : 8;
+        return showDropdownSearchInput.value ? 52 : 8;
     }
 
     const listEl = dropdownEl.querySelector('.picker-list-scroll');
@@ -313,6 +354,10 @@ function closeDropdown() {
 }
 
 function openDropdown() {
+    if (props.disabled) {
+        return;
+    }
+
     claimExclusiveDropdown(closeDropdown);
     searchQuery.value = '';
     isOpen.value = true;
@@ -321,10 +366,42 @@ function openDropdown() {
         suspendModalFocusTrap();
         scheduleDropdownPositionUpdate();
 
-        if (showSearchInput.value) {
+        if (showDropdownSearchInput.value) {
             searchInputRef.value?.focus({ preventScroll: true });
         }
     });
+}
+
+function onEditableFocus() {
+    openDropdown();
+}
+
+function onEditableBlur() {
+    emit('blur', props.modelValue);
+}
+
+function onEditableInput(event) {
+    let value = event.target.value;
+
+    if (props.inputMode === 'numeric') {
+        value = value.replace(/\D/g, '');
+    }
+
+    if (props.maxLength) {
+        value = value.slice(0, props.maxLength);
+    }
+
+    if (event.target.value !== value) {
+        event.target.value = value;
+    }
+
+    emit('update:modelValue', value);
+
+    if (!isOpen.value) {
+        openDropdown();
+    } else {
+        nextTick(() => updateDropdownPosition());
+    }
 }
 
 function toggleDropdown() {
@@ -351,6 +428,12 @@ function selectItem(item) {
 
     emit('update:modelValue', item.id);
     closeDropdown();
+
+    if (props.editable) {
+        nextTick(() => {
+            editableInputRef.value?.focus({ preventScroll: true });
+        });
+    }
 }
 
 function handleDocumentClick(event) {
@@ -488,6 +571,37 @@ watch([searchQuery, filteredItems], () => {
 
 .select-trigger--placeholder .select-trigger-label {
     color: #6c757d;
+}
+
+.select-trigger--editable {
+    cursor: text;
+}
+
+.select-trigger-chevron--button {
+    pointer-events: auto;
+    border: none;
+    background: transparent;
+    padding: 0;
+    width: auto;
+    cursor: pointer;
+}
+
+.select-trigger-chevron--button:hover,
+.select-trigger-chevron--button:focus {
+    color: #495057;
+    outline: none;
+}
+
+.select-trigger-wrap:has(.select-trigger--editable) .select-trigger-chevron--button {
+    right: 0.65rem;
+}
+
+.select-trigger-wrap:has(.select-trigger--editable):has(.select-trigger-icons) .select-trigger--editable {
+    padding-right: 4.4rem;
+}
+
+.select-trigger-wrap:has(.select-trigger--editable):has(.select-trigger-icons) .select-trigger-chevron--button {
+    right: 2.15rem;
 }
 
 .select-trigger-icon {
