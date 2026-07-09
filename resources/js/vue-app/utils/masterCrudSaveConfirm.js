@@ -242,7 +242,7 @@ export function buildUserFields(payload, original, { roles, companies, branches 
     }
 
     if (payload.password) {
-        fields.push({ label: 'Password', value: '••••••••', previousValue: '—', changed: true });
+        fields.push({ label: 'Password', value: payload.password, previousValue: '—', changed: true });
     }
 
     return fields;
