@@ -23,7 +23,7 @@ class StoreTyreRotationRequest extends FormRequest
         $vehicleId = $this->resolveRotationVehicleId();
 
         return [
-            'rotation_date' => ['required', 'date'],
+            'rotation_date' => ['required', 'date', 'before_or_equal:today'],
             'previous_position' => ['required', 'string', 'max:64'],
             'new_position' => [
                 'required',

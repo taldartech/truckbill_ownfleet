@@ -1,5 +1,14 @@
 import { reactive, watch } from 'vue';
-import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric, resolveExpenseRouteLegSequence, resolveLegWeightTon } from '../api/trips';
+import {
+    calculateLegFreight,
+    clampExpenseDate,
+    emptyExpense,
+    emptyRouteStop,
+    parseNumeric,
+    resolveExpenseRouteLegSequence,
+    resolveLegFreightAutoCalculate,
+    resolveLegWeightTon,
+} from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -76,10 +85,6 @@ export function useTripForm() {
                 leg.customer_id = customerId;
 
                 return;
-            }
-
-            if (customerId !== '' && !leg.customer_id) {
-                applySameCustomerDefault(leg);
             }
         });
     }
@@ -228,7 +233,7 @@ export function useTripForm() {
                 freight_rate:
                     leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
                 freight_amount: Number(leg.freight_amount ?? 0),
-                freight_auto_calculate: true,
+                freight_auto_calculate: resolveLegFreightAutoCalculate(leg),
                 weight_ton: resolvedWeight > 0 ? resolvedWeight : '',
                 expected_mileage_km_per_liter:
                     leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
@@ -240,6 +245,10 @@ export function useTripForm() {
 
         form.route_legs.forEach((leg) => {
             normalizeRouteLegForSave(leg);
+
+            if (leg.freight_auto_calculate) {
+                leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
+            }
         });
 
         const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
@@ -424,14 +433,22 @@ export function useTripForm() {
     }
 
     function buildStatusChangePayload() {
-        const payload = {
-            status: form.status,
-            start_at: form.start_at || null,
-            end_at: form.end_at || null,
-            actual_arrival_at: form.actual_arrival_at || null,
-            cancelled_at: form.cancelled_at || null,
-            cancellation_reason: form.cancellation_reason || null,
-        };
+        const status = String(form.status ?? '').toUpperCase();
+        const payload = { status };
+
+        if ((status === 'COMPLETED' || status === 'CANCELLED') && form.start_at) {
+            payload.start_at = form.start_at;
+        }
+
+        if (status === 'COMPLETED') {
+            payload.end_at = form.end_at || null;
+            payload.actual_arrival_at = form.actual_arrival_at || null;
+        }
+
+        if (status === 'CANCELLED') {
+            payload.cancelled_at = form.cancelled_at || null;
+            payload.cancellation_reason = form.cancellation_reason || null;
+        }
 
         const startMeter = parseNumeric(form.start_meter_reading_km);
 

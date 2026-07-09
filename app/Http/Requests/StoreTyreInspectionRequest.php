@@ -22,7 +22,7 @@ class StoreTyreInspectionRequest extends FormRequest
     {
         return [
             'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
-            'inspected_at' => ['required', 'date'],
+            'inspected_at' => ['required', 'date', 'before_or_equal:today'],
             'tread_depth_mm' => ['nullable', 'numeric', 'min:0', 'max:50'],
             'pressure_psi' => ['nullable', 'numeric', 'min:0', 'max:300'],
             'result' => ['nullable', 'string', Rule::in(['PASS', 'FAIL', 'ATTENTION'])],

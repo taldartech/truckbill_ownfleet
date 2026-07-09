@@ -228,8 +228,8 @@
             </ul>
 
             <div class="card">
-                <div v-if="activeTab === 'timeline'" class="card-body">
-                    <div class="row g-2 align-items-end mb-3">
+                <div v-if="activeTab === 'timeline'" class="card-body tyre-history-panel">
+                    <div class="row g-2 align-items-start mb-3 tyre-history-filters">
                         <div class="col-sm-4 col-md-3">
                             <label class="form-label small mb-1" for="historyFromDate">From date</label>
                             <AppDateInput
@@ -243,6 +243,7 @@
                             <AppDateInput
                                 input-id="historyToDate"
                                 v-model="historyToDate"
+                                :max="maxTyreActionDate"
                                 size="sm"
                             />
                         </div>
@@ -273,7 +274,6 @@
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 120px">Date</th>
-                                    <th style="width: 90px">Time</th>
                                     <th style="width: 100px">Type</th>
                                     <th>Event</th>
                                     <th>Details</th>
@@ -281,11 +281,10 @@
                             </thead>
                             <tbody>
                                 <tr v-if="filteredTimeline.length === 0">
-                                    <td colspan="5" class="text-center text-muted py-4">No history found.</td>
+                                    <td colspan="4" class="text-center text-muted py-4">No history found.</td>
                                 </tr>
                                 <tr v-for="(event, i) in filteredTimeline" :key="`${event.sort_at}-${event.type}-${i}`">
                                     <td class="text-nowrap">{{ formatEventParts(event).date }}</td>
-                                    <td class="text-nowrap text-muted">{{ formatEventParts(event).time }}</td>
                                     <td>
                                         <span class="badge" :class="historyTypeBadgeClass(event.type)">
                                             {{ event.type_label || formatHistoryType(event.type) }}
@@ -337,6 +336,7 @@
                 :position="installContextPosition"
                 :show-truck="!!actionForm.vehicle_id"
             />
+            <TyreMasterReferenceStrip class="mb-3" :tyre="tyre" :life-summary="lifeSummary" />
             <div class="mb-2">
                 <label class="form-label" for="installTyre_vehicle">Truck</label>
                 <VehicleSelect
@@ -365,7 +365,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Installation Date</label>
-                <AppDateInput v-model="actionForm.installed_at" required />
+                <AppDateInput v-model="actionForm.installed_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Meter Reading at Install (km)</label>
@@ -409,7 +409,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Replace date</label>
-                <AppDateInput v-model="actionForm.replaced_at" required />
+                <AppDateInput v-model="actionForm.replaced_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -492,7 +492,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Rotation Date</label>
-                    <AppDateInput v-model="actionForm.rotation_date" required />
+                    <AppDateInput v-model="actionForm.rotation_date" :max="maxTyreActionDate" required />
                 </div>
             </div>
             <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
@@ -540,7 +540,7 @@
             />
             <div class="mb-2">
                 <label class="form-label">Remove date</label>
-                <AppDateInput v-model="actionForm.removed_at" required />
+                <AppDateInput v-model="actionForm.removed_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -619,7 +619,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Scrap date</label>
-                <AppDateInput v-model="actionForm.scrapped_at" required />
+                <AppDateInput v-model="actionForm.scrapped_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Sale amount (recovery)</label>
@@ -668,7 +668,7 @@
             />
             <div class="mb-2">
                 <label class="form-label">Inspection date</label>
-                <AppDateInput v-model="actionForm.inspected_at" required />
+                <AppDateInput v-model="actionForm.inspected_at" :max="maxTyreActionDate" required />
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
@@ -703,10 +703,6 @@
                     :options="inspectionResultOptions"
                     placeholder="Select result"
                 />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Next due date</label>
-                <AppDateInput v-model="actionForm.next_due_at" />
             </div>
             <div class="mb-2">
                 <label class="form-label">Notes</label>
@@ -764,6 +760,7 @@
                 <label class="form-label">Date</label>
                 <AppDateInput
                     v-model="actionForm.occurred_at"
+                    :max="maxTyreActionDate"
                     required
                     :invalid="hasFieldError(fieldErrors, 'occurred_at')"
                 />
@@ -857,6 +854,7 @@ import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
 import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
 import TyreActionContextStrip from '../../components/tyres/TyreActionContextStrip.vue';
+import TyreMasterReferenceStrip from '../../components/tyres/TyreMasterReferenceStrip.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
@@ -1075,6 +1073,8 @@ function todayIsoDate() {
     return toDateInputValue();
 }
 
+const maxTyreActionDate = todayIsoDate();
+
 function createActionFormDefaults() {
     return {
         vehicle_id: '',
@@ -1103,7 +1103,6 @@ function createActionFormDefaults() {
         tread_depth_mm: null,
         pressure_psi: null,
         inspection_result: 'PASS',
-        next_due_at: '',
         inspection_notes: '',
     };
 }
@@ -1704,7 +1703,6 @@ async function executeTyreAction(action) {
                 tread_depth_mm: actionForm.tread_depth_mm === '' ? null : actionForm.tread_depth_mm,
                 pressure_psi: actionForm.pressure_psi === '' ? null : actionForm.pressure_psi,
                 result: actionForm.inspection_result || 'PASS',
-                next_due_at: actionForm.next_due_at || null,
                 notes: actionForm.inspection_notes || null,
             });
             finishTyreAction(showInspection);
@@ -1799,5 +1797,10 @@ onMounted(async () => {
 
 .tyre-current-truck-link--static {
     cursor: default;
+}
+
+.tyre-history-panel,
+.tyre-history-filters {
+    overflow: visible;
 }
 </style>

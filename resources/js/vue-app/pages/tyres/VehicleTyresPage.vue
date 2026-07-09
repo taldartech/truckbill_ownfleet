@@ -271,9 +271,14 @@
                     search-placeholder="Search tyre…"
                 />
             </div>
+            <TyreMasterReferenceStrip
+                v-if="selectedInstallTyre"
+                class="mb-3"
+                :tyre="selectedInstallTyre"
+            />
             <div class="mb-2">
                 <label class="form-label">Installation date</label>
-                <AppDateInput v-model="installForm.installed_at" required />
+                <AppDateInput v-model="installForm.installed_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current meter reading (km)</label>
@@ -304,7 +309,7 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Remove date</label>
-                <AppDateInput v-model="removeForm.removed_at" required />
+                <AppDateInput v-model="removeForm.removed_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current meter reading (km)</label>
@@ -342,6 +347,7 @@ import {
     removeTyreInstallation,
 } from '../../api/tyres';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
+import TyreMasterReferenceStrip from '../../components/tyres/TyreMasterReferenceStrip.vue';
 import TruckTyreChassis from '../../components/tyres/TruckTyreChassis.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
@@ -374,6 +380,12 @@ const installForm = reactive({
     installed_at: toDateInputValue(),
     km_at_installation: 0,
 });
+
+const maxTyreActionDate = toDateInputValue();
+
+const selectedInstallTyre = computed(() =>
+    stockTyres.value.find((row) => String(row.id) === String(installForm.tyre_id)) ?? null,
+);
 
 const removeForm = reactive({
     removed_at: toDateInputValue(),

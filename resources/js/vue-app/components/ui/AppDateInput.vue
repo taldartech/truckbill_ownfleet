@@ -42,6 +42,7 @@
             :max="max"
             tabindex="-1"
             aria-hidden="true"
+            @input="onNativeInput"
             @change="onNativeChange"
         />
     </div>
@@ -169,12 +170,27 @@ function onBlur() {
     emitValue(iso);
 }
 
-function onNativeChange(event) {
+function onNativeInput(event) {
     isEditing.value = false;
     emitValue(event.target.value);
 }
 
-function openNativePicker() {
+function onNativeChange(event) {
+    onNativeInput(event);
+}
+
+function syncNativeValue() {
+    const nativeInput = nativeInputRef.value;
+
+    if (!nativeInput?.value) {
+        return;
+    }
+
+    isEditing.value = false;
+    emitValue(nativeInput.value);
+}
+
+async function openNativePicker() {
     const nativeInput = nativeInputRef.value;
 
     if (!nativeInput) {
@@ -182,7 +198,12 @@ function openNativePicker() {
     }
 
     if (typeof nativeInput.showPicker === 'function') {
-        nativeInput.showPicker();
+        try {
+            await nativeInput.showPicker();
+            syncNativeValue();
+        } catch {
+            // User dismissed the picker.
+        }
 
         return;
     }

@@ -82,34 +82,6 @@
             @cancel="onStatusModalCancel"
             @confirm="onStatusModalConfirm"
         />
-
-        <AppConfirmModal
-            :show="showSimpleConfirm"
-            title="Change Trip Status"
-            :loading="saving"
-            confirm-label="Yes, Change Status"
-            loading-label="Saving…"
-            @cancel="cancelSimpleConfirm"
-            @confirm="confirmSimpleStatusChange"
-        >
-            <template #message>
-                Are you sure you want to change the status to
-                <strong>{{ pendingStatusLabel }}</strong>?
-            </template>
-
-            <TripStatusChangeContextStrip
-                class="mb-3 text-start"
-                :trip-number="statusContext.tripNumber"
-                :truck-number="statusContext.truckNumber"
-            />
-
-            <TripStatusChangeUpdatesPanel
-                class="mb-3 text-start"
-                :items="statusUpdateItems"
-            />
-
-            <div v-if="saveError" class="alert alert-danger py-2 mb-0">{{ saveError }}</div>
-        </AppConfirmModal>
     </div>
 </template>
 
@@ -125,14 +97,8 @@ import {
 import { useAppToast } from '../../composables/useAppToast';
 import { useTripForm } from '../../composables/useTripForm';
 import { extractValidationErrors, friendlyApiErrorMessage } from '../../utils/formErrors';
-import {
-    buildTripStatusChangeUpdateItems,
-    resolveTripStatusChangeContext,
-} from '../../utils/trip-status-change-info';
-import AppConfirmModal from '../ui/AppConfirmModal.vue';
-import TripStatusChangeContextStrip from './TripStatusChangeContextStrip.vue';
+import { resolveTripStatusChangeContext } from '../../utils/trip-status-change-info';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
-import TripStatusChangeUpdatesPanel from './TripStatusChangeUpdatesPanel.vue';
 
 const props = defineProps({
     trip: { type: Object, required: true },
@@ -147,7 +113,6 @@ const { form, populateFromTrip, buildStatusChangePayload } = useTripForm();
 
 const saving = ref(false);
 const showStatusModal = ref(false);
-const showSimpleConfirm = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
 const truckRunningMeterKm = ref('');
@@ -156,18 +121,11 @@ const saveError = ref('');
 
 const statusMeta = computed(() => tripStatusMeta(props.trip.status));
 const nextStatuses = computed(() => tripAllowedNextStatuses(props.trip.status));
-const pendingStatusLabel = computed(() => tripStatusMeta(pendingStatus.value).label);
 const statusContext = computed(() =>
     resolveTripStatusChangeContext({
         trip: props.trip,
         form,
         vehicleRegistration: vehicleRegistration.value,
-    }),
-);
-const statusUpdateItems = computed(() =>
-    buildTripStatusChangeUpdateItems({
-        fromStatus: originalStatus.value || props.trip.status,
-        toStatus: pendingStatus.value,
     }),
 );
 
@@ -180,7 +138,7 @@ function resolveSaveError(error, fallback) {
 function reportStatusError(message) {
     saveError.value = message;
 
-    if (!showStatusModal.value && !showSimpleConfirm.value) {
+    if (!showStatusModal.value) {
         toast.error(message);
     }
 }
@@ -282,55 +240,11 @@ async function requestStatusChange(newStatus) {
     saveError.value = '';
     pendingStatus.value = newStatus;
 
-        if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
-        if (!form.start_at) {
-            toast.error('Trip start date is required. Edit the trip, set the start date, then change the status.');
-            showStatusModal.value = true;
-
-            return;
-        }
-
-        showStatusModal.value = true;
-
-        return;
+    if ((newStatus === 'COMPLETED' || newStatus === 'CANCELLED') && !form.start_at) {
+        toast.error('Trip start date is required. Edit the trip, set the start date, then change the status.');
     }
 
-    showSimpleConfirm.value = true;
-}
-
-function cancelSimpleConfirm() {
-    if (saving.value) {
-        return;
-    }
-
-    showSimpleConfirm.value = false;
-    pendingStatus.value = '';
-    saveError.value = '';
-}
-
-async function confirmSimpleStatusChange() {
-    if (!pendingStatus.value || saving.value) {
-        return;
-    }
-
-    form.status = pendingStatus.value;
-
-    const label =
-        pendingStatus.value === 'IN_PROGRESS'
-            ? 'Trip marked as in progress.'
-            : 'Trip status updated.';
-    const result = await saveStatusChange(label);
-
-    if (result.updated) {
-        showSimpleConfirm.value = false;
-        pendingStatus.value = '';
-        saveError.value = '';
-        emit('updated', result.updated);
-
-        return;
-    }
-
-    saveError.value = result.error ?? 'Failed to update trip status.';
+    showStatusModal.value = true;
 }
 
 function onStatusModalCancel() {
@@ -360,7 +274,9 @@ async function onStatusModalConfirm(data) {
     const label =
         statusBeingSaved === 'COMPLETED'
             ? 'Trip marked as completed.'
-            : 'Trip marked as cancelled.';
+            : statusBeingSaved === 'CANCELLED'
+              ? 'Trip marked as cancelled.'
+              : 'Trip marked as in progress.';
     const result = await saveStatusChange(label);
 
     if (result.updated) {

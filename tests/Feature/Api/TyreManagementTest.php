@@ -364,6 +364,160 @@ class TyreManagementTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $installCount);
     }
 
+    public function test_tyre_timeline_same_day_remove_sorts_after_install_and_omits_midnight_time(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $today = now()->toDateString();
+
+        $tyreId = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-SAME-DAY',
+                'purchase_cost' => 20000,
+                'purchase_date' => $today,
+            ]))
+            ->assertOk()
+            ->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => $today,
+                'km_at_installation' => 0,
+            ])
+            ->assertCreated();
+
+        $installationId = $this->tyreApi($tenant)
+            ->getJson("/api/tyres/{$tyreId}")
+            ->json('data.active_installation.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyre-installations/{$installationId}/remove", [
+                'removed_at' => $today,
+                'odometer_km' => 0,
+            ])
+            ->assertOk();
+
+        $timeline = $this->tyreApi($tenant)
+            ->getJson("/api/tyres/{$tyreId}")
+            ->assertOk()
+            ->json('timeline');
+
+        $installationEvents = array_values(array_filter(
+            $timeline,
+            fn (array $event) => in_array($event['type'], ['installed', 'removed'], true),
+        ));
+
+        $this->assertCount(2, $installationEvents);
+        $this->assertSame('removed', $installationEvents[0]['type']);
+        $this->assertSame('installed', $installationEvents[1]['type']);
+        $this->assertGreaterThanOrEqual($installationEvents[1]['sort_at'], $installationEvents[0]['sort_at']);
+        $this->assertNull($installationEvents[0]['time']);
+        $this->assertNull($installationEvents[1]['time']);
+    }
+
+    public function test_tyre_timeline_replace_detail_omits_duplicate_remaining_life_text(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $oldTyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-OLD-TIMELINE', TyrePosition::FrontLeft->value);
+
+        $newTyreId = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-NEW-TIMELINE',
+            ]))
+            ->assertOk()
+            ->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson('/api/tyres/replace', [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'old_tyre_id' => $oldTyreId,
+                'new_tyre_id' => $newTyreId,
+                'replaced_at' => '2026-07-09',
+                'odometer_km' => 1000,
+            ])
+            ->assertCreated();
+
+        $timeline = $this->tyreApi($tenant)
+            ->getJson("/api/tyres/{$oldTyreId}")
+            ->assertOk()
+            ->json('timeline');
+
+        $replaceEvent = collect($timeline)->firstWhere('type', 'replacement');
+        $this->assertNotNull($replaceEvent);
+        $this->assertStringContainsString('Ran 0.00 km', $replaceEvent['detail']);
+        $this->assertStringNotContainsString('~-', $replaceEvent['detail']);
+        $this->assertStringNotContainsString('km life left', $replaceEvent['detail']);
+        $this->assertStringContainsString('may still be usable', $replaceEvent['detail']);
+    }
+
+    public function test_tyre_timeline_keeps_install_on_other_vehicle_when_replacement_same_day(): void
+    {
+        [$tenant, $user, $vehicleA] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $vehicleB = Vehicle::query()->create(array_merge($this->operationalAttributesForTenant($tenant), [
+            'registration_number' => 'MH12TY8881',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 12000,
+        ]));
+
+        $oldTyreId = $this->createAndInstallTyre($tenant, $vehicleA, 'TYRE-MULTI-TRUCK', TyrePosition::FrontLeft->value);
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyre-installations/{$this->activeInstallationId($oldTyreId)}/remove", [
+                'removed_at' => '2026-07-09',
+                'odometer_km' => 2000,
+            ])
+            ->assertOk();
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$oldTyreId}/install", [
+                'vehicle_id' => $vehicleB->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-07-09',
+                'km_at_installation' => 12000,
+            ])
+            ->assertCreated();
+
+        $newTyreId = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-REPL-NEW',
+            ]))
+            ->assertOk()
+            ->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson('/api/tyres/replace', [
+                'vehicle_id' => $vehicleB->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'old_tyre_id' => $oldTyreId,
+                'new_tyre_id' => $newTyreId,
+                'replaced_at' => '2026-07-09',
+                'odometer_km' => 12000,
+            ])
+            ->assertCreated();
+
+        $timeline = $this->tyreApi($tenant)
+            ->getJson("/api/tyres/{$oldTyreId}")
+            ->assertOk()
+            ->json('timeline');
+
+        $installEvents = array_values(array_filter(
+            $timeline,
+            fn (array $event) => $event['type'] === 'installed',
+        ));
+
+        $this->assertCount(1, $installEvents);
+        $this->assertStringContainsString($vehicleA->registration_number, $installEvents[0]['title']);
+        $this->assertStringContainsString('2026-03-01 → 2026-07-09', $installEvents[0]['detail']);
+    }
+
     public function test_rotate_swaps_tyres_when_target_position_is_occupied(): void
     {
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');

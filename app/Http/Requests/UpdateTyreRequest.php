@@ -37,7 +37,7 @@ class UpdateTyreRequest extends FormRequest
             ],
             'brand' => ['sometimes', 'required', 'string', 'max:100'],
             'size' => ['sometimes', 'required', 'string', 'max:50'],
-            'purchase_date' => ['sometimes', 'required', 'date'],
+            'purchase_date' => ['sometimes', 'required', 'date', 'before_or_equal:today'],
             'purchase_cost' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'warranty_valid_until' => ['sometimes', 'nullable', 'date'],
             'warranty_km' => ['sometimes', 'nullable', 'numeric', 'min:0'],

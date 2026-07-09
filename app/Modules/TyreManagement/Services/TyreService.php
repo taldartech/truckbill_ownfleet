@@ -13,8 +13,8 @@ use App\Support\TyreStintCalculator;
 use App\Tyre;
 use App\TyreDamage;
 use App\TyreExpense;
-use App\TyreInstallation;
 use App\TyreInspection;
+use App\TyreInstallation;
 use App\TyreReplacement;
 use App\TyreRotation;
 use App\Vehicle;
@@ -446,7 +446,7 @@ class TyreService
             ]);
 
             $oldTyre->refresh();
-            $remainingAfter = $this->lifeCalculator->summary($oldTyre)['remaining_life_km'];
+            $remainingAfter = max(0, $this->lifeCalculator->summary($oldTyre)['remaining_life_km']);
 
             if ($newTyre !== null) {
                 if ($newTyre->status !== TyreStatus::InStock) {
@@ -511,7 +511,7 @@ class TyreService
             'current_km' => (float) $oldTyre->current_km + $stintKm,
         ]);
 
-        $remainingAfter = $this->lifeCalculator->summary($oldTyre->fresh())['remaining_life_km'];
+        $remainingAfter = max(0, $this->lifeCalculator->summary($oldTyre->fresh())['remaining_life_km']);
 
         $installation->update([
             'tyre_id' => $newTyre->id,

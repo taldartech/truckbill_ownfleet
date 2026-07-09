@@ -7,6 +7,7 @@
         :content-class="[
             'trip-status-modal__content',
             status === 'CANCELLED' ? 'trip-status-modal--cancelled' : '',
+            status === 'IN_PROGRESS' ? 'trip-status-modal--in-progress' : '',
         ]"
         body-class="trip-status-modal__body"
         dismissible
@@ -17,7 +18,7 @@
         <template #header>
             <div class="trip-status-modal__header-main">
                 <h5 class="modal-title mb-0 text-white d-flex align-items-center gap-2">
-                    <i class="bi" :class="status === 'CANCELLED' ? 'bi-x-circle' : 'bi-check-circle'"></i>
+                    <i class="bi" :class="headerIconClass"></i>
                     {{ modalTitle }}
                 </h5>
                 <div class="trip-status-modal__header-meta">
@@ -36,9 +37,9 @@
         <div v-if="awaitingFinalConfirm" class="status-final-confirm text-center py-2">
                             <div
                                 class="status-final-confirm__icon mb-3"
-                                :class="status === 'CANCELLED' ? 'text-danger' : 'text-success'"
+                                :class="finalConfirmIconToneClass"
                             >
-                                <i class="bi" :class="status === 'CANCELLED' ? 'bi-exclamation-triangle-fill' : 'bi-question-circle-fill'"></i>
+                                <i class="bi" :class="finalConfirmIconClass"></i>
                             </div>
                             <h6 class="mb-2">{{ finalConfirmTitle }}</h6>
                             <p class="text-muted small mb-0">{{ finalConfirmMessage }}</p>
@@ -211,7 +212,7 @@
                 <AppButton
                     type="button"
                     label="OK"
-                    :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                    :variant="confirmButtonVariant"
                     :disabled="saving"
                     :loading="saving"
                     @click="finalConfirm"
@@ -269,17 +270,85 @@ const fieldErrors = reactive({});
 const awaitingFinalConfirm = ref(false);
 const pendingConfirmPayload = ref(null);
 
-const modalTitle = computed(() => (props.status === 'CANCELLED' ? 'Cancel Trip' : 'Complete Trip'));
+const modalTitle = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'Cancel Trip';
+    }
 
-const finalConfirmTitle = computed(() =>
-    props.status === 'CANCELLED' ? 'Cancel this trip?' : 'Mark trip as completed?',
-);
+    if (props.status === 'IN_PROGRESS') {
+        return 'Mark In Progress';
+    }
 
-const finalConfirmMessage = computed(() =>
-    props.status === 'CANCELLED'
-        ? 'This will save the trip as cancelled. Click OK to confirm.'
-        : 'This will save the trip as completed. Click OK to confirm.',
-);
+    return 'Complete Trip';
+});
+
+const headerIconClass = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'bi-x-circle';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'bi-hourglass-split';
+    }
+
+    return 'bi-check-circle';
+});
+
+const finalConfirmTitle = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'Cancel this trip?';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'Mark trip as in progress?';
+    }
+
+    return 'Mark trip as completed?';
+});
+
+const finalConfirmMessage = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'This will save the trip as cancelled. Click OK to confirm.';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'This will save the trip as in progress. Click OK to confirm.';
+    }
+
+    return 'This will save the trip as completed. Click OK to confirm.';
+});
+
+const finalConfirmIconToneClass = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'text-danger';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'text-warning';
+    }
+
+    return 'text-success';
+});
+
+const finalConfirmIconClass = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'bi-exclamation-triangle-fill';
+    }
+
+    return 'bi-question-circle-fill';
+});
+
+const confirmButtonVariant = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'danger';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'warning';
+    }
+
+    return 'success';
+});
 
 const tripStartDateMin = computed(() => toDateInputFromIso(props.startAt));
 
@@ -401,6 +470,9 @@ watch(
                 props.endMeterReadingKmValue !== '' && props.endMeterReadingKmValue != null
                     ? Number(props.endMeterReadingKmValue)
                     : '';
+        } else if (props.status === 'IN_PROGRESS') {
+            awaitingFinalConfirm.value = true;
+            pendingConfirmPayload.value = {};
         }
     },
 );
@@ -502,6 +574,12 @@ function submit() {
 }
 
 function backToForm() {
+    if (props.status === 'IN_PROGRESS') {
+        emit('cancel');
+
+        return;
+    }
+
     awaitingFinalConfirm.value = false;
     pendingConfirmPayload.value = null;
 }
@@ -528,6 +606,11 @@ function finalConfirm() {
 
 :deep(.trip-status-modal--cancelled .app-modal__header) {
     background-color: var(--bs-danger);
+    color: #fff;
+}
+
+:deep(.trip-status-modal--in-progress .app-modal__header) {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: #fff;
 }
 

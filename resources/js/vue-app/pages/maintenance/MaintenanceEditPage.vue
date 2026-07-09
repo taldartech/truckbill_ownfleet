@@ -206,7 +206,6 @@ async function confirmSave() {
         showSaveConfirm.value = false;
         pendingPayload.value = null;
         captureBaseline();
-        toast.success('Maintenance record updated.');
         await router.push({ name: 'maintenance.records', query: { updated: '1' } });
     } catch (error) {
         showSaveConfirm.value = false;

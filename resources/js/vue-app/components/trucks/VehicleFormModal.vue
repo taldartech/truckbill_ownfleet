@@ -153,18 +153,15 @@
                             </div>
                             <div class="col-md-4">
                                 <label :for="`${modalId}_year`" class="form-label">Year</label>
-                                <input
-                                    :id="`${modalId}_year`"
+                                <AppSelect
+                                    :input-id="`${modalId}_year`"
                                     v-model="form.manufacture_year"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="1980"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.manufacture_year }"
+                                    :options="manufactureYearSelectOptions"
+                                    placeholder="Select year"
+                                    search-placeholder="Search year…"
+                                    :invalid="Boolean(props.fieldErrors.manufacture_year)"
+                                    :error-message="props.fieldErrors.manufacture_year?.[0] ?? ''"
                                 />
-                                <div v-if="props.fieldErrors.manufacture_year" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.manufacture_year[0] }}
-                                </div>
                             </div>
                         </div>
 
@@ -214,8 +211,7 @@ import SearchableSelect from '../ui/SearchableSelect.vue';
 import AppSelect from '../ui/AppSelect.vue';
 import TruckTypeQuickAddModal from './TruckTypeQuickAddModal.vue';
 
-const DEFAULT_TYRE_LAYOUT = 'TYRES_10';
-const DEFAULT_TRUCK_TYPE = 'TRUCK';
+const MIN_MANUFACTURE_YEAR = 1980;
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -268,11 +264,22 @@ const auditInfo = computed(() => {
     };
 });
 
+const manufactureYearSelectOptions = computed(() => {
+    const maxYear = new Date().getFullYear() + 1;
+    const years = [];
+
+    for (let year = maxYear; year >= MIN_MANUFACTURE_YEAR; year--) {
+        years.push({ value: String(year), label: String(year) });
+    }
+
+    return years;
+});
+
 function emptyForm() {
     return {
         registration_number: '',
-        vehicle_type: DEFAULT_TRUCK_TYPE,
-        tyre_layout: DEFAULT_TYRE_LAYOUT,
+        vehicle_type: '',
+        tyre_layout: '',
         make: '',
         model: '',
         manufacture_year: '',
@@ -288,29 +295,32 @@ function onRegistrationInput(event) {
 }
 
 function fillForm(vehicle) {
+    if (!vehicle) {
+        form.value = emptyForm();
+
+        return;
+    }
+
     form.value = {
-        registration_number: normalizeVehicleRegistration(vehicle?.registration_number ?? ''),
-        vehicle_type: vehicle?.vehicle_type ?? DEFAULT_TRUCK_TYPE,
-        tyre_layout: vehicle?.tyre_layout ?? DEFAULT_TYRE_LAYOUT,
-        make: vehicle?.make ?? '',
-        model: vehicle?.model ?? '',
-        manufacture_year: vehicle?.manufacture_year ? String(vehicle.manufacture_year) : '',
-        odometer_km: vehicle?.odometer_km !== undefined ? String(vehicle.odometer_km) : '0',
+        registration_number: normalizeVehicleRegistration(vehicle.registration_number ?? ''),
+        vehicle_type: vehicle.vehicle_type ?? '',
+        tyre_layout: vehicle.tyre_layout ?? '',
+        make: vehicle.make ?? '',
+        model: vehicle.model ?? '',
+        manufacture_year: vehicle.manufacture_year ? String(vehicle.manufacture_year) : '',
+        odometer_km: vehicle.odometer_km !== undefined ? String(vehicle.odometer_km) : '0',
         default_mileage_km_per_liter:
-            vehicle?.default_mileage_km_per_liter != null && vehicle?.default_mileage_km_per_liter !== ''
+            vehicle.default_mileage_km_per_liter != null && vehicle.default_mileage_km_per_liter !== ''
                 ? String(vehicle.default_mileage_km_per_liter)
                 : '',
         max_load_ton:
-            vehicle?.max_load_ton != null && vehicle?.max_load_ton !== '' ? String(vehicle.max_load_ton) : '',
+            vehicle.max_load_ton != null && vehicle.max_load_ton !== '' ? String(vehicle.max_load_ton) : '',
     };
 }
 
 async function loadTyreLayoutOptions() {
     try {
         tyreLayoutOptions.value = await listAllTyreLayouts({ activeOnly: true });
-        if (!form.value.tyre_layout && tyreLayoutOptions.value.length) {
-            form.value.tyre_layout = tyreLayoutOptions.value[0].code;
-        }
     } catch {
         tyreLayoutOptions.value = [];
     }
@@ -319,9 +329,6 @@ async function loadTyreLayoutOptions() {
 async function loadTruckTypes() {
     try {
         truckTypes.value = await listAllTruckTypes();
-        if (!form.value.vehicle_type && truckTypes.value.length) {
-            form.value.vehicle_type = truckTypes.value[0].code;
-        }
     } catch {
         truckTypes.value = [];
     }

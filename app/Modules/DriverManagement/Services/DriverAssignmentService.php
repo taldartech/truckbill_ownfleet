@@ -107,6 +107,7 @@ class DriverAssignmentService
 
         if ($isPrimary) {
             $this->assertDriverIsActive((string) $data['driver_id']);
+            $this->assertAssignmentNotBeforeDriverJoiningDate((string) $data['driver_id'], $assignedFrom);
             $this->closeVehiclePrimaryAssignmentsBeforeNew(
                 (string) $data['vehicle_id'],
                 $assignedFrom,
@@ -207,6 +208,8 @@ class DriverAssignmentService
             if ((string) $merged['driver_id'] !== (string) $driverAssignment->driver_id) {
                 $this->assertDriverIsActive((string) $merged['driver_id']);
             }
+
+            $this->assertAssignmentNotBeforeDriverJoiningDate((string) $merged['driver_id'], $assignedFrom);
 
             if ($isOpenAssignment) {
                 $this->closeVehiclePrimaryAssignmentsBeforeNew(
@@ -376,6 +379,25 @@ class DriverAssignmentService
         if ($driver === null || ! $driver->is_active) {
             throw ValidationException::withMessages([
                 'driver_id' => ['Selected driver is inactive or not found.'],
+            ]);
+        }
+    }
+
+    private function assertAssignmentNotBeforeDriverJoiningDate(string $driverId, string $assignedFrom): void
+    {
+        $driver = Driver::query()->find($driverId);
+
+        if ($driver === null || $driver->joining_date === null) {
+            return;
+        }
+
+        $joiningDate = $driver->joining_date->toDateString();
+
+        if ($assignedFrom < $joiningDate) {
+            throw ValidationException::withMessages([
+                'assigned_from' => [
+                    "Effective from date cannot be earlier than the driver's joining date ({$driver->joining_date->format('d M, Y')}).",
+                ],
             ]);
         }
     }

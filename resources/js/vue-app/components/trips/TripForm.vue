@@ -1371,19 +1371,6 @@ function applyLegFreightAuto(index) {
         return;
     }
 
-    const weight = Number(leg.weight_ton ?? 0);
-    const freight = Number(leg.freight_amount ?? 0);
-    const rate = Number(leg.freight_rate ?? 0);
-
-    if (weight <= 0) {
-        if (freight > 0 && rate > 0) {
-            leg.weight_ton = Math.round((freight / rate) * 1000) / 1000;
-            leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
-        }
-
-        return;
-    }
-
     leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
 }
 
@@ -1515,7 +1502,7 @@ function onStatusChange(newStatus) {
         return;
     }
 
-    if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED') {
+    if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED' || newStatus === 'IN_PROGRESS') {
         pendingStatus.value = newStatus;
         showStatusModal.value = true;
 

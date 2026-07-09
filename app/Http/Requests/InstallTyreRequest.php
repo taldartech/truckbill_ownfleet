@@ -28,7 +28,7 @@ class InstallTyreRequest extends FormRequest
                 'max:64',
                 new TyrePositionAllowedOnVehicle($this->input('vehicle_id')),
             ],
-            'installed_at' => ['required', 'date'],
+            'installed_at' => ['required', 'date', 'before_or_equal:today'],
             'km_at_installation' => ['nullable', 'numeric', 'min:0'],
         ];
     }

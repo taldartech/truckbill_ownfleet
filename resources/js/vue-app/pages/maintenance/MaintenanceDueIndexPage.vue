@@ -161,7 +161,7 @@
                                 />
                                 <AppCrudActionButton
                                     v-if="canCreate"
-                                    action="edit"
+                                    action="add"
                                     title="Add new service"
                                     @click="goToCreateForTruck(record)"
                                 />
@@ -364,7 +364,13 @@ function goToCreateForTruck(record) {
         return;
     }
 
-    router.push({ name: 'maintenance.create', query: { vehicle_id: record.vehicle_id } });
+    const query = { vehicle_id: record.vehicle_id };
+
+    if (record.maintenance_service_type_id) {
+        query.maintenance_service_type_id = String(record.maintenance_service_type_id);
+    }
+
+    router.push({ name: 'maintenance.create', query });
 }
 
 function goToView(record) {

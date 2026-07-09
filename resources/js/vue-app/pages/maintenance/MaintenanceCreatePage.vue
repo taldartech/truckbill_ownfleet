@@ -112,6 +112,7 @@ const saveConfirmSummary = ref(buildMaintenanceSaveConfirmViewModel(form.value))
 const pendingPayload = ref(null);
 const saveMode = ref('index');
 const presetVehicleId = ref('');
+const presetServiceTypeId = ref('');
 const selectedVehicleLabel = ref('');
 
 const listReturnTo = { name: 'maintenance.records' };
@@ -203,15 +204,19 @@ async function confirmSave(mode = 'index') {
         await createVehicleMaintenance(pendingPayload.value);
         showSaveConfirm.value = false;
         pendingPayload.value = null;
-        toast.success('Maintenance record saved.');
 
         if (saveMode.value === 'another') {
             const vehicleId = presetVehicleId.value || form.value.vehicle_id;
+            const serviceTypeId = presetServiceTypeId.value || form.value.maintenance_service_type_id;
             resetForm();
             form.value.service_date = toDateInputValue();
 
             if (vehicleId) {
                 form.value.vehicle_id = String(vehicleId);
+            }
+
+            if (serviceTypeId) {
+                form.value.maintenance_service_type_id = String(serviceTypeId);
             }
 
             clearErrors();
@@ -241,6 +246,11 @@ onMounted(async () => {
     if (route.query.vehicle_id) {
         presetVehicleId.value = String(route.query.vehicle_id);
         form.value.vehicle_id = presetVehicleId.value;
+    }
+
+    if (route.query.maintenance_service_type_id) {
+        presetServiceTypeId.value = String(route.query.maintenance_service_type_id);
+        form.value.maintenance_service_type_id = presetServiceTypeId.value;
     }
 
     if (!needsCompanySelection.value) {

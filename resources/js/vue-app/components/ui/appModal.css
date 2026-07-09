@@ -75,6 +75,10 @@
     overflow-x: hidden;
 }
 
+.app-modal__body--overflow-visible {
+    overflow: visible;
+}
+
 .app-modal__body .form-label {
     font-size: 0.8125rem;
     font-weight: 600;

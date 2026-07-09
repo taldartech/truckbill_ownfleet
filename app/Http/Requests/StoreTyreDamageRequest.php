@@ -32,7 +32,7 @@ class StoreTyreDamageRequest extends FormRequest
             ],
             'damage_type' => ['required', Rule::enum(TyreDamageType::class)],
             'odometer_km' => ['required', 'numeric', 'min:0'],
-            'occurred_at' => ['required', 'date'],
+            'occurred_at' => ['required', 'date', 'before_or_equal:today'],
             'description' => ['nullable', 'string', 'max:2000'],
             'repair_cost' => ['nullable', 'numeric', 'min:0'],
             'is_repaired' => ['nullable', 'boolean'],

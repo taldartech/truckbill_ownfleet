@@ -14,16 +14,14 @@ function shouldBlockNegative(min) {
     return min !== null && min >= 0;
 }
 
-function clampBelowMin(el, min) {
-    const floor = min ?? 0;
-
+function clampNegative(el) {
     if (el.value === '') {
         return;
     }
 
     const value = el.valueAsNumber;
 
-    if (Number.isFinite(value) && value < floor) {
+    if (Number.isFinite(value) && value < 0) {
         el.value = '';
         el.dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -67,14 +65,14 @@ export const noScrollChange = {
         };
 
         const onInput = () => {
-            clampBelowMin(el, min);
+            clampNegative(el);
         };
 
         const onPaste = (event) => {
             const text = event.clipboardData?.getData('text') ?? '';
             const parsed = Number(text.trim());
 
-            if (text.includes('-') || (Number.isFinite(parsed) && parsed < floor)) {
+            if (text.includes('-') || (Number.isFinite(parsed) && parsed < 0)) {
                 event.preventDefault();
             }
         };

@@ -21,7 +21,7 @@ class RemoveTyreInstallationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'removed_at' => ['nullable', 'date'],
+            'removed_at' => ['nullable', 'date', 'before_or_equal:today'],
             'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
             'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];

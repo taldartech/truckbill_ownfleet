@@ -103,13 +103,7 @@
 
             <div class="trip-expense-entry__cell trip-expense-entry__cell--amount">
                 <div v-if="isDiesel" class="trip-expense-entry__amount" :title="amountTooltip">
-                    <template v-if="hasDieselCalc">
-                        <span class="trip-expense-entry__amount-formula">
-                            {{ formatNum(expense.fuel_liters) }}×{{ formatNum(expense.fuel_rate) }}
-                        </span>
-                        <span class="trip-expense-entry__amount-eq">=</span>
-                        <strong>₹{{ formatMoney(expense.amount) }}</strong>
-                    </template>
+                    <strong v-if="hasDieselCalc">₹{{ formatMoney(expense.amount) }}</strong>
                     <span v-else class="trip-expense-entry__amount-empty">—</span>
                 </div>
                 <input
@@ -345,7 +339,7 @@ function formatNum(value) {
 }
 
 .trip-expense-entry--wide .trip-expense-entry__row {
-    grid-template-columns: 8rem 14rem 5rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
+    grid-template-columns: 8rem 12rem 5rem 4.5rem 4.25rem 7.5rem minmax(4rem, 1fr) 2rem;
 }
 
 .trip-expense-entry--narrow .trip-expense-entry__row {
@@ -376,25 +370,10 @@ function formatNum(value) {
 }
 
 .trip-expense-entry__amount {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-    white-space: nowrap;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: #374151;
     padding: 0 0.15rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.trip-expense-entry__amount-formula {
-    color: #9ca3af;
-    font-size: 0.72rem;
-}
-
-.trip-expense-entry__amount-eq {
-    color: #d1d5db;
-    font-size: 0.72rem;
+    white-space: nowrap;
 }
 
 .trip-expense-entry__amount strong {

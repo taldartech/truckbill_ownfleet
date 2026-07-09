@@ -29,7 +29,7 @@ class StoreTyreRequest extends FormRequest
             ],
             'brand' => ['required', 'string', 'max:100'],
             'size' => ['required', 'string', 'max:50'],
-            'purchase_date' => ['required', 'date'],
+            'purchase_date' => ['required', 'date', 'before_or_equal:today'],
             'purchase_cost' => ['nullable', 'numeric', 'min:0'],
             'warranty_valid_until' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'warranty_km' => ['nullable', 'numeric', 'min:0'],

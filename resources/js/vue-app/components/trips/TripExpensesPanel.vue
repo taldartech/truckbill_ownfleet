@@ -520,8 +520,8 @@ defineExpose({ grandTotal, focusExpenseField });
 }
 
 .expense-entry-columns--wide {
-    grid-template-columns: 8rem 14rem 5rem 3.75rem 4.25rem 6.75rem minmax(4.5rem, 1fr) 2rem;
-    min-width: 49rem;
+    grid-template-columns: 8rem 12rem 5rem 4.5rem 4.25rem 7.5rem minmax(4rem, 1fr) 2rem;
+    min-width: 48.5rem;
 }
 
 .expense-entry-columns--narrow {
@@ -530,7 +530,7 @@ defineExpose({ grandTotal, focusExpenseField });
 }
 
 .expense-entries-scroll :deep(.trip-expense-entry--wide) {
-    min-width: 49rem;
+    min-width: 48.5rem;
 }
 
 .expense-entries-scroll :deep(.trip-expense-entry--narrow) {

@@ -45,7 +45,10 @@
                 v-if="isOpen"
                 ref="dropdownRef"
                 class="picker-dropdown-menu shadow"
-                :class="{ 'picker-dropdown-menu--fixed': attachDropdownToBody }"
+                :class="{
+                    'picker-dropdown-menu--fixed': attachDropdownToBody,
+                    'picker-dropdown-menu--above': opensAbove,
+                }"
                 :style="attachDropdownToBody ? dropdownStyle : undefined"
             >
                 <div
@@ -64,7 +67,7 @@
                         @click.stop
                     />
                 </div>
-                <div class="picker-list-scroll">
+                <div class="picker-list-scroll" :style="listScrollStyle">
                     <button
                         v-for="item in filteredItems"
                         :key="item.id"
@@ -108,6 +111,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
+import {
+    computeFixedDropdownPlacement,
+    ESTIMATED_DROPDOWN_HEIGHT,
+} from '../../utils/dropdownPlacement';
 import { shouldShowSelectSearch } from '../../utils/selectSearchThreshold';
 import PickerListFooter from './PickerListFooter.vue';
 
@@ -134,9 +141,35 @@ const searchInputRef = ref(null);
 const isOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref({});
+const opensAbove = ref(false);
+const listMaxHeight = ref(null);
 const suspendedModalFocus = ref(null);
+let modalStackObserver = null;
+let ownerFormEl = null;
+
+function resolveDropdownZIndex() {
+    const ownerModal = selectRef.value?.closest('[data-app-modal]');
+
+    if (!ownerModal) {
+        return 1060;
+    }
+
+    const ownerZ = Number.parseInt(window.getComputedStyle(ownerModal).zIndex, 10) || 1055;
+
+    return ownerZ + 5;
+}
 
 const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
+
+const listScrollStyle = computed(() => {
+    if (!listMaxHeight.value) {
+        return undefined;
+    }
+
+    return {
+        maxHeight: `${listMaxHeight.value}px`,
+    };
+});
 
 const selectedItem = computed(() =>
     props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null,
@@ -195,11 +228,19 @@ const filteredItems = computed(() => {
     });
 });
 
-function updateDropdownPosition() {
-    if (!props.attachDropdownToBody) {
-        return;
+function measureDropdownChromeHeight() {
+    const dropdownEl = dropdownRef.value;
+
+    if (!dropdownEl) {
+        return showSearchInput.value ? 52 : 8;
     }
 
+    const listEl = dropdownEl.querySelector('.picker-list-scroll');
+
+    return dropdownEl.offsetHeight - (listEl?.offsetHeight ?? 0);
+}
+
+function updateDropdownPosition() {
     const el = selectRef.value;
 
     if (!el) {
@@ -207,14 +248,26 @@ function updateDropdownPosition() {
     }
 
     const rect = el.getBoundingClientRect();
+    const dropdownHeight = dropdownRef.value?.offsetHeight ?? ESTIMATED_DROPDOWN_HEIGHT;
+    const placement = computeFixedDropdownPlacement(rect, dropdownHeight, {
+        chromeHeight: measureDropdownChromeHeight(),
+        zIndex: String(resolveDropdownZIndex()),
+    });
 
-    dropdownStyle.value = {
-        position: 'fixed',
-        top: `${rect.bottom + 4}px`,
-        left: `${rect.left}px`,
-        width: `${rect.width}px`,
-        zIndex: '2100',
-    };
+    opensAbove.value = placement.opensAbove;
+    listMaxHeight.value = placement.listMaxHeight;
+
+    if (props.attachDropdownToBody) {
+        dropdownStyle.value = placement.style;
+    }
+}
+
+function scheduleDropdownPositionUpdate() {
+    updateDropdownPosition();
+
+    nextTick(() => {
+        updateDropdownPosition();
+    });
 }
 
 function suspendModalFocusTrap() {
@@ -253,6 +306,8 @@ function closeDropdown() {
     }
 
     isOpen.value = false;
+    opensAbove.value = false;
+    listMaxHeight.value = null;
     resumeModalFocusTrap();
     releaseExclusiveDropdown(closeDropdown);
 }
@@ -264,7 +319,7 @@ function openDropdown() {
 
     nextTick(() => {
         suspendModalFocusTrap();
-        updateDropdownPosition();
+        scheduleDropdownPositionUpdate();
 
         if (showSearchInput.value) {
             searchInputRef.value?.focus({ preventScroll: true });
@@ -308,9 +363,61 @@ function handleDocumentClick(event) {
     closeDropdown();
 }
 
+function handleFormSubmit() {
+    closeDropdown();
+}
+
+function startModalStackObserver() {
+    if (modalStackObserver || typeof document === 'undefined') {
+        return;
+    }
+
+    const ownerModal = selectRef.value?.closest('[data-app-modal]');
+
+    if (!ownerModal) {
+        return;
+    }
+
+    const initialModalCount = document.querySelectorAll('[data-app-modal]').length;
+
+    modalStackObserver = new MutationObserver(() => {
+        if (!isOpen.value) {
+            return;
+        }
+
+        const modalCount = document.querySelectorAll('[data-app-modal]').length;
+
+        if (modalCount > initialModalCount) {
+            closeDropdown();
+        }
+    });
+
+    modalStackObserver.observe(document.body, { childList: true });
+}
+
+function stopModalStackObserver() {
+    modalStackObserver?.disconnect();
+    modalStackObserver = null;
+}
+
 function handleReposition() {
     if (isOpen.value) {
-        updateDropdownPosition();
+        scheduleDropdownPositionUpdate();
+    }
+}
+
+function bindOwnerForm() {
+    ownerFormEl = selectRef.value?.closest('form') ?? null;
+
+    if (ownerFormEl) {
+        ownerFormEl.addEventListener('submit', handleFormSubmit);
+    }
+}
+
+function unbindOwnerForm() {
+    if (ownerFormEl) {
+        ownerFormEl.removeEventListener('submit', handleFormSubmit);
+        ownerFormEl = null;
     }
 }
 
@@ -318,12 +425,16 @@ onMounted(() => {
     document.addEventListener('click', handleDocumentClick);
     window.addEventListener('resize', handleReposition);
     window.addEventListener('scroll', handleReposition, true);
+    bindOwnerForm();
+    startModalStackObserver();
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
     window.removeEventListener('resize', handleReposition);
     window.removeEventListener('scroll', handleReposition, true);
+    unbindOwnerForm();
+    stopModalStackObserver();
     releaseExclusiveDropdown(closeDropdown);
 
     if (isOpen.value) {
@@ -341,6 +452,12 @@ watch(
         }
     },
 );
+
+watch([searchQuery, filteredItems], () => {
+    if (isOpen.value) {
+        nextTick(() => updateDropdownPosition());
+    }
+});
 </script>
 
 <style scoped>
@@ -441,7 +558,7 @@ watch(
 
 <style>
 .searchable-select .picker-dropdown-menu--fixed {
-    z-index: 2100;
+    z-index: inherit;
 }
 
 .searchable-select .picker-dropdown-menu:not(.picker-dropdown-menu--fixed) {
@@ -450,6 +567,11 @@ watch(
     left: 0;
     width: 100%;
     z-index: 1060;
+}
+
+.searchable-select .picker-dropdown-menu--above:not(.picker-dropdown-menu--fixed) {
+    top: auto;
+    bottom: calc(100% + 4px);
 }
 
 .picker-dropdown-menu {

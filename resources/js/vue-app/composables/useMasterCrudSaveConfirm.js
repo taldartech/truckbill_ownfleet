@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { closeActiveDropdown } from './useExclusiveDropdown';
 import { buildMasterCrudSaveConfirmViewModel } from '../utils/masterCrudSaveConfirm';
 
 export function useMasterCrudSaveConfirm() {
@@ -7,6 +8,7 @@ export function useMasterCrudSaveConfirm() {
     const pendingPayload = ref(null);
 
     function promptSaveConfirm({ payload, entityLabel, mode, fields }) {
+        closeActiveDropdown();
         pendingPayload.value = payload;
         saveConfirmSummary.value = buildMasterCrudSaveConfirmViewModel({
             entityLabel,

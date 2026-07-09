@@ -322,6 +322,71 @@ class DriverManagementModuleTest extends TestCase
         );
     }
 
+    public function test_driver_assignment_cannot_start_before_driver_joining_date(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Joined Later Driver', 600, joiningDate: '2026-07-01');
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-06-01',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assigned_from']);
+    }
+
+    public function test_driver_assignment_can_start_on_driver_joining_date(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Joined Today Driver', 600, joiningDate: '2026-07-09');
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-07-09',
+                'is_primary' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.assigned_from', '2026-07-09');
+    }
+
+    public function test_driver_assignment_update_cannot_move_before_driver_joining_date(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Joined Later Driver', 600, joiningDate: '2026-07-01');
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-07-01',
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/driver-assignments/{$assignment->id}", [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicle->id,
+                'assigned_from' => '2026-06-15',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assigned_from']);
+    }
+
     public function test_vehicle_primary_driver_can_be_removed(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
@@ -710,14 +775,20 @@ class DriverManagementModuleTest extends TestCase
         ]);
     }
 
-    private function createDriver(Tenant $tenant, string $name, float $dailyWage, ?string $expiry = null): Driver
-    {
+    private function createDriver(
+        Tenant $tenant,
+        string $name,
+        float $dailyWage,
+        ?string $expiry = null,
+        ?string $joiningDate = null,
+    ): Driver {
         return Driver::query()->create([
             'tenant_id' => $tenant->id,
             'name' => $name,
             'phone' => fake()->numerify('9#########'),
             'license_number' => strtoupper(fake()->bothify('DL-#####')),
             'license_expiry_date' => $expiry ?? now()->addYear()->toDateString(),
+            'joining_date' => $joiningDate,
             'daily_wage' => $dailyWage,
             'is_active' => true,
         ]);

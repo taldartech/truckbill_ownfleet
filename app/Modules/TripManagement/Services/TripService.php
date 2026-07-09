@@ -9,10 +9,10 @@ use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Station;
+use App\Support\ArchivedTripGuard;
 use App\Support\BranchContext;
 use App\Support\CurrentTenant;
 use App\Support\RouteLegLocationFormatter;
-use App\Support\ArchivedTripGuard;
 use App\Support\TripArchiveImpact;
 use App\Support\TripNumberGenerator;
 use App\Support\TyreStintCalculator;
@@ -340,7 +340,9 @@ class TripService
             if ($routeLegs !== null) {
                 $this->tripValidation->assertRouteLegsCanBeUpdated($trip, $routeLegs);
 
-                if (! $this->routeLegsMatchExisting($trip, $routeLegs)) {
+                if ($this->routeLegsStructureMatchesExisting($trip, $routeLegs)) {
+                    $this->updateRouteLegsInPlace($trip, $routeLegs);
+                } else {
                     $this->replaceRouteLegs($trip, $routeLegs);
                 }
             }
@@ -440,6 +442,19 @@ class TripService
      */
     private function replaceRouteLegs(Trip $trip, array $routeLegs): void
     {
+        $existingBySequence = $trip->routeLegs()->get()->keyBy('sequence_no');
+
+        $routeLegs = array_map(function (array $leg, int $index) use ($existingBySequence): array {
+            $sequence = (int) ($leg['sequence_no'] ?? ($index + 1));
+            $existing = $existingBySequence->get($sequence);
+
+            if ($existing !== null && ! array_key_exists('advance_received', $leg)) {
+                $leg['advance_received'] = $existing->advance_received;
+            }
+
+            return $leg;
+        }, $routeLegs, array_keys($routeLegs));
+
         $expenseSequencesById = TripExpense::query()
             ->where('trip_id', $trip->id)
             ->whereNotNull('trip_route_leg_id')
@@ -475,7 +490,7 @@ class TripService
     /**
      * @param  list<array<string, mixed>>  $routeLegs
      */
-    private function routeLegsMatchExisting(Trip $trip, array $routeLegs): bool
+    private function routeLegsStructureMatchesExisting(Trip $trip, array $routeLegs): bool
     {
         $existing = $trip->routeLegs()->orderBy('sequence_no')->get();
 
@@ -503,107 +518,130 @@ class TripService
             if ((int) ($current->to_station_id ?? 0) !== (int) ($leg['to_station_id'] ?? 0)) {
                 return false;
             }
-
-            $currentCustomer = $current->customer_id !== null ? (int) $current->customer_id : null;
-            $newCustomer = isset($leg['customer_id']) && $leg['customer_id'] !== '' && $leg['customer_id'] !== null
-                ? (int) $leg['customer_id']
-                : null;
-
-            if ($currentCustomer !== $newCustomer) {
-                return false;
-            }
-
-            $currentWeight = round((float) ($current->weight_ton ?? 0), 3);
-            $newWeight = isset($leg['weight_ton']) && $leg['weight_ton'] !== '' && $leg['weight_ton'] !== null
-                ? round((float) $leg['weight_ton'], 3)
-                : 0.0;
-
-            if ($currentWeight !== $newWeight) {
-                return false;
-            }
-
-            $currentFreight = round((float) ($current->freight_amount ?? 0), 2);
-            $newFreight = round((float) ($leg['freight_amount'] ?? 0), 2);
-
-            if ($currentFreight !== $newFreight) {
-                return false;
-            }
         }
 
         return true;
     }
 
-    private function syncRouteLegs(Trip $trip, array $routeLegs): void
+    /**
+     * @param  list<array<string, mixed>>  $routeLegs
+     */
+    private function updateRouteLegsInPlace(Trip $trip, array $routeLegs): void
     {
-        $stationNames = Station::query()
+        $existingBySequence = $trip->routeLegs()->get()->keyBy('sequence_no');
+        $stationNames = $this->resolveRouteLegStationNames($routeLegs);
+
+        foreach ($routeLegs as $index => $leg) {
+            $sequence = (int) ($leg['sequence_no'] ?? ($index + 1));
+            $current = $existingBySequence->get($sequence);
+
+            if ($current === null) {
+                continue;
+            }
+
+            $current->update($this->buildRouteLegAttributes($trip, $leg, $current, $stationNames));
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $routeLegs
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function resolveRouteLegStationNames(array $routeLegs): \Illuminate\Support\Collection
+    {
+        return Station::query()
             ->whereIn('id', collect($routeLegs)->flatMap(fn (array $leg): array => [
                 $leg['from_station_id'] ?? null,
                 $leg['to_station_id'] ?? null,
             ])->filter()->unique())
             ->pluck('name', 'id');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>|null  $stationNames
+     * @return array<string, mixed>
+     */
+    private function buildRouteLegAttributes(
+        Trip $trip,
+        array $leg,
+        ?TripRouteLeg $existing = null,
+        ?\Illuminate\Support\Collection $stationNames = null,
+    ): array {
+        $weightTon = isset($leg['weight_ton']) ? (float) $leg['weight_ton'] : 0.0;
+        $freightAmount = (float) ($leg['freight_amount'] ?? 0);
+        $freightRate = isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : 0.0;
+        $advanceReceived = array_key_exists('advance_received', $leg)
+            ? (float) $leg['advance_received']
+            : (float) ($existing?->advance_received ?? 0);
+
+        if ($weightTon <= 0 && $freightAmount > 0 && $freightRate > 0) {
+            $weightTon = round($freightAmount / $freightRate, 3);
+        }
+
+        if ($weightTon <= 0 && $freightAmount <= 0) {
+            $advanceReceived = 0;
+        }
+
+        $fromStationId = isset($leg['from_station_id']) ? (int) $leg['from_station_id'] : null;
+        $toStationId = isset($leg['to_station_id']) ? (int) $leg['to_station_id'] : null;
+
+        $stationNames ??= $this->resolveRouteLegStationNames([$leg]);
+
+        $fromCity = trim((string) ($leg['from_city'] ?? $stationNames->get($fromStationId) ?? ''));
+        $fromAddress = trim((string) ($leg['from_address'] ?? ''));
+        $toCity = trim((string) ($leg['to_city'] ?? $stationNames->get($toStationId) ?? ''));
+        $toAddress = trim((string) ($leg['to_address'] ?? ''));
+
+        return [
+            'customer_id' => isset($leg['customer_id']) && $leg['customer_id'] !== '' && $leg['customer_id'] !== null
+                ? (int) $leg['customer_id']
+                : null,
+            'from_station_id' => $fromStationId,
+            'to_station_id' => $toStationId,
+            'from_city' => $fromCity ?: null,
+            'from_address' => $fromAddress ?: null,
+            'to_city' => $toCity ?: null,
+            'to_address' => $toAddress ?: null,
+            'from_location' => RouteLegLocationFormatter::compose(
+                $fromCity,
+                $fromAddress,
+                $leg['from_location'] ?? null,
+            ),
+            'to_location' => RouteLegLocationFormatter::compose(
+                $toCity,
+                $toAddress,
+                $leg['to_location'] ?? null,
+            ),
+            'goods_name' => $leg['goods_name'] ?? null,
+            'consignor' => $leg['consignor'] ?? null,
+            'consignee' => $leg['consignee'] ?? null,
+            'freight_rate' => isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : null,
+            'weight_ton' => $weightTon > 0 ? $weightTon : null,
+            'expected_mileage_km_per_liter' => isset($leg['expected_mileage_km_per_liter']) && $leg['expected_mileage_km_per_liter'] !== '' && $leg['expected_mileage_km_per_liter'] !== null
+                ? round((float) $leg['expected_mileage_km_per_liter'], 2)
+                : null,
+            'invoice_number' => $leg['invoice_number'] ?? null,
+            'lr_number' => $leg['lr_number'] ?? null,
+            'remarks' => $leg['remarks'] ?? null,
+            'freight_amount' => $freightAmount,
+            'advance_received' => $advanceReceived,
+            'balance_amount' => max($freightAmount - $advanceReceived, 0),
+            'payment_status' => $this->resolvePaymentStatus($freightAmount, $advanceReceived)->value,
+            'billing_status' => $leg['billing_status'] ?? ($existing?->billing_status ?? 'unbilled'),
+        ];
+    }
+
+    private function syncRouteLegs(Trip $trip, array $routeLegs): void
+    {
+        $stationNames = $this->resolveRouteLegStationNames($routeLegs);
 
         foreach ($routeLegs as $index => $leg) {
-            $weightTon = isset($leg['weight_ton']) ? (float) $leg['weight_ton'] : 0.0;
-            $freightAmount = (float) ($leg['freight_amount'] ?? 0);
-            $freightRate = isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : 0.0;
-            $advanceReceived = (float) ($leg['advance_received'] ?? 0);
-
-            if ($weightTon <= 0 && $freightAmount > 0 && $freightRate > 0) {
-                $weightTon = round($freightAmount / $freightRate, 3);
-            }
-
-            if ($weightTon <= 0 && $freightAmount <= 0) {
-                $advanceReceived = 0;
-            }
-
-            $fromStationId = isset($leg['from_station_id']) ? (int) $leg['from_station_id'] : null;
-            $toStationId = isset($leg['to_station_id']) ? (int) $leg['to_station_id'] : null;
-
-            $fromCity = trim((string) ($leg['from_city'] ?? $stationNames->get($fromStationId) ?? ''));
-            $fromAddress = trim((string) ($leg['from_address'] ?? ''));
-            $toCity = trim((string) ($leg['to_city'] ?? $stationNames->get($toStationId) ?? ''));
-            $toAddress = trim((string) ($leg['to_address'] ?? ''));
-
             TripRouteLeg::query()->create([
                 'tenant_id' => $trip->tenant_id,
                 'trip_id' => $trip->id,
-                'customer_id' => isset($leg['customer_id']) && $leg['customer_id'] !== '' && $leg['customer_id'] !== null
-                    ? (int) $leg['customer_id']
-                    : null,
-                'from_station_id' => $fromStationId,
-                'to_station_id' => $toStationId,
-                'from_city' => $fromCity ?: null,
-                'from_address' => $fromAddress ?: null,
-                'to_city' => $toCity ?: null,
-                'to_address' => $toAddress ?: null,
-                'from_location' => RouteLegLocationFormatter::compose(
-                    $fromCity,
-                    $fromAddress,
-                    $leg['from_location'] ?? null,
-                ),
-                'to_location' => RouteLegLocationFormatter::compose(
-                    $toCity,
-                    $toAddress,
-                    $leg['to_location'] ?? null,
-                ),
                 'sequence_no' => (int) ($leg['sequence_no'] ?? ($index + 1)),
                 'distance_km' => 0,
-                'goods_name' => $leg['goods_name'] ?? null,
-                'consignor' => $leg['consignor'] ?? null,
-                'consignee' => $leg['consignee'] ?? null,
-                'freight_rate' => isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : null,
-                'weight_ton' => $weightTon > 0 ? $weightTon : null,
-                'expected_mileage_km_per_liter' => isset($leg['expected_mileage_km_per_liter']) && $leg['expected_mileage_km_per_liter'] !== '' && $leg['expected_mileage_km_per_liter'] !== null
-                    ? round((float) $leg['expected_mileage_km_per_liter'], 2)
-                    : null,
-                'invoice_number' => $leg['invoice_number'] ?? null,
-                'lr_number' => $leg['lr_number'] ?? null,
-                'remarks' => $leg['remarks'] ?? null,
-                'freight_amount' => $freightAmount,
-                'advance_received' => $advanceReceived,
-                'balance_amount' => max($freightAmount - $advanceReceived, 0),
-                'payment_status' => $this->resolvePaymentStatus($freightAmount, $advanceReceived)->value,
-                'billing_status' => $leg['billing_status'] ?? 'unbilled',
+                ...$this->buildRouteLegAttributes($trip, $leg, null, $stationNames),
             ]);
         }
     }

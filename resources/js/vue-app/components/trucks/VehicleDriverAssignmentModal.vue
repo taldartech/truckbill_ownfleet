@@ -94,6 +94,12 @@
                                                 >
                                                     {{ driver.name }}
                                                     <template v-if="driver.phone"> — {{ driver.phone }}</template>
+                                                    <span
+                                                        v-if="driver.joining_date"
+                                                        class="text-muted small d-block"
+                                                    >
+                                                        Joined {{ formatJoiningDate(driver.joining_date) }}
+                                                    </span>
                                                 </button>
                                                 <div v-if="filteredDrivers.length === 0" class="px-3 py-2 text-muted small">
                                                     No unassigned driver found.
@@ -114,23 +120,34 @@
                                     <AppDateInput
                                         input-id="assign_from"
                                         v-model="assignForm.assigned_from"
+                                        :min="minimumAssignedFrom"
                                         :invalid="
                                             hasFieldError(fieldErrors, 'assigned_from') ||
-                                            hasFieldError(fieldErrors, 'vehicle_id')
+                                            hasFieldError(fieldErrors, 'vehicle_id') ||
+                                            Boolean(assignedFromClientError)
                                         "
                                         required
                                     />
                                     <div
                                         v-if="
                                             fieldErrorMessage(fieldErrors, 'assigned_from') ||
-                                            fieldErrorMessage(fieldErrors, 'vehicle_id')
+                                            fieldErrorMessage(fieldErrors, 'vehicle_id') ||
+                                            assignedFromClientError
                                         "
                                         class="invalid-feedback d-block"
                                     >
                                         {{
                                             fieldErrorMessage(fieldErrors, 'assigned_from') ||
-                                            fieldErrorMessage(fieldErrors, 'vehicle_id')
+                                            fieldErrorMessage(fieldErrors, 'vehicle_id') ||
+                                            assignedFromClientError
                                         }}
+                                    </div>
+                                    <div
+                                        v-else-if="minimumAssignedFrom"
+                                        class="form-text"
+                                    >
+                                        Driver joined on {{ formatJoiningDate(minimumAssignedFrom) }}.
+                                        Effective from cannot be earlier.
                                     </div>
                                 </div>
                                 <div v-if="editingClosedAssignment" class="col-md-4">
@@ -239,7 +256,7 @@ import {
 import { fetchVehiclePrimaryAssignment } from '../../api/vehicles';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
-import { toDateInputValue } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
 import AppButton from '../ui/AppButton.vue';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppModal from '../ui/AppModal.vue';
@@ -273,6 +290,7 @@ const driverSearch = ref('');
 const activePrimaryByDriver = ref({});
 const isDriverDropdownOpen = ref(false);
 const driverPickerRef = ref(null);
+const assignedFromClientError = ref('');
 
 const assignForm = ref({
     driver_id: '',
@@ -333,6 +351,12 @@ const filteredDrivers = computed(() => {
     });
 });
 
+const selectedDriver = computed(
+    () => drivers.value.find((driver) => driver.id === assignForm.value.driver_id) ?? null,
+);
+
+const minimumAssignedFrom = computed(() => selectedDriver.value?.joining_date ?? undefined);
+
 const selectedDriverLabel = computed(() => {
     if (!assignForm.value.driver_id) {
         return 'Select driver';
@@ -346,6 +370,10 @@ const selectedDriverLabel = computed(() => {
 
     return `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
 });
+
+function formatJoiningDate(value) {
+    return formatDate(value, value ?? '—');
+}
 
 function assignmentToLabel(row) {
     if (isActivePrimaryRow(row)) {
@@ -464,6 +492,7 @@ function isDriverPrimaryElsewhere(driverId) {
 
 function resetAssignForm() {
     editingAssignment.value = null;
+    assignedFromClientError.value = '';
     assignForm.value = {
         driver_id: '',
         assigned_from: asOfDate.value || toDateInputValue(),
@@ -474,6 +503,7 @@ function resetAssignForm() {
 function cancelEdit() {
     driverSearch.value = '';
     isDriverDropdownOpen.value = false;
+    assignedFromClientError.value = '';
     clearErrors();
     resetAssignForm();
 }
@@ -484,6 +514,7 @@ function startEdit(row) {
     }
 
     clearErrors();
+    assignedFromClientError.value = '';
     editingAssignment.value = row;
     assignForm.value = {
         driver_id: row.driver_id ?? '',
@@ -500,6 +531,12 @@ function toggleDriverDropdown() {
 
 function selectDriver(driver) {
     assignForm.value.driver_id = driver.id;
+    assignedFromClientError.value = '';
+
+    if (driver.joining_date && assignForm.value.assigned_from < driver.joining_date) {
+        assignForm.value.assigned_from = driver.joining_date;
+    }
+
     isDriverDropdownOpen.value = false;
 }
 
@@ -548,6 +585,16 @@ function close() {
 
 async function saveAssignment() {
     if (!props.vehicle?.id || !assignForm.value.driver_id) {
+        return;
+    }
+
+    assignedFromClientError.value = '';
+
+    const joiningDate = selectedDriver.value?.joining_date;
+
+    if (joiningDate && assignForm.value.assigned_from < joiningDate) {
+        assignedFromClientError.value = `Effective from cannot be earlier than the driver's joining date (${formatJoiningDate(joiningDate)}).`;
+
         return;
     }
 

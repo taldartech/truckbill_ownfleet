@@ -276,6 +276,7 @@
                                     <AppDateInput
                                         input-id="tyreForm_purchase_date"
                                         v-model="form.purchase_date"
+                                        :max="maxTyreActionDate"
                                         :invalid="!!fieldErrors.purchase_date"
                                         size="sm"
                                         required
@@ -448,6 +449,9 @@ import {
     warrantyBadgeClass,
 } from '../../utils/tyreDisplay';
 import { buildTyreSaveConfirmSummary } from '../../utils/tyre-save-confirm-info';
+import { toDateInputValue } from '../../utils/datetime';
+
+const maxTyreActionDate = toDateInputValue();
 
 const DEFAULT_TYRE_TYPE = 'RADIAL';
 

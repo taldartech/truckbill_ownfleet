@@ -623,6 +623,10 @@ function rawFromEvent(event) {
 
 /** History / timeline rows */
 export function formatEventDateTime(event, defaultValue = '—') {
+    if (event?.date != null && (event.time == null || event.time === '')) {
+        return formatDisplay(event.date, 'date', defaultValue);
+    }
+
     return formatDisplay(rawFromEvent(event), 'auto', defaultValue);
 }
 
@@ -636,9 +640,12 @@ export function formatEventParts(event, defaultValue = '—') {
         return { date: defaultValue, time: defaultValue };
     }
 
-    if (event?.date && !event?.time && !valueHasTimeHint(event?.sort_at)) {
+    // Backend sets time: null for date-only events; sort_at still carries midnight in ISO form.
+    const isDateOnlyEvent = event?.date != null && (event.time == null || event.time === '');
+
+    if (isDateOnlyEvent) {
         return {
-            date: formatDisplay(raw, 'date', defaultValue),
+            date: formatDisplay(event.date, 'date', defaultValue),
             time: defaultValue,
         };
     }

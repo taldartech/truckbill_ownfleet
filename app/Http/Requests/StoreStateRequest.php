@@ -24,6 +24,7 @@ class StoreStateRequest extends FormRequest
                 'required',
                 'string',
                 'max:120',
+                'not_regex:/^\d+$/',
                 Rule::unique('states', 'name')->where('country_id', IndiaCountry::id()),
             ],
             'code' => ['nullable', 'string', 'max:10'],

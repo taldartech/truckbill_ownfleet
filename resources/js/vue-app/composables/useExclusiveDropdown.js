@@ -42,3 +42,12 @@ export function releaseExclusiveDropdown(close) {
         activeClose = null;
     }
 }
+
+/**
+ * Close whichever dropdown is currently open.
+ */
+export function closeActiveDropdown() {
+    if (activeClose) {
+        activeClose();
+    }
+}

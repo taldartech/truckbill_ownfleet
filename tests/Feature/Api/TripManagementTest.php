@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Branch;
 use App\City;
+use App\Customer;
 use App\Driver;
 use App\DriverAssignment;
 use App\Enums\TripExpenseType;
@@ -266,6 +267,69 @@ class TripManagementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.expenses.0.route_leg_sequence', 1)
             ->assertJsonPath('data.expenses.1.route_leg_sequence', 1);
+    }
+
+    public function test_trip_update_can_clear_route_leg_customer_without_changing_route_structure(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+        $city = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+
+        $customer = Customer::query()->create([
+            ...$operationalAttributes,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'ABC Customer',
+        ]);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'customer_id' => $customer->id,
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 20,
+                        'freight_rate' => 100,
+                        'freight_amount' => 2000,
+                    ],
+                ],
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.route_legs.0.customer_id', $customer->id)
+            ->assertJsonPath('data.route_legs.1.customer_id', $customer->id);
+
+        $tripId = $createResponse->json('data.id');
+        $routeLegs = $createResponse->json('data.route_legs');
+        $routeLegs[1]['customer_id'] = null;
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'route_legs' => $routeLegs,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.route_legs.0.customer_id', $customer->id)
+            ->assertJsonPath('data.route_legs.1.customer_id', null);
+
+        $this->assertDatabaseHas('trip_route_legs', [
+            'trip_id' => $tripId,
+            'sequence_no' => 2,
+            'customer_id' => null,
+        ]);
     }
 
     public function test_trip_update_with_unchanged_route_legs_preserves_expense_trip_route_leg_id(): void

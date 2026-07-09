@@ -34,17 +34,21 @@ class TyreTimelineService
             ->with(['vehicle', 'oldTyre', 'newTyre'])
             ->get();
 
-        $replacementInstalledDates = $replacements
+        $replacementInstallKeys = $replacements
             ->where('new_tyre_id', $tyre->id)
-            ->pluck('replaced_at')
-            ->map(fn ($date) => $date?->toDateString())
+            ->map(fn (TyreReplacement $replacement) => $this->vehicleDateKey(
+                $replacement->replaced_at?->toDateString(),
+                $replacement->vehicle_id,
+            ))
             ->filter()
             ->all();
 
-        $replacedOffDates = $replacements
+        $replacedOffKeys = $replacements
             ->where('old_tyre_id', $tyre->id)
-            ->pluck('replaced_at')
-            ->map(fn ($date) => $date?->toDateString())
+            ->map(fn (TyreReplacement $replacement) => $this->vehicleDateKey(
+                $replacement->replaced_at?->toDateString(),
+                $replacement->vehicle_id,
+            ))
             ->filter()
             ->all();
 
@@ -57,7 +61,7 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'expense',
-                sortAt: $expense->created_at ?? $expense->expense_date,
+                sortAt: $this->resolveSortAt($expense->expense_date, $expense->created_at),
                 date: $expense->expense_date?->toDateString(),
                 title: $type?->value ?? 'Expense',
                 detail: '₹'.$expense->amount.($expense->notes ? " · {$expense->notes}" : ''),
@@ -73,18 +77,20 @@ class TyreTimelineService
             $position = $this->positionLabel($installation->position_code);
             $vehicle = $installation->vehicle?->registration_number ?? '—';
             $installedDate = $installation->installed_at?->toDateString();
+            $installKey = $this->vehicleDateKey($installedDate, $installation->vehicle_id);
 
-            if ($installedDate !== null && in_array($installedDate, $replacementInstalledDates, true)) {
+            if ($installKey !== null && in_array($installKey, $replacementInstallKeys, true)) {
                 continue;
             }
 
             $events->push($this->event(
                 type: 'installed',
-                sortAt: $installation->installed_at ?? $installation->created_at,
+                sortAt: $this->resolveSortAt($installation->installed_at, $installation->created_at),
                 date: $installedDate,
                 title: "Installed on {$vehicle}",
-                detail: "Position: {$position}",
+                detail: $this->installationEventDetail($installation, $position),
                 extra: [
+                    'installation_id' => $installation->id,
                     'vehicle_registration' => $vehicle,
                     'position' => $this->positionValue($installation->position_code),
                     'position_label' => $position,
@@ -93,19 +99,20 @@ class TyreTimelineService
 
             if ($installation->removed_at !== null) {
                 $removedDate = $installation->removed_at->toDateString();
+                $removeKey = $this->vehicleDateKey($removedDate, $installation->vehicle_id);
 
-                if (in_array($removedDate, $replacedOffDates, true)) {
+                if ($removeKey !== null && in_array($removeKey, $replacedOffKeys, true)) {
                     continue;
                 }
 
                 $events->push($this->event(
                     type: 'removed',
-                    sortAt: $installation->removed_at,
+                    sortAt: $this->resolveSortAt($installation->removed_at, $installation->updated_at),
                     date: $removedDate,
                     title: "Removed from {$vehicle}",
-                    detail: "Ran {$installation->running_km} km on {$position}"
-                        .($installation->removal_recommendation ? " · {$installation->removal_recommendation}" : ''),
+                    detail: $this->removalEventDetail($installation, $position),
                     extra: [
+                        'installation_id' => $installation->id,
                         'vehicle_registration' => $vehicle,
                         'position_label' => $position,
                         'running_km' => (float) ($installation->running_km ?? 0),
@@ -123,7 +130,7 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'rotation',
-                sortAt: $rotation->created_at ?? $rotation->rotation_date,
+                sortAt: $this->resolveSortAt($rotation->rotation_date, $rotation->created_at),
                 date: $rotation->rotation_date?->toDateString(),
                 title: "Rotated on {$vehicle}",
                 detail: $this->positionLabel($rotation->previous_position).' → '.$this->positionLabel($rotation->new_position)
@@ -139,11 +146,11 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'damage',
-                sortAt: $damage->created_at ?? $damage->occurred_at,
+                sortAt: $this->resolveSortAt($damage->occurred_at, $damage->created_at),
                 date: $damage->occurred_at?->toDateString(),
-                title: ucfirst(strtolower(str_replace('_', ' ', $damage->damage_type?->value ?? 'damage'))),
+                title: $this->damageTitle($damage->damage_type?->value),
                 detail: "Truck: {$vehicle} · Position: {$position}"
-                    .($damage->repair_cost ? " · Repair ₹{$damage->repair_cost}" : ''),
+                    .($damage->repair_cost ? ' · Repair ₹'.number_format((float) $damage->repair_cost, 2) : ''),
                 extra: [
                     'vehicle_registration' => $vehicle,
                     'position_label' => $position,
@@ -158,13 +165,10 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'replacement',
-                sortAt: $replacement->created_at ?? $replacement->replaced_at,
+                sortAt: $this->resolveSortAt($replacement->replaced_at, $replacement->created_at),
                 date: $replacement->replaced_at?->toDateString(),
                 title: $isOld ? "Replaced off {$vehicle}" : "Installed as replacement on {$vehicle}",
-                detail: "Position: {$position}"
-                    .($isOld && $replacement->old_tyre_stint_km ? " · Ran {$replacement->old_tyre_stint_km} km" : '')
-                    .($isOld && $replacement->old_tyre_remaining_life_km !== null ? " · ~{$replacement->old_tyre_remaining_life_km} km life left" : '')
-                    .($isOld && $replacement->recommendation ? " · {$replacement->recommendation}" : ''),
+                detail: $this->replacementEventDetail($replacement, $isOld, $position),
                 extra: [
                     'vehicle_registration' => $vehicle,
                     'position_label' => $position,
@@ -183,7 +187,7 @@ class TyreTimelineService
 
             $events->push($this->event(
                 type: 'scrapped',
-                sortAt: $tyre->updated_at ?? $tyre->scrapped_at,
+                sortAt: $this->resolveSortAt($tyre->scrapped_at, $tyre->updated_at),
                 date: $tyre->scrapped_at->toDateString(),
                 title: 'Scrapped / sold',
                 detail: $detail,
@@ -192,11 +196,88 @@ class TyreTimelineService
 
         return $events
             ->filter(fn (array $event) => ! empty($event['sort_at']))
-            ->unique(fn (array $event) => $event['type'].'|'.$event['sort_at'].'|'.($event['title'] ?? ''))
-            ->sortByDesc(fn (array $event) => $event['sort_at'])
+            ->unique(fn (array $event) => $this->eventIdentity($event))
+            ->sortByDesc(fn (array $event) => [$event['sort_at'], $event['sort_priority'] ?? 0])
             ->values()
             ->map(fn (array $event) => collect($event)->except('sort_priority')->all())
             ->all();
+    }
+
+    private function eventIdentity(array $event): string
+    {
+        if (! empty($event['installation_id'])) {
+            return $event['type'].'|'.$event['installation_id'];
+        }
+
+        return $event['type'].'|'.$event['sort_at'].'|'.($event['title'] ?? '');
+    }
+
+    private function vehicleDateKey(?string $date, mixed $vehicleId): ?string
+    {
+        if ($date === null || $vehicleId === null || $vehicleId === '') {
+            return null;
+        }
+
+        return $date.'|'.$vehicleId;
+    }
+
+    private function installationEventDetail(TyreInstallation $installation, string $position): string
+    {
+        $detail = "Position: {$position}";
+        $installedDate = $installation->installed_at?->toDateString();
+
+        if ($installation->removed_at !== null) {
+            $removedDate = $installation->removed_at->toDateString();
+            $detail .= " · {$installedDate} → {$removedDate}";
+
+            if ($installation->running_km !== null) {
+                $detail .= ' · Ran '.number_format((float) $installation->running_km, 2).' km';
+            }
+        } elseif ($installedDate !== null) {
+            $detail .= " · Since {$installedDate}";
+        }
+
+        return $detail;
+    }
+
+    private function removalEventDetail(TyreInstallation $installation, string $position): string
+    {
+        $detail = 'Ran '.number_format((float) ($installation->running_km ?? 0), 2)." km on {$position}";
+
+        if ($installation->removal_recommendation) {
+            $detail .= " · {$installation->removal_recommendation}";
+        }
+
+        return $detail;
+    }
+
+    private function replacementEventDetail(TyreReplacement $replacement, bool $isOld, string $position): string
+    {
+        $parts = ["Position: {$position}"];
+
+        if ($isOld) {
+            $parts[] = 'Ran '.number_format((float) ($replacement->old_tyre_stint_km ?? 0), 2).' km';
+
+            if ($replacement->recommendation) {
+                $parts[] = $replacement->recommendation;
+            } else {
+                $remaining = max(0, (float) ($replacement->old_tyre_remaining_life_km ?? 0));
+
+                if ($remaining > 0) {
+                    $parts[] = '~'.number_format($remaining, 0).' km life left';
+                }
+            }
+        }
+
+        return implode(' · ', $parts);
+    }
+
+    private function damageTitle(?string $damageType): string
+    {
+        return match (strtoupper((string) $damageType)) {
+            'RECAPPED' => 'Regrip',
+            default => ucfirst(strtolower(str_replace('_', ' ', $damageType ?? 'damage'))),
+        };
     }
 
     /**
@@ -248,11 +329,39 @@ class TyreTimelineService
             'type' => $type,
             'type_label' => $this->typeLabel($type),
             'date' => $date,
-            'time' => $this->formatTime($sort),
+            'time' => null,
             'sort_at' => $sort->toIso8601String(),
+            'sort_priority' => $this->typeSortPriority($type),
             'title' => $title,
             'detail' => $detail,
         ], $extra);
+    }
+
+    private function typeSortPriority(string $type): int
+    {
+        return match ($type) {
+            'expense' => 5,
+            'installed' => 10,
+            'removed' => 20,
+            'rotation' => 30,
+            'damage' => 40,
+            'replacement' => 50,
+            'scrapped' => 60,
+            default => 0,
+        };
+    }
+
+    private function resolveSortAt(?CarbonInterface $businessDate, ?CarbonInterface $recordTimestamp): Carbon
+    {
+        if ($businessDate === null) {
+            return $this->normalizeSortAt($recordTimestamp);
+        }
+
+        if ($recordTimestamp !== null && $businessDate->toDateString() === $recordTimestamp->toDateString()) {
+            return Carbon::parse($recordTimestamp);
+        }
+
+        return Carbon::parse($businessDate)->startOfDay();
     }
 
     private function normalizeSortAt(CarbonInterface|string|null $value): Carbon
@@ -266,15 +375,6 @@ class TyreTimelineService
         }
 
         return Carbon::now();
-    }
-
-    private function formatTime(CarbonInterface $value): ?string
-    {
-        if ($value->format('H:i:s') === '00:00:00') {
-            return null;
-        }
-
-        return $value->format('H:i');
     }
 
     private function sortKey(CarbonInterface|string|null $value): string

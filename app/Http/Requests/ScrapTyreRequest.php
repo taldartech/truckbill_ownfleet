@@ -20,7 +20,7 @@ class ScrapTyreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'scrapped_at' => ['nullable', 'date'],
+            'scrapped_at' => ['nullable', 'date', 'before_or_equal:today'],
             'scrap_notes' => ['nullable', 'string', 'max:2000'],
             'scrap_sale_amount' => ['nullable', 'numeric', 'min:0'],
         ];

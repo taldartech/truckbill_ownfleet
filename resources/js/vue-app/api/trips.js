@@ -1230,6 +1230,28 @@ export function calculateLegFreight(weightTon, freightRate) {
     return Math.round(weight * rate * 100) / 100;
 }
 
+export function resolveLegFreightAutoCalculate(leg) {
+    const weight = resolveLegWeightTon(leg);
+    const rate = parseNumeric(leg?.freight_rate);
+    const freight = parseNumeric(leg?.freight_amount);
+
+    if (weight <= 0) {
+        return true;
+    }
+
+    if (rate <= 0) {
+        return freight <= 0;
+    }
+
+    if (freight <= 0) {
+        return true;
+    }
+
+    const calculated = calculateLegFreight(weight, rate);
+
+    return Math.abs(freight - calculated) < 0.01;
+}
+
 export function resolveLegWeightTon(leg) {
     const weight = parseNumeric(leg?.weight_ton);
 
