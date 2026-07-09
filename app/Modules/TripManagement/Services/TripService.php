@@ -545,10 +545,14 @@ class TripService
         foreach ($routeLegs as $index => $leg) {
             $weightTon = isset($leg['weight_ton']) ? (float) $leg['weight_ton'] : 0.0;
             $freightAmount = (float) ($leg['freight_amount'] ?? 0);
+            $freightRate = isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : 0.0;
             $advanceReceived = (float) ($leg['advance_received'] ?? 0);
 
-            if ($weightTon <= 0) {
-                $freightAmount = 0;
+            if ($weightTon <= 0 && $freightAmount > 0 && $freightRate > 0) {
+                $weightTon = round($freightAmount / $freightRate, 3);
+            }
+
+            if ($weightTon <= 0 && $freightAmount <= 0) {
                 $advanceReceived = 0;
             }
 

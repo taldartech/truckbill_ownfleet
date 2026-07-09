@@ -1,5 +1,5 @@
 import { reactive, watch } from 'vue';
-import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric, resolveExpenseRouteLegSequence } from '../api/trips';
+import { clampExpenseDate, emptyExpense, emptyRouteStop, parseNumeric, resolveExpenseRouteLegSequence, resolveLegWeightTon } from '../api/trips';
 import { toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -210,14 +210,18 @@ export function useTripForm() {
 
         form.route_legs = (trip.route_legs ?? []).map((leg) => {
             const customerId = leg.customer_id ?? '';
+            const resolvedWeight = resolveLegWeightTon(leg);
+            const freightAmount = Number(leg.freight_amount ?? 0);
 
             return {
                 id: leg.id ?? null,
                 from_station_id: leg.from_station_id ?? '',
                 to_station_id: leg.to_station_id ?? '',
-                customer_id: customerId,
+                customer_id: customerId ? String(customerId) : '',
                 use_same_customer:
-                    tripCustomerId !== '' && String(customerId) === String(tripCustomerId),
+                    tripCustomerId !== ''
+                    && customerId !== ''
+                    && String(customerId) === String(tripCustomerId),
                 from_city: leg.from_city ?? leg.from_location ?? '',
                 to_city: leg.to_city ?? leg.to_location ?? '',
                 sequence_no: leg.sequence_no ?? 1,
@@ -225,14 +229,17 @@ export function useTripForm() {
                     leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
                 freight_amount: Number(leg.freight_amount ?? 0),
                 freight_auto_calculate: true,
-                weight_ton:
-                    leg.weight_ton === '' || leg.weight_ton == null ? '' : Number(leg.weight_ton),
+                weight_ton: resolvedWeight > 0 ? resolvedWeight : '',
                 expected_mileage_km_per_liter:
                     leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                         ? ''
                         : Number(leg.expected_mileage_km_per_liter),
                 remarks: leg.remarks ?? '',
             };
+        });
+
+        form.route_legs.forEach((leg) => {
+            normalizeRouteLegForSave(leg);
         });
 
         const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
@@ -304,23 +311,32 @@ export function useTripForm() {
         return match?.id ?? '';
     }
 
-    function applyLegacyPartyLookups(trip, customers = [], brokers = []) {
-        if (!form.customer_id && trip.customer_name) {
-            form.customer_id = resolveLookupId(customers, '', trip.customer_name);
+    function normalizeRouteLegForSave(leg) {
+        let weight = resolveLegWeightTon(leg);
+        const freight = parseNumeric(leg.freight_amount);
+        const rate = parseNumeric(leg.freight_rate);
+
+        if (weight <= 0 && freight > 0 && rate > 0) {
+            weight = Math.round((freight / rate) * 1000) / 1000;
+            leg.weight_ton = weight;
         }
 
-        if (!form.broker_id && trip.broker_name) {
-            form.broker_id = resolveLookupId(brokers, '', trip.broker_name);
-        }
+        return {
+            weight,
+            freight,
+        };
+    }
+
+    function applyLegacyPartyLookups() {
+        // Trip customer and broker are loaded from persisted ids only.
     }
 
     function buildPayload(stations = [], { mode = 'create', includeExpenses = true } = {}) {
         rebuildLegChain();
+        syncLegCustomersFromTrip();
 
         const payload = {
             substitute_driver_id: form.substitute_driver_id || null,
-            customer_id: form.customer_id || null,
-            broker_id: form.broker_id || null,
             start_station_id: form.start_station_id,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
@@ -347,13 +363,14 @@ export function useTripForm() {
             notes: form.notes?.trim() || null,
             actual_arrival_at: form.actual_arrival_at || null,
             route_legs: form.route_legs.map((leg, index) => {
-                const weight =
-                    leg.weight_ton === '' || leg.weight_ton == null ? 0 : Number(leg.weight_ton);
+                const { weight, freight } = normalizeRouteLegForSave(leg);
 
                 return {
                     from_station_id: leg.from_station_id,
                     to_station_id: leg.to_station_id,
-                    customer_id: leg.customer_id || null,
+                    customer_id: leg.use_same_customer
+                        ? (form.customer_id || null)
+                        : (leg.customer_id || null),
                     from_city: stationName(stations, leg.from_station_id),
                     to_city: stationName(stations, leg.to_station_id),
                     sequence_no: leg.sequence_no || index + 1,
@@ -364,7 +381,7 @@ export function useTripForm() {
                         leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
                             ? null
                             : Number(leg.expected_mileage_km_per_liter),
-                    freight_amount: weight > 0 ? Number(leg.freight_amount ?? 0) : 0,
+                    freight_amount: freight > 0 ? freight : 0,
                     remarks: leg.remarks || null,
                 };
             }),
@@ -391,12 +408,15 @@ export function useTripForm() {
         }
 
         if (mode === 'create') {
+            payload.customer_id = form.customer_id || null;
+            payload.broker_id = form.broker_id || null;
             payload.vehicle_id = form.vehicle_id;
             payload.driver_id = form.driver_id;
             payload.trip_type = form.trip_type;
             payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
         } else {
-            payload.status = form.status;
+            payload.customer_id = form.customer_id || null;
+            payload.broker_id = form.broker_id || null;
             payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
         }
 

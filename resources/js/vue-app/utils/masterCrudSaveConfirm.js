@@ -58,6 +58,7 @@ export function buildMasterCrudSaveConfirmViewModel({ entityLabel, mode = 'creat
 
     return {
         entityLabel,
+        isCreate,
         title: isCreate ? `Confirm Add ${entityLabel}` : `Confirm Update ${entityLabel}`,
         message: isCreate
             ? `Please review the ${entityLabel.toLowerCase()} details below before saving.`
@@ -242,7 +243,11 @@ export function buildUserFields(payload, original, { roles, companies, branches 
     }
 
     if (payload.password) {
-        fields.push({ label: 'Password', value: payload.password, previousValue: '—', changed: true });
+        fields.push({
+            label: 'Password',
+            value: '••••••••',
+            previousValue: original ? '—' : null,
+        });
     }
 
     return fields;

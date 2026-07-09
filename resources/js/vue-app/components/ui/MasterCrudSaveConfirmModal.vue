@@ -21,7 +21,7 @@
         <div v-if="summary.changeSummary" class="master-crud-save-confirm-changes mb-3">
             <i class="bi bi-pencil-square"></i>
             <span>
-                Updating:
+                {{ summary.isCreate ? 'Setting:' : 'Updating:' }}
                 <strong>{{ summary.changeSummary }}</strong>
             </span>
         </div>

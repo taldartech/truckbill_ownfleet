@@ -38,7 +38,7 @@
                         <slot name="trip-nav-actions" />
                     </div>
                     <div
-                        v-if="mode === 'edit' && !isFormLocked && !statusLocked && allowedNextStatuses.length > 0"
+                        v-if="mode === 'edit' && !statusActionsInFooter && !isFormLocked && !statusLocked && allowedNextStatuses.length > 0"
                         class="trip-header-actions__group"
                     >
                         <button
@@ -590,7 +590,7 @@
                                         <SearchablePicker
                                             v-model="leg.customer_id"
                                             :items="customers"
-                                            :placeholder="leg.use_same_customer ? 'Uses trip customer' : 'Select customer'"
+                                            :placeholder="leg.use_same_customer ? (form.customer_id ? 'Uses trip customer' : 'Select trip customer above') : 'Select customer'"
                                             attach-dropdown-to-body
                                             compact-actions
                                             view-title="Customer details"
@@ -856,6 +856,7 @@ import {
     summarizeTripForm,
     tripStatusMeta,
     tripTypeLabel,
+    tripAllowedNextStatuses,
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
@@ -891,6 +892,8 @@ const props = defineProps({
     loadingDriver: { type: Boolean, default: false },
     primaryDriverName: { type: String, default: '' },
     statusLocked: { type: Boolean, default: false },
+    displayStatus: { type: String, default: '' },
+    statusActionsInFooter: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
     showExpenses: { type: Boolean, default: false },
     expenseTotalsBySequence: { type: Object, default: () => ({}) },
@@ -1009,7 +1012,15 @@ const arrivalTiming = computed(() => {
     return 'late';
 });
 
-const currentStatusBadge = computed(() => tripStatusMeta(props.form.status));
+const effectiveTripStatus = computed(() => {
+    if (props.displayStatus) {
+        return props.displayStatus;
+    }
+
+    return props.form.status;
+});
+
+const currentStatusBadge = computed(() => tripStatusMeta(effectiveTripStatus.value));
 
 const tripDetailsHeaderTitle = computed(() => {
     if (props.mode === 'create') {
@@ -1146,22 +1157,7 @@ watch(
     },
 );
 
-const allowedNextStatuses = computed(() => {
-    const current = String(props.form.status ?? '').toUpperCase();
-
-    if (current === 'CREATED') {
-        return [{ value: 'IN_PROGRESS', label: 'In Progress' }];
-    }
-
-    if (current === 'IN_PROGRESS') {
-        return [
-            { value: 'COMPLETED', label: 'Completed' },
-            { value: 'CANCELLED', label: 'Cancelled' },
-        ];
-    }
-
-    return [];
-});
+const allowedNextStatuses = computed(() => tripAllowedNextStatuses(effectiveTripStatus.value));
 
 const hasNavActions = computed(() => Boolean(slots['trip-nav-actions']));
 const hasSaveActions = computed(() => Boolean(slots['trip-save-actions']));
@@ -1169,11 +1165,17 @@ const hasSaveActions = computed(() => Boolean(slots['trip-save-actions']));
 const showHeaderActions = computed(
     () => hasNavActions.value
         || hasSaveActions.value
-        || (props.mode === 'edit' && !isFormLocked.value && !props.statusLocked && allowedNextStatuses.value.length > 0),
+        || (
+            props.mode === 'edit'
+            && !props.statusActionsInFooter
+            && !isFormLocked.value
+            && !props.statusLocked
+            && allowedNextStatuses.value.length > 0
+        ),
 );
 
 const statusBadgeOnGreen = computed(() => {
-    const normalized = String(props.form.status ?? '').toUpperCase();
+    const normalized = String(effectiveTripStatus.value ?? '').toUpperCase();
 
     if (normalized === 'IN_PROGRESS') {
         return 'bg-warning text-dark';
@@ -1370,10 +1372,14 @@ function applyLegFreightAuto(index) {
     }
 
     const weight = Number(leg.weight_ton ?? 0);
+    const freight = Number(leg.freight_amount ?? 0);
+    const rate = Number(leg.freight_rate ?? 0);
 
     if (weight <= 0) {
-        leg.freight_amount = 0;
-        leg.freight_rate = leg.freight_rate === '' ? '' : leg.freight_rate;
+        if (freight > 0 && rate > 0) {
+            leg.weight_ton = Math.round((freight / rate) * 1000) / 1000;
+            leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
+        }
 
         return;
     }
@@ -1389,7 +1395,7 @@ function onLegWeightInput(index) {
     const leg = props.form.route_legs[index];
     const weight = Number(leg?.weight_ton ?? 0);
 
-    if (weight <= 0) {
+    if (weight <= 0 && Number(leg?.freight_amount ?? 0) <= 0) {
         leg.freight_amount = 0;
         leg.freight_auto_calculate = true;
     }
@@ -1550,9 +1556,17 @@ function onStatusModalConfirm(data) {
 function onLegSameCustomerChange(index) {
     const leg = props.form.route_legs[index];
 
-    if (leg?.use_same_customer) {
-        leg.customer_id = props.form.customer_id ?? '';
+    if (!leg) {
+        return;
     }
+
+    if (leg.use_same_customer) {
+        leg.customer_id = props.form.customer_id ?? '';
+
+        return;
+    }
+
+    leg.customer_id = '';
 }
 
 function openQuickAddForLeg(index) {

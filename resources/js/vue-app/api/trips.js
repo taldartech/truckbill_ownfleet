@@ -357,7 +357,13 @@ export function validateTripPayload(
         const endMeter =
             endMeterRaw === '' || endMeterRaw == null ? null : parseNumeric(endMeterRaw);
 
-        if (endMeter !== null && endMeter > 0) {
+        const activeStatus = String(payload.status ?? previousStatus ?? '').toUpperCase();
+
+        if (
+            endMeter !== null
+            && endMeter > 0
+            && ['COMPLETED', 'CANCELLED'].includes(activeStatus)
+        ) {
             if (startMeter > 0 && endMeter < startMeter) {
                 errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
             }
@@ -441,12 +447,8 @@ export function validateTripPayload(
 
         const weight = parseNumeric(leg.weight_ton);
 
-        if (weight > 0) {
+        if (legCountsAsLoaded(leg)) {
             hasLoadedLeg = true;
-        }
-
-        if (weight <= 0 && parseNumeric(leg.freight_amount) > 0) {
-            errors[`route_legs.${index}.freight_amount`] = [`Stop ${index + 1}: freight must be zero when weight is zero.`];
         }
     });
 
@@ -464,7 +466,7 @@ export function validateTripPayload(
     }
 
     if (legs.length > 0 && !hasLoadedLeg) {
-        errors.route_legs = ['At least one loaded stop with weight greater than zero is required.'];
+        errors.route_legs = ['At least one stop with load weight or freight amount is required.'];
     }
 
     if (mode === 'create' && legs.length > 0) {
@@ -502,6 +504,12 @@ export function validateTripStatusChange(
     } = {},
 ) {
     const errors = {};
+
+    const transitionError = tripStatusTransitionError(previousStatus, payload.status);
+
+    if (transitionError) {
+        errors.status = [transitionError];
+    }
 
     if (
         previousStatus
@@ -939,18 +947,80 @@ export function tripStatusMeta(status) {
     return map[normalized] ?? { label: normalized || '—', badge: 'bg-secondary' };
 }
 
+export const TRIP_STATUS_TRANSITIONS = {
+    CREATED: ['IN_PROGRESS'],
+    IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+    COMPLETED: [],
+    CANCELLED: [],
+};
+
+export function tripStatusTransitionError(previousStatus, nextStatus) {
+    const current = String(previousStatus ?? '').toUpperCase();
+    const next = String(nextStatus ?? '').toUpperCase();
+
+    if (current === next) {
+        return null;
+    }
+
+    const allowed = TRIP_STATUS_TRANSITIONS[current] ?? [];
+
+    if (allowed.includes(next)) {
+        return null;
+    }
+
+    if (current === 'CREATED' && (next === 'COMPLETED' || next === 'CANCELLED')) {
+        return 'Move this trip to In Progress first, then mark it Completed or Cancelled.';
+    }
+
+    return `Cannot change trip status from ${current} to ${next}.`;
+}
+
+export function tripStatusActionMeta(status) {
+    const normalized = String(status ?? '').toUpperCase();
+
+    if (normalized === 'IN_PROGRESS') {
+        return {
+            value: 'IN_PROGRESS',
+            label: 'In Progress',
+            variant: 'warning',
+            icon: 'bi bi-hourglass-split',
+        };
+    }
+
+    if (normalized === 'COMPLETED') {
+        return {
+            value: 'COMPLETED',
+            label: 'Completed',
+            variant: 'success',
+            icon: 'bi bi-check-circle-fill',
+        };
+    }
+
+    if (normalized === 'CANCELLED') {
+        return {
+            value: 'CANCELLED',
+            label: 'Cancelled',
+            variant: 'danger',
+            icon: 'bi bi-x-circle-fill',
+        };
+    }
+
+    return null;
+}
+
 export function tripAllowedNextStatuses(status) {
     const current = String(status ?? '').toUpperCase();
 
     if (current === 'CREATED') {
-        return [{ value: 'IN_PROGRESS', label: 'In Progress' }];
+        return ['IN_PROGRESS']
+            .map((value) => tripStatusActionMeta(value))
+            .filter(Boolean);
     }
 
     if (current === 'IN_PROGRESS') {
-        return [
-            { value: 'COMPLETED', label: 'Completed' },
-            { value: 'CANCELLED', label: 'Cancelled' },
-        ];
+        return ['COMPLETED', 'CANCELLED']
+            .map((value) => tripStatusActionMeta(value))
+            .filter(Boolean);
     }
 
     return [];
@@ -1158,6 +1228,27 @@ export function calculateLegFreight(weightTon, freightRate) {
     }
 
     return Math.round(weight * rate * 100) / 100;
+}
+
+export function resolveLegWeightTon(leg) {
+    const weight = parseNumeric(leg?.weight_ton);
+
+    if (weight > 0) {
+        return weight;
+    }
+
+    const rate = parseNumeric(leg?.freight_rate);
+    const freight = parseNumeric(leg?.freight_amount);
+
+    if (rate > 0 && freight > 0) {
+        return Math.round((freight / rate) * 1000) / 1000;
+    }
+
+    return 0;
+}
+
+export function legCountsAsLoaded(leg) {
+    return resolveLegWeightTon(leg) > 0 || parseNumeric(leg?.freight_amount) > 0;
 }
 
 /**

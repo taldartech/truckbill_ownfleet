@@ -247,9 +247,7 @@ class TripValidationService
                     ];
                 }
             } elseif ($freightAmount > 0) {
-                $errors["route_legs.{$index}.freight_amount"] = [
-                    "Stop {$legNo}: freight must be zero when weight is zero.",
-                ];
+                $hasLoadedLeg = true;
             }
         }
 
@@ -263,7 +261,7 @@ class TripValidationService
         }
 
         if (! $hasLoadedLeg) {
-            $errors['route_legs'] = ['At least one loaded stop with weight greater than zero is required.'];
+            $errors['route_legs'] = ['At least one stop with load weight or freight amount is required.'];
         }
 
         if ($errors !== []) {

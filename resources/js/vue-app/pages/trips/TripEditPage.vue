@@ -38,6 +38,8 @@
                     :vehicle-odometer-km="vehicleOdometerKm"
                     :vehicle-expected-mileage="vehicleExpectedMileage"
                     :status-locked="isTerminalStatus"
+                    :display-status="originalStatus"
+                    status-actions-in-footer
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
                     @remove-route-leg="removeRouteLeg"
@@ -55,20 +57,15 @@
 
                 <div class="trip-form-actions card shadow-sm">
                     <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
-                        <template v-if="showStatusFooterActions">
+                        <template v-if="footerStatusActions.length > 0">
                             <AppButton
-                                variant="success"
+                                v-for="action in footerStatusActions"
+                                :key="action.value"
+                                :variant="action.variant"
                                 size="sm"
-                                icon="bi bi-check-circle-fill"
-                                label="Completed"
-                                @click="handleFooterStatusChange('COMPLETED')"
-                            />
-                            <AppButton
-                                variant="danger"
-                                size="sm"
-                                icon="bi bi-x-circle-fill"
-                                label="Cancelled"
-                                @click="handleFooterStatusChange('CANCELLED')"
+                                :icon="action.icon"
+                                :label="action.label"
+                                @click="handleFooterStatusChange(action.value)"
                             />
                         </template>
                        
@@ -129,8 +126,10 @@ import {
     fetchTrip,
     isTripArchived,
     resolveTripEditAccess,
+    tripAllowedNextStatuses,
     updateTrip,
     validateTripPayload,
+    validateTripStatusChange,
 } from '../../api/trips';
 import TripForm from '../../components/trips/TripForm.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
@@ -160,9 +159,10 @@ const {
     addReturnToStart,
     removeRouteLeg,
     buildPayload,
+    buildStatusChangePayload,
     onStartStationChange,
     onStopStationChange,
-    applyLegacyPartyLookups,
+    syncLegCustomersFromTrip,
 } = useTripForm();
 
 const canQuickAddStation = computed(
@@ -197,14 +197,14 @@ const pendingPayload = ref(null);
 const saveMode = ref('index');
 
 const isTerminalStatus = computed(
-    () => form.status === 'COMPLETED' || form.status === 'CANCELLED',
+    () => originalStatus.value === 'COMPLETED' || originalStatus.value === 'CANCELLED',
 );
 
 const canManage = computed(() => canInCompany('trips.edit'));
 const canManageExpenses = computed(
-    () => canManage.value && canManageTripExpenses(form.status, user.value),
+    () => canManage.value && canManageTripExpenses(originalStatus.value, user.value),
 );
-const editAccess = computed(() => resolveTripEditAccess(form.status, user.value));
+const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value));
 const canSave = computed(() => editAccess.value.fullEdit);
 const canEditTripFields = computed(() => editAccess.value.fullEdit);
 const isFormReadonly = computed(() => !editAccess.value.fullEdit);
@@ -219,7 +219,7 @@ const terminalAlert = computed(() => {
         return '';
     }
 
-    const label = form.status === 'COMPLETED' ? 'completed' : 'cancelled';
+    const label = originalStatus.value === 'COMPLETED' ? 'completed' : 'cancelled';
 
     return `This trip is ${label} and is shown in read-only mode.`;
 });
@@ -232,11 +232,58 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
     ignoreTripId: computed(() => route.params.id),
 });
 
-const showStatusFooterActions = computed(
-    () => !isTerminalStatus.value && String(form.status ?? '').toUpperCase() === 'IN_PROGRESS',
-);
+const footerStatusActions = computed(() => {
+    if (isTerminalStatus.value || isFormReadonly.value) {
+        return [];
+    }
 
-function handleFooterStatusChange(status) {
+    return tripAllowedNextStatuses(originalStatus.value);
+});
+
+function hasUnsavedTripChanges() {
+    if (!originalConfirmPayload.value) {
+        return false;
+    }
+
+    syncLegCustomersFromTrip();
+
+    const currentPayload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false });
+
+    return JSON.stringify(currentPayload) !== JSON.stringify(originalConfirmPayload.value);
+}
+
+async function savePendingTripDetailsIfNeeded() {
+    if (!hasUnsavedTripChanges()) {
+        return true;
+    }
+
+    toast.info('Saving trip details before changing status…');
+
+    const payload = await prepareSave();
+
+    if (!payload) {
+        toast.error('Please fix the errors below and click Update before changing trip status.');
+
+        return false;
+    }
+
+    try {
+        await executeSave(payload, { showToast: false });
+        toast.success('Trip details saved.');
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function handleFooterStatusChange(status) {
+    const saved = await savePendingTripDetailsIfNeeded();
+
+    if (!saved) {
+        return;
+    }
+
     tripFormRef.value?.changeStatus(status);
 }
 
@@ -336,7 +383,6 @@ async function loadTrip() {
 
         populateFromTrip(trip);
         savedExpenses.value = trip.expenses ?? [];
-        applyLegacyPartyLookups(trip, customers.value, brokers.value);
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? 'CREATED';
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
@@ -344,8 +390,8 @@ async function loadTrip() {
         vehicleExpectedMileage.value = trip.vehicle?.default_mileage_km_per_liter ?? '';
         snapshotDriverName.value = trip.driver?.name ?? '—';
         snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
-        snapshotCustomerName.value = trip.customer_name ?? '';
-        snapshotBrokerName.value = trip.broker_name ?? '';
+        snapshotCustomerName.value = trip.customer_id ? (trip.customer_name ?? '') : '';
+        snapshotBrokerName.value = trip.broker_id ? (trip.broker_name ?? '') : '';
         refreshOriginalConfirmPayload();
     } catch (error) {
         applyApiError(error, 'Failed to load trip.');
@@ -457,9 +503,8 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? snapshotVehicleLabel.value;
         snapshotDriverName.value = trip.driver?.name ?? snapshotDriverName.value;
         snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? snapshotSubstituteDriverName.value;
-        snapshotCustomerName.value = trip.customer_name ?? snapshotCustomerName.value;
-        snapshotBrokerName.value = trip.broker_name ?? snapshotBrokerName.value;
-        applyLegacyPartyLookups(trip, customers.value, brokers.value);
+        snapshotCustomerName.value = trip.customer_id ? (trip.customer_name ?? '') : '';
+        snapshotBrokerName.value = trip.broker_id ? (trip.broker_name ?? '') : '';
         refreshOriginalConfirmPayload();
         if (showToast) {
             toast.success(successMessage);
@@ -479,15 +524,48 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
 }
 
 async function handleStatusUpdated() {
-    const payload = await prepareSave();
-
-    if (!payload) {
+    if (!canManage.value) {
         return;
     }
 
-    await executeSave(payload, {
-        successMessage: `Trip marked as ${form.status === 'COMPLETED' ? 'completed' : form.status === 'CANCELLED' ? 'cancelled' : 'in progress'}.`,
+    const previousStatus = originalStatus.value;
+    clearErrors();
+
+    syncLegCustomersFromTrip();
+
+    const payload = buildStatusChangePayload();
+    const clientErrors = validateTripStatusChange(payload, {
+        tripType: form.trip_type,
+        routeLegs: form.route_legs,
+        startStationId: form.start_station_id,
+        previousStatus: originalStatus.value,
+        user: user.value,
+        startMeterReadingKm: form.start_meter_reading_km,
     });
+
+    if (Object.keys(clientErrors).length > 0) {
+        form.status = previousStatus;
+        fieldErrors.value = clientErrors;
+        tripFormError.value = 'Could not update trip status.';
+        toast.error(Object.values(clientErrors).flat()[0] ?? tripFormError.value);
+        scrollToFirstFormError();
+
+        return;
+    }
+
+    try {
+        await executeSave(payload, {
+            successMessage: `Trip marked as ${
+                form.status === 'COMPLETED'
+                    ? 'completed'
+                    : form.status === 'CANCELLED'
+                      ? 'cancelled'
+                      : 'in progress'
+            }.`,
+        });
+    } catch {
+        form.status = previousStatus;
+    }
 }
 
 function cancelSaveConfirm() {
