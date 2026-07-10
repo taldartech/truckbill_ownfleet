@@ -97,77 +97,6 @@
                         view-title="Reference details"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="filters.search.trim()" class="app-index-active-search__pill">
-                            {{ filters.search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="dateRangeFilterActive" class="app-index-active-search__pill">
-                            {{ activeDateRangeLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear date range filter"
-                                title="Clear date range"
-                                @click="clearDateRangeFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.status" class="app-index-active-search__pill">
-                            {{ activeStatusLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear status filter"
-                                title="Clear status"
-                                @click="clearStatusFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.trip_type" class="app-index-active-search__pill">
-                            {{ activeTripTypeLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear trip type filter"
-                                title="Clear trip type"
-                                @click="clearTripTypeFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.customer_id" class="app-index-active-search__pill">
-                            {{ activeCustomerLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear customer filter"
-                                title="Clear customer"
-                                @click="clearCustomerFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.broker_id" class="app-index-active-search__pill">
-                            {{ activeBrokerLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear reference filter"
-                                title="Clear reference"
-                                @click="clearBrokerFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -330,12 +259,6 @@ const tenantId = computed(
 
 const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
-const dateRangeFilterActive = computed(
-    () =>
-        !searchIgnoresDateRange.value &&
-        (filters.from_date !== defaultFilters.from_date || filters.to_date !== defaultFilters.to_date),
-);
-
 const filtersActive = computed(() => {
     return (
         filters.from_date !== defaultFilters.from_date ||
@@ -346,32 +269,6 @@ const filtersActive = computed(() => {
         filters.status !== '' ||
         filters.trip_type !== ''
     );
-});
-
-const activeDateRangeLabel = computed(() => `${filters.from_date} – ${filters.to_date}`);
-
-const activeStatusLabel = computed(() => {
-    const match = tripStatuses.find((option) => String(option.value) === String(filters.status));
-
-    return match?.label ?? 'Status';
-});
-
-const activeTripTypeLabel = computed(() => {
-    const match = tripTypes.find((option) => String(option.value) === String(filters.trip_type));
-
-    return match?.label ?? 'Trip type';
-});
-
-const activeCustomerLabel = computed(() => {
-    const match = customers.value.find((customer) => String(customer.id) === String(filters.customer_id));
-
-    return match?.name ?? 'Customer';
-});
-
-const activeBrokerLabel = computed(() => {
-    const match = brokers.value.find((broker) => String(broker.id) === String(filters.broker_id));
-
-    return match?.name ?? 'Reference';
 });
 
 function toggleFilters() {
@@ -456,45 +353,6 @@ function showRouteFlash() {
         toast.error('You do not have permission to view archived trips, or company context is missing.');
         router.replace({ query: buildTripArchivedListQuery(resolveTripArchivedListState(filterQuery, tenantId.value)) });
     }
-}
-
-function reloadFromFilters(page = 1) {
-    pagination.currentPage = page;
-    syncListStateToRoute();
-    loadTrips(page);
-}
-
-function clearSearchFilter() {
-    clearTimeout(searchDebounceTimer);
-    skipNextSearchWatch = true;
-    filters.search = '';
-    reloadFromFilters(1);
-}
-
-function clearDateRangeFilter() {
-    filters.from_date = defaultFilters.from_date;
-    filters.to_date = defaultFilters.to_date;
-    reloadFromFilters(1);
-}
-
-function clearStatusFilter() {
-    filters.status = '';
-    reloadFromFilters(1);
-}
-
-function clearTripTypeFilter() {
-    filters.trip_type = '';
-    reloadFromFilters(1);
-}
-
-function clearCustomerFilter() {
-    filters.customer_id = '';
-    reloadFromFilters(1);
-}
-
-function clearBrokerFilter() {
-    filters.broker_id = '';
-    reloadFromFilters(1);
 }
 
 function clearFilters() {

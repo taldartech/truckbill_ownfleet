@@ -59,7 +59,7 @@
             <div v-else class="select-trigger-chevron" aria-hidden="true">
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
             </div>
-            <div v-if="modelValue && !disabled" class="select-trigger-icons">
+            <div v-if="clearable && modelValue && !disabled" class="select-trigger-icons">
                 <button
                     type="button"
                     class="btn btn-link select-clear-btn"
@@ -167,6 +167,7 @@ const props = defineProps({
     editable: { type: Boolean, default: false },
     inputMode: { type: String, default: 'text' },
     maxLength: { type: Number, default: null },
+    clearable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['update:modelValue', 'blur']);

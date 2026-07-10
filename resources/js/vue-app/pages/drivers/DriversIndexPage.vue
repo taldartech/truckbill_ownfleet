@@ -40,22 +40,6 @@
                         @keydown.enter="loadDrivers(1)"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Searching:</span>
-                        <span class="app-index-active-search__pill">
-                            {{ searchQuery.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearFilters"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -260,8 +244,6 @@ const searchQuery = ref('');
 const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
-const filtersActive = computed(() => searchQuery.value.trim() !== '');
-
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
 }
@@ -391,7 +373,7 @@ async function confirmAdvanceSave() {
         toast.success('Advance entry saved.');
         finishAdvanceSaveConfirm();
         advanceModalRef.value?.resetForm?.();
-        await advanceModalRef.value?.loadLedger();
+        await advanceModalRef.value?.loadLedger(1);
     } catch (error) {
         finishAdvanceSaveConfirm();
 

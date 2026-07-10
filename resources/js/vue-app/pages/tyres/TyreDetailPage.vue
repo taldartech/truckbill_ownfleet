@@ -48,14 +48,14 @@
                 >
                     Regrip
                 </button>
-                <button
+               <!-- <button
                     v-if="tyre.status !== 'SCRAPPED'"
                     type="button"
                     class="btn btn-outline-info btn-sm"
                     @click="openInspection"
                 >
                     Inspect
-                </button>
+                </button> -->
                 <button
                     v-if="tyre.status !== 'SCRAPPED' && !tyre.active_installation"
                     type="button"
@@ -269,33 +269,11 @@
                         </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 120px">Date</th>
-                                    <th style="width: 100px">Type</th>
-                                    <th>Event</th>
-                                    <th>Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-if="filteredTimeline.length === 0">
-                                    <td colspan="4" class="text-center text-muted py-4">No history found.</td>
-                                </tr>
-                                <tr v-for="(event, i) in filteredTimeline" :key="`${event.sort_at}-${event.type}-${i}`">
-                                    <td class="text-nowrap">{{ formatEventParts(event).date }}</td>
-                                    <td>
-                                        <span class="badge" :class="historyTypeBadgeClass(event.type)">
-                                            {{ event.type_label || formatHistoryType(event.type) }}
-                                        </span>
-                                    </td>
-                                    <td class="fw-semibold">{{ event.title }}</td>
-                                    <td class="text-muted small">{{ event.detail }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <TyreHistoryTimeline
+                        :events="filteredTimeline"
+                        :type-badge-class="historyTypeBadgeClass"
+                        :format-history-type="formatHistoryType"
+                    />
                     <div v-if="filteredTimeline.length" class="small text-muted mt-2">
                         Showing {{ filteredTimeline.length }} of {{ timeline.length }} events · newest first
                     </div>
@@ -331,32 +309,37 @@
             <TyreActionContextStrip
                 class="mb-3"
                 :tyre-serial="tyre?.serial_number"
-                :truck-number="installContextTruckNumber"
-                :vehicle-id="actionForm.vehicle_id"
-                :position="installContextPosition"
-                :show-truck="!!actionForm.vehicle_id"
+                :show-truck="false"
             />
-            <TyreMasterReferenceStrip class="mb-3" :tyre="tyre" :life-summary="lifeSummary" />
-            <div class="mb-2">
-                <label class="form-label" for="installTyre_vehicle">Truck</label>
-                <VehicleSelect
-                    input-id="installTyre_vehicle"
-                    v-model="actionForm.vehicle_id"
-                    :vehicles="vehicles"
-                    placeholder="Select truck"
-                />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Position</label>
-                <AppSelect
-                    v-model="actionForm.position_code"
-                    :options="installPositionSelectOptions"
-                    :placeholder="loadingVehiclePositions ? 'Loading positions…' : 'Select truck first'"
-                    search-placeholder="Search position…"
-                    :disabled="!actionForm.vehicle_id || loadingVehiclePositions"
-                />
-                <div v-if="actionForm.vehicle_id && !loadingVehiclePositions" class="form-text">
-                    ● Free position · ○ Already has a tyre
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label" for="installTyre_vehicle">Truck *</label>
+                    <VehicleSelect
+                        input-id="installTyre_vehicle"
+                        v-model="actionForm.vehicle_id"
+                        :vehicles="vehicles"
+                        placeholder="Select truck"
+                        :clearable="false"
+                        :invalid="hasFieldError(fieldErrors, 'vehicle_id')"
+                        :error-message="fieldErrorMessage(fieldErrors, 'vehicle_id')"
+                    />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="installTyre_position">Position *</label>
+                    <AppSelect
+                        input-id="installTyre_position"
+                        v-model="actionForm.position_code"
+                        :options="installPositionSelectOptions"
+                        :placeholder="loadingVehiclePositions ? 'Loading positions…' : 'Select truck first'"
+                        search-placeholder="Search position…"
+                        :disabled="!actionForm.vehicle_id || loadingVehiclePositions"
+                        :clearable="false"
+                        :invalid="hasFieldError(fieldErrors, 'position_code')"
+                        :error-message="fieldErrorMessage(fieldErrors, 'position_code')"
+                    />
+                    <div v-if="actionForm.vehicle_id && !loadingVehiclePositions" class="form-text">
+                        ● Free position · ○ Already has a tyre
+                    </div>
                 </div>
             </div>
             <div v-if="lifeSummary" class="alert alert-info small py-2">
@@ -854,12 +837,12 @@ import { usePermissions } from '../../composables/usePermissions';
 import TyreActionModal from '../../components/tyres/TyreActionModal.vue';
 import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
 import TyreActionContextStrip from '../../components/tyres/TyreActionContextStrip.vue';
-import TyreMasterReferenceStrip from '../../components/tyres/TyreMasterReferenceStrip.vue';
+import TyreHistoryTimeline from '../../components/tyres/TyreHistoryTimeline.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
 import { fieldErrorMessage, hasFieldError } from '../../utils/formErrors';
 import { calculateTyreStintKm, resolveVehicleOdometer } from '../../utils/tyreStint';
-import { formatDate, formatEventParts, toDateInputValue } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
 import {
     formatDamageType,
     formatTyreStatus,
@@ -975,24 +958,6 @@ const installLifeLabel = computed(() => {
     const stockKm = lifeSummary.value?.stock_km ?? 0;
 
     return stockKm > 0 ? 'Used tyre' : 'New tyre';
-});
-
-const installContextTruckNumber = computed(() => {
-    if (!actionForm.vehicle_id) {
-        return '—';
-    }
-
-    const vehicle = vehicles.value.find((row) => row.id === actionForm.vehicle_id);
-
-    return vehicle?.registration_number ?? '—';
-});
-
-const installContextPosition = computed(() => {
-    if (!actionForm.position_code) {
-        return '';
-    }
-
-    return installPositionSelectOptions.value.find((option) => option.value === actionForm.position_code)?.label ?? '';
 });
 
 const actionConfirmSummary = computed(() => {

@@ -100,22 +100,6 @@
                             :disabled="dayOverviewLoading || dailySaving"
                         />
                     </div>
-                    <template v-if="dayFiltersActive" #active-filters>
-                        <div class="app-index-active-search">
-                            <span class="app-index-active-search__label">Date:</span>
-                            <span class="app-index-active-search__pill">
-                                {{ formatDate(dayDate) }}
-                                <button
-                                    type="button"
-                                    aria-label="Reset to today"
-                                    title="Reset to today"
-                                    @click="clearDayFilters"
-                                >
-                                    <i class="fas fa-times" aria-hidden="true"></i>
-                                </button>
-                            </span>
-                        </div>
-                    </template>
                 </AppIndexCollapsibleFilters>
 
                 <AttendanceDayPanel
@@ -181,22 +165,6 @@
                             :disabled="overviewLoading || tableLoading"
                         />
                     </div>
-                    <template v-if="listFiltersActive" #active-filters>
-                        <div class="app-index-active-search">
-                            <span class="app-index-active-search__label">Month:</span>
-                            <span class="app-index-active-search__pill">
-                                {{ monthLabel() }}
-                                <button
-                                    type="button"
-                                    aria-label="Clear month filter"
-                                    title="Clear month"
-                                    @click="clearListFilters"
-                                >
-                                    <i class="fas fa-times" aria-hidden="true"></i>
-                                </button>
-                            </span>
-                        </div>
-                    </template>
                 </AppIndexCollapsibleFilters>
 
                 <div class="month-overview-body px-2 py-2">
@@ -481,9 +449,6 @@ const detailFilters = reactive({
     status: '',
     wage_payment_status: '',
 });
-
-const listFiltersActive = computed(() => filters.month !== currentMonth());
-const dayFiltersActive = computed(() => dayDate.value !== today);
 
 const selectedTruckLabel = computed(() => {
     const vehicle = vehicles.value.find((item) => item.id === detailFilters.vehicle_id);

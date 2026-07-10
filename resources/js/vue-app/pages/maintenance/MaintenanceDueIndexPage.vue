@@ -75,22 +75,6 @@
                         :disabled="loading"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="filters.search.trim()" class="app-index-active-search__pill">
-                            {{ filters.search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -237,14 +221,6 @@ const overdueReasonOptions = MAINTENANCE_OVERDUE_REASON_FILTERS;
 
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
-const filtersActive = computed(
-    () =>
-        filters.search.trim() !== '' ||
-        filters.vehicle_id !== '' ||
-        filters.maintenance_service_type_id !== '' ||
-        filters.overdue_reason !== '',
-);
-
 const records = computed(() => {
     const start = (pagination.currentPage - 1) * pagination.perPage;
 
@@ -306,11 +282,6 @@ function syncClientPagination(total, page = 1) {
 function applyFilters() {
     pagination.currentPage = 1;
     loadRecords(1);
-}
-
-function clearSearchFilter() {
-    filters.search = '';
-    applyFilters();
 }
 
 function clearFilters() {

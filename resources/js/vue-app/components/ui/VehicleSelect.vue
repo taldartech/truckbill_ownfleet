@@ -10,6 +10,7 @@
         :disabled="disabled"
         :invalid="invalid"
         :error-message="errorMessage"
+        :clearable="clearable"
         @update:model-value="onModelValueUpdate"
     />
 </template>
@@ -30,6 +31,7 @@ const props = defineProps({
     invalid: { type: Boolean, default: false },
     errorMessage: { type: String, default: '' },
     attachDropdownToBody: { type: Boolean, default: true },
+    clearable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['update:modelValue', 'vehicle-selected']);

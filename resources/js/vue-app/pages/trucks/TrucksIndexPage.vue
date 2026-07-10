@@ -72,55 +72,6 @@
                         search-placeholder="Search…"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="filters.search.trim()" class="app-index-active-search__pill">
-                            {{ filters.search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.vehicle_type" class="app-index-active-search__pill">
-                            {{ activeVehicleTypeLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear truck type filter"
-                                title="Clear truck type"
-                                @click="clearVehicleTypeFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.status" class="app-index-active-search__pill">
-                            {{ activeStatusLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear status filter"
-                                title="Clear status"
-                                @click="clearStatusFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="filters.primary_driver" class="app-index-active-search__pill">
-                            {{ activePrimaryDriverLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear primary driver filter"
-                                title="Clear primary driver"
-                                @click="clearPrimaryDriverFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -417,24 +368,6 @@ const filtersActive = computed(() => {
     );
 });
 
-const activeVehicleTypeLabel = computed(() => {
-    const match = vehicleTypes.value.find((option) => option.value === filters.vehicle_type);
-
-    return match?.label ?? filters.vehicle_type;
-});
-
-const activeStatusLabel = computed(() => {
-    const match = truckStatusFilterOptions.find((option) => option.value === filters.status);
-
-    return match?.label ?? filters.status;
-});
-
-const activePrimaryDriverLabel = computed(() => {
-    const match = primaryDriverFilterOptions.find((option) => option.value === filters.primary_driver);
-
-    return match?.label ?? filters.primary_driver;
-});
-
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
 }
@@ -503,26 +436,6 @@ function goToPage(page) {
 
 function clearFilters() {
     Object.assign(filters, defaultVehicleListFilters());
-    loadVehicles(1);
-}
-
-function clearSearchFilter() {
-    filters.search = defaultFilters.search;
-    loadVehicles(1);
-}
-
-function clearVehicleTypeFilter() {
-    filters.vehicle_type = defaultFilters.vehicle_type;
-    loadVehicles(1);
-}
-
-function clearStatusFilter() {
-    filters.status = defaultFilters.status;
-    loadVehicles(1);
-}
-
-function clearPrimaryDriverFilter() {
-    filters.primary_driver = defaultFilters.primary_driver;
     loadVehicles(1);
 }
 

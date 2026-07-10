@@ -67,22 +67,6 @@
                         @keydown.enter="loadStates(1)"
                     />
                 </div>
-                <template v-if="stateFiltersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Searching:</span>
-                        <span class="app-index-active-search__pill">
-                            {{ stateSearch.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearStateFilters"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -176,33 +160,6 @@
                         @keydown.enter="loadCities(1)"
                     />
                 </div>
-                <template v-if="cityFiltersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="cityStateFilter" class="app-index-active-search__pill">
-                            {{ activeCityStateLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear state filter"
-                                title="Clear state"
-                                @click="clearCityStateFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="citySearch.trim()" class="app-index-active-search__pill">
-                            {{ citySearch.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearCitySearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -374,24 +331,6 @@ const cityCreateStateId = ref('');
 const { pagination: statePagination, syncFromMeta: syncStatePagination } = useListPagination(10);
 const { pagination: cityPagination, syncFromMeta: syncCityPagination } = useListPagination(10);
 
-const stateFiltersActive = computed(() => stateSearch.value.trim() !== '');
-
-const cityFiltersActive = computed(
-    () => citySearch.value.trim() !== '' || cityStateFilter.value !== '',
-);
-
-const activeCityStateLabel = computed(() => {
-    if (!cityStateFilter.value) {
-        return '';
-    }
-
-    const match = stateOptions.value.find(
-        (state) => String(state.id) === String(cityStateFilter.value),
-    );
-
-    return match?.name ?? '';
-});
-
 function toggleStateFilters() {
     stateFiltersOpen.value = !stateFiltersOpen.value;
 }
@@ -409,18 +348,6 @@ function clearStateFilters() {
 function clearCityFilters() {
     citySearch.value = '';
     cityStateFilter.value = '';
-    cityPagination.currentPage = 1;
-    loadCities(1);
-}
-
-function clearCityStateFilter() {
-    cityStateFilter.value = '';
-    cityPagination.currentPage = 1;
-    loadCities(1);
-}
-
-function clearCitySearchFilter() {
-    citySearch.value = '';
     cityPagination.currentPage = 1;
     loadCities(1);
 }

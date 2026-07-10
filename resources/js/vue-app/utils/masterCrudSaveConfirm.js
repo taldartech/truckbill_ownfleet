@@ -313,17 +313,17 @@ export function buildTyreLayoutFields(payload, original, { layoutTypeLabel }) {
 
     if (payload.layout_type === 'standard') {
         fields.push(
-            { label: 'Steer Axles', value: payload.steer_axles, previousValue: original?.steer_axles },
-            { label: 'Spare Count', value: payload.spare_count, previousValue: original?.spare_count },
+            { label: 'Front Steering Axles', value: payload.steer_axles, previousValue: original?.steer_axles },
+            { label: 'Spare Tyres', value: payload.spare_count, previousValue: original?.spare_count },
             {
-                label: 'Dual Axles',
+                label: 'Dual Wheel Axles',
                 value: Array.isArray(payload.dual_axles) ? payload.dual_axles.join(', ') : payload.dual_axles,
                 previousValue: Array.isArray(original?.dual_axles)
                     ? original.dual_axles.join(', ')
                     : original?.dual_axles,
             },
             {
-                label: 'Single Axles',
+                label: 'Single Wheel Axles',
                 value: Array.isArray(payload.single_axles) ? payload.single_axles.join(', ') : payload.single_axles,
                 previousValue: Array.isArray(original?.single_axles)
                     ? original.single_axles.join(', ')

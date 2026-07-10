@@ -43,22 +43,6 @@
                         @keydown.enter="loadLayouts(1)"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Searching:</span>
-                        <span class="app-index-active-search__pill">
-                            {{ search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearFilters"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -131,19 +115,23 @@
             :form-error="formError"
             as-form
             size="lg"
+            content-class="tyre-layout-form-modal__content"
+            body-class="tyre-layout-form-modal__body"
+            footer-class="tyre-layout-form-modal__footer"
             @close="closeModal"
             @submit="save"
         >
             <template #title>{{ editing ? 'Edit Tyre Layout' : 'Add Tyre Layout' }}</template>
 
-            <div class="row g-3">
+            <div class="row g-2">
                 <div class="col-md-8">
-                    <label class="form-label">Name *</label>
+                    <label class="form-label">Layout name *</label>
                     <input
                         v-model="form.name"
                         type="text"
-                        class="form-control"
+                        class="form-control form-control-sm"
                         :class="{ 'is-invalid': fieldErrors.name }"
+                        placeholder="e.g. 10 Tyre Standard Truck"
                         required
                     />
                     <div v-if="fieldErrors.name" class="invalid-feedback d-block">
@@ -155,7 +143,7 @@
                     <input
                         v-model="form.code"
                         type="text"
-                        class="form-control"
+                        class="form-control form-control-sm"
                         :class="{ 'is-invalid': fieldErrors.code }"
                         placeholder="Auto from name"
                     />
@@ -163,21 +151,29 @@
                         {{ fieldErrors.code[0] }}
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Layout type *</label>
+                <div :class="form.layout_type === 'standard' ? 'col-md-5' : 'col-md-10'">
+                    <label class="form-label">Vehicle type *</label>
                     <AppSelect
                         v-model="form.layout_type"
                         :options="layoutTypeSelectOptions"
-                        placeholder="Select layout type"
+                        placeholder="Select vehicle type"
                         search-placeholder="Search type…"
                     />
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Sort order</label>
-                    <input v-model.number="form.sort_order" v-no-scroll-change type="number" min="0" class="form-control" />
+                <div v-if="form.layout_type === 'standard'" class="col-md-5">
+                    <label class="form-label" for="tyreLayoutPreset">Quick start template</label>
+                    <AppSelect
+                        input-id="tyreLayoutPreset"
+                        v-model="selectedPreset"
+                        :options="presetSelectOptions"
+                        placeholder="Choose a common layout…"
+                        search-placeholder="Search template…"
+                        :clearable="false"
+                        @change="applyPreset"
+                    />
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <div class="form-check">
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check mb-1">
                         <input id="layoutActive" v-model="form.is_active" class="form-check-input" type="checkbox" />
                         <label class="form-check-label" for="layoutActive">Active</label>
                     </div>
@@ -185,46 +181,54 @@
             </div>
 
             <template v-if="form.layout_type === 'standard'">
-                <hr />
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Steer axles</label>
-                        <input v-model.number="form.steer_axles" v-no-scroll-change type="number" min="0" max="2" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Spare count</label>
-                        <input v-model.number="form.spare_count" v-no-scroll-change type="number" min="0" max="10" class="form-control" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Dual axles</label>
-                        <input
-                            v-model="form.dual_axles_text"
-                            type="text"
-                            class="form-control"
-                            placeholder="e.g. 1, 2, 3"
-                        />
-                        <div class="form-text">Comma-separated axle numbers with inner+outer wheels.</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Single-wheel axles</label>
-                        <input
-                            v-model="form.single_axles_text"
-                            type="text"
-                            class="form-control"
-                            placeholder="e.g. 1"
-                        />
-                        <div class="form-text">For small trucks — one tyre per side per axle.</div>
-                    </div>
-                </div>
+                <TyreLayoutAxleFields v-model="form.axle_config" class="tyre-layout-form-modal__axle-fields" />
             </template>
 
-            <div class="alert alert-info py-2 mt-3 mb-0 small">
-                Total positions: <strong>{{ previewCount }}</strong>
+            <div
+                v-else-if="form.layout_type === 'legacy_dual_rear'"
+                class="alert alert-secondary py-2 mt-2 mb-0 small"
+            >
+                Fixed layout: front left + front right, dual rear axle (4 wheels), and 1 spare — 7 positions total.
+            </div>
+
+            <div v-show="showAdvanced" class="tyre-layout-form-modal__advanced mt-2">
+                <label class="form-label" for="layoutSortOrder">Sort order</label>
+                <input
+                    id="layoutSortOrder"
+                    v-model.number="form.sort_order"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    class="form-control form-control-sm"
+                    style="max-width: 8rem"
+                />
             </div>
 
             <template #footer>
-                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
-                <AppButton type="submit" label="Save" :loading="saving" />
+                <div class="tyre-layout-form-modal__footer-inner">
+                    <span class="tyre-layout-form-modal__total">
+                        Total: <strong>{{ previewCount }}</strong> positions
+                    </span>
+                    <button
+                        type="button"
+                        class="btn btn-link btn-sm text-muted p-0 text-decoration-none tyre-layout-form-modal__advanced-toggle"
+                        :aria-expanded="showAdvanced"
+                        @click="showAdvanced = !showAdvanced"
+                    >
+                        <i
+                            class="fas fa-chevron-right me-1 small tyre-layout-advanced-chevron"
+                            :class="{ 'tyre-layout-advanced-chevron--open': showAdvanced }"
+                            aria-hidden="true"
+                        ></i>
+                        Advanced
+                    </button>
+                    <div class="tyre-layout-form-modal__footer-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" :disabled="saving" @click="closeModal">
+                            Cancel
+                        </button>
+                        <AppButton type="submit" label="Save" :loading="saving" />
+                    </div>
+                </div>
             </template>
         </AppModal>
 
@@ -239,16 +243,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
     computePositionCount,
     createTyreLayout,
     deleteTyreLayout,
-    formatAxleList,
     listTyreLayouts,
-    parseAxleList,
     updateTyreLayout,
 } from '../../api/tyreLayouts';
+import TyreLayoutAxleFields from '../../components/tyre-layouts/TyreLayoutAxleFields.vue';
 import AppModal from '../../components/ui/AppModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -265,6 +268,15 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildTyreLayoutFields } from '../../utils/masterCrudSaveConfirm';
+import {
+    LAYOUT_TYPE_OPTIONS,
+    TYRE_LAYOUT_PRESETS,
+    axleConfigFromPayload,
+    emptyAxleConfig,
+    findMatchingPresetId,
+    layoutTypeLabel,
+    payloadFromAxleConfig,
+} from '../../utils/tyreLayoutForm';
 
 const toast = useAppToast();
 const {
@@ -286,18 +298,44 @@ const saving = ref(false);
 const search = ref('');
 const filtersOpen = ref(false);
 const showModal = ref(false);
+const showAdvanced = ref(false);
 const editing = ref(null);
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 const form = ref(emptyForm());
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
-const filtersActive = computed(() => search.value.trim() !== '');
+const layoutTypeSelectOptions = LAYOUT_TYPE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+}));
 
-const layoutTypeSelectOptions = [
-    { value: 'standard', label: 'Standard (steer + axles + spares)' },
-    { value: 'legacy_dual_rear', label: 'Legacy (front + dual rear + 1 spare)' },
-];
+const presetSelectOptions = TYRE_LAYOUT_PRESETS.map((preset) => ({
+    value: preset.id,
+    label: preset.label,
+}));
+
+const selectedPreset = ref('');
+
+watch(
+    () => form.value.axle_config,
+    (config) => {
+        if (form.value.layout_type === 'standard') {
+            selectedPreset.value = findMatchingPresetId(config);
+        }
+    },
+    { deep: true },
+);
+
+function applyPreset(presetId) {
+    const preset = TYRE_LAYOUT_PRESETS.find((entry) => entry.id === presetId);
+
+    if (!preset?.config) {
+        return;
+    }
+
+    form.value.axle_config = { ...preset.config };
+}
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
@@ -314,38 +352,32 @@ function emptyForm() {
         name: '',
         code: '',
         layout_type: 'standard',
-        steer_axles: 1,
-        spare_count: 0,
-        dual_axles_text: '1, 2',
-        single_axles_text: '',
+        axle_config: emptyAxleConfig(),
         sort_order: 0,
         is_active: true,
     };
 }
 
-function layoutTypeLabel(type) {
-    return type === 'legacy_dual_rear' ? 'Legacy' : 'Standard';
-}
+const previewCount = computed(() => {
+    if (form.value.layout_type !== 'standard') {
+        return computePositionCount({ layout_type: form.value.layout_type });
+    }
 
-const previewCount = computed(() =>
-    computePositionCount({
-        layout_type: form.value.layout_type,
-        steer_axles: form.value.steer_axles,
-        dual_axles: parseAxleList(form.value.dual_axles_text),
-        single_axles: parseAxleList(form.value.single_axles_text),
-        spare_count: form.value.spare_count,
-    }),
-);
+    return computePositionCount({
+        layout_type: 'standard',
+        ...payloadFromAxleConfig(form.value.axle_config),
+    });
+});
 
 function fillForm(layout) {
     form.value = {
         name: layout.name,
         code: layout.code,
         layout_type: layout.layout_type,
-        steer_axles: layout.steer_axles,
-        spare_count: layout.spare_count,
-        dual_axles_text: formatAxleList(layout.dual_axles),
-        single_axles_text: formatAxleList(layout.single_axles),
+        axle_config:
+            layout.layout_type === 'standard'
+                ? axleConfigFromPayload(layout)
+                : emptyAxleConfig(),
         sort_order: layout.sort_order,
         is_active: layout.is_active,
     };
@@ -389,6 +421,8 @@ function goToPage(page) {
 function openCreate() {
     editing.value = null;
     form.value = emptyForm();
+    selectedPreset.value = findMatchingPresetId(form.value.axle_config);
+    showAdvanced.value = false;
     clearErrors();
     showModal.value = true;
 }
@@ -396,6 +430,9 @@ function openCreate() {
 function openEdit(layout) {
     editing.value = layout;
     fillForm(layout);
+    selectedPreset.value =
+        layout.layout_type === 'standard' ? findMatchingPresetId(form.value.axle_config) : '';
+    showAdvanced.value = layout.sort_order > 0;
     clearErrors();
     showModal.value = true;
 }
@@ -418,10 +455,7 @@ function buildPayload() {
     }
 
     if (form.value.layout_type === 'standard') {
-        payload.steer_axles = form.value.steer_axles;
-        payload.spare_count = form.value.spare_count;
-        payload.dual_axles = parseAxleList(form.value.dual_axles_text);
-        payload.single_axles = parseAxleList(form.value.single_axles_text);
+        Object.assign(payload, payloadFromAxleConfig(form.value.axle_config));
     }
 
     return payload;
@@ -507,3 +541,80 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+:deep(.app-modal:has(.tyre-layout-form-modal__content)) {
+    max-width: 820px;
+    max-height: none;
+}
+
+:deep(.app-modal:has(.tyre-layout-form-modal__content) .app-modal__content) {
+    max-height: none;
+}
+
+.tyre-layout-form-modal__body {
+    overflow: visible;
+    padding: 0.65rem 1rem;
+}
+
+.tyre-layout-form-modal__axle-fields {
+    margin-top: 0.5rem;
+}
+
+.tyre-layout-form-modal__footer {
+    flex-shrink: 0;
+    padding: 0.55rem 1rem;
+    border-top: 1px solid #dee2e6;
+    background: #fff;
+}
+
+.tyre-layout-form-modal__footer-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.tyre-layout-form-modal__total {
+    font-size: 0.875rem;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.tyre-layout-form-modal__total strong {
+    color: #0f172a;
+    font-size: 1rem;
+}
+
+.tyre-layout-form-modal__advanced-toggle {
+    white-space: nowrap;
+}
+
+.tyre-layout-form-modal__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+}
+
+.tyre-layout-advanced-chevron {
+    transition: transform 0.15s ease;
+}
+
+.tyre-layout-advanced-chevron--open {
+    transform: rotate(90deg);
+}
+
+@media (max-width: 575.98px) {
+    .tyre-layout-form-modal__footer-inner {
+        gap: 0.5rem;
+    }
+
+    .tyre-layout-form-modal__footer-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+    }
+}
+</style>

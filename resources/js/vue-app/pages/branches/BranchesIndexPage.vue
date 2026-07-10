@@ -51,33 +51,6 @@
                         :disabled="loading"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="searchQuery.trim()" class="app-index-active-search__pill">
-                            {{ searchQuery.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="companyFilter" class="app-index-active-search__pill">
-                            {{ activeCompanyLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear company filter"
-                                title="Clear company"
-                                @click="clearCompanyFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -255,12 +228,6 @@ const filtersActive = computed(
     () => searchQuery.value.trim() !== '' || companyFilter.value !== '',
 );
 
-const activeCompanyLabel = computed(() => {
-    const match = companySelectOptions.value.find((option) => String(option.id) === String(companyFilter.value));
-
-    return match?.label ?? 'Company';
-});
-
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
 }
@@ -297,18 +264,6 @@ async function loadBranches(page = pagination.currentPage) {
     } finally {
         loading.value = false;
     }
-}
-
-function clearSearchFilter() {
-    searchQuery.value = '';
-    pagination.currentPage = 1;
-    loadBranches(1);
-}
-
-function clearCompanyFilter() {
-    companyFilter.value = '';
-    pagination.currentPage = 1;
-    loadBranches(1);
 }
 
 function clearFilters() {

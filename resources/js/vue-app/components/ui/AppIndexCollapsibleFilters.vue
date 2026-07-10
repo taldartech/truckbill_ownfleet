@@ -24,7 +24,6 @@
                     Reset
                 </button>
             </div>
-            <slot name="active-filters" />
         </div>
     </div>
 </template>

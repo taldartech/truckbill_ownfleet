@@ -9,19 +9,21 @@ use App\Http\Requests\StoreDriverAdvanceEntryRequest;
 use App\Http\Resources\DriverAdvanceEntryResource;
 use App\Support\CurrentTenant;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DriverAdvanceController extends Controller
 {
-    public function ledger(Driver $driver): JsonResponse
+    public function ledger(Request $request, Driver $driver): JsonResponse
     {
         $this->authorize('viewAdvances', $driver);
+
+        $perPage = min(max((int) $request->input('per_page', 5), 1), 50);
 
         $entries = DriverAdvanceEntry::query()
             ->where('driver_id', $driver->id)
             ->orderByDesc('entry_date')
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+            ->paginate($perPage);
 
         return response()->json([
             'data' => [
@@ -29,6 +31,14 @@ class DriverAdvanceController extends Controller
                 'driver_name' => $driver->name,
                 'balance' => DriverAdvanceEntry::balanceFor($driver),
                 'entries' => DriverAdvanceEntryResource::collection($entries),
+                'meta' => [
+                    'current_page' => $entries->currentPage(),
+                    'per_page' => $entries->perPage(),
+                    'last_page' => $entries->lastPage(),
+                    'total' => $entries->total(),
+                    'from' => $entries->firstItem() ?? 0,
+                    'to' => $entries->lastItem() ?? 0,
+                ],
             ],
         ]);
     }

@@ -39,22 +39,6 @@
                         @keydown.enter="loadStations(1)"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Searching:</span>
-                        <span class="app-index-active-search__pill">
-                            {{ search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearFilters"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -215,8 +199,6 @@ const showModal = ref(false);
 const editing = ref(null);
 const form = reactive({ name: '' });
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
-
-const filtersActive = computed(() => search.value.trim() !== '');
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;

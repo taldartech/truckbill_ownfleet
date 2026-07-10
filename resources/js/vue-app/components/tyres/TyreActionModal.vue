@@ -5,7 +5,6 @@
         :form-error="formError"
         :loading="saving"
         as-form
-        body-class="app-modal__body--overflow-visible"
         @close="$emit('close')"
         @submit="$emit('submit')"
     >

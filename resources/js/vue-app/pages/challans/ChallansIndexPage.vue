@@ -49,33 +49,6 @@
                         :disabled="loading"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="searchQuery.trim()" class="app-index-active-search__pill">
-                            {{ searchQuery.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="statusFilter" class="app-index-active-search__pill">
-                            {{ activeStatusLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear status filter"
-                                title="Clear status"
-                                @click="clearStatusFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -221,26 +194,8 @@ const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(1
 
 const filtersActive = computed(() => searchQuery.value.trim() !== '' || statusFilter.value !== '');
 
-const activeStatusLabel = computed(() => {
-    const match = challanStatusOptions.find((option) => option.value === statusFilter.value);
-
-    return match?.label ?? statusFilter.value;
-});
-
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
-}
-
-function clearSearchFilter() {
-    searchQuery.value = '';
-    pagination.currentPage = 1;
-    loadChallans(1);
-}
-
-function clearStatusFilter() {
-    statusFilter.value = '';
-    pagination.currentPage = 1;
-    loadChallans(1);
 }
 
 function clearFilters() {

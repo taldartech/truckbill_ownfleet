@@ -50,70 +50,17 @@
                             <form class="row g-3" @submit.prevent="saveAssignment">
                                 <div class="col-md-6">
                                     <label class="form-label" for="assign_driver_id">Driver *</label>
-                                    <div
-                                        ref="driverPickerRef"
-                                        class="driver-picker"
-                                        :class="{ 'is-invalid-picker': hasFieldError(fieldErrors, 'driver_id') }"
-                                    >
-                                        <div class="driver-trigger-wrap">
-                                            <button
-                                                id="assign_driver_id"
-                                                type="button"
-                                                class="form-select text-start driver-trigger"
-                                                @click="toggleDriverDropdown"
-                                            >
-                                                {{ selectedDriverLabel }}
-                                            </button>
-                                            <div v-if="assignForm.driver_id" class="driver-trigger-icons">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-link driver-clear-btn"
-                                                    title="Clear selected driver"
-                                                    @click.stop="clearSelectedDriver"
-                                                >
-                                                    <i class="bi bi-x-circle-fill"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div v-if="isDriverDropdownOpen" class="driver-dropdown-menu shadow-sm">
-                                            <div class="driver-search-wrap">
-                                                <input
-                                                    v-model.trim="driverSearch"
-                                                    type="text"
-                                                    class="form-control form-control-sm driver-search-input"
-                                                    placeholder="Search driver by name or mobile"
-                                                />
-                                            </div>
-                                            <div class="driver-list-scroll">
-                                                <button
-                                                    v-for="driver in filteredDrivers"
-                                                    :key="driver.id"
-                                                    type="button"
-                                                    class="dropdown-item driver-option"
-                                                    @click="selectDriver(driver)"
-                                                >
-                                                    {{ driver.name }}
-                                                    <template v-if="driver.phone"> — {{ driver.phone }}</template>
-                                                    <span
-                                                        v-if="driver.joining_date"
-                                                        class="text-muted small d-block"
-                                                    >
-                                                        Joined {{ formatJoiningDate(driver.joining_date) }}
-                                                    </span>
-                                                </button>
-                                                <div v-if="filteredDrivers.length === 0" class="px-3 py-2 text-muted small">
-                                                    No unassigned driver found.
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <input v-model="assignForm.driver_id" type="hidden" required />
-                                    <div
-                                        v-if="fieldErrorMessage(fieldErrors, 'driver_id')"
-                                        class="invalid-feedback d-block"
-                                    >
-                                        {{ fieldErrorMessage(fieldErrors, 'driver_id') }}
-                                    </div>
+                                    <SearchableSelect
+                                        input-id="assign_driver_id"
+                                        v-model="assignForm.driver_id"
+                                        :items="driverSelectOptions"
+                                        placeholder="Select driver"
+                                        search-placeholder="Search driver by name or mobile"
+                                        empty-message="No unassigned driver found."
+                                        :invalid="hasFieldError(fieldErrors, 'driver_id')"
+                                        :error-message="fieldErrorMessage(fieldErrors, 'driver_id')"
+                                        :plain="false"
+                                    />
                                 </div>
                                 <div :class="editingClosedAssignment ? 'col-md-4' : 'col-md-6'">
                                     <label class="form-label" for="assign_from">Effective From *</label>
@@ -170,7 +117,7 @@
                                         before the new effective date.
                                     </p>
                                 </div>
-                                <div class="col-12">
+                                <div class="col-12 d-flex justify-content-end">
                                     <AppButton
                                         type="submit"
                                         icon="bi bi-check-lg"
@@ -244,7 +191,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { listAllDrivers } from '../../api/drivers';
 import {
     createDriverAssignment,
@@ -261,6 +208,7 @@ import AppButton from '../ui/AppButton.vue';
 import AppCrudActionButton from '../ui/AppCrudActionButton.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppTableActions from '../ui/AppTableActions.vue';
+import SearchableSelect from '../ui/SearchableSelect.vue';
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
@@ -286,10 +234,7 @@ const primarySummary = ref({
 });
 const drivers = ref([]);
 const vehicleLabel = ref('');
-const driverSearch = ref('');
 const activePrimaryByDriver = ref({});
-const isDriverDropdownOpen = ref(false);
-const driverPickerRef = ref(null);
 const assignedFromClientError = ref('');
 
 const assignForm = ref({
@@ -336,40 +281,20 @@ const selectableDrivers = computed(() => {
     );
 });
 
-const filteredDrivers = computed(() => {
-    const query = driverSearch.value.toLowerCase();
-
-    if (!query) {
-        return selectableDrivers.value;
-    }
-
-    return selectableDrivers.value.filter((driver) => {
-        const name = String(driver.name ?? '').toLowerCase();
-        const phone = String(driver.phone ?? '').toLowerCase();
-
-        return name.includes(query) || phone.includes(query);
-    });
-});
-
 const selectedDriver = computed(
     () => drivers.value.find((driver) => driver.id === assignForm.value.driver_id) ?? null,
 );
 
 const minimumAssignedFrom = computed(() => selectedDriver.value?.joining_date ?? undefined);
 
-const selectedDriverLabel = computed(() => {
-    if (!assignForm.value.driver_id) {
-        return 'Select driver';
-    }
-
-    const selected = selectableDrivers.value.find((driver) => driver.id === assignForm.value.driver_id);
-
-    if (!selected) {
-        return 'Select driver';
-    }
-
-    return `${selected.name}${selected.phone ? ` — ${selected.phone}` : ''}`;
-});
+const driverSelectOptions = computed(() =>
+    selectableDrivers.value.map((driver) => ({
+        id: driver.id,
+        label: `${driver.name}${driver.phone ? ` — ${driver.phone}` : ''}`,
+        hint: driver.joining_date ? `Joined ${formatJoiningDate(driver.joining_date)}` : '',
+        searchText: `${driver.name} ${driver.phone ?? ''}`.trim(),
+    })),
+);
 
 function formatJoiningDate(value) {
     return formatDate(value, value ?? '—');
@@ -501,8 +426,6 @@ function resetAssignForm() {
 }
 
 function cancelEdit() {
-    driverSearch.value = '';
-    isDriverDropdownOpen.value = false;
     assignedFromClientError.value = '';
     clearErrors();
     resetAssignForm();
@@ -521,34 +444,6 @@ function startEdit(row) {
         assigned_from: row.assigned_from ?? '',
         assigned_to: row.assigned_to ?? '',
     };
-    driverSearch.value = '';
-    isDriverDropdownOpen.value = false;
-}
-
-function toggleDriverDropdown() {
-    isDriverDropdownOpen.value = !isDriverDropdownOpen.value;
-}
-
-function selectDriver(driver) {
-    assignForm.value.driver_id = driver.id;
-    assignedFromClientError.value = '';
-
-    if (driver.joining_date && assignForm.value.assigned_from < driver.joining_date) {
-        assignForm.value.assigned_from = driver.joining_date;
-    }
-
-    isDriverDropdownOpen.value = false;
-}
-
-function clearSelectedDriver() {
-    assignForm.value.driver_id = '';
-    driverSearch.value = '';
-}
-
-function handleClickOutside(event) {
-    if (driverPickerRef.value && !driverPickerRef.value.contains(event.target)) {
-        isDriverDropdownOpen.value = false;
-    }
 }
 
 async function refreshAssignmentState() {
@@ -562,8 +457,6 @@ watch(
         if (visible) {
             clearErrors();
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
-            driverSearch.value = '';
-            isDriverDropdownOpen.value = false;
             await loadPrimaryAssignment();
             resetAssignForm();
             await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
@@ -571,13 +464,21 @@ watch(
     },
 );
 
-onMounted(() => {
-    document.addEventListener('click', handleClickOutside);
-});
+watch(
+    () => assignForm.value.driver_id,
+    (driverId) => {
+        if (!driverId) {
+            return;
+        }
 
-onBeforeUnmount(() => {
-    document.removeEventListener('click', handleClickOutside);
-});
+        assignedFromClientError.value = '';
+        const driver = drivers.value.find((item) => item.id === driverId);
+
+        if (driver?.joining_date && assignForm.value.assigned_from < driver.joining_date) {
+            assignForm.value.assigned_from = driver.joining_date;
+        }
+    },
+);
 
 function close() {
     emit('close');
@@ -619,7 +520,6 @@ async function saveAssignment() {
             await createDriverAssignment(payload);
         }
 
-        driverSearch.value = '';
         clearErrors();
         resetAssignForm();
         await refreshAssignmentState();
@@ -702,90 +602,3 @@ async function removePrimaryDriver() {
     }
 }
 </script>
-
-<style scoped>
-.driver-picker {
-    position: relative;
-}
-
-.is-invalid-picker .driver-trigger {
-    border-color: #dc3545;
-}
-
-.driver-trigger {
-    padding-right: 2.4rem;
-}
-
-.driver-trigger-wrap:has(.driver-trigger-icons) .driver-trigger {
-    padding-right: 3.6rem;
-}
-
-.driver-trigger-wrap {
-    position: relative;
-}
-
-.driver-trigger-icons {
-    position: absolute;
-    top: 0;
-    right: 2rem;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    pointer-events: none;
-}
-
-.driver-clear-btn {
-    position: static;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: auto;
-    color: #6c757d;
-    text-decoration: none;
-    padding: 0;
-    line-height: 1;
-    border: none;
-}
-
-.driver-clear-btn:hover,
-.driver-clear-btn:focus {
-    color: #dc3545;
-    text-decoration: none;
-}
-
-.driver-dropdown-menu {
-    position: absolute;
-    z-index: 1060;
-    width: 100%;
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    margin-top: 0.45rem;
-}
-
-.driver-search-wrap {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #fff;
-    padding: 0.55rem;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.driver-search-input {
-    height: 2rem;
-}
-
-.driver-list-scroll {
-    max-height: 220px;
-    overflow-y: auto;
-    padding: 0.2rem 0;
-}
-
-.driver-option {
-    white-space: normal;
-    line-height: 1.25;
-    padding-top: 0.4rem;
-    padding-bottom: 0.4rem;
-}
-</style>

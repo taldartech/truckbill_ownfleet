@@ -71,44 +71,6 @@
                         :disabled="loading"
                     />
                 </div>
-                <template v-if="filtersActive" #active-filters>
-                    <div class="app-index-active-search">
-                        <span class="app-index-active-search__label">Filtering:</span>
-                        <span v-if="search.trim()" class="app-index-active-search__pill">
-                            {{ search.trim() }}
-                            <button
-                                type="button"
-                                aria-label="Clear search filter"
-                                title="Clear search"
-                                @click="clearSearchFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="statusFilter" class="app-index-active-search__pill">
-                            {{ activeStatusLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear status filter"
-                                title="Clear status"
-                                @click="clearStatusFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                        <span v-if="truckFilterApplicable && vehicleFilter" class="app-index-active-search__pill">
-                            {{ activeVehicleLabel }}
-                            <button
-                                type="button"
-                                aria-label="Clear truck filter"
-                                title="Clear truck"
-                                @click="clearVehicleFilter"
-                            >
-                                <i class="fas fa-times" aria-hidden="true"></i>
-                            </button>
-                        </span>
-                    </div>
-                </template>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
@@ -576,18 +538,6 @@ const filtersActive = computed(
     () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
 );
 
-const activeStatusLabel = computed(() => {
-    const match = tyreStatuses.find((option) => option.value === statusFilter.value);
-
-    return match?.label ?? formatTyreStatus(statusFilter.value);
-});
-
-const activeVehicleLabel = computed(() => {
-    const match = vehicles.value.find((vehicle) => String(vehicle.id) === String(vehicleFilter.value));
-
-    return match?.registration_number ?? 'Selected truck';
-});
-
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
 }
@@ -657,30 +607,6 @@ function clearFilters() {
     syncFromMeta({}, 0);
     pagination.currentPage = 1;
     syncVehicleQuery();
-}
-
-function clearSearchFilter() {
-    search.value = '';
-
-    if (filtersApplied.value) {
-        applyFilters();
-    }
-}
-
-function clearStatusFilter() {
-    statusFilter.value = '';
-
-    if (filtersApplied.value) {
-        applyFilters();
-    }
-}
-
-function clearVehicleFilter() {
-    vehicleFilter.value = '';
-
-    if (filtersApplied.value) {
-        applyFilters();
-    }
 }
 
 function syncVehicleQuery() {

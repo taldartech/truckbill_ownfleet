@@ -67,6 +67,41 @@ class DriverAdvanceLedgerTest extends TestCase
         $ledger->assertOk();
         $ledger->assertJsonPath('data.balance', 8000);
         $ledger->assertJsonCount(2, 'data.entries');
+        $ledger->assertJsonPath('data.meta.per_page', 5);
+        $ledger->assertJsonPath('data.meta.total', 2);
+    }
+
+    public function test_ledger_paginates_entries_five_per_page(): void
+    {
+        [$tenant, $user, $driver] = $this->seedDriverContext();
+
+        Sanctum::actingAs($user);
+
+        for ($day = 1; $day <= 7; $day++) {
+            $this->withHeader('X-Tenant-Id', $tenant->id)
+                ->postJson("/api/drivers/{$driver->id}/advance-entries", [
+                    'entry_type' => 'dr',
+                    'amount' => 100 * $day,
+                    'entry_date' => sprintf('2026-06-%02d', $day),
+                ])
+                ->assertCreated();
+        }
+
+        $pageOne = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/drivers/{$driver->id}/advance-ledger?page=1");
+
+        $pageOne->assertOk();
+        $pageOne->assertJsonCount(5, 'data.entries');
+        $pageOne->assertJsonPath('data.meta.current_page', 1);
+        $pageOne->assertJsonPath('data.meta.last_page', 2);
+        $pageOne->assertJsonPath('data.meta.total', 7);
+
+        $pageTwo = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/api/drivers/{$driver->id}/advance-ledger?page=2");
+
+        $pageTwo->assertOk();
+        $pageTwo->assertJsonCount(2, 'data.entries');
+        $pageTwo->assertJsonPath('data.meta.current_page', 2);
     }
 
     public function test_close_month_does_not_deduct_wallet_from_net_salary(): void

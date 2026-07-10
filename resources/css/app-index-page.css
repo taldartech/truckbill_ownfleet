@@ -130,53 +130,6 @@
     cursor: not-allowed;
 }
 
-.app-index-active-search {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--bs-border-color, #dee2e6);
-}
-
-.app-index-active-search__label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--bs-secondary-color, #6c757d);
-}
-
-.app-index-active-search__pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.25rem 0.625rem 0.25rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--brand-primary-dark, #23965c);
-    background: var(--brand-active-bg, #e8f5ee);
-    border: 1px solid rgba(47, 179, 111, 0.25);
-    border-radius: 999px;
-}
-
-.app-index-active-search__pill button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--brand-primary-dark, #23965c);
-    cursor: pointer;
-}
-
-.app-index-active-search__pill button:hover {
-    background: rgba(47, 179, 111, 0.15);
-}
-
 /* Tables */
 .app-index-page--standard .app-index-table,
 .references-index-page .app-index-table,

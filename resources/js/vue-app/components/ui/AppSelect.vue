@@ -13,6 +13,7 @@
         :editable="editable"
         :input-mode="inputMode"
         :max-length="maxLength"
+        :clearable="clearable"
         @update:model-value="onModelValueUpdate"
         @blur="emit('blur', $event)"
     />
@@ -37,6 +38,7 @@ const props = defineProps({
     editable: { type: Boolean, default: false },
     inputMode: { type: String, default: 'text' },
     maxLength: { type: Number, default: null },
+    clearable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['update:modelValue', 'change', 'blur']);
