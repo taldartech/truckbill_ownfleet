@@ -146,7 +146,11 @@ class TyreReportService
             ->all();
 
         foreach ($rows as $row) {
-            $summary[$row->expense_type] = (float) $row->total;
+            $type = $row->expense_type instanceof TyreExpenseType
+                ? $row->expense_type->value
+                : (string) $row->expense_type;
+
+            $summary[$type] = (float) $row->total;
         }
 
         return $summary;
