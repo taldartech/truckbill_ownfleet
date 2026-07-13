@@ -22,8 +22,13 @@ class StoreTyreRotationRequest extends FormRequest
     {
         $vehicleId = $this->resolveRotationVehicleId();
 
+        $purchaseDate = $this->resolveTyrePurchaseDate();
+
         return [
-            'rotation_date' => ['required', 'date', 'before_or_equal:today'],
+            'rotation_date' => array_merge(
+                ['required', 'date', 'before_or_equal:today'],
+                $purchaseDate ? ["after_or_equal:{$purchaseDate}"] : [],
+            ),
             'previous_position' => ['required', 'string', 'max:64'],
             'new_position' => [
                 'required',
@@ -37,6 +42,15 @@ class StoreTyreRotationRequest extends FormRequest
             'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
             'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];
+    }
+
+    private function resolveTyrePurchaseDate(): ?string
+    {
+        $tyre = $this->route('tyre');
+
+        return $tyre instanceof Tyre && $tyre->purchase_date
+            ? $tyre->purchase_date->toDateString()
+            : null;
     }
 
     private function resolveRotationVehicleId(): ?string

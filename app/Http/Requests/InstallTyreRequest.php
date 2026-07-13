@@ -20,6 +20,8 @@ class InstallTyreRequest extends FormRequest
      */
     public function rules(): array
     {
+        $purchaseDate = $this->resolveTyrePurchaseDate();
+
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'position_code' => [
@@ -28,8 +30,20 @@ class InstallTyreRequest extends FormRequest
                 'max:64',
                 new TyrePositionAllowedOnVehicle($this->input('vehicle_id')),
             ],
-            'installed_at' => ['required', 'date', 'before_or_equal:today'],
+            'installed_at' => array_merge(
+                ['required', 'date', 'before_or_equal:today'],
+                $purchaseDate ? ["after_or_equal:{$purchaseDate}"] : [],
+            ),
             'km_at_installation' => ['nullable', 'numeric', 'min:0'],
         ];
+    }
+
+    private function resolveTyrePurchaseDate(): ?string
+    {
+        $tyre = $this->route('tyre');
+
+        return $tyre instanceof Tyre && $tyre->purchase_date
+            ? $tyre->purchase_date->toDateString()
+            : null;
     }
 }

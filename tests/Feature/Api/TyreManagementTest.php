@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\TyreDamageType;
 use App\Enums\TyrePosition;
 use App\Enums\TyreStatus;
 use App\Support\TyreLayoutDefaults;
@@ -57,6 +58,53 @@ class TyreManagementTest extends TestCase
             'id' => $tyreId,
             'status' => TyreStatus::Installed->value,
         ]);
+    }
+
+    public function test_tyre_install_date_cannot_be_before_purchase_date(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-INVALID-INSTALL',
+                'purchase_date' => '2026-05-01',
+            ]));
+
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-04-01',
+                'km_at_installation' => 1000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['installed_at']);
+    }
+
+    public function test_tyre_damage_date_cannot_be_before_purchase_date(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-INVALID-DAMAGE',
+                'purchase_date' => '2026-05-01',
+            ]));
+
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/damage", [
+                'damage_type' => TyreDamageType::Puncture->value,
+                'odometer_km' => 1000,
+                'occurred_at' => '2026-04-01',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['occurred_at']);
     }
 
     public function test_create_tyre_without_purchase_cost_defaults_to_zero(): void
@@ -171,7 +219,7 @@ class TyreManagementTest extends TestCase
             ->postJson("/api/tyres/{$removedTyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => TyrePosition::FrontRight->value,
-                'installed_at' => '2026-01-01',
+                'installed_at' => '2026-01-15',
                 'km_at_installation' => 1000,
             ]);
         $removedInstallationId = $removedInstall->json('data.id');
@@ -1101,21 +1149,25 @@ class TyreManagementTest extends TestCase
 
     private function createAndInstallTyre(Tenant $tenant, Vehicle $vehicle, string $serial, string $positionCode, ?string $purchaseDate = null): string
     {
+        $purchaseDate = $purchaseDate ?? '2026-01-15';
+
         $create = $this->tyreApi($tenant)
             ->postJson('/api/tyres', $this->validTyrePayload([
                 'serial_number' => $serial,
                 'purchase_cost' => 20000,
-                'purchase_date' => $purchaseDate ?? '2026-01-15',
+                'purchase_date' => $purchaseDate,
             ]));
 
         $create->assertOk();
         $tyreId = $create->json('data.id');
 
+        $installedAt = $purchaseDate > '2026-03-01' ? $purchaseDate : '2026-03-01';
+
         $this->tyreApi($tenant)
             ->postJson("/api/tyres/{$tyreId}/install", [
                 'vehicle_id' => $vehicle->id,
                 'position_code' => $positionCode,
-                'installed_at' => '2026-03-01',
+                'installed_at' => $installedAt,
                 'km_at_installation' => 1000,
             ])
             ->assertCreated();

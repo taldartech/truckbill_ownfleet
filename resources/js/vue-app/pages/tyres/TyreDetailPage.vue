@@ -348,7 +348,12 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Installation Date</label>
-                <AppDateInput v-model="actionForm.installed_at" :max="maxTyreActionDate" required />
+                <AppDateInput
+                    v-model="actionForm.installed_at"
+                    :min="tyre.purchase_date"
+                    :max="maxTyreActionDate"
+                    required
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Meter Reading at Install (km)</label>
@@ -392,7 +397,12 @@
             </div>
             <div class="mb-2">
                 <label class="form-label">Replace date</label>
-                <AppDateInput v-model="actionForm.replaced_at" :max="maxTyreActionDate" required />
+                <AppDateInput
+                    v-model="actionForm.replaced_at"
+                    :min="replaceActionMinDate"
+                    :max="maxTyreActionDate"
+                    required
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -475,7 +485,12 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Rotation Date</label>
-                    <AppDateInput v-model="actionForm.rotation_date" :max="maxTyreActionDate" required />
+                    <AppDateInput
+                        v-model="actionForm.rotation_date"
+                        :min="tyre.purchase_date"
+                        :max="maxTyreActionDate"
+                        required
+                    />
                 </div>
             </div>
             <div v-if="calculatedStintKm != null" class="alert alert-secondary small py-2 mb-2">
@@ -523,7 +538,12 @@
             />
             <div class="mb-2">
                 <label class="form-label">Remove date</label>
-                <AppDateInput v-model="actionForm.removed_at" :max="maxTyreActionDate" required />
+                <AppDateInput
+                    v-model="actionForm.removed_at"
+                    :min="tyre.purchase_date"
+                    :max="maxTyreActionDate"
+                    required
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current Meter Reading (km) *</label>
@@ -651,7 +671,12 @@
             />
             <div class="mb-2">
                 <label class="form-label">Inspection date</label>
-                <AppDateInput v-model="actionForm.inspected_at" :max="maxTyreActionDate" required />
+                <AppDateInput
+                    v-model="actionForm.inspected_at"
+                    :min="tyre.purchase_date"
+                    :max="maxTyreActionDate"
+                    required
+                />
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
@@ -743,6 +768,7 @@
                 <label class="form-label">Date</label>
                 <AppDateInput
                     v-model="actionForm.occurred_at"
+                    :min="tyre.purchase_date"
                     :max="maxTyreActionDate"
                     required
                     :invalid="hasFieldError(fieldErrors, 'occurred_at')"
@@ -941,6 +967,20 @@ const stockTyreSelectOptions = computed(() => [
         label: `${tyreOption.serial_number} — ${tyreOption.brand}`,
     })),
 ]);
+
+const selectedReplaceTyre = computed(() =>
+    stockTyres.value.find((row) => String(row.id) === String(actionForm.new_tyre_id)) ?? null,
+);
+
+const replaceActionMinDate = computed(() => {
+    const minDates = [tyre.value?.purchase_date, selectedReplaceTyre.value?.purchase_date].filter(Boolean);
+
+    if (minDates.length === 0) {
+        return undefined;
+    }
+
+    return minDates.sort().pop();
+});
 
 const rotatePositionOptions = computed(() =>
     vehiclePositionSlots.value
@@ -1204,7 +1244,6 @@ const activeRows = computed(() => {
             r.position_label ?? '—',
             r.km_at_occurrence ?? '—',
             r.repair_cost ?? '—',
-            r.is_repaired ? 'Yes' : 'No',
         ]);
     }
     return sortByDateField(tyre.value.expenses ?? [], 'expense_date').map((r) => [
@@ -1219,7 +1258,7 @@ const activeColumns = computed(() => {
     const map = {
         installations: ['Truck', 'Position', 'Installed', 'Removed', 'Ran KM', 'Advice'],
         rotations: ['Truck', 'Date', 'From', 'To', 'Cost', 'Reason'],
-        damages: ['Date', 'Type', 'Truck', 'Position', 'KM', 'Repair', 'Fixed'],
+        damages: ['Date', 'Type', 'Truck', 'Position', 'KM', 'Repair'],
         expenses: ['Type', 'Date', 'Amount', 'Notes'],
     };
     return map[activeTab.value] ?? [];

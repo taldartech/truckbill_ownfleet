@@ -45,7 +45,7 @@ class TyreReportService
     }
 
     /**
-     * @param  array{from?: string, to?: string}  $filters
+     * @param  array{from?: string, to?: string, vehicle_id?: string}  $filters
      * @return list<array<string, mixed>>
      */
     public function costPerKm(array $filters = []): array
@@ -53,6 +53,9 @@ class TyreReportService
         ReportDateRange::assertValid($filters);
 
         return Tyre::query()
+            ->when($filters['vehicle_id'] ?? null, function ($query, string $vehicleId): void {
+                $query->whereHas('installations', fn ($q) => $q->where('vehicle_id', $vehicleId));
+            })
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('purchase_date', '>=', $from))
             ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('purchase_date', '<=', $to))
             ->with(['expenses', 'activeInstallation.vehicle'])
@@ -105,6 +108,7 @@ class TyreReportService
     }
 
     /**
+     * @param  array{from?: string, to?: string, vehicle_id?: string}  $filters
      * @return list<array<string, mixed>>
      */
     public function vehicleWiseUsage(array $filters = []): array
@@ -113,6 +117,7 @@ class TyreReportService
 
         return TyreInstallation::query()
             ->select('vehicle_id', DB::raw('COUNT(*) as installation_count'), DB::raw('SUM(running_km) as total_km'))
+            ->when($filters['vehicle_id'] ?? null, fn ($q, string $vehicleId) => $q->where('vehicle_id', $vehicleId))
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('installed_at', '>=', $from))
             ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('installed_at', '<=', $to))
             ->groupBy('vehicle_id')
@@ -128,6 +133,7 @@ class TyreReportService
     }
 
     /**
+     * @param  array{from?: string, to?: string, vehicle_id?: string}  $filters
      * @return array<string, float>
      */
     public function expenseSummary(array $filters = []): array
@@ -135,6 +141,9 @@ class TyreReportService
         ReportDateRange::assertValid($filters);
 
         $rows = TyreExpense::query()
+            ->when($filters['vehicle_id'] ?? null, function ($query, string $vehicleId): void {
+                $query->whereHas('tyre', fn ($q) => $q->whereHas('installations', fn ($q2) => $q2->where('vehicle_id', $vehicleId)));
+            })
             ->when($filters['from'] ?? null, fn ($q, string $from) => $q->whereDate('expense_date', '>=', $from))
             ->when($filters['to'] ?? null, fn ($q, string $to) => $q->whereDate('expense_date', '<=', $to))
             ->select('expense_type', DB::raw('SUM(amount) as total'))

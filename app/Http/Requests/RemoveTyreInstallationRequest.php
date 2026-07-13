@@ -20,10 +20,25 @@ class RemoveTyreInstallationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $purchaseDate = $this->resolveTyrePurchaseDate();
+
         return [
-            'removed_at' => ['nullable', 'date', 'before_or_equal:today'],
+            'removed_at' => array_merge(
+                ['nullable', 'date', 'before_or_equal:today'],
+                $purchaseDate ? ["after_or_equal:{$purchaseDate}"] : [],
+            ),
             'stint_km' => ['nullable', 'numeric', 'min:0', 'required_without:odometer_km'],
             'odometer_km' => ['nullable', 'numeric', 'min:0', 'required_without:stint_km'],
         ];
+    }
+
+    private function resolveTyrePurchaseDate(): ?string
+    {
+        $installation = $this->route('tyre_installation');
+
+        return $installation instanceof \App\TyreInstallation
+            && $installation->tyre?->purchase_date
+                ? $installation->tyre->purchase_date->toDateString()
+                : null;
     }
 }

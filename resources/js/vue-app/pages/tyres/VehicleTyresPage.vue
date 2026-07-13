@@ -278,7 +278,12 @@
             />
             <div class="mb-2">
                 <label class="form-label">Installation date</label>
-                <AppDateInput v-model="installForm.installed_at" :max="maxTyreActionDate" required />
+                <AppDateInput
+                    v-model="installForm.installed_at"
+                    :min="selectedInstallTyre?.purchase_date"
+                    :max="maxTyreActionDate"
+                    required
+                />
             </div>
             <div class="mb-2">
                 <label class="form-label">Current meter reading (km)</label>
