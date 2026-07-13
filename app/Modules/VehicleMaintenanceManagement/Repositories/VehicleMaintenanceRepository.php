@@ -45,7 +45,9 @@ class VehicleMaintenanceRepository
      *     search?: string|null,
      *     vehicle_id?: string|null,
      *     maintenance_service_type_id?: int|null,
-     *     overdue_reason?: string|null
+     *     overdue_reason?: string|null,
+     *     from?: string|null,
+     *     to?: string|null
      * }  $filters
      * @return Collection<int, VehicleMaintenance>
      */
@@ -101,6 +103,18 @@ class VehicleMaintenanceRepository
 
         if (! empty($filters['overdue_reason'])) {
             $this->applyOverdueReasonFilter($query, (string) $filters['overdue_reason'], $today);
+        }
+
+        if (! empty($filters['from'])) {
+            $query
+                ->whereNotNull('next_service_due_date')
+                ->whereDate('next_service_due_date', '>=', $filters['from']);
+        }
+
+        if (! empty($filters['to'])) {
+            $query
+                ->whereNotNull('next_service_due_date')
+                ->whereDate('next_service_due_date', '<=', $filters['to']);
         }
 
         return $query->orderBy('service_date')->get();

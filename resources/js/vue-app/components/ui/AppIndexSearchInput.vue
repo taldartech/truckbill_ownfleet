@@ -1,5 +1,9 @@
 <template>
-    <div class="input-group input-group-sm app-index-search" :style="wrapperStyle">
+    <div
+        class="input-group app-index-search"
+        :class="{ 'input-group-sm': size === 'sm' }"
+        :style="wrapperStyle"
+    >
         <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
         <input
             :id="inputId"
@@ -43,6 +47,11 @@ const props = defineProps({
     maxWidth: {
         type: String,
         default: '280px',
+    },
+    size: {
+        type: String,
+        default: 'sm',
+        validator: (value) => ['sm', 'md'].includes(value),
     },
 });
 

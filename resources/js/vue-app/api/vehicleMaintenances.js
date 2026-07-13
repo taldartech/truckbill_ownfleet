@@ -1,4 +1,5 @@
 import api from '../api';
+import { todayDateRange } from '../utils/dateRangePresets';
 
 const base = '/app/api/vehicle-maintenances';
 
@@ -22,8 +23,7 @@ export const MAINTENANCE_OVERDUE_REASON_FILTERS = [
 
 export function defaultMaintenanceListFilters() {
     return {
-        from_date: '',
-        to_date: '',
+        ...todayDateRange(),
         vehicle_id: '',
         maintenance_service_type_id: '',
         due_status: '',
@@ -32,6 +32,8 @@ export function defaultMaintenanceListFilters() {
 
 export function defaultMaintenanceDueFilters() {
     return {
+        from_date: '',
+        to_date: '',
         search: '',
         vehicle_id: '',
         maintenance_service_type_id: '',
@@ -79,6 +81,8 @@ export async function listDueVehicleMaintenances({
     vehicleId = '',
     maintenanceServiceTypeId = '',
     overdueReason = '',
+    from = '',
+    to = '',
 } = {}) {
     const { data } = await api.get(`${base}/due`, {
         params: {
@@ -86,6 +90,8 @@ export async function listDueVehicleMaintenances({
             ...(vehicleId ? { vehicle_id: vehicleId } : {}),
             ...(maintenanceServiceTypeId ? { maintenance_service_type_id: maintenanceServiceTypeId } : {}),
             ...(overdueReason ? { overdue_reason: overdueReason } : {}),
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
         },
     });
 

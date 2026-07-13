@@ -91,16 +91,19 @@ import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useMaintenanceForm } from '../../composables/useMaintenanceForm';
+import { useMaintenanceListReturn } from '../../composables/useMaintenanceListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildMaintenanceSaveConfirmViewModel } from '../../utils/maintenanceSaveConfirm';
+import { maintenanceRecordsListLocationForServiceDate } from '../../utils/maintenanceRecordsListFilterState';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { fieldErrors, formError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
+const { listReturnTo, tenantId } = useMaintenanceListReturn();
 
 const { form, minNextDueDate, resetForm, validate, buildPayload } = useMaintenanceForm();
 
@@ -114,8 +117,6 @@ const saveMode = ref('index');
 const presetVehicleId = ref('');
 const presetServiceTypeId = ref('');
 const selectedVehicleLabel = ref('');
-
-const listReturnTo = { name: 'maintenance.records' };
 
 watch(
     () => form.value.vehicle_id,
@@ -201,6 +202,7 @@ async function confirmSave(mode = 'index') {
     saving.value = true;
 
     try {
+        const serviceDate = pendingPayload.value.service_date;
         await createVehicleMaintenance(pendingPayload.value);
         showSaveConfirm.value = false;
         pendingPayload.value = null;
@@ -224,7 +226,9 @@ async function confirmSave(mode = 'index') {
             return;
         }
 
-        await router.push({ name: 'maintenance.records', query: { created: '1' } });
+        await router.push(
+            maintenanceRecordsListLocationForServiceDate(serviceDate, { created: '1' }, tenantId.value),
+        );
     } catch (error) {
         showSaveConfirm.value = false;
 

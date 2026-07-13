@@ -83,6 +83,7 @@ import AppButton from '../../components/ui/AppButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useMaintenanceForm } from '../../composables/useMaintenanceForm';
+import { useMaintenanceListReturn } from '../../composables/useMaintenanceListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useUnsavedFormGuard } from '../../composables/useUnsavedFormGuard';
 import { scrollToFirstFormError } from '../../utils/formErrors';
@@ -93,6 +94,7 @@ const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { fieldErrors, formError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
+const { listReturnTo, listReturnWithFlash } = useMaintenanceListReturn();
 
 const record = ref(null);
 const vehicles = ref([]);
@@ -106,8 +108,6 @@ const pendingPayload = ref(null);
 const { form, minNextDueDate, resetForm, captureBaseline, isDirty, validate, buildPayload } = useMaintenanceForm();
 
 useUnsavedFormGuard(isDirty);
-
-const listReturnTo = { name: 'maintenance.records' };
 
 const lookupServiceType = computed(() => {
     if (!record.value?.maintenance_service_type_id) {
@@ -159,7 +159,7 @@ async function loadRecord() {
         resetForm(fetchedRecord);
     } catch {
         toast.error('Could not load maintenance record.');
-        await router.replace({ name: 'maintenance.records' });
+        await router.replace(listReturnTo.value);
     } finally {
         loading.value = false;
     }
@@ -206,7 +206,7 @@ async function confirmSave() {
         showSaveConfirm.value = false;
         pendingPayload.value = null;
         captureBaseline();
-        await router.push({ name: 'maintenance.records', query: { updated: '1' } });
+        await router.push(listReturnWithFlash({ updated: '1' }));
     } catch (error) {
         showSaveConfirm.value = false;
 

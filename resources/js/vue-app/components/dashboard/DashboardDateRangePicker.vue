@@ -88,9 +88,9 @@
                 </div>
 
                 <div v-if="maxMonths || blockFutureDates" class="form-text mb-0 mt-2">
-                    <span v-if="blockFutureDates">No future dates.</span>
+
                     <span v-if="maxMonths && blockFutureDates"> </span>
-                    <span v-if="maxMonths">Maximum {{ maxMonths }} months per range.</span>
+                   
                 </div>
                 <div v-if="rangeError" class="text-danger small mt-2 mb-0">
                     {{ rangeError }}
@@ -323,6 +323,7 @@ function selectPreset(presetKey) {
     draftFromDate.value = range.from_date;
     draftToDate.value = range.to_date;
     clampDraftToDate();
+    applyDraft();
 }
 
 function onCustomDateChange() {
@@ -421,6 +422,17 @@ watch(draftPreset, () => {
     width: 100%;
     max-width: none;
     margin-left: 0;
+}
+
+.dashboard-date-range--field .dashboard-date-range__trigger {
+    min-height: 38px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.375rem;
+    box-shadow: none;
+}
+
+.dashboard-date-range--field .dashboard-date-range__value {
+    font-size: 0.875rem;
 }
 
 .dashboard-date-range__prefix {

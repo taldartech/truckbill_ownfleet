@@ -95,7 +95,7 @@
                 <tbody>
                     <tr v-if="!filtersApplied" class="app-index-empty-row">
                         <td :colspan="hasRowActions ? 10 : 9" class="text-center text-muted py-4">
-                            Select a date range and click Search to view service records.
+                            Select a date range to view service records.
                         </td>
                     </tr>
                     <tr v-else-if="records.length === 0" class="app-index-empty-row">
@@ -162,7 +162,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, inject, onMounted, reactive, ref, unref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
@@ -197,6 +197,11 @@ import { formatDate } from '../../utils/datetime';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { maintenanceDueStatusMeta, resolveMaintenanceDueStatus } from '../../utils/maintenanceDueStatus';
 import { buildMaintenanceDeleteConfirmViewModel } from '../../utils/maintenanceSaveConfirm';
+import {
+    resolveMaintenanceRecordsListState,
+    saveMaintenanceRecordsListStateToSession,
+    setMaintenanceListReturnSource,
+} from '../../utils/maintenanceRecordsListFilterState';
 
 const pageId = 'maintenanceRecordsIndex';
 const route = useRoute();
@@ -204,6 +209,11 @@ const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
+const injectedUser = inject('currentUser', null);
+const currentUser = computed(() => unref(injectedUser) ?? window.__AUTH_USER__ ?? null);
+const tenantId = computed(
+    () => currentUser.value?.effective_tenant_id ?? currentUser.value?.company_id ?? null,
+);
 
 const canView = computed(() => canInCompany('maintenance.view'));
 const canCreate = computed(() => canInCompany('maintenance.create'));
@@ -215,8 +225,8 @@ const serviceTypes = ref([]);
 const vehicles = ref([]);
 const records = ref([]);
 const loading = ref(false);
-const filtersApplied = ref(false);
-const filtersOpen = ref(false);
+const filtersApplied = ref(true);
+const filtersOpen = ref(true);
 const deleting = ref(false);
 const showDeleteConfirm = ref(false);
 const deleteConfirmSummary = ref(null);
@@ -237,6 +247,75 @@ const filtersActive = computed(
         filters.maintenance_service_type_id !== '' ||
         filters.due_status !== '',
 );
+
+function currentListState() {
+    return {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        vehicle_id: filters.vehicle_id,
+        maintenance_service_type_id: filters.maintenance_service_type_id,
+        due_status: filters.due_status,
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+        filters_applied: filtersApplied.value,
+    };
+}
+
+function persistListState() {
+    setMaintenanceListReturnSource('records');
+    saveMaintenanceRecordsListStateToSession(tenantId.value, currentListState());
+}
+
+function applyListState(state) {
+    const defaults = defaultMaintenanceListFilters();
+
+    filters.from_date = state.from_date || defaults.from_date;
+    filters.to_date = state.to_date || defaults.to_date;
+    filters.vehicle_id = state.vehicle_id ?? '';
+    filters.maintenance_service_type_id = state.maintenance_service_type_id
+        ? String(state.maintenance_service_type_id)
+        : '';
+    filters.due_status = state.due_status ?? '';
+    filtersApplied.value = state.filters_applied !== false && Boolean(filters.from_date && filters.to_date);
+    pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
+    pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 10;
+}
+
+function readQueryValue(key) {
+    const value = route.query[key];
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+        return value[0];
+    }
+
+    return '';
+}
+
+function applyStateFromRouteOrSession() {
+    const queryFrom = readQueryValue('from_date');
+    const queryTo = readQueryValue('to_date');
+
+    if (queryFrom || queryTo || readQueryValue('filters_applied') === '1') {
+        applyListState({
+            from_date: queryFrom,
+            to_date: queryTo,
+            vehicle_id: readQueryValue('vehicle_id'),
+            maintenance_service_type_id: readQueryValue('maintenance_service_type_id'),
+            due_status: readQueryValue('due_status'),
+            page: readQueryValue('page') || 1,
+            per_page: pagination.perPage,
+            filters_applied: readQueryValue('filters_applied') === '1' || Boolean(queryFrom && queryTo),
+        });
+
+        return;
+    }
+
+    applyListState(resolveMaintenanceRecordsListState(tenantId.value));
+}
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
@@ -317,21 +396,28 @@ function applyFilters() {
 
     filtersApplied.value = true;
     pagination.currentPage = 1;
+    persistListState();
     loadRecords(1);
 }
 
-function onDateRangeChange() {
-    filtersApplied.value = false;
-    records.value = [];
-    syncFromMeta({}, 0);
+function onDateRangeChange(range = {}) {
+    if (range.from_date != null) {
+        filters.from_date = range.from_date;
+    }
+
+    if (range.to_date != null) {
+        filters.to_date = range.to_date;
+    }
+
+    applyFilters();
 }
 
 function clearFilters() {
     Object.assign(filters, defaultMaintenanceListFilters());
     pagination.currentPage = 1;
-    filtersApplied.value = false;
-    records.value = [];
-    syncFromMeta({}, 0);
+    filtersApplied.value = true;
+    persistListState();
+    loadRecords(1);
 }
 
 async function loadRecords(page = pagination.currentPage) {
@@ -365,6 +451,7 @@ async function loadRecords(page = pagination.currentPage) {
 
         records.value = response.data;
         syncFromMeta(response.meta, records.value.length);
+        persistListState();
     } catch {
         toast.error('Could not load service records.');
         records.value = [];
@@ -379,18 +466,23 @@ function goToPage(page) {
         return;
     }
 
+    pagination.currentPage = page;
+    persistListState();
     loadRecords(page);
 }
 
 function goToCreate() {
+    persistListState();
     router.push({ name: 'maintenance.create' });
 }
 
 function goToView(record) {
+    persistListState();
     router.push({ name: 'maintenance.show', params: { id: record.id } });
 }
 
 function goToEdit(record) {
+    persistListState();
     router.push({ name: 'maintenance.edit', params: { id: record.id } });
 }
 
@@ -436,11 +528,22 @@ async function confirmDelete() {
 
 onMounted(async () => {
     showRouteFlash();
+    setMaintenanceListReturnSource('records');
+    applyStateFromRouteOrSession();
 
-    if (route.query.vehicle_id) {
+    if (route.query.vehicle_id && !filters.vehicle_id) {
         filters.vehicle_id = String(route.query.vehicle_id);
-        filtersOpen.value = true;
     }
+
+    filtersOpen.value = true;
+
+    if (!filters.from_date || !filters.to_date) {
+        const defaults = defaultMaintenanceListFilters();
+        filters.from_date = defaults.from_date;
+        filters.to_date = defaults.to_date;
+    }
+
+    filtersApplied.value = Boolean(filters.from_date && filters.to_date);
 
     try {
         const [vehicleList, typeList] = await Promise.all([listAllVehicles(), listMaintenanceServiceTypes()]);
@@ -450,6 +553,10 @@ onMounted(async () => {
     } catch {
         vehicles.value = [];
         serviceTypes.value = [];
+    }
+
+    if (filtersApplied.value) {
+        await loadRecords(pagination.currentPage);
     }
 });
 </script>
