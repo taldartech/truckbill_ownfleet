@@ -4,6 +4,9 @@ export const TYRE_STATUSES = [
     { value: 'SCRAPPED', label: 'Scrapped' },
 ];
 
+/** URL query value meaning "All statuses" (empty filter), so detail → back keeps the list unfiltered. */
+export const TYRE_STATUS_FILTER_ALL = 'ALL';
+
 export const TYRE_TYPES = [
     { value: 'RADIAL', label: 'Radial' },
     { value: 'BIAS', label: 'Bias' },

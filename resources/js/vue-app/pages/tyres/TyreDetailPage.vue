@@ -869,7 +869,7 @@ const actionSaving = ref(false);
 
 const backToTyresTo = computed(() => {
     const query = {};
-    const { status, vehicle_id: vehicleId, search } = route.query;
+    const { status, vehicle_id: vehicleId, search, page } = route.query;
 
     if (typeof status === 'string' && status !== '') {
         query.status = status;
@@ -881,6 +881,11 @@ const backToTyresTo = computed(() => {
 
     if (typeof search === 'string' && search.trim() !== '') {
         query.search = search.trim();
+    }
+
+    const pageNum = Number(page);
+    if (Number.isFinite(pageNum) && pageNum > 1) {
+        query.page = String(Math.floor(pageNum));
     }
 
     return { name: 'tyres.index', query };

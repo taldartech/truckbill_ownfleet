@@ -401,6 +401,7 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import {
+    TYRE_STATUS_FILTER_ALL,
     TYRE_STATUSES,
     formatTyreStatus,
     formatTyreType,
@@ -534,7 +535,11 @@ const form = reactive({
 });
 
 const filtersActive = computed(
-    () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
+    () =>
+        search.value.trim() !== '' ||
+        statusFilter.value !== '' ||
+        vehicleFilter.value !== '' ||
+        route.query.status === TYRE_STATUS_FILTER_ALL,
 );
 
 const listFilterQuery = computed(() => {
@@ -544,12 +549,15 @@ const listFilterQuery = computed(() => {
         query.search = search.value.trim();
     }
 
-    if (statusFilter.value) {
-        query.status = statusFilter.value;
-    }
+    // Persist All statuses as ALL so detail → Back to Tyres does not snap back to IN_STOCK.
+    query.status = statusFilter.value || TYRE_STATUS_FILTER_ALL;
 
     if (vehicleFilter.value) {
         query.vehicle_id = String(vehicleFilter.value);
+    }
+
+    if (pagination.currentPage > 1) {
+        query.page = String(pagination.currentPage);
     }
 
     return query;
@@ -624,8 +632,8 @@ function setInstalledWhenTruckSelected() {
 function applyFilters() {
     clearTruckFilterIfNeeded();
     filtersApplied.value = true;
-    syncVehicleQuery();
     pagination.currentPage = 1;
+    syncVehicleQuery();
     loadTyres(1);
 }
 
@@ -637,6 +645,13 @@ function clearFilters() {
     syncingFilters = false;
     pagination.currentPage = 1;
     applyFilters();
+}
+
+function restoreListFromRoute() {
+    clearTruckFilterIfNeeded();
+    filtersApplied.value = true;
+    syncVehicleQuery();
+    loadTyres(pagination.currentPage);
 }
 
 function syncVehicleQuery() {
@@ -654,10 +669,12 @@ function syncVehicleQuery() {
         delete nextQuery.vehicle_id;
     }
 
-    if (statusFilter.value) {
-        nextQuery.status = statusFilter.value;
+    nextQuery.status = statusFilter.value || TYRE_STATUS_FILTER_ALL;
+
+    if (pagination.currentPage > 1) {
+        nextQuery.page = String(pagination.currentPage);
     } else {
-        delete nextQuery.status;
+        delete nextQuery.page;
     }
 
     const currentKeys = Object.keys(route.query).sort();
@@ -678,6 +695,8 @@ function goToPage(page) {
         return;
     }
 
+    pagination.currentPage = page;
+    syncVehicleQuery();
     loadTyres(page);
 }
 
@@ -769,6 +788,7 @@ async function loadTyres(page = 1) {
 
         tyres.value = response.data;
         syncFromMeta(response.meta, tyres.value.length);
+        syncVehicleQuery();
     } finally {
         if (requestId === tyresRequestId) {
             loading.value = false;
@@ -918,8 +938,8 @@ async function showCreatedTyreOnList(serialNumber) {
     syncingFilters = false;
     filtersOpen.value = true;
     filtersApplied.value = true;
-    syncVehicleQuery();
     pagination.currentPage = 1;
+    syncVehicleQuery();
     await loadTyres(1);
 }
 
@@ -931,23 +951,34 @@ function applyRouteFilters() {
     syncingFilters = true;
 
     try {
-        const { status, vehicle_id: vehicleId, search: searchQuery } = route.query;
+        const { status, vehicle_id: vehicleId, search: searchQuery, page: pageQuery } = route.query;
         const hasStatus = typeof status === 'string' && status !== '';
         const hasVehicle = typeof vehicleId === 'string' && vehicleId !== '';
         const hasSearch = typeof searchQuery === 'string' && searchQuery.trim() !== '';
+        const wantsAllStatuses = status === TYRE_STATUS_FILTER_ALL;
+        const pageNum = Number(pageQuery);
 
         if (hasSearch) {
             search.value = searchQuery.trim();
         }
 
-        if (hasVehicle && status !== 'SCRAPPED') {
+        if (hasVehicle && status !== 'SCRAPPED' && !wantsAllStatuses) {
             vehicleFilter.value = vehicleId;
             statusFilter.value = 'INSTALLED';
         } else {
-            // Keep search results unblocked: only default to In Stock when not searching.
-            statusFilter.value = hasStatus ? status : hasSearch ? '' : 'IN_STOCK';
+            // ALL = explicit All statuses; bare /tyres (no status) still defaults to In Stock.
+            if (wantsAllStatuses) {
+                statusFilter.value = '';
+            } else if (hasStatus) {
+                statusFilter.value = status;
+            } else {
+                // Keep search results unblocked: only default to In Stock when not searching.
+                statusFilter.value = hasSearch ? '' : 'IN_STOCK';
+            }
             vehicleFilter.value = '';
         }
+
+        pagination.currentPage = Number.isFinite(pageNum) && pageNum > 0 ? Math.floor(pageNum) : 1;
     } finally {
         syncingFilters = false;
     }
@@ -1019,7 +1050,7 @@ onMounted(() => {
         filtersOpen.value = true;
     }
 
-    applyFilters();
+    restoreListFromRoute();
     openCreateFromRouteQuery();
 
     listAllVehicles()
