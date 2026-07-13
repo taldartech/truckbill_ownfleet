@@ -21,11 +21,25 @@ class StoreTyreExpenseRequest extends FormRequest
      */
     public function rules(): array
     {
+        $purchaseDate = $this->resolveTyrePurchaseDate();
+
         return [
             'expense_type' => ['nullable', Rule::enum(TyreExpenseType::class)],
             'amount' => ['required', 'numeric', 'min:0'],
-            'expense_date' => ['required', 'date'],
+            'expense_date' => array_merge(
+                ['required', 'date', 'before_or_equal:today'],
+                $purchaseDate ? ["after_or_equal:{$purchaseDate}"] : [],
+            ),
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
+    }
+
+    private function resolveTyrePurchaseDate(): ?string
+    {
+        $tyre = $this->route('tyre');
+
+        return $tyre instanceof Tyre && $tyre->purchase_date
+            ? $tyre->purchase_date->toDateString()
+            : null;
     }
 }

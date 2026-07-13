@@ -25,6 +25,15 @@
                     />
                 </div>
                 <div>
+                    <label class="form-label">Truck</label>
+                    <AppSelect
+                        v-model="filters.vehicle_id"
+                        :options="vehicleOptions"
+                        placeholder="All trucks"
+                        search-placeholder="Search truck…"
+                    />
+                </div>
+                <div>
                     <label class="form-label">From</label>
                     <AppDateInput
                         v-model="filters.from"
@@ -89,7 +98,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, onMounted, watch } from 'vue';
 import {
     exportTyreReport,
     fetchTyreCostPerKmReport,
@@ -99,6 +108,7 @@ import {
     fetchTyreVehicleWiseReport,
     withReportPagination,
 } from '../../api/tyreReports';
+import { listAllVehicles, buildVehicleSelectOptions } from '../../api/vehicles';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppReportFiltersPanel from '../../components/ui/AppReportFiltersPanel.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -134,7 +144,7 @@ const reportTypes = [
 ];
 
 const reportType = ref('life');
-const filters = reactive({ from: '', to: '' });
+const filters = reactive({ from: '', to: '', vehicle_id: '' });
 const rows = ref([]);
 const loading = ref(false);
 const reportLoaded = ref(false);
@@ -242,8 +252,35 @@ function buildFilterParams() {
     return {
         from: filters.from,
         to: filters.to,
+        ...(filters.vehicle_id ? { vehicle_id: filters.vehicle_id } : {}),
     };
 }
+
+const vehicleOptions = ref([]);
+
+async function loadVehicleOptions() {
+    try {
+        const vehicles = await listAllVehicles();
+        vehicleOptions.value = buildVehicleSelectOptions(vehicles);
+    } catch (err) {
+        vehicleOptions.value = [];
+    }
+}
+
+onMounted(() => {
+    if (!needsCompanySelection.value) {
+        loadVehicleOptions();
+    }
+});
+
+watch(needsCompanySelection, (val) => {
+    if (!val) {
+        loadVehicleOptions();
+    } else {
+        vehicleOptions.value = [];
+        filters.vehicle_id = '';
+    }
+});
 
 async function loadReport(page = 1) {
     if (needsCompanySelection.value) {

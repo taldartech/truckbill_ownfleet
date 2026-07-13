@@ -20,9 +20,14 @@ class StoreTyreInspectionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $purchaseDate = $this->resolveTyrePurchaseDate();
+
         return [
             'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
-            'inspected_at' => ['required', 'date', 'before_or_equal:today'],
+            'inspected_at' => array_merge(
+                ['required', 'date', 'before_or_equal:today'],
+                $purchaseDate ? ["after_or_equal:{$purchaseDate}"] : [],
+            ),
             'tread_depth_mm' => ['nullable', 'numeric', 'min:0', 'max:50'],
             'pressure_psi' => ['nullable', 'numeric', 'min:0', 'max:300'],
             'result' => ['nullable', 'string', Rule::in(['PASS', 'FAIL', 'ATTENTION'])],
@@ -30,5 +35,14 @@ class StoreTyreInspectionRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             'inspector_id' => ['nullable', 'uuid', 'exists:users,id'],
         ];
+    }
+
+    private function resolveTyrePurchaseDate(): ?string
+    {
+        $tyre = $this->route('tyre');
+
+        return $tyre instanceof Tyre && $tyre->purchase_date
+            ? $tyre->purchase_date->toDateString()
+            : null;
     }
 }
