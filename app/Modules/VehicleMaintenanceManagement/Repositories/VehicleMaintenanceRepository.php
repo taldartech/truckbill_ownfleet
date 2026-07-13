@@ -53,15 +53,45 @@ class VehicleMaintenanceRepository
      */
     public function dueServices(array $filters = []): Collection
     {
+        return $this->dueServicesQuery($filters, [
+            'vehicle:id,registration_number,is_active,odometer_km',
+            'maintenanceServiceType:id,name,code',
+            'createdBy:id,name',
+            'updatedBy:id,name',
+        ])->orderBy('service_date')->get();
+    }
+
+    /**
+     * Lean due-service list for dashboard/compliance alerts (no auditor relations).
+     *
+     * @return Collection<int, VehicleMaintenance>
+     */
+    public function dueServicesForAlerts(): Collection
+    {
+        return $this->dueServicesQuery([], [
+            'vehicle:id,registration_number,is_active,odometer_km',
+            'maintenanceServiceType:id,name,code',
+        ])->orderBy('service_date')->get();
+    }
+
+    /**
+     * @param  array{
+     *     search?: string|null,
+     *     vehicle_id?: string|null,
+     *     maintenance_service_type_id?: int|null,
+     *     overdue_reason?: string|null,
+     *     from?: string|null,
+     *     to?: string|null
+     * }  $filters
+     * @param  list<string>  $with
+     * @return Builder<VehicleMaintenance>
+     */
+    private function dueServicesQuery(array $filters, array $with): Builder
+    {
         $today = now()->toDateString();
 
         $query = VehicleMaintenance::query()
-            ->with([
-                'vehicle:id,registration_number,is_active,odometer_km',
-                'maintenanceServiceType:id,name,code',
-                'createdBy:id,name',
-                'updatedBy:id,name',
-            ])
+            ->with($with)
             ->whereIn('id', $this->latestRecordIdsSubquery())
             ->where(function (Builder $query) use ($today): void {
                 $query
@@ -117,7 +147,7 @@ class VehicleMaintenanceRepository
                 ->whereDate('next_service_due_date', '<=', $filters['to']);
         }
 
-        return $query->orderBy('service_date')->get();
+        return $query;
     }
 
     /**

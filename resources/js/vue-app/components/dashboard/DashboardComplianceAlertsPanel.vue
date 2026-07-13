@@ -92,7 +92,17 @@
                 </div>
 
                 <div v-if="licenses.length" class="compliance-section">
-                    <div class="dashboard-panel__subtitle">Driver Licenses</div>
+                    <div class="dashboard-panel__section-head">
+                        <div class="dashboard-panel__subtitle mb-0">Driver Licenses</div>
+                        <AppButton
+                            size="sm"
+                            outline
+                            variant="primary"
+                            label="Open Drivers"
+                            icon="fas fa-arrow-up-right-from-square"
+                            :to="{ name: 'drivers.index', query: { license_alerts: '1' } }"
+                        />
+                    </div>
                     <div class="table-responsive compliance-table">
                         <table class="table table-sm table-hover align-middle mb-0">
                             <thead>
@@ -105,35 +115,104 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <template v-for="license in licenses" :key="`lic-${license.driver_id}`">
+                                    <tr
+                                        :class="[
+                                            'dashboard-panel__row',
+                                            rowBorderClass(license),
+                                        ]"
+                                    >
+                                        <td class="fw-medium">{{ license.driver_name }}</td>
+                                        <td>{{ license.license_number ?? '—' }}</td>
+                                        <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
+                                        <td>
+                                            <DocumentStatusBadge :document="license" soft />
+                                        </td>
+                                        <td v-if="canManageLicenses" class="text-end">
+                                            <div class="compliance-actions">
+                                                <AppButton
+                                                    v-if="canUpdateLicense(license)"
+                                                    size="sm"
+                                                    variant="primary"
+                                                    outline
+                                                    icon="fas fa-calendar-days"
+                                                    title="Update expiry"
+                                                    @click.stop="startExpiryUpdate(license)"
+                                                />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr
+                                        v-if="updatingLicenseDriverId === license.driver_id"
+                                        class="dashboard-panel__renew-row"
+                                    >
+                                        <td :colspan="licenseTableColspan">
+                                            <LicenseExpiryInlineForm
+                                                :license="license"
+                                                @saved="handleExpirySaved"
+                                                @cancel="cancelExpiryUpdate"
+                                            />
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div v-if="dueServices.length" class="compliance-section">
+                    <div class="dashboard-panel__section-head">
+                        <div class="dashboard-panel__subtitle mb-0">Due Services</div>
+                        <AppButton
+                            size="sm"
+                            outline
+                            variant="primary"
+                            label="Open Due Services"
+                            icon="fas fa-arrow-up-right-from-square"
+                            :to="{ name: 'maintenance.due' }"
+                        />
+                    </div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Truck</th>
+                                    <th>Service Type</th>
+                                    <th>Next Due Date</th>
+                                    <th>Overdue</th>
+                                    <th class="text-end" style="width: 3.5rem">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 <tr
-                                    v-for="license in licenses"
-                                    :key="`lic-${license.driver_id}`"
-                                    :class="[
-                                        'dashboard-panel__row',
-                                        rowBorderClass(license),
-                                        { 'dashboard-panel__row--disabled': !canManageLicenses },
-                                    ]"
-                                    :tabindex="canManageLicenses ? 0 : -1"
-                                    :role="canManageLicenses ? 'button' : undefined"
-                                    @click="canManageLicenses && $emit('edit-license', license)"
-                                    @keydown.enter.prevent="canManageLicenses && $emit('edit-license', license)"
+                                    v-for="service in dueServices"
+                                    :key="`due-${service.id}`"
+                                    class="dashboard-panel__row"
                                 >
-                                    <td class="fw-medium">{{ license.driver_name }}</td>
-                                    <td>{{ license.license_number ?? '—' }}</td>
-                                    <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
+                                    <td class="fw-medium">{{ service.vehicle_registration ?? '—' }}</td>
+                                    <td>{{ service.service_type_label ?? service.service_type ?? '—' }}</td>
                                     <td>
-                                        <DocumentStatusBadge :document="license" soft />
+                                        <span
+                                            v-if="service.next_service_due_date"
+                                            class="badge"
+                                            :class="isDateOverdue(service) ? 'bg-danger' : 'bg-light text-dark border'"
+                                        >
+                                            {{ formatDate(service.next_service_due_date) }}
+                                        </span>
+                                        <span v-else class="text-muted">—</span>
                                     </td>
-                                    <td v-if="canManageLicenses" class="text-end">
+                                    <td>
+                                        <span class="badge bg-danger">{{ service.overdue_reason_label ?? '—' }}</span>
+                                    </td>
+                                    <td class="text-end">
                                         <div class="compliance-actions">
                                             <AppButton
-                                                v-if="canUpdateLicense(license)"
                                                 size="sm"
                                                 variant="primary"
                                                 outline
-                                                icon="fas fa-id-card"
-                                                title="Update license"
-                                                @click.stop="$emit('edit-license', license)"
+                                                icon="fas fa-wrench"
+                                                title="Open Due Services"
+                                                :to="{ name: 'maintenance.due' }"
                                             />
                                         </div>
                                     </td>
@@ -150,7 +229,9 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { canRenewDocument, canUpdateLicense, complianceAlertWindowLabel, rowBorderClass } from '../../utils/documentStatus';
+import { isMaintenanceDateOverdue } from '../../utils/maintenanceDueStatus';
 import { formatDate } from '../../utils/datetime';
+import LicenseExpiryInlineForm from '../drivers/LicenseExpiryInlineForm.vue';
 import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
 import DocumentRenewInlineForm from '../trucks/DocumentRenewInlineForm.vue';
 import AppButton from '../ui/AppButton.vue';
@@ -165,6 +246,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    dueServices: {
+        type: Array,
+        default: () => [],
+    },
     summary: {
         type: Object,
         default: () => ({
@@ -172,6 +257,7 @@ const props = defineProps({
             expired: 0,
             expiring: 0,
             licenses: 0,
+            dueServices: 0,
         }),
     },
     loading: {
@@ -188,16 +274,29 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['view-all', 'edit-license', 'saved']);
+const emit = defineEmits(['view-all', 'saved']);
 
 const renewingDocumentId = ref(null);
+const updatingLicenseDriverId = ref(null);
 
 const periodLabel = computed(() => complianceAlertWindowLabel());
 
-const isEmpty = computed(() => props.documents.length === 0 && props.licenses.length === 0);
+const isEmpty = computed(
+    () =>
+        props.documents.length === 0
+        && props.licenses.length === 0
+        && props.dueServices.length === 0,
+);
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
+const licenseTableColspan = computed(() => (props.canManageLicenses ? 5 : 4));
 
-const showViewAll = computed(() => !props.loading && Number(props.summary?.total ?? 0) > 0);
+const showViewAll = computed(() => {
+    if (props.loading) {
+        return false;
+    }
+
+    return props.documents.length > 0 || props.licenses.length > 0;
+});
 
 const summaryItems = computed(() => [
     {
@@ -224,10 +323,21 @@ const summaryItems = computed(() => [
         value: Number(props.summary?.licenses ?? 0),
         tone: 'info',
     },
+    {
+        key: 'dueServices',
+        label: 'Due Services',
+        value: Number(props.summary?.dueServices ?? 0),
+        tone: 'warning',
+    },
 ]);
+
+function isDateOverdue(service) {
+    return isMaintenanceDateOverdue(service);
+}
 
 function startRenew(document) {
     renewingDocumentId.value = document.id;
+    updatingLicenseDriverId.value = null;
 }
 
 function cancelRenew() {
@@ -236,6 +346,20 @@ function cancelRenew() {
 
 function handleRenewSaved(payload) {
     renewingDocumentId.value = null;
+    emit('saved', payload);
+}
+
+function startExpiryUpdate(license) {
+    updatingLicenseDriverId.value = license.driver_id;
+    renewingDocumentId.value = null;
+}
+
+function cancelExpiryUpdate() {
+    updatingLicenseDriverId.value = null;
+}
+
+function handleExpirySaved(payload) {
+    updatingLicenseDriverId.value = null;
     emit('saved', payload);
 }
 </script>
@@ -279,7 +403,7 @@ function handleRenewSaved(payload) {
 
 .compliance-summary-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.75rem;
     margin-bottom: 1.1rem;
 }
@@ -355,6 +479,14 @@ function handleRenewSaved(payload) {
     color: var(--brand-text-muted, #64748b);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+}
+
+.dashboard-panel__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
 }
 
 .dashboard-panel__empty {

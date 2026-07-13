@@ -3,8 +3,10 @@
 namespace App\Support;
 
 use App\Driver;
+use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceService;
 use App\User;
 use App\VehicleDocument;
+use App\VehicleMaintenance;
 use Illuminate\Support\Carbon;
 
 class FleetComplianceAlerts
@@ -12,32 +14,35 @@ class FleetComplianceAlerts
     private const DOCUMENT_EXPIRY_WINDOW_DAYS = 30;
 
     /**
-     * @return array<string, list<array<string, mixed>>>
+     * @return array{
+     *     documents: list<array<string, mixed>>,
+     *     licenses: list<array<string, mixed>>,
+     *     due_services: list<array<string, mixed>>
+     * }
      */
     public static function build(User $user): array
     {
         $today = Carbon::today();
         $documents = [];
         $licenses = [];
+        $dueServices = [];
+
+        $windowEnd = $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString();
 
         if ($user->hasPermission('vehicle_documents.view')) {
             $documentQuery = VehicleDocument::query()
                 ->with('vehicle:id,registration_number')
                 ->whereNotNull('expiry_date')
-                ->where(function ($query) use ($today) {
-                    $query->whereDate('expiry_date', '<', $today->toDateString())
-                        ->orWhere(function ($expiringQuery) use ($today) {
-                            $expiringQuery
-                                ->whereDate('expiry_date', '>=', $today->toDateString())
-                                ->whereDate(
-                                    'expiry_date',
-                                    '<=',
-                                    $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
-                                );
-                        });
-                });
+                ->where('expiry_date', '<=', $windowEnd);
 
-            foreach ($documentQuery->get() as $document) {
+            $documentRows = $documentQuery->get();
+            $tenantIds = $documentRows->pluck('tenant_id')->unique()->filter()->values();
+
+            foreach ($tenantIds as $tenantId) {
+                DocumentTypeDefaults::labelsForTenant((string) $tenantId);
+            }
+
+            foreach ($documentRows as $document) {
                 $documents[] = self::formatDocumentAlert($document, $today);
             }
 
@@ -48,11 +53,7 @@ class FleetComplianceAlerts
             $driverQuery = Driver::query()
                 ->where('is_active', true)
                 ->whereNotNull('license_expiry_date')
-                ->whereDate(
-                    'license_expiry_date',
-                    '<=',
-                    $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
-                );
+                ->where('license_expiry_date', '<=', $windowEnd);
 
             foreach ($driverQuery->get(['id', 'name', 'license_number', 'license_expiry_date']) as $driver) {
                 $expiryDate = Carbon::parse($driver->license_expiry_date)->startOfDay();
@@ -74,9 +75,69 @@ class FleetComplianceAlerts
             $licenses = VehicleDocumentStatus::sortByUrgency($licenses);
         }
 
+        if ($user->hasPermission('maintenance.view')) {
+            $dueServices = app(VehicleMaintenanceService::class)
+                ->dueServicesForAlerts()
+                ->map(fn (VehicleMaintenance $maintenance): array => self::formatDueServiceAlert($maintenance, $today))
+                ->sortBy([
+                    ['sort_priority', 'asc'],
+                    ['days_overdue', 'desc'],
+                    ['vehicle_registration', 'asc'],
+                ])
+                ->values()
+                ->map(function (array $alert): array {
+                    unset($alert['sort_priority'], $alert['days_overdue']);
+
+                    return $alert;
+                })
+                ->all();
+        }
+
         return [
             'documents' => $documents,
             'licenses' => $licenses,
+            'due_services' => $dueServices,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function formatDueServiceAlert(VehicleMaintenance $maintenance, Carbon $today): array
+    {
+        $vehicleOdometer = $maintenance->vehicle?->odometer_km !== null
+            ? (float) $maintenance->vehicle->odometer_km
+            : null;
+        $dueKm = $maintenance->next_service_due_km !== null
+            ? (float) $maintenance->next_service_due_km
+            : null;
+        $dueDate = $maintenance->next_service_due_date?->toDateString();
+        $overdueReason = MaintenanceDueStatus::overdueReason($vehicleOdometer, $dueKm, $dueDate, $today->toDateString());
+        $daysOverdue = $dueDate !== null && $dueDate < $today->toDateString()
+            ? (int) Carbon::parse($dueDate)->startOfDay()->diffInDays($today)
+            : 0;
+
+        return [
+            'id' => $maintenance->id,
+            'vehicle_id' => $maintenance->vehicle_id,
+            'vehicle_registration' => $maintenance->vehicle?->registration_number,
+            'maintenance_service_type_id' => $maintenance->maintenance_service_type_id,
+            'service_type' => $maintenance->maintenanceServiceType?->code,
+            'service_type_label' => $maintenance->maintenanceServiceType?->name,
+            'service_date' => $maintenance->service_date?->toDateString(),
+            'odometer_km' => $vehicleOdometer,
+            'next_service_due_km' => $dueKm,
+            'next_service_due_date' => $dueDate,
+            'overdue_reason' => $overdueReason,
+            'overdue_reason_label' => MaintenanceDueStatus::overdueReasonLabel($overdueReason),
+            'status' => 'due',
+            'sort_priority' => match ($overdueReason) {
+                'both' => 0,
+                'date' => 1,
+                'km' => 2,
+                default => 3,
+            },
+            'days_overdue' => $daysOverdue,
         ];
     }
 

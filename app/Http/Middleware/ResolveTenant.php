@@ -17,7 +17,7 @@ class ResolveTenant
         $tenantId = $request->header('X-Tenant-Id');
 
         if ($request->user() !== null) {
-            $request->user()->loadMissing('userRole.permissions');
+            $request->user()->loadMissing('userRole');
 
             if ($tenantId === null) {
                 $tenantId = $request->user()->effectiveTenantId();

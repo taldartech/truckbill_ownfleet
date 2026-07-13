@@ -63,7 +63,7 @@ class LoginController extends Controller
 
         UserSessionManager::invalidateOtherSessions($user, $request->session()->getId());
 
-        $user->loadMissing(['userRole.permissions', 'tenant']);
+        $user->loadMissing(['userRole', 'tenant']);
         TenantContext::setTenantId($user->effectiveTenantId());
 
         if ($request->wantsJson()) {

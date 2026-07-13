@@ -28,6 +28,9 @@
                 <h6 class="fw-bold mb-1">Vehicle Documents</h6>
                 <p class="text-muted small mb-3">
                     Most urgent items appear first. Renew from here.
+                    <span v-if="documentsTotal > documents.length">
+                        Showing {{ documents.length }} of {{ documentsTotal }}.
+                    </span>
                 </p>
                 <div class="table-responsive compliance-table">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -36,7 +39,6 @@
                                 <th>Truck</th>
                                 <th>Document</th>
                                 <th>Expiry</th>
-                                
                                 <th>Status</th>
                                 <th v-if="canEditDocuments" class="text-end compliance-actions-col">Action</th>
                             </tr>
@@ -82,9 +84,22 @@
             </div>
 
             <div v-if="licenses.length">
-                <h6 class="fw-bold mb-1">Driver Licenses</h6>
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+                    <h6 class="fw-bold mb-0">Driver Licenses</h6>
+                    <AppButton
+                        size="sm"
+                        outline
+                        variant="primary"
+                        label="Open Drivers"
+                        icon="fas fa-arrow-up-right-from-square"
+                        :to="{ name: 'drivers.index', query: { license_alerts: '1' } }"
+                    />
+                </div>
                 <p class="text-muted small mb-3">
                     Update license expiry for drivers needing attention.
+                    <span v-if="licensesTotal > licenses.length">
+                        Showing {{ licenses.length }} of {{ licensesTotal }}.
+                    </span>
                 </p>
                 <div class="table-responsive compliance-table">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -100,35 +115,45 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                v-for="license in licenses"
-                                :key="license.driver_id"
-                                :class="[
-                                    'compliance-alert-row',
-                                    rowBorderClass(license),
-                                    { 'compliance-alert-row--disabled': !canManageLicenses },
-                                ]"
-                            >
-                                <td class="fw-medium">{{ license.driver_name }}</td>
-                                <td>{{ license.license_number ?? '—' }}</td>
-                                <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
-                                <td>
-                                    <DocumentStatusBadge :document="license" soft />
-                                </td>
-                                <td v-if="canManageLicenses" class="text-end">
-                                    <div class="compliance-actions">
-                                     
-                                        <AppButton
-                                            v-if="canUpdateLicense(license)"
-                                            size="sm"
-                                            variant="primary"
-                                            icon="fas fa-id-card"
-                                            title="Update license"
-                                            @click="selectLicense(license)"
+                            <template v-for="license in licenses" :key="license.driver_id">
+                                <tr
+                                    :class="[
+                                        'compliance-alert-row',
+                                        rowBorderClass(license),
+                                    ]"
+                                >
+                                    <td class="fw-medium">{{ license.driver_name }}</td>
+                                    <td>{{ license.license_number ?? '—' }}</td>
+                                    <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
+                                    <td>
+                                        <DocumentStatusBadge :document="license" soft />
+                                    </td>
+                                    <td v-if="canManageLicenses" class="text-end">
+                                        <div class="compliance-actions">
+                                            <AppButton
+                                                v-if="canUpdateLicense(license)"
+                                                size="sm"
+                                                variant="primary"
+                                                icon="fas fa-calendar-days"
+                                                title="Update expiry"
+                                                @click="startExpiryUpdate(license)"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="updatingLicenseDriverId === license.driver_id"
+                                    class="compliance-renew-row"
+                                >
+                                    <td :colspan="licenseTableColspan">
+                                        <LicenseExpiryInlineForm
+                                            :license="license"
+                                            @saved="handleExpirySaved"
+                                            @cancel="cancelExpiryUpdate"
                                         />
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
@@ -153,10 +178,13 @@ import {
     sortDocumentsByUrgency,
 } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
+import LicenseExpiryInlineForm from '../drivers/LicenseExpiryInlineForm.vue';
 import DocumentStatusBadge from '../trucks/DocumentStatusBadge.vue';
 import DocumentRenewInlineForm from '../trucks/DocumentRenewInlineForm.vue';
 import AppButton from '../ui/AppButton.vue';
 import './complianceAlerts.css';
+
+const MODAL_ALERT_LIMIT = 20;
 
 const props = defineProps({
     show: {
@@ -173,18 +201,22 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['close', 'edit-license', 'saved']);
+const emit = defineEmits(['close', 'saved']);
 
 const loading = ref(false);
 const loadError = ref('');
 const documents = ref([]);
 const licenses = ref([]);
+const documentsTotal = ref(0);
+const licensesTotal = ref(0);
 const renewingDocumentId = ref(null);
+const updatingLicenseDriverId = ref(null);
 
 const periodLabel = computed(() => complianceAlertWindowLabel());
 
 const isEmpty = computed(() => documents.value.length === 0 && licenses.value.length === 0);
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
+const licenseTableColspan = computed(() => (props.canManageLicenses ? 5 : 4));
 
 watch(
     () => props.show,
@@ -193,6 +225,7 @@ watch(
             await loadAlerts();
         } else {
             renewingDocumentId.value = null;
+            updatingLicenseDriverId.value = null;
         }
     },
 );
@@ -203,11 +236,18 @@ async function loadAlerts() {
 
     try {
         const data = await fetchComplianceAlerts();
-        documents.value = sortDocumentsByUrgency(data.documents ?? []);
-        licenses.value = sortDocumentsByUrgency(data.licenses ?? []);
+        const sortedDocuments = sortDocumentsByUrgency(data.documents ?? []);
+        const sortedLicenses = sortDocumentsByUrgency(data.licenses ?? []);
+
+        documentsTotal.value = sortedDocuments.length;
+        licensesTotal.value = sortedLicenses.length;
+        documents.value = sortedDocuments.slice(0, MODAL_ALERT_LIMIT);
+        licenses.value = sortedLicenses.slice(0, MODAL_ALERT_LIMIT);
     } catch {
         documents.value = [];
         licenses.value = [];
+        documentsTotal.value = 0;
+        licensesTotal.value = 0;
         loadError.value = 'Could not load compliance alerts.';
     } finally {
         loading.value = false;
@@ -216,11 +256,13 @@ async function loadAlerts() {
 
 function close() {
     renewingDocumentId.value = null;
+    updatingLicenseDriverId.value = null;
     emit('close');
 }
 
 function startRenew(document) {
     renewingDocumentId.value = document.id;
+    updatingLicenseDriverId.value = null;
 }
 
 function cancelRenew() {
@@ -233,12 +275,19 @@ async function handleRenewSaved(payload) {
     emit('saved', payload);
 }
 
-function selectLicense(license) {
-    if (!props.canManageLicenses) {
-        return;
-    }
+function startExpiryUpdate(license) {
+    updatingLicenseDriverId.value = license.driver_id;
+    renewingDocumentId.value = null;
+}
 
-    emit('edit-license', license);
+function cancelExpiryUpdate() {
+    updatingLicenseDriverId.value = null;
+}
+
+async function handleExpirySaved(payload) {
+    updatingLicenseDriverId.value = null;
+    await loadAlerts();
+    emit('saved', payload);
 }
 
 defineExpose({
@@ -256,14 +305,6 @@ defineExpose({
 
 .compliance-alert-row:hover {
     background-color: rgba(47, 179, 111, 0.04);
-}
-
-.compliance-alert-row--disabled {
-    cursor: default;
-}
-
-.compliance-alert-row--disabled:hover {
-    background-color: transparent;
 }
 
 .compliance-renew-row > td {

@@ -45,13 +45,17 @@ class FleetDashboardStats
         if ($user->hasPermission('vehicle_documents.view')) {
             $fleet['expired_documents_count'] = VehicleDocument::query()
                 ->whereNotNull('expiry_date')
-                ->whereDate('expiry_date', '<', $today)
+                ->where('expiry_date', '<', $today)
                 ->count();
 
             $fleet['expiring_documents_count'] = VehicleDocument::query()
                 ->whereNotNull('expiry_date')
-                ->whereDate('expiry_date', '>=', $today)
-                ->whereDate('expiry_date', '<=', Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString())
+                ->where('expiry_date', '>=', $today)
+                ->where(
+                    'expiry_date',
+                    '<=',
+                    Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
+                )
                 ->count();
         }
 
@@ -59,8 +63,12 @@ class FleetDashboardStats
             $fleet['license_expiring_count'] = Driver::query()
                 ->where('is_active', true)
                 ->whereNotNull('license_expiry_date')
-                ->whereDate('license_expiry_date', '>=', $today)
-                ->whereDate('license_expiry_date', '<=', Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString())
+                ->where('license_expiry_date', '>=', $today)
+                ->where(
+                    'license_expiry_date',
+                    '<=',
+                    Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
+                )
                 ->count();
         }
 

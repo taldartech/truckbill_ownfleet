@@ -142,7 +142,9 @@ class DocumentAlertNotifier
         }
 
         $this->recipientsCache[$tenantId] = User::query()
-            ->with('userRole.permissions')
+            ->with([
+                'userRole.permissions' => fn ($query) => $query->select('permissions.id', 'permissions.slug'),
+            ])
             ->where('tenant_id', $tenantId)
             ->where(function ($query): void {
                 $query

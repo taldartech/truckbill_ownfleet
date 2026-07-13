@@ -89,7 +89,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->group(function () {
     Route::get('/user', function () {
-        $user = auth()->user()?->loadMissing(['userRole.permissions', 'tenant', 'branch']);
+        $user = auth()->user()?->loadMissing(['userRole', 'tenant', 'branch']);
 
         return response()->json([
             'user' => $user !== null ? new UserResource($user) : null,

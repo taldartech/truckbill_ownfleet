@@ -11,7 +11,7 @@
         window.__LOGO_URL__ = @json(asset('logo.png'));
         window.__AUTH_USER__ = @json(
             auth()->check()
-                ? (new \App\Http\Resources\UserResource(auth()->user()->loadMissing(['userRole.permissions', 'tenant'])))->resolve()
+                ? (new \App\Http\Resources\UserResource(auth()->user()->loadMissing(['userRole', 'tenant'])))->resolve()
                 : null
         );
         window.__LOGIN_FLASH__ = {

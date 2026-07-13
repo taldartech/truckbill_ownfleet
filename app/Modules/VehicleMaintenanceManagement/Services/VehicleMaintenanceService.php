@@ -103,4 +103,12 @@ class VehicleMaintenanceService
     {
         return $this->repository->dueServices($filters);
     }
+
+    /**
+     * @return Collection<int, VehicleMaintenance>
+     */
+    public function dueServicesForAlerts(): Collection
+    {
+        return $this->repository->dueServicesForAlerts();
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Concerns;
 
+use App\Permission;
 use App\Support\PermissionAliasResolver;
 use App\Support\PermissionCache;
 
@@ -26,12 +27,29 @@ trait HasPermissions
             return $this->permissionSlugsCache;
         }
 
-        $this->loadMissing('userRole.permissions');
-
-        $this->permissionSlugsCache = $this->userRole?->permissions
-            ->pluck('slug')
-            ->values()
-            ->all() ?? [];
+        if (
+            $this->relationLoaded('userRole')
+            && $this->userRole?->relationLoaded('permissions')
+        ) {
+            $this->permissionSlugsCache = $this->userRole->permissions
+                ->pluck('slug')
+                ->values()
+                ->all();
+        } elseif ($this->user_role_id === null) {
+            $this->permissionSlugsCache = [];
+        } else {
+            $this->permissionSlugsCache = Permission::query()
+                ->join(
+                    'permission_user_role',
+                    'permissions.id',
+                    '=',
+                    'permission_user_role.permission_id',
+                )
+                ->where('permission_user_role.user_role_id', $this->user_role_id)
+                ->orderBy('permissions.id')
+                ->pluck('permissions.slug')
+                ->all();
+        }
 
         $this->permissionSlugsCacheGeneration = $generation;
 
