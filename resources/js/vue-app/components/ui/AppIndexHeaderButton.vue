@@ -28,7 +28,7 @@ defineProps({
     icon: {
         type: String,
         default: '',
-        validator: (value) => !value || ['filter', 'plus', 'export', 'return'].includes(value),
+        validator: (value) => !value || ['filter', 'plus', 'export', 'return', 'grid'].includes(value),
     },
     ariaExpanded: {
         type: [Boolean, String],

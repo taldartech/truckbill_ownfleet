@@ -1,5 +1,6 @@
 /**
  * Sidebar navigation. Each item may set `permission` (slug) — hidden when user lacks it.
+ * Set `hidden: true` to temporarily remove a module from the sidebar.
  */
 export const adminNavigation = [
     {
@@ -43,6 +44,7 @@ export const adminNavigation = [
     {
         label: 'Attendance',
         icon: 'bi bi-calendar-check nav-icon',
+        hidden: true,
         children: [
             {
                 label: 'Attendance & Wages',
@@ -63,9 +65,24 @@ export const adminNavigation = [
     {
         label: 'Tyres',
         icon: 'bi bi-circle nav-icon',
-        to: '/tyres',
-        permission: 'tyres.view',
-        requiresTenant: true,
+        children: [
+            {
+                label: 'Tyre Management',
+                icon: 'bi bi-list-ul nav-icon',
+                to: '/tyres',
+                activeNames: ['tyres.index', 'tyres.show', 'vehicles.tyres'],
+                permission: 'tyres.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Add Tyre',
+                icon: 'bi bi-plus-circle nav-icon',
+                to: { name: 'tyres.index', query: { create: '1' } },
+                activeNames: [],
+                permission: 'tyres.manage',
+                requiresTenant: true,
+            },
+        ],
     },
     {
         label: 'Maintenance',
@@ -75,13 +92,23 @@ export const adminNavigation = [
                 label: 'Service Records',
                 icon: 'bi bi-clipboard-check nav-icon',
                 to: '/maintenance/records',
+                activeNames: ['maintenance.records', 'maintenance.show', 'maintenance.edit'],
                 permission: 'maintenance.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Add Maintenance',
+                icon: 'bi bi-plus-circle nav-icon',
+                to: { name: 'maintenance.create' },
+                activeNames: ['maintenance.create'],
+                permission: 'maintenance.create',
                 requiresTenant: true,
             },
             {
                 label: 'Due Services',
                 icon: 'bi bi-exclamation-triangle nav-icon',
                 to: '/maintenance/due',
+                activeNames: ['maintenance.due'],
                 permission: 'maintenance.view',
                 requiresTenant: true,
             },

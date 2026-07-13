@@ -16,11 +16,11 @@
                     Search filter
                 </AppIndexHeaderButton>
                 <RouterLink
-                    v-if="vehicleFilter && truckFilterApplicable"
+                    v-if="vehicleFilter"
                     :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
                     class="btn btn-brand-secondary btn-sm app-index-header-btn"
                 >
-                    <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                    <span class="app-index-header-btn__icon app-index-header-btn__icon--grid" aria-hidden="true"></span>
                     Positions
                 </RouterLink>
                 <AppIndexHeaderButton
@@ -51,7 +51,7 @@
                         @keydown.enter.prevent="applyFilters"
                     />
                 </div>
-                <div v-if="truckFilterApplicable">
+                <div>
                     <label class="form-label" for="tyresIndex_vehicle">Truck</label>
                     <VehicleSelect
                         input-id="tyresIndex_vehicle"
@@ -102,7 +102,7 @@
                     <tr v-for="tyre in tyres" :key="tyre.id">
                             <td>
                                 <RouterLink
-                                    :to="{ name: 'tyres.show', params: { id: tyre.id } }"
+                                    :to="{ name: 'tyres.show', params: { id: tyre.id }, query: listFilterQuery }"
                                     class="fw-semibold text-decoration-none"
                                 >
                                     {{ tyre.serial_number }}
@@ -506,11 +506,10 @@ const filtersApplied = ref(false);
 const filtersOpen = ref(false);
 const saving = ref(false);
 const search = ref('');
-const statusFilter = ref('');
+const statusFilter = ref('IN_STOCK');
 const vehicleFilter = ref('');
-const truckFilterApplicable = computed(
-    () => statusFilter.value !== 'IN_STOCK' && statusFilter.value !== 'SCRAPPED',
-);
+let syncingFilters = false;
+let tyresRequestId = 0;
 const vehicles = ref([]);
 const showModal = ref(false);
 const showSaveConfirm = ref(false);
@@ -537,6 +536,24 @@ const form = reactive({
 const filtersActive = computed(
     () => search.value.trim() !== '' || statusFilter.value !== '' || vehicleFilter.value !== '',
 );
+
+const listFilterQuery = computed(() => {
+    const query = {};
+
+    if (search.value.trim() !== '') {
+        query.search = search.value.trim();
+    }
+
+    if (statusFilter.value) {
+        query.status = statusFilter.value;
+    }
+
+    if (vehicleFilter.value) {
+        query.vehicle_id = String(vehicleFilter.value);
+    }
+
+    return query;
+});
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
@@ -580,13 +597,27 @@ const saveConfirmSummary = computed(() =>
     }),
 );
 
+function statusClearsTruckFilter(status = statusFilter.value) {
+    return status === 'IN_STOCK' || status === 'SCRAPPED';
+}
+
 function clearTruckFilterIfNeeded() {
-    if (truckFilterApplicable.value) {
+    if (!statusClearsTruckFilter()) {
         return;
     }
 
     if (vehicleFilter.value) {
         vehicleFilter.value = '';
+    }
+}
+
+function setInstalledWhenTruckSelected() {
+    if (!vehicleFilter.value) {
+        return;
+    }
+
+    if (statusFilter.value !== 'INSTALLED') {
+        statusFilter.value = 'INSTALLED';
     }
 }
 
@@ -599,32 +630,47 @@ function applyFilters() {
 }
 
 function clearFilters() {
+    syncingFilters = true;
     search.value = '';
-    statusFilter.value = '';
+    statusFilter.value = 'IN_STOCK';
     vehicleFilter.value = '';
-    filtersApplied.value = false;
-    tyres.value = [];
-    syncFromMeta({}, 0);
+    syncingFilters = false;
     pagination.currentPage = 1;
-    syncVehicleQuery();
+    applyFilters();
 }
 
 function syncVehicleQuery() {
-    const query = { ...route.query };
+    const nextQuery = { ...route.query };
+
+    if (search.value.trim() !== '') {
+        nextQuery.search = search.value.trim();
+    } else {
+        delete nextQuery.search;
+    }
 
     if (vehicleFilter.value) {
-        query.vehicle_id = String(vehicleFilter.value);
+        nextQuery.vehicle_id = String(vehicleFilter.value);
     } else {
-        delete query.vehicle_id;
+        delete nextQuery.vehicle_id;
     }
 
     if (statusFilter.value) {
-        query.status = statusFilter.value;
+        nextQuery.status = statusFilter.value;
     } else {
-        delete query.status;
+        delete nextQuery.status;
     }
 
-    router.replace({ query });
+    const currentKeys = Object.keys(route.query).sort();
+    const nextKeys = Object.keys(nextQuery).sort();
+    const unchanged =
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => String(route.query[key] ?? '') === String(nextQuery[key] ?? ''));
+
+    if (unchanged) {
+        return;
+    }
+
+    router.replace({ query: nextQuery });
 }
 
 function goToPage(page) {
@@ -695,7 +741,7 @@ function closeModal() {
 }
 
 function goToDetail(id) {
-    router.push({ name: 'tyres.show', params: { id } });
+    router.push({ name: 'tyres.show', params: { id }, query: listFilterQuery.value });
 }
 
 async function loadTyres(page = 1) {
@@ -705,19 +751,28 @@ async function loadTyres(page = 1) {
         return;
     }
 
+    const requestId = ++tyresRequestId;
     loading.value = true;
+
     try {
         const response = await listTyres({
             page,
             perPage: pagination.perPage,
             search: search.value || undefined,
             status: statusFilter.value || undefined,
-            vehicleId: truckFilterApplicable.value && vehicleFilter.value ? vehicleFilter.value : undefined,
+            vehicleId: vehicleFilter.value || undefined,
         });
+
+        if (requestId !== tyresRequestId) {
+            return;
+        }
+
         tyres.value = response.data;
         syncFromMeta(response.meta, tyres.value.length);
     } finally {
-        loading.value = false;
+        if (requestId === tyresRequestId) {
+            loading.value = false;
+        }
     }
 }
 
@@ -819,13 +874,18 @@ function cancelSaveConfirm() {
 async function confirmSaveTyre() {
     saving.value = true;
 
+    const wasEditing = Boolean(editing.value);
+    const createdSerial = String(form.serial_number ?? '').trim();
+
     try {
         await persistTyre();
-        toast.success(editing.value ? 'Tyre updated successfully.' : 'Tyre added successfully.');
+        toast.success(wasEditing ? 'Tyre updated successfully.' : 'Tyre added successfully.');
         showSaveConfirm.value = false;
 
         if (pendingSaveMode.value === 'saveAndNext') {
-            if (filtersApplied.value) {
+            if (!wasEditing && createdSerial) {
+                await showCreatedTyreOnList(createdSerial);
+            } else if (filtersApplied.value) {
                 await loadTyres(pagination.currentPage);
             }
 
@@ -835,7 +895,9 @@ async function confirmSaveTyre() {
         } else {
             closeModal();
 
-            if (filtersApplied.value) {
+            if (!wasEditing && createdSerial) {
+                await showCreatedTyreOnList(createdSerial);
+            } else if (filtersApplied.value) {
                 await loadTyres(pagination.currentPage);
             }
         }
@@ -848,26 +910,90 @@ async function confirmSaveTyre() {
     }
 }
 
+async function showCreatedTyreOnList(serialNumber) {
+    syncingFilters = true;
+    search.value = serialNumber;
+    statusFilter.value = 'IN_STOCK';
+    vehicleFilter.value = '';
+    syncingFilters = false;
+    filtersOpen.value = true;
+    filtersApplied.value = true;
+    syncVehicleQuery();
+    pagination.currentPage = 1;
+    await loadTyres(1);
+}
+
 function formatMoney(amount) {
     return amount != null ? `₹${Number(amount).toLocaleString('en-IN')}` : '—';
 }
 
 function applyRouteFilters() {
-    const { status, vehicle_id: vehicleId } = route.query;
+    syncingFilters = true;
 
-    if (typeof status === 'string' && status !== '') {
-        statusFilter.value = status;
-    }
+    try {
+        const { status, vehicle_id: vehicleId, search: searchQuery } = route.query;
+        const hasStatus = typeof status === 'string' && status !== '';
+        const hasVehicle = typeof vehicleId === 'string' && vehicleId !== '';
+        const hasSearch = typeof searchQuery === 'string' && searchQuery.trim() !== '';
 
-    const skipTruckFilter = statusFilter.value === 'IN_STOCK' || statusFilter.value === 'SCRAPPED';
+        if (hasSearch) {
+            search.value = searchQuery.trim();
+        }
 
-    if (!skipTruckFilter && typeof vehicleId === 'string' && vehicleId !== '') {
-        vehicleFilter.value = vehicleId;
+        if (hasVehicle && status !== 'SCRAPPED') {
+            vehicleFilter.value = vehicleId;
+            statusFilter.value = 'INSTALLED';
+        } else {
+            // Keep search results unblocked: only default to In Stock when not searching.
+            statusFilter.value = hasStatus ? status : hasSearch ? '' : 'IN_STOCK';
+            vehicleFilter.value = '';
+        }
+    } finally {
+        syncingFilters = false;
     }
 }
 
+function openCreateFromRouteQuery() {
+    if (route.query.create !== '1' || !canManage.value) {
+        return;
+    }
+
+    openCreate();
+
+    const query = { ...route.query };
+    delete query.create;
+    router.replace({ query });
+}
+
 watch(statusFilter, () => {
+    if (syncingFilters) {
+        return;
+    }
+
     clearTruckFilterIfNeeded();
+});
+
+watch(vehicleFilter, () => {
+    if (syncingFilters) {
+        return;
+    }
+
+    setInstalledWhenTruckSelected();
+});
+
+watch(search, (value, previous) => {
+    if (syncingFilters) {
+        return;
+    }
+
+    // Starting a free-text search should not stay stuck on default In Stock.
+    if (value.trim() === '' || String(previous ?? '').trim() !== '') {
+        return;
+    }
+
+    if (statusFilter.value === 'IN_STOCK' && !vehicleFilter.value) {
+        statusFilter.value = '';
+    }
 });
 
 watch(showModal, async (open) => {
@@ -879,18 +1005,30 @@ watch(showModal, async (open) => {
     serialNumberInputRef.value?.focus();
 });
 
-onMounted(async () => {
+watch(
+    () => route.query.create,
+    () => {
+        openCreateFromRouteQuery();
+    },
+);
+
+onMounted(() => {
     applyRouteFilters();
 
     if (filtersActive.value) {
         filtersOpen.value = true;
     }
 
-    try {
-        vehicles.value = await listAllVehicles();
-    } catch {
-        vehicles.value = [];
-    }
+    applyFilters();
+    openCreateFromRouteQuery();
+
+    listAllVehicles()
+        .then((rows) => {
+            vehicles.value = rows;
+        })
+        .catch(() => {
+            vehicles.value = [];
+        });
 });
 </script>
 
