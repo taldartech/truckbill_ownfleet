@@ -1,17 +1,47 @@
 <template>
     <div class="document-renew-inline">
-        <h6 class="small fw-bold mb-2">
-            Renew — {{ document.document_type_label ?? document.document_type }}
-        </h6>
-        <DocumentFormFields
-            v-model="docForm"
-            :document-types="documentTypeOptions"
-            :field-errors="fieldErrors"
-            :document-type-disabled="true"
-            :hide-type="true"
-        />
-        <div v-if="formError" class="text-danger small mt-1">{{ formError }}</div>
-        <div class="d-flex gap-2 mt-2">
+        <div class="document-renew-inline__row">
+            <span class="document-renew-inline__title">
+                Renew — {{ document.document_type_label ?? document.document_type }}
+            </span>
+
+            <div class="document-renew-inline__field">
+                <label class="document-renew-inline__label" :for="`${fieldId}_issue`">Issue Date</label>
+                <AppDateInput
+                    :input-id="`${fieldId}_issue`"
+                    v-model="docForm.issue_date"
+                    size="sm"
+                    :invalid="!!fieldErrors.issue_date"
+                    required
+                />
+            </div>
+
+            <div class="document-renew-inline__field">
+                <label class="document-renew-inline__label" :for="`${fieldId}_expiry`">Expiry Date</label>
+                <AppDateInput
+                    :input-id="`${fieldId}_expiry`"
+                    v-model="docForm.expiry_date"
+                    size="sm"
+                    :invalid="!!fieldErrors.expiry_date"
+                    :min="docForm.issue_date || undefined"
+                    required
+                />
+            </div>
+
+            <div class="document-renew-inline__field document-renew-inline__field--narrow">
+                <label class="document-renew-inline__label" :for="`${fieldId}_reminder`">Reminder Days</label>
+                <input
+                    :id="`${fieldId}_reminder`"
+                    v-model="docForm.reminder_days_before"
+                    v-no-scroll-change
+                    type="number"
+                    min="1"
+                    max="90"
+                    class="form-control form-control-sm"
+                    :class="{ 'is-invalid': !!fieldErrors.reminder_days_before }"
+                />
+            </div>
+
             <button
                 type="button"
                 class="btn btn-sm btn-success"
@@ -29,6 +59,17 @@
                 Cancel
             </button>
         </div>
+
+        <div v-if="fieldErrors.issue_date" class="invalid-feedback d-block">
+            {{ fieldErrors.issue_date[0] }}
+        </div>
+        <div v-if="fieldErrors.expiry_date" class="invalid-feedback d-block">
+            {{ fieldErrors.expiry_date[0] }}
+        </div>
+        <div v-if="fieldErrors.reminder_days_before" class="invalid-feedback d-block">
+            {{ fieldErrors.reminder_days_before[0] }}
+        </div>
+        <div v-if="formError" class="text-danger small mt-1">{{ formError }}</div>
     </div>
 </template>
 
@@ -38,7 +79,7 @@ import { updateVehicleDocument } from '../../api/vehicleDocuments';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { defaultRenewFormValues } from '../../utils/documentStatus';
-import DocumentFormFields from './DocumentFormFields.vue';
+import AppDateInput from '../ui/AppDateInput.vue';
 
 const props = defineProps({
     document: {
@@ -55,12 +96,9 @@ const toast = useAppToast();
 const saving = ref(false);
 const docForm = ref(defaultRenewFormValues(props.document));
 
-const documentTypeOptions = computed(() => [
-    {
-        id: props.document.document_type,
-        label: props.document.document_type_label ?? props.document.document_type,
-    },
-]);
+const fieldId = computed(
+    () => `document-renew-inline-${props.document?.id ?? 'new'}`,
+);
 
 watch(
     () => props.document,
@@ -136,6 +174,39 @@ async function save() {
 
 <style scoped>
 .document-renew-inline {
-    padding: 0.5rem 0.25rem;
+    padding: 0.35rem 0.25rem;
+}
+
+.document-renew-inline__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.65rem 0.75rem;
+}
+
+.document-renew-inline__title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    align-self: center;
+}
+
+.document-renew-inline__field {
+    width: 10.5rem;
+    max-width: 100%;
+}
+
+.document-renew-inline__field--narrow {
+    width: 6.5rem;
+}
+
+.document-renew-inline__label {
+    display: block;
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
 }
 </style>
