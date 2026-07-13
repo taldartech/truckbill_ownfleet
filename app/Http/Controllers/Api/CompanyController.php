@@ -24,7 +24,7 @@ class CompanyController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
 
-        $query = Tenant::query()->orderByDesc('created_at');
+        $query = Tenant::query()->with('state')->orderByDesc('created_at');
 
         /** @var User $user */
         $user = $request->user();
@@ -52,7 +52,7 @@ class CompanyController extends Controller
     {
         $this->authorize('view', $company);
 
-        return new CompanyResource($company);
+        return new CompanyResource($company->loadMissing('state'));
     }
 
     public function update(UpdateCompanyRequest $request, Tenant $company): CompanyResource
@@ -66,7 +66,7 @@ class CompanyController extends Controller
         $company->fill($request->validated());
         $company->save();
 
-        return new CompanyResource($company->fresh());
+        return new CompanyResource($company->fresh()->load('state'));
     }
 
     public function enter(Request $request, Tenant $company): JsonResponse

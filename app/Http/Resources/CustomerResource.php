@@ -41,6 +41,7 @@ class CustomerResource extends JsonResource
             'state' => $this->whenLoaded('state', fn () => [
                 'id' => $this->state?->id,
                 'name' => $this->state?->name,
+                'code' => $this->state?->code,
             ]),
             'city' => $this->whenLoaded('city', fn () => [
                 'id' => $this->city?->id,
@@ -48,6 +49,7 @@ class CustomerResource extends JsonResource
             ]),
             'country_name' => $countryName,
             'state_name' => $stateName,
+            'state_code' => $this->whenLoaded('state', fn () => $this->state?->code),
             'city_name' => $cityName,
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),

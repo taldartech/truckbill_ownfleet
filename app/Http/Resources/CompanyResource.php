@@ -2,8 +2,8 @@
 
 namespace App\Http\Resources;
 
-use App\Support\ApiDateTime;
 use App\Enums\PayrollPayDaysMode;
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
@@ -28,8 +28,11 @@ class CompanyResource extends JsonResource
             'is_blocked' => (bool) $this->is_blocked,
             'gst_number' => $this->gst_number,
             'pan_number' => $this->pan_number,
-            'gst_scheme' => $this->gst_scheme,
-            'gst_type' => $this->gst_type,
+            'registration_type' => $this->registration_type?->value ?? $this->registration_type,
+            'tax_liability' => $this->tax_liability?->value ?? $this->tax_liability,
+            'state_id' => $this->state_id,
+            'gst_rate' => $this->gst_rate !== null ? (float) $this->gst_rate : null,
+            'state_name' => $this->whenLoaded('state', fn () => $this->state?->name),
             'address' => $this->address,
             'contact_person' => $this->contact_person,
             'contact_number' => $this->contact_number,

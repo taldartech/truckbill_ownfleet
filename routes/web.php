@@ -120,6 +120,11 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
         Route::put('/branches/{branch}', [ApiBranchController::class, 'update'])->name('branches.update');
         Route::delete('/branches/{branch}', [ApiBranchController::class, 'destroy'])->name('branches.destroy');
 
+        // Global master data — available without branch selection (e.g. company GST form).
+        Route::get('/locations/countries', [\App\Http\Controllers\Api\LocationController::class, 'countries']);
+        Route::get('/locations/states', [\App\Http\Controllers\Api\LocationController::class, 'states']);
+        Route::get('/locations/cities', [\App\Http\Controllers\Api\LocationController::class, 'cities']);
+
         Route::get('/user-roles', [UserRoleController::class, 'index'])
             ->middleware('permission:roles.view')
             ->name('user-roles.index');
@@ -293,12 +298,22 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.deletion-impact');
             Route::post('/trips/{trip}/archive', [\App\Http\Controllers\Api\TripController::class, 'archive'])
                 ->name('trips.archive');
+            Route::post('/trips/{trip}/invoices/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewForTrip'])
+                ->name('trips.invoices.preview');
+            Route::post('/trips/{trip}/invoices/generate', [\App\Http\Controllers\Api\InvoiceController::class, 'generateForTrip'])
+                ->name('trips.invoices.generate');
             Route::get('/vehicles/{vehicle}/primary-driver', [\App\Http\Controllers\Api\TripController::class, 'vehiclePrimaryDriver'])
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
-            Route::get('/locations/countries', [\App\Http\Controllers\Api\LocationController::class, 'countries']);
-            Route::get('/locations/states', [\App\Http\Controllers\Api\LocationController::class, 'states']);
-            Route::get('/locations/cities', [\App\Http\Controllers\Api\LocationController::class, 'cities']);
+
+            Route::get('/invoices/{invoice}/pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'pdf'])
+                ->name('invoices.pdf');
+            Route::post('/invoices/{invoice}/payments', [\App\Http\Controllers\Api\InvoiceController::class, 'storePayment'])
+                ->name('invoices.payments.store');
+            Route::delete('/invoices/{invoice}/payments/{payment}', [\App\Http\Controllers\Api\InvoiceController::class, 'destroyPayment'])
+                ->name('invoices.payments.destroy');
+            Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class)->only(['index', 'show', 'destroy']);
+
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);

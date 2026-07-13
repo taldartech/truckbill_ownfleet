@@ -52,6 +52,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-receipt',
         title: 'Trip expenses',
     },
+    invoice: {
+        btnClass: 'btn-warning',
+        icon: 'bi bi-file-earmark-text',
+        title: 'Generate invoice',
+    },
     tyres: {
         btnClass: 'btn-outline-secondary',
         icon: 'bi bi-circle',

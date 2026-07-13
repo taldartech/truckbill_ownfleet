@@ -31,7 +31,7 @@ class BranchController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
 
         $query = Branch::query()
-            ->with('company')
+            ->with(['company.state', 'state'])
             ->whereIn('company_id', $companyIds)
             ->orderBy('branch_name');
 
@@ -62,6 +62,7 @@ class BranchController extends Controller
         $branch = DB::transaction(function () use ($request): Branch {
             $validated = $request->validated();
             $validated['head_office'] = $request->boolean('head_office');
+            $validated['inherit_company_gst'] = $request->boolean('inherit_company_gst', true);
 
             if ($validated['head_office']) {
                 Branch::query()
@@ -91,6 +92,10 @@ class BranchController extends Controller
                 $validated['head_office'] = $request->boolean('head_office');
             }
 
+            if ($request->has('inherit_company_gst')) {
+                $validated['inherit_company_gst'] = $request->boolean('inherit_company_gst');
+            }
+
             $companyId = (string) ($validated['company_id'] ?? $branch->company_id);
 
             if (($validated['head_office'] ?? $branch->head_office) === true) {
@@ -113,7 +118,7 @@ class BranchController extends Controller
     {
         $this->authorize('delete', $branch);
 
-        DB::transaction(function () use ($branch, $request): void {
+        DB::transaction(function () use ($branch): void {
             User::query()
                 ->where('branch_id', $branch->id)
                 ->update(['branch_id' => null]);

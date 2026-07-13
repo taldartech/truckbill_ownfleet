@@ -5,6 +5,8 @@ namespace App;
 use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use App\Enums\FreightBillingStatus;
+use App\Enums\InvoicePaymentStatus;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
 use Illuminate\Database\Eloquent\Model;
@@ -118,6 +120,11 @@ class Trip extends Model
         return $this->hasMany(TripRouteLeg::class)->orderBy('sequence_no');
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function expenses(): HasMany
     {
         return $this->hasMany(TripExpense::class);
@@ -141,5 +148,54 @@ class Trip extends Model
     public function profitAmount(): float
     {
         return (float) $this->total_freight_amount - (float) $this->total_expense_amount;
+    }
+
+    public function hasInvoices(): bool
+    {
+        if (array_key_exists('invoices_exists', $this->attributes)) {
+            return (bool) $this->attributes['invoices_exists'];
+        }
+
+        if ($this->relationLoaded('invoices')) {
+            return $this->invoices
+                ->contains(fn (Invoice $invoice): bool => ! $invoice->isCancelled());
+        }
+
+        return $this->invoices()
+            ->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value)
+            ->exists();
+    }
+
+    public function canGenerateInvoices(): bool
+    {
+        if ($this->trashed()) {
+            return false;
+        }
+
+        $status = $this->status instanceof TripStatus
+            ? $this->status
+            : TripStatus::tryFrom((string) $this->status);
+
+        if ($status !== TripStatus::Completed) {
+            return false;
+        }
+
+        $legs = $this->relationLoaded('routeLegs')
+            ? $this->routeLegs
+            : $this->routeLegs()->get();
+
+        return $legs->contains(function (TripRouteLeg $leg): bool {
+            if (! $leg->isRevenueLeg() || blank($leg->customer_id) || (float) $leg->freight_amount <= 0) {
+                return false;
+            }
+
+            $billingStatus = $leg->billing_status instanceof FreightBillingStatus
+                ? $leg->billing_status
+                : FreightBillingStatus::tryFrom((string) ($leg->billing_status ?? 'unbilled'));
+
+            return $billingStatus === null
+                || $billingStatus === FreightBillingStatus::Unbilled
+                || $billingStatus === FreightBillingStatus::Billed;
+        });
     }
 }

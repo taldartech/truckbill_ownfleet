@@ -40,6 +40,15 @@
                     :to="{ name: 'trips.expenses', params: { id: trip.id } }"
                 />
                 <AppButton
+                    v-if="canGenerateInvoices"
+                    variant="warning"
+                    outline
+                    size="sm"
+                    icon="bi bi-file-earmark-text"
+                    label="Generate Invoice(s)"
+                    @click="openGenerateInvoices"
+                />
+                <AppButton
                     v-if="canManage && canEditTripPage"
                     variant="primary"
                     outline
@@ -440,12 +449,238 @@
         <div v-else-if="!needsCompanySelection" class="alert alert-danger">
             Trip not found or you do not have access.
         </div>
+
+        <AppModal
+            :show="showGenerateInvoices"
+            :loading="invoicePreviewLoading || invoiceGenerating"
+            :form-error="invoiceFormError"
+            size="xl"
+            @close="closeGenerateInvoices"
+        >
+            <template #title>Generate Invoice(s)</template>
+
+            <div v-if="trip" class="invoice-generate-trip-summary mb-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <strong class="fs-5 mb-0">{{ trip.trip_number }}</strong>
+                    <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
+                    <span class="badge bg-light text-dark border">{{ tripTypeLabel(trip.trip_type) }}</span>
+                </div>
+                <div class="row g-2 small">
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Truck</div>
+                        <div class="fw-semibold">{{ trip.vehicle?.registration_number || '—' }}</div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Driver</div>
+                        <div class="fw-semibold">{{ trip.driver?.name || '—' }}</div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Trip Date</div>
+                        <div class="fw-semibold">
+                            {{ formatDate(trip.start_at) }}
+                            <span v-if="trip.end_at" class="text-muted"> → {{ formatDate(trip.end_at) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Freight</div>
+                        <div class="fw-semibold">₹{{ formatMoney(trip.total_freight_amount) }}</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-muted">Route</div>
+                        <div class="fw-semibold">{{ routePreview || '—' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="invoicePreviewLoading" class="text-center py-4 text-muted">Loading invoice preview…</div>
+
+            <div v-else-if="invoicePreviewGroups.length === 0" class="alert alert-warning mb-0">
+                No billable routes are available to invoice on this trip.
+            </div>
+
+            <div v-else class="d-flex flex-column gap-3">
+                <p class="text-muted small mb-0">
+                    Review each customer group below. Adjust invoice date and due date before generating. GST rate comes from company/branch GST settings.
+                </p>
+
+                <div
+                    v-for="group in invoicePreviewGroups"
+                    :key="group.customer_id"
+                    class="card"
+                >
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <strong>{{ group.customer_name }}</strong>
+                            <span v-if="group.customer_gst_number" class="text-muted small ms-2">
+                                GST: {{ group.customer_gst_number }}
+                            </span>
+                        </div>
+                        <span class="badge bg-secondary">{{ group.document_type_label }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Invoice Date</label>
+                                <AppDateInput
+                                    v-model="group.invoice_date"
+                                    :invalid="Boolean(invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`])"
+                                />
+                                <div
+                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`]"
+                                    class="invalid-feedback d-block"
+                                >
+                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`][0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Due Date</label>
+                                <AppDateInput
+                                    v-model="group.due_date"
+                                    :min="group.invoice_date || undefined"
+                                    :invalid="Boolean(invoiceFieldErrors[`groups.${group.customer_id}.due_date`])"
+                                />
+                                <div
+                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.due_date`]"
+                                    class="invalid-feedback d-block"
+                                >
+                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.due_date`][0] }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-3">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Route</th>
+                                        <th>Goods</th>
+                                        <th class="text-end">Freight</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="route in group.routes" :key="route.id">
+                                        <td>{{ route.from_location }} → {{ route.to_location }}</td>
+                                        <td>{{ route.goods_name || '—' }}</td>
+                                        <td class="text-end">₹{{ formatMoney(route.freight_amount) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row g-2 small">
+                            <div class="col-md-4">
+                                <span class="text-muted">Freight</span>
+                                <div class="fw-semibold">₹{{ formatMoney(group.freight_amount) }}</div>
+                            </div>
+                            <div v-if="group.displays_gst" class="col-md-4">
+                                <span class="text-muted">GST ({{ group.gst_rate }}%)</span>
+                                <div>₹{{ formatMoney(group.gst_amount) }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Total</span>
+                                <div class="fw-semibold text-primary">₹{{ formatMoney(group.total_amount) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary" @click="closeGenerateInvoices">Cancel</button>
+                <AppButton
+                    label="Generate Invoice(s)"
+                    :disabled="invoicePreviewLoading || invoiceGenerating || invoicePreviewGroups.length === 0"
+                    @click="promptGenerateInvoicesConfirm"
+                />
+            </template>
+        </AppModal>
+
+        <AppConfirmModal
+            :show="showInvoiceGenerateConfirm"
+            title="Confirm invoice generation"
+            message="Review the invoices below, then confirm to generate."
+            icon="bi bi-file-earmark-text"
+            icon-tone="warning"
+            size="xl"
+            :loading="invoiceGenerating"
+            confirm-label="Confirm & Generate"
+            loading-label="Generating…"
+            confirm-variant="warning"
+            confirm-icon="bi bi-check2-circle"
+            content-class="app-confirm-modal__content app-confirm-modal__content--compact border-0 shadow-lg"
+            body-class="app-confirm-modal__body--compact"
+            @cancel="cancelInvoiceGenerateConfirm"
+            @confirm="confirmGenerateInvoices"
+        >
+            <div class="text-start invoice-generate-confirm">
+                <div v-if="trip" class="app-confirm-card mb-2">
+                    <div class="app-confirm-card__section-title">Trip</div>
+                    <div class="app-confirm-card__body small">
+                        <div class="d-flex flex-wrap gap-x-3 gap-y-1">
+                            <span><strong>{{ trip.trip_number }}</strong></span>
+                            <span class="text-muted">{{ trip.vehicle?.registration_number || '—' }}</span>
+                            <span class="text-muted">{{ trip.driver?.name || '—' }}</span>
+                            <span class="text-muted">{{ routePreview || '—' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0 align-middle invoice-generate-confirm__table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Customer</th>
+                                <th>Document</th>
+                                <th>Invoice Date</th>
+                                <th>Due Date</th>
+                                <th class="text-end">Freight</th>
+                                <th class="text-end">GST</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="group in invoicePreviewGroups" :key="group.customer_id">
+                                <td>
+                                    <div class="fw-semibold">{{ group.customer_name }}</div>
+                                    <div v-if="group.customer_gst_number" class="small text-muted">
+                                        {{ group.customer_gst_number }}
+                                    </div>
+                                    <div class="small text-muted">
+                                        {{ (group.routes || []).length }} route{{ (group.routes || []).length === 1 ? '' : 's' }}
+                                    </div>
+                                </td>
+                                <td>{{ group.document_type_label || group.document_type || '—' }}</td>
+                                <td>{{ formatDate(group.invoice_date) || '—' }}</td>
+                                <td>{{ formatDate(group.due_date) || '—' }}</td>
+                                <td class="text-end">₹{{ formatMoney(group.freight_amount) }}</td>
+                                <td class="text-end">
+                                    <template v-if="group.displays_gst">
+                                        ₹{{ formatMoney(group.gst_amount) }}
+                                        <div class="small text-muted">{{ group.gst_rate }}%</div>
+                                    </template>
+                                    <template v-else>—</template>
+                                </td>
+                                <td class="text-end fw-semibold">₹{{ formatMoney(group.total_amount) }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <th colspan="4" class="text-end">Grand total</th>
+                                <th class="text-end">₹{{ formatMoney(invoiceConfirmTotals.freight) }}</th>
+                                <th class="text-end">₹{{ formatMoney(invoiceConfirmTotals.gst) }}</th>
+                                <th class="text-end text-primary">₹{{ formatMoney(invoiceConfirmTotals.total) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </AppConfirmModal>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
     canFullEditTrip,
     canManageTripExpenses,
@@ -462,6 +697,11 @@ import {
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
+import AppDateInput from '../../components/ui/AppDateInput.vue';
+import AppModal from '../../components/ui/AppModal.vue';
+import { generateForTrip, previewForTrip } from '../../api/invoices';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useTripDetailListReturn } from '../../composables/useTripListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
@@ -469,13 +709,25 @@ import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
+const router = useRouter();
 const toast = useAppToast();
 const { canInCompany, user } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
+const {
+    fieldErrors: invoiceFieldErrors,
+    formError: invoiceFormError,
+    clearErrors: clearInvoiceErrors,
+    applyApiError: applyInvoiceApiError,
+} = useApiFormErrors();
 
 const trip = ref(null);
 const loading = ref(true);
+const showGenerateInvoices = ref(false);
+const showInvoiceGenerateConfirm = ref(false);
+const invoicePreviewLoading = ref(false);
+const invoiceGenerating = ref(false);
+const invoicePreviewGroups = ref([]);
 const { tripListReturnTo } = useTripDetailListReturn(trip);
 
 const canManage = computed(() => canInCompany('trips.edit'));
@@ -504,11 +756,38 @@ const expenses = computed(() => trip.value?.expenses ?? []);
 const statusHistories = computed(() => trip.value?.status_histories ?? []);
 const isTerminal = computed(() => isTerminalTripStatus(trip.value?.status));
 const isArchived = computed(() => isTripArchived(trip.value));
-const editAccess = computed(() => resolveTripEditAccess(trip.value?.status, user.value));
-const canEditTripPage = computed(() => !isArchived.value && canFullEditTrip(trip.value?.status, user.value));
-const canManageTripExpensesFor = computed(() => !isArchived.value && canManageTripExpenses(trip.value?.status, user.value));
+const canGenerateInvoices = computed(
+    () =>
+        !isArchived.value
+        && trip.value?.status === 'COMPLETED'
+        && Boolean(trip.value?.can_generate_invoices)
+        && canInCompany('invoices.create'),
+);
+
+const invoiceConfirmTotals = computed(() => {
+    return invoicePreviewGroups.value.reduce(
+        (totals, group) => {
+            totals.freight += Number(group.freight_amount) || 0;
+            totals.gst += group.displays_gst ? Number(group.gst_amount) || 0 : 0;
+            totals.total += Number(group.total_amount) || 0;
+
+            return totals;
+        },
+        { freight: 0, gst: 0, total: 0 },
+    );
+});
+const tripEditOptions = computed(() => ({ has_invoices: Boolean(trip.value?.has_invoices) }));
+const editAccess = computed(() => resolveTripEditAccess(trip.value?.status, user.value, tripEditOptions.value));
+const canEditTripPage = computed(() => !isArchived.value && canFullEditTrip(trip.value?.status, user.value, tripEditOptions.value));
+const canManageTripExpensesFor = computed(() => !isArchived.value && canManageTripExpenses(trip.value?.status, user.value, tripEditOptions.value));
 const canEditTripStatus = computed(() => !isArchived.value && editAccess.value.fullEdit);
 const terminalAlert = computed(() => {
+    if (editAccess.value.invoiceLocked) {
+        return editAccess.value.expensesOnly
+            ? 'This trip has invoices and cannot be edited. Use Manage Expenses to update expenses.'
+            : 'This trip has invoices and cannot be edited.';
+    }
+
     if (!isTerminal.value) {
         return '';
     }
@@ -736,6 +1015,136 @@ function onTripUpdated(updated) {
     trip.value = updated;
 }
 
+function todayDateString() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function buildInvoicePreviewPayload() {
+    const groups = {};
+
+    invoicePreviewGroups.value.forEach((group) => {
+        groups[group.customer_id] = {
+            invoice_date: group.invoice_date || null,
+            due_date: group.due_date || null,
+        };
+    });
+
+    return { groups };
+}
+
+function validateInvoiceDates() {
+    clearInvoiceErrors();
+
+    const errors = {};
+
+    invoicePreviewGroups.value.forEach((group) => {
+        if (!group.invoice_date) {
+            errors[`groups.${group.customer_id}.invoice_date`] = ['Invoice date is required.'];
+        }
+
+        if (group.due_date && group.invoice_date && group.due_date < group.invoice_date) {
+            errors[`groups.${group.customer_id}.due_date`] = [
+                'Due date cannot be earlier than the invoice date.',
+            ];
+        }
+    });
+
+    if (Object.keys(errors).length > 0) {
+        invoiceFieldErrors.value = errors;
+
+        return false;
+    }
+
+    return true;
+}
+
+async function openGenerateInvoices() {
+    showGenerateInvoices.value = true;
+    invoicePreviewGroups.value = [];
+    clearInvoiceErrors();
+
+    if (!trip.value?.id) {
+        return;
+    }
+
+    invoicePreviewLoading.value = true;
+
+    try {
+        const groups = await previewForTrip(trip.value.id, buildInvoicePreviewPayload());
+        const defaultInvoiceDate = todayDateString();
+        invoicePreviewGroups.value = Array.isArray(groups)
+            ? groups.map((group) => ({
+                ...group,
+                invoice_date: group.invoice_date || defaultInvoiceDate,
+            }))
+            : [];
+    } catch (error) {
+        invoicePreviewGroups.value = [];
+        applyInvoiceApiError(error, 'Could not load invoice preview.');
+    } finally {
+        invoicePreviewLoading.value = false;
+    }
+}
+
+function closeGenerateInvoices() {
+    showGenerateInvoices.value = false;
+    showInvoiceGenerateConfirm.value = false;
+    invoicePreviewGroups.value = [];
+    clearInvoiceErrors();
+}
+
+function promptGenerateInvoicesConfirm() {
+    if (!trip.value?.id || invoicePreviewGroups.value.length === 0) {
+        return;
+    }
+
+    if (!validateInvoiceDates()) {
+        return;
+    }
+
+    showGenerateInvoices.value = false;
+    showInvoiceGenerateConfirm.value = true;
+}
+
+function cancelInvoiceGenerateConfirm() {
+    showInvoiceGenerateConfirm.value = false;
+    showGenerateInvoices.value = true;
+}
+
+async function confirmGenerateInvoices() {
+    if (!trip.value?.id || invoicePreviewGroups.value.length === 0) {
+        return;
+    }
+
+    if (!validateInvoiceDates()) {
+        showInvoiceGenerateConfirm.value = false;
+        showGenerateInvoices.value = true;
+
+        return;
+    }
+
+    invoiceGenerating.value = true;
+    clearInvoiceErrors();
+
+    try {
+        const invoices = await generateForTrip(trip.value.id, buildInvoicePreviewPayload());
+        const count = Array.isArray(invoices) ? invoices.length : 1;
+        toast.success(`${count} invoice${count === 1 ? '' : 's'} generated.`);
+        closeGenerateInvoices();
+        await loadTrip();
+    } catch (error) {
+        showInvoiceGenerateConfirm.value = false;
+        showGenerateInvoices.value = true;
+        applyInvoiceApiError(error, 'Could not generate invoices.');
+    } finally {
+        invoiceGenerating.value = false;
+    }
+}
+
 async function loadTrip() {
     const tripId = route.params.id;
 
@@ -750,6 +1159,7 @@ async function loadTrip() {
 
     try {
         trip.value = await fetchTrip(tripId);
+        await maybeOpenGenerateInvoicesFromQuery();
     } catch (error) {
         trip.value = null;
 
@@ -759,6 +1169,20 @@ async function loadTrip() {
     } finally {
         loading.value = false;
     }
+}
+
+async function maybeOpenGenerateInvoicesFromQuery() {
+    if (route.query.generateInvoices !== '1') {
+        return;
+    }
+
+    if (canGenerateInvoices.value) {
+        await openGenerateInvoices();
+    }
+
+    const nextQuery = { ...route.query };
+    delete nextQuery.generateInvoices;
+    router.replace({ query: nextQuery });
 }
 
 onMounted(async () => {
@@ -774,9 +1198,41 @@ onMounted(async () => {
 watch(() => route.params.id, () => {
     loadTrip();
 });
+
+watch(
+    () => route.query.generateInvoices,
+    async (value) => {
+        if (value === '1' && trip.value && !loading.value) {
+            await maybeOpenGenerateInvoicesFromQuery();
+        }
+    },
+);
 </script>
 
 <style scoped>
+.invoice-generate-trip-summary {
+    padding: 0.85rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.invoice-generate-confirm__table {
+    font-size: 0.875rem;
+}
+
+.invoice-generate-confirm__table th,
+.invoice-generate-confirm__table td {
+    padding: 0.4rem 0.55rem;
+    white-space: nowrap;
+}
+
+.invoice-generate-confirm__table td:first-child,
+.invoice-generate-confirm__table th:first-child {
+    white-space: normal;
+    min-width: 10rem;
+}
+
 .trip-detail-km-bar {
     display: flex;
     flex-wrap: wrap;

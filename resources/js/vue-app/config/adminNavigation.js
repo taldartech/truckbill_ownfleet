@@ -41,6 +41,14 @@ export const adminNavigation = [
         ],
     },
     {
+        label: 'Invoices',
+        icon: 'bi bi-receipt nav-icon',
+        to: '/invoices',
+        activeNames: ['invoices.index', 'invoices.show'],
+        permission: 'invoices.view',
+        requiresTenant: true,
+    },
+    {
         label: 'Attendance',
         icon: 'bi bi-calendar-check nav-icon',
         children: [

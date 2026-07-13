@@ -27,7 +27,7 @@ trait ValidatesCompanyIdentity
             $this->merge([$field => strtoupper(trim((string) $value))]);
         }
 
-        foreach (['gst_scheme', 'gst_type'] as $field) {
+        foreach (['registration_type', 'tax_liability', 'state_id', 'gst_rate'] as $field) {
             if (! $this->has($field)) {
                 continue;
             }

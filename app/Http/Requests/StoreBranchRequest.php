@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Branch;
+use App\Enums\GstRegistrationType;
+use App\Enums\TaxLiability;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
 use App\Http\Requests\Concerns\ValidatesBranchContactUniqueness;
 use App\Http\Requests\Concerns\ValidatesBranchTripSequenceStart;
@@ -52,6 +54,12 @@ class StoreBranchRequest extends FormRequest
             'branch_address' => ['nullable', 'string', 'max:1000'],
             'head_office' => ['sometimes', 'boolean'],
             'trip_sequence_start' => $this->tripSequenceStartRules(),
+            'inherit_company_gst' => ['sometimes', 'boolean'],
+            'registration_type' => ['nullable', Rule::enum(GstRegistrationType::class)],
+            'tax_liability' => ['nullable', Rule::enum(TaxLiability::class)],
+            'gst_number' => ['nullable', 'string', 'max:50', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 

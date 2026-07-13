@@ -26,9 +26,46 @@ class BranchResource extends JsonResource
                 ->withoutGlobalScopes()
                 ->where('branch_id', $this->id)
                 ->exists(),
+            'inherit_company_gst' => (bool) ($this->inherit_company_gst ?? true),
+            'registration_type' => $this->registration_type?->value ?? $this->registration_type,
+            'tax_liability' => $this->tax_liability?->value ?? $this->tax_liability,
+            'gst_number' => $this->gst_number,
+            'state_id' => $this->state_id,
+            'gst_rate' => $this->gst_rate !== null ? (float) $this->gst_rate : null,
+            'state_name' => $this->whenLoaded('state', fn () => $this->state?->name),
+            'effective_gst' => $this->when(
+                $this->relationLoaded('company') || $this->company_id,
+                function () {
+                    $resolver = app(\App\Support\GstSettingsResolver::class);
+                    $branch = $this->resource;
+                    if (! $branch->relationLoaded('company')) {
+                        $branch->load(['company.state', 'state']);
+                    } elseif (! $branch->relationLoaded('state')) {
+                        $branch->load('state');
+                    }
+
+                    $settings = $resolver->forBranch($branch);
+
+                    return [
+                        'inherit_company_gst' => $settings['inherit_company_gst'],
+                        'registration_type' => $settings['registration_type']?->value,
+                        'tax_liability' => $settings['tax_liability']?->value,
+                        'gst_number' => $settings['gst_number'],
+                        'gst_rate' => $settings['gst_rate'],
+                        'state_id' => $settings['state_id'],
+                        'state_code' => $settings['state_code'],
+                        'source' => $settings['source'],
+                    ];
+                }
+            ),
             'company' => $this->whenLoaded('company', fn () => [
                 'id' => $this->company?->id,
                 'name' => $this->company?->name,
+                'registration_type' => $this->company?->registration_type?->value ?? $this->company?->registration_type,
+                'tax_liability' => $this->company?->tax_liability?->value ?? $this->company?->tax_liability,
+                'gst_number' => $this->company?->gst_number,
+                'gst_rate' => $this->company?->gst_rate !== null ? (float) $this->company->gst_rate : null,
+                'state_id' => $this->company?->state_id,
             ]),
             'company_name' => $this->whenLoaded('company', fn () => $this->company?->name),
             'created_at' => ApiDateTime::toIso($this->created_at),

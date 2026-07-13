@@ -175,6 +175,7 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';
 import { buildBranchFields } from '../../utils/masterCrudSaveConfirm';
 
@@ -223,6 +224,7 @@ const filtersOpen = ref(false);
 
 const { fieldErrors, formError: branchFormError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+const { states, initialize: initializeLocations } = useLocationLookups();
 
 const filtersActive = computed(
     () => searchQuery.value.trim() !== '' || companyFilter.value !== '',
@@ -309,7 +311,10 @@ function handleSubmit(payload) {
         payload,
         entityLabel: 'Branch',
         mode: formMode.value === 'edit' ? 'edit' : 'create',
-        fields: buildBranchFields(payload, editingBranch.value, { companies: companies.value }),
+        fields: buildBranchFields(payload, editingBranch.value, {
+            companies: companies.value,
+            states: states.value,
+        }),
     });
 }
 
@@ -428,6 +433,7 @@ function buildBranchDeleteMessage(branchName, impact) {
 }
 
 onMounted(async () => {
+    await initializeLocations();
     await loadCompanies();
     await loadBranches();
 

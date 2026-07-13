@@ -103,18 +103,53 @@ export function buildCityFields(payload, original, { states }) {
     ];
 }
 
-export function buildCompanyFields(payload, original) {
+export function buildCompanyFields(payload, original, { states = [] } = {}) {
     const payDaysLabels = {
         calendar: 'Calendar days',
         fixed_30: 'Fixed 30 days',
     };
 
+    const registrationLabels = {
+        regular: 'Regular',
+        composition: 'Composition',
+        unregistered: 'Unregistered',
+    };
+
+    const taxLiabilityLabels = {
+        forward_charge: 'Forward Charge',
+        reverse_charge: 'Reverse Charge (RCM)',
+    };
+
     return [
         { label: 'Company Name', value: payload.name, previousValue: original?.name },
+        {
+            label: 'GST Registration Type',
+            value: registrationLabels[payload.registration_type] ?? payload.registration_type,
+            previousValue:
+                registrationLabels[original?.registration_type ?? original?.gst_type]
+                ?? original?.registration_type
+                ?? original?.gst_type,
+        },
+        {
+            label: 'Tax Liability',
+            value: taxLiabilityLabels[payload.tax_liability] ?? payload.tax_liability,
+            previousValue:
+                taxLiabilityLabels[original?.tax_liability ?? original?.gst_scheme]
+                ?? original?.tax_liability
+                ?? original?.gst_scheme,
+        },
         { label: 'GST Number', value: payload.gst_number, previousValue: original?.gst_number },
+        {
+            label: 'GST Rate (%)',
+            value: payload.gst_rate,
+            previousValue: original?.gst_rate,
+        },
+        {
+            label: 'State',
+            value: resolveLookupLabel(states, payload.state_id),
+            previousValue: original?.state_name ?? resolveLookupLabel(states, original?.state_id),
+        },
         { label: 'PAN Number', value: payload.pan_number, previousValue: original?.pan_number },
-        { label: 'GST Scheme', value: payload.gst_scheme, previousValue: original?.gst_scheme },
-        { label: 'GST Type', value: payload.gst_type, previousValue: original?.gst_type },
         {
             label: 'Pay Days Mode',
             value: payDaysLabels[payload.payroll_pay_days_mode] ?? payload.payroll_pay_days_mode,
@@ -127,8 +162,19 @@ export function buildCompanyFields(payload, original) {
     ];
 }
 
-export function buildBranchFields(payload, original, { companies }) {
-    return [
+export function buildBranchFields(payload, original, { companies, states = [] } = {}) {
+    const registrationLabels = {
+        regular: 'Regular',
+        composition: 'Composition',
+        unregistered: 'Unregistered',
+    };
+
+    const taxLiabilityLabels = {
+        forward_charge: 'Forward Charge',
+        reverse_charge: 'Reverse Charge (RCM)',
+    };
+
+    const fields = [
         {
             label: 'Company',
             value: resolveLookupLabel(companies, payload.company_id),
@@ -151,7 +197,48 @@ export function buildBranchFields(payload, original, { companies }) {
             value: payload.trip_sequence_start,
             previousValue: original?.trip_sequence_start,
         },
+        {
+            label: 'Inherit Company GST',
+            value: payload.inherit_company_gst ? 'Yes' : 'No',
+            previousValue: original?.inherit_company_gst === false ? 'No' : 'Yes',
+        },
     ];
+
+    if (!payload.inherit_company_gst) {
+        fields.push(
+            {
+                label: 'GST Registration Type',
+                value: registrationLabels[payload.registration_type] ?? payload.registration_type,
+                previousValue:
+                    registrationLabels[original?.registration_type]
+                    ?? original?.registration_type,
+            },
+            {
+                label: 'Tax Liability',
+                value: taxLiabilityLabels[payload.tax_liability] ?? payload.tax_liability,
+                previousValue:
+                    taxLiabilityLabels[original?.tax_liability]
+                    ?? original?.tax_liability,
+            },
+            {
+                label: 'GST Number',
+                value: payload.gst_number,
+                previousValue: original?.gst_number,
+            },
+            {
+                label: 'GST Rate (%)',
+                value: payload.gst_rate,
+                previousValue: original?.gst_rate,
+            },
+            {
+                label: 'State',
+                value: resolveLookupLabel(states, payload.state_id),
+                previousValue: original?.state_name ?? resolveLookupLabel(states, original?.state_id),
+            },
+        );
+    }
+
+    return fields;
 }
 
 export function buildDriverFields(payload, original) {

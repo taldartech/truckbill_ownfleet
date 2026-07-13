@@ -11,51 +11,42 @@
             {{ isEdit ? 'Edit Company' : 'Register Company' }}
         </template>
         <div class="row">
-        <div class="col-md-6 mb-3">
-            <label class="form-label" for="company_name">Company Name *</label>
-            <input
-                id="company_name"
-                v-model="form.name"
-                type="text"
-                class="form-control"
-                :class="{ 'is-invalid': fieldErrors.name }"
-                required
-            />
-            <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                {{ fieldErrors.name[0] }}
-            </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <label class="form-label" for="payroll_pay_days_mode">Pay Days (default)</label>
-            <AppSelect
-                input-id="payroll_pay_days_mode"
-                v-model="form.payroll_pay_days_mode"
-                :options="payrollPayDaysOptions"
-                placeholder="Select pay days mode"
-                search-placeholder="Search mode…"
-                :invalid="Boolean(fieldErrors.payroll_pay_days_mode)"
-                :error-message="fieldErrors.payroll_pay_days_mode?.[0] ?? ''"
-            />
-           
-        </div>
-        </div>
-        <div class="row">
             <div class="col-md-6 mb-3">
-                <label class="form-label" for="gst_number">GST Number</label>
+                <label class="form-label" for="company_name">Company Name *</label>
                 <input
-                    id="gst_number"
-                    :value="form.gst_number"
+                    id="company_name"
+                    v-model="form.name"
                     type="text"
-                    class="form-control text-uppercase"
-                    maxlength="15"
-                    :placeholder="GST_NUMBER_HINT"
-                    :class="{ 'is-invalid': displayFieldErrors.gst_number }"
-                    @input="onGstNumberInput"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.name }"
+                    required
                 />
-                <div v-if="displayFieldErrors.gst_number" class="invalid-feedback d-block">
-                    {{ displayFieldErrors.gst_number[0] }}
+                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                    {{ fieldErrors.name[0] }}
                 </div>
             </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="payroll_pay_days_mode">Pay Days (default)</label>
+                <AppSelect
+                    input-id="payroll_pay_days_mode"
+                    v-model="form.payroll_pay_days_mode"
+                    :options="payrollPayDaysOptions"
+                    placeholder="Select pay days mode"
+                    search-placeholder="Search mode…"
+                    :invalid="Boolean(fieldErrors.payroll_pay_days_mode)"
+                    :error-message="fieldErrors.payroll_pay_days_mode?.[0] ?? ''"
+                />
+            </div>
+        </div>
+
+        <GstDetailsSection
+            ref="gstSectionRef"
+            v-model="gstForm"
+            :field-errors="fieldErrors"
+            :states="stateSelectOptions"
+        />
+
+        <div class="row mt-1">
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="pan_number">PAN Number *</label>
                 <input
@@ -74,32 +65,7 @@
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label" for="gst_type">GST Type / GST Registration Type</label>
-                <AppSelect
-                    input-id="gst_type"
-                    v-model="form.gst_type"
-                    :options="gstTypeOptions"
-                    placeholder="Select"
-                    search-placeholder="Search type…"
-                    :invalid="Boolean(fieldErrors.gst_type)"
-                    :error-message="fieldErrors.gst_type?.[0] ?? ''"
-                />
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label" for="gst_scheme">Tax Liability</label>
-                <AppSelect
-                    input-id="gst_scheme"
-                    v-model="form.gst_scheme"
-                    :options="taxLiabilityOptions"
-                    placeholder="Select tax liability"
-                    search-placeholder="Search liability…"
-                    :invalid="Boolean(fieldErrors.gst_scheme)"
-                    :error-message="fieldErrors.gst_scheme?.[0] ?? ''"
-                />
-            </div>
-        </div>
+
         <div class="mb-3">
             <label class="form-label" for="address">Address</label>
             <textarea id="address" v-model="form.address" class="form-control" rows="2" />
@@ -140,7 +106,6 @@
                 </div>
             </div>
         </div>
-        
 
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
@@ -152,16 +117,19 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import GstDetailsSection from '../gst/GstDetailsSection.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppSelect from '../ui/AppSelect.vue';
+import { useLocationLookups } from '../../composables/useLocationLookups';
+import {
+    createGstFormState,
+    normalizeGstFormForSubmit,
+} from '../../composables/useGstForm';
 import { allowNumericKeydown, normalizeMobile } from '../../utils/phone';
 import {
-    GST_NUMBER_HINT,
     PAN_NUMBER_HINT,
-    getGstNumberError,
     getPanNumberError,
-    normalizeGstNumber,
     normalizePanNumber,
 } from '../../utils/taxIdentity';
 
@@ -177,7 +145,16 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit']);
 
+const gstSectionRef = ref(null);
 const localFieldErrors = reactive({});
+const { states, initialize: initializeLocations } = useLocationLookups();
+
+const stateSelectOptions = computed(() =>
+    states.value.map((state) => ({
+        value: state.id,
+        label: state.name,
+    })),
+);
 
 const displayFieldErrors = computed(() => ({
     ...localFieldErrors,
@@ -192,11 +169,6 @@ function clearLocalFieldErrors() {
     Object.keys(localFieldErrors).forEach((field) => {
         delete localFieldErrors[field];
     });
-}
-
-function onGstNumberInput(event) {
-    form.gst_number = normalizeGstNumber(event.target.value);
-    clearLocalFieldError('gst_number');
 }
 
 function onPanNumberInput(event) {
@@ -215,80 +187,57 @@ const payrollPayDaysOptions = [
     { value: 'fixed_30', label: 'Fixed 30 days' },
 ];
 
-const taxLiabilityOptions = [
-    { value: 'forward charge', label: 'Forward Charge' },
-    { value: 'reverse charge', label: 'Reverse Charge' },
-];
-
-const gstTypeOptions = [
-    { value: 'regular', label: 'Regular' },
-    { value: 'composition', label: 'Composition' },
-    { value: 'unregistered', label: 'Unregistered' },
-];
-
 const form = reactive({
     name: '',
-    gst_number: '',
     pan_number: '',
-    gst_scheme: 'forward charge',
-    gst_type: '',
     address: '',
     contact_person: '',
     contact_number: '',
     payroll_pay_days_mode: 'calendar',
 });
 
+const gstForm = ref(createGstFormState());
+
 function resetForm() {
     form.name = '';
-    form.gst_number = '';
     form.pan_number = '';
-    form.gst_scheme = 'forward charge';
-    form.gst_type = '';
     form.address = '';
     form.contact_person = '';
     form.contact_number = '';
     form.payroll_pay_days_mode = 'calendar';
+    gstForm.value = createGstFormState();
 }
 
 function fillForm(company) {
     form.name = company?.name ?? '';
-    form.gst_number = normalizeGstNumber(company?.gst_number ?? '');
     form.pan_number = normalizePanNumber(company?.pan_number ?? '');
-    form.gst_scheme = company?.gst_scheme ?? 'forward charge';
-    form.gst_type = company?.gst_type ?? '';
     form.address = company?.address ?? '';
     form.contact_person = company?.contact_person ?? '';
     form.contact_number = normalizeMobile(company?.contact_number ?? '');
     form.payroll_pay_days_mode = company?.payroll_pay_days_mode ?? 'calendar';
+    gstForm.value = createGstFormState(company);
 }
 
 function submit() {
     clearLocalFieldErrors();
 
-    const gstNumber = normalizeGstNumber(form.gst_number);
     const panNumber = normalizePanNumber(form.pan_number);
-    const gstError = getGstNumberError(gstNumber);
     const panError = getPanNumberError(panNumber, { required: true });
-
-    if (gstError) {
-        localFieldErrors.gst_number = [gstError];
-    }
+    const gstValid = gstSectionRef.value?.validateGstNumber?.() ?? true;
 
     if (panError) {
         localFieldErrors.pan_number = [panError];
     }
 
-    if (gstError || panError) {
+    if (panError || !gstValid) {
         return;
     }
 
     emit('submit', {
         ...form,
+        ...normalizeGstFormForSubmit(gstForm.value),
         name: form.name.trim(),
-        gst_number: gstNumber || null,
         pan_number: panNumber,
-        gst_scheme: form.gst_scheme || null,
-        gst_type: form.gst_type || null,
         address: form.address.trim() || null,
         contact_person: form.contact_person.trim(),
         contact_number: form.contact_number.trim(),
@@ -297,7 +246,7 @@ function submit() {
 
 watch(
     () => props.show,
-    (visible) => {
+    async (visible) => {
         if (!visible) {
             clearLocalFieldErrors();
 
@@ -305,9 +254,13 @@ watch(
         }
 
         clearLocalFieldErrors();
+        await initializeLocations({
+            stateId: isEdit.value ? props.company?.state_id : '',
+        });
 
         if (isEdit.value && props.company) {
             fillForm(props.company);
+
             return;
         }
 

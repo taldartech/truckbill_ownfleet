@@ -2,6 +2,7 @@
 
 namespace App\Modules\TripManagement\Repositories;
 
+use App\Enums\InvoicePaymentStatus;
 use App\Trip;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,7 @@ class TripRepository
 
         return $this->filteredQuery($filters)
             ->with($relations)
+            ->withExists(['invoices as invoices_exists' => $this->activeInvoicesExistsConstraint()])
             ->latest('start_at')
             ->latest()
             ->paginate($perPage);
@@ -71,7 +73,18 @@ class TripRepository
                 'expenses.routeLeg',
                 'statusHistories' => fn ($query) => $query->latest('changed_at'),
             ])
+            ->withExists(['invoices as invoices_exists' => $this->activeInvoicesExistsConstraint()])
             ->find($id);
+    }
+
+    /**
+     * @return \Closure(\Illuminate\Database\Eloquent\Builder<\App\Invoice>): void
+     */
+    private function activeInvoicesExistsConstraint(): \Closure
+    {
+        return function (Builder $query): void {
+            $query->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value);
+        };
     }
 
     /**

@@ -286,9 +286,10 @@ export { parseNumeric };
 
 export function validateTripPayload(
     payload,
-    { mode = 'create', previousStatus = null, user = null, tripType = null } = {},
+    { mode = 'create', previousStatus = null, user = null, tripType = null, hasInvoices = false } = {},
 ) {
     const errors = {};
+    const editOptions = { has_invoices: hasInvoices };
 
     if (mode === 'create') {
         if (!payload.trip_type) {
@@ -314,13 +315,14 @@ export function validateTripPayload(
         }
     }
 
-    if (
-        mode === 'edit'
-        && previousStatus
-        && ['COMPLETED', 'CANCELLED'].includes(String(previousStatus).toUpperCase())
-        && !canFullEditTrip(previousStatus, user)
-    ) {
-        errors.trip = ['Completed or cancelled trips cannot be edited.'];
+    if (mode === 'edit' && previousStatus && !canFullEditTrip(previousStatus, user, editOptions)) {
+        const access = resolveTripEditAccess(previousStatus, user, editOptions);
+
+        if (access.invoiceLocked) {
+            errors.trip = ['This trip has invoices and cannot be edited.'];
+        } else if (isTerminalTripStatus(previousStatus)) {
+            errors.trip = ['Completed or cancelled trips cannot be edited.'];
+        }
     }
 
     if (!payload.start_station_id) {
@@ -501,9 +503,11 @@ export function validateTripStatusChange(
         previousStatus = null,
         user = null,
         startMeterReadingKm = null,
+        hasInvoices = false,
     } = {},
 ) {
     const errors = {};
+    const editOptions = { has_invoices: hasInvoices };
 
     const transitionError = tripStatusTransitionError(previousStatus, payload.status);
 
@@ -511,12 +515,14 @@ export function validateTripStatusChange(
         errors.status = [transitionError];
     }
 
-    if (
-        previousStatus
-        && ['COMPLETED', 'CANCELLED'].includes(String(previousStatus).toUpperCase())
-        && !canFullEditTrip(previousStatus, user)
-    ) {
-        errors.trip = ['Completed or cancelled trips cannot be edited.'];
+    if (previousStatus && !canFullEditTrip(previousStatus, user, editOptions)) {
+        const access = resolveTripEditAccess(previousStatus, user, editOptions);
+
+        if (access.invoiceLocked) {
+            errors.trip = ['This trip has invoices and cannot be edited.'];
+        } else if (isTerminalTripStatus(previousStatus)) {
+            errors.trip = ['Completed or cancelled trips cannot be edited.'];
+        }
     }
 
     const startDate = dateOnlyFromDatetimeLocal(payload.start_at);
@@ -1042,30 +1048,39 @@ function isAdminUser(user) {
     return resolveUserRole(user) === 'admin' || Number(user?.user_role_id) === 3;
 }
 
-export function resolveTripEditAccess(status, user) {
+export function resolveTripEditAccess(status, user, options = {}) {
     const normalized = String(status ?? '').toUpperCase();
+    const hasInvoices = Boolean(options?.has_invoices ?? options?.hasInvoices);
+
+    if (hasInvoices) {
+        if ((isSuperAdminUser(user) || isAdminUser(user)) && normalized === 'COMPLETED') {
+            return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: true };
+        }
+
+        return { canEdit: false, fullEdit: false, expensesOnly: false, invoiceLocked: true };
+    }
 
     if (!isTerminalTripStatus(normalized)) {
-        return { canEdit: true, fullEdit: true, expensesOnly: false };
+        return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
     }
 
     if (isSuperAdminUser(user)) {
-        return { canEdit: true, fullEdit: true, expensesOnly: false };
+        return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
     }
 
     if (isAdminUser(user) && normalized === 'COMPLETED') {
-        return { canEdit: true, fullEdit: false, expensesOnly: true };
+        return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: false };
     }
 
-    return { canEdit: false, fullEdit: false, expensesOnly: false };
+    return { canEdit: false, fullEdit: false, expensesOnly: false, invoiceLocked: false };
 }
 
-export function canFullEditTrip(status, user) {
-    return resolveTripEditAccess(status, user).fullEdit;
+export function canFullEditTrip(status, user, options = {}) {
+    return resolveTripEditAccess(status, user, options).fullEdit;
 }
 
-export function canManageTripExpenses(status, user) {
-    return resolveTripEditAccess(status, user).canEdit;
+export function canManageTripExpenses(status, user, options = {}) {
+    return resolveTripEditAccess(status, user, options).canEdit;
 }
 
 export function canArchiveTrip(status, user = null) {
@@ -1117,11 +1132,15 @@ export function stopHasExpenses(expenseTotalsBySeq, sequence) {
     return Number(expenseTotalsBySeq?.[Number(sequence)] ?? 0) > 0;
 }
 
-export function tripEditDisabledTitle(status, user) {
-    const access = resolveTripEditAccess(status, user);
+export function tripEditDisabledTitle(status, user, options = {}) {
+    const access = resolveTripEditAccess(status, user, options);
 
     if (access.fullEdit) {
         return 'Edit trip';
+    }
+
+    if (access.invoiceLocked) {
+        return 'This trip has invoices and cannot be edited. Use Expenses to update expenses.';
     }
 
     if (access.expensesOnly) {

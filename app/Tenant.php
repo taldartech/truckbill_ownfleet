@@ -3,7 +3,9 @@
 namespace App;
 
 use App\Concerns\UsesUuid;
+use App\Enums\GstRegistrationType;
 use App\Enums\PayrollPayDaysMode;
+use App\Enums\TaxLiability;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,8 +25,10 @@ class Tenant extends Model
         'is_blocked',
         'gst_number',
         'pan_number',
-        'gst_scheme',
-        'gst_type',
+        'state_id',
+        'gst_rate',
+        'tax_liability',
+        'registration_type',
         'address',
         'contact_person',
         'contact_number',
@@ -49,6 +53,10 @@ class Tenant extends Model
             'plan_end_date' => 'date',
             'lr_credits' => 'integer',
             'truck_credits' => 'integer',
+            'state_id' => 'integer',
+            'gst_rate' => 'decimal:3',
+            'registration_type' => GstRegistrationType::class,
+            'tax_liability' => TaxLiability::class,
             'payroll_pay_days_mode' => PayrollPayDaysMode::class,
         ];
     }
@@ -56,6 +64,11 @@ class Tenant extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class);
     }
 
     public function users(): HasMany

@@ -115,6 +115,7 @@ const saving = ref(false);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
 const originalStatus = ref('');
+const hasInvoices = ref(false);
 const truckRunningMeterKm = ref('');
 const vehicleRegistration = ref('');
 const saveError = ref('');
@@ -185,6 +186,7 @@ async function ensureTripLoaded() {
     originalStatus.value = fullTrip.status ?? 'CREATED';
     truckRunningMeterKm.value = fullTrip.vehicle?.odometer_km ?? '';
     vehicleRegistration.value = fullTrip.vehicle?.registration_number ?? '';
+    hasInvoices.value = Boolean(fullTrip.has_invoices);
 
     return fullTrip;
 }
@@ -197,6 +199,7 @@ async function saveStatusChange(successLabel) {
         startStationId: form.start_station_id,
         previousStatus: originalStatus.value,
         startMeterReadingKm: form.start_meter_reading_km,
+        hasInvoices: hasInvoices.value,
     });
 
     if (Object.keys(clientErrors).length > 0) {

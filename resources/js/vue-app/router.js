@@ -155,6 +155,18 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {
+                    path: 'invoices',
+                    name: 'invoices.index',
+                    component: () => import('./pages/invoices/InvoicesIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'invoices.view' },
+                },
+                {
+                    path: 'invoices/:id',
+                    name: 'invoices.show',
+                    component: () => import('./pages/invoices/InvoiceDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'invoices.view' },
+                },
+                {
                     path: 'stations',
                     name: 'stations.index',
                     component: () => import('./pages/stations/StationsIndexPage.vue'),

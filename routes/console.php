@@ -19,3 +19,7 @@ Schedule::command('compliance:check-emi-due --no-interaction')
 Schedule::command('compliance:check-challan-pending --no-interaction')
     ->dailyAt('08:10')
     ->timezone('Asia/Kolkata');
+
+Schedule::command('invoices:send-due-reminders --no-interaction')
+    ->dailyAt('08:15')
+    ->timezone('Asia/Kolkata');

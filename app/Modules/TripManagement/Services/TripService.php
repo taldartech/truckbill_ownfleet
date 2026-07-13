@@ -200,14 +200,22 @@ class TripService
 
             if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
                 throw ValidationException::withMessages([
-                    'trip' => ['Completed or cancelled trips cannot be edited.'],
+                    'trip' => [
+                        $trip->hasInvoices()
+                            ? 'This trip has invoices and cannot be edited.'
+                            : 'Completed or cancelled trips cannot be edited.',
+                    ],
                 ]);
             }
 
             if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
+                $expensesOnlyMessage = $trip->hasInvoices()
+                    ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
+                    : 'Only trip expenses can be edited on completed trips.';
+
                 if (! array_key_exists('expenses', $data)) {
                     throw ValidationException::withMessages([
-                        'trip' => ['Only trip expenses can be edited on completed trips.'],
+                        'trip' => [$expensesOnlyMessage],
                     ]);
                 }
 
@@ -215,7 +223,7 @@ class TripService
 
                 if ($nonExpenseKeys !== []) {
                     throw ValidationException::withMessages([
-                        'trip' => ['Only trip expenses can be edited on completed trips.'],
+                        'trip' => [$expensesOnlyMessage],
                     ]);
                 }
 

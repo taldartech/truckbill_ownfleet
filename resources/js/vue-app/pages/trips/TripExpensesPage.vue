@@ -331,7 +331,7 @@ async function loadTrip() {
             return;
         }
 
-        if (!canManageTripExpenses(loaded.status, user.value)) {
+        if (!canManageTripExpenses(loaded.status, user.value, { has_invoices: loaded.has_invoices })) {
             toast.error('You cannot edit expenses for this trip.');
             await router.replace({ name: 'trips.show', params: { id: loaded.id } });
 

@@ -4,6 +4,7 @@
         :loading="saving"
         :form-error="formError"
         as-form
+        size="lg"
         @close="$emit('close')"
         @submit="handleSubmit"
     >
@@ -122,6 +123,21 @@
                     {{ fieldErrors.branch_address[0] }}
                 </div>
             </div>
+
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light">
+                    <h6 class="mb-3">GST Settings</h6>
+                    <GstDetailsSection
+                        ref="gstSectionRef"
+                        v-model="gstForm"
+                        v-model:inherit-company-gst="inheritCompanyGst"
+                        :field-errors="fieldErrors"
+                        :show-inherit-checkbox="true"
+                        :company-gst="companyGst"
+                        :states="stateSelectOptions"
+                    />
+                </div>
+            </div>
         </div>
 
         <template #footer>
@@ -133,9 +149,16 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import GstDetailsSection from '../gst/GstDetailsSection.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppButton from '../ui/AppButton.vue';
 import AppSelect from '../ui/AppSelect.vue';
+import { useLocationLookups } from '../../composables/useLocationLookups';
+import {
+    createGstFormState,
+    mapLegacyGstFields,
+    normalizeGstFormForSubmit,
+} from '../../composables/useGstForm';
 import { allowNumericKeydown, isValidMobile, normalizeMobile } from '../../utils/phone';
 
 const props = defineProps({
@@ -150,6 +173,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'submit']);
+
+const gstSectionRef = ref(null);
+const inheritCompanyGst = ref(true);
+const { states, initialize: initializeLocations } = useLocationLookups();
+
+const stateSelectOptions = computed(() =>
+    states.value.map((state) => ({
+        value: state.id,
+        label: state.name,
+    })),
+);
 
 const companySelectOptions = computed(() =>
     props.companies.map((company) => ({
@@ -173,6 +207,8 @@ const selectedCompany = computed(() =>
     props.companies.find((company) => company.id === form.company_id) ?? null,
 );
 
+const companyGst = computed(() => mapLegacyGstFields(selectedCompany.value ?? {}));
+
 const selectedCompanyContact = computed(() => {
     const contact = selectedCompany.value?.contact_number;
 
@@ -191,6 +227,8 @@ const form = reactive({
     trip_sequence_start: '1',
 });
 
+const gstForm = ref(createGstFormState());
+
 function sanitizeTripSequenceStartInput(value) {
     if (value === null || value === undefined) {
         return '';
@@ -208,14 +246,19 @@ function resetForm() {
     form.trip_sequence_start = props.branch
         ? sanitizeTripSequenceStartInput(props.branch.trip_sequence_start === 0 ? 1 : props.branch.trip_sequence_start)
         : '1';
+    inheritCompanyGst.value = props.branch?.inherit_company_gst ?? true;
+    gstForm.value = createGstFormState(props.branch ?? {});
 }
 
 watch(
     () => [props.show, props.branch, props.mode],
-    () => {
+    async () => {
         if (props.show) {
             contactClientError.value = '';
             tripSequenceClientError.value = '';
+            await initializeLocations({
+                stateId: props.branch?.state_id ?? '',
+            });
             resetForm();
         }
     },
@@ -286,13 +329,28 @@ function handleSubmit() {
 
     tripSequenceClientError.value = '';
 
-    emit('submit', {
+    if (!inheritCompanyGst.value) {
+        const gstValid = gstSectionRef.value?.validateGstNumber?.() ?? true;
+
+        if (!gstValid) {
+            return;
+        }
+    }
+
+    const payload = {
         company_id: form.company_id,
         branch_name: form.branch_name.trim(),
         branch_contact_number: contactNumber,
         branch_address: form.branch_address.trim() || null,
         head_office: form.head_office,
         trip_sequence_start: tripSequenceStart,
-    });
+        inherit_company_gst: inheritCompanyGst.value,
+    };
+
+    if (!inheritCompanyGst.value) {
+        Object.assign(payload, normalizeGstFormForSubmit(gstForm.value));
+    }
+
+    emit('submit', payload);
 }
 </script>

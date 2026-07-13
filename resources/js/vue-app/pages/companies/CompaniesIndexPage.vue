@@ -132,6 +132,7 @@ import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { useLocationLookups } from '../../composables/useLocationLookups';
 import { buildCompanyFields } from '../../utils/masterCrudSaveConfirm';
 
 const route = useRoute();
@@ -147,6 +148,7 @@ const {
 const currentUser = inject('currentUser', ref(null));
 const { can } = usePermissions();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+const { states, initialize: initializeLocations } = useLocationLookups();
 
 const companies = ref([]);
 const loading = ref(true);
@@ -237,7 +239,7 @@ function handleSubmit(payload) {
         payload,
         entityLabel: 'Company',
         mode: formMode.value === 'edit' ? 'edit' : 'create',
-        fields: buildCompanyFields(payload, editingCompany.value),
+        fields: buildCompanyFields(payload, editingCompany.value, { states: states.value }),
     });
 }
 
@@ -293,5 +295,8 @@ async function toggleBlock(company) {
     }
 }
 
-onMounted(loadCompanies);
+onMounted(async () => {
+    await initializeLocations();
+    await loadCompanies();
+});
 </script>

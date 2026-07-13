@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\GstRegistrationType;
 use App\Enums\PayrollPayDaysMode;
+use App\Enums\TaxLiability;
 use App\Http\Requests\Concerns\NormalizesContactNumber;
 use App\Http\Requests\Concerns\ValidatesCompanyIdentity;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,8 +29,10 @@ class StoreCompanyRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'gst_number' => $this->companyGstNumberRules(),
             'pan_number' => $this->companyPanNumberRules(required: true),
-            'gst_scheme' => ['nullable', 'string', Rule::in(['reverse charge', 'forward charge'])],
-            'gst_type' => ['nullable', 'string', Rule::in(['regular', 'composition', 'unregistered'])],
+            'registration_type' => ['nullable', Rule::enum(GstRegistrationType::class)],
+            'tax_liability' => ['nullable', Rule::enum(TaxLiability::class)],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_person' => ['required', 'string', 'max:255'],
             'contact_number' => $this->companyContactNumberRules(required: true),

@@ -43,6 +43,21 @@ class TripValidationService
     {
         $current = $this->tripStatusValue($trip);
 
+        if ($trip->hasInvoices()) {
+            if (
+                $user !== null
+                && (
+                    RoleHierarchy::isSuperAdminRole((int) $user->user_role_id)
+                    || in_array((int) $user->user_role_id, [UserRole::ADMIN, UserRole::MODERATOR], true)
+                )
+                && $current === TripStatus::Completed->value
+            ) {
+                return self::EDIT_SCOPE_EXPENSES_ONLY;
+            }
+
+            return self::EDIT_SCOPE_NONE;
+        }
+
         if (! in_array($current, [TripStatus::Completed->value, TripStatus::Cancelled->value], true)) {
             return self::EDIT_SCOPE_FULL;
         }
@@ -68,13 +83,21 @@ class TripValidationService
 
         if ($scope === self::EDIT_SCOPE_NONE) {
             throw ValidationException::withMessages([
-                'trip' => ['Completed or cancelled trips cannot be edited.'],
+                'trip' => [
+                    $trip->hasInvoices()
+                        ? 'This trip has invoices and cannot be edited.'
+                        : 'Completed or cancelled trips cannot be edited.',
+                ],
             ]);
         }
 
         if ($requiredScope === self::EDIT_SCOPE_FULL && $scope !== self::EDIT_SCOPE_FULL) {
             throw ValidationException::withMessages([
-                'trip' => ['Only trip expenses can be edited on completed trips.'],
+                'trip' => [
+                    $trip->hasInvoices()
+                        ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
+                        : 'Only trip expenses can be edited on completed trips.',
+                ],
             ]);
         }
     }

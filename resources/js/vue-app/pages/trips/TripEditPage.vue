@@ -201,16 +201,22 @@ const isTerminalStatus = computed(
 );
 
 const canManage = computed(() => canInCompany('trips.edit'));
+const hasInvoices = ref(false);
+const tripEditOptions = computed(() => ({ has_invoices: hasInvoices.value }));
 const canManageExpenses = computed(
-    () => canManage.value && canManageTripExpenses(originalStatus.value, user.value),
+    () => canManage.value && canManageTripExpenses(originalStatus.value, user.value, tripEditOptions.value),
 );
-const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value));
+const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value, tripEditOptions.value));
 const canSave = computed(() => editAccess.value.fullEdit);
 const canEditTripFields = computed(() => editAccess.value.fullEdit);
 const isFormReadonly = computed(() => !editAccess.value.fullEdit);
 const expenseTotalsBySequence = computed(() => computeExpenseTotalsBySequence(savedExpenses.value));
 
 const terminalAlert = computed(() => {
+    if (editAccess.value.invoiceLocked) {
+        return 'This trip has invoices and cannot be edited.';
+    }
+
     if (!isTerminalStatus.value) {
         return '';
     }
@@ -366,16 +372,27 @@ async function loadTrip() {
             return;
         }
 
-        if (!canFullEditTrip(trip.status, user.value)) {
-            const access = resolveTripEditAccess(trip.status, user.value);
+        hasInvoices.value = Boolean(trip.has_invoices);
+
+        if (!canFullEditTrip(trip.status, user.value, { has_invoices: hasInvoices.value })) {
+            const access = resolveTripEditAccess(trip.status, user.value, { has_invoices: hasInvoices.value });
 
             if (access.expensesOnly) {
+                toast.error(
+                    access.invoiceLocked
+                        ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
+                        : 'Trip details are locked. Redirecting to expenses.',
+                );
                 await router.replace({ name: 'trips.expenses', params: { id: trip.id } });
 
                 return;
             }
 
-            toast.error('This trip cannot be edited.');
+            toast.error(
+                access.invoiceLocked
+                    ? 'This trip has invoices and cannot be edited.'
+                    : 'This trip cannot be edited.',
+            );
             await router.replace({ name: 'trips.show', params: { id: trip.id } });
 
             return;
@@ -455,6 +472,7 @@ async function prepareSave() {
             previousStatus: originalStatus.value,
             user: user.value,
             tripType: form.trip_type,
+            hasInvoices: hasInvoices.value,
         },
     );
 
@@ -541,6 +559,7 @@ async function handleStatusUpdated() {
         previousStatus: originalStatus.value,
         user: user.value,
         startMeterReadingKm: form.start_meter_reading_km,
+        hasInvoices: hasInvoices.value,
     });
 
     if (Object.keys(clientErrors).length > 0) {

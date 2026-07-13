@@ -49,6 +49,8 @@ class TripResource extends JsonResource
             'total_expense_amount' => $this->total_expense_amount,
             'total_freight_amount' => $this->total_freight_amount,
             'profit_amount' => $this->profitAmount(),
+            'has_invoices' => $this->hasInvoices(),
+            'can_generate_invoices' => $this->canGenerateInvoices(),
             'diesel_performance' => $this->when(
                 true,
                 fn () => TripDieselPerformance::forTrip($this->resource),

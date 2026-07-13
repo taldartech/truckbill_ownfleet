@@ -195,10 +195,15 @@
                                     @click="goToExpenses(trip)"
                                 />
                                 <AppCrudActionButton
-                                    v-if="canEdit"
+                                    v-if="canGenerateInvoiceFor(trip)"
+                                    action="invoice"
+                                    title="Generate invoice(s)"
+                                    @click="goToGenerateInvoices(trip)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canEdit && canEditTrip(trip)"
                                     action="edit"
-                                    :disabled="!canEditTrip(trip)"
-                                    :title="tripEditTitle(trip)"
+                                    title="Edit trip"
                                     @click="goToEdit(trip)"
                                 />
                                 <AppCrudActionButton
@@ -256,7 +261,6 @@ import {
     canArchiveTrip,
     tripArchiveDisabledTitle,
     canManageTripExpenses,
-    tripEditDisabledTitle,
     tripTypeMeta,
     TRIP_STATUSES,
     TRIP_TYPES,
@@ -306,10 +310,11 @@ const { canInCompany, user } = usePermissions(currentUser);
 const canCreate = computed(() => canInCompany('trips.create'));
 const canEdit = computed(() => canInCompany('trips.edit'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const canCreateInvoices = computed(() => canInCompany('invoices.create'));
 const tableColspan = computed(() => (showActions.value ? 8 : 7));
 const canView = computed(() => canInCompany('trips.view'));
 const canOpenTrip = computed(() => canView.value || canEdit.value);
-const showActions = computed(() => canOpenTrip.value);
+const showActions = computed(() => canOpenTrip.value || canCreateInvoices.value);
 
 const { applyApiError } = useApiFormErrors();
 
@@ -460,8 +465,12 @@ function tripTypeInfo(type) {
     return tripTypeMeta(type);
 }
 
+function tripEditOptions(trip) {
+    return { has_invoices: Boolean(trip?.has_invoices) };
+}
+
 function canEditTrip(trip) {
-    return canFullEditTrip(trip.status, user.value);
+    return canFullEditTrip(trip.status, user.value, tripEditOptions(trip));
 }
 
 function canArchiveTripRow(trip) {
@@ -473,11 +482,7 @@ function tripArchiveTitle(trip) {
 }
 
 function canManageTripExpensesFor(trip) {
-    return canManageTripExpenses(trip.status, user.value);
-}
-
-function tripEditTitle(trip) {
-    return tripEditDisabledTitle(trip.status, user.value);
+    return canManageTripExpenses(trip.status, user.value, tripEditOptions(trip));
 }
 
 function onTripStatusUpdated(trip, updated) {
@@ -633,6 +638,23 @@ async function loadTrips(page = 1) {
 function goToView(trip) {
     saveTripListStateToSession(tenantId.value, currentListState());
     router.push({ name: 'trips.show', params: { id: trip.id } });
+}
+
+function canGenerateInvoiceFor(trip) {
+    return canCreateInvoices.value && Boolean(trip?.can_generate_invoices);
+}
+
+function goToGenerateInvoices(trip) {
+    if (!canGenerateInvoiceFor(trip)) {
+        return;
+    }
+
+    saveTripListStateToSession(tenantId.value, currentListState());
+    router.push({
+        name: 'trips.show',
+        params: { id: trip.id },
+        query: { generateInvoices: '1' },
+    });
 }
 
 function goToEdit(trip) {

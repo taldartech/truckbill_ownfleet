@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Enums\PayrollPayDaysMode;
-use App\Support\DocumentTypeDefaults;
 use App\Tenant;
 use App\User;
 use Illuminate\Support\Str;
@@ -29,8 +28,10 @@ class CompanyProvisioner
             'is_blocked' => false,
             'gst_number' => $attributes['gst_number'] ?? null,
             'pan_number' => $attributes['pan_number'] ?? null,
-            'gst_scheme' => $attributes['gst_scheme'] ?? null,
-            'gst_type' => $attributes['gst_type'] ?? null,
+            'registration_type' => $attributes['registration_type'] ?? null,
+            'tax_liability' => $attributes['tax_liability'] ?? null,
+            'state_id' => $attributes['state_id'] ?? null,
+            'gst_rate' => $attributes['gst_rate'] ?? null,
             'address' => $attributes['address'] ?? null,
             'contact_person' => $attributes['contact_person'] ?? null,
             'contact_number' => $attributes['contact_number'] ?? null,

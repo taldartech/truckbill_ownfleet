@@ -116,6 +116,24 @@ class LocationManagementTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_can_load_location_lookups_without_branch_selected(): void
+    {
+        $superAdmin = User::query()->create([
+            'name' => 'Platform Super Admin',
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->getJson('/app/api/locations/countries')
+            ->assertOk();
+
+        $this->actingAs($superAdmin)
+            ->getJson('/app/api/locations/states')
+            ->assertOk();
+    }
+
     public function test_moderator_can_view_but_not_create_location_master_data(): void
     {
         [$tenant, $user] = $this->createFixtures('moderator');

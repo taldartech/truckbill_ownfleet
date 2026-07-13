@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FleetMonthlyReportController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MaintenanceServiceTypeController;
 use App\Http\Controllers\Api\OnboardingController;
@@ -39,6 +40,12 @@ Route::prefix('onboarding')
     });
 
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('locations/countries', [LocationController::class, 'countries']);
+    Route::get('locations/states', [LocationController::class, 'states']);
+    Route::get('locations/cities', [LocationController::class, 'cities']);
+});
 
 Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
@@ -76,11 +83,16 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::get('trips/{trip}/archive-impact', [TripController::class, 'archiveImpact']);
     Route::get('trips/{trip}/deletion-impact', [TripController::class, 'deletionImpact']);
     Route::post('trips/{trip}/archive', [TripController::class, 'archive']);
+    Route::post('trips/{trip}/invoices/preview', [InvoiceController::class, 'previewForTrip']);
+    Route::post('trips/{trip}/invoices/generate', [InvoiceController::class, 'generateForTrip']);
     Route::get('vehicles/{vehicle}/primary-driver', [TripController::class, 'vehiclePrimaryDriver']);
     Route::apiResource('trips', TripController::class);
-    Route::get('locations/countries', [LocationController::class, 'countries']);
-    Route::get('locations/states', [LocationController::class, 'states']);
-    Route::get('locations/cities', [LocationController::class, 'cities']);
+
+    Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf']);
+    Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'storePayment']);
+    Route::delete('invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'destroyPayment']);
+    Route::apiResource('invoices', InvoiceController::class)->only(['index', 'show', 'destroy']);
+
     Route::apiResource('states', StateController::class)->except(['destroy']);
     Route::apiResource('cities', CityController::class)->except(['destroy']);
     Route::apiResource('stations', StationController::class);
