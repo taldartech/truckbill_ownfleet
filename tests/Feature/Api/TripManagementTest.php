@@ -147,7 +147,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_can_create_round_trip_with_route_legs_and_expenses(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $branchId = (int) BranchContext::branchId();
@@ -164,6 +164,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_rate' => 250,
@@ -172,6 +173,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['c']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 2,
                         'weight_ton' => 48,
                         'freight_rate' => 250,
@@ -229,7 +231,7 @@ class TripManagementTest extends TestCase
 
     public function test_stop_expense_route_leg_sequence_is_persisted_and_returned(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -271,7 +273,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_update_can_clear_route_leg_customer_without_changing_route_structure(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $operationalAttributes = $this->operationalAttributesForTenant($tenant);
@@ -303,9 +305,8 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['home']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 2,
-                        'weight_ton' => 20,
-                        'freight_rate' => 100,
-                        'freight_amount' => 2000,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
                     ],
                 ],
             ]))
@@ -332,9 +333,115 @@ class TripManagementTest extends TestCase
         ]);
     }
 
+    public function test_trip_create_requires_customer_on_loaded_route_leg(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['route_legs.0.customer_id']);
+    }
+
+    public function test_trip_create_allows_empty_return_leg_without_customer(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $customer = $this->createSampleCustomer($tenant);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.route_legs.0.customer_id', $customer->id)
+            ->assertJsonPath('data.route_legs.1.customer_id', null);
+    }
+
+    public function test_trip_update_rejects_clearing_customer_on_loaded_route_leg(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $customer = $this->createSampleCustomer($tenant);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 20,
+                        'freight_rate' => 100,
+                        'freight_amount' => 2000,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $routeLegs = $createResponse->json('data.route_legs');
+        $routeLegs[1]['customer_id'] = null;
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'route_legs' => $routeLegs,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['route_legs.1.customer_id']);
+    }
+
     public function test_trip_update_with_unchanged_route_legs_preserves_expense_trip_route_leg_id(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -372,7 +479,7 @@ class TripManagementTest extends TestCase
 
     public function test_single_leg_trip_auto_assigns_loading_and_unloading_to_stop(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -385,6 +492,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
@@ -429,9 +537,84 @@ class TripManagementTest extends TestCase
         $this->assertNull($tollExpense?->trip_route_leg_id);
     }
 
+    public function test_trip_rejects_expected_mileage_and_freight_rate_above_max(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'planned_mileage_km_per_liter' => 101,
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 20,
+                        'freight_rate' => 100001,
+                        'freight_amount' => 2000020,
+                        'expected_mileage_km_per_liter' => 101,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'planned_mileage_km_per_liter',
+                'route_legs.0.freight_rate',
+                'route_legs.0.expected_mileage_km_per_liter',
+            ]);
+    }
+
+    public function test_trip_persists_goods_name_on_route_legs(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 20,
+                        'freight_rate' => 200,
+                        'freight_amount' => 4000,
+                        'goods_name' => 'Cement',
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]));
+
+        $response->assertCreated()
+            ->assertJsonPath('data.route_legs.0.goods_name', 'Cement')
+            ->assertJsonPath('data.route_legs.1.goods_name', null);
+
+        $this->assertDatabaseHas('trip_route_legs', [
+            'trip_id' => $response->json('data.id'),
+            'sequence_no' => 1,
+            'goods_name' => 'Cement',
+        ]);
+    }
+
     public function test_diesel_expense_meter_reading_must_stay_within_trip_meter_range(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -495,7 +678,7 @@ class TripManagementTest extends TestCase
 
     public function test_diesel_expense_validation_rules(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -677,7 +860,7 @@ class TripManagementTest extends TestCase
 
     public function test_legacy_diesel_expense_outside_meter_range_can_be_saved_when_unchanged(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -730,7 +913,7 @@ class TripManagementTest extends TestCase
 
     public function test_diesel_expense_date_must_stay_within_trip_window(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -755,7 +938,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_number_uses_branch_trip_sequence_start(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $branchId = (int) BranchContext::branchId();
@@ -771,7 +954,7 @@ class TripManagementTest extends TestCase
 
     public function test_other_expense_stores_custom_type_and_notes_separately(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -785,6 +968,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -821,7 +1005,7 @@ class TripManagementTest extends TestCase
 
     public function test_expense_date_must_stay_within_trip_window(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $payload = array_merge($this->requiredTripMeterFields(), [
@@ -834,6 +1018,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 100,
                     'freight_amount' => 25000,
@@ -870,7 +1055,7 @@ class TripManagementTest extends TestCase
 
     public function test_can_create_trip_without_expenses(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $payload = $this->sampleTripPayload($vehicle, $driver, $stations);
@@ -886,7 +1071,7 @@ class TripManagementTest extends TestCase
 
     public function test_can_update_trip_expenses_only(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -918,7 +1103,7 @@ class TripManagementTest extends TestCase
 
     public function test_updating_trip_without_expenses_preserves_existing_expenses(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -954,7 +1139,7 @@ class TripManagementTest extends TestCase
 
     public function test_status_change_preserves_trip_expenses_and_route_leg_links(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -967,6 +1152,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
@@ -1006,7 +1192,7 @@ class TripManagementTest extends TestCase
 
     public function test_updating_trip_expenses_soft_deletes_previous_rows(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1044,7 +1230,7 @@ class TripManagementTest extends TestCase
 
     public function test_cannot_update_route_when_leg_has_expenses(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1057,6 +1243,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
@@ -1089,6 +1276,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['c']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
@@ -1102,7 +1290,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_can_update_expenses_on_completed_trip(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -1124,7 +1312,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_can_store_substitute_driver_on_create_and_update(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $substitute = Driver::query()->create([
@@ -1146,6 +1334,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -1183,7 +1372,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_search_matches_substitute_driver_name(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $substitute = Driver::query()->create([
@@ -1214,7 +1403,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_search_ignores_date_range(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -1236,7 +1425,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_list_can_filter_by_trip_type(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1250,6 +1439,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -1264,7 +1454,7 @@ class TripManagementTest extends TestCase
                 'driver_id' => $driver->id,
                 'start_station_id' => $stations['home']->id,
                 'start_at' => '2026-06-12 08:00:00',
-                'route_legs' => $this->roundTripRouteLegs($stations),
+                'route_legs' => $this->roundTripRouteLegs($stations, $customer),
             ]))
             ->assertCreated();
 
@@ -1283,7 +1473,7 @@ class TripManagementTest extends TestCase
 
     public function test_moderator_can_view_and_create_trips_but_not_archive(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
         $this->actingAs($user);
         $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1301,6 +1491,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
@@ -1325,7 +1516,7 @@ class TripManagementTest extends TestCase
 
     public function test_moderator_cannot_update_trip_or_view_archived_list(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('moderator');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
         $this->actingAs($user);
         $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1342,7 +1533,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_archive_impact_returns_summary_and_expense_breakdown(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -1398,7 +1589,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_cannot_archive_trip_without_archive_reason(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -1414,7 +1605,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_can_archive_in_progress_trip_with_reason(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -1432,7 +1623,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_can_archive_cancelled_trip_with_reason(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -1453,7 +1644,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_profitability_report_returns_calculated_rows(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1470,7 +1661,7 @@ class TripManagementTest extends TestCase
 
     public function test_vehicle_wise_trip_report_includes_trip_count(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1484,7 +1675,7 @@ class TripManagementTest extends TestCase
 
     public function test_expense_summary_report_includes_trip_count(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1506,7 +1697,7 @@ class TripManagementTest extends TestCase
 
     public function test_route_profitability_report_uses_trip_meter_distance_when_leg_distance_is_zero(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1519,6 +1710,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -1562,7 +1754,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_show_includes_diesel_performance_summary(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1579,6 +1771,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -1621,7 +1814,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_persists_snapshot_fields_and_runtime_load_classification(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $vehicle->update([
             'default_mileage_km_per_liter' => 2.5,
             'max_load_ton' => 22,
@@ -1642,6 +1835,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 10,
                         'freight_amount' => 5000,
@@ -1665,7 +1859,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_report_export_returns_excel_for_selected_filters(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1682,7 +1876,7 @@ class TripManagementTest extends TestCase
 
     public function test_trip_report_export_excludes_trips_outside_date_range(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1695,7 +1889,7 @@ class TripManagementTest extends TestCase
 
     public function test_create_trip_requires_positive_total_freight(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1726,7 +1920,7 @@ class TripManagementTest extends TestCase
 
     public function test_create_trip_always_stores_created_status(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -1740,6 +1934,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
@@ -1837,7 +2032,7 @@ class TripManagementTest extends TestCase
 
     public function test_update_trip_prohibits_vehicle_and_driver_changes(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1859,7 +2054,7 @@ class TripManagementTest extends TestCase
 
     public function test_update_trip_allows_meter_reading_changes_on_edit(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1894,7 +2089,7 @@ class TripManagementTest extends TestCase
 
     public function test_update_trip_succeeds_when_driver_assignment_changed_but_start_date_unchanged(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1931,7 +2126,7 @@ class TripManagementTest extends TestCase
 
     public function test_update_trip_allows_start_date_change_without_driver_revalidation(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -1951,7 +2146,7 @@ class TripManagementTest extends TestCase
 
     public function test_create_trip_resolves_primary_driver_on_trip_start_date(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         TenantContext::setTenantId($tenant->id);
@@ -1968,6 +2163,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
@@ -1988,7 +2184,7 @@ class TripManagementTest extends TestCase
 
     public function test_created_trip_cannot_transition_directly_to_cancelled(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -2004,7 +2200,7 @@ class TripManagementTest extends TestCase
 
     public function test_cancel_in_progress_trip_requires_end_meter_and_syncs_vehicle_odometer(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -2039,7 +2235,7 @@ class TripManagementTest extends TestCase
 
     public function test_check_trip_window_reports_vehicle_overlap_for_open_trip(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2053,6 +2249,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
@@ -2093,7 +2290,7 @@ class TripManagementTest extends TestCase
 
     public function test_check_trip_window_allows_dates_after_open_trip_ends(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2107,6 +2304,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
@@ -2134,7 +2332,7 @@ class TripManagementTest extends TestCase
 
     public function test_check_trip_window_blocks_future_dates_when_open_trip_has_no_end_date(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2147,6 +2345,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
@@ -2177,7 +2376,7 @@ class TripManagementTest extends TestCase
 
     public function test_check_trip_window_ignores_cancelled_trip(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2191,6 +2390,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
@@ -2224,7 +2424,7 @@ class TripManagementTest extends TestCase
 
     public function test_new_trip_allowed_when_previous_trip_is_completed(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $completedTrip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
@@ -2244,6 +2444,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
@@ -2263,7 +2464,7 @@ class TripManagementTest extends TestCase
 
     public function test_total_distance_km_comes_from_meter_readings_not_route_legs(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -2276,6 +2477,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -2309,7 +2511,7 @@ class TripManagementTest extends TestCase
 
     public function test_complete_trip_requires_end_meter_and_syncs_vehicle_odometer(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -2352,7 +2554,7 @@ class TripManagementTest extends TestCase
 
     public function test_complete_trip_rejects_end_date_before_actual_arrival(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
 
@@ -2373,7 +2575,7 @@ class TripManagementTest extends TestCase
 
     public function test_complete_trip_requires_start_date(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
         $trip->update(['start_at' => null]);
@@ -2398,7 +2600,7 @@ class TripManagementTest extends TestCase
         \Illuminate\Support\Carbon::setTestNow('2026-07-03 10:00:00');
 
         try {
-            [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+            [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
             $this->actingAs($user);
             $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
             $trip->update(['start_at' => '2026-07-11 08:00:00']);
@@ -2423,7 +2625,7 @@ class TripManagementTest extends TestCase
 
     public function test_one_way_trip_skips_return_to_start_validation(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -2436,6 +2638,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -2449,7 +2652,7 @@ class TripManagementTest extends TestCase
 
     public function test_round_trip_still_requires_return_to_start(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -2462,6 +2665,7 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
                         'sequence_no' => 1,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
@@ -2475,7 +2679,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_can_archive_created_trip_and_records_archived_by(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2521,7 +2725,7 @@ class TripManagementTest extends TestCase
 
     public function test_admin_cannot_archive_completed_trip(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2545,7 +2749,7 @@ class TripManagementTest extends TestCase
 
     public function test_super_admin_can_archive_completed_trip_with_reason(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('super_admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('super_admin');
         $this->actingAs($user);
         $this->enterBranchForSuperAdmin($user, \App\Branch::query()->findOrFail($vehicle->branch_id));
         TenantContext::setTenantId($tenant->id);
@@ -2571,7 +2775,7 @@ class TripManagementTest extends TestCase
 
     public function test_archived_trip_cannot_be_updated(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2592,7 +2796,7 @@ class TripManagementTest extends TestCase
 
     public function test_archived_trip_cannot_change_status(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2613,7 +2817,7 @@ class TripManagementTest extends TestCase
 
     public function test_archived_trip_cannot_modify_expenses(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2640,7 +2844,7 @@ class TripManagementTest extends TestCase
 
     public function test_archived_trip_can_still_be_viewed(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2661,7 +2865,7 @@ class TripManagementTest extends TestCase
 
     public function test_archived_trip_archive_impact_returns_not_found(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         TenantContext::setTenantId($tenant->id);
 
@@ -2679,7 +2883,7 @@ class TripManagementTest extends TestCase
     }
 
     /**
-     * @return array{0: Tenant, 1: User, 2: Vehicle, 3: Driver, 4: array<string, Station>}
+     * @return array{0: Tenant, 1: User, 2: Vehicle, 3: Driver, 4: array<string, Station>, 5: Customer}
      */
     private function createFixtures(string $role): array
     {
@@ -2752,19 +2956,22 @@ class TripManagementTest extends TestCase
             ]),
         ];
 
-        return [$tenant, $user, $vehicle, $driver, $stations];
+        $customer = $this->createSampleCustomer($tenant);
+
+        return [$tenant, $user, $vehicle, $driver, $stations, $customer];
     }
 
     /**
      * @param  array<string, Station>  $stations
      * @return list<array<string, mixed>>
      */
-    private function roundTripRouteLegs(array $stations, float $loadedFreight = 25000): array
+    private function roundTripRouteLegs(array $stations, Customer $customer, float $loadedFreight = 25000): array
     {
         return [
             [
                 'from_station_id' => $stations['home']->id,
                 'to_station_id' => $stations['b']->id,
+                'customer_id' => $customer->id,
                 'sequence_no' => 1,
                 'weight_ton' => 100,
                 'freight_rate' => $loadedFreight / 100,
@@ -2801,6 +3008,8 @@ class TripManagementTest extends TestCase
         array $stations,
         string $startAt = '2026-06-10 09:00:00',
     ): array {
+        $customer = $this->createSampleCustomerForVehicle($vehicle);
+
         return [
             ...$this->requiredTripMeterFields(),
             'vehicle_id' => $vehicle->id,
@@ -2811,6 +3020,7 @@ class TripManagementTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 90,
                     'freight_rate' => 200,
@@ -2825,6 +3035,27 @@ class TripManagementTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    private function createSampleCustomer(Tenant $tenant): Customer
+    {
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+        $city = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+
+        return Customer::query()->create([
+            ...$operationalAttributes,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Sample Trip Customer '.fake()->unique()->numerify('####'),
+        ]);
+    }
+
+    private function createSampleCustomerForVehicle(Vehicle $vehicle): Customer
+    {
+        $tenant = Tenant::query()->findOrFail($vehicle->tenant_id);
+
+        return $this->createSampleCustomer($tenant);
     }
 
     /**

@@ -185,6 +185,7 @@
                                 <th>#</th>
                                 <th>From → To</th>
                                 <th>Customer</th>
+                                <th>Goods Type</th>
                                 <th class="text-end">Weight (Ton)</th>
                                 <th class="text-end">Expected Mileage</th>
                                 <th class="text-end">Freight Rate (₹/Ton)</th>
@@ -223,6 +224,7 @@
                                     </div>
                                 </td>
                                 <td>{{ leg.customer }}</td>
+                                <td>{{ leg.goods }}</td>
                                 <td class="text-end">{{ leg.weight }}</td>
                                 <td class="text-end">{{ leg.expectedMileage }}</td>
                                 <td class="text-end">₹{{ leg.rate }}</td>

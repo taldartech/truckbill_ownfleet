@@ -237,6 +237,7 @@ export function emptyRouteStop(
         freight_auto_calculate: true,
         weight_ton: '',
         expected_mileage_km_per_liter: expectedMileage,
+        goods_name: '',
         remarks: '',
     };
 }
@@ -283,6 +284,18 @@ function parseNumeric(value) {
 }
 
 export { parseNumeric };
+
+export const MAX_FUEL_LITERS = 5000;
+
+export const MAX_FUEL_RATE = 1000;
+
+export const FUEL_DECIMAL_PLACES = 2;
+
+/** Max expected / planned mileage (KM per liter) on trip details and route legs. */
+export const MAX_EXPECTED_MILEAGE_KM_PER_LITER = 100;
+
+/** Max freight rate (₹ per ton) on route legs. */
+export const MAX_FREIGHT_RATE_PER_TON = 100000;
 
 export function validateTripPayload(
     payload,
@@ -370,6 +383,20 @@ export function validateTripPayload(
                 errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
             }
         }
+
+        const plannedMileageRaw = payload.planned_mileage_km_per_liter;
+
+        if (plannedMileageRaw !== '' && plannedMileageRaw != null) {
+            const plannedMileage = parseNumeric(plannedMileageRaw);
+
+            if (plannedMileage < 0) {
+                errors.planned_mileage_km_per_liter = ['Expected mileage cannot be negative.'];
+            } else if (plannedMileage > MAX_EXPECTED_MILEAGE_KM_PER_LITER) {
+                errors.planned_mileage_km_per_liter = [
+                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/Lt.`,
+                ];
+            }
+        }
     }
 
     if (payload.status === 'COMPLETED' && mode === 'edit') {
@@ -448,6 +475,50 @@ export function validateTripPayload(
         }
 
         const weight = parseNumeric(leg.weight_ton);
+
+        if (weight > 0 && !leg.customer_id) {
+            errors[`route_legs.${index}.customer_id`] = [
+                `Stop ${index + 1}: customer is required for loaded stops.`,
+            ];
+        }
+
+        if (weight > 0 && !String(leg.goods_name ?? '').trim()) {
+            errors[`route_legs.${index}.goods_name`] = [
+                `Stop ${index + 1}: goods type is required for loaded stops.`,
+            ];
+        }
+
+        const expectedMileageRaw = leg.expected_mileage_km_per_liter;
+
+        if (expectedMileageRaw !== '' && expectedMileageRaw != null) {
+            const expectedMileage = parseNumeric(expectedMileageRaw);
+
+            if (expectedMileage < 0) {
+                errors[`route_legs.${index}.expected_mileage_km_per_liter`] = [
+                    `Stop ${index + 1}: mileage cannot be negative.`,
+                ];
+            } else if (expectedMileage > MAX_EXPECTED_MILEAGE_KM_PER_LITER) {
+                errors[`route_legs.${index}.expected_mileage_km_per_liter`] = [
+                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/Lt.`,
+                ];
+            }
+        }
+
+        const freightRateRaw = leg.freight_rate;
+
+        if (freightRateRaw !== '' && freightRateRaw != null) {
+            const freightRate = parseNumeric(freightRateRaw);
+
+            if (freightRate < 0) {
+                errors[`route_legs.${index}.freight_rate`] = [
+                    `Stop ${index + 1}: rate cannot be negative.`,
+                ];
+            } else if (freightRate > MAX_FREIGHT_RATE_PER_TON) {
+                errors[`route_legs.${index}.freight_rate`] = [
+                    `Max ₹${MAX_FREIGHT_RATE_PER_TON.toLocaleString('en-IN')}/Ton.`,
+                ];
+            }
+        }
 
         if (legCountsAsLoaded(leg)) {
             hasLoadedLeg = true;
@@ -715,12 +786,6 @@ export function validateExpenseDates(expenses, { startAt = null, endAt = null } 
 
     return errors;
 }
-
-export const MAX_FUEL_LITERS = 5000;
-
-export const MAX_FUEL_RATE = 1000;
-
-export const FUEL_DECIMAL_PLACES = 2;
 
 export function isActiveFuelRow(expense) {
     const odometer = expense?.fuel_odometer_km;

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Challan;
 use App\City;
+use App\Customer;
 use App\Driver;
 use App\DriverAssignment;
 use App\Enums\TripExpenseType;
@@ -212,6 +213,8 @@ class FleetMonthlyReportTest extends TestCase
     {
         TenantContext::setTenantId($tenant->id);
 
+        $customer = $this->createReportCustomer($tenant);
+
         return app(TripService::class)->create([
             'trip_type' => 'ROUND_TRIP',
             'start_meter_reading_km' => 10000,
@@ -223,6 +226,7 @@ class FleetMonthlyReportTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 90,
                     'freight_amount' => 18000,
@@ -253,6 +257,19 @@ class FleetMonthlyReportTest extends TestCase
                     'amount' => 500,
                 ],
             ],
+        ]);
+    }
+
+    private function createReportCustomer(Tenant $tenant): Customer
+    {
+        $city = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+
+        return Customer::query()->create([
+            'tenant_id' => $tenant->id,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Fleet Report Customer '.fake()->unique()->numerify('####'),
         ]);
     }
 }

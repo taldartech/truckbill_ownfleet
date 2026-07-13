@@ -4,6 +4,10 @@ import { usePermissions } from './usePermissions';
 function filterNavItems(items, can, canInCompany, requiresCompanySelection, userRole) {
     return items
         .map((item) => {
+            if (item.hidden) {
+                return null;
+            }
+
             if (item.children) {
                 const children = filterNavItems(
                     item.children,

@@ -74,6 +74,10 @@ final class PermissionDefinitions
             'customers.create' => self::entry('Create customers', 'trips', 'Create customer records.', 241),
             'customers.edit' => self::entry('Edit customers', 'trips', 'Edit customer records.', 242),
             'customers.manage' => self::entry('Manage customers', 'trips', 'Legacy manage customers permission.', 243),
+        'goods_types.view' => self::entry('View goods types', 'trips', 'View goods type master data.', 250),
+        'goods_types.create' => self::entry('Create goods types', 'trips', 'Create goods type records.', 251),
+        'goods_types.edit' => self::entry('Edit goods types', 'trips', 'Edit goods type records.', 252),
+        'goods_types.manage' => self::entry('Manage goods types', 'trips', 'Legacy manage goods types permission.', 253),
 
             'invoices.view' => self::entry('View invoices', 'invoices', 'List and open invoices.', 250),
             'invoices.create' => self::entry('Create invoices', 'invoices', 'Generate invoices from completed trips.', 251),

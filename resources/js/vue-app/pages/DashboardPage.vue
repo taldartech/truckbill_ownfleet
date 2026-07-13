@@ -81,12 +81,12 @@
                         <DashboardComplianceAlertsPanel
                             :documents="compliancePreview.documents"
                             :licenses="compliancePreview.licenses"
+                            :due-services="compliancePreview.dueServices"
                             :summary="complianceSummary"
                             :loading="complianceLoading"
                             :can-manage-licenses="canManageDrivers"
                             :can-edit-documents="canEditDocuments"
                             @view-all="openComplianceModal"
-                            @edit-license="openDriverFromAlert"
                             @saved="onComplianceItemSaved"
                         />
                     </div>
@@ -101,7 +101,6 @@
             :can-manage-licenses="canManageDrivers"
             :can-edit-documents="canEditDocuments"
             @close="closeComplianceModal"
-            @edit-license="openDriverFromAlert"
             @saved="onComplianceItemSaved"
         />
 
@@ -118,18 +117,6 @@
             @close="closeDocumentsModal"
             @saved="onComplianceItemSaved"
         />
-
-        <DriverFormModal
-            modal-id="dashboardDriverFormModal"
-            :show="showDriverModal"
-            mode="edit"
-            :driver="editingDriver"
-            :saving="driverSaving"
-            :field-errors="driverFieldErrors"
-            :form-error="driverFormError"
-            @close="closeDriverModal"
-            @submit="handleDriverUpdate"
-        />
     </template>
 </template>
 
@@ -138,15 +125,12 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import api from '../api';
 import { fetchComplianceAlerts } from '../api/dashboard';
-import { fetchDriver, updateDriver } from '../api/drivers';
 import DashboardAnalyticsChart from '../components/dashboard/DashboardAnalyticsChart.vue';
 import DashboardComplianceAlertsPanel from '../components/dashboard/DashboardComplianceAlertsPanel.vue';
 import DashboardComplianceModal from '../components/dashboard/DashboardComplianceModal.vue';
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
-import DriverFormModal from '../components/drivers/DriverFormModal.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
-import { useApiFormErrors } from '../composables/useApiFormErrors';
 import { useOperationalDataInvalidation } from '../composables/useOperationalDataInvalidation';
 import { usePermissions } from '../composables/usePermissions';
 import { defaultDashboardTripRange, DASHBOARD_DATE_PRESET_KEYS, MAX_LIST_DATE_RANGE_MONTHS } from '../utils/dateRangePresets';
@@ -172,12 +156,13 @@ const tripStats = ref(null);
 const tyreStats = ref(null);
 const requiresCompany = ref(false);
 const complianceLoading = ref(false);
-const compliancePreview = ref({ documents: [], licenses: [] });
+const compliancePreview = ref({ documents: [], licenses: [], dueServices: [] });
 const complianceSummary = ref({
     total: 0,
     expired: 0,
     expiring: 0,
     licenses: 0,
+    dueServices: 0,
 });
 
 const defaultPeriodRange = defaultDashboardTripRange();
@@ -198,7 +183,10 @@ const canDeleteDocuments = computed(
 const canManageDrivers = computed(() => canInCompany('drivers.create'));
 const canManageTrips = computed(() => canInCompany('trips.create'));
 const canViewComplianceAlerts = computed(
-    () => canInCompany('vehicle_documents.view') || canInCompany('drivers.view'),
+    () =>
+        canInCompany('vehicle_documents.view')
+        || canInCompany('drivers.view')
+        || canInCompany('maintenance.view'),
 );
 
 const quickActions = computed(() => {
@@ -217,19 +205,9 @@ const quickActions = computed(() => {
 
 const showComplianceModal = ref(false);
 const showDocumentsModal = ref(false);
-const showDriverModal = ref(false);
 const documentsVehicle = ref(null);
 const initialDocumentId = ref(null);
 const initialDocumentAction = ref(null);
-const editingDriver = ref(null);
-const driverSaving = ref(false);
-
-const {
-    fieldErrors: driverFieldErrors,
-    formError: driverFormError,
-    clearErrors: clearDriverErrors,
-    applyApiError: applyDriverApiError,
-} = useApiFormErrors();
 
 const userHasCompanyContext = computed(() => {
     if (user.value?.requires_company_selection) {
@@ -247,28 +225,45 @@ const showCompanyRequiredNotice = computed(
 
 const todayLabel = formatDate(new Date());
 
-function buildComplianceSummary(documents, licenses) {
-    const allItems = [...documents, ...licenses];
-    const expired = allItems.filter(
+function emptyComplianceSummary() {
+    return {
+        total: 0,
+        expired: 0,
+        expiring: 0,
+        licenses: 0,
+        dueServices: 0,
+    };
+}
+
+function emptyCompliancePreview() {
+    return { documents: [], licenses: [], dueServices: [] };
+}
+
+function buildComplianceSummary(documents, licenses, dueServices) {
+    const documentAndLicenseItems = [...documents, ...licenses];
+    const expired = documentAndLicenseItems.filter(
         (item) => item.status === 'expired' || item.status_tier === 'expired',
     ).length;
 
     return {
-        total: allItems.length,
+        total: documentAndLicenseItems.length + dueServices.length,
         expired,
-        expiring: allItems.length - expired,
+        expiring: documentAndLicenseItems.length - expired,
         licenses: licenses.length,
+        dueServices: dueServices.length,
     };
 }
 
 function applyComplianceAlerts(alerts) {
     const documents = sortDocumentsByUrgency(alerts.documents ?? []);
     const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
+    const dueServices = alerts.dueServices ?? [];
 
-    complianceSummary.value = buildComplianceSummary(documents, licenses);
+    complianceSummary.value = buildComplianceSummary(documents, licenses, dueServices);
     compliancePreview.value = {
         documents: documents.slice(0, 5),
         licenses: licenses.slice(0, 5),
+        dueServices: dueServices.slice(0, 5),
     };
 }
 
@@ -289,47 +284,6 @@ function closeDocumentsModal() {
     documentsVehicle.value = null;
     initialDocumentId.value = null;
     initialDocumentAction.value = null;
-}
-
-async function openDriverFromAlert(license) {
-    if (!canManageDrivers.value) {
-        return;
-    }
-
-    showComplianceModal.value = false;
-
-    try {
-        editingDriver.value = await fetchDriver(license.driver_id);
-        clearDriverErrors();
-        showDriverModal.value = true;
-    } catch {
-        loadError.value = 'Could not open driver for editing.';
-    }
-}
-
-function closeDriverModal() {
-    showDriverModal.value = false;
-    editingDriver.value = null;
-    clearDriverErrors();
-}
-
-async function handleDriverUpdate(payload) {
-    if (!editingDriver.value?.id) {
-        return;
-    }
-
-    driverSaving.value = true;
-    clearDriverErrors();
-
-    try {
-        await updateDriver(editingDriver.value.id, payload);
-        closeDriverModal();
-        await loadDashboard();
-    } catch (error) {
-        applyDriverApiError(error);
-    } finally {
-        driverSaving.value = false;
-    }
 }
 
 async function onComplianceItemSaved() {
@@ -371,35 +325,6 @@ async function refreshComplianceData() {
     }
 }
 
-async function loadCompliancePreview() {
-    if (!canViewComplianceAlerts.value || !userHasCompanyContext.value) {
-        compliancePreview.value = { documents: [], licenses: [] };
-        complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
-
-        return;
-    }
-
-    complianceLoading.value = true;
-
-    try {
-        const alerts = await fetchComplianceAlerts();
-
-        if (alerts.requiresCompany) {
-            compliancePreview.value = { documents: [], licenses: [] };
-            complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
-
-            return;
-        }
-
-        applyComplianceAlerts(alerts);
-    } catch {
-        compliancePreview.value = { documents: [], licenses: [] };
-        complianceSummary.value = { total: 0, expired: 0, expiring: 0, licenses: 0 };
-    } finally {
-        complianceLoading.value = false;
-    }
-}
-
 async function loadDashboard() {
     if (showRolePlaceholder.value) {
         loading.value = false;
@@ -418,14 +343,36 @@ async function loadDashboard() {
             params.to_date = periodToDate.value;
         }
 
-        const { data } = await api.get('/app/dashboard/stats', { params });
+        const shouldLoadCompliance =
+            canViewComplianceAlerts.value && userHasCompanyContext.value;
+
+        if (shouldLoadCompliance) {
+            complianceLoading.value = true;
+        }
+
+        const [statsResult, alertsResult] = await Promise.all([
+            api.get('/app/dashboard/stats', { params }),
+            shouldLoadCompliance
+                ? fetchComplianceAlerts().catch(() => null)
+                : Promise.resolve(null),
+        ]);
+
+        const { data } = statsResult;
         requiresCompany.value =
             Boolean(data.requires_company) && !userHasCompanyContext.value;
         fleetStats.value = data.fleet ?? null;
         tripStats.value = data.trips ?? null;
         tyreStats.value = data.tyres ?? null;
 
-        await loadCompliancePreview();
+        if (!shouldLoadCompliance) {
+            compliancePreview.value = emptyCompliancePreview();
+            complianceSummary.value = emptyComplianceSummary();
+        } else if (alertsResult == null || alertsResult.requiresCompany) {
+            compliancePreview.value = emptyCompliancePreview();
+            complianceSummary.value = emptyComplianceSummary();
+        } else {
+            applyComplianceAlerts(alertsResult);
+        }
     } catch (error) {
         const validationMessage =
             error?.response?.data?.errors?.from_date?.[0] ??
@@ -433,6 +380,7 @@ async function loadDashboard() {
 
         loadError.value = validationMessage ?? 'Could not load dashboard data.';
     } finally {
+        complianceLoading.value = false;
         loading.value = false;
     }
 }

@@ -37,7 +37,7 @@ class UpdateTripRequest extends FormRequest
             'end_at' => ['required_if:status,COMPLETED', 'nullable', 'date', 'after_or_equal:start_at'],
             'end_meter_reading_km' => ['nullable', 'numeric', 'gt:0'],
             'load_weight_ton' => ['nullable', 'numeric', 'gt:0'],
-            'planned_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0'],
+            'planned_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_load_ton' => ['nullable', 'numeric', 'min:0'],
             'planned_diesel_liters' => ['nullable', 'numeric', 'min:0'],
             'diesel_rate_per_liter' => ['nullable', 'numeric', 'min:0'],
@@ -49,11 +49,12 @@ class UpdateTripRequest extends FormRequest
             'route_legs.*.from_station_id' => ['required_with:route_legs', 'integer', 'exists:stations,id'],
             'route_legs.*.to_station_id' => ['required_with:route_legs', 'integer', 'exists:stations,id'],
             'route_legs.*.customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'route_legs.*.goods_name' => ['nullable', 'string', 'max:120'],
             'route_legs.*.from_city' => ['nullable', 'string', 'max:120'],
             'route_legs.*.to_city' => ['nullable', 'string', 'max:120'],
-            'route_legs.*.freight_rate' => ['nullable', 'numeric', 'min:0'],
+            'route_legs.*.freight_rate' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'route_legs.*.weight_ton' => ['nullable', 'numeric', 'min:0'],
-            'route_legs.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0'],
+            'route_legs.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'route_legs.*.sequence_no' => ['nullable', 'integer', 'min:1'],
             'route_legs.*.freight_amount' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.remarks' => ['nullable', 'string', 'max:1000'],
@@ -80,6 +81,9 @@ class UpdateTripRequest extends FormRequest
             'start_meter_reading_km.required' => 'Start meter reading is required.',
             'start_meter_reading_km.gt' => 'Start meter reading must be greater than zero.',
             'end_meter_reading_km.gt' => 'End meter reading must be greater than zero.',
+            'planned_mileage_km_per_liter.max' => 'Max 100 KM/Lt.',
+            'route_legs.*.expected_mileage_km_per_liter.max' => 'Max 100 KM/Lt.',
+            'route_legs.*.freight_rate.max' => 'Max ₹1,00,000/Ton.',
         ];
     }
 }

@@ -442,6 +442,19 @@ class VehicleMaintenanceTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.overdue_reason', 'km');
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?from=2026-05-01&to=2026-05-31')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['registration_number' => 'MH12BOTH01'])
+            ->assertJsonFragment(['registration_number' => 'MH12DATE01']);
+
+        $this->actingAs($user)
+            ->getJson('/app/api/vehicle-maintenances/due?from=2026-12-01&to=2026-12-31')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.vehicle.registration_number', 'MH12KM0001');
     }
 
     /**

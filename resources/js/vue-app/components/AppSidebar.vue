@@ -139,7 +139,7 @@ function childPath(child) {
 }
 
 function isChildActive(child) {
-    if (child.activeNames?.length) {
+    if (Array.isArray(child.activeNames)) {
         return child.activeNames.includes(route.name);
     }
 

@@ -34,6 +34,18 @@
                 @search="applyFilters"
                 @reset="clearFilters"
             >
+                <div class="maintenance-filter-period">
+                    <DashboardDateRangePicker
+                        v-model:from-date="filters.from_date"
+                        v-model:to-date="filters.to_date"
+                        label="Next Due Date"
+                        panel-align="start"
+                        :preset-keys="datePresetKeys"
+                        :max-months="MAX_LIST_DATE_RANGE_MONTHS"
+                        :block-future-dates="false"
+                        @change="onDateRangeChange"
+                    />
+                </div>
                 <div class="maintenance-filter-search">
                     <label class="form-label" :for="`${pageId}_search`">Search</label>
                     <AppIndexSearchInput
@@ -41,6 +53,7 @@
                         :input-id="`${pageId}_search`"
                         placeholder="Truck, service type, provider…"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter.prevent="applyFilters"
                     />
@@ -169,7 +182,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, inject, onMounted, reactive, ref, unref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { listMaintenanceServiceTypes } from '../../api/maintenanceServiceTypes';
@@ -180,6 +193,7 @@ import {
 } from '../../api/vehicleMaintenances';
 import MaintenanceServiceTypeSelect from '../../components/ui/MaintenanceServiceTypeSelect.vue';
 import VehicleSelect from '../../components/ui/VehicleSelect.vue';
+import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
@@ -192,11 +206,22 @@ import { useListPagination } from '../../composables/useListPagination';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import {
+    dateRangeExceedsMonths,
+    dateRangeMonthsError,
+    MAX_LIST_DATE_RANGE_MONTHS,
+    TRIP_LIST_DATE_PRESET_KEYS,
+} from '../../utils/dateRangePresets';
 import { formatDate } from '../../utils/datetime';
 import {
     isMaintenanceDateOverdue,
     isMaintenanceKmOverdue,
 } from '../../utils/maintenanceDueStatus';
+import {
+    resolveMaintenanceDueListState,
+    saveMaintenanceDueListStateToSession,
+} from '../../utils/maintenanceDueListFilterState';
+import { setMaintenanceListReturnSource } from '../../utils/maintenanceRecordsListFilterState';
 
 const pageId = 'maintenanceDueIndex';
 const route = useRoute();
@@ -204,6 +229,11 @@ const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
+const injectedUser = inject('currentUser', null);
+const currentUser = computed(() => unref(injectedUser) ?? window.__AUTH_USER__ ?? null);
+const tenantId = computed(
+    () => currentUser.value?.effective_tenant_id ?? currentUser.value?.company_id ?? null,
+);
 
 const canView = computed(() => canInCompany('maintenance.view'));
 const canCreate = computed(() => canInCompany('maintenance.create'));
@@ -218,6 +248,7 @@ const filtersOpen = ref(false);
 const filters = reactive(defaultMaintenanceDueFilters());
 const defaultFilters = defaultMaintenanceDueFilters();
 const overdueReasonOptions = MAINTENANCE_OVERDUE_REASON_FILTERS;
+const datePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
@@ -226,6 +257,89 @@ const records = computed(() => {
 
     return allRecords.value.slice(start, start + pagination.perPage);
 });
+
+const filtersActive = computed(
+    () =>
+        filters.from_date !== defaultFilters.from_date ||
+        filters.to_date !== defaultFilters.to_date ||
+        filters.search !== '' ||
+        filters.vehicle_id !== '' ||
+        filters.maintenance_service_type_id !== '' ||
+        filters.overdue_reason !== '',
+);
+
+function currentListState() {
+    return {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        search: filters.search,
+        vehicle_id: filters.vehicle_id,
+        maintenance_service_type_id: filters.maintenance_service_type_id,
+        overdue_reason: filters.overdue_reason,
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+    };
+}
+
+function persistListState() {
+    setMaintenanceListReturnSource('due');
+    saveMaintenanceDueListStateToSession(tenantId.value, currentListState());
+}
+
+function applyListState(state) {
+    filters.from_date = state.from_date ?? '';
+    filters.to_date = state.to_date ?? '';
+    filters.search = state.search ?? '';
+    filters.vehicle_id = state.vehicle_id ?? '';
+    filters.maintenance_service_type_id = state.maintenance_service_type_id
+        ? String(state.maintenance_service_type_id)
+        : '';
+    filters.overdue_reason = state.overdue_reason ?? '';
+    pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
+    pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 10;
+}
+
+function readQueryValue(key) {
+    const value = route.query[key];
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+        return value[0];
+    }
+
+    return '';
+}
+
+function applyStateFromRouteOrSession() {
+    const hasQueryFilters = [
+        'from_date',
+        'to_date',
+        'search',
+        'vehicle_id',
+        'maintenance_service_type_id',
+        'overdue_reason',
+    ].some((key) => readQueryValue(key) !== '');
+
+    if (hasQueryFilters) {
+        applyListState({
+            from_date: readQueryValue('from_date'),
+            to_date: readQueryValue('to_date'),
+            search: readQueryValue('search'),
+            vehicle_id: readQueryValue('vehicle_id'),
+            maintenance_service_type_id: readQueryValue('maintenance_service_type_id'),
+            overdue_reason: readQueryValue('overdue_reason'),
+            page: readQueryValue('page') || 1,
+            per_page: pagination.perPage,
+        });
+
+        return;
+    }
+
+    applyListState(resolveMaintenanceDueListState(tenantId.value));
+}
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;
@@ -280,13 +394,42 @@ function syncClientPagination(total, page = 1) {
 }
 
 function applyFilters() {
+    const hasFrom = Boolean(filters.from_date);
+    const hasTo = Boolean(filters.to_date);
+
+    if (hasFrom !== hasTo) {
+        toast.error('Select both From and To dates for the Next Due Date filter.');
+
+        return;
+    }
+
+    if (hasFrom && hasTo && dateRangeExceedsMonths(filters.from_date, filters.to_date, MAX_LIST_DATE_RANGE_MONTHS)) {
+        toast.error(dateRangeMonthsError(MAX_LIST_DATE_RANGE_MONTHS));
+
+        return;
+    }
+
     pagination.currentPage = 1;
+    persistListState();
     loadRecords(1);
+}
+
+function onDateRangeChange(range = {}) {
+    if (range.from_date != null) {
+        filters.from_date = range.from_date;
+    }
+
+    if (range.to_date != null) {
+        filters.to_date = range.to_date;
+    }
+
+    applyFilters();
 }
 
 function clearFilters() {
     Object.assign(filters, defaultMaintenanceDueFilters());
     pagination.currentPage = 1;
+    persistListState();
     applyFilters();
 }
 
@@ -307,8 +450,11 @@ async function loadRecords(page = 1) {
             vehicleId: filters.vehicle_id,
             maintenanceServiceTypeId: filters.maintenance_service_type_id,
             overdueReason: filters.overdue_reason,
+            from: filters.from_date,
+            to: filters.to_date,
         });
         syncClientPagination(allRecords.value.length, page);
+        persistListState();
     } catch {
         toast.error('Could not load due services.');
         allRecords.value = [];
@@ -324,9 +470,11 @@ function goToPage(page) {
     }
 
     syncClientPagination(allRecords.value.length, page);
+    persistListState();
 }
 
 function goToCreate() {
+    persistListState();
     router.push({ name: 'maintenance.create' });
 }
 
@@ -334,6 +482,8 @@ function goToCreateForTruck(record) {
     if (!record.vehicle_id) {
         return;
     }
+
+    persistListState();
 
     const query = { vehicle_id: record.vehicle_id };
 
@@ -345,12 +495,23 @@ function goToCreateForTruck(record) {
 }
 
 function goToView(record) {
+    persistListState();
     router.push({ name: 'maintenance.show', params: { id: record.id } });
 }
 
 onMounted(async () => {
-    if (route.query.vehicle_id) {
-        filters.vehicle_id = String(route.query.vehicle_id);
+    setMaintenanceListReturnSource('due');
+    applyStateFromRouteOrSession();
+
+    if (route.query.created === '1') {
+        toast.success('Maintenance record created.');
+    } else if (route.query.updated === '1') {
+        toast.success('Maintenance record updated.');
+    } else if (route.query.deleted === '1') {
+        toast.success('Maintenance record deleted.');
+    }
+
+    if (filtersActive.value) {
         filtersOpen.value = true;
     }
 
@@ -365,9 +526,21 @@ onMounted(async () => {
     }
 
     if (canView.value) {
-        await loadRecords(1);
+        await loadRecords(pagination.currentPage);
     } else {
         loading.value = false;
     }
 });
 </script>
+
+<style scoped>
+.maintenance-filter-search :deep(.app-index-search) {
+    width: 100%;
+    max-width: none;
+}
+
+.maintenance-filter-search :deep(.app-index-search > .form-control),
+.maintenance-filter-search :deep(.app-index-search > .input-group-text) {
+    min-height: 38px;
+}
+</style>

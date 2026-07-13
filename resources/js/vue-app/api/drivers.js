@@ -47,6 +47,14 @@ export async function updateDriver(id, payload) {
     return unwrapResource(data);
 }
 
+export async function listLicenseExpiringDrivers({ days = 30 } = {}) {
+    const { data } = await api.get(`${driversBase}/license-expiring`, {
+        params: { days },
+    });
+
+    return data.data ?? [];
+}
+
 export async function deleteDriver(id) {
     await api.delete(`${driversBase}/${id}`);
 }

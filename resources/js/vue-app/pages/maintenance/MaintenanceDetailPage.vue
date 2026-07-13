@@ -2,8 +2,8 @@
     <div class="container-fluid px-3 px-lg-4 mt-4 maintenance-detail-page pb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
             <div>
-                <RouterLink :to="{ name: 'maintenance.records' }" class="text-decoration-none small">
-                    <i class="bi bi-arrow-left"></i> Back to Service Records
+                <RouterLink :to="listReturnTo" class="text-decoration-none small">
+                    <i class="bi bi-arrow-left"></i> {{ listReturnLabel }}
                 </RouterLink>
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     <h3 class="mb-0">{{ pageTitle }}</h3>
@@ -127,6 +127,7 @@ import { deleteVehicleMaintenance, fetchVehicleMaintenance } from '../../api/veh
 import MaintenanceActionConfirmModal from '../../components/maintenance/MaintenanceActionConfirmModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useMaintenanceListReturn } from '../../composables/useMaintenanceListReturn';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { formatDate, formatDateTime } from '../../utils/datetime';
@@ -139,6 +140,7 @@ const router = useRouter();
 const toast = useAppToast();
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions();
+const { listReturnTo, listReturnLabel, listReturnWithFlash } = useMaintenanceListReturn();
 
 const canEdit = computed(() => canInCompany('maintenance.edit'));
 const canDelete = computed(() => canInCompany('maintenance.delete'));
@@ -212,7 +214,7 @@ async function confirmDelete() {
     try {
         await deleteVehicleMaintenance(record.value.id);
         toast.success('Maintenance record deleted.');
-        await router.push({ name: 'maintenance.records', query: { deleted: '1' } });
+        await router.push(listReturnWithFlash({ deleted: '1' }));
     } catch (error) {
         toast.error(friendlyApiErrorMessage(error, 'Unable to delete maintenance record.'));
         closeDeleteConfirm();
@@ -228,7 +230,7 @@ async function loadRecord() {
         record.value = await fetchVehicleMaintenance(route.params.id);
     } catch {
         toast.error('Could not load maintenance record.');
-        await router.replace({ name: 'maintenance.records' });
+        await router.replace(listReturnTo.value);
     } finally {
         loading.value = false;
     }

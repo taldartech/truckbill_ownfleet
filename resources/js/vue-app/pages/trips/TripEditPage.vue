@@ -21,11 +21,13 @@
                     :stations="stations"
                     :brokers="brokers"
                     :customers="customers"
+                    :goods-types="goodsTypes"
                     :readonly="isFormReadonly"
                     :expense-totals-by-sequence="expenseTotalsBySequence"
                     :can-quick-add-station="canQuickAddStation && canEditTripFields"
                     :can-quick-add-broker="canQuickAddBroker && canEditTripFields"
                     :can-quick-add-customer="canQuickAddCustomer && canEditTripFields"
+                    :can-quick-add-goods-type="canQuickAddGoodsType && canEditTripFields"
                     :snapshot-customer-name="snapshotCustomerName"
                     :snapshot-broker-name="snapshotBrokerName"
                     :form-error="tripFormError"
@@ -48,6 +50,7 @@
                     @station-created="onStationCreated"
                     @broker-created="onBrokerCreated"
                     @customer-created="onCustomerCreated"
+                    @goods-type-created="onGoodsTypeCreated"
                     @status-updated="handleStatusUpdated"
                     @clear-field-error="clearFieldError"
                 >
@@ -117,6 +120,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
+import { listAllGoodsTypes } from '../../api/goodsTypes';
 import { listAllDrivers } from '../../api/drivers';
 import { listAllStations } from '../../api/stations';
 import {
@@ -174,10 +178,18 @@ const canQuickAddBroker = computed(
 const canQuickAddCustomer = computed(
     () => canInCompany('customers.manage') || canInCompany('trips.edit'),
 );
+const canQuickAddGoodsType = computed(
+    () =>
+        canInCompany('goods_types.manage')
+        || canInCompany('goods_types.create')
+        || canInCompany('trips.edit')
+        || canInCompany('trips.create'),
+);
 
 const stations = ref([]);
 const brokers = ref([]);
 const customers = ref([]);
+const goodsTypes = ref([]);
 const drivers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
@@ -317,6 +329,18 @@ function onCustomerCreated({ customer, legIndex = null }) {
     }
 }
 
+function onGoodsTypeCreated({ goodsType, legIndex = null }) {
+    goodsTypes.value = [
+        goodsType,
+        ...goodsTypes.value.filter((item) => String(item.id) !== String(goodsType.id)),
+    ];
+
+    if (legIndex !== null && form.route_legs[legIndex]) {
+        form.route_legs[legIndex].goods_name = goodsType.name;
+        clearFieldError(`route_legs.${legIndex}.goods_name`);
+    }
+}
+
 function handleAddStop() {
     if (!form.start_station_id) {
         fieldErrors.value = {
@@ -345,16 +369,18 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList, driverList] = await Promise.all([
+    const [stationList, brokerList, customerList, goodsTypeList, driverList] = await Promise.all([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
+        listAllGoodsTypes(),
         listAllDrivers({ activeOnly: true }),
     ]);
 
     stations.value = stationList;
     brokers.value = brokerList;
     customers.value = customerList;
+    goodsTypes.value = goodsTypeList;
     drivers.value = driverList;
 }
 

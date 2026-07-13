@@ -48,7 +48,7 @@
                     <div v-if="fieldErrors.to" class="invalid-feedback d-block">
                         {{ fieldErrors.to[0] }}
                     </div>
-                    <div class="form-text">Maximum {{ MAX_REPORT_DATE_RANGE_MONTHS }} months. No future dates.</div>
+                  
                 </div>
                 <div v-if="reportType === 'cost'">
                     <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>

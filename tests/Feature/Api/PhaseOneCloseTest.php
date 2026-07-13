@@ -10,7 +10,9 @@ use App\DriverAssignment;
 use App\Enums\TripStatus;
 use App\Enums\TyreStatus;
 use App\Mail\DocumentExpiryReminderMail;
+use App\MaintenanceServiceType;
 use App\Support\DocumentAlertNotifier;
+use App\Support\MaintenanceServiceTypeDefaults;
 use App\Tenant;
 use App\Trip;
 use App\Tyre;
@@ -18,6 +20,7 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use App\VehicleDocument;
+use App\VehicleMaintenance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -504,7 +507,13 @@ class PhaseOneCloseTest extends TestCase
         $response = $this->actingAs($user)
             ->getJson('/app/dashboard/compliance-alerts')
             ->assertOk()
-            ->assertJsonCount(2, 'documents');
+            ->assertJsonCount(2, 'documents')
+            ->assertJsonStructure([
+                'documents',
+                'licenses',
+                'due_services',
+                'requires_company',
+            ]);
 
         $documents = collect($response->json('documents'));
         $this->assertTrue($documents->contains(fn (array $item): bool => $item['status'] === 'expired'));
@@ -515,6 +524,52 @@ class PhaseOneCloseTest extends TestCase
             $documents->firstWhere('document_type', 'puc')['days_remaining'],
             $documents->firstWhere('document_type', 'insurance')['days_remaining'],
         );
+    }
+
+    public function test_compliance_alerts_include_due_services(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $operational = $this->operationalAttributesForTenant($tenant);
+        MaintenanceServiceTypeDefaults::seedForTenant($tenant->id);
+
+        $serviceTypeId = (int) MaintenanceServiceType::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('code', 'OIL_CHANGE')
+            ->value('id');
+
+        $vehicle = Vehicle::query()->create([
+            ...$operational,
+            'registration_number' => 'MH12DUE001',
+            'vehicle_type' => 'TRUCK',
+            'make' => 'Tata',
+            'model' => 'Ultra',
+            'odometer_km' => 25000,
+        ]);
+
+        VehicleMaintenance::query()->create([
+            ...$operational,
+            'vehicle_id' => $vehicle->id,
+            'service_date' => now()->subMonths(2)->toDateString(),
+            'odometer_km' => 15000,
+            'maintenance_service_type_id' => $serviceTypeId,
+            'service_provider' => 'City Garage',
+            'cost_amount' => 2500,
+            'next_service_due_km' => 20000,
+            'next_service_due_date' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/app/dashboard/compliance-alerts')
+            ->assertOk()
+            ->assertJsonCount(1, 'due_services');
+
+        $dueService = $response->json('due_services.0');
+        $this->assertSame('MH12DUE001', $dueService['vehicle_registration']);
+        $this->assertSame('due', $dueService['status']);
+        $this->assertSame('both', $dueService['overdue_reason']);
+        $this->assertNotEmpty($dueService['overdue_reason_label']);
+        $this->assertSame('Oil Change', $dueService['service_type_label']);
     }
 
     public function test_document_alert_notifier_creates_live_and_email_notifications(): void

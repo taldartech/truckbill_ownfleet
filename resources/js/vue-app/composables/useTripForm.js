@@ -239,6 +239,7 @@ export function useTripForm() {
                     leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                         ? ''
                         : Number(leg.expected_mileage_km_per_liter),
+                goods_name: leg.goods_name ?? '',
                 remarks: leg.remarks ?? '',
             };
         });
@@ -390,6 +391,7 @@ export function useTripForm() {
                         leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
                             ? null
                             : Number(leg.expected_mileage_km_per_liter),
+                    goods_name: leg.goods_name?.trim() || null,
                     freight_amount: freight > 0 ? freight : 0,
                     remarks: leg.remarks || null,
                 };

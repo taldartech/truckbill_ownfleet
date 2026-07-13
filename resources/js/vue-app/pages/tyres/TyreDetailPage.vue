@@ -2,7 +2,7 @@
     <div class="container mt-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div>
-                <RouterLink :to="{ name: 'tyres.index' }" class="text-decoration-none small">
+                <RouterLink :to="backToTyresTo" class="text-decoration-none small">
                     <i class="bi bi-arrow-left"></i> Back to Tyres
                 </RouterLink>
                 <h3 class="mb-0 mt-1">{{ tyre?.serial_number ?? 'Tyre Detail' }}</h3>
@@ -866,6 +866,30 @@ const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('tyres.manage'));
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const actionSaving = ref(false);
+
+const backToTyresTo = computed(() => {
+    const query = {};
+    const { status, vehicle_id: vehicleId, search, page } = route.query;
+
+    if (typeof status === 'string' && status !== '') {
+        query.status = status;
+    }
+
+    if (typeof vehicleId === 'string' && vehicleId !== '') {
+        query.vehicle_id = vehicleId;
+    }
+
+    if (typeof search === 'string' && search.trim() !== '') {
+        query.search = search.trim();
+    }
+
+    const pageNum = Number(page);
+    if (Number.isFinite(pageNum) && pageNum > 1) {
+        query.page = String(Math.floor(pageNum));
+    }
+
+    return { name: 'tyres.index', query };
+});
 
 const tyre = ref(null);
 const lifeSummary = ref(null);

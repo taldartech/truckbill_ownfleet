@@ -1,6 +1,6 @@
 <template>
     <div class="container mt-4 app-index-page app-index-page--standard">
-        <AppIndexListCard title="Drivers Management" :loading="loading" loading-text="Loading drivers…">
+        <AppIndexListCard :title="pageTitle" :loading="loading" loading-text="Loading drivers…">
             <template #toolbar>
                 <AppIndexHeaderButton
                     icon="filter"
@@ -12,6 +12,14 @@
                     Search filter
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
+                    v-if="licenseAlertsMode"
+                    icon="return"
+                    aria-label="View all drivers"
+                    @click="clearLicenseAlertsMode"
+                >
+                    All Drivers
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
                     aria-label="Create driver"
@@ -20,6 +28,10 @@
                     Create
                 </AppIndexHeaderButton>
             </template>
+
+            <div v-if="licenseAlertsMode" class="alert alert-warning py-2 mb-3">
+                Showing drivers with license expired or expiring within {{ licenseAlertDays }} days.
+            </div>
 
             <AppIndexCollapsibleFilters
                 v-show="filtersOpen"
@@ -49,14 +61,15 @@
                         <th>Name</th>
                         <th>Mobile</th>
                         <th>License Number</th>
+                        <th v-if="licenseAlertsMode">License Expiry</th>
                         <th class="app-index-table__truncate-col">Address</th>
                         <th v-if="showRowActions" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="drivers.length === 0" class="app-index-empty-row">
-                        <td :colspan="showRowActions ? 6 : 5" class="text-center text-muted py-4">
-                            No drivers found.
+                        <td :colspan="tableColspan" class="text-center text-muted py-4">
+                            {{ emptyStateMessage }}
                         </td>
                     </tr>
                     <tr v-for="(driver, index) in drivers" :key="driver.id">
@@ -67,6 +80,7 @@
                         </td>
                         <td>{{ formatPhone(driver.phone) }}</td>
                         <td>{{ driver.license_number || '—' }}</td>
+                        <td v-if="licenseAlertsMode">{{ formatDate(driver.license_expiry_date) }}</td>
                         <td
                             class="app-index-table__truncate-col"
                             :title="addressValue(driver.address) || undefined"
@@ -171,9 +185,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { createDriverAdvanceEntry } from '../../api/driverAdvances';
-import { createDriver, deleteDriver, listDrivers, updateDriver } from '../../api/drivers';
+import {
+    createDriver,
+    deleteDriver,
+    listDrivers,
+    listLicenseExpiringDrivers,
+    updateDriver,
+} from '../../api/drivers';
 import DriverAdvanceModal from '../../components/drivers/DriverAdvanceModal.vue';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -188,9 +209,15 @@ import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
+import { COMPLIANCE_ALERT_WINDOW_DAYS } from '../../utils/documentStatus';
+import { formatDate } from '../../utils/datetime';
 import { buildDriverAdvanceFields, buildDriverFields } from '../../utils/masterCrudSaveConfirm';
 
+const route = useRoute();
+const router = useRouter();
 const toast = useAppToast();
+const licenseAlertDays = COMPLIANCE_ALERT_WINDOW_DAYS;
+const licenseAlertDrivers = ref([]);
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -230,6 +257,36 @@ const showRowActions = computed(
     () => canEdit.value || canArchive.value || canViewAdvances.value,
 );
 
+const licenseAlertsMode = computed(() => {
+    const value = route.query.license_alerts;
+
+    return value === '1' || value === 'true';
+});
+
+const pageTitle = computed(() =>
+    licenseAlertsMode.value ? 'Driver License Alerts' : 'Drivers Management',
+);
+
+const emptyStateMessage = computed(() =>
+    licenseAlertsMode.value
+        ? 'No drivers with expired or expiring licenses.'
+        : 'No drivers found.',
+);
+
+const tableColspan = computed(() => {
+    let cols = 5;
+
+    if (licenseAlertsMode.value) {
+        cols += 1;
+    }
+
+    if (showRowActions.value) {
+        cols += 1;
+    }
+
+    return cols;
+});
+
 const drivers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
@@ -254,6 +311,11 @@ function clearFilters() {
     loadDrivers(1);
 }
 
+async function clearLicenseAlertsMode() {
+    searchQuery.value = '';
+    await router.push({ name: 'drivers.index' });
+}
+
 function formatPhone(phone) {
     const value = String(phone ?? '').trim();
 
@@ -272,18 +334,76 @@ function rowNumber(index) {
     return pagination.from > 0 ? pagination.from + index : index + 1;
 }
 
+function matchesSearch(driver, term) {
+    if (!term) {
+        return true;
+    }
+
+    const haystack = [
+        driver.name,
+        driver.phone,
+        driver.license_number,
+        driver.address,
+    ]
+        .map((value) => String(value ?? '').toLowerCase())
+        .join(' ');
+
+    return haystack.includes(term);
+}
+
+function syncClientPagination(items, page) {
+    const total = items.length;
+    const perPage = pagination.perPage;
+    const lastPage = Math.max(1, Math.ceil(total / perPage));
+    const currentPage = Math.min(Math.max(page, 1), lastPage);
+    const from = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
+    const to = total === 0 ? 0 : Math.min(currentPage * perPage, total);
+
+    syncFromMeta(
+        {
+            current_page: currentPage,
+            last_page: lastPage,
+            per_page: perPage,
+            total,
+            from,
+            to,
+        },
+        to - from + 1,
+    );
+
+    return items.slice(from > 0 ? from - 1 : 0, to);
+}
+
+async function loadLicenseAlertDrivers(page = 1) {
+    const term = searchQuery.value.trim().toLowerCase();
+
+    if (licenseAlertDrivers.value.length === 0) {
+        licenseAlertDrivers.value = await listLicenseExpiringDrivers({
+            days: licenseAlertDays,
+        });
+    }
+
+    const filtered = licenseAlertDrivers.value.filter((driver) => matchesSearch(driver, term));
+
+    drivers.value = syncClientPagination(filtered, page);
+}
+
 async function loadDrivers(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        const response = await listDrivers({
-            page,
-            perPage: pagination.perPage,
-            search: searchQuery.value.trim(),
-        });
+        if (licenseAlertsMode.value) {
+            await loadLicenseAlertDrivers(page);
+        } else {
+            const response = await listDrivers({
+                page,
+                perPage: pagination.perPage,
+                search: searchQuery.value.trim(),
+            });
 
-        drivers.value = response.data;
-        syncFromMeta(response.meta, drivers.value.length);
+            drivers.value = response.data;
+            syncFromMeta(response.meta, drivers.value.length);
+        }
     } catch {
         toast.error('Could not load drivers.');
         drivers.value = [];
@@ -463,12 +583,14 @@ async function confirmSave() {
             toast.success('Driver has been updated successfully.');
             finishSaveConfirm();
             closeEdit();
+            licenseAlertDrivers.value = [];
             await loadDrivers();
         } else {
             await createDriver(payload);
             toast.success('Driver has been added successfully.');
             finishSaveConfirm();
             closeCreate();
+            licenseAlertDrivers.value = [];
             await loadDrivers(1);
         }
     } catch (error) {
@@ -493,6 +615,7 @@ async function handleDelete(driver) {
                 ? pagination.currentPage - 1
                 : pagination.currentPage;
 
+        licenseAlertDrivers.value = [];
         await loadDrivers(page);
     } catch {
         toast.error('Unable to delete driver. Please try again.');
@@ -506,4 +629,13 @@ onMounted(() => {
         filtersOpen.value = true;
     }
 });
+
+watch(
+    () => route.query.license_alerts,
+    () => {
+        licenseAlertDrivers.value = [];
+        pagination.currentPage = 1;
+        loadDrivers(1);
+    },
+);
 </script>

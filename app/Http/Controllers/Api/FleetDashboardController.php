@@ -49,6 +49,7 @@ class FleetDashboardController extends Controller
             return response()->json([
                 'documents' => [],
                 'licenses' => [],
+                'due_services' => [],
                 'requires_company' => true,
             ]);
         }

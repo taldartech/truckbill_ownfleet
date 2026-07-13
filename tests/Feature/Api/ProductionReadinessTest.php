@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Challan;
 use App\City;
+use App\Customer;
 use App\Driver;
 use App\DriverAssignment;
 use App\Enums\TripExpenseType;
@@ -360,6 +361,16 @@ class ProductionReadinessTest extends TestCase
      */
     private function tripPayload(Vehicle $vehicle, Driver $driver, array $stations, bool $asArray = false): array
     {
+        $tenant = Tenant::query()->findOrFail($vehicle->tenant_id);
+        $city = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
+        $customer = Customer::query()->create([
+            'tenant_id' => $tenant->id,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Readiness Customer '.fake()->unique()->numerify('####'),
+        ]);
+
         $payload = [
             'trip_type' => 'ROUND_TRIP',
             'start_meter_reading_km' => 10000,
@@ -372,6 +383,7 @@ class ProductionReadinessTest extends TestCase
                 [
                     'from_station_id' => $stations['home']->id,
                     'to_station_id' => $stations['b']->id,
+                    'customer_id' => $customer->id,
                     'sequence_no' => 1,
                     'weight_ton' => 100,
                     'freight_amount' => 25000,

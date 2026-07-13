@@ -20,7 +20,7 @@ class AuthController
 
         $user = User::query()
             ->withoutGlobalScope('tenant')
-            ->with(['userRole.permissions'])
+            ->with(['userRole'])
             ->where('email', $credentials['email'])
             ->first();
         if ($user === null || ! Hash::check($credentials['password'], $user->password)) {
@@ -48,7 +48,7 @@ class AuthController
      */
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()?->loadMissing(['userRole.permissions', 'tenant']);
+        $user = $request->user()?->loadMissing(['userRole', 'tenant']);
 
         return response()->json([
             'user' => $user !== null ? new UserResource($user) : null,

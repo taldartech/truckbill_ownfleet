@@ -9,6 +9,13 @@ use Illuminate\Support\Str;
 class DocumentTypeDefaults
 {
     /**
+     * Request-scoped label map keyed by tenant id then document type code.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private static array $labelsByTenant = [];
+
+    /**
      * @return list<array{name: string, code: string}>
      */
     public static function presets(): array
@@ -36,6 +43,8 @@ class DocumentTypeDefaults
                 'is_active' => true,
             ]);
         }
+
+        unset(self::$labelsByTenant[$tenantId]);
     }
 
     public static function generateCode(string $name, string $tenantId, ?int $ignoreId = null): string
@@ -61,11 +70,34 @@ class DocumentTypeDefaults
 
     public static function labelFor(string $tenantId, string $code): ?string
     {
-        return DocumentType::query()
-            ->withoutGlobalScopes()
-            ->where('tenant_id', $tenantId)
-            ->where('code', $code)
-            ->value('name');
+        return self::labelsForTenant($tenantId)[$code] ?? null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function labelsForTenant(string $tenantId): array
+    {
+        if (! isset(self::$labelsByTenant[$tenantId])) {
+            self::$labelsByTenant[$tenantId] = DocumentType::query()
+                ->withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->pluck('name', 'code')
+                ->all();
+        }
+
+        return self::$labelsByTenant[$tenantId];
+    }
+
+    public static function forgetLabelCache(?string $tenantId = null): void
+    {
+        if ($tenantId === null) {
+            self::$labelsByTenant = [];
+
+            return;
+        }
+
+        unset(self::$labelsByTenant[$tenantId]);
     }
 
     private static function codeExists(string $tenantId, string $code, ?int $ignoreId): bool

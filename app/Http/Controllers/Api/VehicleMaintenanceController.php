@@ -49,6 +49,8 @@ class VehicleMaintenanceController extends Controller
                 ? (int) $request->input('maintenance_service_type_id')
                 : null,
             'overdue_reason' => $request->filled('overdue_reason') ? $request->string('overdue_reason')->toString() : null,
+            'from' => $request->filled('from') ? $request->string('from')->toString() : null,
+            'to' => $request->filled('to') ? $request->string('to')->toString() : null,
         ]));
     }
 

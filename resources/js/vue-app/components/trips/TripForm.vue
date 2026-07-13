@@ -1,8 +1,8 @@
 <template>
     <div class="trip-form">
-        <div v-if="formError" class="alert alert-danger">
+        <div v-if="formError" class="alert alert-danger py-2 mb-3">
             <strong>{{ formError }}</strong>
-            <ul v-if="validationMessages.length > 0" class="mb-0 mt-2 small">
+            <ul v-if="validationMessages.length > 0" class="mb-0 mt-1 small">
                 <li v-for="(message, idx) in validationMessages" :key="idx">{{ message }}</li>
             </ul>
         </div>
@@ -337,8 +337,10 @@
                                 v-no-scroll-change
                                 type="number"
                                 min="0"
+                                :max="maxExpectedMileage"
                                 step="0.01"
                                 class="form-control trip-meter-input"
+                                :class="{ 'is-invalid': fieldErrors.planned_mileage_km_per_liter }"
                                 @input="onPlannedMileageInput"
                             />
                             <input
@@ -348,6 +350,9 @@
                                 class="form-control bg-light"
                                 readonly
                             />
+                            <div v-if="fieldErrors.planned_mileage_km_per_liter" class="invalid-feedback d-block">
+                                {{ fieldErrorMessage('planned_mileage_km_per_liter') }}
+                            </div>
                             <div class="form-text trip-details-row__compact-hint">From truck profile by default; editable per trip.</div>
                         </div>
                         <div class="trip-details-row__field--compact">
@@ -551,7 +556,7 @@
                     Select start station, then click <strong>Add Stop</strong> to build the route.
                 </div>
 
-                <div class="table-responsive table-wrap" v-else>
+                <div class="trip-route-table-wrap" v-else>
                     <table class="table table-bordered align-middle mb-0 trip-route-table">
                         <thead class="table-light">
                             <tr>
@@ -559,9 +564,10 @@
                                 <th class="trip-route-from-col">From</th>
                                 <th class="trip-route-to-col">To Station *</th>
                                 <th class="trip-route-customer-col">Customer</th>
+                                <th class="trip-route-goods-col">Goods Type</th>
                                 <th class="trip-route-weight-col">Weight (Ton)</th>
-                                <th class="trip-route-mileage-col">Expected Mileage</th>
-                                <th class="trip-route-rate-col">Freight Rate (₹/Ton)</th>
+                                <th class="trip-route-mileage-col">KM/Lt</th>
+                                <th class="trip-route-rate-col">₹/Ton</th>
                                 <th class="trip-route-freight-col">Freight ₹</th>
                                 <th v-if="!isFormLocked" class="trip-route-delete-col"></th>
                             </tr>
@@ -575,9 +581,10 @@
                                         v-if="!isFormLocked"
                                         v-model="leg.to_station_id"
                                         :items="stations"
-                                        placeholder="Select station"
+                                        placeholder="Station"
                                         attach-dropdown-to-body
                                         compact-actions
+                                        :can-quick-add="canQuickAddStation"
                                         :invalid="Boolean(legFieldError(index, 'to_station_id'))"
                                         :error-message="legFieldError(index, 'to_station_id')"
                                         @update:model-value="$emit('stop-change', index)"
@@ -590,12 +597,13 @@
                                         <SearchablePicker
                                             v-model="leg.customer_id"
                                             :items="customers"
-                                            :placeholder="leg.use_same_customer ? (form.customer_id ? 'Uses trip customer' : 'Select trip customer above') : 'Select customer'"
+                                            :placeholder="leg.use_same_customer ? (form.customer_id ? 'Trip customer' : 'Pick trip customer') : 'Customer'"
                                             attach-dropdown-to-body
                                             compact-actions
                                             view-title="Customer details"
                                             quick-add-title="Quick add customer"
                                             :disabled="leg.use_same_customer"
+                                            :can-quick-add="canQuickAddCustomer"
                                             :invalid="Boolean(legFieldError(index, 'customer_id'))"
                                             :error-message="legFieldError(index, 'customer_id')"
                                             @quick-add="openQuickAddForLegCustomer(index)"
@@ -613,13 +621,30 @@
                                                         class="form-check-label small text-muted"
                                                         :for="`same-customer-${index}`"
                                                     >
-                                                        Same customer
+                                                        Same
                                                     </label>
                                                 </div>
                                             </template>
                                         </SearchablePicker>
                                     </div>
                                     <span v-else>{{ partyLabel(customers, leg.customer_id) }}</span>
+                                </td>
+                                <td class="trip-route-goods-col">
+                                    <SearchablePicker
+                                        v-if="!isFormLocked"
+                                        v-model="leg.goods_name"
+                                        :items="goodsTypePickerItems"
+                                        placeholder="Goods type"
+                                        attach-dropdown-to-body
+                                        compact-actions
+                                        :can-quick-add="canQuickAddGoodsType"
+                                        quick-add-title="Quick add goods type"
+                                        :invalid="Boolean(legFieldError(index, 'goods_name'))"
+                                        :error-message="legFieldError(index, 'goods_name')"
+                                        @update:model-value="emit('clear-field-error', `route_legs.${index}.goods_name`)"
+                                        @quick-add="openQuickAddForLegGoodsType(index)"
+                                    />
+                                    <span v-else>{{ leg.goods_name || '—' }}</span>
                                 </td>
                                 <td class="trip-route-weight-col">
                                     <div class="trip-route-weight-field">
@@ -657,10 +682,12 @@
                                             v-no-scroll-change
                                             type="number"
                                             min="0"
+                                            :max="maxExpectedMileage"
                                             step="0.01"
                                             class="form-control form-control-sm trip-route-num-input"
                                             :class="{ 'is-invalid': legFieldError(index, 'expected_mileage_km_per_liter') }"
                                             placeholder="KM/Lt"
+                                            @input="onLegMileageInput(index)"
                                         />
                                         <span v-else class="trip-route-num-readonly">
                                             {{
@@ -685,6 +712,7 @@
                                             v-no-scroll-change
                                             type="number"
                                             min="0"
+                                            :max="maxFreightRate"
                                             step="0.01"
                                             class="form-control form-control-sm trip-route-num-input"
                                             :class="{ 'is-invalid': legFieldError(index, 'freight_rate') }"
@@ -710,7 +738,7 @@
                                                 :disabled="Number(leg.weight_ton ?? 0) <= 0"
                                                 @change="onLegAutoCalculateChange(index)"
                                             />
-                                            Auto Calculate
+                                            Auto
                                         </label>
                                         <input
                                             v-model.number="leg.freight_amount"
@@ -826,6 +854,12 @@
             @created="onCustomerCreated"
         />
 
+        <GoodsTypeQuickAddModal
+            :show="showGoodsTypeQuickAdd"
+            @close="showGoodsTypeQuickAdd = false"
+            @created="onGoodsTypeCreated"
+        />
+
         <TripStatusChangeModal
             :show="showStatusModal"
             :status="pendingStatus"
@@ -857,6 +891,8 @@ import {
     tripStatusMeta,
     tripTypeLabel,
     tripAllowedNextStatuses,
+    MAX_EXPECTED_MILEAGE_KM_PER_LITER,
+    MAX_FREIGHT_RATE_PER_TON,
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
@@ -868,6 +904,7 @@ import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
 import TripExpensesPanel from './TripExpensesPanel.vue';
 import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
+import GoodsTypeQuickAddModal from './GoodsTypeQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
 import TripStatusChangeModal from './TripStatusChangeModal.vue';
 import TripDieselPerformanceCard from './TripDieselPerformanceCard.vue';
@@ -883,6 +920,7 @@ const props = defineProps({
     stations: { type: Array, default: () => [] },
     brokers: { type: Array, default: () => [] },
     customers: { type: Array, default: () => [] },
+    goodsTypes: { type: Array, default: () => [] },
     snapshotCustomerName: { type: String, default: '' },
     snapshotBrokerName: { type: String, default: '' },
     formError: { type: String, default: '' },
@@ -900,6 +938,7 @@ const props = defineProps({
     canQuickAddStation: { type: Boolean, default: false },
     canQuickAddBroker: { type: Boolean, default: false },
     canQuickAddCustomer: { type: Boolean, default: false },
+    canQuickAddGoodsType: { type: Boolean, default: false },
     vehicleOdometerKm: { type: [Number, String], default: '' },
     vehicleDefaultMileage: { type: [Number, String], default: '' },
     vehicleExpectedMileage: { type: [Number, String], default: '' },
@@ -921,6 +960,7 @@ const emit = defineEmits([
     'station-created',
     'broker-created',
     'customer-created',
+    'goods-type-created',
     'vehicle-selected',
     'status-updated',
     'clear-field-error',
@@ -929,15 +969,49 @@ const emit = defineEmits([
 const slots = useSlots();
 const toast = useAppToast();
 
+const maxExpectedMileage = MAX_EXPECTED_MILEAGE_KM_PER_LITER;
+const maxFreightRate = MAX_FREIGHT_RATE_PER_TON;
+
 const isFormLocked = computed(() => props.readonly);
 
 const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
+const showGoodsTypeQuickAdd = ref(false);
 const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
+const quickAddGoodsTypeLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
+
+const goodsTypePickerItems = computed(() => {
+    const names = new Set();
+    const items = [];
+
+    (props.goodsTypes ?? []).forEach((type) => {
+        const name = String(type?.name ?? '').trim();
+
+        if (!name || names.has(name)) {
+            return;
+        }
+
+        names.add(name);
+        items.push({ id: name, name });
+    });
+
+    (props.form.route_legs ?? []).forEach((leg) => {
+        const name = String(leg?.goods_name ?? '').trim();
+
+        if (!name || names.has(name)) {
+            return;
+        }
+
+        names.add(name);
+        items.push({ id: name, name });
+    });
+
+    return items;
+});
 
 const summary = computed(() => summarizeTripForm(props.form));
 
@@ -1230,16 +1304,31 @@ function statusActionIcon(status) {
 
 const validationMessages = computed(() => {
     const messages = [];
+    let hasRouteFieldErrors = false;
 
-    Object.values(props.fieldErrors).forEach((value) => {
+    Object.entries(props.fieldErrors).forEach(([key, value]) => {
+        if (key.startsWith('route_legs.')) {
+            hasRouteFieldErrors = true;
+
+            return;
+        }
+
         if (Array.isArray(value)) {
-            value.forEach((message) => messages.push(message));
+            value.forEach((message) => {
+                if (message) {
+                    messages.push(message);
+                }
+            });
         } else if (typeof value === 'string' && value) {
             messages.push(value);
         }
     });
 
-    return [...new Set(messages)].slice(0, 8);
+    if (hasRouteFieldErrors) {
+        messages.push('Trip Route: fix highlighted fields.');
+    }
+
+    return [...new Set(messages)].slice(0, 5);
 });
 
 const routeLegsError = computed(() => {
@@ -1392,8 +1481,50 @@ function onLegWeightInput(index) {
     emit('clear-field-error', `route_legs.${index}.freight_amount`);
 }
 
+function clampNonNegativeMax(raw, max) {
+    if (raw === '' || raw == null) {
+        return raw;
+    }
+
+    const value = Number(raw);
+
+    if (!Number.isFinite(value)) {
+        return '';
+    }
+
+    if (value < 0) {
+        return 0;
+    }
+
+    if (value > max) {
+        return max;
+    }
+
+    return value;
+}
+
+function onLegMileageInput(index) {
+    const leg = props.form.route_legs[index];
+
+    if (leg) {
+        leg.expected_mileage_km_per_liter = clampNonNegativeMax(
+            leg.expected_mileage_km_per_liter,
+            maxExpectedMileage,
+        );
+    }
+
+    emit('clear-field-error', `route_legs.${index}.expected_mileage_km_per_liter`);
+}
+
 function onLegRateInput(index) {
+    const leg = props.form.route_legs[index];
+
+    if (leg) {
+        leg.freight_rate = clampNonNegativeMax(leg.freight_rate, maxFreightRate);
+    }
+
     applyLegFreightAuto(index);
+    emit('clear-field-error', `route_legs.${index}.freight_rate`);
 }
 
 function onLegAutoCalculateChange(index) {
@@ -1432,6 +1563,11 @@ function syncAutoPlannedDiesel() {
 }
 
 function onPlannedMileageInput() {
+    props.form.planned_mileage_km_per_liter = clampNonNegativeMax(
+        props.form.planned_mileage_km_per_liter,
+        maxExpectedMileage,
+    );
+    emit('clear-field-error', 'planned_mileage_km_per_liter');
     syncAutoPlannedDiesel();
 }
 
@@ -1571,6 +1707,11 @@ function openQuickAddForLegCustomer(index) {
     showCustomerQuickAdd.value = true;
 }
 
+function openQuickAddForLegGoodsType(index) {
+    quickAddGoodsTypeLegIndex.value = index;
+    showGoodsTypeQuickAdd.value = true;
+}
+
 function onStationCreated(station) {
     emit('station-created', { station, legIndex: quickAddLegIndex.value });
     quickAddLegIndex.value = null;
@@ -1583,6 +1724,11 @@ function onBrokerCreated(broker) {
 function onCustomerCreated(customer) {
     emit('customer-created', { customer, legIndex: quickAddCustomerLegIndex.value });
     quickAddCustomerLegIndex.value = null;
+}
+
+function onGoodsTypeCreated(goodsType) {
+    emit('goods-type-created', { goodsType, legIndex: quickAddGoodsTypeLegIndex.value });
+    quickAddGoodsTypeLegIndex.value = null;
 }
 
 defineExpose({
@@ -1668,25 +1814,32 @@ defineExpose({
     width: 100%;
     max-width: 100%;
 }
-.trip-route-table {
-    table-layout: auto;
+.trip-route-table-wrap {
     width: 100%;
-    min-width: 1020px;
+    overflow-x: hidden;
+}
+.trip-route-table {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
 }
 .trip-route-index-col {
-    width: 2rem;
+    width: 2.25rem;
 }
 .trip-route-from-col {
-    min-width: 7.5rem;
+    width: 8%;
 }
 .trip-route-to-col {
-    min-width: 10rem;
+    width: 14%;
 }
 .trip-route-customer-col {
-    min-width: 11rem;
+    width: 13%;
+}
+.trip-route-goods-col {
+    width: 12%;
 }
 .trip-route-weight-col {
-    width: 7.5rem;
+    width: 8%;
 }
 .trip-route-weight-field {
     display: flex;
@@ -1699,22 +1852,67 @@ defineExpose({
     width: 100%;
 }
 .trip-route-mileage-col {
-    width: 6.75rem;
-    min-width: 6.75rem;
+    width: 4.75rem;
+    white-space: nowrap;
 }
 .trip-route-rate-col {
-    width: 7.25rem;
-    min-width: 7.25rem;
+    width: 5.5rem;
+    white-space: nowrap;
 }
 .trip-route-freight-col {
-    width: 9rem;
-    min-width: 9rem;
+    width: 8rem;
 }
 .trip-route-delete-col {
-    width: 2.75rem;
+    width: 2.5rem;
 }
 .trip-route-table .leg-customer-cell {
     min-width: 0;
+}
+.trip-route-table th,
+.trip-route-table td {
+    padding: 0.4rem 0.35rem;
+    vertical-align: middle;
+    overflow: hidden;
+}
+.trip-route-table th {
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+.trip-route-from-col,
+.trip-route-table td:nth-child(2) {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+.trip-route-table .form-control,
+.trip-route-table .form-select {
+    min-width: 0;
+    max-width: 100%;
+}
+.trip-route-num-field {
+    min-width: 0;
+}
+.trip-route-num-input,
+.trip-route-num-readonly {
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+}
+.trip-route-mileage-col .trip-route-num-input,
+.trip-route-rate-col .trip-route-num-input {
+    padding-left: 0.35rem;
+    padding-right: 0.25rem;
+    font-size: 0.8125rem;
+}
+.trip-route-table :deep(.searchable-picker),
+.trip-route-table :deep(.picker-trigger) {
+    max-width: 100%;
+    min-width: 0;
+}
+.trip-route-table :deep(.picker-trigger) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .arrival-timing {
     display: inline-flex;

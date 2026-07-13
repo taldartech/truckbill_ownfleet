@@ -45,13 +45,16 @@ class DocumentTypeController extends Controller
 
     public function store(StoreDocumentTypeRequest $request): DocumentTypeResource
     {
+        $tenantId = CurrentTenant::requireId();
         $documentType = DocumentType::query()->create([
             ...$request->validated(),
-            'tenant_id' => CurrentTenant::requireId(),
+            'tenant_id' => $tenantId,
             'is_active' => true,
             'created_by' => $request->user()?->id,
             'updated_by' => $request->user()?->id,
         ]);
+
+        DocumentTypeDefaults::forgetLabelCache($tenantId);
 
         return new DocumentTypeResource($documentType);
     }
@@ -69,6 +72,8 @@ class DocumentTypeController extends Controller
             'name' => $request->validated('name'),
             'updated_by' => $request->user()?->id,
         ]);
+
+        DocumentTypeDefaults::forgetLabelCache((string) $documentType->tenant_id);
 
         return new DocumentTypeResource($documentType->fresh());
     }
