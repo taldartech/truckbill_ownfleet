@@ -22,6 +22,7 @@ function legSignature(leg) {
         leg.from_station_id,
         leg.to_station_id,
         leg.customer_id,
+        String(leg.goods_name ?? '').trim(),
         Number(leg.weight_ton ?? 0),
         Number(leg.expected_mileage_km_per_liter ?? 0),
         Number(leg.freight_rate ?? 0),
@@ -192,6 +193,8 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                 return lookupName(stationsList, leg.to_station_id);
             case 'customer':
                 return lookupName(customersList, leg.customer_id, '—');
+            case 'goods':
+                return String(leg.goods_name ?? '').trim() || '—';
             case 'weight':
                 return formatNum(leg.weight_ton);
             case 'expectedMileage':
@@ -217,6 +220,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             { key: 'from', label: 'From' },
             { key: 'to', label: 'To' },
             { key: 'customer', label: 'Customer' },
+            { key: 'goods', label: 'Goods Type' },
             { key: 'weight', label: 'Weight (Ton)' },
             { key: 'expectedMileage', label: 'Expected Mileage' },
             { key: 'rate', label: 'Freight Rate' },
@@ -244,6 +248,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             from: lookupName(stations, leg.from_station_id),
             to: lookupName(stations, leg.to_station_id),
             customer: lookupName(customers, leg.customer_id, '—'),
+            goods: String(leg.goods_name ?? '').trim() || '—',
             weight: formatNum(leg.weight_ton),
             expectedMileage:
                 leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''

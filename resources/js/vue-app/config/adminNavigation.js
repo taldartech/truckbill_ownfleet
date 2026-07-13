@@ -200,6 +200,13 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Goods Types',
+                icon: 'bi bi-box-seam nav-icon',
+                to: '/goods-types',
+                permission: 'goods_types.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'Stations',
                 icon: 'bi bi-geo-alt nav-icon',
                 to: '/stations',

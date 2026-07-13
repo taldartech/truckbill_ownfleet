@@ -241,6 +241,13 @@ class TripValidationService
                 $hasLoadedLeg = true;
                 $advance = (float) ($leg['advance_received'] ?? 0);
 
+                $customerId = $leg['customer_id'] ?? null;
+                if ($customerId === null || $customerId === '') {
+                    $errors["route_legs.{$index}.customer_id"] = [
+                        "Stop {$legNo}: customer is required for loaded stops.",
+                    ];
+                }
+
                 if ($advance > $freightAmount) {
                     $errors["route_legs.{$index}.advance_received"] = [
                         "Stop {$legNo}: advance cannot exceed freight amount.",

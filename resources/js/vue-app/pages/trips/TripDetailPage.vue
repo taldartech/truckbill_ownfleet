@@ -230,6 +230,7 @@
                                             <th>From</th>
                                             <th>To</th>
                                             <th>Customer</th>
+                                            <th>Goods Type</th>
                                             <th>Weight (Ton)</th>
                                             <th>Expected Mileage</th>
                                             <th>Freight Rate (₹/Ton)</th>
@@ -248,6 +249,7 @@
                                                 <div v-if="leg.to_address" class="text-muted">{{ leg.to_address }}</div>
                                             </td>
                                             <td>{{ leg.customer_name || '—' }}</td>
+                                            <td>{{ leg.goods_name || '—' }}</td>
                                             <td>
                                                 <div class="trip-route-weight-field">
                                                     <span

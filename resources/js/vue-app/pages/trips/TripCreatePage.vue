@@ -12,9 +12,11 @@
                 :stations="stations"
                 :brokers="brokers"
                 :customers="customers"
+                :goods-types="goodsTypes"
                 :can-quick-add-station="canQuickAddStation"
                 :can-quick-add-broker="canQuickAddBroker"
                 :can-quick-add-customer="canQuickAddCustomer"
+                :can-quick-add-goods-type="canQuickAddGoodsType"
                 :form-error="tripFormError"
                 :field-errors="fieldErrors"
                 :trip-number-display="previewTripNumber ? `Next: ${previewTripNumber}` : ''"
@@ -33,6 +35,7 @@
                 @station-created="onStationCreated"
                 @broker-created="onBrokerCreated"
                 @customer-created="onCustomerCreated"
+                @goods-type-created="onGoodsTypeCreated"
                 @vehicle-selected="onVehicleSelected"
                 @clear-field-error="clearFieldError"
             >
@@ -91,6 +94,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import { listAllDrivers } from '../../api/drivers';
+import { listAllGoodsTypes } from '../../api/goodsTypes';
 import { listAllStations } from '../../api/stations';
 import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/trips';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
@@ -136,10 +140,17 @@ const canQuickAddBroker = computed(
 const canQuickAddCustomer = computed(
     () => canInCompany('customers.manage') || canInCompany('trips.create'),
 );
+const canQuickAddGoodsType = computed(
+    () =>
+        canInCompany('goods_types.manage')
+        || canInCompany('goods_types.create')
+        || canInCompany('trips.create'),
+);
 
 const stations = ref([]);
 const brokers = ref([]);
 const customers = ref([]);
+const goodsTypes = ref([]);
 const drivers = ref([]);
 const saving = ref(false);
 const previewTripNumber = ref('');
@@ -205,6 +216,18 @@ function onCustomerCreated({ customer, legIndex = null }) {
     }
 }
 
+function onGoodsTypeCreated({ goodsType, legIndex = null }) {
+    goodsTypes.value = [
+        goodsType,
+        ...goodsTypes.value.filter((item) => String(item.id) !== String(goodsType.id)),
+    ];
+
+    if (legIndex !== null && form.route_legs[legIndex]) {
+        form.route_legs[legIndex].goods_name = goodsType.name;
+        clearFieldError(`route_legs.${legIndex}.goods_name`);
+    }
+}
+
 function handleAddStop() {
     if (!form.start_station_id) {
         fieldErrors.value = {
@@ -245,16 +268,18 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList, driverList] = await Promise.all([
+    const [stationList, brokerList, customerList, goodsTypeList, driverList] = await Promise.all([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
+        listAllGoodsTypes(),
         listAllDrivers({ activeOnly: true }),
     ]);
 
     stations.value = stationList;
     brokers.value = brokerList;
     customers.value = customerList;
+    goodsTypes.value = goodsTypeList;
     drivers.value = driverList;
 }
 

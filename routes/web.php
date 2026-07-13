@@ -237,6 +237,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::put('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'update'])->name('document-types.update');
             Route::delete('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy'])->name('document-types.destroy');
 
+            Route::get('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'index'])->name('goods-types.index');
+            Route::post('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'store'])->name('goods-types.store');
+            Route::get('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'show'])->name('goods-types.show');
+            Route::put('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'update'])->name('goods-types.update');
+            Route::delete('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'destroy'])->name('goods-types.destroy');
+
             Route::get('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'index'])->name('vehicle-documents.index');
             Route::post('/vehicle-documents', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'store'])->name('vehicle-documents.store');
             Route::get('/vehicle-documents/{vehicle_document}/download', [\App\Http\Controllers\Api\VehicleDocumentController::class, 'download'])
