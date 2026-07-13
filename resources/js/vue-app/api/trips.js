@@ -41,6 +41,18 @@ export async function fetchTrip(id) {
     return unwrapResource(data);
 }
 
+export function biltyPdfUrl(tripId, { showFreight = false } = {}) {
+    const params = new URLSearchParams();
+
+    if (showFreight) {
+        params.set('show_freight', '1');
+    }
+
+    const query = params.toString();
+
+    return `${tripsBase}/${tripId}/bilty.pdf${query ? `?${query}` : ''}`;
+}
+
 export async function createTrip(payload) {
     const { data } = await api.post(tripsBase, payload);
 

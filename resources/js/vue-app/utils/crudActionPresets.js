@@ -57,6 +57,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'bi bi-file-earmark-text',
         title: 'Generate invoice',
     },
+    bilty: {
+        btnClass: 'btn-outline-secondary',
+        icon: 'bi bi-printer',
+        title: 'Print bilty',
+    },
     tyres: {
         btnClass: 'btn-outline-secondary',
         icon: 'bi bi-circle',

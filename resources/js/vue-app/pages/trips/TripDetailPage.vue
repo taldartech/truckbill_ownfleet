@@ -49,6 +49,15 @@
                     @click="openGenerateInvoices"
                 />
                 <AppButton
+                    v-if="canPrintBilty"
+                    variant="secondary"
+                    outline
+                    size="sm"
+                    icon="bi bi-printer"
+                    label="Print Bilty"
+                    @click="openPrintBilty"
+                />
+                <AppButton
                     v-if="canManage && canEditTripPage"
                     variant="primary"
                     outline
@@ -677,6 +686,91 @@
                 </div>
             </div>
         </AppConfirmModal>
+
+        <AppModal
+            :show="showPrintBilty"
+            size="lg"
+            @close="closePrintBilty"
+        >
+            <template #title>Print Bilty</template>
+
+            <div v-if="trip" class="mb-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <strong>{{ trip.trip_number }}</strong>
+                    <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
+                </div>
+                <p class="text-muted small mb-0">
+                    One bilty per customer. Same customer routes are combined. Each bilty prints consignor and driver copies on one page.
+                </p>
+            </div>
+
+            <div v-if="biltyGroups.length === 0" class="alert alert-warning mb-0">
+                No revenue routes with customers are available to print a bilty for this trip.
+            </div>
+
+            <template v-else>
+                <div class="mb-3">
+                    <label class="form-label">Freight on bilty</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        <div class="form-check">
+                            <input
+                                id="bilty-with-freight"
+                                v-model="biltyShowFreight"
+                                class="form-check-input"
+                                type="radio"
+                                :value="true"
+                            />
+                            <label class="form-check-label" for="bilty-with-freight">With freight</label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                id="bilty-without-freight"
+                                v-model="biltyShowFreight"
+                                class="form-check-input"
+                                type="radio"
+                                :value="false"
+                            />
+                            <label class="form-check-label" for="bilty-without-freight">Without freight</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Customer</th>
+                                <th class="text-end">Routes</th>
+                                <th class="text-end">Weight (MT)</th>
+                                <th class="text-end">Freight</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="group in biltyGroups" :key="group.customer_id">
+                                <td>{{ group.customer_name }}</td>
+                                <td class="text-end">{{ group.route_count }}</td>
+                                <td class="text-end">{{ formatWeight(group.total_weight_ton) }}</td>
+                                <td class="text-end">
+                                    <template v-if="biltyShowFreight">₹{{ formatMoney(group.freight_amount) }}</template>
+                                    <template v-else>—</template>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+            <template #footer>
+                <button type="button" class="btn btn-secondary" @click="closePrintBilty">Cancel</button>
+                <AppButton
+                    variant="primary"
+                    icon="bi bi-printer"
+                    label="Open PDF"
+                    :disabled="biltyGroups.length === 0"
+                    @click="confirmPrintBilty"
+                />
+            </template>
+        </AppModal>
     </div>
 </template>
 
@@ -684,6 +778,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
+    biltyPdfUrl,
     canFullEditTrip,
     canManageTripExpenses,
     expenseTypeLabel,
@@ -730,11 +825,44 @@ const showInvoiceGenerateConfirm = ref(false);
 const invoicePreviewLoading = ref(false);
 const invoiceGenerating = ref(false);
 const invoicePreviewGroups = ref([]);
+const showPrintBilty = ref(false);
+const biltyShowFreight = ref(false);
 const { tripListReturnTo } = useTripDetailListReturn(trip);
 
 const canManage = computed(() => canInCompany('trips.edit'));
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
+const biltyGroups = computed(() => {
+    const groups = new Map();
+
+    routeLegs.value.forEach((leg) => {
+        const weight = Number(leg.weight_ton ?? 0);
+        const customerId = leg.customer_id;
+
+        if (!customerId || weight <= 0) {
+            return;
+        }
+
+        const key = String(customerId);
+        const existing = groups.get(key) ?? {
+            customer_id: customerId,
+            customer_name: leg.customer?.name || trip.value?.customer_name || '—',
+            route_count: 0,
+            total_weight_ton: 0,
+            freight_amount: 0,
+        };
+
+        existing.route_count += 1;
+        existing.total_weight_ton += weight;
+        existing.freight_amount += Number(leg.freight_amount ?? 0);
+        groups.set(key, existing);
+    });
+
+    return Array.from(groups.values());
+});
+const canPrintBilty = computed(
+    () => !isArchived.value && canInCompany('trips.view') && biltyGroups.value.length > 0,
+);
 const routeSummary = computed(() => {
     const summary = summarizeTripForm({
         route_legs: routeLegs.value,
@@ -995,6 +1123,10 @@ function formatMoney(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatWeight(value) {
+    return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+}
+
 function formatKm(value) {
     return Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
@@ -1162,6 +1294,7 @@ async function loadTrip() {
     try {
         trip.value = await fetchTrip(tripId);
         await maybeOpenGenerateInvoicesFromQuery();
+        maybeOpenPrintBiltyFromQuery();
     } catch (error) {
         trip.value = null;
 
@@ -1187,6 +1320,46 @@ async function maybeOpenGenerateInvoicesFromQuery() {
     router.replace({ query: nextQuery });
 }
 
+function openPrintBilty() {
+    if (!canPrintBilty.value) {
+        return;
+    }
+
+    biltyShowFreight.value = false;
+    showPrintBilty.value = true;
+}
+
+function closePrintBilty() {
+    showPrintBilty.value = false;
+}
+
+function confirmPrintBilty() {
+    if (!trip.value?.id || biltyGroups.value.length === 0) {
+        return;
+    }
+
+    window.open(
+        biltyPdfUrl(trip.value.id, { showFreight: biltyShowFreight.value }),
+        '_blank',
+        'noopener',
+    );
+    closePrintBilty();
+}
+
+function maybeOpenPrintBiltyFromQuery() {
+    if (route.query.printBilty !== '1') {
+        return;
+    }
+
+    if (canPrintBilty.value) {
+        openPrintBilty();
+    }
+
+    const nextQuery = { ...route.query };
+    delete nextQuery.printBilty;
+    router.replace({ query: nextQuery });
+}
+
 onMounted(async () => {
     const ok = await guardCompanyContext();
 
@@ -1206,6 +1379,15 @@ watch(
     async (value) => {
         if (value === '1' && trip.value && !loading.value) {
             await maybeOpenGenerateInvoicesFromQuery();
+        }
+    },
+);
+
+watch(
+    () => route.query.printBilty,
+    (value) => {
+        if (value === '1' && trip.value && !loading.value) {
+            maybeOpenPrintBiltyFromQuery();
         }
     },
 );

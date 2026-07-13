@@ -7,9 +7,11 @@ use App\Http\Requests\ArchiveTripRequest;
 use App\Http\Requests\CheckTripWindowRequest;
 use App\Http\Requests\DeleteTripRequest;
 use App\Http\Requests\StoreTripRequest;
+use App\Http\Requests\TripBiltyPdfRequest;
 use App\Http\Requests\UpdateTripRequest;
 use App\Http\Resources\TripResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
+use App\Modules\TripManagement\Services\TripBiltyService;
 use App\Modules\TripManagement\Services\TripService;
 use App\Modules\TripManagement\Services\TripValidationService;
 use App\Support\ArchivedTripGuard;
@@ -20,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class TripController extends Controller
 {
@@ -27,6 +30,7 @@ class TripController extends Controller
         private readonly TripService $tripService,
         private readonly TripValidationService $tripValidation,
         private readonly DriverAssignmentService $driverAssignmentService,
+        private readonly TripBiltyService $tripBiltyService,
     ) {}
 
     public function nextTripNumber(): JsonResponse
@@ -212,6 +216,17 @@ class TripController extends Controller
         );
 
         return response()->noContent();
+    }
+
+    public function biltyPdf(TripBiltyPdfRequest $request, Trip $trip): SymfonyResponse
+    {
+        $this->authorize('view', $trip);
+
+        $filename = str_replace(['/', '\\'], '-', $trip->trip_number ?? $trip->id).'-bilty.pdf';
+
+        return $this->tripBiltyService
+            ->pdf($trip, $request->showFreight())
+            ->stream($filename);
     }
 
     public function destroy(DeleteTripRequest $request, Trip $trip): Response

@@ -85,6 +85,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::post('trips/{trip}/archive', [TripController::class, 'archive']);
     Route::post('trips/{trip}/invoices/preview', [InvoiceController::class, 'previewForTrip']);
     Route::post('trips/{trip}/invoices/generate', [InvoiceController::class, 'generateForTrip']);
+    Route::get('trips/{trip}/bilty.pdf', [TripController::class, 'biltyPdf']);
     Route::get('vehicles/{vehicle}/primary-driver', [TripController::class, 'vehiclePrimaryDriver']);
     Route::apiResource('trips', TripController::class);
 

@@ -308,6 +308,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.invoices.preview');
             Route::post('/trips/{trip}/invoices/generate', [\App\Http\Controllers\Api\InvoiceController::class, 'generateForTrip'])
                 ->name('trips.invoices.generate');
+            Route::get('/trips/{trip}/bilty.pdf', [\App\Http\Controllers\Api\TripController::class, 'biltyPdf'])
+                ->name('trips.bilty-pdf');
             Route::get('/vehicles/{vehicle}/primary-driver', [\App\Http\Controllers\Api\TripController::class, 'vehiclePrimaryDriver'])
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);

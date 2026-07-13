@@ -201,6 +201,12 @@
                                     @click="goToGenerateInvoices(trip)"
                                 />
                                 <AppCrudActionButton
+                                    v-if="canPrintBiltyFor(trip)"
+                                    action="bilty"
+                                    title="Print bilty"
+                                    @click="goToPrintBilty(trip)"
+                                />
+                                <AppCrudActionButton
                                     v-if="canEdit && canEditTrip(trip)"
                                     action="edit"
                                     title="Edit trip"
@@ -644,6 +650,16 @@ function canGenerateInvoiceFor(trip) {
     return canCreateInvoices.value && Boolean(trip?.can_generate_invoices);
 }
 
+function canPrintBiltyFor(trip) {
+    if (!canView.value || trip?.is_archived) {
+        return false;
+    }
+
+    return (trip?.route_legs ?? []).some(
+        (leg) => Boolean(leg.customer_id) && Number(leg.weight_ton ?? 0) > 0,
+    );
+}
+
 function goToGenerateInvoices(trip) {
     if (!canGenerateInvoiceFor(trip)) {
         return;
@@ -654,6 +670,19 @@ function goToGenerateInvoices(trip) {
         name: 'trips.show',
         params: { id: trip.id },
         query: { generateInvoices: '1' },
+    });
+}
+
+function goToPrintBilty(trip) {
+    if (!canPrintBiltyFor(trip)) {
+        return;
+    }
+
+    saveTripListStateToSession(tenantId.value, currentListState());
+    router.push({
+        name: 'trips.show',
+        params: { id: trip.id },
+        query: { printBilty: '1' },
     });
 }
 
