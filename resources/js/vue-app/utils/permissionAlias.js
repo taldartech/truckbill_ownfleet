@@ -24,10 +24,6 @@ function matchesLegacyManage(requestedSlug, ownedSlugs) {
 
     const base = requestedSlug.slice(0, -'.manage'.length);
 
-    if (ownedSlugs.includes(`${base}.create`)) {
-        return true;
-    }
-
     return ownedSlugs.includes(`${base}.create`) && ownedSlugs.includes(`${base}.edit`);
 }
 

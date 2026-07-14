@@ -34,18 +34,19 @@
                 @search="loadVehicles(1)"
                 @reset="clearFilters"
             >
-                <div>
+                <div class="filter-search-col">
                     <label class="form-label" for="trucksIndex_search">Search</label>
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trucksIndex_search"
-                        placeholder="Registration, make, model…"
+                        placeholder="Reg no, make, model"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadVehicles(1)"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Truck type</label>
                     <AppSelect
                         v-model="filters.vehicle_type"
@@ -54,7 +55,7 @@
                         search-placeholder="Search type…"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Status</label>
                     <AppSelect
                         v-model="filters.status"
@@ -63,8 +64,8 @@
                         search-placeholder="Search status…"
                     />
                 </div>
-                <div>
-                    <label class="form-label">Primary driver</label>
+                <div class="filter-select-col">
+                    <label class="form-label">Driver Assignment</label>
                     <AppSelect
                         v-model="filters.primary_driver"
                         :options="primaryDriverFilterOptions"
@@ -81,7 +82,7 @@
                         <th>Type</th>
                         <!-- <th>Tyre layout</th> -->
                         <th>Make / Model</th>
-                        <th>Primary Driver</th>
+                        <th>Driver Assignment</th>
                         <th>Meter Reading (KM)</th>
                         <th>Status</th>
                         <th class="app-index-actions-cell" style="width: 160px">Actions</th>
@@ -720,5 +721,36 @@ watch(
     cursor: pointer;
     margin-top: 0.15rem;
     color: var(--brand-text-muted, #64748b);
+}
+
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.filter-select-col {
+    flex: 0 0 180px;
+    width: 180px;
 }
 </style>
