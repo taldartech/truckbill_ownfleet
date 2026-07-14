@@ -124,7 +124,7 @@
         <td colspan="4" style="vertical-align: bottom; text-align: right;">For {{ $company?->name }}</td>
     </tr>
     <tr>
-        <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Digitally Managed by OwnFleet</td>
+        <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</td>
     </tr>
 </table>
 </div>

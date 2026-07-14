@@ -259,7 +259,7 @@
         <p class="muted" style="margin-top: 6px;">
             Checklist (manual): engine/chassis impression, licence &amp; documents, insurance, permit — not tracked in software; use physical form where required.
         </p>
-        <p class="muted" style="margin-top: 6px; font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</p>
+        <p class="muted" style="margin-top: 6px; font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</p>
     </div>
 </div>
 </body>
