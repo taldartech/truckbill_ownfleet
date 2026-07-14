@@ -66,6 +66,16 @@
                     label="Edit"
                     :to="{ name: 'trips.edit', params: { id: trip.id } }"
                 />
+                <AppButton
+                    v-if="canArchiveThisTrip && !isArchived"
+                    variant="danger"
+                    outline
+                    size="sm"
+                    icon="bi bi-archive"
+                    label="Archive"
+                    :disabled="archivingTrip"
+                    @click="handleArchive"
+                />
             </div>
         </div>
 
@@ -771,6 +781,15 @@
                 />
             </template>
         </AppModal>
+
+        <TripArchiveConfirmModal
+            :show="showArchiveConfirm"
+            :summary="archiveConfirmSummary"
+            :archiving="archivingTrip"
+            :field-errors="archiveFieldErrors"
+            @cancel="closeArchiveConfirm"
+            @confirm="confirmArchiveTrip"
+        />
     </div>
 </template>
 
@@ -778,19 +797,24 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
+    archiveTrip,
     biltyPdfUrl,
+    canArchiveTrip,
     canFullEditTrip,
     canManageTripExpenses,
     expenseTypeLabel,
     fetchTrip,
+    fetchTripArchiveImpact,
     isTripArchived,
     isTerminalTripStatus,
     resolveTripEditAccess,
     summarizeTripForm,
     legLoadCategoryMeta,
+    tripArchiveDisabledTitle,
     tripStatusMeta,
     tripTypeLabel,
 } from '../../api/trips';
+import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -804,6 +828,9 @@ import { useTripDetailListReturn } from '../../composables/useTripListReturn';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
+import { buildTripArchiveConfirmViewModel } from '../../utils/tripArchiveConfirm';
+import { friendlyApiErrorMessage } from '../../utils/formErrors';
+import { invalidateOperationalData } from '../../composables/useOperationalDataInvalidation';
 
 const route = useRoute();
 const router = useRouter();
@@ -829,7 +856,17 @@ const showPrintBilty = ref(false);
 const biltyShowFreight = ref(false);
 const { tripListReturnTo } = useTripDetailListReturn(trip);
 
+const showArchiveConfirm = ref(false);
+const archiveConfirmSummary = ref(null);
+const archivingTrip = ref(false);
+const archiveFieldErrors = ref({});
+const tripPendingArchive = ref(null);
+
 const canManage = computed(() => canInCompany('trips.edit'));
+const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const canArchiveThisTrip = computed(() => {
+    return canArchive.value && trip.value && canArchiveTrip(trip.value.status, user.value);
+});
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const biltyGroups = computed(() => {
@@ -1276,6 +1313,78 @@ async function confirmGenerateInvoices() {
         applyInvoiceApiError(error, 'Could not generate invoices.');
     } finally {
         invoiceGenerating.value = false;
+    }
+}
+
+async function handleArchive() {
+    if (!canArchiveThisTrip.value) {
+        toast.error(tripArchiveDisabledTitle(trip.value?.status, user.value));
+
+        return;
+    }
+
+    archiveFieldErrors.value = {};
+    tripPendingArchive.value = trip.value;
+
+    try {
+        const impact = await fetchTripArchiveImpact(trip.value.id);
+        archiveConfirmSummary.value = buildTripArchiveConfirmViewModel(impact);
+        showArchiveConfirm.value = true;
+    } catch (error) {
+        toast.error(archiveTripErrorMessage(error));
+    }
+}
+
+function closeArchiveConfirm() {
+    if (archivingTrip.value) {
+        return;
+    }
+
+    showArchiveConfirm.value = false;
+    archiveConfirmSummary.value = null;
+    tripPendingArchive.value = null;
+    archiveFieldErrors.value = {};
+}
+
+function archiveTripErrorMessage(error) {
+    if (error?.response?.status === 403) {
+        return 'You do not have permission to archive trips.';
+    }
+
+    const tripError = error?.response?.data?.errors?.trip?.[0];
+
+    if (tripError) {
+        return tripError;
+    }
+
+    return friendlyApiErrorMessage(error, 'Unable to archive trip.');
+}
+
+async function confirmArchiveTrip({ archive_reason: archiveReason }) {
+    if (!tripPendingArchive.value || archivingTrip.value) {
+        return;
+    }
+
+    archivingTrip.value = true;
+    archiveFieldErrors.value = {};
+
+    try {
+        await archiveTrip(tripPendingArchive.value.id, { archive_reason: archiveReason });
+        toast.success('Trip archived successfully.');
+        showArchiveConfirm.value = false;
+        archiveConfirmSummary.value = null;
+        tripPendingArchive.value = null;
+        archiveFieldErrors.value = {};
+        invalidateOperationalData(['trips', 'dashboard', 'trip-reports']);
+        await loadTrip();
+    } catch (error) {
+        if (error?.response?.status === 422 && error?.response?.data?.errors) {
+            archiveFieldErrors.value = error.response.data.errors;
+        } else {
+            toast.error(archiveTripErrorMessage(error));
+        }
+    } finally {
+        archivingTrip.value = false;
     }
 }
 

@@ -329,7 +329,7 @@
                     </div>
 
                     <div class="trip-details-row trip-details-row--five-compact">
-                        <div class="trip-details-row__field--compact">
+                        <div class="trip-details-row__field--compact col-fuel-avg">
                             <label class="form-label">Fuel Avg. (km/L)</label>
                             <input
                                 v-if="!isFormLocked"
@@ -353,9 +353,8 @@
                             <div v-if="fieldErrors.planned_mileage_km_per_liter" class="invalid-feedback d-block">
                                 {{ fieldErrorMessage('planned_mileage_km_per_liter') }}
                             </div>
-                            <div class="form-text trip-details-row__compact-hint">From truck profile by default; editable per trip.</div>
                         </div>
-                        <div class="trip-details-row__field--compact">
+                        <div class="trip-details-row__field--compact col-max-load">
                             <label class="form-label">Max Load (Ton)</label>
                             <input
                                 v-if="!isFormLocked"
@@ -378,7 +377,8 @@
                                 {{ fieldErrorMessage('max_load_ton') }}
                             </div>
                         </div>
-                        <div>
+                        <div class="form-text trip-details-row__compact-hint-new">From truck profile by default; editable per trip.</div>
+                        <div class="col-exp-diesel">
                             <label class="form-label">Expected Diesel (Ltr)</label>
                             <input
                                 v-if="!isFormLocked"
@@ -402,7 +402,7 @@
                                 {{ fieldErrorMessage('planned_diesel_liters') }}
                             </div>
                         </div>
-                        <div>
+                        <div class="col-diesel-rate">
                             <label class="form-label">Diesel Rate (₹/Ltr)</label>
                             <input
                                 v-if="!isFormLocked"
@@ -425,7 +425,7 @@
                                 {{ fieldErrorMessage('diesel_rate_per_liter') }}
                             </div>
                         </div>
-                        <div>
+                        <div class="col-reference">
                             <label class="form-label">Reference by (optional)</label>
                             <SearchablePicker
                                 v-if="!isFormLocked"
@@ -1856,10 +1856,30 @@ defineExpose({
     font-size: 0.8125rem;
     line-height: 1.25;
 }
-.trip-details-row__compact-hint {
+.trip-details-row__compact-hint-new {
+    grid-column: 1 / -1;
     font-size: 0.7rem;
     line-height: 1.25;
     margin-top: 0.2rem;
+    color: #6c757d;
+}
+
+@media (min-width: 993px) {
+    .col-fuel-avg { order: 1; }
+    .col-max-load { order: 2; }
+    .col-exp-diesel { order: 3; }
+    .col-diesel-rate { order: 4; }
+    .col-reference { order: 5; }
+    .trip-details-row__compact-hint-new {
+        order: 6;
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 992px) {
+    .trip-details-row__compact-hint-new {
+        margin-bottom: 0.5rem;
+    }
 }
 .trip-details-row > * {
     min-width: 0;

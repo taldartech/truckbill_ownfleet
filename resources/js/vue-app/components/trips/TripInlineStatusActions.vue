@@ -40,7 +40,6 @@
         <span v-else-if="compact" class="badge trip-inline-status__badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
 
         <template v-else>
-            <span class="badge trip-inline-status__badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
             <div v-if="canManage && nextStatuses.length > 0" class="trip-inline-status__actions">
                 <button
                     v-for="next in nextStatuses"

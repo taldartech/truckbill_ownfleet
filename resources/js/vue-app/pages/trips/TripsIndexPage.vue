@@ -201,7 +201,7 @@
                             <AppTableActions
                                 style="display: flex; justify-content: flex-start; width: 100%;"
                             >
-                                <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
+                               
 
                                 <AppCrudActionButton
                                     v-if="canEdit && canManageTripExpensesFor(trip)"
@@ -231,12 +231,7 @@
                                     @click="goToEdit(trip)"
                                 />
 
-                                <AppCrudActionButton
-                                    v-if="canArchiveTripRow(trip)"
-                                    action="archive"
-                                    :title="tripArchiveTitle(trip)"
-                                    @click="handleArchive(trip)"
-                                />
+                               
                             </AppTableActions>
                         </td>
                     </tr>
