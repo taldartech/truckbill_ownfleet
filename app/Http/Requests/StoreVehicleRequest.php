@@ -31,7 +31,7 @@ class StoreVehicleRequest extends FormRequest
             'registration_number' => [
                 ...$this->vehicleRegistrationNumberRules(),
                 Rule::unique('vehicles', 'registration_number')->where(
-                    fn ($query) => $query->where('tenant_id', CurrentTenant::id()),
+                    fn ($query) => $query->where('tenant_id', CurrentTenant::id())->whereNull('deleted_at'),
                 ),
             ],
             'vehicle_type' => [
@@ -43,7 +43,7 @@ class StoreVehicleRequest extends FormRequest
                 ),
             ],
             'tyre_layout' => [
-                'nullable',
+                'required',
                 'string',
                 'max:64',
                 Rule::exists('tyre_layouts', 'code')->where(function ($query) {

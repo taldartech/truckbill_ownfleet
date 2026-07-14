@@ -25,7 +25,7 @@ class VehicleManagementTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_admin_can_toggle_vehicle_status_but_cannot_delete(): void
+    public function test_admin_can_toggle_vehicle_status_and_delete(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
@@ -39,11 +39,10 @@ class VehicleManagementTest extends TestCase
 
         $this->actingAs($admin)
             ->deleteJson("/app/api/vehicles/{$vehicle->id}")
-            ->assertForbidden();
+            ->assertNoContent();
 
-        $this->assertDatabaseHas('vehicles', [
+        $this->assertSoftDeleted('vehicles', [
             'id' => $vehicle->id,
-            'deleted_at' => null,
         ]);
     }
 
@@ -68,6 +67,7 @@ class VehicleManagementTest extends TestCase
             ->postJson('/app/api/vehicles', [
                 'registration_number' => 'RJ99ZZ9999',
                 'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
                 'make' => 'Tata',
                 'model' => 'LPT',
                 'odometer_km' => 0,
@@ -186,6 +186,20 @@ class VehicleManagementTest extends TestCase
             );
     }
 
+    public function test_admin_cannot_create_vehicle_without_tyre_layout(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5055',
+                'vehicle_type' => 'TRUCK',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tyre_layout']);
+    }
+
     public function test_admin_cannot_create_vehicle_with_duplicate_registration_number(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
@@ -204,6 +218,43 @@ class VehicleManagementTest extends TestCase
                 'errors.registration_number.0',
                 'This registration number is already in use.',
             );
+    }
+
+    public function test_admin_can_recreate_soft_deleted_vehicle_by_restoring_it(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+        
+        $vehicle = $this->createVehicle($tenant, 'MH12AB1001');
+        $vehicle->delete(); // Soft delete it
+        
+        $this->assertSoftDeleted('vehicles', [
+            'id' => $vehicle->id,
+        ]);
+        
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'mh12ab1001',
+                'vehicle_type' => 'TANKER',
+                'tyre_layout' => 'TYRES_10',
+                'make' => 'Tata Restore',
+                'model' => 'LPT Restore',
+                'odometer_km' => 500,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.registration_number', 'MH12AB1001')
+            ->assertJsonPath('data.vehicle_type', 'TANKER')
+            ->assertJsonPath('data.make', 'Tata Restore')
+            ->assertJsonPath('data.model', 'LPT Restore');
+            
+        $this->assertDatabaseHas('vehicles', [
+            'id' => $vehicle->id,
+            'deleted_at' => null,
+            'vehicle_type' => 'TANKER',
+            'make' => 'Tata Restore',
+            'model' => 'LPT Restore',
+            'odometer_km' => 500.00,
+        ]);
     }
 
     public function test_admin_cannot_update_vehicle_to_duplicate_registration_number(): void

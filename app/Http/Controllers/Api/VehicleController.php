@@ -11,6 +11,7 @@ use App\Http\Resources\VehicleResource;
 use App\Http\Resources\VehicleTripSelectionResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Modules\TripManagement\Services\VehicleTripEligibilityService;
+use App\Support\CurrentTenant;
 use App\Support\TyreLayoutDefaults;
 use App\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -120,12 +121,27 @@ class VehicleController extends Controller
         $validated = $request->validated();
         $validated['tyre_layout'] = $validated['tyre_layout'] ?? TyreLayoutDefaults::defaultCode();
 
-        $vehicle = Vehicle::query()->create([
-            ...$validated,
-            'is_active' => true,
-            'created_by' => $request->user()?->id,
-            'updated_by' => $request->user()?->id,
-        ]);
+        $vehicle = Vehicle::withTrashed()
+            ->where('tenant_id', CurrentTenant::id())
+            ->where('registration_number', $validated['registration_number'])
+            ->first();
+
+        if ($vehicle) {
+            $vehicle->restore();
+            $vehicle->update([
+                ...$validated,
+                'is_active' => true,
+                'updated_by' => $request->user()?->id,
+            ]);
+            $vehicle->wasRecentlyCreated = true;
+        } else {
+            $vehicle = Vehicle::query()->create([
+                ...$validated,
+                'is_active' => true,
+                'created_by' => $request->user()?->id,
+                'updated_by' => $request->user()?->id,
+            ]);
+        }
 
         return new VehicleResource($vehicle->load([
             'createdBy:id,name',

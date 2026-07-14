@@ -54,6 +54,7 @@ class UpdateVehicleRequest extends FormRequest
             ],
             'tyre_layout' => [
                 'sometimes',
+                'required',
                 'string',
                 'max:64',
                 Rule::exists('tyre_layouts', 'code')->where(function ($query) {
