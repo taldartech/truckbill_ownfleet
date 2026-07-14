@@ -1021,7 +1021,7 @@ export function tripStatusMeta(status) {
     const normalized = String(status ?? '').toUpperCase();
 
     const map = {
-        CREATED: { label: 'Created', badge: 'bg-info text-dark' },
+        CREATED: { label: 'Created', badge: 'bg-warning text-dark' },
         IN_PROGRESS: { label: 'In Progress', badge: 'bg-primary' },
         COMPLETED: { label: 'Completed', badge: 'bg-success' },
         CANCELLED: { label: 'Cancelled', badge: 'bg-danger' },
