@@ -201,7 +201,7 @@
                     <td colspan="4" style="vertical-align: bottom">For {{ $company?->name }}</td>
                 </tr>
                 <tr>
-                    <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</td>
+                    <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</td>
                 </tr>
             </table>
         </div>
@@ -334,7 +334,7 @@
                     <td colspan="4" style="vertical-align: bottom">For {{ $company?->name }}</td>
                 </tr>
                 <tr>
-                    <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</td>
+                    <td colspan="12" class="fw-bold" style="font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</td>
                 </tr>
             </table>
         </div>

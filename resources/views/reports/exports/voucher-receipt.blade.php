@@ -378,7 +378,7 @@
         </table>
 
     </div>
-    <div style="margin-top: 6px; font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</div>
+    <div style="margin-top: 6px; font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 </body>
 
 </html>

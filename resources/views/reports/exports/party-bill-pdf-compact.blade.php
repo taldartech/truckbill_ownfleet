@@ -93,7 +93,7 @@
             @include('reports.exports.party-bill', ['partyBillHeaderCompact' => true])
         </div>
     </div>
-    <div style="margin-top: 4px; font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</div>
+    <div style="margin-top: 4px; font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 
     <script type="text/php">
         if (isset($pdf)) {

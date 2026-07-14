@@ -3,10 +3,10 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     {{-- <title>Party Bill - {{ $invoice->manual_invoice_number }}</title> --}}
-    <title>Party Bill - {{ 
-        $invoice->invoice_number 
-            ? $invoice->invoice_number . ($invoice->manual_invoice_number ? ' (' . $invoice->manual_invoice_number . ')' : '') 
-            : ($invoice->manual_invoice_number ?? $invoice->id) 
+    <title>Party Bill - {{
+        $invoice->invoice_number
+            ? $invoice->invoice_number . ($invoice->manual_invoice_number ? ' (' . $invoice->manual_invoice_number . ')' : '')
+            : ($invoice->manual_invoice_number ?? $invoice->id)
     }}</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="192x192"  href="{{ asset('favicon/android-icon-192x192.png') }}">
@@ -98,7 +98,7 @@
 
     @include('reports.exports.party-bill')
 
-    <div style="font-size: 7px; text-align: right;">Powered by TruckBill (www.truckbill.in)</div>
+    <div style="font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 
     <script type="text/php">
         if (isset($pdf)) {
