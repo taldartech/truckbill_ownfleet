@@ -5,15 +5,6 @@
         <AppIndexListCard title="Branch Management" :loading="loading" loading-text="Loading branches…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="branches-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
                     aria-label="Add Branch"
@@ -24,24 +15,24 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="branches-filters-panel"
                 :loading="loading"
                 @search="loadBranches(1)"
                 @reset="clearFilters"
             >
-                <div>
+                <div class="filter-search-col">
                     <label class="form-label" for="branchesIndex_search">Search</label>
                     <AppIndexSearchInput
                         v-model="searchQuery"
                         input-id="branchesIndex_search"
-                        placeholder="Search branch, company, contact…"
+                        placeholder="Search branch, company"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadBranches(1)"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Company</label>
                     <AppSelect
                         v-model="companyFilter"
@@ -220,7 +211,6 @@ const formMode = ref('create');
 const editingBranch = ref(null);
 const searchQuery = ref('');
 const companyFilter = ref('');
-const filtersOpen = ref(false);
 
 const { fieldErrors, formError: branchFormError, clearErrors, applyApiError } = useApiFormErrors();
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
@@ -229,10 +219,6 @@ const { states, initialize: initializeLocations } = useLocationLookups();
 const filtersActive = computed(
     () => searchQuery.value.trim() !== '' || companyFilter.value !== '',
 );
-
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
 
 function rowNumber(index) {
     return pagination.from > 0 ? pagination.from + index : index + 1;
@@ -436,9 +422,38 @@ onMounted(async () => {
     await initializeLocations();
     await loadCompanies();
     await loadBranches();
-
-    if (filtersActive.value) {
-        filtersOpen.value = true;
-    }
 });
 </script>
+
+<style scoped>
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.filter-select-col {
+    flex: 0 0 180px;
+    width: 180px;
+}
+</style>

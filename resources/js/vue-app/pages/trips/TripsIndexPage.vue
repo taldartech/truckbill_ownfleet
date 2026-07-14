@@ -9,15 +9,6 @@
         <AppIndexListCard title="Trip Management" :loading="loading" loading-text="Loading trips…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="trips-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
                     aria-label="Create trip"
@@ -28,25 +19,27 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="trips-filters-panel"
                 :loading="loading"
                 @search="loadTrips(1)"
                 @reset="clearFilters"
             >
                 <div class="trips-filter-search">
-                    <label class="form-label" for="trips_search">Search</label>
+                    <label class="form-label" for="trips_search">
+                        Search
+                        <span v-if="searchIgnoresDateRange" class="text-muted fw-normal ms-1" style="font-size: 0.75rem;">
+                            (ignores date range)
+                        </span>
+                    </label>
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trips_search"
-                        placeholder="Trip #, truck registration, primary or substitute driver…"
+                        placeholder="Search trip #, truck, driver..."
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadTrips(1)"
                     />
-                    <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-1">
-                        Search looks across all trips and ignores the date range.
-                    </div>
                 </div>
                 <div class="trips-filter-period">
                     <DashboardDateRangePicker
@@ -59,7 +52,7 @@
                         @change="onDateRangeChange"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Status</label>
                     <AppSelect
                         v-model="filters.status"
@@ -69,7 +62,7 @@
                         :disabled="loading"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Trip Type</label>
                     <AppSelect
                         v-model="filters.trip_type"
@@ -79,7 +72,7 @@
                         :disabled="loading"
                     />
                 </div>
-                <div>
+                <div class="filter-picker-col">
                     <label class="form-label">Customer</label>
                     <SearchablePicker
                         v-model="filters.customer_id"
@@ -90,7 +83,7 @@
                         view-title="Customer details"
                     />
                 </div>
-                <div>
+                <div class="filter-picker-col">
                     <label class="form-label">Reference</label>
                     <SearchablePicker
                         v-model="filters.broker_id"
@@ -351,7 +344,6 @@ const tripPendingArchive = ref(null);
 const tripStatuses = TRIP_STATUSES;
 const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
-const filtersOpen = ref(false);
 
 const filters = reactive(defaultTripListFilters());
 
@@ -382,9 +374,7 @@ const filtersActive = computed(() => {
     );
 });
 
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
+
 
 function currentListState() {
     return {
@@ -880,10 +870,6 @@ onMounted(async () => {
         syncListStateToRoute();
     }
 
-    if (hasFilterQueryParams(route.query) || filtersActive.value) {
-        filtersOpen.value = true;
-    }
-
     listReady.value = true;
     searchAutoLoadReady.value = true;
 });
@@ -895,8 +881,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Custom filters single/multi row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: contents;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
 .trips-filter-search {
-    grid-column: 1 / -1;
+    flex: 0 0 320px;
+    width: 320px;
 }
 
 .trips-filter-search :deep(.app-index-search) {
@@ -904,7 +909,18 @@ onBeforeUnmount(() => {
 }
 
 .trips-filter-period {
-    min-width: 0;
+    flex: 0 0 260px;
+    width: 260px;
+}
+
+.filter-select-col {
+    flex: 0 0 180px;
+    width: 180px;
+}
+
+.filter-picker-col {
+    flex: 0 0 200px;
+    width: 200px;
 }
 
 .trip-number-link {

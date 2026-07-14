@@ -331,3 +331,83 @@
         justify-content: center;
     }
 }
+
+/* Global overrides to make search filters always open and hide toggle buttons */
+.app-index-collapsible-filters {
+    display: block !important;
+}
+
+.app-index-header-btn[aria-label*="filter"],
+.app-index-header-btn[aria-label*="filters"] {
+    display: none !important;
+}
+
+/* Custom filters single/multi row layout globally for the entire project */
+.app-index-collapsible-filters__inner,
+.app-report-filters-panel__inner {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-end !important;
+    gap: 12px !important;
+}
+
+.app-index-filters-fields {
+    display: contents !important;
+}
+
+.app-index-collapsible-filters__actions,
+.app-report-filters-panel__actions {
+    margin-top: 0 !important;
+    align-self: flex-end !important;
+    margin-left: auto !important;
+}
+
+/* Default widths for filter inputs */
+.app-index-collapsible-filters__inner > div:not(.app-index-collapsible-filters__actions),
+.app-report-filters-panel__inner > div:not(.app-report-filters-panel__actions),
+.app-index-filters-fields > div {
+    flex: 0 0 180px !important;
+    width: 180px !important;
+}
+
+
+
+/* Wider columns for search inputs */
+.app-index-collapsible-filters__inner > div:has(.app-index-search),
+.app-report-filters-panel__inner > div:has(.app-index-search),
+.app-index-filters-fields > div:has(.app-index-search) {
+    flex: 0 0 280px !important;
+    width: 280px !important;
+}
+
+/* Wider columns for date range pickers */
+.app-index-collapsible-filters__inner > div:has(.dashboard-date-range),
+.app-report-filters-panel__inner > div:has(.dashboard-date-range),
+.app-index-filters-fields > div:has(.dashboard-date-range) {
+    flex: 0 0 260px !important;
+    width: 260px !important;
+}
+
+/* Ensure uniform heights and sizes for all filter controls and buttons globally */
+.app-index-collapsible-filters__inner .form-control,
+.app-index-collapsible-filters__inner .form-select,
+.app-index-collapsible-filters__inner .input-group-text,
+.app-index-collapsible-filters__inner .dashboard-date-range__trigger,
+.app-index-collapsible-filters__inner .app-index-collapsible-filters__btn,
+.app-index-collapsible-filters__inner .picker-action-btn,
+.app-report-filters-panel__inner .form-control,
+.app-report-filters-panel__inner .form-select,
+.app-report-filters-panel__inner .input-group-text,
+.app-report-filters-panel__inner .dashboard-date-range__trigger,
+.app-report-filters-panel__inner .app-report-filters-panel__btn,
+.app-report-filters-panel__inner .picker-action-btn {
+    height: 36px !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+}
+
+
+
+
