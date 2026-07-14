@@ -8,8 +8,14 @@ use Illuminate\Database\Eloquent\Collection;
 
 class DriverRepository
 {
-    public function paginate(int $perPage = 15, bool $activeOnly = false, ?string $search = null): LengthAwarePaginator
-    {
+    public function paginate(
+        int $perPage = 15,
+        bool $activeOnly = false,
+        ?string $search = null,
+        ?string $availableOnDate = null,
+        ?string $excludeVehicleId = null,
+        ?string $excludeAssignmentId = null
+    ): LengthAwarePaginator {
         return Driver::query()
             ->when($activeOnly, fn ($query) => $query->where('is_active', true))
             ->when($search !== null && $search !== '', function ($query) use ($search): void {
@@ -20,6 +26,20 @@ class DriverRepository
                         ->orWhere('license_number', 'like', $term)
                         ->orWhere('address', 'like', $term);
                 });
+            })
+            ->when($availableOnDate !== null, function ($query) use ($availableOnDate, $excludeVehicleId, $excludeAssignmentId): void {
+                $query->where('is_active', true)
+                    ->where('joining_date', '<=', $availableOnDate)
+                    ->whereDoesntHave('assignments', function ($q) use ($availableOnDate, $excludeVehicleId, $excludeAssignmentId): void {
+                        $q->where('is_primary', true)
+                            ->when($excludeVehicleId !== null, fn ($inner) => $inner->where('vehicle_id', '!=', $excludeVehicleId))
+                            ->when($excludeAssignmentId !== null, fn ($inner) => $inner->where('id', '!=', $excludeAssignmentId))
+                            ->whereDate('assigned_from', '<=', $availableOnDate)
+                            ->where(function ($sub) use ($availableOnDate): void {
+                                $sub->whereNull('assigned_to')
+                                    ->orWhereDate('assigned_to', '>=', $availableOnDate);
+                            });
+                    });
             })
             ->orderBy('name')
             ->paginate($perPage);

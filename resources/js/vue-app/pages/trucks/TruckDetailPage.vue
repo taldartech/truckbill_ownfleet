@@ -1,62 +1,5 @@
 <template>
     <div class="container mt-4 truck-detail-page">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-            <div>
-                <RouterLink :to="{ name: 'trucks.index' }" class="text-decoration-none small">
-                    <i class="bi bi-arrow-left"></i> Back to Trucks
-                </RouterLink>
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                    <h3 class="mb-0">{{ vehicle?.registration_number ?? 'Truck Details' }}</h3>
-                    <span
-                        v-if="vehicle"
-                        class="badge"
-                        :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
-                    >
-                        {{ vehicle.is_active ? 'Active' : 'Inactive' }}
-                    </span>
-                </div>
-                <p v-if="vehicle" class="text-muted small mb-0">
-                    {{ vehicle.vehicle_type_label ?? vehicle.vehicle_type }}
-                    <span v-if="vehicle.make || vehicle.model"> · {{ formatMakeModel(vehicle) }}</span>
-                </p>
-            </div>
-            <div v-if="vehicle" class="d-flex flex-wrap gap-2">
-                <AppButton
-                    v-if="canManage"
-                    variant="primary"
-                    outline
-                    size="sm"
-                    icon="bi bi-pencil"
-                    label="Edit"
-                    @click="openEdit"
-                />
-                <AppButton
-                    v-if="canViewDocuments"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-file-earmark-text"
-                    label="Documents"
-                    @click="openDocuments"
-                />
-                <AppButton
-                    v-if="canViewAssignments"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-person-badge"
-                    label="Driver"
-                    @click="openAssignment"
-                />
-                <RouterLink
-                    v-if="canViewTyres"
-                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                    class="btn btn-outline-success btn-sm"
-                >
-                    <i class="bi bi-circle"></i> Tyres
-                </RouterLink>
-            </div>
-        </div>
 
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> to view truck details.
@@ -68,7 +11,9 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header"><strong>Truck Information</strong></div>
+                        <div class="card-header">
+                            <strong>Truck Information ({{ vehicle?.registration_number }})</strong>
+                        </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
                                 <span class="text-muted">Registration</span>
@@ -106,16 +51,62 @@
                                 <span class="text-muted">Max Load (Ton)</span>
                                 <div>{{ vehicle.max_load_ton ? formatOdometer(vehicle.max_load_ton) : '—' }}</div>
                             </div>
-                            <div class="col-md-4">
-                                <span class="text-muted">Status</span>
-                                <div>
-                                    <span
-                                        class="badge"
-                                        :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
-                                    >
-                                        {{ vehicle.is_active ? 'Active' : 'Inactive' }}
-                                    </span>
-                                </div>
+                        </div>
+                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;">
+                            <div class="d-flex align-items-center">
+                                <span class="text-muted me-2 small">Status:</span>
+                                <span
+                                    class="badge"
+                                    :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
+                                >
+                                    {{ vehicle.is_active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </div>
+                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
+                                <RouterLink
+                                    :to="{ name: 'trucks.index' }"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    title="Back to Trucks"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canViewAssignments"
+                                    action="driver"
+                                    @click="openAssignment"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canViewDocuments"
+                                    action="documents"
+                                    @click="openDocuments"
+                                />
+                                <RouterLink
+                                    v-if="canViewTyres"
+                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                    :class="`${tyreLinkClasses} btn-icon`"
+                                    title="Tyre positions"
+                                >
+                                    <i class="bi bi-circle" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <RouterLink
+                                    v-if="canCreateMaintenance"
+                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                    :class="`${serviceLinkClasses} btn-icon`"
+                                    title="Add service record"
+                                >
+                                    <i class="fas fa-wrench" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    @click="openEdit"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canDelete"
+                                    action="delete"
+                                    @click="handleDelete"
+                                />
                             </div>
                         </div>
                     </div>
@@ -123,14 +114,7 @@
                     <div v-if="canViewDocuments" class="card mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Documents</strong>
-                            <button
-                                v-if="canCreateDocuments || canEditDocuments"
-                                type="button"
-                                class="btn btn-sm btn-outline-primary"
-                                @click="openDocuments"
-                            >
-                                Manage
-                            </button>
+                           
                         </div>
                         <div class="card-body p-0">
                             <div v-if="documents.length === 0" class="text-muted text-center py-4">
@@ -182,14 +166,7 @@
                     <div v-if="canViewAssignments" class="card mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Driver Assignment History</strong>
-                            <button
-                                v-if="canManageAssignments"
-                                type="button"
-                                class="btn btn-sm btn-outline-primary"
-                                @click="openAssignment"
-                            >
-                                Manage
-                            </button>
+                           
                         </div>
                         <div class="card-body p-0">
                             <div v-if="assignments.length === 0" class="text-muted text-center py-4">
@@ -232,20 +209,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Maintenance History</strong>
                             <div class="d-flex gap-2">
-                                <RouterLink
-                                    :to="{ name: 'maintenance.records', query: { vehicle_id: vehicle.id } }"
-                                    class="btn btn-sm btn-outline-secondary"
-                                >
-                                    View All
-                                </RouterLink>
-                                <button
-                                    v-if="canCreateMaintenance"
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary"
-                                    @click="openMaintenanceCreate"
-                                >
-                                    Add Service
-                                </button>
+                               
                             </div>
                         </div>
                         <div class="card-body p-0">
@@ -300,14 +264,14 @@
                                 </div>
                             </template>
                             <div v-else class="text-muted">No primary driver assigned.</div>
-                            <button
+                           <!-- <button
                                 v-if="canManageAssignments"
                                 type="button"
                                 class="btn btn-sm btn-outline-primary mt-3"
                                 @click="openAssignment"
                             >
                                 {{ vehicle.current_primary_assignment?.driver ? 'Change Driver' : 'Assign Driver' }}
-                            </button>
+                            </button> -->
                         </div>
                     </div>
 
@@ -366,7 +330,8 @@
             modal-id="truckDetailAssignmentModal"
             :show="showAssignment"
             :vehicle="vehicle"
-            :can-manage="canManageAssignments"
+            :can-create="canCreateAssignments"
+            :can-edit="canEditAssignments"
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
         />
@@ -378,16 +343,21 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { listDriverAssignments } from '../../api/driverAssignments';
 import { listVehicleMaintenanceHistory } from '../../api/vehicleMaintenances';
-import { fetchVehicle, updateVehicle } from '../../api/vehicles';
+import { fetchVehicle, updateVehicle, deleteVehicle } from '../../api/vehicles';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
 import { formatDate, formatDateTime } from '../../utils/datetime';
+import { crudActionButtonClasses } from '../../utils/crudActionPresets';
+
+const tyreLinkClasses = crudActionButtonClasses('tyres');
+const serviceLinkClasses = crudActionButtonClasses('service');
 
 const route = useRoute();
 const router = useRouter();
@@ -397,6 +367,7 @@ const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } 
     useRequireCompanyContext();
 
 const canManage = computed(() => canInCompany('vehicles.manage'));
+const canEdit = computed(() => canEditInCompany('vehicles'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewAssignments = computed(() => canInCompany('driver_assignments.view'));
 const canCreateAssignments = computed(() => canInCompany('driver_assignments.create'));
@@ -412,6 +383,25 @@ const canDeleteDocuments = computed(
 );
 const canViewMaintenance = computed(() => canInCompany('maintenance.view'));
 const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
+const canDelete = computed(() => canInCompany('vehicles.delete'));
+
+async function handleDelete() {
+    if (!vehicle.value?.id) {
+        return;
+    }
+
+    if (!window.confirm(`Delete truck ${vehicle.value.registration_number}?`)) {
+        return;
+    }
+
+    try {
+        await deleteVehicle(vehicle.value.id);
+        toast.success('Truck deleted.');
+        router.push({ name: 'trucks.index' });
+    } catch {
+        toast.error('Unable to delete truck.');
+    }
+}
 
 const vehicle = ref(null);
 const assignments = ref([]);

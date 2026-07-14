@@ -717,7 +717,7 @@ class DriverManagementModuleTest extends TestCase
 
     public function test_driver_role_cannot_create_or_update_driver_records(): void
     {
-        [$tenant, $driverUser] = $this->createTenantUser('DRIVER');
+        [$tenant, $driverUser] = $this->createTenantUser('accountant');
         $driver = $this->createDriver($tenant, 'Editable Driver', 600);
 
         Sanctum::actingAs($driverUser);
@@ -855,5 +855,126 @@ class DriverManagementModuleTest extends TestCase
             'daily_wage' => $dailyWage,
             'is_active' => true,
         ]);
+    }
+
+    public function test_driver_availability_filters_joining_date_and_active_status(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        // Driver A: joined 2026-07-10, Active
+        $driverA = $this->createDriver($tenant, 'Driver A', 1000, null, '2026-07-10');
+        // Driver B: joined 2026-07-20, Active
+        $driverB = $this->createDriver($tenant, 'Driver B', 1000, null, '2026-07-20');
+        // Driver C: joined 2026-07-10, Inactive
+        $driverC = $this->createDriver($tenant, 'Driver C', 1000, null, '2026-07-10');
+        TenantContext::setTenantId($tenant->id);
+        $driverC->update(['is_active' => false]);
+        TenantContext::setTenantId(null);
+
+        // Query available on 2026-07-15
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/drivers?available_on_date=2026-07-15')
+            ->assertOk();
+
+        // Should return Driver A, but not Driver B (not joined yet) or Driver C (inactive)
+        $names = collect($response->json('data'))->pluck('name')->all();
+        $this->assertContains('Driver A', $names);
+        $this->assertNotContains('Driver B', $names);
+        $this->assertNotContains('Driver C', $names);
+    }
+
+    public function test_driver_availability_calculates_available_until(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        $driver = $this->createDriver($tenant, 'Driver Availability Test', 1000, null, '2026-07-01');
+        $vehicleA = $this->createVehicle($tenant);
+        $vehicleB = $this->createVehicle($tenant);
+
+        // Current assignment: 2026-07-01 to 2026-07-15 on Vehicle A
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleA->id,
+            'assigned_from' => '2026-07-01',
+            'assigned_to' => '2026-07-15',
+            'is_primary' => true,
+        ]);
+
+        // Future assignment: 2026-07-20 onwards on Vehicle B
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleB->id,
+            'assigned_from' => '2026-07-20',
+            'assigned_to' => null,
+            'is_primary' => true,
+        ]);
+
+        // Query available on 2026-07-16
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/drivers?available_on_date=2026-07-16')
+            ->assertOk();
+
+        $data = collect($response->json('data'))->firstWhere('id', $driver->id);
+        $this->assertNotNull($data);
+        // available_until should be 2026-07-19 (1 day before next assignment starting 2026-07-20)
+        $this->assertEquals('2026-07-19', $data['availability']['available_until'] ?? null);
+    }
+
+    public function test_driver_assignment_backend_enforces_availability_limits(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+
+        $driver = $this->createDriver($tenant, 'Enforcement Test Driver', 1000, null, '2026-07-01');
+        $vehicleA = $this->createVehicle($tenant);
+        $vehicleB = $this->createVehicle($tenant);
+
+        // Future assignment on Vehicle B: 2026-07-20 onwards
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicleB->id,
+            'assigned_from' => '2026-07-20',
+            'assigned_to' => null,
+            'is_primary' => true,
+        ]);
+
+        // Create assignment starting 2026-07-16 with assigned_to = 2026-07-19 (Valid)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleA->id,
+                'assigned_from' => '2026-07-16',
+                'assigned_to' => '2026-07-19',
+                'is_primary' => true,
+            ])
+            ->assertCreated();
+
+        // Try to create assignment starting 2026-07-16 without assigned_to (Invalid, must be limited to 2026-07-19)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleA->id,
+                'assigned_from' => '2026-07-16',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assigned_to']);
+
+        // Try to create assignment starting 2026-07-16 with assigned_to = 2026-07-21 (Invalid)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/driver-assignments', [
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicleA->id,
+                'assigned_from' => '2026-07-16',
+                'assigned_to' => '2026-07-21',
+                'is_primary' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['assigned_to']);
     }
 }

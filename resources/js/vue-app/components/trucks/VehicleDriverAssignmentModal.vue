@@ -20,7 +20,7 @@
                             </span>
                         </div>
                         <button
-                            v-if="canManage"
+                            v-if="canEdit"
                             type="button"
                             class="btn btn-sm btn-outline-danger"
                             :disabled="removing"
@@ -34,7 +34,7 @@
                         No driver assigned for this truck yet.
                     </div>
 
-                    <div v-if="canManage" class="card mb-3">
+                    <div v-if="(editingAssignment && canEdit) || (!editingAssignment && canCreate)" class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>{{ editingAssignment ? 'Edit Assignment' : 'Assign New Driver' }}</span>
                             <button
@@ -48,7 +48,7 @@
                         </div>
                         <div class="card-body">
                             <form class="row g-3" @submit.prevent="saveAssignment">
-                                <div class="col-md-6">
+                                <div class="col-12">
                                     <label class="form-label" for="assign_driver_id">Driver *</label>
                                     <SearchableSelect
                                         input-id="assign_driver_id"
@@ -62,7 +62,7 @@
                                         :plain="false"
                                     />
                                 </div>
-                                <div :class="editingClosedAssignment ? 'col-md-4' : 'col-md-6'">
+                                <div class="col-md-6">
                                     <label class="form-label" for="assign_from">Effective From *</label>
                                     <AppDateInput
                                         input-id="assign_from"
@@ -97,11 +97,12 @@
                                         Effective from cannot be earlier.
                                     </div>
                                 </div>
-                                <div v-if="editingClosedAssignment" class="col-md-4">
+                                <div class="col-md-6">
                                     <label class="form-label" for="assign_to">Effective To</label>
                                     <AppDateInput
                                         input-id="assign_to"
                                         v-model="assignForm.assigned_to"
+                                        :max="selectedDriver?.availability?.available_until ?? undefined"
                                         :invalid="hasFieldError(fieldErrors, 'assigned_to')"
                                     />
                                     <div
@@ -109,6 +110,12 @@
                                         class="invalid-feedback d-block"
                                     >
                                         {{ fieldErrorMessage(fieldErrors, 'assigned_to') }}
+                                    </div>
+                                    <div
+                                        v-if="selectedDriver?.availability?.available_until"
+                                        class="form-text text-warning"
+                                    >
+                                        Driver is available until {{ formatJoiningDate(selectedDriver.availability.available_until) }} due to another scheduled assignment.
                                     </div>
                                 </div>
                                 <div v-if="!editingAssignment" class="col-12">
@@ -140,14 +147,14 @@
                                         <th>From</th>
                                         <th>To</th>
                                         <th>Status</th>
-                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">
+                                        <th v-if="canEdit" class="app-index-actions-cell" style="width: 120px">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="assignments.length === 0">
-                                        <td :colspan="canManage ? 5 : 4" class="text-center text-muted">
+                                        <td :colspan="canEdit ? 5 : 4" class="text-center text-muted">
                                             No assignment history.
                                         </td>
                                     </tr>
@@ -156,7 +163,7 @@
                                         <td>{{ row.assigned_from ?? '—' }}</td>
                                         <td>{{ assignmentToLabel(row) }}</td>
                                         <td>{{ assignmentStatusLabel(row) }}</td>
-                                        <td v-if="canManage" class="app-index-actions-cell">
+                                        <td v-if="canEdit" class="app-index-actions-cell">
                                             <AppTableActions>
                                                 <AppCrudActionButton
                                                     action="edit"
@@ -207,7 +214,8 @@ const props = defineProps({
     modalId: { type: String, default: 'vehicleDriverAssignmentModal' },
     show: { type: Boolean, default: false },
     vehicle: { type: Object, default: null },
-    canManage: { type: Boolean, default: false },
+    canCreate: { type: Boolean, default: false },
+    canEdit: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'assigned']);
@@ -225,7 +233,6 @@ const primarySummary = ref({
 });
 const drivers = ref([]);
 const vehicleLabel = ref('');
-const activePrimaryByDriver = ref({});
 const assignedFromClientError = ref('');
 
 const assignForm = ref({
@@ -234,9 +241,7 @@ const assignForm = ref({
     assigned_to: '',
 });
 
-const editingClosedAssignment = computed(
-    () => editingAssignment.value !== null && Boolean(editingAssignment.value.assigned_to),
-);
+
 
 const asOfDate = computed(() => primarySummary.value.as_of_date || '');
 
@@ -256,21 +261,7 @@ const assignmentErrorMessage = computed(
 
 const modalLoading = computed(() => saving.value || removing.value || deletingId.value !== null);
 
-const unassignedDrivers = computed(() =>
-    drivers.value.filter((driver) => !isDriverPrimaryElsewhere(driver.id)),
-);
-
-const selectableDrivers = computed(() => {
-    const editingDriverId = editingAssignment.value?.driver_id;
-
-    if (!editingDriverId) {
-        return unassignedDrivers.value;
-    }
-
-    return drivers.value.filter(
-        (driver) => !isDriverPrimaryElsewhere(driver.id) || driver.id === editingDriverId,
-    );
-});
+const selectableDrivers = computed(() => drivers.value);
 
 const selectedDriver = computed(
     () => drivers.value.find((driver) => driver.id === assignForm.value.driver_id) ?? null,
@@ -357,57 +348,33 @@ async function loadHistory() {
 
 async function loadDrivers() {
     try {
-        drivers.value = await listAllDrivers({ activeOnly: true });
+        const date = assignForm.value.assigned_from || asOfDate.value || null;
+        drivers.value = await listAllDrivers({
+            activeOnly: true,
+            availableOnDate: date,
+            excludeVehicleId: props.vehicle?.id || null,
+            excludeAssignmentId: editingAssignment.value?.id || null,
+        });
+
+        if (assignForm.value.driver_id) {
+            const selectedDriverObj = drivers.value.find((d) => d.id === assignForm.value.driver_id);
+            if (!selectedDriverObj) {
+                assignForm.value.driver_id = '';
+                assignForm.value.assigned_to = '';
+            } else if (selectedDriverObj.availability?.available_until) {
+                const limit = selectedDriverObj.availability.available_until;
+                if (!editingAssignment.value) {
+                    assignForm.value.assigned_to = limit;
+                } else if (assignForm.value.assigned_to > limit) {
+                    assignForm.value.assigned_to = limit;
+                }
+            } else if (!editingAssignment.value) {
+                assignForm.value.assigned_to = '';
+            }
+        }
     } catch {
         drivers.value = [];
     }
-}
-
-async function loadActivePrimaryAssignments() {
-    const date = asOfDate.value;
-
-    if (!date) {
-        activePrimaryByDriver.value = {};
-
-        return;
-    }
-
-    try {
-        const response = await listDriverAssignments({ perPage: 500 });
-        const rows = response.data ?? [];
-
-        activePrimaryByDriver.value = rows
-            .filter((row) => isActivePrimaryRow(row))
-            .reduce((accumulator, row) => {
-                if (!row.driver_id) {
-                    return accumulator;
-                }
-
-                accumulator[row.driver_id] = {
-                    vehicleId: row.vehicle_id,
-                    vehicleLabel: row.vehicle?.registration_number ?? 'another truck',
-                    driverName: row.driver?.name ?? 'Driver',
-                };
-
-                return accumulator;
-            }, {});
-    } catch {
-        activePrimaryByDriver.value = {};
-    }
-}
-
-function isDriverPrimaryElsewhere(driverId) {
-    const conflict = activePrimaryByDriver.value[driverId];
-
-    if (!conflict) {
-        return false;
-    }
-
-    if (editingAssignment.value && conflict.vehicleId === props.vehicle?.id) {
-        return false;
-    }
-
-    return true;
 }
 
 function resetAssignForm() {
@@ -439,7 +406,8 @@ function startEdit(row) {
 
 async function refreshAssignmentState() {
     await loadPrimaryAssignment();
-    await Promise.all([loadHistory(), loadActivePrimaryAssignments()]);
+    await loadHistory();
+    await loadDrivers();
 }
 
 watch(
@@ -450,9 +418,18 @@ watch(
             vehicleLabel.value = props.vehicle?.registration_number ?? '';
             await loadPrimaryAssignment();
             resetAssignForm();
-            await Promise.all([loadHistory(), loadDrivers(), loadActivePrimaryAssignments()]);
+            await loadHistory();
         }
     },
+);
+
+watch(
+    () => assignForm.value.assigned_from,
+    async (newDate, oldDate) => {
+        if (props.show && newDate && newDate !== oldDate) {
+            await loadDrivers();
+        }
+    }
 );
 
 watch(
@@ -467,6 +444,18 @@ watch(
 
         if (driver?.joining_date && assignForm.value.assigned_from < driver.joining_date) {
             assignForm.value.assigned_from = driver.joining_date;
+        }
+
+        if (!editingAssignment.value) {
+            if (driver?.availability?.available_until) {
+                assignForm.value.assigned_to = driver.availability.available_until;
+            } else {
+                assignForm.value.assigned_to = '';
+            }
+        } else {
+            if (driver?.availability?.available_until && assignForm.value.assigned_to > driver.availability.available_until) {
+                assignForm.value.assigned_to = driver.availability.available_until;
+            }
         }
     },
 );
@@ -497,12 +486,9 @@ async function saveAssignment() {
         vehicle_id: props.vehicle.id,
         driver_id: assignForm.value.driver_id,
         assigned_from: assignForm.value.assigned_from,
+        assigned_to: assignForm.value.assigned_to || null,
         is_primary: true,
     };
-
-    if (editingClosedAssignment.value) {
-        payload.assigned_to = assignForm.value.assigned_to || null;
-    }
 
     try {
         if (editingAssignment.value) {

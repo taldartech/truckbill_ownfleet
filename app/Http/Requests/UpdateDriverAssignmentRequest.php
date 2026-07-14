@@ -31,7 +31,7 @@ class UpdateDriverAssignmentRequest extends FormRequest
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'assigned_from' => ['required', 'date'],
             'assigned_to' => [
-                $isClosedAssignment ? 'nullable' : 'prohibited',
+                'nullable',
                 'date',
                 'after_or_equal:assigned_from',
             ],

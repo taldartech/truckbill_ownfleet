@@ -23,8 +23,13 @@ class DriverController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
         $activeOnly = $request->boolean('active_only', false);
         $search = $request->filled('search') ? $request->string('search')->toString() : null;
+        $availableOnDate = $request->filled('available_on_date') ? $request->string('available_on_date')->toString() : null;
+        $excludeVehicleId = $request->filled('exclude_vehicle_id') ? $request->string('exclude_vehicle_id')->toString() : null;
+        $excludeAssignmentId = $request->filled('exclude_assignment_id') ? $request->string('exclude_assignment_id')->toString() : null;
 
-        return DriverResource::collection($this->driverService->paginate($perPage, $activeOnly, $search));
+        return DriverResource::collection(
+            $this->driverService->paginate($perPage, $activeOnly, $search, $availableOnDate, $excludeVehicleId, $excludeAssignmentId)
+        );
     }
 
     public function store(StoreDriverRequest $request): DriverResource

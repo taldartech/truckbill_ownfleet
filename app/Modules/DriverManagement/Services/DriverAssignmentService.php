@@ -15,6 +15,7 @@ class DriverAssignmentService
 {
     public function __construct(
         private readonly DriverAssignmentRepository $driverAssignmentRepository,
+        private readonly DriverAvailabilityService $driverAvailabilityService,
     ) {}
 
     public function paginate(int $perPage = 15, ?string $vehicleId = null): LengthAwarePaginator
@@ -90,10 +91,18 @@ class DriverAssignmentService
     {
         $isPrimary = (bool) ($data['is_primary'] ?? true);
         $assignedFrom = Carbon::parse($data['assigned_from'])->toDateString();
+        $assignedTo = isset($data['assigned_to']) && $data['assigned_to'] !== null
+            ? Carbon::parse($data['assigned_to'])->toDateString()
+            : null;
 
         if ($isPrimary) {
             $this->assertDriverIsActive((string) $data['driver_id']);
             $this->assertAssignmentNotBeforeDriverJoiningDate((string) $data['driver_id'], $assignedFrom);
+            $this->driverAvailabilityService->assertAssignmentWithinAvailabilityLimits(
+                (string) $data['driver_id'],
+                $assignedFrom,
+                $assignedTo
+            );
             $this->closeVehiclePrimaryAssignmentsBeforeNew(
                 (string) $data['vehicle_id'],
                 $assignedFrom,
@@ -103,13 +112,14 @@ class DriverAssignmentService
                 (string) $data['vehicle_id'],
                 $assignedFrom,
                 null,
-                null,
+                $assignedTo,
             );
-
-            $data['assigned_to'] = null;
         }
 
-        return $this->driverAssignmentRepository->create($data);
+        return $this->driverAssignmentRepository->create([
+            ...$data,
+            'assigned_to' => $assignedTo,
+        ]);
     }
 
     public function update(DriverAssignment $driverAssignment, array $data): DriverAssignment
@@ -140,23 +150,23 @@ class DriverAssignmentService
             : $driverAssignment->assigned_to?->toDateString();
 
         if ($merged['is_primary']) {
-            $isOpenAssignment = $assignedTo === null;
-
             if ((string) $merged['driver_id'] !== (string) $driverAssignment->driver_id) {
                 $this->assertDriverIsActive((string) $merged['driver_id']);
             }
 
             $this->assertAssignmentNotBeforeDriverJoiningDate((string) $merged['driver_id'], $assignedFrom);
+            $this->driverAvailabilityService->assertAssignmentWithinAvailabilityLimits(
+                (string) $merged['driver_id'],
+                $assignedFrom,
+                $assignedTo,
+                $driverAssignment->id
+            );
 
-            if ($isOpenAssignment) {
-                $this->closeVehiclePrimaryAssignmentsBeforeNew(
-                    (string) $merged['vehicle_id'],
-                    $assignedFrom,
-                    $driverAssignment->id,
-                );
-
-                $data['assigned_to'] = null;
-            }
+            $this->closeVehiclePrimaryAssignmentsBeforeNew(
+                (string) $merged['vehicle_id'],
+                $assignedFrom,
+                $driverAssignment->id,
+            );
 
             $this->ensureDriverNotPrimaryOnOtherVehicle(
                 (string) $merged['driver_id'],
@@ -167,7 +177,10 @@ class DriverAssignmentService
             );
         }
 
-        return $this->driverAssignmentRepository->update($driverAssignment, $data);
+        return $this->driverAssignmentRepository->update($driverAssignment, [
+            ...$data,
+            'assigned_to' => $assignedTo,
+        ]);
     }
 
     public function delete(DriverAssignment $driverAssignment): void

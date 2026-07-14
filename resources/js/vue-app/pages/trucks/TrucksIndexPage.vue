@@ -9,15 +9,6 @@
         <AppIndexListCard title="Truck Management" :loading="loading" loading-text="Loading trucks…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="trucks-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
                     aria-label="Create truck"
@@ -28,7 +19,6 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="trucks-filters-panel"
                 :loading="loading"
                 @search="loadVehicles(1)"
@@ -173,7 +163,7 @@
                             </td>
                             <td class="app-index-actions-cell">
                                 <AppTableActions>
-                                   <!-- <AppCrudActionButton
+                                    <!--<AppCrudActionButton
                                         v-if="canViewAssignments"
                                         action="driver"
                                         @click="openAssignment(vehicle)"
@@ -253,7 +243,8 @@
             modal-id="vehicleDriverAssignmentModal"
             :show="showAssignment"
             :vehicle="assignmentVehicle"
-            :can-manage="canManageAssignments"
+            :can-create="canCreateAssignments"
+            :can-edit="canEditAssignments"
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
         />
@@ -341,7 +332,6 @@ const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
 
 const vehicles = ref([]);
 const loading = ref(true);
-const filtersOpen = ref(false);
 const saving = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
@@ -381,9 +371,6 @@ const filtersActive = computed(() => {
     );
 });
 
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
 
 function formatMakeModel(vehicle) {
     const parts = [vehicle.make, vehicle.model].filter(Boolean);
@@ -619,11 +606,6 @@ onMounted(async () => {
 
     if (ok === true) {
         await resolveVehicleSearchFromRoute();
-
-        if (filtersActive.value) {
-            filtersOpen.value = true;
-        }
-
         await Promise.all([loadTruckTypes(), loadVehicles()]);
     }
 });

@@ -34,7 +34,7 @@ class StoreDriverAssignmentRequest extends FormRequest
             'driver_id' => ['required', 'uuid', Rule::exists('drivers', 'id')->where('is_active', true)],
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'assigned_from' => ['required', 'date'],
-            'assigned_to' => ['prohibited'],
+            'assigned_to' => ['nullable', 'date', 'after_or_equal:assigned_from'],
             'is_primary' => ['nullable', 'boolean'],
         ];
     }

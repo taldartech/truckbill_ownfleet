@@ -21,9 +21,15 @@ export async function listDrivers({ page = 1, perPage = 25, search = '' } = {}) 
     };
 }
 
-export async function listAllDrivers({ activeOnly = false } = {}) {
+export async function listAllDrivers({ activeOnly = false, availableOnDate = null, excludeVehicleId = null, excludeAssignmentId = null } = {}) {
     const { data } = await api.get(driversBase, {
-        params: { per_page: 500, ...(activeOnly ? { active_only: 1 } : {}) },
+        params: {
+            per_page: 500,
+            ...(activeOnly ? { active_only: 1 } : {}),
+            ...(availableOnDate ? { available_on_date: availableOnDate } : {}),
+            ...(excludeVehicleId ? { exclude_vehicle_id: excludeVehicleId } : {}),
+            ...(excludeAssignmentId ? { exclude_assignment_id: excludeAssignmentId } : {}),
+        },
     });
 
     return data.data ?? [];

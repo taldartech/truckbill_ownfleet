@@ -11,11 +11,37 @@ use Illuminate\Support\Carbon;
 
 class DriverService
 {
-    public function __construct(private readonly DriverRepository $driverRepository) {}
+    public function __construct(
+        private readonly DriverRepository $driverRepository,
+        private readonly DriverAvailabilityService $driverAvailabilityService
+    ) {}
 
-    public function paginate(int $perPage = 15, bool $activeOnly = false, ?string $search = null): LengthAwarePaginator
-    {
-        return $this->driverRepository->paginate($perPage, $activeOnly, $search);
+    public function paginate(
+        int $perPage = 15,
+        bool $activeOnly = false,
+        ?string $search = null,
+        ?string $availableOnDate = null,
+        ?string $excludeVehicleId = null,
+        ?string $excludeAssignmentId = null
+    ): LengthAwarePaginator {
+        $paginator = $this->driverRepository->paginate(
+            $perPage,
+            $activeOnly,
+            $search,
+            $availableOnDate,
+            $excludeVehicleId,
+            $excludeAssignmentId
+        );
+
+        if ($availableOnDate !== null) {
+            $paginator = $this->driverAvailabilityService->attachAvailability(
+                $paginator,
+                $availableOnDate,
+                $excludeAssignmentId
+            );
+        }
+
+        return $paginator;
     }
 
     public function create(array $data): Driver

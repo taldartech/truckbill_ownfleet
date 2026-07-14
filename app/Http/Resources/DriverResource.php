@@ -31,6 +31,7 @@ class DriverResource extends JsonResource
             'emergency_contact_phone' => $this->emergency_contact_phone,
             'daily_wage' => $this->daily_wage,
             'is_active' => (bool) $this->is_active,
+            'availability' => $this->availability ?? null,
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];
