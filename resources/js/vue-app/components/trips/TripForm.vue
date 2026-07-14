@@ -759,7 +759,7 @@
                                         class="btn btn-sm btn-outline-danger"
                                         :disabled="isStopRemoveBlocked(index)"
                                         :title="stopRemoveTitle(index)"
-                                        @click="handleRemoveRouteLeg(index)"
+                                        @click="openRemoveStopConfirm(index)"
                                     >
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -877,6 +877,39 @@
             @cancel="onStatusModalCancel"
             @confirm="onStatusModalConfirm"
         />
+
+        <AppModal
+            :show="showRemoveStopConfirm"
+            size="md"
+            :dismissible="true"
+            :show-header="false"
+            :content-class="['border-0', 'shadow-lg']"
+            :body-class="'p-4 pt-5'"
+            :footer-class="'border-0 gap-2 justify-content-end'"
+            @close="cancelRemoveStopConfirm"
+        >
+            <div class="text-center mb-3">
+                <div class="trip-remove-stop-modal__icon">
+                    <i class="bi bi-trash3"></i>
+                </div>
+                <h5 class="mb-2">Remove Stop?</h5>
+                <p class="text-muted mb-0">
+                    Are you sure you want to remove this stop?
+                    <br />
+                    This action will remove the stop from the trip and automatically recalculate the trip route,
+                    distance, and freight.
+                </p>
+            </div>
+
+            <template #footer>
+                <button type="button" class="btn btn-outline-secondary" @click="cancelRemoveStopConfirm">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-danger" @click="confirmRemoveStop">
+                    Remove Stop
+                </button>
+            </template>
+        </AppModal>
     </div>
 </template>
 
@@ -899,6 +932,7 @@ import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/
 import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 import AppIndexHeaderButton from '../ui/AppIndexHeaderButton.vue';
+import AppModal from '../ui/AppModal.vue';
 import SearchablePicker from '../ui/SearchablePicker.vue';
 import AsyncVehicleTripPicker from './AsyncVehicleTripPicker.vue';
 import TripExpensesPanel from './TripExpensesPanel.vue';
@@ -983,6 +1017,8 @@ const quickAddCustomerLegIndex = ref(null);
 const quickAddGoodsTypeLegIndex = ref(null);
 const showStatusModal = ref(false);
 const pendingStatus = ref('');
+const showRemoveStopConfirm = ref(false);
+const pendingRemoveStopIndex = ref(null);
 
 const goodsTypePickerItems = computed(() => {
     const names = new Set();
@@ -1125,7 +1161,7 @@ function stopRemoveTitle(index) {
     return `Stop ${sequence} has ₹${formatMoney(total)} expenses. Clear them on Trip Expenses first.`;
 }
 
-function handleRemoveRouteLeg(index) {
+function openRemoveStopConfirm(index) {
     if (isStopRemoveBlocked(index)) {
         const sequence = index + 1;
         const total = props.expenseTotalsBySequence[sequence] ?? 0;
@@ -1136,7 +1172,38 @@ function handleRemoveRouteLeg(index) {
         return;
     }
 
+    pendingRemoveStopIndex.value = index;
+    showRemoveStopConfirm.value = true;
+}
+
+function cancelRemoveStopConfirm() {
+    pendingRemoveStopIndex.value = null;
+    showRemoveStopConfirm.value = false;
+}
+
+function confirmRemoveStop() {
+    const index = pendingRemoveStopIndex.value;
+
+    if (index === null || index === undefined) {
+        cancelRemoveStopConfirm();
+
+        return;
+    }
+
+    if (isStopRemoveBlocked(index)) {
+        const sequence = index + 1;
+        const total = props.expenseTotalsBySequence[sequence] ?? 0;
+        toast.error(
+            `Stop ${sequence} has ₹${formatMoney(total)} expenses. Remove them from Trip Expenses first.`,
+        );
+        cancelRemoveStopConfirm();
+
+        return;
+    }
+
+    cancelRemoveStopConfirm();
     emit('remove-route-leg', index);
+    toast.success('Stop removed successfully.');
 }
 
 const headerMetaText = computed(() => {
@@ -1994,5 +2061,20 @@ defineExpose({
         opacity: 1;
         transform: translateY(0);
     }
+}
+</style>
+
+<style scoped>
+.trip-remove-stop-modal__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin: 0 auto 0.85rem;
+    border-radius: 999px;
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+    font-size: 1.4rem;
 }
 </style>
