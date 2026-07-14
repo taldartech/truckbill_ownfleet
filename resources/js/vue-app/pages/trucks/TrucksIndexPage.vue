@@ -696,13 +696,29 @@ watch(
 .status-toggle-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+}
+
+.status-toggle-wrapper .form-check {
+    padding-left: 0;
+    margin-bottom: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.status-toggle-wrapper .form-check-input {
+    float: none;
+    margin-left: 0;
+    cursor: pointer;
 }
 
 .status-toggle-label {
     cursor: pointer;
-    margin-top: 0.15rem;
+    margin-top: 2px;
     color: var(--brand-text-muted, #64748b);
+    line-height: 1.2;
 }
 
 /* Custom filters single row layout */
