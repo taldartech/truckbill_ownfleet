@@ -67,6 +67,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'bi bi-circle',
         title: 'Tyre positions',
     },
+    service: {
+        btnClass: 'btn-outline-secondary',
+        icon: 'fas fa-wrench',
+        title: 'Add service record',
+    },
 };
 
 export function crudActionButtonClasses(action) {

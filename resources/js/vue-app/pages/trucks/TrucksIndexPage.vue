@@ -79,7 +79,7 @@
                     <tr>
                         <th>Registration</th>
                         <th>Type</th>
-                        <th>Tyre layout</th>
+                        <!-- <th>Tyre layout</th> -->
                         <th>Make / Model</th>
                         <th>Primary Driver</th>
                         <th>Meter Reading (KM)</th>
@@ -104,7 +104,7 @@
                                 </RouterLink>
                             </td>
                             <td>{{ vehicle.vehicle_type_label ?? vehicle.vehicle_type }}</td>
-                            <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td>
+                            <!-- <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td> -->
                             <td>{{ formatMakeModel(vehicle) }}</td>
                             <td class="primary-driver-cell">
                                 <div
@@ -128,7 +128,7 @@
                                     v-else-if="canManageAssignments"
                                     class="primary-driver-empty"
                                 >
-                                    <span class="badge rounded-pill primary-driver-badge">Unassigned</span>
+                                    
                                     <button
                                         type="button"
                                         class="btn btn-outline-secondary btn-sm primary-driver-assign-btn"
@@ -139,23 +139,25 @@
                                         Assign
                                     </button>
                                 </div>
-                                <span v-else class="text-muted">Unassigned</span>
+                                <!-- <span v-else class="text-muted">Unassigned</span> -->
                             </td>
                             <td>{{ vehicle.odometer_km ?? '0' }}</td>
                             <td>
-                                <div v-if="canToggleStatus" class="form-check form-switch mb-0">
-                                    <input
-                                        :id="`truckStatus_${vehicle.id}`"
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        role="switch"
-                                        :checked="vehicle.is_active"
-                                        :disabled="togglingId === vehicle.id"
-                                        @change="handleToggleStatus(vehicle, $event)"
-                                    />
+                                <div v-if="canToggleStatus" class="status-toggle-wrapper">
+                                    <div class="form-check form-switch mb-0">
+                                        <input
+                                            :id="`truckStatus_${vehicle.id}`"
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            role="switch"
+                                            :checked="vehicle.is_active"
+                                            :disabled="togglingId === vehicle.id"
+                                            @change="handleToggleStatus(vehicle, $event)"
+                                        />
+                                    </div>
                                     <label
                                         :for="`truckStatus_${vehicle.id}`"
-                                        class="form-check-label small"
+                                        class="status-toggle-label small"
                                     >
                                         {{ vehicle.is_active ? 'Active' : 'Inactive' }}
                                     </label>
@@ -170,11 +172,11 @@
                             </td>
                             <td class="app-index-actions-cell">
                                 <AppTableActions>
-                                    <AppCrudActionButton
+                                   <!-- <AppCrudActionButton
                                         v-if="canViewAssignments"
                                         action="driver"
                                         @click="openAssignment(vehicle)"
-                                    />
+                                    />-->
                                     <AppCrudActionButton
                                         v-if="canViewDocuments"
                                         action="documents"
@@ -187,6 +189,14 @@
                                         title="Tyre positions"
                                     >
                                         <i class="bi bi-circle" aria-hidden="true"></i>
+                                    </RouterLink>
+                                    <RouterLink
+                                        v-if="canCreateMaintenance"
+                                        :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                        :class="`${serviceLinkClasses} btn-icon`"
+                                        title="Add service record"
+                                    >
+                                        <i class="fas fa-wrench" aria-hidden="true"></i>
                                     </RouterLink>
                                     <AppCrudActionButton
                                         v-if="canEdit"
@@ -292,6 +302,7 @@ import { buildTruckFields } from '../../utils/masterCrudSaveConfirm';
 import { crudActionButtonClasses } from '../../utils/crudActionPresets';
 
 const tyreLinkClasses = crudActionButtonClasses('tyres');
+const serviceLinkClasses = crudActionButtonClasses('service');
 const route = useRoute();
 const toast = useAppToast();
 const {
@@ -325,6 +336,7 @@ const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
 const canDeleteDocuments = computed(
     () => canDeleteRecords.value && canInCompany('vehicle_documents.manage'),
 );
+const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
 
 const vehicles = ref([]);
 const loading = ref(true);
@@ -696,5 +708,17 @@ watch(
     border-color: #94a3b8 !important;
     color: #334155 !important;
     background: #f8fafc !important;
+}
+
+.status-toggle-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.status-toggle-label {
+    cursor: pointer;
+    margin-top: 0.15rem;
+    color: var(--brand-text-muted, #64748b);
 }
 </style>
