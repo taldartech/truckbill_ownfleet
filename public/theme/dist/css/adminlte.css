@@ -13041,19 +13041,19 @@ textarea.form-control-lg {
 .sidebar-brand .brand-link .brand-image {
   float: left;
   width: auto;
-  max-height: 90px;
+  max-height: 75px;
   line-height: 0.8;
 }
 .sidebar-brand .brand-link .brand-image-xs {
   float: left;
   width: auto;
-  max-height: 90px;
+  max-height: 75px;
   margin-top: -0.1rem;
   line-height: 0.8;
 }
 .sidebar-brand .brand-link .brand-image-xl {
   width: auto;
-  max-height: 40px;
+  max-height: 75px;
   line-height: 0.8;
 }
 .sidebar-brand .brand-link .brand-image-xl.single {
