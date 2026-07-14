@@ -330,7 +330,7 @@
 
                     <div class="trip-details-row trip-details-row--five-compact">
                         <div class="trip-details-row__field--compact">
-                            <label class="form-label">Expected Mileage (KM)</label>
+                            <label class="form-label">Fuel Avg. (km/L)</label>
                             <input
                                 v-if="!isFormLocked"
                                 v-model.number="form.planned_mileage_km_per_liter"

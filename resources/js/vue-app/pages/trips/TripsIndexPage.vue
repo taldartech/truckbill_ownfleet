@@ -107,8 +107,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Trip #</th>
-                        <th>Truck</th>
-                        <th>Driver</th>
+                        <th>Truck / Driver</th>
                         <th class="trips-status-col">Status</th>
                         <th class="trips-period-col">Trip Date</th>
                         <th class="trips-route-col">Route</th>
@@ -143,10 +142,19 @@
                                 </span>
                             </div>
                         </td>
-                        <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
                         <td>
-                            <div>{{ trip.driver?.name ?? '—' }}</div>
-                            <div v-if="trip.substitute_driver?.name" class="small text-muted">
+                            <div class="fw-bold">
+                                {{ trip.vehicle?.registration_number ?? '—' }}
+                            </div>
+
+                            <div class="text-muted small">
+                                {{ trip.driver?.name ?? '—' }}
+                            </div>
+
+                            <div
+                                v-if="trip.substitute_driver?.name"
+                                class="text-warning small"
+                            >
                                 Substitute: {{ trip.substitute_driver.name }}
                             </div>
                         </td>
@@ -185,33 +193,44 @@
                                 </div>
                             </div>
                         </td>
-                        <td v-if="showActions" class="app-index-actions-cell text-end">
-                            <AppTableActions>
+                       <td
+                            v-if="showActions"
+                            class="app-index-actions-cell"
+                            style="text-align: left;"
+                        >
+                            <AppTableActions
+                                style="display: flex; justify-content: flex-start; width: 100%;"
+                            >
                                 <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
+
                                 <AppCrudActionButton
                                     v-if="canEdit && canManageTripExpensesFor(trip)"
                                     action="expenses"
                                     title="Trip expenses"
                                     @click="goToExpenses(trip)"
                                 />
+
                                 <AppCrudActionButton
                                     v-if="canGenerateInvoiceFor(trip)"
                                     action="invoice"
                                     title="Generate invoice(s)"
                                     @click="goToGenerateInvoices(trip)"
                                 />
+
                                 <AppCrudActionButton
                                     v-if="canPrintBiltyFor(trip)"
                                     action="bilty"
                                     title="Print bilty"
                                     @click="goToPrintBilty(trip)"
                                 />
+
                                 <AppCrudActionButton
                                     v-if="canEdit && canEditTrip(trip)"
                                     action="edit"
                                     title="Edit trip"
                                     @click="goToEdit(trip)"
                                 />
+
                                 <AppCrudActionButton
                                     v-if="canArchiveTripRow(trip)"
                                     action="archive"
