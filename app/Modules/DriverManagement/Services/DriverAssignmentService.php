@@ -2,12 +2,10 @@
 
 namespace App\Modules\DriverManagement\Services;
 
-use App\Attendance;
 use App\Driver;
 use App\DriverAssignment;
-use App\Enums\WagePaymentStatus;
 use App\Modules\DriverManagement\Repositories\DriverAssignmentRepository;
-use App\Vehicle;
+use App\Trip;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +15,6 @@ class DriverAssignmentService
 {
     public function __construct(
         private readonly DriverAssignmentRepository $driverAssignmentRepository,
-        private readonly AttendanceMonthLockService $monthLockService,
     ) {}
 
     public function paginate(int $perPage = 15, ?string $vehicleId = null): LengthAwarePaginator
@@ -82,17 +79,6 @@ class DriverAssignmentService
     public function create(array $data): DriverAssignment
     {
         return DB::transaction(function () use ($data): DriverAssignment {
-            $assignedFrom = Carbon::parse($data['assigned_from'])->toDateString();
-            $assignedTo = isset($data['assigned_to']) && $data['assigned_to'] !== null
-                ? Carbon::parse($data['assigned_to'])->toDateString()
-                : null;
-
-            $this->monthLockService->assertPeriodIsOpen(
-                $assignedFrom,
-                $assignedTo,
-                $this->vehicleLabel((string) $data['vehicle_id']),
-            );
-
             return $this->createAssignment($data);
         });
     }
@@ -129,53 +115,10 @@ class DriverAssignmentService
     public function update(DriverAssignment $driverAssignment, array $data): DriverAssignment
     {
         return DB::transaction(function () use ($driverAssignment, $data): DriverAssignment {
-            $this->assertAssignmentIsMutable($driverAssignment);
-
             return $this->updateAssignment($driverAssignment, $data);
         });
     }
 
-    public function hasPaidAttendanceInPeriod(DriverAssignment $driverAssignment): bool
-    {
-        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
-        $assignedTo = $driverAssignment->assigned_to?->toDateString() ?? Carbon::today()->toDateString();
-
-        if ($assignedFrom === null) {
-            return false;
-        }
-
-        return Attendance::query()
-            ->where('tenant_id', $driverAssignment->tenant_id)
-            ->where('vehicle_id', $driverAssignment->vehicle_id)
-            ->where(function ($query) use ($driverAssignment): void {
-                $query->where('primary_driver_id', $driverAssignment->driver_id)
-                    ->orWhere('wage_owner_driver_id', $driverAssignment->driver_id);
-            })
-            ->whereDate('attendance_date', '>=', $assignedFrom)
-            ->whereDate('attendance_date', '<=', $assignedTo)
-            ->where('wage_payment_status', WagePaymentStatus::Paid->value)
-            ->exists();
-    }
-
-    public function isAssignmentMutable(DriverAssignment $driverAssignment): bool
-    {
-        return ! $this->isAssignmentPeriodLocked($driverAssignment)
-            && ! $this->hasPaidAttendanceInPeriod($driverAssignment);
-    }
-
-    public function isAssignmentPeriodLocked(DriverAssignment $driverAssignment): bool
-    {
-        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
-
-        if ($assignedFrom === null) {
-            return false;
-        }
-
-        return $this->monthLockService->periodHasNonOpenMonth(
-            $assignedFrom,
-            $driverAssignment->assigned_to?->toDateString(),
-        );
-    }
 
     /**
      * @param  array<string, mixed>  $data
@@ -195,12 +138,6 @@ class DriverAssignmentService
         $assignedTo = array_key_exists('assigned_to', $data)
             ? ($data['assigned_to'] !== null ? Carbon::parse((string) $data['assigned_to'])->toDateString() : null)
             : $driverAssignment->assigned_to?->toDateString();
-
-        $this->monthLockService->assertPeriodIsOpen(
-            $assignedFrom,
-            $assignedTo,
-            $this->vehicleLabel((string) $merged['vehicle_id']),
-        );
 
         if ($merged['is_primary']) {
             $isOpenAssignment = $assignedTo === null;
@@ -235,58 +172,88 @@ class DriverAssignmentService
 
     public function delete(DriverAssignment $driverAssignment): void
     {
-        $this->assertAssignmentIsMutable($driverAssignment);
+        $this->assertAssignmentIsDeletable($driverAssignment);
         $this->driverAssignmentRepository->delete($driverAssignment);
     }
 
-    private function assertAssignmentIsMutable(DriverAssignment $driverAssignment): void
+    private function assertAssignmentIsDeletable(DriverAssignment $driverAssignment): void
     {
-        if ($this->isAssignmentPeriodLocked($driverAssignment)) {
+        if ($this->isAssignmentActive($driverAssignment)) {
             throw ValidationException::withMessages([
-                'driver_assignment' => [$this->formatAssignmentLockMessage($driverAssignment)],
+                'driver_assignment' => ['This assignment is currently active and cannot be deleted. Use Remove Driver to close it instead.'],
             ]);
         }
 
-        if ($this->hasPaidAttendanceInPeriod($driverAssignment)) {
-            $driverAssignment->loadMissing(['driver:id,name', 'vehicle:id,registration_number']);
-
+        if (! $this->isAssignmentCompleted($driverAssignment)) {
             throw ValidationException::withMessages([
-                'driver_assignment' => [
-                    $this->formatAssignmentPaidMessage($driverAssignment),
-                ],
+                'driver_assignment' => ['Only completed historical assignments can be deleted.'],
+            ]);
+        }
+
+        if ($this->hasLinkedTrips($driverAssignment)) {
+            throw ValidationException::withMessages([
+                'driver_assignment' => ['This assignment cannot be deleted because one or more trips are linked to it.'],
             ]);
         }
     }
 
-    private function formatAssignmentLockMessage(DriverAssignment $driverAssignment): string
+    private function isAssignmentActive(DriverAssignment $driverAssignment): bool
     {
-        $driverAssignment->loadMissing(['driver:id,name', 'vehicle:id,registration_number']);
+        $asOfDate = Carbon::today()->toDateString();
+        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
 
-        $truck = $driverAssignment->vehicle?->registration_number ?? 'Unknown truck';
-        $driver = $driverAssignment->driver?->name ?? 'Unknown driver';
-        $from = $driverAssignment->assigned_from?->format('d M, Y') ?? '—';
-        $to = $driverAssignment->assigned_to?->format('d M, Y') ?? 'Current';
-        $lockedMonths = $this->monthLockService->formatLockedMonthsList(
-            $driverAssignment->assigned_from?->toDateString() ?? now()->toDateString(),
-            $driverAssignment->assigned_to?->toDateString(),
-        );
+        if ($assignedFrom === null || $assignedFrom > $asOfDate) {
+            return false;
+        }
 
-        return "Truck {$truck}: {$driver} ({$from} to {$to}) overlaps closed/locked payroll month(s): {$lockedMonths}.";
+        $assignedTo = $driverAssignment->assigned_to?->toDateString();
+
+        return $assignedTo === null || $assignedTo > $asOfDate;
     }
 
-    private function formatAssignmentPaidMessage(DriverAssignment $driverAssignment): string
+    private function isAssignmentCompleted(DriverAssignment $driverAssignment): bool
     {
-        $truck = $driverAssignment->vehicle?->registration_number ?? 'Unknown truck';
-        $driver = $driverAssignment->driver?->name ?? 'Unknown driver';
-        $from = $driverAssignment->assigned_from?->format('d M, Y') ?? '—';
-        $to = $driverAssignment->assigned_to?->format('d M, Y') ?? 'Current';
+        $asOfDate = Carbon::today()->toDateString();
+        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
+        $assignedTo = $driverAssignment->assigned_to?->toDateString();
 
-        return "Truck {$truck}: {$driver} ({$from} to {$to}) cannot be changed because wage payment is already recorded.";
+        if ($assignedFrom === null || $assignedFrom > $asOfDate) {
+            return false;
+        }
+
+        return $assignedTo !== null && $assignedTo <= $asOfDate;
     }
 
-    private function vehicleLabel(string $vehicleId): ?string
+    private function hasLinkedTrips(DriverAssignment $driverAssignment): bool
     {
-        return Vehicle::query()->whereKey($vehicleId)->value('registration_number');
+        $assignedFrom = $driverAssignment->assigned_from?->toDateString();
+        $assignedTo = $driverAssignment->assigned_to?->toDateString();
+
+        if ($assignedFrom === null) {
+            return false;
+        }
+
+        $endDate = $assignedTo ?? $assignedFrom;
+
+        return Trip::query()
+            ->where('tenant_id', $driverAssignment->tenant_id)
+            ->where('vehicle_id', $driverAssignment->vehicle_id)
+            ->where('driver_id', $driverAssignment->driver_id)
+            ->where(function ($query) use ($assignedFrom, $endDate): void {
+                $query->where(function ($tripQuery) use ($assignedFrom, $endDate): void {
+                    $tripQuery->whereDate('start_at', '>=', $assignedFrom)
+                        ->whereDate('start_at', '<=', $endDate);
+                })
+                    ->orWhere(function ($tripQuery) use ($assignedFrom, $endDate): void {
+                        $tripQuery->whereDate('end_at', '>=', $assignedFrom)
+                            ->whereDate('end_at', '<=', $endDate);
+                    })
+                    ->orWhere(function ($tripQuery) use ($assignedFrom, $endDate): void {
+                        $tripQuery->whereDate('start_at', '<=', $assignedFrom)
+                            ->whereDate('end_at', '>=', $endDate);
+                    });
+            })
+            ->exists();
     }
 
     public function removePrimaryDriver(string $vehicleId, ?string $actorId = null, ?string $asOfDate = null): void
@@ -300,13 +267,6 @@ class DriverAssignmentService
                     'vehicle_id' => ['No primary driver is currently assigned to this truck.'],
                 ]);
             }
-
-            $this->assertAssignmentIsMutable($assignment);
-            $this->monthLockService->assertPeriodIsOpen(
-                $assignment->assigned_from?->toDateString() ?? $asOf,
-                $asOf,
-                $this->vehicleLabel($vehicleId),
-            );
 
             $assignment->update([
                 'assigned_to' => $asOf,
@@ -333,8 +293,6 @@ class DriverAssignmentService
             ->get();
 
         foreach ($assignments as $assignment) {
-            $this->assertAssignmentIsMutable($assignment);
-
             $from = $assignment->assigned_from;
 
             if ($from->lt($newFrom)) {

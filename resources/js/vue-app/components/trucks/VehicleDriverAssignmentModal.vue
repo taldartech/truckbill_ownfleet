@@ -139,14 +139,15 @@
                                         <th>Driver</th>
                                         <th>From</th>
                                         <th>To</th>
-                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 100px">
+                                        <th>Status</th>
+                                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="assignments.length === 0">
-                                        <td :colspan="canManage ? 4 : 3" class="text-center text-muted">
+                                        <td :colspan="canManage ? 5 : 4" class="text-center text-muted">
                                             No assignment history.
                                         </td>
                                     </tr>
@@ -154,30 +155,20 @@
                                         <td>{{ row.driver?.name ?? '—' }}</td>
                                         <td>{{ row.assigned_from ?? '—' }}</td>
                                         <td>{{ assignmentToLabel(row) }}</td>
+                                        <td>{{ assignmentStatusLabel(row) }}</td>
                                         <td v-if="canManage" class="app-index-actions-cell">
                                             <AppTableActions>
                                                 <AppCrudActionButton
                                                     action="edit"
-                                                    :disabled="row.has_paid_attendance || deletingId === row.id"
-                                                    :title="
-                                                        row.has_paid_attendance
-                                                            ? row.is_period_locked
-                                                                ? 'Cannot edit — payroll month is closed or locked'
-                                                                : 'Cannot edit — wage payment recorded in attendance'
-                                                            : 'Edit assignment'
-                                                    "
+                                                    :disabled="deletingId === row.id"
+                                                    title="Edit assignment"
                                                     @click="startEdit(row)"
                                                 />
                                                 <AppCrudActionButton
+                                                    v-if="!isActivePrimaryRow(row)"
                                                     action="delete"
-                                                    :disabled="row.has_paid_attendance || deletingId === row.id"
-                                                    :title="
-                                                        row.has_paid_attendance
-                                                            ? row.is_period_locked
-                                                                ? 'Cannot delete — payroll month is closed or locked'
-                                                                : 'Cannot delete — wage payment recorded in attendance'
-                                                            : 'Delete assignment'
-                                                    "
+                                                    :disabled="deletingId === row.id"
+                                                    title="Delete assignment"
                                                     @click="deleteAssignment(row)"
                                                 />
                                             </AppTableActions>
@@ -308,6 +299,10 @@ function assignmentToLabel(row) {
     return row.assigned_to ?? '—';
 }
 
+function assignmentStatusLabel(row) {
+    return isActivePrimaryRow(row) ? 'Current' : 'Completed';
+}
+
 function isActivePrimaryRow(row) {
     const date = asOfDate.value;
 
@@ -432,10 +427,6 @@ function cancelEdit() {
 }
 
 function startEdit(row) {
-    if (row.has_paid_attendance) {
-        return;
-    }
-
     clearErrors();
     assignedFromClientError.value = '';
     editingAssignment.value = row;
@@ -536,7 +527,7 @@ async function saveAssignment() {
 }
 
 async function deleteAssignment(row) {
-    if (!row?.id || row.has_paid_attendance) {
+    if (!row?.id) {
         return;
     }
 

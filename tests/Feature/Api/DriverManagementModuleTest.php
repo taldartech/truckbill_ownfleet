@@ -541,7 +541,71 @@ class DriverManagementModuleTest extends TestCase
         ]);
     }
 
-    public function test_admin_cannot_delete_driver_assignment_when_wage_is_paid_in_attendance(): void
+    public function test_admin_cannot_delete_current_driver_assignment(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Current Driver', 600);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-01',
+            'assigned_to' => null,
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/driver-assignments/{$assignment->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_assignment']);
+
+        $this->assertDatabaseHas('driver_assignments', [
+            'id' => $assignment->id,
+        ]);
+    }
+
+    public function test_admin_cannot_delete_driver_assignment_with_linked_trips(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+        $driver = $this->createDriver($tenant, 'Trip Driver', 600);
+
+        $assignment = DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'assigned_from' => '2026-06-01',
+            'assigned_to' => '2026-06-09',
+            'is_primary' => true,
+        ]);
+
+        Trip::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRIP-LINKED-1',
+            'status' => 'CREATED',
+            'start_at' => '2026-06-03 08:00:00',
+            'end_at' => '2026-06-03 18:00:00',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/api/driver-assignments/{$assignment->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_assignment']);
+
+        $this->assertDatabaseHas('driver_assignments', [
+            'id' => $assignment->id,
+        ]);
+    }
+
+    public function test_admin_can_delete_driver_assignment_when_wage_is_paid_in_attendance(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
         $vehicle = $this->createVehicle($tenant);
@@ -571,10 +635,9 @@ class DriverManagementModuleTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->deleteJson("/api/driver-assignments/{$assignment->id}")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['driver_assignment']);
+            ->assertNoContent();
 
-        $this->assertDatabaseHas('driver_assignments', [
+        $this->assertDatabaseMissing('driver_assignments', [
             'id' => $assignment->id,
         ]);
     }

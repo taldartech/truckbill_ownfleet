@@ -649,10 +649,8 @@ class AttendanceExceptionFlowTest extends TestCase
                 'assigned_from' => '2026-06-01',
                 'is_primary' => true,
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.driver_assignment.0', fn (?string $message): bool => is_string($message)
-                && str_contains($message, $vehicle->registration_number)
-                && str_contains($message, 'June 2026'));
+            ->assertOk()
+            ->assertJsonPath('data.has_paid_attendance', false);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/attendances', [
