@@ -43,7 +43,7 @@
 }
 
 .vue-app-shell .sidebar-brand .brand-image {
-    max-height: 90px;
+    max-height: 75px;
     width: auto;
     object-fit: contain;
 }
