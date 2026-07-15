@@ -43,7 +43,7 @@ class CustomerRepository
     private function baseQuery(?string $search)
     {
         return Customer::query()
-            ->with(['country', 'state', 'city'])
+            ->with(['country', 'state', 'city', 'createdBy', 'updatedBy'])
             ->when($search, fn ($query) => $this->applySearch($query, $search));
     }
 

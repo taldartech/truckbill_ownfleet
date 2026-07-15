@@ -195,6 +195,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'customers.view' },
                 },
                 {
+                    path: 'customers/:id',
+                    name: 'customers.show',
+                    component: () => import('./pages/customers/CustomerDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'customers.view' },
+                },
+                {
                     path: 'goods-types',
                     name: 'goods-types.index',
                     component: () => import('./pages/goods-types/GoodsTypesIndexPage.vue'),

@@ -44,6 +44,13 @@ export async function updateCustomer(id, payload) {
     return unwrapResource(data);
 }
 
+export async function fetchCustomer(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function deleteCustomer(id) {
     await api.delete(`${base}/${id}`);
 }
+

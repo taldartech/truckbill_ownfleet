@@ -1,16 +1,7 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-4 app-index-page app-index-page--standard customers-index-page">
         <AppIndexListCard title="Customers" :loading="loading" loading-text="Loading customers…">
             <template #toolbar>
-                <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="customers-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
@@ -22,19 +13,19 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="customers-filters-panel"
                 :loading="loading"
                 @search="loadCustomers(1)"
                 @reset="clearFilters"
             >
-                <div>
+                <div class="filter-search-col">
                     <label class="form-label" for="customersIndex_search">Search</label>
                     <AppIndexSearchInput
                         v-model="search"
                         input-id="customersIndex_search"
                         placeholder="Search name, GST, PAN, contact"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadCustomers(1)"
                     />
@@ -44,6 +35,7 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 80px">S.No.</th>
                         <th>Name</th>
                         <th>Contact</th>
                         <th>GST</th>
@@ -55,36 +47,35 @@
                 </thead>
                 <tbody>
                     <tr v-if="customers.length === 0" class="app-index-empty-row">
-                        <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No customers found.</td>
+                        <td :colspan="canEdit ? 8 : 7" class="text-center text-muted py-4">No customers found.</td>
                     </tr>
-                    <tr v-for="customer in customers" :key="customer.id">
-                        <td>{{ customer.name }}</td>
+                    <tr v-for="(customer, index) in customers" :key="customer.id">
+                        <td>{{ (pagination.currentPage - 1) * pagination.perPage + index + 1 }}</td>
+                        <td>
+                            <RouterLink
+                                :to="{ name: 'customers.show', params: { id: customer.id } }"
+                                class="customer-name-link"
+                                title="View customer details"
+                            >
+                                {{ customer.name }}
+                            </RouterLink>
+                        </td>
                         <td>{{ customer.contact_number || '—' }}</td>
                         <td>{{ customer.gst_number || '—' }}</td>
                         <td>{{ customer.pan_number || '—' }}</td>
                         <td>{{ customer.city_name || '—' }}</td>
                         <td>{{ customer.state_name || '—' }}</td>
                         <td v-if="canEdit" class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                            <AppTableActions>
+                                <AppCrudActionButton
+                                    action="edit"
                                     @click="openEdit(customer)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
-                                    title="Delete"
-                                    aria-label="Delete"
+                                />
+                                <AppCrudActionButton
+                                    action="delete"
                                     @click="handleDelete(customer)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -100,101 +91,15 @@
             </template>
         </AppIndexListCard>
 
-        <AppModal
+        <CustomerFormModal
             :show="showModal"
-            :loading="saving"
+            :saving="saving"
+            :customer="editing"
+            :field-errors="fieldErrors"
             :form-error="formError"
-            as-form
-            size="lg"
             @close="closeModal"
-            @submit="save"
-        >
-            <template #title>{{ editing ? 'Edit Customer' : 'Add Customer' }}</template>
-
-            <div class="row g-2">
-                <IndiaLocationFields
-                    v-model:state-id="stateId"
-                    v-model:city-id="cityId"
-                    :states="states"
-                    :cities="cities"
-                    :field-errors="fieldErrors"
-                />
-
-                <div class="col-12">
-                    <label class="form-label">Customer Name *</label>
-                    <input
-                        v-model="form.name"
-                        type="text"
-                        class="form-control"
-                        :class="{ 'is-invalid': fieldErrors.name }"
-                        required
-                    />
-                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                        {{ fieldErrors.name[0] }}
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">GST Number</label>
-                    <input
-                        v-model="form.gst_number"
-                        type="text"
-                        class="form-control"
-                        :class="{ 'is-invalid': fieldErrors.gst_number }"
-                    />
-                    <div v-if="fieldErrors.gst_number" class="invalid-feedback d-block">
-                        {{ fieldErrors.gst_number[0] }}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">PAN Number</label>
-                    <input
-                        v-model="form.pan_number"
-                        type="text"
-                        class="form-control text-uppercase"
-                        :class="{ 'is-invalid': fieldErrors.pan_number }"
-                        maxlength="10"
-                    />
-                    <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
-                        {{ fieldErrors.pan_number[0] }}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Contact Number *</label>
-                    <input
-                        :value="form.contact_number"
-                        type="text"
-                        inputmode="numeric"
-                        maxlength="10"
-                        class="form-control"
-                        placeholder="10-digit mobile"
-                        required
-                        :class="{ 'is-invalid': fieldErrors.contact_number }"
-                        @input="form.contact_number = normalizeMobile($event.target.value)"
-                    />
-                    <div v-if="fieldErrors.contact_number" class="invalid-feedback d-block">
-                        {{ fieldErrors.contact_number[0] }}
-                    </div>
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Address</label>
-                    <textarea
-                        v-model="form.address"
-                        class="form-control"
-                        rows="2"
-                        :class="{ 'is-invalid': fieldErrors.address }"
-                    />
-                    <div v-if="fieldErrors.address" class="invalid-feedback d-block">
-                        {{ fieldErrors.address[0] }}
-                    </div>
-                </div>
-            </div>
-
-            <template #footer>
-                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
-                <AppButton type="submit" label="Save" :loading="saving" />
-            </template>
-        </AppModal>
+            @submit="handleSubmit"
+        />
 
         <MasterCrudSaveConfirmModal
             :show="showSaveConfirm"
@@ -207,25 +112,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from '../../api/customers';
-import AppModal from '../../components/ui/AppModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
-import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
+import CustomerFormModal from '../../components/customers/CustomerFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
-import { useLocationLookups } from '../../composables/useLocationLookups';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
-import { buildPartyLocationFields } from '../../utils/masterCrudSaveConfirm';
-import { normalizeMobile } from '../../utils/phone';
 
 const toast = useAppToast();
 const {
@@ -240,45 +143,15 @@ const { canInCompany, canCreateInCompany, canEditInCompany } = usePermissions();
 const canCreate = computed(() => canCreateInCompany('customers') || canInCompany('trips.create'));
 const canEdit = computed(() => canEditInCompany('customers'));
 
-const {
-    states,
-    cities,
-    countryId,
-    stateId,
-    cityId,
-    indiaCountry,
-    initialize,
-    resetLocationFields,
-} = useLocationLookups();
-
 const customers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
-const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
-const form = reactive({
-    name: '',
-    gst_number: '',
-    pan_number: '',
-    contact_number: '',
-    address: '',
-});
 
-function resetForm() {
-    form.name = '';
-    form.gst_number = '';
-    form.pan_number = '';
-    form.contact_number = '';
-    form.address = '';
-}
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
-
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
 
 function clearFilters() {
     search.value = '';
@@ -315,28 +188,15 @@ function goToPage(page) {
     loadCustomers(page);
 }
 
-async function openCreate() {
+function openCreate() {
     editing.value = null;
-    resetForm();
     clearErrors();
-    resetLocationFields();
     showModal.value = true;
-    await initialize();
 }
 
-async function openEdit(customer) {
+function openEdit(customer) {
     editing.value = customer;
-    form.name = customer.name;
-    form.gst_number = customer.gst_number ?? '';
-    form.pan_number = customer.pan_number ?? '';
-    form.contact_number = normalizeMobile(customer.contact_number ?? '');
-    form.address = customer.address ?? '';
     clearErrors();
-    await initialize({
-        countryId: customer.country_id || countryId.value,
-        stateId: customer.state_id,
-        cityId: customer.city_id,
-    });
     showModal.value = true;
 }
 
@@ -344,31 +204,16 @@ function closeModal() {
     showModal.value = false;
     editing.value = null;
     clearErrors();
-    resetLocationFields();
 }
 
-function buildPayload() {
-    return {
-        name: form.name.trim(),
-        country_id: countryId.value || indiaCountry.value?.id,
-        state_id: stateId.value,
-        city_id: cityId.value,
-        gst_number: form.gst_number.trim() || null,
-        pan_number: form.pan_number.trim().toUpperCase() || null,
-        contact_number: normalizeMobile(form.contact_number),
-        address: form.address.trim() || null,
-    };
-}
-
-function save() {
+function handleSubmit({ payload, fields }) {
     clearErrors();
-    const payload = buildPayload();
 
     promptSaveConfirm({
         payload,
         entityLabel: 'Customer',
         mode: editing.value ? 'edit' : 'create',
-        fields: buildPartyLocationFields(payload, editing.value, { states: states.value, cities: cities.value }),
+        fields,
     });
 }
 
@@ -416,11 +261,44 @@ async function handleDelete(customer) {
 }
 
 onMounted(async () => {
-    await initialize();
     await loadCustomers();
-
-    if (search.value.trim() !== '') {
-        filtersOpen.value = true;
-    }
 });
 </script>
+
+<style scoped>
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.customer-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.customer-name-link:hover {
+    text-decoration: underline;
+}
+</style>

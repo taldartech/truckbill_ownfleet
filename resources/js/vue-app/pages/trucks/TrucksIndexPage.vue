@@ -11,10 +11,10 @@
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
-                    aria-label="Create truck"
+                    aria-label="Add Truck"
                     @click="openCreate"
                 >
-                    Create
+                    Add Truck
                 </AppIndexHeaderButton>
             </template>
 

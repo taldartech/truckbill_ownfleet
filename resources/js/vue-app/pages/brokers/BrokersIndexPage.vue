@@ -5,10 +5,10 @@
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
-                    aria-label="Create reference"
+                    aria-label="Add Reference"
                     @click="openCreate"
                 >
-                    Create
+                    Add Reference
                 </AppIndexHeaderButton>
             </template>
 
