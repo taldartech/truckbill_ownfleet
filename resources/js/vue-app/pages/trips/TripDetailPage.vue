@@ -76,6 +76,16 @@
                     :disabled="archivingTrip"
                     @click="handleArchive"
                 />
+                <AppButton
+                    v-if="canRestoreThisTrip"
+                    variant="success"
+                    outline
+                    size="sm"
+                    icon="bi bi-arrow-counterclockwise"
+                    label="Restore"
+                    :disabled="restoringTrip"
+                    @click="openRestoreConfirm"
+                />
             </div>
         </div>
 
@@ -91,6 +101,9 @@
                 This trip has been archived and is read-only. It cannot be edited or modified.
                 <span v-if="trip.archive_reason" class="d-block mt-1 small mb-0">
                     Reason: {{ trip.archive_reason }}
+                </span>
+                <span v-if="canRestoreThisTrip" class="d-block mt-1 small mb-0">
+                    Use Restore to return it to the active trip list.
                 </span>
             </div>
 
@@ -790,6 +803,14 @@
             @cancel="closeArchiveConfirm"
             @confirm="confirmArchiveTrip"
         />
+
+        <TripRestoreConfirmModal
+            :show="showRestoreConfirm"
+            :summary="restoreConfirmSummary"
+            :restoring="restoringTrip"
+            @cancel="closeRestoreConfirm"
+            @confirm="confirmRestoreTrip"
+        />
     </div>
 </template>
 
@@ -808,6 +829,7 @@ import {
     isTripArchived,
     isTerminalTripStatus,
     resolveTripEditAccess,
+    restoreTrip,
     summarizeTripForm,
     legLoadCategoryMeta,
     tripArchiveDisabledTitle,
@@ -815,6 +837,7 @@ import {
     tripTypeLabel,
 } from '../../api/trips';
 import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
+import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -829,6 +852,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
 import { buildTripArchiveConfirmViewModel } from '../../utils/tripArchiveConfirm';
+import { buildTripRestoreConfirmViewModel } from '../../utils/tripRestoreConfirm';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { invalidateOperationalData } from '../../composables/useOperationalDataInvalidation';
 
@@ -862,11 +886,17 @@ const archivingTrip = ref(false);
 const archiveFieldErrors = ref({});
 const tripPendingArchive = ref(null);
 
+const showRestoreConfirm = ref(false);
+const restoreConfirmSummary = ref(null);
+const restoringTrip = ref(false);
+
 const canManage = computed(() => canInCompany('trips.edit'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const canRestore = computed(() => canInCompany('trips.restore'));
 const canArchiveThisTrip = computed(() => {
     return canArchive.value && trip.value && canArchiveTrip(trip.value.status, user.value);
 });
+const canRestoreThisTrip = computed(() => canRestore.value && isArchived.value);
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const biltyGroups = computed(() => {
@@ -1385,6 +1415,59 @@ async function confirmArchiveTrip({ archive_reason: archiveReason }) {
         }
     } finally {
         archivingTrip.value = false;
+    }
+}
+
+function openRestoreConfirm() {
+    if (!canRestoreThisTrip.value || !trip.value) {
+        return;
+    }
+
+    restoreConfirmSummary.value = buildTripRestoreConfirmViewModel(trip.value);
+    showRestoreConfirm.value = true;
+}
+
+function closeRestoreConfirm() {
+    if (restoringTrip.value) {
+        return;
+    }
+
+    showRestoreConfirm.value = false;
+    restoreConfirmSummary.value = null;
+}
+
+function restoreTripErrorMessage(error) {
+    if (error?.response?.status === 403) {
+        return 'You do not have permission to restore trips.';
+    }
+
+    const tripError = error?.response?.data?.errors?.trip?.[0];
+
+    if (tripError) {
+        return tripError;
+    }
+
+    return friendlyApiErrorMessage(error, 'Unable to restore trip.');
+}
+
+async function confirmRestoreTrip() {
+    if (!trip.value || restoringTrip.value) {
+        return;
+    }
+
+    restoringTrip.value = true;
+
+    try {
+        await restoreTrip(trip.value.id);
+        toast.success('Trip restored successfully.');
+        showRestoreConfirm.value = false;
+        restoreConfirmSummary.value = null;
+        invalidateOperationalData(['trips', 'dashboard', 'trip-reports']);
+        await loadTrip();
+    } catch (error) {
+        toast.error(restoreTripErrorMessage(error));
+    } finally {
+        restoringTrip.value = false;
     }
 }
 

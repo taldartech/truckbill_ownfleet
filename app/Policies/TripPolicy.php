@@ -56,6 +56,14 @@ class TripPolicy
             && $this->viewAny($user);
     }
 
+    public function restore(User $user, Trip $trip): bool
+    {
+        return $trip->trashed()
+            && CurrentTenant::id() === $trip->tenant_id
+            && $user->hasPermission('trips.restore')
+            && $this->viewAny($user);
+    }
+
     /**
      * @deprecated Use archive()
      */

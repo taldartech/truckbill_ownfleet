@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ArchiveTripRequest;
 use App\Http\Requests\CheckTripWindowRequest;
 use App\Http\Requests\DeleteTripRequest;
+use App\Http\Requests\RestoreTripRequest;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\TripBiltyPdfRequest;
 use App\Http\Requests\UpdateTripRequest;
@@ -214,6 +215,13 @@ class TripController extends Controller
             $request->validated('archive_reason'),
             $request->user(),
         );
+
+        return response()->noContent();
+    }
+
+    public function restore(RestoreTripRequest $request, Trip $trip): Response
+    {
+        $this->tripService->restore($trip, $request->user());
 
         return response()->noContent();
     }

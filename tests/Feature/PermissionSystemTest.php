@@ -85,6 +85,7 @@ class PermissionSystemTest extends TestCase
         $this->assertTrue($user->hasPermission('vehicle_documents.edit'));
         $this->assertFalse($user->hasPermission('trips.archive'));
         $this->assertFalse($user->hasPermission('trips.view_archived'));
+        $this->assertFalse($user->hasPermission('trips.restore'));
         $this->assertFalse($user->hasPermission('trips.edit'));
         $this->assertFalse($user->hasPermission('wages.view'));
         $this->assertFalse($user->hasPermission('fleet_monthly_report.view'));

@@ -71,6 +71,10 @@ export async function archiveTrip(id, { archive_reason } = {}) {
     });
 }
 
+export async function restoreTrip(id) {
+    await api.post(`${tripsBase}/${id}/restore`);
+}
+
 /** @deprecated Use archiveTrip */
 export async function deleteTrip(id, { deletion_reason, archive_reason } = {}) {
     await archiveTrip(id, {

@@ -2882,6 +2882,81 @@ class TripManagementTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_admin_can_restore_archived_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived so it can be restored in this test.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertNoContent();
+
+        $restoredTrip = Trip::query()->find($trip->id);
+
+        $this->assertNotNull($restoredTrip);
+        $this->assertNull($restoredTrip->deleted_at);
+        $this->assertNull($restoredTrip->archived_by);
+        $this->assertNull($restoredTrip->archive_reason);
+
+        $this->assertDatabaseHas('trip_audit_logs', [
+            'trip_id' => $trip->id,
+            'event_type' => 'trip.restored',
+            'performed_by' => $user->id,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id)
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', false);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $trip->id]);
+    }
+
+    public function test_admin_cannot_restore_active_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertForbidden();
+    }
+
+    public function test_moderator_cannot_restore_archived_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'archived_by' => $user->id,
+            'archive_reason' => 'Archived for moderator restore denial test.',
+        ]);
+        $trip->delete();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertForbidden();
+
+        $this->assertNotNull(Trip::query()->withTrashed()->find($trip->id)?->deleted_at);
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: Vehicle, 3: Driver, 4: array<string, Station>, 5: Customer}
      */

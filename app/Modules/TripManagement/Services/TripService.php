@@ -448,6 +448,38 @@ class TripService
         $this->archive($trip, $deletionReason, $user);
     }
 
+    public function restore(Trip $trip, ?User $user = null): void
+    {
+        if (! $trip->trashed()) {
+            throw ValidationException::withMessages([
+                'trip' => ['This trip is not archived and cannot be restored.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($trip, $user): void {
+            $previousArchiveReason = $trip->archive_reason;
+            $userId = $user?->id;
+            $restoredAt = now();
+
+            $this->tripRepository->restore($trip);
+
+            $this->tripAuditLogger->log(
+                eventType: 'trip.restored',
+                trip: $trip->fresh() ?? $trip,
+                payload: [
+                    'trip_number' => $trip->trip_number,
+                    'previous_archive_reason' => $previousArchiveReason,
+                    'restored_by' => [
+                        'id' => $userId,
+                        'name' => $user?->name,
+                    ],
+                    'restored_at' => $restoredAt->toIso8601String(),
+                ],
+                performedBy: $userId,
+            );
+        });
+    }
+
     /**
      * @param  list<array<string, mixed>>  $routeLegs
      */
