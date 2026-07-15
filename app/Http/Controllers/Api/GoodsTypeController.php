@@ -51,12 +51,16 @@ class GoodsTypeController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
+        $goodsType->load(['createdBy', 'updatedBy']);
+
         return new GoodsTypeResource($goodsType);
     }
 
     public function show(GoodsType $goodsType): GoodsTypeResource
     {
         $this->authorize('view', $goodsType);
+
+        $goodsType->load(['createdBy', 'updatedBy']);
 
         return new GoodsTypeResource($goodsType);
     }
@@ -68,7 +72,9 @@ class GoodsTypeController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
-        return new GoodsTypeResource($goodsType->fresh());
+        $goodsType->load(['createdBy', 'updatedBy']);
+
+        return new GoodsTypeResource($goodsType);
     }
 
     public function destroy(GoodsType $goodsType): JsonResponse

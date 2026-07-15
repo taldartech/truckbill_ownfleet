@@ -44,6 +44,12 @@ export async function updateGoodsType(id, payload) {
     return unwrapResource(data);
 }
 
+export async function fetchGoodsType(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function deleteGoodsType(id) {
     await api.delete(`${base}/${id}`);
 }
