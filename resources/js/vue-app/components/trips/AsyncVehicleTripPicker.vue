@@ -94,6 +94,13 @@
                 />
             </div>
         </Teleport>
+
+        <TripVehicleSelectConfirmModal
+            :show="showSelectConfirm"
+            :summary="selectConfirmSummary"
+            @cancel="cancelPendingSelection"
+            @confirm="confirmPendingSelection"
+        />
     </div>
 </template>
 
@@ -101,7 +108,9 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { searchVehiclesForTripSelection } from '../../api/vehicles';
 import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
+import { buildTripVehicleSelectConfirmViewModel } from '../../utils/tripVehicleSelectConfirm';
 import PickerListFooter from '../ui/PickerListFooter.vue';
+import TripVehicleSelectConfirmModal from './TripVehicleSelectConfirmModal.vue';
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },
@@ -132,6 +141,9 @@ const dropdownStyle = ref({});
 const currentPage = ref(1);
 const lastPage = ref(1);
 const totalResults = ref(null);
+const showSelectConfirm = ref(false);
+const selectConfirmSummary = ref(null);
+const pendingVehicle = ref(null);
 let debounceTimer = null;
 
 function sortItemsBySelectable(list) {
@@ -235,6 +247,9 @@ function toggleDropdown() {
 }
 
 function clearSelection() {
+    pendingVehicle.value = null;
+    selectConfirmSummary.value = null;
+    showSelectConfirm.value = false;
     selectedVehicle.value = null;
     emit('update:modelValue', '');
     emit('vehicle-selected', null);
@@ -246,10 +261,42 @@ function selectItem(item) {
         return;
     }
 
+    selectedVehicle.value = null;
+    emit('update:modelValue', '');
+    emit('vehicle-selected', null);
+
+    pendingVehicle.value = item;
+    selectConfirmSummary.value = buildTripVehicleSelectConfirmViewModel(item);
+    showSelectConfirm.value = true;
+    closeDropdown();
+}
+
+function confirmPendingSelection() {
+    const item = pendingVehicle.value;
+
+    if (!item?.selectable) {
+        cancelPendingSelection();
+
+        return;
+    }
+
     selectedVehicle.value = item;
     emit('update:modelValue', item.vehicle_id);
     emit('vehicle-selected', item);
-    closeDropdown({ restoreTriggerFocus: true });
+    pendingVehicle.value = null;
+    selectConfirmSummary.value = null;
+    showSelectConfirm.value = false;
+    nextTick(focusTrigger);
+}
+
+function cancelPendingSelection() {
+    pendingVehicle.value = null;
+    selectConfirmSummary.value = null;
+    showSelectConfirm.value = false;
+    selectedVehicle.value = null;
+    emit('update:modelValue', '');
+    emit('vehicle-selected', null);
+    nextTick(focusTrigger);
 }
 
 function moveHighlight(delta) {

@@ -1964,8 +1964,26 @@ class TripManagementTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.0.registration_number', 'MH12TR0001');
         $response->assertJsonPath('data.0.odometer_km', 1000);
+        $response->assertJsonPath('data.0.vehicle_type', 'TRUCK');
         $response->assertJsonPath('data.0.selectable', true);
         $response->assertJsonPath('data.0.primary_driver_name', 'Trip Driver');
+        $response->assertJsonStructure([
+            'data' => [
+                [
+                    'vehicle_id',
+                    'registration_number',
+                    'vehicle_type',
+                    'make',
+                    'model',
+                    'manufacture_year',
+                    'odometer_km',
+                    'default_mileage_km_per_liter',
+                    'max_load_ton',
+                    'primary_driver_name',
+                    'selectable',
+                ],
+            ],
+        ]);
     }
 
     public function test_vehicle_for_trip_selection_lists_selectable_trucks_first(): void
