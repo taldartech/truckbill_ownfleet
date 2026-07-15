@@ -33,3 +33,10 @@ export async function updateCity(id, payload) {
 
     return unwrapResource(data);
 }
+
+export async function fetchCity(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+

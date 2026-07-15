@@ -225,6 +225,18 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'locations.view' },
                 },
                 {
+                    path: 'locations/states/:id',
+                    name: 'states.show',
+                    component: () => import('./pages/locations/StateDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'locations.view' },
+                },
+                {
+                    path: 'locations/cities/:id',
+                    name: 'cities.show',
+                    component: () => import('./pages/locations/CityDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'locations.view' },
+                },
+                {
                     path: 'reports/attendance',
                     name: 'reports.attendance',
                     component: () => import('./pages/reports/AttendanceReportsPage.vue'),

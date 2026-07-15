@@ -31,26 +31,16 @@
         >
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="stateFiltersOpen"
-                    aria-controls="locations-states-filters-panel"
-                    aria-label="Toggle state search filters"
-                    @click="toggleStateFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
                     aria-label="Create state"
                     @click="openStateCreate"
                 >
-                    Create
+                    Add State
                 </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="stateFiltersOpen"
                 panel-id="locations-states-filters-panel"
                 :loading="loadingStates"
                 @search="loadStates(1)"
@@ -72,25 +62,28 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 70px">S.No.</th>
                         <th>Name</th>
                         <th>Code</th>
                         <th>Cities</th>
-                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="states.length === 0" class="app-index-empty-row">
-                        <td :colspan="canManage ? 4 : 3" class="text-center text-muted py-4">No states found.</td>
+                        <td colspan="4" class="text-center text-muted py-4">No states found.</td>
                     </tr>
-                    <tr v-for="state in states" :key="state.id">
-                        <td>{{ state.name }}</td>
+                    <tr v-for="(state, index) in states" :key="state.id">
+                        <td>{{ (statePagination.currentPage - 1) * statePagination.perPage + index + 1 }}</td>
+                        <td>
+                            <RouterLink
+                                :to="{ name: 'states.show', params: { id: state.id } }"
+                                class="state-name-link text-decoration-none fw-semibold"
+                            >
+                                {{ state.name }}
+                            </RouterLink>
+                        </td>
                         <td>{{ state.code || '—' }}</td>
                         <td>{{ state.cities_count ?? 0 }}</td>
-                        <td v-if="canManage" class="app-index-actions-cell">
-                            <AppTableActions>
-                                <AppCrudActionButton action="edit" @click="openStateEdit(state)" />
-                            </AppTableActions>
-                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -114,26 +107,16 @@
         >
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="cityFiltersOpen"
-                    aria-controls="locations-cities-filters-panel"
-                    aria-label="Toggle city search filters"
-                    @click="toggleCityFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
                     aria-label="Create city"
                     @click="openCityCreate"
                 >
-                    Create
+                    Add City
                 </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="cityFiltersOpen"
                 panel-id="locations-cities-filters-panel"
                 :loading="loadingCities"
                 @search="loadCities(1)"
@@ -165,23 +148,26 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 70px">S.No.</th>
                         <th>Name</th>
                         <th>State</th>
-                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="cities.length === 0" class="app-index-empty-row">
-                        <td :colspan="canManage ? 3 : 2" class="text-center text-muted py-4">No cities found.</td>
+                        <td colspan="3" class="text-center text-muted py-4">No cities found.</td>
                     </tr>
-                    <tr v-for="city in cities" :key="city.id">
-                        <td>{{ city.name }}</td>
-                        <td>{{ city.state_name || '—' }}</td>
-                        <td v-if="canManage" class="app-index-actions-cell">
-                            <AppTableActions>
-                                <AppCrudActionButton action="edit" @click="openCityEdit(city)" />
-                            </AppTableActions>
+                    <tr v-for="(city, index) in cities" :key="city.id">
+                        <td>{{ (cityPagination.currentPage - 1) * cityPagination.perPage + index + 1 }}</td>
+                        <td>
+                            <RouterLink
+                                :to="{ name: 'cities.show', params: { id: city.id } }"
+                                class="city-name-link text-decoration-none fw-semibold"
+                            >
+                                {{ city.name }}
+                            </RouterLink>
                         </td>
+                        <td>{{ city.state_name || '—' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -208,18 +194,6 @@
             @submit="handleStateCreate"
         />
 
-        <StateFormModal
-            modal-id="editStateModal"
-            :show="showStateEdit"
-            mode="edit"
-            :state="editingState"
-            :saving="stateSaving"
-            :field-errors="stateFieldErrors"
-            :form-error="stateFormError"
-            @close="closeStateEdit"
-            @submit="handleStateUpdate"
-        />
-
         <CityFormModal
             modal-id="addCityModal"
             :show="showCityCreate"
@@ -231,19 +205,6 @@
             :form-error="cityFormError"
             @close="closeCityCreate"
             @submit="handleCityCreate"
-        />
-
-        <CityFormModal
-            modal-id="editCityModal"
-            :show="showCityEdit"
-            mode="edit"
-            :city="editingCity"
-            :state-options="stateOptions"
-            :saving="citySaving"
-            :field-errors="cityFieldErrors"
-            :form-error="cityFormError"
-            @close="closeCityEdit"
-            @submit="handleCityUpdate"
         />
 
         <MasterCrudSaveConfirmModal
@@ -258,9 +219,10 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { createCity, listCities, updateCity } from '../../api/cities';
+import { useRouter, RouterLink } from 'vue-router';
+import { createCity, listCities } from '../../api/cities';
 import { listStates as listLookupStates } from '../../api/locations';
-import { createState, listStates, updateState } from '../../api/states';
+import { createState, listStates } from '../../api/states';
 import CityFormModal from '../../components/locations/CityFormModal.vue';
 import StateFormModal from '../../components/locations/StateFormModal.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -279,6 +241,7 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { usePermissions } from '../../composables/usePermissions';
 import { buildCityFields, buildStateFields } from '../../utils/masterCrudSaveConfirm';
 
+const router = useRouter();
 const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('locations.manage'));
 const toast = useAppToast();
@@ -318,26 +281,12 @@ const citySaving = ref(false);
 const stateSearch = ref('');
 const citySearch = ref('');
 const cityStateFilter = ref('');
-const stateFiltersOpen = ref(false);
-const cityFiltersOpen = ref(false);
 const showStateCreate = ref(false);
-const showStateEdit = ref(false);
 const showCityCreate = ref(false);
-const showCityEdit = ref(false);
-const editingState = ref(null);
-const editingCity = ref(null);
 const cityCreateStateId = ref('');
 
 const { pagination: statePagination, syncFromMeta: syncStatePagination } = useListPagination(10);
 const { pagination: cityPagination, syncFromMeta: syncCityPagination } = useListPagination(10);
-
-function toggleStateFilters() {
-    stateFiltersOpen.value = !stateFiltersOpen.value;
-}
-
-function toggleCityFilters() {
-    cityFiltersOpen.value = !cityFiltersOpen.value;
-}
 
 function clearStateFilters() {
     stateSearch.value = '';
@@ -469,18 +418,6 @@ function closeStateCreate() {
     clearStateErrors();
 }
 
-function openStateEdit(state) {
-    editingState.value = { ...state };
-    clearStateErrors();
-    showStateEdit.value = true;
-}
-
-function closeStateEdit() {
-    showStateEdit.value = false;
-    editingState.value = null;
-    clearStateErrors();
-}
-
 function openCityCreate() {
     cityCreateStateId.value = cityStateFilter.value || '';
     clearCityErrors();
@@ -489,18 +426,6 @@ function openCityCreate() {
 
 function closeCityCreate() {
     showCityCreate.value = false;
-    clearCityErrors();
-}
-
-function openCityEdit(city) {
-    editingCity.value = { ...city };
-    clearCityErrors();
-    showCityEdit.value = true;
-}
-
-function closeCityEdit() {
-    showCityEdit.value = false;
-    editingCity.value = null;
     clearCityErrors();
 }
 
@@ -516,22 +441,6 @@ function handleStateCreate(payload) {
     });
 }
 
-function handleStateUpdate(payload) {
-    if (!editingState.value?.id) {
-        return;
-    }
-
-    clearStateErrors();
-    pendingLocationSaveKind.value = 'state-update';
-
-    promptSaveConfirm({
-        payload,
-        entityLabel: 'State',
-        mode: 'edit',
-        fields: buildStateFields(payload, editingState.value),
-    });
-}
-
 function handleCityCreate(payload) {
     clearCityErrors();
     pendingLocationSaveKind.value = 'city-create';
@@ -541,22 +450,6 @@ function handleCityCreate(payload) {
         entityLabel: 'City',
         mode: 'create',
         fields: buildCityFields(payload, null, { states: stateOptions.value }),
-    });
-}
-
-function handleCityUpdate(payload) {
-    if (!editingCity.value?.id) {
-        return;
-    }
-
-    clearCityErrors();
-    pendingLocationSaveKind.value = 'city-update';
-
-    promptSaveConfirm({
-        payload,
-        entityLabel: 'City',
-        mode: 'edit',
-        fields: buildCityFields(payload, editingCity.value, { states: stateOptions.value }),
     });
 }
 
@@ -581,26 +474,11 @@ async function confirmSave() {
             finishSaveConfirm();
             closeStateCreate();
             await Promise.all([loadStateOptions(), loadStates(1)]);
-        } else if (kind === 'state-update') {
-            await updateState(editingState.value.id, payload);
-            toast.success('State has been updated successfully.');
-            finishSaveConfirm();
-            closeStateEdit();
-            await Promise.all([loadStateOptions(), loadStates(statePagination.currentPage)]);
         } else if (kind === 'city-create') {
             await createCity(payload);
             toast.success('City has been added successfully.');
             finishSaveConfirm();
             closeCityCreate();
-            await Promise.all([
-                loadCities(cityPagination.currentPage),
-                loadStates(statePagination.currentPage),
-            ]);
-        } else if (kind === 'city-update') {
-            await updateCity(editingCity.value.id, payload);
-            toast.success('City has been updated successfully.');
-            finishSaveConfirm();
-            closeCityEdit();
             await Promise.all([
                 loadCities(cityPagination.currentPage),
                 loadStates(statePagination.currentPage),
@@ -624,13 +502,5 @@ async function confirmSave() {
 onMounted(async () => {
     await loadStateOptions();
     await Promise.all([loadStates(1), loadCities(1)]);
-
-    if (stateSearch.value.trim() !== '') {
-        stateFiltersOpen.value = true;
-    }
-
-    if (citySearch.value.trim() !== '' || cityStateFilter.value !== '') {
-        cityFiltersOpen.value = true;
-    }
 });
 </script>

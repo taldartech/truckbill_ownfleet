@@ -32,3 +32,10 @@ export async function updateState(id, payload) {
 
     return unwrapResource(data);
 }
+
+export async function fetchState(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
