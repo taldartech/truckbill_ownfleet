@@ -203,7 +203,6 @@
                                         <tr :class="rowBorderClass(doc)">
                                             <td>
                                                 <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
-                                                <small v-if="!isDashboardContext" class="text-muted">{{ doc.document_type }}</small>
                                             </td>
                                             <td v-if="!isDashboardContext">{{ formatDate(doc.issue_date) }}</td>
                                             <td>{{ formatDate(doc.expiry_date) }}</td>
@@ -248,7 +247,6 @@
                                         >
                                             <td>
                                                 <div class="fw-medium">{{ doc.document_type_label ?? doc.document_type }}</div>
-                                                <small class="text-muted">{{ doc.document_type }}</small>
                                             </td>
                                             <td>
                                                 <AppDateInput
