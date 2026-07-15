@@ -43,6 +43,9 @@ class StationResource extends JsonResource
             'country_name' => $countryName,
             'state_name' => $stateName,
             'city_name' => $cityName,
+            // Stations do not maintain creator/updater user references. Therefore, these fields are intentionally returned as null to keep the API response consistent with other master modules.
+            'created_by_name' => null,
+            'updated_by_name' => null,
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];

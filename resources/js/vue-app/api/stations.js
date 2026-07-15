@@ -44,6 +44,12 @@ export async function updateStation(id, payload) {
     return unwrapResource(data);
 }
 
+export async function fetchStation(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function deleteStation(id) {
     await api.delete(`${base}/${id}`);
 }

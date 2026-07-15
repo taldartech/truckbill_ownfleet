@@ -1,16 +1,7 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-4 app-index-page app-index-page--standard stations-index-page">
         <AppIndexListCard title="Stations" :loading="loading" loading-text="Loading stations…">
             <template #toolbar>
-                <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="stations-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
@@ -22,19 +13,19 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="stations-filters-panel"
                 :loading="loading"
                 @search="loadStations(1)"
                 @reset="clearFilters"
             >
-                <div>
+                <div class="filter-search-col">
                     <label class="form-label" for="stationsIndex_search">Search</label>
                     <AppIndexSearchInput
                         v-model="search"
                         input-id="stationsIndex_search"
                         placeholder="Search station, city, state"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadStations(1)"
                     />
@@ -44,6 +35,7 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 80px">S.No.</th>
                         <th>Name</th>
                         <th>City</th>
                         <th>State</th>
@@ -52,33 +44,32 @@
                 </thead>
                 <tbody>
                     <tr v-if="stations.length === 0" class="app-index-empty-row">
-                        <td :colspan="canEdit ? 4 : 3" class="text-center text-muted py-4">No stations found.</td>
+                        <td :colspan="canEdit ? 5 : 4" class="text-center text-muted py-4">No stations found.</td>
                     </tr>
-                    <tr v-for="station in stations" :key="station.id">
-                        <td>{{ station.name }}</td>
+                    <tr v-for="(station, index) in stations" :key="station.id">
+                        <td>{{ (pagination.currentPage - 1) * pagination.perPage + index + 1 }}</td>
+                        <td>
+                            <RouterLink
+                                :to="{ name: 'stations.show', params: { id: station.id } }"
+                                class="station-name-link"
+                                title="View station details"
+                            >
+                                {{ station.name }}
+                            </RouterLink>
+                        </td>
                         <td>{{ station.city_name || '—' }}</td>
                         <td>{{ station.state_name || '—' }}</td>
                         <td v-if="canEdit" class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                            <AppTableActions>
+                                <AppCrudActionButton
+                                    action="edit"
                                     @click="openEdit(station)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
-                                    title="Delete"
-                                    aria-label="Delete"
+                                />
+                                <AppCrudActionButton
+                                    action="delete"
                                     @click="handleDelete(station)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -94,46 +85,15 @@
             </template>
         </AppIndexListCard>
 
-        <AppModal
+        <StationFormModal
             :show="showModal"
-            :loading="saving"
+            :saving="saving"
+            :station="editing"
+            :field-errors="fieldErrors"
             :form-error="formError"
-            as-form
             @close="closeModal"
-            @submit="save"
-        >
-            <template #title>{{ editing ? 'Edit Station' : 'Add Station' }}</template>
-
-            <div class="row g-2">
-                <IndiaLocationFields
-                    v-model:state-id="stateId"
-                    v-model:city-id="cityId"
-                    :states="states"
-                    :cities="cities"
-                    :field-errors="fieldErrors"
-                />
-
-                <div class="col-12">
-                    <label class="form-label">Station Name *</label>
-                    <input
-                        v-model="form.name"
-                        type="text"
-                        class="form-control"
-                        :class="{ 'is-invalid': fieldErrors.name }"
-                        required
-                    />
-                    <div v-if="fieldErrors.name" class="invalid-feedback d-block">
-                        {{ fieldErrors.name[0] }}
-                    </div>
-                    <div class="form-text">Example: Depot, Yard, or local area name.</div>
-                </div>
-            </div>
-
-            <template #footer>
-                <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeModal">Cancel</button>
-                <AppButton type="submit" label="Save" :loading="saving" />
-            </template>
-        </AppModal>
+            @submit="handleSubmit"
+        />
 
         <MasterCrudSaveConfirmModal
             :show="showSaveConfirm"
@@ -146,24 +106,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { createStation, deleteStation, listStations, updateStation } from '../../api/stations';
-import AppModal from '../../components/ui/AppModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
-import IndiaLocationFields from '../../components/locations/IndiaLocationFields.vue';
+import StationFormModal from '../../components/stations/StationFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
-import { useLocationLookups } from '../../composables/useLocationLookups';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
-import { buildStationFields } from '../../utils/masterCrudSaveConfirm';
 
 const toast = useAppToast();
 const {
@@ -178,31 +137,15 @@ const { canInCompany, canCreateInCompany, canEditInCompany } = usePermissions();
 const canCreate = computed(() => canCreateInCompany('stations') || canInCompany('trips.create'));
 const canEdit = computed(() => canEditInCompany('stations'));
 
-const {
-    states,
-    cities,
-    countryId,
-    stateId,
-    cityId,
-    indiaCountry,
-    initialize,
-    resetLocationFields,
-} = useLocationLookups();
-
 const stations = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
-const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
-const form = reactive({ name: '' });
-const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
+const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
 function clearFilters() {
     search.value = '';
@@ -239,24 +182,15 @@ function goToPage(page) {
     loadStations(page);
 }
 
-async function openCreate() {
+function openCreate() {
     editing.value = null;
-    form.name = '';
     clearErrors();
-    resetLocationFields();
     showModal.value = true;
-    await initialize();
 }
 
-async function openEdit(station) {
+function openEdit(station) {
     editing.value = station;
-    form.name = station.name;
     clearErrors();
-    await initialize({
-        countryId: station.country_id || countryId.value,
-        stateId: station.state_id,
-        cityId: station.city_id,
-    });
     showModal.value = true;
 }
 
@@ -264,27 +198,16 @@ function closeModal() {
     showModal.value = false;
     editing.value = null;
     clearErrors();
-    resetLocationFields();
 }
 
-function buildPayload() {
-    return {
-        name: form.name.trim(),
-        country_id: countryId.value || indiaCountry.value?.id,
-        state_id: stateId.value,
-        city_id: cityId.value,
-    };
-}
-
-function save() {
+function handleSubmit({ payload, fields }) {
     clearErrors();
-    const payload = buildPayload();
 
     promptSaveConfirm({
         payload,
         entityLabel: 'Station',
         mode: editing.value ? 'edit' : 'create',
-        fields: buildStationFields(payload, editing.value, { states: states.value, cities: cities.value }),
+        fields,
     });
 }
 
@@ -332,11 +255,44 @@ async function handleDelete(station) {
 }
 
 onMounted(async () => {
-    await initialize();
     await loadStations();
-
-    if (search.value.trim() !== '') {
-        filtersOpen.value = true;
-    }
 });
 </script>
+
+<style scoped>
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.station-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.station-name-link:hover {
+    text-decoration: underline;
+}
+</style>

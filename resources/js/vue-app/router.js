@@ -173,6 +173,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'stations.view' },
                 },
                 {
+                    path: 'stations/:id',
+                    name: 'stations.show',
+                    component: () => import('./pages/stations/StationDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'stations.view' },
+                },
+                {
                     path: 'references',
                     name: 'references.index',
                     component: () => import('./pages/brokers/BrokersIndexPage.vue'),
