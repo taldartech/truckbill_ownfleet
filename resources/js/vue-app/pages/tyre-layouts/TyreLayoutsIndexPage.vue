@@ -7,15 +7,6 @@
         <AppIndexListCard title="Tyre Layouts" :loading="loading" loading-text="Loading layouts…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="tyre-layouts-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
                     aria-label="Add Tyre Layout"
@@ -26,7 +17,6 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="tyre-layouts-filters-panel"
                 :loading="loading"
                 @search="loadLayouts(1)"
@@ -37,7 +27,7 @@
                     <AppIndexSearchInput
                         v-model="search"
                         input-id="tyreLayoutsIndex_search"
-                        placeholder="Search name or code"
+                        placeholder="Search by Layout Name"
                         max-width="100%"
                         :disabled="loading"
                         @keydown.enter="loadLayouts(1)"
@@ -48,51 +38,71 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th>Name</th>
-                        <th>Code</th>
+                        <th style="width: 70px">S.No.</th>
+                        <th>Layout Name</th>
                         <th>Type</th>
-                        <th>Positions</th>
+                        <th>Running Tyres</th>
                         <th>Spares</th>
-                        <th>Status</th>
-                        <th v-if="canEdit" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
+                        <th style="width: 100px">Status</th>
+                        <th class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="layouts.length === 0" class="app-index-empty-row">
-                        <td :colspan="canEdit ? 7 : 6" class="text-center text-muted py-4">No layouts found.</td>
+                        <td colspan="7" class="text-center text-muted py-4">No layouts found.</td>
                     </tr>
-                    <tr v-for="layout in layouts" :key="layout.id">
-                        <td>{{ layout.name }}</td>
-                        <td><code>{{ layout.code }}</code></td>
+                    <tr v-for="(layout, index) in layouts" :key="layout.id">
+                        <td>{{ (pagination.currentPage - 1) * pagination.perPage + index + 1 }}</td>
+                        <td>
+                            <RouterLink
+                                :to="{ name: 'tyre-layouts.show', params: { id: layout.id } }"
+                                class="layout-name-link text-decoration-none fw-semibold"
+                            >
+                                {{ layout.name }}
+                            </RouterLink>
+                        </td>
                         <td>{{ layoutTypeLabel(layout.layout_type) }}</td>
                         <td>{{ layout.position_count }}</td>
                         <td>{{ layout.layout_type === 'legacy_dual_rear' ? 1 : layout.spare_count }}</td>
                         <td>
-                            <span class="badge" :class="layout.is_active ? 'bg-success' : 'bg-secondary'">
+                            <div v-if="canToggleStatus" class="status-toggle-wrapper">
+                                <div class="form-check form-switch mb-0">
+                                    <input
+                                        :id="`layoutStatus_${layout.id}`"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        :checked="layout.is_active"
+                                        :disabled="togglingId === layout.id"
+                                        @change="handleToggleStatus(layout, $event)"
+                                    />
+                                </div>
+                                <label
+                                    :for="`layoutStatus_${layout.id}`"
+                                    class="status-toggle-label small"
+                                >
+                                    {{ layout.is_active ? 'Active' : 'Inactive' }}
+                                </label>
+                            </div>
+                            <span
+                                v-else
+                                class="badge"
+                                :class="layout.is_active ? 'bg-success' : 'bg-secondary'"
+                            >
                                 {{ layout.is_active ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
-                        <td v-if="canEdit" class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                        <td class="app-index-actions-cell text-end">
+                            <AppTableActions v-if="canEdit">
+                                <AppCrudActionButton
+                                    action="edit"
                                     @click="openEdit(layout)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
-                                    title="Delete"
-                                    aria-label="Delete"
+                                />
+                                <AppCrudActionButton
+                                    action="delete"
                                     @click="handleDelete(layout)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -124,7 +134,7 @@
             <template #title>{{ editing ? 'Edit Tyre Layout' : 'Add Tyre Layout' }}</template>
 
             <div class="row g-2">
-                <div class="col-md-8">
+                <div class="col-md-12">
                     <label class="form-label">Layout name *</label>
                     <input
                         v-model="form.name"
@@ -136,19 +146,6 @@
                     />
                     <div v-if="fieldErrors.name" class="invalid-feedback d-block">
                         {{ fieldErrors.name[0] }}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Code</label>
-                    <input
-                        v-model="form.code"
-                        type="text"
-                        class="form-control form-control-sm"
-                        :class="{ 'is-invalid': fieldErrors.code }"
-                        placeholder="Auto from name"
-                    />
-                    <div v-if="fieldErrors.code" class="invalid-feedback d-block">
-                        {{ fieldErrors.code[0] }}
                     </div>
                 </div>
                 <div :class="form.layout_type === 'standard' ? 'col-md-5' : 'col-md-10'">
@@ -188,7 +185,7 @@
                 v-else-if="form.layout_type === 'legacy_dual_rear'"
                 class="alert alert-secondary py-2 mt-2 mb-0 small"
             >
-                Fixed layout: front left + front right, dual rear axle (4 wheels), and 1 spare — 7 positions total.
+                Fixed layout: front left + front right, dual rear axle (4 wheels), and 1 spare — 7 running tyres total.
             </div>
 
             <div v-show="showAdvanced" class="tyre-layout-form-modal__advanced mt-2">
@@ -207,7 +204,7 @@
             <template #footer>
                 <div class="tyre-layout-form-modal__footer-inner">
                     <span class="tyre-layout-form-modal__total">
-                        Total: <strong>{{ previewCount }}</strong> positions
+                        Total: <strong>{{ previewCount }}</strong> Running Tyres
                     </span>
                     <button
                         type="button"
@@ -244,6 +241,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter, RouterLink } from 'vue-router';
 import {
     computePositionCount,
     createTyreLayout,
@@ -261,6 +259,8 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
@@ -278,6 +278,7 @@ import {
     payloadFromAxleConfig,
 } from '../../utils/tyreLayoutForm';
 
+const router = useRouter();
 const toast = useAppToast();
 const {
     showSaveConfirm,
@@ -296,7 +297,6 @@ const layouts = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
-const filtersOpen = ref(false);
 const showModal = ref(false);
 const showAdvanced = ref(false);
 const editing = ref(null);
@@ -337,14 +337,34 @@ function applyPreset(presetId) {
     form.value.axle_config = { ...preset.config };
 }
 
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
-
 function clearFilters() {
     search.value = '';
     pagination.currentPage = 1;
     loadLayouts(1);
+}
+
+const togglingId = ref(null);
+const canToggleStatus = computed(() => canEdit.value);
+
+async function handleToggleStatus(layout, event) {
+    const nextActive = event.target.checked;
+    togglingId.value = layout.id;
+
+    try {
+        guardCompanyContext();
+        const updated = await updateTyreLayout(layout.id, { is_active: nextActive });
+        layout.is_active = updated.is_active;
+        toast.success(updated.is_active ? 'Layout activated.' : 'Layout deactivated.');
+    } catch (e) {
+        event.target.checked = layout.is_active;
+        toast.error(
+            e?.response?.data?.errors?.tyre_layout?.[0]
+            ?? e?.response?.data?.message
+            ?? 'Unable to update layout status.'
+        );
+    } finally {
+        togglingId.value = null;
+    }
 }
 
 function emptyForm() {
@@ -428,6 +448,10 @@ function openCreate() {
 }
 
 function openEdit(layout) {
+    if (layout.is_in_use) {
+        toast.error('This layout is assigned to one or more trucks and cannot be modified.');
+        return;
+    }
     editing.value = layout;
     fillForm(layout);
     selectedPreset.value =
@@ -535,14 +559,38 @@ async function handleDelete(layout) {
 
 onMounted(async () => {
     await loadLayouts();
-
-    if (search.value.trim() !== '') {
-        filtersOpen.value = true;
-    }
 });
 </script>
 
 <style scoped>
+.status-toggle-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+}
+
+.status-toggle-wrapper .form-check {
+    padding-left: 0;
+    margin-bottom: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.status-toggle-wrapper .form-check-input {
+    float: none;
+    margin-left: 0;
+    cursor: pointer;
+}
+
+.status-toggle-label {
+    cursor: pointer;
+    margin-top: 2px;
+    color: var(--brand-text-muted, #64748b);
+    line-height: 1.2;
+}
+
 :deep(.app-modal:has(.tyre-layout-form-modal__content)) {
     max-width: 820px;
     max-height: none;

@@ -261,6 +261,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'tyre_layouts.view' },
                 },
                 {
+                    path: 'tyre-layouts/:id',
+                    name: 'tyre-layouts.show',
+                    component: () => import('./pages/tyre-layouts/TyreLayoutDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'tyre_layouts.view' },
+                },
+                {
                     path: 'tyres',
                     name: 'tyres.index',
                     component: () => import('./pages/tyres/TyresIndexPage.vue'),

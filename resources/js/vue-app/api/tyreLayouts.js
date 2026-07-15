@@ -47,6 +47,12 @@ export async function deleteTyreLayout(id) {
     await api.delete(`${base}/${id}`);
 }
 
+export async function fetchTyreLayout(id) {
+    const { data } = await api.get(`${base}/${id}`);
+    return unwrapResource(data);
+}
+
+
 export function parseAxleList(value) {
     if (Array.isArray(value)) {
         return value.map(Number).filter((n) => n > 0);

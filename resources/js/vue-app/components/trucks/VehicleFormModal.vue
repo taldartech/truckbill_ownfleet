@@ -246,12 +246,21 @@ const truckTypeOptions = computed(() =>
     })),
 );
 
-const tyreLayoutSelectOptions = computed(() =>
-    tyreLayoutOptions.value.map((option) => ({
+const tyreLayoutSelectOptions = computed(() => {
+    const options = tyreLayoutOptions.value.map((option) => ({
         value: option.code,
         label: `${option.name} (${option.position_count} positions)`,
-    })),
-);
+    }));
+
+    if (props.vehicle?.tyre_layout && !options.some((o) => o.value === props.vehicle.tyre_layout)) {
+        options.push({
+            value: props.vehicle.tyre_layout,
+            label: `${props.vehicle.tyre_layout_label ?? props.vehicle.tyre_layout} (Inactive)`,
+        });
+    }
+
+    return options;
+});
 
 const registrationError = computed(() => {
     return props.fieldErrors.registration_number?.[0] ?? localRegistrationError.value;

@@ -68,6 +68,17 @@ class TyreLayoutController extends Controller
 
     public function update(UpdateTyreLayoutRequest $request, TyreLayout $tyreLayout): TyreLayoutResource
     {
+        $inUse = Vehicle::query()
+            ->where('tenant_id', $tyreLayout->tenant_id)
+            ->where('tyre_layout', $tyreLayout->code)
+            ->exists();
+
+        if ($inUse) {
+            throw ValidationException::withMessages([
+                'tyre_layout' => 'This layout is assigned to one or more trucks and cannot be modified.',
+            ]);
+        }
+
         $data = $this->normalizePayload($request->validated(), $tyreLayout->tenant_id, $tyreLayout);
 
         $tyreLayout->update($data);
