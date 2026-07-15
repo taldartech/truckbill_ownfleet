@@ -49,6 +49,8 @@ class BrokerResource extends JsonResource
             'country_name' => $countryName,
             'state_name' => $stateName,
             'city_name' => $cityName,
+            'created_by_name' => $this->whenLoaded('createdBy', fn () => $this->createdBy?->name),
+            'updated_by_name' => $this->whenLoaded('updatedBy', fn () => $this->updatedBy?->name),
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
         ];

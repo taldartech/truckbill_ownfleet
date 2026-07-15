@@ -1,0 +1,204 @@
+<template>
+    <AppModal
+        :show="show"
+        :loading="saving"
+        :form-error="formError"
+        as-form
+        size="lg"
+        @close="close"
+        @submit="submit"
+    >
+        <template #title>
+            <i class="bi bi-person-badge"></i>
+            {{ isEdit ? 'Edit Reference' : 'Add Reference' }}
+        </template>
+
+        <div class="row g-2">
+            <IndiaLocationFields
+                v-model:state-id="stateId"
+                v-model:city-id="cityId"
+                :states="states"
+                :cities="cities"
+                :field-errors="fieldErrors"
+            />
+
+            <div class="col-12">
+                <label class="form-label">Reference Name *</label>
+                <input
+                    v-model="form.name"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': fieldErrors.name }"
+                    required
+                />
+                <div v-if="fieldErrors.name" class="invalid-feedback d-block">
+                    {{ fieldErrors.name[0] }}
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">GST Number</label>
+                <input
+                    v-model="form.gst_number"
+                    type="text"
+                    class="form-control text-uppercase"
+                    :class="{ 'is-invalid': fieldErrors.gst_number }"
+                />
+                <div v-if="fieldErrors.gst_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.gst_number[0] }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">PAN Number</label>
+                <input
+                    v-model="form.pan_number"
+                    type="text"
+                    class="form-control text-uppercase"
+                    :class="{ 'is-invalid': fieldErrors.pan_number }"
+                    maxlength="10"
+                />
+                <div v-if="fieldErrors.pan_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.pan_number[0] }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Contact Number *</label>
+                <input
+                    :value="form.contact_number"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="10"
+                    class="form-control"
+                    placeholder="10-digit mobile"
+                    required
+                    :class="{ 'is-invalid': fieldErrors.contact_number }"
+                    @input="form.contact_number = normalizeMobile($event.target.value)"
+                />
+                <div v-if="fieldErrors.contact_number" class="invalid-feedback d-block">
+                    {{ fieldErrors.contact_number[0] }}
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Address</label>
+                <textarea
+                    v-model="form.address"
+                    class="form-control"
+                    rows="2"
+                    :class="{ 'is-invalid': fieldErrors.address }"
+                />
+                <div v-if="fieldErrors.address" class="invalid-feedback d-block">
+                    {{ fieldErrors.address[0] }}
+                </div>
+            </div>
+        </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-secondary" :disabled="saving" @click="close">Cancel</button>
+            <AppButton type="submit" label="Save" :loading="saving" />
+        </template>
+    </AppModal>
+</template>
+
+<script setup>
+import { computed, reactive, watch } from 'vue';
+import AppModal from '../ui/AppModal.vue';
+import AppButton from '../ui/AppButton.vue';
+import IndiaLocationFields from '../locations/IndiaLocationFields.vue';
+import { useLocationLookups } from '../../composables/useLocationLookups';
+import { buildPartyLocationFields } from '../../utils/masterCrudSaveConfirm';
+import { normalizeMobile } from '../../utils/phone';
+
+const props = defineProps({
+    show: { type: Boolean, default: false },
+    saving: { type: Boolean, default: false },
+    broker: { type: Object, default: null },
+    fieldErrors: { type: Object, default: () => ({}) },
+    formError: { type: String, default: '' },
+});
+
+const emit = defineEmits(['close', 'submit']);
+
+const isEdit = computed(() => props.broker !== null);
+
+const {
+    states,
+    cities,
+    countryId,
+    stateId,
+    cityId,
+    indiaCountry,
+    initialize,
+    resetLocationFields,
+} = useLocationLookups();
+
+const form = reactive({
+    name: '',
+    gst_number: '',
+    pan_number: '',
+    contact_number: '',
+    address: '',
+});
+
+function resetForm() {
+    form.name = '';
+    form.gst_number = '';
+    form.pan_number = '';
+    form.contact_number = '';
+    form.address = '';
+}
+
+function fillForm(broker) {
+    if (!broker) {
+        resetForm();
+        return;
+    }
+    form.name = broker.name ?? '';
+    form.gst_number = broker.gst_number ?? '';
+    form.pan_number = broker.pan_number ?? '';
+    form.contact_number = normalizeMobile(broker.contact_number ?? '');
+    form.address = broker.address ?? '';
+}
+
+watch(
+    () => props.show,
+    async (visible) => {
+        if (visible) {
+            fillForm(props.broker);
+            if (props.broker) {
+                await initialize({
+                    countryId: props.broker.country_id || countryId.value,
+                    stateId: props.broker.state_id,
+                    cityId: props.broker.city_id,
+                });
+            } else {
+                resetLocationFields();
+                await initialize();
+            }
+        }
+    }
+);
+
+function close() {
+    emit('close');
+}
+
+function submit() {
+    const payload = {
+        name: form.name.trim(),
+        country_id: countryId.value || indiaCountry.value?.id,
+        state_id: stateId.value,
+        city_id: cityId.value,
+        gst_number: form.gst_number.trim().toUpperCase() || null,
+        pan_number: form.pan_number.trim().toUpperCase() || null,
+        contact_number: normalizeMobile(form.contact_number),
+        address: form.address.trim() || null,
+    };
+
+    const fields = buildPartyLocationFields(payload, props.broker, {
+        states: states.value,
+        cities: cities.value,
+    });
+
+    emit('submit', { payload, fields });
+}
+</script>

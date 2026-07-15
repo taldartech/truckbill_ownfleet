@@ -44,6 +44,13 @@ export async function updateBroker(id, payload) {
     return unwrapResource(data);
 }
 
+export async function fetchBroker(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function deleteBroker(id) {
     await api.delete(`${base}/${id}`);
 }
+

@@ -179,6 +179,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'brokers.view' },
                 },
                 {
+                    path: 'references/:id',
+                    name: 'references.show',
+                    component: () => import('./pages/brokers/BrokerDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'brokers.view' },
+                },
+                {
                     path: 'brokers',
                     redirect: { name: 'references.index' },
                 },
