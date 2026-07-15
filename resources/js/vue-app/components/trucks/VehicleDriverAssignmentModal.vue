@@ -500,7 +500,7 @@ async function saveAssignment() {
         clearErrors();
         resetAssignForm();
         await refreshAssignmentState();
-        emit('assigned');
+        emit('assigned', 'save');
     } catch (error) {
         if (!applyApiError(error)) {
             formError.value = editingAssignment.value
@@ -535,7 +535,7 @@ async function deleteAssignment(row) {
         }
 
         await refreshAssignmentState();
-        emit('assigned');
+        emit('assigned', 'delete');
     } catch (error) {
         if (!applyApiError(error)) {
             formError.value = 'Could not delete driver assignment. Please try again.';
@@ -569,7 +569,7 @@ async function removePrimaryDriver() {
             assignment: response.assignment ?? null,
         };
         await refreshAssignmentState();
-        emit('assigned');
+        emit('assigned', 'remove');
     } catch (error) {
         if (!applyApiError(error)) {
             formError.value = 'Could not remove primary driver. Please try again.';

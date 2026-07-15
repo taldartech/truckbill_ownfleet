@@ -479,8 +479,20 @@ function closeAssignment() {
     assignmentVehicle.value = null;
 }
 
-async function onAssignmentSaved() {
-    toast.success('Driver assignment saved.');
+async function onAssignmentSaved(action) {
+    if (action === 'save' || action === 'remove') {
+        closeAssignment();
+    }
+    
+    if (action === 'save') {
+        toast.success('Driver assignment saved.');
+    } else if (action === 'remove') {
+        toast.success('Driver removed successfully.');
+    } else if (action === 'delete') {
+        toast.success('Assignment history deleted successfully.');
+    } else {
+        toast.success('Driver assignment saved.');
+    }
     await loadVehicles();
 }
 
