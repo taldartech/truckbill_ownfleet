@@ -18,9 +18,9 @@ class DriverAssignmentService
         private readonly DriverAvailabilityService $driverAvailabilityService,
     ) {}
 
-    public function paginate(int $perPage = 15, ?string $vehicleId = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $vehicleId = null, ?string $driverId = null): LengthAwarePaginator
     {
-        return $this->driverAssignmentRepository->paginate($perPage, $vehicleId);
+        return $this->driverAssignmentRepository->paginate($perPage, $vehicleId, $driverId);
     }
 
     public function currentPrimaryForVehicle(string $vehicleId, ?string $asOfDate = null): ?DriverAssignment

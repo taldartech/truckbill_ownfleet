@@ -97,6 +97,7 @@ class VueAppTest extends TestCase
             ->postJson('/app/api/drivers', [
                 'name' => 'CSRF Test Driver',
                 'phone' => '9876543210',
+                'license_number' => 'DL1420110012345',
                 'joining_date' => '2024-01-15',
                 'daily_wage' => 500,
                 'is_active' => true,

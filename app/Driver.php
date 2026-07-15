@@ -73,4 +73,30 @@ class Driver extends Model
     {
         return $this->belongsTo(User::class, 'deleted_by');
     }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function currentPrimaryAssignment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(DriverAssignment::class)
+            ->where('is_primary', true)
+            ->whereDate('assigned_from', '<=', now()->toDateString())
+            ->where(function ($query) {
+                $query->whereNull('assigned_to')
+                    ->orWhereDate('assigned_to', '>', now()->toDateString());
+            });
+    }
+
+    public function trips(): HasMany
+    {
+        return $this->hasMany(Trip::class, 'driver_id');
+    }
 }

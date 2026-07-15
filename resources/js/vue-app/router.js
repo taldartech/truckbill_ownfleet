@@ -54,6 +54,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'drivers.view' },
                 },
                 {
+                    path: 'drivers/:id',
+                    name: 'drivers.show',
+                    component: () => import('./pages/drivers/DriverDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'drivers.view' },
+                },
+                {
                     path: 'challans',
                     name: 'challans.index',
                     component: () => import('./pages/challans/ChallansIndexPage.vue'),

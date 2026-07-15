@@ -3,15 +3,6 @@
         <AppIndexListCard :title="pageTitle" :loading="loading" loading-text="Loading drivers…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="drivers-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="licenseAlertsMode"
                     icon="return"
                     aria-label="View all drivers"
@@ -34,13 +25,12 @@
             </div>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="drivers-filters-panel"
                 :loading="loading"
                 @search="loadDrivers(1)"
                 @reset="clearFilters"
             >
-                <div>
+                <div class="filter-search-col">
                     <label class="form-label" for="driversIndex_search">Search</label>
                     <AppIndexSearchInput
                         v-model="searchQuery"
@@ -57,12 +47,13 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px">#</th>
+                        <th style="width: 70px">S.No.</th>
                         <th>Name</th>
                         <th>Mobile</th>
                         <th>License Number</th>
                         <th v-if="licenseAlertsMode">License Expiry</th>
-                        <th class="app-index-table__truncate-col">Address</th>
+                        <th>Associated Truck</th>
+                        <th style="width: 100px;">Status</th>
                         <th v-if="showRowActions" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
                     </tr>
                 </thead>
@@ -75,46 +66,65 @@
                     <tr v-for="(driver, index) in drivers" :key="driver.id">
                         <td class="text-center">{{ rowNumber(index) }}</td>
                         <td>
-                            <strong>{{ driver.name }}</strong>
-                            <span v-if="!driver.is_active" class="badge bg-secondary ms-1">Inactive</span>
+                            <RouterLink
+                                :to="{ name: 'drivers.show', params: { id: driver.id } }"
+                                class="fw-semibold text-decoration-none"
+                            >
+                                {{ driver.name }}
+                            </RouterLink>
                         </td>
                         <td>{{ formatPhone(driver.phone) }}</td>
                         <td>{{ driver.license_number || '—' }}</td>
                         <td v-if="licenseAlertsMode">{{ formatDate(driver.license_expiry_date) }}</td>
-                        <td
-                            class="app-index-table__truncate-col"
-                            :title="addressValue(driver.address) || undefined"
-                        >
-                            {{ formatAddress(driver.address) }}
+                        <td>
+                            {{ driver.current_primary_assignment?.vehicle?.registration_number ?? '—' }}
+                        </td>
+                        <td>
+                            <div v-if="canToggleStatus" class="status-toggle-wrapper" style="height: 44px; display: flex; align-items: center;">
+                                <div class="form-check form-switch mb-0">
+                                    <input
+                                        :id="`driverStatus_${driver.id}`"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        :checked="driver.is_active"
+                                        :disabled="togglingId === driver.id"
+                                        @change="handleToggleStatus(driver, $event)"
+                                    />
+                                </div>
+                                <label
+                                    :for="`driverStatus_${driver.id}`"
+                                    class="status-toggle-label small ms-1"
+                                >
+                                    {{ driver.is_active ? 'Active' : 'Inactive' }}
+                                </label>
+                            </div>
+                            <span
+                                v-else
+                                class="badge"
+                                :class="driver.is_active ? 'bg-success' : 'bg-secondary'"
+                            >
+                                {{ driver.is_active ? 'Active' : 'Inactive' }}
+                            </span>
                         </td>
                         <td v-if="showRowActions" class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
-                                <button
+                            <AppTableActions>
+                                <AppCrudActionButton
                                     v-if="canEdit"
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                                    action="edit"
                                     @click="openEdit(driver)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
+                                />
                                 <AppCrudActionButton
                                     v-if="canViewAdvances"
                                     action="advance"
                                     @click="openAdvance(driver)"
                                 />
-                                <button
+                                <AppCrudActionButton
                                     v-if="canArchive"
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
-                                    title="Delete"
-                                    aria-label="Delete"
+                                    action="delete"
                                     @click="handleDelete(driver)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -198,6 +208,7 @@ import {
 import DriverAdvanceModal from '../../components/drivers/DriverAdvanceModal.vue';
 import DriverFormModal from '../../components/drivers/DriverFormModal.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -330,8 +341,36 @@ function formatAddress(address) {
     return addressValue(address) || '—';
 }
 
+const togglingId = ref(null);
+const canToggleStatus = computed(() => canEdit.value);
+
+async function handleToggleStatus(driver, event) {
+    const nextActive = event.target.checked;
+    togglingId.value = driver.id;
+
+    try {
+        const updated = await updateDriver(driver.id, { is_active: nextActive });
+        driver.is_active = updated.is_active;
+        toast.success(updated.is_active ? 'Driver activated.' : 'Driver deactivated.');
+    } catch (e) {
+        event.target.checked = driver.is_active;
+        toast.error(
+            e?.response?.data?.errors?.is_active?.[0]
+            ?? e?.response?.data?.errors?.phone?.[0]
+            ?? e?.response?.data?.message
+            ?? 'Unable to update driver status.'
+        );
+    } finally {
+        togglingId.value = null;
+    }
+}
+
+function goToDetail(driver) {
+    router.push({ name: 'drivers.show', params: { id: driver.id } });
+}
+
 function rowNumber(index) {
-    return pagination.from > 0 ? pagination.from + index : index + 1;
+    return (pagination.currentPage - 1) * pagination.perPage + index + 1;
 }
 
 function matchesSearch(driver, term) {

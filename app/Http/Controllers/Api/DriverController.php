@@ -27,9 +27,10 @@ class DriverController extends Controller
         $excludeVehicleId = $request->filled('exclude_vehicle_id') ? $request->string('exclude_vehicle_id')->toString() : null;
         $excludeAssignmentId = $request->filled('exclude_assignment_id') ? $request->string('exclude_assignment_id')->toString() : null;
 
-        return DriverResource::collection(
-            $this->driverService->paginate($perPage, $activeOnly, $search, $availableOnDate, $excludeVehicleId, $excludeAssignmentId)
-        );
+        $drivers = $this->driverService->paginate($perPage, $activeOnly, $search, $availableOnDate, $excludeVehicleId, $excludeAssignmentId);
+        $drivers->load(['currentPrimaryAssignment.vehicle', 'createdBy', 'updatedBy']);
+
+        return DriverResource::collection($drivers);
     }
 
     public function store(StoreDriverRequest $request): DriverResource
@@ -40,12 +41,16 @@ class DriverController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
+        $driver->load(['currentPrimaryAssignment.vehicle', 'createdBy', 'updatedBy']);
+
         return new DriverResource($driver);
     }
 
     public function show(Driver $driver): DriverResource
     {
         $this->authorize('view', $driver);
+
+        $driver->load(['currentPrimaryAssignment.vehicle', 'createdBy', 'updatedBy']);
 
         return new DriverResource($driver);
     }
@@ -56,6 +61,8 @@ class DriverController extends Controller
             ...$request->validated(),
             'updated_by' => $request->user()?->id,
         ]);
+
+        $driver->load(['currentPrimaryAssignment.vehicle', 'createdBy', 'updatedBy']);
 
         return new DriverResource($driver);
     }

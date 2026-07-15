@@ -25,7 +25,10 @@ trait ValidatesDriverIdentity
                 continue;
             }
 
-            if ($field === 'pan_number') {
+            if ($field === 'license_number') {
+                $cleaned = strtoupper(str_replace([' ', '-'], '', trim((string) $value)));
+                $this->merge([$field => $cleaned]);
+            } elseif ($field === 'pan_number') {
                 $this->merge([$field => strtoupper(trim((string) $value))]);
             }
         }
@@ -57,12 +60,16 @@ trait ValidatesDriverIdentity
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    protected function driverLicenseNumberRules(?string $ignoreDriverId = null): array
+    protected function driverLicenseNumberRules(?string $ignoreDriverId = null, bool $required = true): array
     {
+        $presence = $required ? ['required'] : ['sometimes', 'required'];
+
         return [
-            'nullable',
+            ...$presence,
             'string',
-            'max:100',
+            'min:13',
+            'max:18',
+            'regex:/^[A-Z]{2}[A-Z0-9]+$/',
             $this->driverIdentityUniqueRule('license_number', $ignoreDriverId),
         ];
     }

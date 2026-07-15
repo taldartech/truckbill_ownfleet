@@ -40,7 +40,7 @@ class DriverManagementModuleTest extends TestCase
             ->postJson('/app/api/drivers', [
                 'name' => 'Session Driver',
                 'phone' => '9888888888',
-                'license_number' => 'DL-SESSION',
+                'license_number' => 'DLSESSION202401',
                 'joining_date' => '2024-01-15',
                 'daily_wage' => 900,
                 'is_active' => true,
@@ -64,7 +64,7 @@ class DriverManagementModuleTest extends TestCase
             ->postJson('/api/drivers', [
                 'name' => 'Ravi Kumar',
                 'phone' => '9999999999',
-                'license_number' => 'DL-12345',
+                'license_number' => 'DL1234520240101',
                 'license_expiry_date' => now()->addMonths(5)->toDateString(),
                 'joining_date' => '2024-01-15',
                 'daily_wage' => 1250.75,
@@ -748,7 +748,7 @@ class DriverManagementModuleTest extends TestCase
             ->postJson('/api/drivers', [
                 'name' => 'Moderator Driver',
                 'phone' => fake()->numerify('9#########'),
-                'license_number' => strtoupper(fake()->bothify('DL-#####')),
+                'license_number' => strtoupper(fake()->bothify('DL202400#######')),
                 'license_expiry_date' => now()->addYear()->toDateString(),
                 'joining_date' => '2024-01-15',
                 'daily_wage' => 800,

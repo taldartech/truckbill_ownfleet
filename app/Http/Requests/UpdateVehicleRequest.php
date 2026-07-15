@@ -57,8 +57,12 @@ class UpdateVehicleRequest extends FormRequest
                 'required',
                 'string',
                 'max:64',
-                Rule::exists('tyre_layouts', 'code')->where(function ($query) {
-                    $query->where('tenant_id', CurrentTenant::id())->where('is_active', true);
+                Rule::exists('tyre_layouts', 'code')->where(function ($query) use ($vehicle) {
+                    $query->where('tenant_id', CurrentTenant::id())
+                        ->where(function ($q) use ($vehicle) {
+                            $q->where('is_active', true)
+                              ->orWhere('code', $vehicle->tyre_layout);
+                        });
                 }),
             ],
             'make' => ['nullable', 'string', 'max:100'],

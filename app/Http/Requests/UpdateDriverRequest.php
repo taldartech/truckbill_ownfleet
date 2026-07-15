@@ -24,6 +24,12 @@ class UpdateDriverRequest extends FormRequest
             ]);
         }
 
+        if ($this->has('daily_wage') && $this->input('daily_wage') !== null) {
+            $this->merge([
+                'daily_wage' => number_format((float) $this->input('daily_wage'), 2, '.', ''),
+            ]);
+        }
+
         $this->normalizeDriverIdentityFields();
     }
 
@@ -51,7 +57,7 @@ class UpdateDriverRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:150'],
             'phone' => $this->driverPhoneRules(required: false, ignoreDriverId: $driverId),
-            'license_number' => $this->driverLicenseNumberRules($driverId),
+            'license_number' => $this->driverLicenseNumberRules(ignoreDriverId: $driverId, required: false),
             'license_expiry_date' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:500'],
             'aadhaar_number' => $this->driverAadhaarNumberRules($driverId),
@@ -80,6 +86,8 @@ class UpdateDriverRequest extends FormRequest
             'joining_date.required' => 'Joining date is required.',
             'daily_wage.required' => 'Monthly payment base is required.',
             'daily_wage.gt' => 'Monthly payment base must be greater than 0.',
+            'license_number.required' => 'Driving licence number is required.',
+            'license_number.regex' => 'Please enter a valid driving licence number.',
         ];
     }
 }

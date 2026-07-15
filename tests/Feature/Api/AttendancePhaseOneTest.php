@@ -329,6 +329,7 @@ class AttendancePhaseOneTest extends TestCase
             ->postJson('/api/drivers', [
                 'name' => 'Extended Driver',
                 'phone' => '9876543210',
+                'license_number' => 'DL1420110012345',
                 'address' => 'Main Road, Pune',
                 'aadhaar_number' => '123456789012',
                 'pan_number' => 'ABCDE1234F',

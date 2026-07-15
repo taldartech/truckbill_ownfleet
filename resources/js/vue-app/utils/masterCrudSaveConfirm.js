@@ -271,7 +271,12 @@ export function buildDriverFields(payload, original) {
             value: payload.emergency_contact_phone,
             previousValue: original?.emergency_contact_phone,
         },
-        { label: 'Daily Wage', value: payload.daily_wage, previousValue: original?.daily_wage },
+        {
+            label: 'Daily Wage',
+            value: displayValue(payload.daily_wage),
+            previousValue: displayValue(original?.daily_wage),
+            changed: Number(payload.daily_wage || 0) !== Number(original?.daily_wage || 0),
+        },
         {
             label: 'Status',
             value: payload.is_active ? 'Active' : 'Inactive',

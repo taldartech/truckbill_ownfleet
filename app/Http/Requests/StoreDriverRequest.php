@@ -24,6 +24,12 @@ class StoreDriverRequest extends FormRequest
             ]);
         }
 
+        if ($this->has('daily_wage') && $this->input('daily_wage') !== null) {
+            $this->merge([
+                'daily_wage' => number_format((float) $this->input('daily_wage'), 2, '.', ''),
+            ]);
+        }
+
         $this->normalizeDriverIdentityFields();
     }
 
@@ -69,6 +75,8 @@ class StoreDriverRequest extends FormRequest
             'joining_date.required' => 'Joining date is required.',
             'daily_wage.required' => 'Monthly payment base is required.',
             'daily_wage.gt' => 'Monthly payment base must be greater than 0.',
+            'license_number.required' => 'Driving licence number is required.',
+            'license_number.regex' => 'Please enter a valid driving licence number.',
         ];
     }
 }

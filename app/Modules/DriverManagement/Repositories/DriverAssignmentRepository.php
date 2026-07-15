@@ -7,11 +7,12 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class DriverAssignmentRepository
 {
-    public function paginate(int $perPage = 15, ?string $vehicleId = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $vehicleId = null, ?string $driverId = null): LengthAwarePaginator
     {
         return DriverAssignment::query()
             ->with(['driver', 'vehicle'])
             ->when($vehicleId !== null, fn ($query) => $query->where('vehicle_id', $vehicleId))
+            ->when($driverId !== null, fn ($query) => $query->where('driver_id', $driverId))
             ->orderByRaw('CASE WHEN assigned_to IS NULL THEN 0 ELSE 1 END ASC')
             ->orderByDesc('assigned_from')
             ->paginate($perPage);

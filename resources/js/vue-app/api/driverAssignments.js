@@ -6,11 +6,14 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function listDriverAssignments({ vehicleId, page = 1, perPage = 50 } = {}) {
+export async function listDriverAssignments({ vehicleId, driverId, page = 1, perPage = 50 } = {}) {
     const params = { page, per_page: perPage };
 
     if (vehicleId) {
         params.vehicle_id = vehicleId;
+    }
+    if (driverId) {
+        params.driver_id = driverId;
     }
 
     const { data } = await api.get(base, { params });

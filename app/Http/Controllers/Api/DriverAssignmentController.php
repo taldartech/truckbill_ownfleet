@@ -22,9 +22,10 @@ class DriverAssignmentController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
         $vehicleId = $request->filled('vehicle_id') ? $request->string('vehicle_id')->toString() : null;
+        $driverId = $request->filled('driver_id') ? $request->string('driver_id')->toString() : null;
 
         return DriverAssignmentResource::collection(
-            $this->driverAssignmentService->paginate($perPage, $vehicleId),
+            $this->driverAssignmentService->paginate($perPage, $vehicleId, $driverId),
         );
     }
 

@@ -54,6 +54,7 @@
                     class="form-control form-control-sm"
                     :class="{ 'is-invalid': fieldErrors.license_number }"
                     placeholder="e.g. DL-1420110012345"
+                    @input="onLicenseInput"
                 />
                 <div v-if="fieldErrors.license_number" class="invalid-feedback d-block">
                     {{ fieldErrors.license_number[0] }}
@@ -282,6 +283,10 @@ function onPanInput(event) {
         .slice(0, 10);
 }
 
+function onLicenseInput(event) {
+    form.value.license_number = String(event.target.value ?? '').toUpperCase();
+}
+
 function onBankAccountInput(event) {
     form.value.bank_account_number = normalizeDigits(event.target.value);
 }
@@ -377,8 +382,8 @@ function submit() {
 
     const wage = form.value.daily_wage === '' ? Number.NaN : Number(form.value.daily_wage);
 
-    if (Number.isNaN(wage) || wage <= 0) {
-        monthlyPaymentClientError.value = 'Monthly payment base must be greater than 0.';
+    if (Number.isNaN(wage) || wage < 1000 || wage > 500000) {
+        monthlyPaymentClientError.value = 'Monthly payment base must be between 1000 and 500000.';
 
         return;
     }
@@ -386,7 +391,7 @@ function submit() {
     emit('submit', {
         name: form.value.name.trim(),
         phone: mobile,
-        license_number: form.value.license_number || null,
+        license_number: form.value.license_number?.trim() || null,
         license_expiry_date: form.value.license_expiry_date || null,
         address: form.value.address?.trim() || null,
         aadhaar_number: form.value.aadhaar_number || null,
