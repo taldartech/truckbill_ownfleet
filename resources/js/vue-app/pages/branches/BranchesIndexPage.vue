@@ -47,13 +47,13 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 60px">#</th>
+                        <th style="width: 70px" class="text-center">S.No.</th>
                         <th>Branch Name</th>
                         <th>Company</th>
                         <th>Contact</th>
                         <th>Address</th>
                         <th>Head Office</th>
-                        <th class="app-index-actions-cell text-end" style="width: 220px">Actions</th>
+                        <th class="app-index-actions-cell" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,9 +66,15 @@
                         </td>
                     </tr>
                     <tr v-for="(branch, index) in branches" :key="branch.id">
-                        <td>{{ rowNumber(index) }}</td>
+                        <td class="text-center">{{ rowNumber(index) }}</td>
                         <td>
-                            <strong>{{ branch.branch_name }}</strong>
+                            <RouterLink
+                                :to="{ name: 'branches.show', params: { id: branch.id } }"
+                                class="branch-name-link"
+                                title="View branch details"
+                            >
+                                {{ branch.branch_name }}
+                            </RouterLink>
                             <span v-if="isActiveBranch(branch.id)" class="badge bg-success ms-1">Active</span>
                         </td>
                         <td>{{ branch.company?.name || branch.company_name || '—' }}</td>
@@ -78,8 +84,12 @@
                             <span v-if="branch.head_office" class="badge bg-primary">Head Office</span>
                             <span v-else class="text-muted">—</span>
                         </td>
-                        <td class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
+                        <td class="app-index-actions-cell">
+                            <AppTableActions>
+                                <!--<AppCrudActionButton
+                                    action="view"
+                                    @click="goToDetail(branch)"
+                                />-->
                                 <AppButton
                                     v-if="canEnter"
                                     size="sm"
@@ -88,27 +98,17 @@
                                     :disabled="isActiveBranch(branch.id)"
                                     @click="handleEnter(branch)"
                                 />
-                                <button
+                                <AppCrudActionButton
                                     v-if="canManage"
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                                    action="edit"
                                     @click="openEdit(branch)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <button
+                                />
+                                <AppCrudActionButton
                                     v-if="canManage"
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
-                                    title="Delete"
-                                    aria-label="Delete"
+                                    action="delete"
                                     @click="handleDelete(branch)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -161,6 +161,8 @@ import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -221,7 +223,11 @@ const filtersActive = computed(
 );
 
 function rowNumber(index) {
-    return pagination.from > 0 ? pagination.from + index : index + 1;
+    return (pagination.currentPage - 1) * pagination.perPage + index + 1;
+}
+
+function goToDetail(branch) {
+    router.push({ name: 'branches.show', params: { id: branch.id } });
 }
 
 async function loadCompanies() {
@@ -455,5 +461,15 @@ onMounted(async () => {
 .filter-select-col {
     flex: 0 0 180px;
     width: 180px;
+}
+
+.branch-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.branch-name-link:hover {
+    text-decoration: underline;
 }
 </style>

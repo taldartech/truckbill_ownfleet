@@ -1,0 +1,229 @@
+<template>
+    <div class="container mt-4 user-detail-page">
+        <div v-if="loading" class="text-center py-5 text-muted">Loading user details…</div>
+
+        <template v-else-if="userItem">
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>User Information ({{ userItem.name }})</strong>
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
+                                 <RouterLink
+                                    :to="{ name: 'access.users' }"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    title="Back to Users"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canManage && !userItem.is_protected"
+                                    action="edit"
+                                    @click="openEdit"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canManage && !userItem.is_protected"
+                                    action="delete"
+                                    @click="handleDelete(userItem)"
+                                />
+                            </div>
+                        </div>
+                        <div class="card-body row g-3 small">
+                            <div class="col-md-4">
+                                <span class="text-muted">Name</span>
+                                <div class="fw-semibold">{{ userItem.name }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Email</span>
+                                <div>{{ userItem.email }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Role</span>
+                                <div>{{ userItem.role_label || '—' }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Company</span>
+                                <div>{{ userItem.tenant_name || '—' }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Branch</span>
+                                <div>{{ userItem.branch_name || '—' }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Status</span>
+                                <div>
+                                    <span class="badge bg-success">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header"><strong>Record Info</strong></div>
+                        <div class="card-body small">
+                            <div class="mb-2">
+                                <span class="text-muted">Created</span>
+                                <div>{{ formatDateTime(userItem.created_at) }}</div>
+                                <div v-if="userItem.created_by_name" class="text-muted">
+                                    by {{ userItem.created_by_name }}
+                                </div>
+                                <div v-else class="text-muted">by —</div>
+                            </div>
+                            <div>
+                                <span class="text-muted">Last Updated</span>
+                                <div>{{ formatDateTime(userItem.updated_at) }}</div>
+                                <div v-if="userItem.updated_by_name" class="text-muted">
+                                    by {{ userItem.updated_by_name }}
+                                </div>
+                                <div v-else class="text-muted">by —</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <div v-else class="alert alert-danger">
+            User not found or you do not have access.
+        </div>
+
+        <UserFormModal
+            modal-id="userDetailFormModal"
+            :show="showForm"
+            mode="edit"
+            :user="userItem"
+            :assignable-roles="assignableRoles"
+            :companies="companies"
+            :saving="saving"
+            :field-errors="fieldErrors"
+            :form-error="userFormError"
+            @close="closeForm"
+            @submit="handleSubmit"
+        />
+    </div>
+</template>
+
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { listAllCompanies } from '../../api/companies';
+import { fetchManagedUser, listAssignableRoles, updateManagedUser, deleteManagedUser } from '../../api/managedUsers';
+import UserFormModal from '../../components/access/UserFormModal.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { usePermissions } from '../../composables/usePermissions';
+import { useAppToast } from '../../composables/useAppToast';
+import { formatDateTime } from '../../utils/datetime';
+
+const route = useRoute();
+const router = useRouter();
+const toast = useAppToast();
+const { can } = usePermissions();
+
+const canManage = computed(() => can('super_admins.manage') || can('users.manage'));
+
+const userItem = ref(null);
+const assignableRoles = ref([]);
+const companies = ref([]);
+const loading = ref(true);
+const saving = ref(false);
+const showForm = ref(false);
+const { fieldErrors, formError: userFormError, clearErrors } = useApiFormErrors();
+
+async function loadUser() {
+    const id = route.params.id;
+    if (!id) {
+        userItem.value = null;
+        loading.value = false;
+        return;
+    }
+
+    loading.value = true;
+    try {
+        userItem.value = await fetchManagedUser(id);
+    } catch {
+        userItem.value = null;
+        toast.error('Could not load user details.');
+    } finally {
+        loading.value = false;
+    }
+}
+
+async function loadOptions() {
+    try {
+        assignableRoles.value = await listAssignableRoles();
+        companies.value = await listAllCompanies();
+    } catch {
+        assignableRoles.value = [];
+        companies.value = [];
+    }
+}
+
+function openEdit() {
+    clearErrors();
+    showForm.value = true;
+}
+
+function closeForm() {
+    showForm.value = false;
+    clearErrors();
+}
+
+async function handleSubmit(payload) {
+    if (!userItem.value?.id) {
+        return;
+    }
+
+    saving.value = true;
+    clearErrors();
+
+    try {
+        userItem.value = await updateManagedUser(userItem.value.id, payload);
+        toast.success('User updated.');
+        closeForm();
+    } catch (error) {
+        if (error.response?.status === 422) {
+            fieldErrors.value = error.response.data.errors ?? {};
+            userFormError.value =
+                error.response.data.message ?? 'Please check the highlighted fields.';
+        } else {
+            toast.error('Unable to save user.');
+        }
+    } finally {
+        saving.value = false;
+    }
+}
+
+async function handleDelete(userVal) {
+    const targetUser = userVal || userItem.value;
+    if (!targetUser?.id) {
+        return;
+    }
+
+    if (!window.confirm(`Delete user ${targetUser.name}?`)) {
+        return;
+    }
+
+    try {
+        await deleteManagedUser(targetUser.id);
+        toast.success('User deleted.');
+        router.push({ name: 'access.users' });
+    } catch {
+        toast.error('Unable to delete user.');
+    }
+}
+
+onMounted(async () => {
+    await Promise.all([loadUser(), loadOptions()]);
+});
+
+watch(() => route.params.id, () => {
+    loadUser();
+});
+</script>
+
+<style scoped>
+</style>

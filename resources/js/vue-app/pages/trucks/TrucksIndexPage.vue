@@ -68,6 +68,7 @@
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 70px" class="text-center">S.No.</th>
                         <th>Registration</th>
                         <th>Type</th>
                         <!-- <th>Tyre layout</th> -->
@@ -84,7 +85,9 @@
                             {{ filtersActive ? 'No trucks found for selected filters.' : 'No trucks found. Add your first truck.' }}
                         </td>
                     </tr>
-                    <tr v-for="vehicle in vehicles" :key="vehicle.id">
+                  
+                     <tr v-for="(vehicle, index) in vehicles" :key="vehicles.id">
+                            <td class="text-center">{{ rowNumber(index) }}</td>
                             <td>
                                 <RouterLink
                                     :to="{ name: 'trucks.show', params: { vehicleId: vehicle.id } }"
@@ -370,6 +373,11 @@ const filtersActive = computed(() => {
         filters.primary_driver !== defaultFilters.primary_driver
     );
 });
+
+
+function rowNumber(index) {
+    return (pagination.currentPage - 1) * pagination.perPage + index + 1;
+}
 
 
 function formatMakeModel(vehicle) {

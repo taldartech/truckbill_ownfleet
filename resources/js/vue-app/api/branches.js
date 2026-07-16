@@ -42,6 +42,12 @@ export async function fetchBranchDeletionImpact(id) {
     return data;
 }
 
+export async function fetchBranch(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function enterBranch(id) {
     const { data } = await api.post(`${base}/${id}/enter`);
 

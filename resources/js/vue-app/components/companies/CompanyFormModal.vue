@@ -44,32 +44,34 @@
             v-model="gstForm"
             :field-errors="fieldErrors"
             :states="stateSelectOptions"
-        />
-
-        <div class="row mt-1">
-            <div class="col-md-6 mb-3">
-                <label class="form-label" for="pan_number">PAN Number *</label>
-                <input
-                    id="pan_number"
-                    :value="form.pan_number"
-                    type="text"
-                    class="form-control text-uppercase"
-                    maxlength="10"
-                    :placeholder="PAN_NUMBER_HINT"
-                    required
-                    :class="{ 'is-invalid': displayFieldErrors.pan_number }"
-                    @input="onPanNumberInput"
-                />
-                <div v-if="displayFieldErrors.pan_number" class="invalid-feedback d-block">
-                    {{ displayFieldErrors.pan_number[0] }}
+        >
+            <template #after-state>
+                <div class="col-md-6">
+                    <label class="form-label" for="pan_number">PAN Number *</label>
+                    <input
+                        id="pan_number"
+                        :value="form.pan_number"
+                        type="text"
+                        class="form-control text-uppercase"
+                        maxlength="10"
+                        :placeholder="PAN_NUMBER_HINT"
+                        required
+                        :class="{ 'is-invalid': displayFieldErrors.pan_number }"
+                        @input="onPanNumberInput"
+                    />
+                    <div v-if="displayFieldErrors.pan_number" class="invalid-feedback d-block">
+                        {{ displayFieldErrors.pan_number[0] }}
+                    </div>
                 </div>
-            </div>
-        </div>
+            </template>
 
-        <div class="mb-3">
-            <label class="form-label" for="address">Address</label>
-            <textarea id="address" v-model="form.address" class="form-control" rows="2" />
-        </div>
+            <template #after-grid>
+                <div class="col-12">
+                    <label class="form-label" for="address">Address</label>
+                    <textarea id="address" v-model="form.address" class="form-control" rows="2" />
+                </div>
+            </template>
+        </GstDetailsSection>
         <div class="row">
             <div class="col-md-6 mb-3">
                 <label class="form-label" for="contact_person">Contact Person *</label>

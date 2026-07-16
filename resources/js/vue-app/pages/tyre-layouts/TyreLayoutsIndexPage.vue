@@ -56,7 +56,8 @@
                         <td>
                             <RouterLink
                                 :to="{ name: 'tyre-layouts.show', params: { id: layout.id } }"
-                                class="layout-name-link text-decoration-none fw-semibold"
+                                class="layout-name-link"
+                                title="View layout details"
                             >
                                 {{ layout.name }}
                             </RouterLink>
@@ -664,5 +665,15 @@ onMounted(async () => {
         margin-left: 0;
         justify-content: flex-end;
     }
+}
+
+.layout-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.layout-name-link:hover {
+    text-decoration: underline;
 }
 </style>

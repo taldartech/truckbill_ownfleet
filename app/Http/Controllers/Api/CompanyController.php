@@ -24,7 +24,17 @@ class CompanyController extends Controller
 
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
 
-        $query = Tenant::query()->with('state')->orderByDesc('created_at');
+        $query = Tenant::query()
+            ->with('state')
+            ->when($request->filled('search'), function ($builder) use ($request): void {
+                $search = '%'.$request->string('search').'%';
+                $builder->where(function ($inner) use ($search): void {
+                    $inner->where('name', 'like', $search)
+                        ->orWhere('gst_number', 'like', $search)
+                        ->orWhere('pan_number', 'like', $search);
+                });
+            })
+            ->orderByDesc('created_at');
 
         /** @var User $user */
         $user = $request->user();

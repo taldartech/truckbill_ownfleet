@@ -36,9 +36,21 @@ const router = createRouter({
                     meta: { allowWithoutTenant: true, permission: 'companies.view' },
                 },
                 {
+                    path: 'companies/:id',
+                    name: 'companies.show',
+                    component: () => import('./pages/companies/CompanyDetailPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'companies.view' },
+                },
+                {
                     path: 'branches',
                     name: 'branches.index',
                     component: () => import('./pages/branches/BranchesIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'branches.view' },
+                },
+                {
+                    path: 'branches/:id',
+                    name: 'branches.show',
+                    component: () => import('./pages/branches/BranchDetailPage.vue'),
                     meta: { allowWithoutTenant: true, permission: 'branches.view' },
                 },
                 {
@@ -324,6 +336,16 @@ const router = createRouter({
                     path: 'access/users',
                     name: 'access.users',
                     component: () => import('./pages/access/UsersIndexPage.vue'),
+                    meta: {
+                        allowWithoutTenant: true,
+                        permission: ['users.view', 'super_admins.view'],
+                        roles: ['master_admin', 'super_admin'],
+                    },
+                },
+                {
+                    path: 'users/:id',
+                    name: 'users.show',
+                    component: () => import('./pages/access/UserDetailPage.vue'),
                     meta: {
                         allowWithoutTenant: true,
                         permission: ['users.view', 'super_admins.view'],

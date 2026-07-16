@@ -30,6 +30,12 @@ export async function updateManagedUser(id, payload) {
     return unwrapResource(data);
 }
 
+export async function fetchManagedUser(id) {
+    const { data } = await api.get(`${base}/${id}`);
+
+    return unwrapResource(data);
+}
+
 export async function deleteManagedUser(id) {
     await api.delete(`${base}/${id}`);
 }

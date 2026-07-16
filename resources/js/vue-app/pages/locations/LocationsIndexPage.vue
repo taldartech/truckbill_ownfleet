@@ -77,7 +77,8 @@
                         <td>
                             <RouterLink
                                 :to="{ name: 'states.show', params: { id: state.id } }"
-                                class="state-name-link text-decoration-none fw-semibold"
+                                class="state-name-link"
+                                title="View state details"
                             >
                                 {{ state.name }}
                             </RouterLink>
@@ -162,7 +163,8 @@
                         <td>
                             <RouterLink
                                 :to="{ name: 'cities.show', params: { id: city.id } }"
-                                class="city-name-link text-decoration-none fw-semibold"
+                                class="city-name-link"
+                                title="View city details"
                             >
                                 {{ city.name }}
                             </RouterLink>
@@ -504,3 +506,17 @@ onMounted(async () => {
     await Promise.all([loadStates(1), loadCities(1)]);
 });
 </script>
+
+<style scoped>
+.state-name-link,
+.city-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.state-name-link:hover,
+.city-name-link:hover {
+    text-decoration: underline;
+}
+</style>

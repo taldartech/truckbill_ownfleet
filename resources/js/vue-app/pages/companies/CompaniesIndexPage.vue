@@ -14,34 +14,56 @@
                 </AppIndexHeaderButton>
             </template>
 
+            <AppIndexCollapsibleFilters
+                panel-id="companies-filters-panel"
+                :loading="loading"
+                @search="loadCompanies(1)"
+                @reset="clearFilters"
+            >
+                <div class="filter-search-col">
+                    <label class="form-label" for="companiesIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="filters.search"
+                        input-id="companiesIndex_search"
+                        placeholder="Search name, GST, PAN…"
+                        max-width="100%"
+                        size="md"
+                        :disabled="loading"
+                        @keydown.enter="loadCompanies(1)"
+                    />
+                </div>
+            </AppIndexCollapsibleFilters>
+
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 60px">#</th>
-                        <th>Name</th>
+                        <th style="width: 70px" class="text-center">S.No.</th>
+                        <th>Company Name</th>
                         <th>GST Number</th>
                         <th>PAN Number</th>
                         <th>Contact</th>
                         <th>Plan End</th>
-                        <th class="app-index-actions-cell text-end" style="width: 240px">Actions</th>
+                        <th class="app-index-actions-cell" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="companies.length === 0" class="app-index-empty-row">
                         <td colspan="7" class="text-center text-muted py-4">
-                            <span v-if="canCreate">
-                                No companies yet. Use the Create button to register your first company.
-                            </span>
-                            <span v-else>No companies yet.</span>
+                            {{ filters.search ? 'No companies found for selected filters.' : 'No companies found. Create your first company.' }}
                         </td>
                     </tr>
                     <tr v-for="(company, index) in companies" :key="company.id">
-                        <td>{{ rowNumber(index) }}</td>
+                        <td class="text-center">{{ rowNumber(index) }}</td>
                         <td>
-                            {{ company.name }}
-                            <span v-if="company.is_blocked" class="badge bg-danger ms-1">Blocked</span>
+                            <RouterLink
+                                :to="{ name: 'companies.show', params: { id: company.id } }"
+                                class="company-name-link"
+                                title="View company details"
+                            >
+                                {{ company.name }}
+                            </RouterLink>
                             <span
-                                v-else-if="isActiveCompany(company.id)"
+                                v-if="isActiveCompany(company.id)"
                                 class="badge bg-success ms-1"
                             >Active</span>
                         </td>
@@ -55,26 +77,18 @@
                             <span v-if="!company.contact_person && !company.contact_number">—</span>
                         </td>
                         <td>{{ formatDate(company.plan_end_date) }}</td>
-                        <td class="app-index-actions-cell text-end text-nowrap">
-                            <div class="app-index-table-actions">
-                                <button
+                        <td class="app-index-actions-cell">
+                           <AppTableActions>
+                               <!--  <AppCrudActionButton
+                                    action="view"
+                                    @click="goToDetail(company)"
+                                />-->
+                                <AppCrudActionButton
                                     v-if="canUpdate"
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
-                                    title="Edit"
-                                    aria-label="Edit"
+                                    action="edit"
                                     @click="openEdit(company)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <AppButton
-                                    v-if="canBlock"
-                                    size="sm"
-                                    :variant="company.is_blocked ? 'success' : 'warning'"
-                                    :label="company.is_blocked ? 'Unblock' : 'Block'"
-                                    @click="toggleBlock(company)"
                                 />
-                            </div>
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -113,8 +127,8 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, inject, onMounted, ref, reactive } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
 import {
     createCompany,
@@ -122,10 +136,13 @@ import {
     updateCompany,
 } from '../../api/companies';
 import CompanyFormModal from '../../components/companies/CompanyFormModal.vue';
-import AppButton from '../../components/ui/AppButton.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { formatDate } from '../../utils/datetime';
 import { useListPagination } from '../../composables/useListPagination';
@@ -136,6 +153,7 @@ import { useLocationLookups } from '../../composables/useLocationLookups';
 import { buildCompanyFields } from '../../utils/masterCrudSaveConfirm';
 
 const route = useRoute();
+const router = useRouter();
 const toast = useAppToast();
 const {
     showSaveConfirm,
@@ -161,7 +179,6 @@ const companyFormError = ref('');
 
 const canCreate = computed(() => can('companies.create'));
 const canUpdate = computed(() => can('companies.update'));
-const canBlock = computed(() => can('companies.block'));
 
 const activeCompanyId = computed(
     () => currentUser.value?.effective_company_id ?? currentUser.value?.company_id ?? null,
@@ -169,25 +186,36 @@ const activeCompanyId = computed(
 
 const routeNotice = computed(() => route.query.notice ?? '');
 
+const filters = reactive({
+    search: '',
+});
+
+function clearFilters() {
+    filters.search = '';
+    loadCompanies(1);
+}
+
 function isActiveCompany(id) {
     return activeCompanyId.value === id;
 }
 
 function rowNumber(index) {
-    return pagination.from > 0 ? pagination.from + index : index + 1;
+    return (pagination.currentPage - 1) * pagination.perPage + index + 1;
 }
 
-async function refreshUser() {
-    const user = await fetchCurrentUser();
-    currentUser.value = user;
-    window.__AUTH_USER__ = user;
+function goToDetail(company) {
+    router.push({ name: 'companies.show', params: { id: company.id } });
 }
 
 async function loadCompanies(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        const response = await listCompanies({ page, perPage: pagination.perPage });
+        const response = await listCompanies({
+            page,
+            perPage: pagination.perPage,
+            search: filters.search.trim(),
+        });
         companies.value = response.data;
         syncFromMeta(response.meta, companies.value.length);
     } catch (error) {
@@ -285,18 +313,51 @@ async function confirmSave() {
     }
 }
 
-async function toggleBlock(company) {
-    try {
-        await updateCompany(company.id, { is_blocked: !company.is_blocked });
-        toast.success(company.is_blocked ? 'Company unblocked.' : 'Company blocked.');
-        await loadCompanies();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not update company.');
-    }
-}
-
 onMounted(async () => {
     await initializeLocations();
     await loadCompanies();
 });
 </script>
+
+<style scoped>
+.company-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.company-name-link:hover {
+    text-decoration: underline;
+}
+
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.filter-select-col {
+    flex: 0 0 180px;
+    width: 180px;
+}
+</style>

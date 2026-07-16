@@ -12,14 +12,46 @@
                 </AppIndexHeaderButton>
             </template>
 
+            <AppIndexCollapsibleFilters
+                panel-id="users-filters-panel"
+                :loading="loading"
+                @search="loadUsers(1)"
+                @reset="clearFilters"
+            >
+                <div class="filter-search-col">
+                    <label class="form-label" for="usersIndex_search">Search</label>
+                    <AppIndexSearchInput
+                        v-model="filters.search"
+                        input-id="usersIndex_search"
+                        placeholder="Search name, email…"
+                        max-width="100%"
+                        size="md"
+                        :disabled="loading"
+                        @keydown.enter="loadUsers(1)"
+                    />
+                </div>
+                <div class="filter-select-col">
+                    <label class="form-label">Role</label>
+                    <AppSelect
+                        v-model="filters.user_role_id"
+                        :options="roleFilterOptions"
+                        placeholder="All roles"
+                        search-placeholder="Search role…"
+                        :disabled="loading"
+                    />
+                </div>
+            </AppIndexCollapsibleFilters>
+
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 70px" class="text-center">S.No.</th>
                         <th>Name</th>
                         <th>Email</th>
                         <th>Role</th>
                         <th v-if="showCompanyColumn">Company</th>
                         <th v-if="showBranchColumn">Branch</th>
+                        <th>Status</th>
                         <th v-if="showDocumentAlertsColumn">Document Alerts</th>
                         <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
                     </tr>
@@ -28,33 +60,47 @@
                     <tr v-if="users.length === 0" class="app-index-empty-row">
                         <td :colspan="tableColspan" class="text-center text-muted py-4">No users found.</td>
                     </tr>
-                    <tr v-for="user in users" :key="user.id">
+                    <tr v-for="(userItem, index) in users" :key="userItem.id">
+                        <td class="text-center">{{ rowNumber(index) }}</td>
                         <td>
-                            <strong>{{ user.name }}</strong>
-                            <span v-if="user.is_protected" class="badge bg-secondary ms-1">Protected</span>
+                            <RouterLink
+                                :to="{ name: 'users.show', params: { id: userItem.id } }"
+                                class="user-name-link"
+                                title="View user details"
+                            >
+                                {{ userItem.name }}
+                            </RouterLink>
+                            <span v-if="userItem.is_protected" class="badge bg-secondary ms-1">Protected</span>
                         </td>
-                        <td>{{ user.email }}</td>
-                        <td>{{ user.role_label }}</td>
-                        <td v-if="showCompanyColumn">{{ user.tenant_name ?? '—' }}</td>
-                        <td v-if="showBranchColumn">{{ user.branch_name ?? '—' }}</td>
+                        <td>{{ userItem.email }}</td>
+                        <td>{{ userItem.role_label }}</td>
+                        <td v-if="showCompanyColumn">{{ userItem.tenant_name ?? '—' }}</td>
+                        <td v-if="showBranchColumn">{{ userItem.branch_name ?? '—' }}</td>
+                        <td>
+                            <span class="badge bg-success">Active</span>
+                        </td>
                         <td v-if="showDocumentAlertsColumn">
-                            <span v-if="user.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
+                            <span v-if="userItem.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
                                 Live
                             </span>
-                            <span v-if="user.document_alerts_email" class="badge bg-info-subtle text-info-emphasis me-1">
+                            <span v-if="userItem.document_alerts_email" class="badge bg-info-subtle text-info-emphasis me-1">
                                 Email
                             </span>
                             <span
-                                v-if="!user.document_alerts_live && !user.document_alerts_email"
+                                v-if="!userItem.document_alerts_live && !userItem.document_alerts_email"
                                 class="text-muted small"
                             >
                                 Off
                             </span>
                         </td>
                         <td v-if="canManage" class="app-index-actions-cell">
-                            <AppTableActions v-if="!user.is_protected">
-                                <AppCrudActionButton action="edit" @click="openEdit(user)" />
-                                <AppCrudActionButton action="delete" @click="handleDelete(user)" />
+                            <AppTableActions v-if="!userItem.is_protected">
+                                <!-- <AppCrudActionButton
+                                    action="view"
+                                    @click="goToDetail(userItem)"
+                                /> -->
+                                <AppCrudActionButton action="edit" @click="openEdit(userItem)" />
+                                <AppCrudActionButton action="delete" @click="handleDelete(userItem)" />
                             </AppTableActions>
                             <span v-else class="text-muted small">—</span>
                         </td>
@@ -161,7 +207,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { listAllBranches } from '../../api/branches';
 import { listAllCompanies } from '../../api/companies';
 import { fetchDocumentAlertSettings, updateDocumentAlertSettings } from '../../api/documentAlertSettings';
@@ -173,6 +219,9 @@ import {
     updateManagedUser,
 } from '../../api/managedUsers';
 import UserFormModal from '../../components/access/UserFormModal.vue';
+import AppSelect from '../../components/ui/AppSelect.vue';
+import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
+import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
@@ -186,6 +235,7 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildUserFields } from '../../utils/masterCrudSaveConfirm';
 
+const router = useRouter();
 const { can, user } = usePermissions();
 const toast = useAppToast();
 const {
@@ -218,7 +268,7 @@ const showCompanyAlertSettingsNotice = computed(
     () => can('users.manage') && managesTenantUsers.value && !hasCompanyContext.value,
 );
 const tableColspan = computed(() => {
-    let cols = 3;
+    let cols = 4; // Name, Email, Role, Status
 
     if (showCompanyColumn.value) {
         cols += 1;
@@ -259,11 +309,42 @@ const formMode = ref('create');
 const editingUser = ref(null);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
+const filters = reactive({
+    search: '',
+    user_role_id: '',
+});
+
+const roleFilterOptions = computed(() =>
+    assignableRoles.value.map((role) => ({
+        value: role.id,
+        label: role.label,
+    })),
+);
+
+function clearFilters() {
+    filters.search = '';
+    filters.user_role_id = '';
+    loadUsers(1);
+}
+
+function rowNumber(index) {
+    return (pagination.currentPage - 1) * pagination.perPage + index + 1;
+}
+
+function goToDetail(userItem) {
+    router.push({ name: 'users.show', params: { id: userItem.id } });
+}
+
 async function loadUsers(page = pagination.currentPage) {
     loading.value = true;
 
     try {
-        const response = await listManagedUsers({ page, per_page: pagination.perPage });
+        const response = await listManagedUsers({
+            page,
+            per_page: pagination.perPage,
+            search: filters.search.trim() || undefined,
+            user_role_id: filters.user_role_id || undefined,
+        });
         users.value = response.data ?? [];
         syncFromMeta(response.meta, users.value.length);
     } catch {
@@ -429,3 +510,46 @@ onMounted(async () => {
     await Promise.all([loadFormOptions(), loadUsers(), loadCompanyAlertSettings()]);
 });
 </script>
+
+<style scoped>
+.user-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.user-name-link:hover {
+    text-decoration: underline;
+}
+
+/* Custom filters single row layout */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 1 1 auto;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.filter-select-col {
+    flex: 0 0 180px;
+    width: 180px;
+}
+</style>

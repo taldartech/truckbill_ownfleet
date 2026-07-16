@@ -12,7 +12,7 @@
             {{ isEdit ? 'Edit Branch' : 'Register Branch' }}
         </template>
 
-        <div class="row g-3">
+        <div class="row g-2">
             <div class="col-md-6">
                 <label class="form-label" for="branch_company_id">Company *</label>
                 <AppSelect
@@ -40,7 +40,7 @@
                     {{ fieldErrors.branch_name[0] }}
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="form-label" for="branch_contact_number">Contact Number *</label>
                 <input
                     id="branch_contact_number"
@@ -63,27 +63,44 @@
                     {{ fieldErrors.branch_contact_number[0] }}
                 </div>
                 <div v-if="selectedCompanyContact" class="form-text">
-                    Company contact: {{ selectedCompanyContact }}. You may reuse this number on
-                    multiple branches of the same company.
+                    Company contact: {{ selectedCompanyContact }}.
                 </div>
                 <div v-else class="form-text">
-                    Use a unique number that is not already assigned to any company or branch.
+                    Must be unique.
                 </div>
             </div>
-            <div class="col-md-6">
-                <label class="form-label" for="head_office">Head Office</label>
-                <AppSelect
-                    input-id="head_office"
-                    v-model="form.head_office"
-                    :options="headOfficeOptions"
-                    placeholder="Select"
-                    search-placeholder="Search…"
-                    :invalid="Boolean(fieldErrors.head_office)"
-                    :error-message="fieldErrors.head_office?.[0] ?? ''"
-                />
-                <div class="form-text">Only one head office is allowed per company.</div>
+            <div class="col-md-4">
+                <label class="form-label d-block" for="head_office">Head Office</label>
+                <div class="d-flex gap-3 align-items-center" style="height: 38px;">
+                    <div class="form-check mb-0">
+                        <input
+                            id="head_office_yes"
+                            v-model="form.head_office"
+                            class="form-check-input"
+                            type="radio"
+                            :value="true"
+                            name="head_office"
+                        />
+                        <label class="form-check-label" for="head_office_yes">Yes</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input
+                            id="head_office_no"
+                            v-model="form.head_office"
+                            class="form-check-input"
+                            type="radio"
+                            :value="false"
+                            name="head_office"
+                        />
+                        <label class="form-check-label" for="head_office_no">No</label>
+                    </div>
+                </div>
+                <div class="form-text">Max 1 per company.</div>
+                <div v-if="fieldErrors.head_office" class="invalid-feedback d-block mt-1">
+                    {{ fieldErrors.head_office[0] }}
+                </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="form-label" for="trip_sequence_start">Trip Starting Number</label>
                 <input
                     id="trip_sequence_start"
@@ -104,10 +121,10 @@
                     {{ fieldErrors.trip_sequence_start[0] }}
                 </div>
                 <div v-if="isTripSequenceStartLocked" class="form-text">
-                    This branch already has trips. The next trip will continue from the last number.
+                    🔒 Locked (trips exist).
                 </div>
                 <div v-else class="form-text">
-                    Default is 0001. Type any number such as 500, 1000, or 10000.
+                    Default: 0001
                 </div>
             </div>
             <div class="col-12">
@@ -117,7 +134,7 @@
                     v-model="form.branch_address"
                     class="form-control"
                     :class="{ 'is-invalid': fieldErrors.branch_address }"
-                    rows="3"
+                    rows="2"
                 />
                 <div v-if="fieldErrors.branch_address" class="invalid-feedback d-block">
                     {{ fieldErrors.branch_address[0] }}
@@ -126,11 +143,11 @@
 
             <div class="col-12">
                 <div class="border rounded p-3 bg-light">
-                    <h6 class="mb-3">GST Settings</h6>
                     <GstDetailsSection
                         ref="gstSectionRef"
                         v-model="gstForm"
                         v-model:inherit-company-gst="inheritCompanyGst"
+                        title="GST Settings"
                         :field-errors="fieldErrors"
                         :show-inherit-checkbox="true"
                         :company-gst="companyGst"

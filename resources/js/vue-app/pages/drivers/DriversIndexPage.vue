@@ -68,7 +68,8 @@
                         <td>
                             <RouterLink
                                 :to="{ name: 'drivers.show', params: { id: driver.id } }"
-                                class="fw-semibold text-decoration-none"
+                                class="driver-name-link"
+                                title="View driver details"
                             >
                                 {{ driver.name }}
                             </RouterLink>
@@ -678,3 +679,16 @@ watch(
     },
 );
 </script>
+
+<style scoped>
+.driver-name-link {
+    font-weight: 600;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: none;
+}
+
+.driver-name-link:hover {
+    text-decoration: underline;
+}
+</style>
+
