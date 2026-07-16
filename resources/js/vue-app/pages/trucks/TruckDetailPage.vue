@@ -11,8 +11,55 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Truck Information ({{ vehicle?.registration_number }})</strong>
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
+                                 <RouterLink
+                                    :to="{ name: 'trucks.index' }"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    title="Back to Trucks"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canViewAssignments"
+                                    action="driver"
+                                    @click="openAssignment"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canViewDocuments"
+                                    action="documents"
+                                    @click="openDocuments"
+                                />
+                                <RouterLink
+                                    v-if="canViewTyres"
+                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                    :class="`${tyreLinkClasses} btn-icon`"
+                                    title="Tyre positions"
+                                >
+                                    <i class="bi bi-circle" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <RouterLink
+                                    v-if="canCreateMaintenance"
+                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                    :class="`${serviceLinkClasses} btn-icon`"
+                                    title="Add service record"
+                                >
+                                    <i class="fas fa-wrench" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    @click="openEdit"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canDelete"
+                                    action="delete"
+                                    @click="handleDelete"
+                                />
+                            </div>
+
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
@@ -62,52 +109,7 @@
                                     {{ vehicle.is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </div>
-                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
-                                <RouterLink
-                                    :to="{ name: 'trucks.index' }"
-                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
-                                    title="Back to Trucks"
-                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
-                                >
-                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
-                                <AppCrudActionButton
-                                    v-if="canViewAssignments"
-                                    action="driver"
-                                    @click="openAssignment"
-                                />
-                                <AppCrudActionButton
-                                    v-if="canViewDocuments"
-                                    action="documents"
-                                    @click="openDocuments"
-                                />
-                                <RouterLink
-                                    v-if="canViewTyres"
-                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                    :class="`${tyreLinkClasses} btn-icon`"
-                                    title="Tyre positions"
-                                >
-                                    <i class="bi bi-circle" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
-                                <RouterLink
-                                    v-if="canCreateMaintenance"
-                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
-                                    :class="`${serviceLinkClasses} btn-icon`"
-                                    title="Add service record"
-                                >
-                                    <i class="fas fa-wrench" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
-                                <AppCrudActionButton
-                                    v-if="canEdit"
-                                    action="edit"
-                                    @click="openEdit"
-                                />
-                                <AppCrudActionButton
-                                    v-if="canDelete"
-                                    action="delete"
-                                    @click="handleDelete"
-                                />
-                            </div>
+                           
                         </div>
                     </div>
 

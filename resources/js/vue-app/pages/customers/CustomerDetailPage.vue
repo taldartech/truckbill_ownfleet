@@ -6,8 +6,29 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Customer Information ({{ customer?.name }})</strong>
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary btn-icon"
+                                    title="Back to Customers"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;"
+                                    @click="goBack"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </button>
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    @click="openEdit"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canDelete"
+                                    action="delete"
+                                    @click="handleDelete"
+                                />
+                            </div>
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
@@ -39,29 +60,7 @@
                                 <div>{{ customer.address || '—' }}</div>
                             </div>
                         </div>
-                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;">
-                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-secondary btn-icon"
-                                    title="Back to Customers"
-                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;"
-                                    @click="goBack"
-                                >
-                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </button>
-                                <AppCrudActionButton
-                                    v-if="canEdit"
-                                    action="edit"
-                                    @click="openEdit"
-                                />
-                                <AppCrudActionButton
-                                    v-if="canDelete"
-                                    action="delete"
-                                    @click="handleDelete"
-                                />
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 

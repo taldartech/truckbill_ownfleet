@@ -8,7 +8,7 @@ export const CRUD_ACTION_PRESETS = {
         title: 'View details',
     },
     edit: {
-        btnClass: 'btn-edit',
+        btnClass: 'btn-outline-secondary',
         icon: 'fas fa-pencil-alt',
         title: 'Edit',
     },

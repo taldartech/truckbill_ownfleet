@@ -10,8 +10,24 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Tyre Layout Information ({{ layout?.name }})</strong>
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    title="Back to Tyre Layouts"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                    @click="goBack"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </button>
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    @click="openEdit"
+                                />
+                            </div>
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
@@ -54,22 +70,6 @@
                                 >
                                     {{ layout.is_active ? 'Active' : 'Inactive' }}
                                 </span>
-                            </div>
-                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
-                                    title="Back to Tyre Layouts"
-                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
-                                    @click="goBack"
-                                >
-                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </button>
-                                <AppCrudActionButton
-                                    v-if="canEdit"
-                                    action="edit"
-                                    @click="openEdit"
-                                />
                             </div>
                         </div>
                     </div>

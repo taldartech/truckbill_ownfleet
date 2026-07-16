@@ -6,8 +6,18 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>State Information ({{ state?.name }})</strong>
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
+                                <RouterLink
+                                    :to="{ name: 'locations.index' }"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    title="Back to Locations"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                            </div>
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
@@ -23,19 +33,7 @@
                                 <div>{{ state.country_name || '—' }}</div>
                             </div>
                         </div>
-                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;">
-                            <div class="d-flex align-items-center"></div>
-                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
-                                <RouterLink
-                                    :to="{ name: 'locations.index' }"
-                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
-                                    title="Back to Locations"
-                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
-                                >
-                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 

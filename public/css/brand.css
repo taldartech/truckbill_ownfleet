@@ -559,6 +559,12 @@ a.btn-outline-secondary {
     border: 1px solid #D1D5DB !important;
 }
 
+.btn-outline-secondary :is(i, .bi, .fas, .far, .fab),
+.card-header .btn-outline-secondary :is(i, .bi, .fas, .far, .fab),
+.card-footer .btn-outline-secondary :is(i, .bi, .fas, .far, .fab) {
+    color: var(--brand-text-primary) !important;
+}
+
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus-visible,
 button.btn-outline-secondary:hover,

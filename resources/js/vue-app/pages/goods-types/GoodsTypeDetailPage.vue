@@ -6,17 +6,9 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Goods Type Information ({{ goodsType?.name }})</strong>
-                        </div>
-                        <div class="card-body row g-3 small">
-                            <div class="col-md-12">
-                                <span class="text-muted">Goods Type Name</span>
-                                <div class="fw-semibold fs-5 text-dark">{{ goodsType.name }}</div>
-                            </div>
-                        </div>
-                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;">
-                            <div class="d-flex gap-2 ms-auto" style="margin-left: auto !important;">
+                            <div class="app-index-table-actions ms-auto" style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;">
                                 <button
                                     type="button"
                                     class="btn btn-sm btn-outline-secondary btn-icon"
@@ -38,6 +30,13 @@
                                 />
                             </div>
                         </div>
+                        <div class="card-body row g-3 small">
+                            <div class="col-md-12">
+                                <span class="text-muted">Goods Type Name</span>
+                                <div class="fw-semibold fs-5 text-dark">{{ goodsType.name }}</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 

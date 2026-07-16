@@ -7,7 +7,7 @@
         :aria-label="buttonTitle"
         v-bind="$attrs"
     >
-        <i :class="preset.icon" aria-hidden="true"></i>
+        <i :class="preset.icon" :style="iconStyle" aria-hidden="true"></i>
     </button>
 </template>
 
@@ -40,4 +40,11 @@ const preset = computed(() => CRUD_ACTION_PRESETS[props.action]);
 const buttonClasses = computed(() => crudActionButtonClasses(props.action));
 
 const buttonTitle = computed(() => props.title || preset.value.title);
+
+const iconStyle = computed(() => {
+    if (preset.value?.btnClass === 'btn-outline-secondary') {
+        return 'color: #475569 !important;';
+    }
+    return '';
+});
 </script>

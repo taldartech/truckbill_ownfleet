@@ -771,3 +771,8 @@
     opacity: 0;
     pointer-events: none;
 }
+.btn-outline-secondary :is(i, .bi, .fas, .far, .fab),
+.card-header .btn-outline-secondary :is(i, .bi, .fas, .far, .fab),
+.card-footer .btn-outline-secondary :is(i, .bi, .fas, .far, .fab) {
+    color: var(--brand-text-primary) !important;
+}
