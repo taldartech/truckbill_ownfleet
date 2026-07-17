@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class BranchController extends Controller
@@ -60,9 +61,10 @@ class BranchController extends Controller
     public function store(StoreBranchRequest $request): BranchResource
     {
         $branch = DB::transaction(function () use ($request): Branch {
-            $validated = $request->validated();
+            $validated = collect($request->validated())->except(['branch_logo'])->all();
             $validated['head_office'] = $request->boolean('head_office');
             $validated['inherit_company_gst'] = $request->boolean('inherit_company_gst', true);
+            $validated['use_company_logo'] = $request->boolean('use_company_logo', true);
 
             if ($validated['head_office']) {
                 Branch::query()
@@ -70,7 +72,21 @@ class BranchController extends Controller
                     ->update(['head_office' => false]);
             }
 
-            return Branch::query()->create($validated);
+            if ($validated['use_company_logo']) {
+                $validated['branch_logo'] = null;
+            }
+
+            $branch = Branch::query()->create($validated);
+
+            /** @var UploadedFile|null $logo */
+            $logo = $request->file('branch_logo');
+
+            if (! $validated['use_company_logo'] && $logo instanceof UploadedFile) {
+                $branch->branch_logo = $branch->storeLogo($logo);
+                $branch->save();
+            }
+
+            return $branch;
         });
 
         return new BranchResource($branch->load('company'));
@@ -86,7 +102,7 @@ class BranchController extends Controller
     public function update(UpdateBranchRequest $request, Branch $branch): BranchResource
     {
         $branch = DB::transaction(function () use ($request, $branch): Branch {
-            $validated = $request->validated();
+            $validated = collect($request->validated())->except(['branch_logo', 'remove_logo'])->all();
 
             if ($request->has('head_office')) {
                 $validated['head_office'] = $request->boolean('head_office');
@@ -94,6 +110,10 @@ class BranchController extends Controller
 
             if ($request->has('inherit_company_gst')) {
                 $validated['inherit_company_gst'] = $request->boolean('inherit_company_gst');
+            }
+
+            if ($request->has('use_company_logo')) {
+                $validated['use_company_logo'] = $request->boolean('use_company_logo');
             }
 
             $companyId = (string) ($validated['company_id'] ?? $branch->company_id);
@@ -106,6 +126,22 @@ class BranchController extends Controller
             }
 
             $branch->fill($validated);
+
+            $useCompanyLogo = (bool) ($validated['use_company_logo'] ?? $branch->use_company_logo);
+
+            /** @var UploadedFile|null $logo */
+            $logo = $request->file('branch_logo');
+
+            if ($useCompanyLogo) {
+                $branch->deleteLogo();
+                $branch->use_company_logo = true;
+            } elseif ($request->boolean('remove_logo')) {
+                $branch->deleteLogo();
+            } elseif ($logo instanceof UploadedFile) {
+                $branch->deleteLogo();
+                $branch->branch_logo = $branch->storeLogo($logo);
+            }
+
             $branch->save();
 
             return $branch;

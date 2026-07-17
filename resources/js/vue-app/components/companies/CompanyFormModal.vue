@@ -109,6 +109,34 @@
             </div>
         </div>
 
+        <div class="mb-3">
+            <label class="form-label" for="company_logo">Company Logo</label>
+            <div v-if="logoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                <img :src="logoPreviewUrl" alt="Logo preview" class="company-logo-preview" />
+                <button
+                    v-if="isEdit && existingLogoUrl && !removeLogo && !logoFile"
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    @click="onRemoveLogo"
+                >
+                    Remove logo
+                </button>
+            </div>
+            <input
+                id="company_logo"
+                ref="logoInputRef"
+                type="file"
+                class="form-control"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                :class="{ 'is-invalid': fieldErrors.company_logo }"
+                @change="onLogoFileChange"
+            />
+            <div v-if="fieldErrors.company_logo" class="invalid-feedback d-block">
+                {{ fieldErrors.company_logo[0] }}
+            </div>
+            <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
+        </div>
+
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
             <button type="submit" class="btn btn-brand-primary" :disabled="saving">
@@ -119,7 +147,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import GstDetailsSection from '../gst/GstDetailsSection.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppSelect from '../ui/AppSelect.vue';
@@ -148,8 +176,22 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const gstSectionRef = ref(null);
+const logoInputRef = ref(null);
+const logoFile = ref(null);
+const logoObjectUrl = ref('');
+const removeLogo = ref(false);
 const localFieldErrors = reactive({});
 const { states, initialize: initializeLocations } = useLocationLookups();
+
+const existingLogoUrl = computed(() => {
+    if (removeLogo.value) {
+        return '';
+    }
+
+    return props.company?.logo_url ?? '';
+});
+
+const logoPreviewUrl = computed(() => logoObjectUrl.value || existingLogoUrl.value || '');
 
 const stateSelectOptions = computed(() =>
     states.value.map((state) => ({
@@ -200,6 +242,45 @@ const form = reactive({
 
 const gstForm = ref(createGstFormState());
 
+function revokeLogoObjectUrl() {
+    if (logoObjectUrl.value) {
+        URL.revokeObjectURL(logoObjectUrl.value);
+        logoObjectUrl.value = '';
+    }
+}
+
+function resetLogoState() {
+    logoFile.value = null;
+    removeLogo.value = false;
+    revokeLogoObjectUrl();
+
+    if (logoInputRef.value) {
+        logoInputRef.value.value = '';
+    }
+}
+
+function onLogoFileChange(event) {
+    const file = event.target.files?.[0] ?? null;
+
+    revokeLogoObjectUrl();
+    logoFile.value = file;
+    removeLogo.value = false;
+
+    if (file) {
+        logoObjectUrl.value = URL.createObjectURL(file);
+    }
+}
+
+function onRemoveLogo() {
+    logoFile.value = null;
+    removeLogo.value = true;
+    revokeLogoObjectUrl();
+
+    if (logoInputRef.value) {
+        logoInputRef.value.value = '';
+    }
+}
+
 function resetForm() {
     form.name = '';
     form.pan_number = '';
@@ -208,6 +289,7 @@ function resetForm() {
     form.contact_number = '';
     form.payroll_pay_days_mode = 'calendar';
     gstForm.value = createGstFormState();
+    resetLogoState();
 }
 
 function fillForm(company) {
@@ -218,6 +300,7 @@ function fillForm(company) {
     form.contact_number = normalizeMobile(company?.contact_number ?? '');
     form.payroll_pay_days_mode = company?.payroll_pay_days_mode ?? 'calendar';
     gstForm.value = createGstFormState(company);
+    resetLogoState();
 }
 
 function submit() {
@@ -235,7 +318,7 @@ function submit() {
         return;
     }
 
-    emit('submit', {
+    const payload = {
         ...form,
         ...normalizeGstFormForSubmit(gstForm.value),
         name: form.name.trim(),
@@ -243,7 +326,17 @@ function submit() {
         address: form.address.trim() || null,
         contact_person: form.contact_person.trim(),
         contact_number: form.contact_number.trim(),
-    });
+    };
+
+    if (logoFile.value instanceof File) {
+        payload.company_logo = logoFile.value;
+    }
+
+    if (isEdit.value && removeLogo.value && !(logoFile.value instanceof File)) {
+        payload.remove_logo = true;
+    }
+
+    emit('submit', payload);
 }
 
 watch(
@@ -251,6 +344,7 @@ watch(
     async (visible) => {
         if (!visible) {
             clearLocalFieldErrors();
+            resetLogoState();
 
             return;
         }
@@ -269,4 +363,20 @@ watch(
         resetForm();
     },
 );
+
+onBeforeUnmount(() => {
+    revokeLogoObjectUrl();
+});
 </script>
+
+<style scoped>
+.company-logo-preview {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.25rem;
+}
+</style>

@@ -27,6 +27,9 @@ class BranchResource extends JsonResource
                 ->where('branch_id', $this->id)
                 ->exists(),
             'inherit_company_gst' => (bool) ($this->inherit_company_gst ?? true),
+            'use_company_logo' => (bool) ($this->use_company_logo ?? true),
+            'branch_logo' => $this->branch_logo,
+            'logo_url' => $this->logoPublicUrl(),
             'registration_type' => $this->registration_type?->value ?? $this->registration_type,
             'tax_liability' => $this->tax_liability?->value ?? $this->tax_liability,
             'gst_number' => $this->gst_number,
@@ -66,6 +69,8 @@ class BranchResource extends JsonResource
                 'gst_number' => $this->company?->gst_number,
                 'gst_rate' => $this->company?->gst_rate !== null ? (float) $this->company->gst_rate : null,
                 'state_id' => $this->company?->state_id,
+                'company_logo' => $this->company?->company_logo,
+                'logo_url' => $this->company?->logoPublicUrl(),
             ]),
             'company_name' => $this->whenLoaded('company', fn () => $this->company?->name),
             'created_at' => ApiDateTime::toIso($this->created_at),

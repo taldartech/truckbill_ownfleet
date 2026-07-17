@@ -60,6 +60,8 @@ class StoreBranchRequest extends FormRequest
             'gst_number' => ['nullable', 'string', 'max:50', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'use_company_logo' => ['sometimes', 'boolean'],
+            'branch_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
         ];
     }
 
@@ -68,7 +70,12 @@ class StoreBranchRequest extends FormRequest
      */
     public function messages(): array
     {
-        return $this->branchContactNumberMessages();
+        return [
+            ...$this->branchContactNumberMessages(),
+            'branch_logo.image' => 'The logo must be an image file.',
+            'branch_logo.mimes' => 'The logo must be a JPG, PNG, or WEBP image.',
+            'branch_logo.max' => 'The logo may not be greater than 100 KB.',
+        ];
     }
 
     public function withValidator(Validator $validator): void

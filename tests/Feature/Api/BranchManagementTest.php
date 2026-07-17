@@ -7,6 +7,8 @@ use App\Tenant;
 use App\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class BranchManagementTest extends TestCase
@@ -407,6 +409,128 @@ class BranchManagementTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['trip_sequence_start']);
+    }
+
+    public function test_branch_can_use_company_logo_or_own_logo(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+        $companyLogo = UploadedFile::fake()->image('company.png', 100, 100);
+
+        $companyResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                'name' => 'Branch Logo Co',
+                'pan_number' => 'DDDDD1234D',
+                'contact_person' => 'Branch Contact',
+                'contact_number' => '9876543293',
+                'company_logo' => $companyLogo,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated();
+
+        $companyId = $companyResponse->json('data.id');
+        $companyLogoPath = $companyResponse->json('data.company_logo');
+
+        $inheritResponse = $this->actingAs($superAdmin)
+            ->postJson('/app/api/branches', [
+                'company_id' => $companyId,
+                'branch_name' => 'Inherit Logo Branch',
+                'branch_contact_number' => '9876543294',
+                'head_office' => true,
+                'use_company_logo' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.use_company_logo', true)
+            ->assertJsonPath('data.branch_logo', null);
+
+        $inheritBranch = Branch::query()->findOrFail($inheritResponse->json('data.id'));
+        $this->assertSame(
+            Storage::disk('public')->url($companyLogoPath),
+            $inheritBranch->logoPublicUrl(),
+        );
+
+        $branchLogo = UploadedFile::fake()->image('branch.png', 110, 110);
+
+        $customResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/branches', [
+                'company_id' => $companyId,
+                'branch_name' => 'Custom Logo Branch',
+                'branch_contact_number' => '9876543295',
+                'head_office' => false,
+                'use_company_logo' => '0',
+                'branch_logo' => $branchLogo,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.use_company_logo', false);
+
+        $customLogoPath = $customResponse->json('data.branch_logo');
+        $this->assertNotNull($customLogoPath);
+        Storage::disk('public')->assertExists($customLogoPath);
+
+        $customBranchId = $customResponse->json('data.id');
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/branches/'.$customBranchId, [
+                'use_company_logo' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.use_company_logo', true)
+            ->assertJsonPath('data.branch_logo', null);
+
+        Storage::disk('public')->assertMissing($customLogoPath);
+    }
+
+    public function test_branch_update_keeps_existing_logo_when_no_file_is_provided(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Keep Branch Logo Co');
+        $branchLogo = UploadedFile::fake()->image('keep-branch.png', 100, 100);
+
+        $createResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/branches', [
+                'company_id' => $tenant->id,
+                'branch_name' => 'Keep Logo Branch',
+                'branch_contact_number' => '9876543296',
+                'head_office' => true,
+                'use_company_logo' => '0',
+                'branch_logo' => $branchLogo,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated();
+
+        $branchId = $createResponse->json('data.id');
+        $storedLogo = $createResponse->json('data.branch_logo');
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/branches/'.$branchId, [
+                'branch_name' => 'Keep Logo Branch Updated',
+                'use_company_logo' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.branch_name', 'Keep Logo Branch Updated')
+            ->assertJsonPath('data.branch_logo', $storedLogo);
+
+        Storage::disk('public')->assertExists($storedLogo);
+
+        $this->actingAs($superAdmin)
+            ->post('/app/api/branches/'.$branchId, [
+                '_method' => 'PUT',
+                'use_company_logo' => '0',
+                'remove_logo' => '1',
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.branch_logo', null);
+
+        Storage::disk('public')->assertMissing($storedLogo);
     }
 
     private function createSuperAdmin(): User

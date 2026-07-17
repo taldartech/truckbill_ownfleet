@@ -131,6 +131,7 @@ class TripBiltyService
             'company_line' => $companyLine,
             'gst_number' => $gstSettings['gst_number'] ?? $company?->gst_number,
             'pan_number' => $company?->pan_number,
+            'logo_path' => ($branch ?? $company)?->logoFilesystemPathForPdf(),
             'is_rcm' => ($gstSettings['tax_liability'] ?? null) === TaxLiability::ReverseCharge,
             'show_freight' => $showFreight,
             'trip' => $trip,

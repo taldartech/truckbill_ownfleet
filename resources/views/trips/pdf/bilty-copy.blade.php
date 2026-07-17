@@ -35,7 +35,6 @@
             box-shadow: 0 0 0 1px rgba(35, 31, 32, 0.15);
         }
         .lr-sheet--a .lr-sheet__ribbon {
-            color: #ffffff;
             font-weight: 800;
             font-size: 9px;
             letter-spacing: 0.6px;
@@ -53,6 +52,12 @@
             border: 1px solid #231f20;
             padding: 3px 4px;
             vertical-align: top;
+        }
+        .company-logo {
+            width: 72px;
+            height: 46px;
+            object-fit: contain;
+            display: block;
         }
         .page-break {
             page-break-after: always;
@@ -72,6 +77,7 @@
                 'company_line' => $company_line,
                 'gst_number' => $gst_number,
                 'pan_number' => $pan_number,
+                'logo_path' => $logo_path ?? null,
                 'is_rcm' => $is_rcm,
                 'show_freight' => $show_freight,
                 'copyLabel' => 'CONSIGNOR COPY',
@@ -84,6 +90,7 @@
                 'company_line' => $company_line,
                 'gst_number' => $gst_number,
                 'pan_number' => $pan_number,
+                'logo_path' => $logo_path ?? null,
                 'is_rcm' => $is_rcm,
                 'show_freight' => $show_freight,
                 'copyLabel' => 'DRIVER COPY',

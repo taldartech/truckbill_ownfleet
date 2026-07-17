@@ -159,6 +159,17 @@ export function buildCompanyFields(payload, original, { states = [] } = {}) {
         { label: 'Contact Person', value: payload.contact_person, previousValue: original?.contact_person },
         { label: 'Contact Number', value: payload.contact_number, previousValue: original?.contact_number },
         { label: 'Address', value: payload.address, previousValue: original?.address },
+        {
+            label: 'Company Logo',
+            value: payload.remove_logo
+                ? 'Remove logo'
+                : payload.company_logo instanceof File
+                    ? payload.company_logo.name
+                    : original?.logo_url
+                        ? 'Keep existing'
+                        : 'No logo',
+            previousValue: original?.logo_url ? 'Uploaded' : 'No logo',
+        },
     ];
 }
 
@@ -236,6 +247,27 @@ export function buildBranchFields(payload, original, { companies, states = [] } 
                 previousValue: original?.state_name ?? resolveLookupLabel(states, original?.state_id),
             },
         );
+    }
+
+    fields.push({
+        label: 'Use Company Logo',
+        value: payload.use_company_logo ? 'Yes' : 'No',
+        previousValue: original?.use_company_logo === false ? 'No' : 'Yes',
+    });
+
+    if (!payload.use_company_logo) {
+        fields.push({
+            label: 'Branch Logo',
+            value: payload.remove_logo
+                ? 'Remove logo'
+                : payload.branch_logo instanceof File
+                    ? payload.branch_logo.name
+                    : original?.logo_url && !original?.use_company_logo
+                        ? 'Keep existing'
+                        : 'No logo',
+            previousValue:
+                original?.use_company_logo === false && original?.logo_url ? 'Uploaded' : 'No logo',
+        });
     }
 
     return fields;

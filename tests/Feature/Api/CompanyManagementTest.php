@@ -11,6 +11,8 @@ use App\Tenant;
 use App\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CompanyManagementTest extends TestCase
@@ -383,6 +385,111 @@ class CompanyManagementTest extends TestCase
 
         $duplicate->assertUnprocessable();
         $duplicate->assertJsonValidationErrors(['contact_number']);
+    }
+
+    public function test_company_logo_can_be_uploaded_replaced_and_removed(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+        $logo = UploadedFile::fake()->image('company-logo.png', 120, 120);
+
+        $createResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                'name' => 'Logo Transport',
+                'gst_number' => '27BBBBB0000B1Z5',
+                'pan_number' => 'BBBBB1234B',
+                'contact_person' => 'Logo Contact',
+                'contact_number' => '9876543291',
+                'company_logo' => $logo,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated();
+
+        $companyId = $createResponse->json('data.id');
+        $storedLogo = $createResponse->json('data.company_logo');
+
+        $this->assertNotNull($storedLogo);
+        $this->assertNotNull($createResponse->json('data.logo_url'));
+        Storage::disk('public')->assertExists($storedLogo);
+
+        $company = Tenant::query()->findOrFail($companyId);
+        $this->assertNotNull($company->logoPublicUrl());
+        $this->assertNotNull($company->logoFilesystemPathForPdf());
+
+        $replacement = UploadedFile::fake()->image('company-logo-2.jpg', 140, 140);
+
+        $updateResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies/'.$companyId, [
+                '_method' => 'PUT',
+                'name' => 'Logo Transport',
+                'pan_number' => 'BBBBB1234B',
+                'contact_person' => 'Logo Contact',
+                'contact_number' => '9876543291',
+                'company_logo' => $replacement,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk();
+
+        $newLogo = $updateResponse->json('data.company_logo');
+        $this->assertNotSame($storedLogo, $newLogo);
+        Storage::disk('public')->assertMissing($storedLogo);
+        Storage::disk('public')->assertExists($newLogo);
+
+        $this->actingAs($superAdmin)
+            ->post('/app/api/companies/'.$companyId, [
+                '_method' => 'PUT',
+                'name' => 'Logo Transport',
+                'pan_number' => 'BBBBB1234B',
+                'contact_person' => 'Logo Contact',
+                'contact_number' => '9876543291',
+                'remove_logo' => '1',
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.company_logo', null)
+            ->assertJsonPath('data.logo_url', null);
+
+        Storage::disk('public')->assertMissing($newLogo);
+    }
+
+    public function test_company_update_keeps_existing_logo_when_no_file_is_provided(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+        $logo = UploadedFile::fake()->image('keep-logo.png', 100, 100);
+
+        $createResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                'name' => 'Keep Logo Co',
+                'pan_number' => 'CCCCC1234C',
+                'contact_person' => 'Keep Contact',
+                'contact_number' => '9876543292',
+                'company_logo' => $logo,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated();
+
+        $companyId = $createResponse->json('data.id');
+        $storedLogo = $createResponse->json('data.company_logo');
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$companyId, [
+                'name' => 'Keep Logo Co Updated',
+                'pan_number' => 'CCCCC1234C',
+                'contact_person' => 'Keep Contact',
+                'contact_number' => '9876543292',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Keep Logo Co Updated')
+            ->assertJsonPath('data.company_logo', $storedLogo);
+
+        Storage::disk('public')->assertExists($storedLogo);
     }
 
     private function createSuperAdmin(): User

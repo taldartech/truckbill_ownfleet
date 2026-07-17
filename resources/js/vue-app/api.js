@@ -248,4 +248,42 @@ export async function logout() {
     }
 }
 
+export function toFormData(payload) {
+    const formData = new FormData();
+
+    Object.entries(payload ?? {}).forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+            return;
+        }
+
+        if (value instanceof File) {
+            formData.append(key, value);
+
+            return;
+        }
+
+        if (typeof value === 'boolean') {
+            formData.append(key, value ? '1' : '0');
+
+            return;
+        }
+
+        formData.append(key, String(value));
+    });
+
+    return formData;
+}
+
+export function payloadNeedsMultipart(payload, fileKeys = []) {
+    if (!payload || typeof payload !== 'object') {
+        return false;
+    }
+
+    if (fileKeys.some((key) => payload[key] instanceof File)) {
+        return true;
+    }
+
+    return Boolean(payload.remove_logo);
+}
+
 export default api;

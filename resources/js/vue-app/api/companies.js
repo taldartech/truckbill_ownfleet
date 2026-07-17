@@ -1,4 +1,4 @@
-import api from '../api';
+import api, { payloadNeedsMultipart, toFormData } from '../api';
 
 const companiesBase = '/app/api/companies';
 
@@ -24,12 +24,26 @@ export async function listAllCompanies() {
 }
 
 export async function createCompany(payload) {
+    if (payloadNeedsMultipart(payload, ['company_logo'])) {
+        const { data } = await api.post(companiesBase, toFormData(payload));
+
+        return unwrapResource(data);
+    }
+
     const { data } = await api.post(companiesBase, payload);
 
     return unwrapResource(data);
 }
 
 export async function updateCompany(id, payload) {
+    if (payloadNeedsMultipart(payload, ['company_logo'])) {
+        const formData = toFormData(payload);
+        formData.append('_method', 'PUT');
+        const { data } = await api.post(`${companiesBase}/${id}`, formData);
+
+        return unwrapResource(data);
+    }
+
     const { data } = await api.put(`${companiesBase}/${id}`, payload);
 
     return unwrapResource(data);

@@ -143,6 +143,174 @@
 
             <div class="col-12">
                 <div class="border rounded p-3 bg-light">
+                    <h6 class="mb-3">Logo Settings</h6>
+                    <div class="form-check mb-3">
+                        <input
+                            id="use_company_logo"
+                            v-model="useCompanyLogo"
+                            class="form-check-input"
+                            type="checkbox"
+                        />
+                        <label class="form-check-label" for="use_company_logo">
+                            Use same logo of company
+                        </label>
+                    </div>
+                    <div v-if="useCompanyLogo && selectedCompanyLogoUrl" class="mb-2">
+                        <div class="form-text mb-1">Company logo preview</div>
+                        <img
+                            :src="selectedCompanyLogoUrl"
+                            alt="Company logo"
+                            class="branch-company-logo-preview"
+                        />
+                    </div>
+                    <div v-if="!useCompanyLogo">
+                        <label class="form-label" for="branch_logo">Branch Logo</label>
+                        <div v-if="branchLogoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                            <img
+                                :src="branchLogoPreviewUrl"
+                                alt="Branch logo preview"
+                                class="branch-company-logo-preview"
+                            />
+                            <button
+                                v-if="isEdit && existingBranchLogoUrl && !removeLogo && !logoFile"
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                @click="onRemoveLogo"
+                            >
+                                Remove logo
+                            </button>
+                        </div>
+                        <input
+                            id="branch_logo"
+                            ref="logoInputRef"
+                            type="file"
+                            class="form-control"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            :class="{ 'is-invalid': fieldErrors.branch_logo }"
+                            @change="onLogoFileChange"
+                        />
+                        <div v-if="fieldErrors.branch_logo" class="invalid-feedback d-block">
+                            {{ fieldErrors.branch_logo[0] }}
+                        </div>
+                        <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light">
+                    <h6 class="mb-3">Logo Settings</h6>
+                    <div class="form-check mb-3">
+                        <input
+                            id="use_company_logo"
+                            v-model="useCompanyLogo"
+                            class="form-check-input"
+                            type="checkbox"
+                        />
+                        <label class="form-check-label" for="use_company_logo">
+                            Use same logo of company
+                        </label>
+                    </div>
+                    <div v-if="useCompanyLogo && selectedCompanyLogoUrl" class="mb-2">
+                        <div class="form-text mb-1">Company logo preview</div>
+                        <img
+                            :src="selectedCompanyLogoUrl"
+                            alt="Company logo"
+                            class="branch-company-logo-preview"
+                        />
+                    </div>
+                    <div v-if="!useCompanyLogo">
+                        <label class="form-label" for="branch_logo">Branch Logo</label>
+                        <div v-if="branchLogoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                            <img
+                                :src="branchLogoPreviewUrl"
+                                alt="Branch logo preview"
+                                class="branch-company-logo-preview"
+                            />
+                            <button
+                                v-if="isEdit && existingBranchLogoUrl && !removeLogo && !logoFile"
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                @click="onRemoveLogo"
+                            >
+                                Remove logo
+                            </button>
+                        </div>
+                        <input
+                            id="branch_logo"
+                            ref="logoInputRef"
+                            type="file"
+                            class="form-control"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            :class="{ 'is-invalid': fieldErrors.branch_logo }"
+                            @change="onLogoFileChange"
+                        />
+                        <div v-if="fieldErrors.branch_logo" class="invalid-feedback d-block">
+                            {{ fieldErrors.branch_logo[0] }}
+                        </div>
+                        <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light">
+                    <h6 class="mb-3">Logo Settings</h6>
+                    <div class="form-check mb-3">
+                        <input
+                            id="use_company_logo"
+                            v-model="useCompanyLogo"
+                            class="form-check-input"
+                            type="checkbox"
+                        />
+                        <label class="form-check-label" for="use_company_logo">
+                            Use same logo of company
+                        </label>
+                    </div>
+                    <div v-if="useCompanyLogo && selectedCompanyLogoUrl" class="mb-2">
+                        <div class="form-text mb-1">Company logo preview</div>
+                        <img
+                            :src="selectedCompanyLogoUrl"
+                            alt="Company logo"
+                            class="branch-company-logo-preview"
+                        />
+                    </div>
+                    <div v-if="!useCompanyLogo">
+                        <label class="form-label" for="branch_logo">Branch Logo</label>
+                        <div v-if="branchLogoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                            <img
+                                :src="branchLogoPreviewUrl"
+                                alt="Branch logo preview"
+                                class="branch-company-logo-preview"
+                            />
+                            <button
+                                v-if="isEdit && existingBranchLogoUrl && !removeLogo && !logoFile"
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                @click="onRemoveLogo"
+                            >
+                                Remove logo
+                            </button>
+                        </div>
+                        <input
+                            id="branch_logo"
+                            ref="logoInputRef"
+                            type="file"
+                            class="form-control"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            :class="{ 'is-invalid': fieldErrors.branch_logo }"
+                            @change="onLogoFileChange"
+                        />
+                        <div v-if="fieldErrors.branch_logo" class="invalid-feedback d-block">
+                            {{ fieldErrors.branch_logo[0] }}
+                        </div>
+                        <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light">
                     <GstDetailsSection
                         ref="gstSectionRef"
                         v-model="gstForm"
@@ -165,7 +333,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import GstDetailsSection from '../gst/GstDetailsSection.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppButton from '../ui/AppButton.vue';
@@ -192,7 +360,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit']);
 
 const gstSectionRef = ref(null);
+const logoInputRef = ref(null);
 const inheritCompanyGst = ref(true);
+const useCompanyLogo = ref(true);
+const logoFile = ref(null);
+const logoObjectUrl = ref('');
+const removeLogo = ref(false);
 const { states, initialize: initializeLocations } = useLocationLookups();
 
 const stateSelectOptions = computed(() =>
@@ -232,6 +405,22 @@ const selectedCompanyContact = computed(() => {
     return contact ? normalizeMobile(contact) : '';
 });
 
+const selectedCompanyLogoUrl = computed(() => selectedCompany.value?.logo_url ?? '');
+
+const existingBranchLogoUrl = computed(() => {
+    if (removeLogo.value || useCompanyLogo.value) {
+        return '';
+    }
+
+    if (props.branch?.use_company_logo) {
+        return '';
+    }
+
+    return props.branch?.logo_url ?? '';
+});
+
+const branchLogoPreviewUrl = computed(() => logoObjectUrl.value || existingBranchLogoUrl.value || '');
+
 const contactClientError = ref('');
 const tripSequenceClientError = ref('');
 
@@ -254,6 +443,45 @@ function sanitizeTripSequenceStartInput(value) {
     return String(value).replace(/\D/g, '');
 }
 
+function revokeLogoObjectUrl() {
+    if (logoObjectUrl.value) {
+        URL.revokeObjectURL(logoObjectUrl.value);
+        logoObjectUrl.value = '';
+    }
+}
+
+function resetLogoState() {
+    logoFile.value = null;
+    removeLogo.value = false;
+    revokeLogoObjectUrl();
+
+    if (logoInputRef.value) {
+        logoInputRef.value.value = '';
+    }
+}
+
+function onLogoFileChange(event) {
+    const file = event.target.files?.[0] ?? null;
+
+    revokeLogoObjectUrl();
+    logoFile.value = file;
+    removeLogo.value = false;
+
+    if (file) {
+        logoObjectUrl.value = URL.createObjectURL(file);
+    }
+}
+
+function onRemoveLogo() {
+    logoFile.value = null;
+    removeLogo.value = true;
+    revokeLogoObjectUrl();
+
+    if (logoInputRef.value) {
+        logoInputRef.value.value = '';
+    }
+}
+
 function resetForm() {
     form.company_id = props.branch?.company_id ?? '';
     form.branch_name = props.branch?.branch_name ?? '';
@@ -264,7 +492,9 @@ function resetForm() {
         ? sanitizeTripSequenceStartInput(props.branch.trip_sequence_start === 0 ? 1 : props.branch.trip_sequence_start)
         : '1';
     inheritCompanyGst.value = props.branch?.inherit_company_gst ?? true;
+    useCompanyLogo.value = props.branch?.use_company_logo ?? true;
     gstForm.value = createGstFormState(props.branch ?? {});
+    resetLogoState();
 }
 
 watch(
@@ -293,6 +523,15 @@ watch(
 
         if (companyContact) {
             form.branch_contact_number = companyContact;
+        }
+    },
+);
+
+watch(
+    () => useCompanyLogo.value,
+    (enabled) => {
+        if (enabled) {
+            resetLogoState();
         }
     },
 );
@@ -362,12 +601,39 @@ function handleSubmit() {
         head_office: form.head_office,
         trip_sequence_start: tripSequenceStart,
         inherit_company_gst: inheritCompanyGst.value,
+        use_company_logo: useCompanyLogo.value,
     };
 
     if (!inheritCompanyGst.value) {
         Object.assign(payload, normalizeGstFormForSubmit(gstForm.value));
     }
 
+    if (!useCompanyLogo.value) {
+        if (logoFile.value instanceof File) {
+            payload.branch_logo = logoFile.value;
+        }
+
+        if (isEdit.value && removeLogo.value && !(logoFile.value instanceof File)) {
+            payload.remove_logo = true;
+        }
+    }
+
     emit('submit', payload);
 }
+
+onBeforeUnmount(() => {
+    revokeLogoObjectUrl();
+});
 </script>
+
+<style scoped>
+.branch-company-logo-preview {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.25rem;
+}
+</style>

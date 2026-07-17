@@ -37,6 +37,12 @@
             font-size: 10px;
             opacity: 0.95;
         }
+        .company-logo {
+            width: 92px;
+            height: 58px;
+            object-fit: contain;
+            display: block;
+        }
         .section {
             padding: 10px 12px;
         }
@@ -155,20 +161,31 @@
             ?? $customer?->state?->code
             ?? $invoice->supplierState?->code
             ?? '—';
+        $logoOwner = $invoice->branch ?? $company;
+        $logoPath = $logoOwner?->logoFilesystemPathForPdf();
         $colWidths = ['5%', '14%', '14%', '28%', '14%', '12%', '13%'];
     @endphp
 
     <div class="invoice-card">
         <div class="top-band">
-            <table style="width: 100%; border-collapse: collapse; border: none;">
+            <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; table-layout: auto;">
                 <tr>
-                    <td style="border: none; vertical-align: top;">
+                    @if ($logoPath)
+                        <td style="width: 120px; padding: 0; border: none; vertical-align: middle;">
+                            <img
+                                src="{{ $logoPath }}"
+                                alt="{{ $company->name }} Logo"
+                                class="company-logo"
+                            >
+                        </td>
+                    @endif
+                    <td style="padding: 0; border: none; vertical-align: middle;">
                         <p class="invoice-title">{{ $documentTitle }}</p>
                         <div class="company-name">{{ $company->name }}</div>
                         <div class="company-meta">
                             {{ $company->address }}
                             @if ($company->state?->name)
-                                , {{ $company->state->name }}
+                                {{ $company->state->name }}
                             @endif
                         </div>
                         <div class="company-meta">
