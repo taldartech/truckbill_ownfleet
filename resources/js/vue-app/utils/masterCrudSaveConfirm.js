@@ -22,6 +22,40 @@ export function resolveLookupLabel(items, id, fallback = '—') {
     return item.name ?? item.branch_name ?? item.label ?? fallback;
 }
 
+function formatBranchNumberExample(settings, kind) {
+    if (!settings) {
+        return null;
+    }
+
+    const initial = String(settings[`${kind}_initial`] ?? '').trim() || (kind === 'invoice' ? 'INV' : 'TRIP');
+    const separator1 = String(settings[`${kind}_separator_1`] ?? '');
+    const yearType = settings[`${kind}_year_type`] ?? 'year';
+    const yearDigits = Number(settings[`${kind}_year_digits`] ?? 4) === 2 ? 2 : 4;
+    const separator2 = String(settings[`${kind}_separator_2`] ?? '');
+    const sequenceDigits = Math.max(1, Number(settings[`${kind}_sequence_digits`] ?? 4) || 4);
+    const sequence = String(1).padStart(sequenceDigits, '0');
+    const now = new Date();
+    let datePart = '';
+
+    if (yearType === 'year') {
+        datePart = yearDigits === 2
+            ? String(now.getFullYear()).slice(-2)
+            : String(now.getFullYear());
+    } else if (yearType === 'financial_year') {
+        const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const endYear = startYear + 1;
+        datePart = yearDigits === 2
+            ? `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`
+            : `${startYear}-${String(endYear).slice(-2)}`;
+    }
+
+    if (!datePart) {
+        return `${initial}${separator1}${sequence}`;
+    }
+
+    return `${initial}${separator1}${datePart}${separator2}${sequence}`;
+}
+
 export function buildField(label, value, previousValue = null, trackChanges = false) {
     const normalizedValue = displayValue(value);
     const normalizedPrevious = displayValue(previousValue);
@@ -204,9 +238,14 @@ export function buildBranchFields(payload, original, { companies, states = [] } 
             previousValue: original?.head_office ? 'Yes' : 'No',
         },
         {
-            label: 'Trip Sequence Start',
-            value: payload.trip_sequence_start,
-            previousValue: original?.trip_sequence_start,
+            label: 'Trip Number Example',
+            value: formatBranchNumberExample(payload.number_settings, 'trip'),
+            previousValue: original?.number_settings?.trip_example,
+        },
+        {
+            label: 'Invoice Number Example',
+            value: formatBranchNumberExample(payload.number_settings, 'invoice'),
+            previousValue: original?.number_settings?.invoice_example,
         },
         {
             label: 'Inherit Company GST',

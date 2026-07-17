@@ -21,10 +21,18 @@ export async function listTrips({ page = 1, perPage = 15, ...filters } = {}) {
     };
 }
 
-export async function fetchNextTripNumber() {
-    const { data } = await api.get(`${tripsBase}/next-number`);
+export async function fetchNextTripNumber({ startAt = null, sequence = null } = {}) {
+    const { data } = await api.get(`${tripsBase}/next-number`, {
+        params: {
+            ...(startAt ? { start_at: startAt } : {}),
+            ...(sequence !== null && sequence !== '' ? { sequence } : {}),
+        },
+    });
 
-    return data.trip_number ?? '';
+    return {
+        trip_number: data.trip_number ?? '',
+        sequence: data.sequence ?? null,
+    };
 }
 
 export async function fetchVehiclePrimaryDriver(vehicleId, { asOfDate = null } = {}) {

@@ -70,6 +70,16 @@ class ApiQueryExceptionMapper
             'contact_number' => ['contact_number', 'branch_contact_number'],
             'gst_number' => ['gst_number'],
             'pan_number' => ['pan_number'],
+            'trip_number' => [
+                'trips_tenant_branch_trip_number_unique',
+                'trips.tenant_id, trips.branch_id, trips.trip_number',
+                'trip_number',
+            ],
+            'invoice_number' => [
+                'invoices_tenant_id_branch_id_invoice_number_unique',
+                'invoices.tenant_id, invoices.branch_id, invoices.invoice_number',
+                'invoice_number',
+            ],
             'name' => [
                 'brokers.tenant_id, brokers.name',
                 'customers.tenant_id, customers.name',
@@ -89,6 +99,8 @@ class ApiQueryExceptionMapper
             'contact_number' => 'This contact number is already registered in your company.',
             'gst_number' => 'This GST number is already registered in your company.',
             'pan_number' => 'This PAN number is already registered in your company.',
+            'trip_number', 'trip_sequence' => 'This trip number is already used for this branch.',
+            'invoice_number', 'invoice_sequence' => 'This invoice number is already used for this branch.',
             default => 'This name is already used in the selected city.',
         };
     }

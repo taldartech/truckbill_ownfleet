@@ -248,10 +248,10 @@ export async function logout() {
     }
 }
 
-export function toFormData(payload) {
+export function toFormData(payload, prefix = '') {
     const formData = new FormData();
 
-    Object.entries(payload ?? {}).forEach(([key, value]) => {
+    function appendValue(key, value) {
         if (value === undefined || value === null) {
             return;
         }
@@ -268,7 +268,28 @@ export function toFormData(payload) {
             return;
         }
 
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                appendValue(`${key}[${index}]`, item);
+            });
+
+            return;
+        }
+
+        if (typeof value === 'object') {
+            Object.entries(value).forEach(([childKey, childValue]) => {
+                appendValue(`${key}[${childKey}]`, childValue);
+            });
+
+            return;
+        }
+
         formData.append(key, String(value));
+    }
+
+    Object.entries(payload ?? {}).forEach(([key, value]) => {
+        const fieldKey = prefix ? `${prefix}[${key}]` : key;
+        appendValue(fieldKey, value);
     });
 
     return formData;

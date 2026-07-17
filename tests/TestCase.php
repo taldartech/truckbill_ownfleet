@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Branch;
+use App\BranchSetting;
 use App\Support\BranchContext;
 use App\Support\BranchProvisioner;
 use App\Support\PayrollPayDays;
@@ -79,13 +80,22 @@ abstract class TestCase extends BaseTestCase
 
     protected function createBranchForTenant(Tenant $tenant, array $attributes = []): Branch
     {
-        return Branch::query()->create(array_merge([
+        $settingsAttributes = $attributes['number_settings'] ?? [];
+        unset($attributes['number_settings']);
+
+        $branch = Branch::query()->create(array_merge([
             'company_id' => $tenant->id,
             'branch_name' => $tenant->name,
             'branch_address' => 'Test Address',
             'branch_contact_number' => fake()->unique()->numerify('9#########'),
             'head_office' => true,
         ], $attributes));
+
+        if ($branch->settings()->doesntExist()) {
+            BranchSetting::createForBranch($branch->id, is_array($settingsAttributes) ? $settingsAttributes : []);
+        }
+
+        return $branch->fresh(['settings']);
     }
 
     protected function assignBranchIfRequired(User $user, ?Tenant $tenant = null): User

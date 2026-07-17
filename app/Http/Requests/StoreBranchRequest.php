@@ -22,6 +22,7 @@ class StoreBranchRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalizeBranchContactNumberInput();
+        $this->prepareNumberSettingsForValidation();
     }
 
     public function authorize(): bool
@@ -53,7 +54,7 @@ class StoreBranchRequest extends FormRequest
             'branch_contact_number' => $this->branchContactNumberRules(),
             'branch_address' => ['nullable', 'string', 'max:1000'],
             'head_office' => ['sometimes', 'boolean'],
-            'trip_sequence_start' => $this->tripSequenceStartRules(),
+            ...$this->branchNumberSettingsRules(),
             'inherit_company_gst' => ['sometimes', 'boolean'],
             'registration_type' => ['nullable', Rule::enum(GstRegistrationType::class)],
             'tax_liability' => ['nullable', Rule::enum(TaxLiability::class)],

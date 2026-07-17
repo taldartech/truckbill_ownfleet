@@ -347,7 +347,7 @@ class BranchManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_branch_trip_sequence_start_can_be_set_on_create(): void
+    public function test_branch_number_settings_can_be_set_on_create(): void
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Sequence Co');
@@ -358,23 +358,35 @@ class BranchManagementTest extends TestCase
                 'branch_name' => 'Sequence Branch',
                 'branch_contact_number' => '9876543212',
                 'head_office' => true,
-                'trip_sequence_start' => 10000,
+                'number_settings' => [
+                    'trip_initial' => 'TRIP-X',
+                    'trip_separator_1' => '-',
+                    'trip_year_type' => 'year',
+                    'trip_year_digits' => 4,
+                    'trip_separator_2' => '-',
+                    'trip_sequence_digits' => 4,
+                    'invoice_initial' => 'INV-X',
+                    'invoice_separator_1' => '-',
+                    'invoice_year_type' => 'blank',
+                    'invoice_year_digits' => 4,
+                    'invoice_separator_2' => '-',
+                    'invoice_sequence_digits' => 3,
+                ],
             ])
             ->assertCreated()
-            ->assertJsonPath('data.trip_sequence_start', 10000)
-            ->assertJsonPath('data.trip_sequence_start_locked', false);
+            ->assertJsonPath('data.number_settings.trip_initial', 'TRIP-X')
+            ->assertJsonPath('data.number_settings.invoice_year_type', 'blank')
+            ->assertJsonPath('data.number_settings.invoice_sequence_digits', 3);
     }
 
-    public function test_branch_trip_sequence_start_cannot_change_after_trips_exist(): void
+    public function test_branch_number_settings_can_change_after_trips_exist(): void
     {
         $superAdmin = $this->createSuperAdmin();
         $tenant = $this->createOwnedTenant($superAdmin, 'Locked Sequence Co');
-        $branch = Branch::query()->create([
-            'company_id' => $tenant->id,
+        $branch = $this->createBranchForTenant($tenant, [
             'branch_name' => 'Locked Branch',
             'branch_contact_number' => '9876543213',
             'head_office' => true,
-            'trip_sequence_start' => 10000,
         ]);
 
         $vehicle = \App\Vehicle::query()->create([
@@ -405,10 +417,24 @@ class BranchManagementTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->putJson('/app/api/branches/'.$branch->id, [
-                'trip_sequence_start' => 2000,
+                'number_settings' => [
+                    'trip_initial' => 'NEWTRIP',
+                    'trip_separator_1' => '/',
+                    'trip_year_type' => 'year',
+                    'trip_year_digits' => 2,
+                    'trip_separator_2' => '/',
+                    'trip_sequence_digits' => 5,
+                    'invoice_initial' => 'NEWINV',
+                    'invoice_separator_1' => '-',
+                    'invoice_year_type' => 'year',
+                    'invoice_year_digits' => 4,
+                    'invoice_separator_2' => '-',
+                    'invoice_sequence_digits' => 4,
+                ],
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['trip_sequence_start']);
+            ->assertOk()
+            ->assertJsonPath('data.number_settings.trip_initial', 'NEWTRIP')
+            ->assertJsonPath('data.number_settings.trip_year_digits', 2);
     }
 
     public function test_branch_can_use_company_logo_or_own_logo(): void

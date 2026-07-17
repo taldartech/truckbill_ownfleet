@@ -7,6 +7,7 @@ use App\Enums\TaxLiability;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +23,6 @@ class Branch extends Model
         'branch_address',
         'branch_contact_number',
         'head_office',
-        'trip_sequence_start',
         'inherit_company_gst',
         'registration_type',
         'tax_liability',
@@ -45,7 +45,6 @@ class Branch extends Model
     {
         return [
             'head_office' => 'boolean',
-            'trip_sequence_start' => 'integer',
             'inherit_company_gst' => 'boolean',
             'use_company_logo' => 'boolean',
             'state_id' => 'integer',
@@ -68,6 +67,11 @@ class Branch extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function settings(): HasOne
+    {
+        return $this->hasOne(BranchSetting::class);
     }
 
     public function storeLogo(UploadedFile $file): string

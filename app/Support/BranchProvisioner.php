@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Branch;
+use App\BranchSetting;
 use App\Tenant;
 
 class BranchProvisioner
@@ -16,16 +17,24 @@ class BranchProvisioner
             ->first();
 
         if ($branch !== null) {
+            if ($branch->settings()->doesntExist()) {
+                BranchSetting::createForBranch($branch->id);
+            }
+
             return $branch;
         }
 
-        return Branch::query()->create([
+        $branch = Branch::query()->create([
             'company_id' => $tenant->id,
             'branch_name' => $tenant->name,
             'branch_address' => $tenant->address ?? '',
             'branch_contact_number' => self::defaultContactNumber($tenant),
             'head_office' => true,
         ]);
+
+        BranchSetting::createForBranch($branch->id);
+
+        return $branch;
     }
 
     private static function defaultContactNumber(Tenant $tenant): string

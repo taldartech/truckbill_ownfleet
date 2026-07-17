@@ -34,12 +34,23 @@ class TripController extends Controller
         private readonly TripBiltyService $tripBiltyService,
     ) {}
 
-    public function nextTripNumber(): JsonResponse
+    public function nextTripNumber(Request $request): JsonResponse
     {
         $this->authorize('create', Trip::class);
 
+        $validated = $request->validate([
+            'start_at' => ['nullable', 'date'],
+            'sequence' => ['nullable', 'integer', 'min:1', 'max:999999999'],
+        ]);
+
+        $preview = $this->tripService->previewNextTripNumber(
+            $validated['start_at'] ?? null,
+            isset($validated['sequence']) ? (int) $validated['sequence'] : null,
+        );
+
         return response()->json([
-            'trip_number' => $this->tripService->previewNextTripNumber(),
+            'trip_number' => $preview['number'],
+            'sequence' => $preview['sequence'],
         ]);
     }
 

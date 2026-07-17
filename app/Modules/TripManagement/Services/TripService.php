@@ -45,11 +45,14 @@ class TripService
         return $this->tripRepository->paginate($perPage, $filters);
     }
 
-    public function previewNextTripNumber(): string
+    public function previewNextTripNumber(?string $startAt = null, ?int $sequence = null): array
     {
         return $this->tripNumberGenerator->preview(
+            TripNumberGenerator::DOCUMENT_TRIP,
             CurrentTenant::id(),
             BranchContext::branchId(),
+            $startAt,
+            $sequence,
         );
     }
 
@@ -61,7 +64,10 @@ class TripService
         return DB::transaction(function () use ($data, $userId): Trip {
             $routeLegs = $data['route_legs'] ?? [];
             $expenses = $data['expenses'] ?? [];
-            unset($data['route_legs'], $data['expenses'], $data['trip_number']);
+            $tripSequence = array_key_exists('trip_sequence', $data) && $data['trip_sequence'] !== null && $data['trip_sequence'] !== ''
+                ? (int) $data['trip_sequence']
+                : null;
+            unset($data['route_legs'], $data['expenses'], $data['trip_number'], $data['trip_sequence']);
 
             $vehicleId = (string) $data['vehicle_id'];
             $vehicle = Vehicle::query()
@@ -131,7 +137,12 @@ class TripService
 
             $tenantId = CurrentTenant::id() ?? $data['tenant_id'] ?? null;
             $branchId = BranchContext::branchId() ?? (isset($data['branch_id']) ? (int) $data['branch_id'] : null);
-            $tripNumber = $this->tripNumberGenerator->generate($tenantId, $branchId);
+            $tripNumber = $this->tripNumberGenerator->generate(
+                $tenantId,
+                $branchId,
+                $data['start_at'] ?? null,
+                $tripSequence,
+            );
             $data = $this->normalizeBrokerCustomerFields($data);
 
             $tripPayload = [

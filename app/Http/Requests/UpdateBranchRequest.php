@@ -22,6 +22,7 @@ class UpdateBranchRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalizeBranchContactNumberInput();
+        $this->prepareNumberSettingsForValidation();
     }
 
     public function authorize(): bool
@@ -65,7 +66,7 @@ class UpdateBranchRequest extends FormRequest
             ],
             'branch_address' => ['nullable', 'string', 'max:1000'],
             'head_office' => ['sometimes', 'boolean'],
-            'trip_sequence_start' => $this->tripSequenceStartRules(),
+            ...$this->branchNumberSettingsRules(),
             'inherit_company_gst' => ['sometimes', 'boolean'],
             'registration_type' => ['nullable', Rule::enum(GstRegistrationType::class)],
             'tax_liability' => ['nullable', Rule::enum(TaxLiability::class)],
@@ -126,12 +127,6 @@ class UpdateBranchRequest extends FormRequest
                     $validator->errors()->add('head_office', 'This company already has a head office branch.');
                 }
             }
-
-            if ($validator->errors()->isNotEmpty()) {
-                return;
-            }
-
-            $this->validateBranchTripSequenceStartChange($validator, $branch);
         });
     }
 }
