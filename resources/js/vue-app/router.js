@@ -145,6 +145,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.create' },
                 },
                 {
+                    path: 'trips/create-redesigned',
+                    name: 'trips.create-redesigned',
+                    component: () => import('./pages/trips/TripCreateRedesignedPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.create' },
+                },
+                {
                     path: 'trips/archived',
                     name: 'trips.archived',
                     component: () => import('./pages/trips/TripsArchivedIndexPage.vue'),
@@ -164,6 +170,12 @@ const router = createRouter({
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
                     component: () => import('./pages/trips/TripEditPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.edit' },
+                },
+                {
+                    path: 'trips/:id/edit-redesigned',
+                    name: 'trips.edit-redesigned',
+                    component: () => import('./pages/trips/TripEditRedesignedPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {

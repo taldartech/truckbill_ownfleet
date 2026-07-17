@@ -17,8 +17,19 @@ class StoreTripRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $startMeter = $this->input('start_meter_reading_km');
+
+        if (
+            $startMeter === ''
+            || $startMeter === null
+            || (is_numeric($startMeter) && (float) $startMeter <= 0)
+        ) {
+            $startMeter = null;
+        }
+
         $this->merge([
             'trip_number' => null,
+            'start_meter_reading_km' => $startMeter,
         ]);
     }
 
@@ -41,7 +52,7 @@ class StoreTripRequest extends FormRequest
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
             'end_meter_reading_km' => ['nullable', 'numeric', 'gt:0'],
             'total_distance_km' => ['prohibited'],
-            'start_meter_reading_km' => ['required', 'numeric', 'gt:0'],
+            'start_meter_reading_km' => ['nullable', 'numeric', 'gt:0'],
             'load_weight_ton' => ['nullable', 'numeric', 'gt:0'],
             'planned_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_load_ton' => ['nullable', 'numeric', 'min:0'],

@@ -103,7 +103,6 @@ class TripService
                 (string) ($data['trip_type'] ?? 'ROUND_TRIP'),
             );
             $this->tripValidation->assertPositiveFreightTotal($routeLegs);
-            $this->tripValidation->assertStartMeterReadingIsPresent($data);
             $this->tripValidation->assertOptionalEndMeterReadingOnCreate($data, $vehicleId);
             $this->tripValidation->assertExpensesAreValid(
                 $expenses,
@@ -140,7 +139,11 @@ class TripService
                 'driver_id' => $driverId,
                 'trip_number' => $tripNumber,
                 'start_station_id' => $data['start_station_id'] ?? null,
-                'start_meter_reading_km' => round((float) $data['start_meter_reading_km'], 2),
+                'start_meter_reading_km' => isset($data['start_meter_reading_km'])
+                    && $data['start_meter_reading_km'] !== ''
+                    && (float) $data['start_meter_reading_km'] > 0
+                    ? round((float) $data['start_meter_reading_km'], 2)
+                    : null,
                 'end_meter_reading_km' => isset($data['end_meter_reading_km']) && $data['end_meter_reading_km'] !== ''
                     ? round((float) $data['end_meter_reading_km'], 2)
                     : null,
