@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ArchiveTripRequest;
 use App\Http\Requests\CheckTripWindowRequest;
 use App\Http\Requests\DeleteTripRequest;
+use App\Http\Requests\RestoreTripRequest;
 use App\Http\Requests\StoreTripRequest;
 use App\Http\Requests\TripBiltyPdfRequest;
 use App\Http\Requests\UpdateTripRequest;
@@ -33,12 +34,23 @@ class TripController extends Controller
         private readonly TripBiltyService $tripBiltyService,
     ) {}
 
-    public function nextTripNumber(): JsonResponse
+    public function nextTripNumber(Request $request): JsonResponse
     {
         $this->authorize('create', Trip::class);
 
+        $validated = $request->validate([
+            'start_at' => ['nullable', 'date'],
+            'sequence' => ['nullable', 'integer', 'min:1', 'max:999999999'],
+        ]);
+
+        $preview = $this->tripService->previewNextTripNumber(
+            $validated['start_at'] ?? null,
+            isset($validated['sequence']) ? (int) $validated['sequence'] : null,
+        );
+
         return response()->json([
-            'trip_number' => $this->tripService->previewNextTripNumber(),
+            'trip_number' => $preview['number'],
+            'sequence' => $preview['sequence'],
         ]);
     }
 
@@ -214,6 +226,13 @@ class TripController extends Controller
             $request->validated('archive_reason'),
             $request->user(),
         );
+
+        return response()->noContent();
+    }
+
+    public function restore(RestoreTripRequest $request, Trip $trip): Response
+    {
+        $this->tripService->restore($trip, $request->user());
 
         return response()->noContent();
     }

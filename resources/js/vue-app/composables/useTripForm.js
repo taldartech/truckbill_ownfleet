@@ -14,6 +14,7 @@ import { toDateInputFromIso } from '../utils/datetime';
 export function useTripForm() {
     const form = reactive({
         trip_number: '',
+        trip_sequence: '',
         vehicle_id: '',
         driver_id: '',
         substitute_driver_id: '',
@@ -41,6 +42,7 @@ export function useTripForm() {
 
     function resetForm() {
         form.trip_number = '';
+        form.trip_sequence = '';
         form.vehicle_id = '';
         form.driver_id = '';
         form.substitute_driver_id = '';
@@ -425,6 +427,10 @@ export function useTripForm() {
             payload.driver_id = form.driver_id;
             payload.trip_type = form.trip_type;
             payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
+
+            if (form.trip_sequence !== '' && form.trip_sequence != null) {
+                payload.trip_sequence = Number(form.trip_sequence);
+            }
         } else {
             payload.customer_id = form.customer_id || null;
             payload.broker_id = form.broker_id || null;

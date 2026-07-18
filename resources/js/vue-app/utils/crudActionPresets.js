@@ -22,6 +22,11 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'bi bi-archive',
         title: 'Archive',
     },
+    restore: {
+        btnClass: 'btn-success',
+        icon: 'bi bi-arrow-counterclockwise',
+        title: 'Restore',
+    },
     delete: {
         btnClass: 'btn-danger',
         icon: 'fas fa-trash',

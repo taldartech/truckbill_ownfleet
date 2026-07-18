@@ -83,6 +83,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group
     Route::get('trips/{trip}/archive-impact', [TripController::class, 'archiveImpact']);
     Route::get('trips/{trip}/deletion-impact', [TripController::class, 'deletionImpact']);
     Route::post('trips/{trip}/archive', [TripController::class, 'archive']);
+    Route::post('trips/{trip}/restore', [TripController::class, 'restore'])->withTrashed();
     Route::post('trips/{trip}/invoices/preview', [InvoiceController::class, 'previewForTrip']);
     Route::post('trips/{trip}/invoices/generate', [InvoiceController::class, 'generateForTrip']);
     Route::get('trips/{trip}/bilty.pdf', [TripController::class, 'biltyPdf']);

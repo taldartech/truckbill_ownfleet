@@ -76,6 +76,16 @@
                     :disabled="archivingTrip"
                     @click="handleArchive"
                 />
+                <AppButton
+                    v-if="canRestoreThisTrip"
+                    variant="success"
+                    outline
+                    size="sm"
+                    icon="bi bi-arrow-counterclockwise"
+                    label="Restore"
+                    :disabled="restoringTrip"
+                    @click="openRestoreConfirm"
+                />
             </div>
         </div>
 
@@ -91,6 +101,9 @@
                 This trip has been archived and is read-only. It cannot be edited or modified.
                 <span v-if="trip.archive_reason" class="d-block mt-1 small mb-0">
                     Reason: {{ trip.archive_reason }}
+                </span>
+                <span v-if="canRestoreThisTrip" class="d-block mt-1 small mb-0">
+                    Use Restore to return it to the active trip list.
                 </span>
             </div>
 
@@ -473,7 +486,7 @@
 
         <AppModal
             :show="showGenerateInvoices"
-            :loading="invoicePreviewLoading || invoiceGenerating"
+            :loading="invoiceGenerating"
             :form-error="invoiceFormError"
             size="xl"
             @close="closeGenerateInvoices"
@@ -513,7 +526,9 @@
                 </div>
             </div>
 
-            <div v-if="invoicePreviewLoading" class="text-center py-4 text-muted">Loading invoice preview…</div>
+            <div v-if="invoicePreviewLoading && invoicePreviewGroups.length === 0" class="text-center py-4 text-muted">
+                Loading invoice preview…
+            </div>
 
             <div v-else-if="invoicePreviewGroups.length === 0" class="alert alert-warning mb-0">
                 No billable routes are available to invoice on this trip.
@@ -522,6 +537,7 @@
             <div v-else class="d-flex flex-column gap-3">
                 <p class="text-muted small mb-0">
                     Review each customer group below. Adjust invoice date and due date before generating. GST rate comes from company/branch GST settings.
+                    <span v-if="invoicePreviewRefreshing" class="ms-1 text-muted">Updating numbers…</span>
                 </p>
 
                 <div
@@ -540,11 +556,12 @@
                     </div>
                     <div class="card-body">
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Invoice Date</label>
                                 <AppDateInput
                                     v-model="group.invoice_date"
                                     :invalid="Boolean(invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`])"
+                                    @update:model-value="refreshInvoicePreviewDebounced"
                                 />
                                 <div
                                     v-if="invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`]"
@@ -553,7 +570,7 @@
                                     {{ invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`][0] }}
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Due Date</label>
                                 <AppDateInput
                                     v-model="group.due_date"
@@ -565,6 +582,37 @@
                                     class="invalid-feedback d-block"
                                 >
                                     {{ invoiceFieldErrors[`groups.${group.customer_id}.due_date`][0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Invoice Number</label>
+                                <div class="input-group">
+                                    <input
+                                        :value="group.invoice_number"
+                                        type="text"
+                                        class="form-control bg-light"
+                                        readonly
+                                    />
+                                    <input
+                                        :value="group.invoice_sequence"
+                                        type="text"
+                                        inputmode="numeric"
+                                        class="form-control"
+                                        style="max-width: 7rem"
+                                        :class="{
+                                            'is-invalid': Boolean(
+                                                invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`],
+                                            ),
+                                        }"
+                                        placeholder="Seq"
+                                        @input="onInvoiceSequenceInput(group, $event)"
+                                    />
+                                </div>
+                                <div
+                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`]"
+                                    class="invalid-feedback d-block"
+                                >
+                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`][0] }}
                                 </div>
                             </div>
                         </div>
@@ -790,6 +838,14 @@
             @cancel="closeArchiveConfirm"
             @confirm="confirmArchiveTrip"
         />
+
+        <TripRestoreConfirmModal
+            :show="showRestoreConfirm"
+            :summary="restoreConfirmSummary"
+            :restoring="restoringTrip"
+            @cancel="closeRestoreConfirm"
+            @confirm="confirmRestoreTrip"
+        />
     </div>
 </template>
 
@@ -808,6 +864,7 @@ import {
     isTripArchived,
     isTerminalTripStatus,
     resolveTripEditAccess,
+    restoreTrip,
     summarizeTripForm,
     legLoadCategoryMeta,
     tripArchiveDisabledTitle,
@@ -815,6 +872,7 @@ import {
     tripTypeLabel,
 } from '../../api/trips';
 import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
+import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -829,6 +887,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 import { dateOnlyFromDatetimeLocal, formatDate, formatDateTime } from '../../utils/datetime';
 import { buildTripArchiveConfirmViewModel } from '../../utils/tripArchiveConfirm';
+import { buildTripRestoreConfirmViewModel } from '../../utils/tripRestoreConfirm';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { invalidateOperationalData } from '../../composables/useOperationalDataInvalidation';
 
@@ -850,6 +909,7 @@ const loading = ref(true);
 const showGenerateInvoices = ref(false);
 const showInvoiceGenerateConfirm = ref(false);
 const invoicePreviewLoading = ref(false);
+const invoicePreviewRefreshing = ref(false);
 const invoiceGenerating = ref(false);
 const invoicePreviewGroups = ref([]);
 const showPrintBilty = ref(false);
@@ -862,11 +922,17 @@ const archivingTrip = ref(false);
 const archiveFieldErrors = ref({});
 const tripPendingArchive = ref(null);
 
+const showRestoreConfirm = ref(false);
+const restoreConfirmSummary = ref(null);
+const restoringTrip = ref(false);
+
 const canManage = computed(() => canInCompany('trips.edit'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
+const canRestore = computed(() => canInCompany('trips.restore'));
 const canArchiveThisTrip = computed(() => {
     return canArchive.value && trip.value && canArchiveTrip(trip.value.status, user.value);
 });
+const canRestoreThisTrip = computed(() => canRestore.value && isArchived.value);
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const biltyGroups = computed(() => {
@@ -1198,13 +1264,92 @@ function buildInvoicePreviewPayload() {
     const groups = {};
 
     invoicePreviewGroups.value.forEach((group) => {
+        const sequenceRaw = group.invoice_sequence;
+        const hasSequence = sequenceRaw !== '' && sequenceRaw != null && String(sequenceRaw).trim() !== '';
+
         groups[group.customer_id] = {
             invoice_date: group.invoice_date || null,
             due_date: group.due_date || null,
+            ...(hasSequence ? { invoice_sequence: Number(sequenceRaw) } : {}),
         };
     });
 
     return { groups };
+}
+
+let invoicePreviewRefreshTimer = null;
+let invoicePreviewRequestId = 0;
+
+function onInvoiceSequenceInput(group, event) {
+    const digits = String(event.target.value ?? '').replace(/\D/g, '');
+    group.invoice_sequence = digits;
+    clearInvoiceErrors();
+    refreshInvoicePreviewDebounced();
+}
+
+function refreshInvoicePreviewDebounced() {
+    if (invoicePreviewRefreshTimer) {
+        clearTimeout(invoicePreviewRefreshTimer);
+    }
+
+    invoicePreviewRefreshTimer = setTimeout(() => {
+        refreshInvoicePreview({ silent: true });
+    }, 350);
+}
+
+async function refreshInvoicePreview({ silent = false } = {}) {
+    if (!trip.value?.id || !showGenerateInvoices.value) {
+        return;
+    }
+
+    const requestId = ++invoicePreviewRequestId;
+
+    if (silent) {
+        invoicePreviewRefreshing.value = true;
+    } else {
+        invoicePreviewLoading.value = true;
+    }
+
+    try {
+        const groups = await previewForTrip(trip.value.id, buildInvoicePreviewPayload());
+
+        if (requestId !== invoicePreviewRequestId) {
+            return;
+        }
+
+        if (!Array.isArray(groups)) {
+            return;
+        }
+
+        const byCustomerId = new Map(groups.map((group) => [String(group.customer_id), group]));
+
+        invoicePreviewGroups.value.forEach((existing) => {
+            const updated = byCustomerId.get(String(existing.customer_id));
+
+            if (!updated) {
+                return;
+            }
+
+            existing.invoice_number = updated.invoice_number;
+            existing.freight_amount = updated.freight_amount;
+            existing.gst_amount = updated.gst_amount;
+            existing.total_amount = updated.total_amount;
+            existing.gst_rate = updated.gst_rate;
+            existing.displays_gst = updated.displays_gst;
+            existing.document_type = updated.document_type;
+            existing.document_type_label = updated.document_type_label;
+            existing.routes = updated.routes;
+        });
+    } catch (error) {
+        if (requestId === invoicePreviewRequestId) {
+            applyInvoiceApiError(error, 'Could not refresh invoice preview.');
+        }
+    } finally {
+        if (requestId === invoicePreviewRequestId) {
+            invoicePreviewLoading.value = false;
+            invoicePreviewRefreshing.value = false;
+        }
+    }
 }
 
 function validateInvoiceDates() {
@@ -1251,6 +1396,7 @@ async function openGenerateInvoices() {
             ? groups.map((group) => ({
                 ...group,
                 invoice_date: group.invoice_date || defaultInvoiceDate,
+                invoice_sequence: group.invoice_sequence ?? '',
             }))
             : [];
     } catch (error) {
@@ -1262,9 +1408,16 @@ async function openGenerateInvoices() {
 }
 
 function closeGenerateInvoices() {
+    if (invoicePreviewRefreshTimer) {
+        clearTimeout(invoicePreviewRefreshTimer);
+        invoicePreviewRefreshTimer = null;
+    }
+
+    invoicePreviewRequestId += 1;
     showGenerateInvoices.value = false;
     showInvoiceGenerateConfirm.value = false;
     invoicePreviewGroups.value = [];
+    invoicePreviewRefreshing.value = false;
     clearInvoiceErrors();
 }
 
@@ -1385,6 +1538,59 @@ async function confirmArchiveTrip({ archive_reason: archiveReason }) {
         }
     } finally {
         archivingTrip.value = false;
+    }
+}
+
+function openRestoreConfirm() {
+    if (!canRestoreThisTrip.value || !trip.value) {
+        return;
+    }
+
+    restoreConfirmSummary.value = buildTripRestoreConfirmViewModel(trip.value);
+    showRestoreConfirm.value = true;
+}
+
+function closeRestoreConfirm() {
+    if (restoringTrip.value) {
+        return;
+    }
+
+    showRestoreConfirm.value = false;
+    restoreConfirmSummary.value = null;
+}
+
+function restoreTripErrorMessage(error) {
+    if (error?.response?.status === 403) {
+        return 'You do not have permission to restore trips.';
+    }
+
+    const tripError = error?.response?.data?.errors?.trip?.[0];
+
+    if (tripError) {
+        return tripError;
+    }
+
+    return friendlyApiErrorMessage(error, 'Unable to restore trip.');
+}
+
+async function confirmRestoreTrip() {
+    if (!trip.value || restoringTrip.value) {
+        return;
+    }
+
+    restoringTrip.value = true;
+
+    try {
+        await restoreTrip(trip.value.id);
+        toast.success('Trip restored successfully.');
+        showRestoreConfirm.value = false;
+        restoreConfirmSummary.value = null;
+        invalidateOperationalData(['trips', 'dashboard', 'trip-reports']);
+        await loadTrip();
+    } catch (error) {
+        toast.error(restoreTripErrorMessage(error));
+    } finally {
+        restoringTrip.value = false;
     }
 }
 

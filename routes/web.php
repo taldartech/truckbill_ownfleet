@@ -304,6 +304,9 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.deletion-impact');
             Route::post('/trips/{trip}/archive', [\App\Http\Controllers\Api\TripController::class, 'archive'])
                 ->name('trips.archive');
+            Route::post('/trips/{trip}/restore', [\App\Http\Controllers\Api\TripController::class, 'restore'])
+                ->name('trips.restore')
+                ->withTrashed();
             Route::post('/trips/{trip}/invoices/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewForTrip'])
                 ->name('trips.invoices.preview');
             Route::post('/trips/{trip}/invoices/generate', [\App\Http\Controllers\Api\InvoiceController::class, 'generateForTrip'])

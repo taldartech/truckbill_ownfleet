@@ -44,6 +44,8 @@ class UpdateCompanyRequest extends FormRequest
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['sometimes', Rule::enum(PayrollPayDaysMode::class)],
             'is_blocked' => ['sometimes', 'boolean'],
+            'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
+            'remove_logo' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -55,6 +57,9 @@ class UpdateCompanyRequest extends FormRequest
         return [
             ...$this->companyIdentityMessages(),
             ...$this->contactNumberMessages(),
+            'company_logo.image' => 'The logo must be an image file.',
+            'company_logo.mimes' => 'The logo must be a JPG, PNG, or WEBP image.',
+            'company_logo.max' => 'The logo may not be greater than 100 KB.',
         ];
     }
 

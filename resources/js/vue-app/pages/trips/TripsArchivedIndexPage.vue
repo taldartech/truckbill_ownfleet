@@ -159,6 +159,13 @@
                         <td v-if="showActions" class="app-index-actions-cell text-end">
                             <AppTableActions>
                                 <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
+                                <AppCrudActionButton
+                                    v-if="canRestore"
+                                    action="restore"
+                                    title="Restore trip"
+                                    :disabled="restoringTripId === trip.id"
+                                    @click="openRestoreConfirm(trip)"
+                                />
                             </AppTableActions>
                         </td>
                     </tr>
@@ -175,6 +182,14 @@
                 />
             </template>
         </AppIndexListCard>
+
+        <TripRestoreConfirmModal
+            :show="showRestoreConfirm"
+            :summary="restoreConfirmSummary"
+            :restoring="restoringTripId !== null"
+            @cancel="closeRestoreConfirm"
+            @confirm="confirmRestoreTrip"
+        />
     </div>
 </template>
 
@@ -187,6 +202,7 @@ import { listAllCustomers } from '../../api/customers';
 import {
     defaultTripListFilters,
     listTrips,
+    restoreTrip,
     tripStatusMeta,
     tripTypeMeta,
     TRIP_STATUSES,
@@ -203,13 +219,16 @@ import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
+import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { invalidateOperationalData } from '../../composables/useOperationalDataInvalidation';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import { formatDate } from '../../utils/datetime';
+import { buildTripRestoreConfirmViewModel } from '../../utils/tripRestoreConfirm';
 import {
     buildTripArchivedListQuery,
     clearTripArchivedListStateFromSession,
@@ -227,8 +246,9 @@ const currentUser = inject('currentUser', ref(null));
 const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany } = usePermissions(currentUser);
 const canView = computed(() => canInCompany('trips.view'));
+const canRestore = computed(() => canInCompany('trips.restore'));
 const canOpenTrip = computed(() => canView.value);
-const showActions = computed(() => canOpenTrip.value);
+const showActions = computed(() => canOpenTrip.value || canRestore.value);
 const tableColspan = computed(() => (showActions.value ? 7 : 6));
 
 const { applyApiError } = useApiFormErrors();
@@ -237,6 +257,10 @@ const trips = ref([]);
 const customers = ref([]);
 const brokers = ref([]);
 const loading = ref(true);
+const showRestoreConfirm = ref(false);
+const restoreConfirmSummary = ref(null);
+const tripPendingRestore = ref(null);
+const restoringTripId = ref(null);
 const tripStatuses = TRIP_STATUSES;
 const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
@@ -419,6 +443,63 @@ async function loadTrips(page = 1) {
 function goToView(trip) {
     saveTripArchivedListStateToSession(tenantId.value, currentListState());
     router.push({ name: 'trips.show', params: { id: trip.id } });
+}
+
+function openRestoreConfirm(trip) {
+    if (!canRestore.value || restoringTripId.value) {
+        return;
+    }
+
+    tripPendingRestore.value = trip;
+    restoreConfirmSummary.value = buildTripRestoreConfirmViewModel(trip);
+    showRestoreConfirm.value = true;
+}
+
+function closeRestoreConfirm() {
+    if (restoringTripId.value) {
+        return;
+    }
+
+    showRestoreConfirm.value = false;
+    restoreConfirmSummary.value = null;
+    tripPendingRestore.value = null;
+}
+
+function restoreTripErrorMessage(error) {
+    if (error?.response?.status === 403) {
+        return 'You do not have permission to restore trips.';
+    }
+
+    const tripError = error?.response?.data?.errors?.trip?.[0];
+
+    if (tripError) {
+        return tripError;
+    }
+
+    return friendlyApiErrorMessage(error, 'Unable to restore trip.');
+}
+
+async function confirmRestoreTrip() {
+    if (!tripPendingRestore.value || restoringTripId.value) {
+        return;
+    }
+
+    const tripId = tripPendingRestore.value.id;
+    restoringTripId.value = tripId;
+
+    try {
+        await restoreTrip(tripId);
+        toast.success('Trip restored successfully.');
+        showRestoreConfirm.value = false;
+        restoreConfirmSummary.value = null;
+        tripPendingRestore.value = null;
+        invalidateOperationalData(['trips', 'dashboard', 'trip-reports']);
+        await loadTrips(pagination.currentPage);
+    } catch (error) {
+        toast.error(restoreTripErrorMessage(error));
+    } finally {
+        restoringTripId.value = null;
+    }
 }
 
 watch(

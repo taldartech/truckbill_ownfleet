@@ -14,6 +14,7 @@ use App\Invoice;
 use App\InvoiceItem;
 use App\InvoicePayment;
 use App\Support\GstSettingsResolver;
+use App\Support\TripNumberGenerator;
 use App\Trip;
 use App\TripRouteLeg;
 use App\User;
@@ -28,6 +29,7 @@ class InvoiceService
 {
     public function __construct(
         private readonly GstSettingsResolver $gstSettingsResolver,
+        private readonly TripNumberGenerator $tripNumberGenerator,
     ) {}
 
     /**
@@ -178,6 +180,7 @@ class InvoiceService
         }
 
         $previews = [];
+        $reservedSequencesByDate = [];
 
         foreach ($groups as $customerId => $legs) {
             /** @var Collection<int, TripRouteLeg> $legs */
@@ -195,6 +198,12 @@ class InvoiceService
             $freightAmount = round((float) $legs->sum(fn (TripRouteLeg $leg) => (float) $leg->freight_amount), 2);
             $groupInvoiceDate = $options['groups'][$customerId]['invoice_date'] ?? $defaultInvoiceDate;
             $groupDueDate = $options['groups'][$customerId]['due_date'] ?? $dueDate;
+            $hasExplicitSequence = array_key_exists('invoice_sequence', $options['groups'][$customerId] ?? [])
+                && ($options['groups'][$customerId]['invoice_sequence'] ?? null) !== null
+                && ($options['groups'][$customerId]['invoice_sequence'] ?? null) !== '';
+            $groupSequence = $hasExplicitSequence
+                ? (int) $options['groups'][$customerId]['invoice_sequence']
+                : null;
 
             $calc = $this->calculateGst(
                 $gstSettings,
@@ -203,6 +212,42 @@ class InvoiceService
                 $customer->state_id !== null ? (int) $customer->state_id : null,
                 $customer->state?->code,
             );
+
+            $dateKey = (string) $groupInvoiceDate;
+            $reservedSequencesByDate[$dateKey] ??= [];
+
+            if ($groupSequence === null) {
+                $invoiceNumberPreview = $this->tripNumberGenerator->preview(
+                    TripNumberGenerator::DOCUMENT_INVOICE,
+                    (string) $trip->tenant_id,
+                    $trip->branch_id !== null ? (int) $trip->branch_id : null,
+                    $groupInvoiceDate,
+                    null,
+                );
+                $groupSequence = (int) $invoiceNumberPreview['sequence'];
+
+                while (in_array($groupSequence, $reservedSequencesByDate[$dateKey], true)) {
+                    $groupSequence++;
+                }
+
+                $invoiceNumberPreview = $this->tripNumberGenerator->preview(
+                    TripNumberGenerator::DOCUMENT_INVOICE,
+                    (string) $trip->tenant_id,
+                    $trip->branch_id !== null ? (int) $trip->branch_id : null,
+                    $groupInvoiceDate,
+                    $groupSequence,
+                );
+            } else {
+                $invoiceNumberPreview = $this->tripNumberGenerator->preview(
+                    TripNumberGenerator::DOCUMENT_INVOICE,
+                    (string) $trip->tenant_id,
+                    $trip->branch_id !== null ? (int) $trip->branch_id : null,
+                    $groupInvoiceDate,
+                    $groupSequence,
+                );
+            }
+
+            $reservedSequencesByDate[$dateKey][] = (int) $invoiceNumberPreview['sequence'];
 
             $previews[] = [
                 'customer_id' => $customer->id,
@@ -225,6 +270,9 @@ class InvoiceService
                 'gst_rate' => $defaultGstRate,
                 'invoice_date' => $groupInvoiceDate,
                 'due_date' => $groupDueDate,
+                'invoice_number' => $invoiceNumberPreview['number'],
+                'invoice_sequence' => $invoiceNumberPreview['sequence'],
+                'invoice_sequence_explicit' => $hasExplicitSequence,
                 'displays_gst' => $calc['displays_gst'],
                 'collects_gst' => $calc['collects_gst'],
                 ...collect($calc)->except(['document_type'])->all(),
@@ -243,18 +291,32 @@ class InvoiceService
     {
         return DB::transaction(function () use ($trip, $options): array {
             $previews = $this->previewForTrip($trip, $options);
+            $this->assertDistinctInvoiceSequences($previews);
             $invoices = [];
 
             foreach ($previews as $preview) {
+                if ($trip->branch_id === null) {
+                    throw ValidationException::withMessages([
+                        'branch_id' => ['Trip branch is required to generate invoice numbers.'],
+                    ]);
+                }
+
+                $allocated = $this->tripNumberGenerator->allocate(
+                    TripNumberGenerator::DOCUMENT_INVOICE,
+                    (string) $trip->tenant_id,
+                    (int) $trip->branch_id,
+                    $preview['invoice_date'] ?? now()->toDateString(),
+                    ! empty($preview['invoice_sequence_explicit'])
+                        ? (int) $preview['invoice_sequence']
+                        : null,
+                );
+
                 $invoice = Invoice::query()->create([
                     'tenant_id' => $trip->tenant_id,
                     'branch_id' => $trip->branch_id,
                     'trip_id' => $trip->id,
                     'customer_id' => $preview['customer_id'],
-                    'invoice_number' => $this->generateInvoiceNumber(
-                        $trip->tenant_id,
-                        (int) $trip->branch_id,
-                    ),
+                    'invoice_number' => $allocated['number'],
                     'registration_type' => $preview['registration_type'],
                     'tax_liability' => $preview['tax_liability'],
                     'document_type' => $preview['document_type'],
@@ -474,34 +536,33 @@ class InvoiceService
         return $query;
     }
 
-    private function generateInvoiceNumber(string $tenantId, int $branchId): string
+    /**
+     * @param  list<array<string, mixed>>  $previews
+     */
+    private function assertDistinctInvoiceSequences(array $previews): void
     {
-        $year = (int) now()->format('Y');
-        $branchCode = sprintf('BR%03d', $branchId);
+        $seen = [];
 
-        return DB::transaction(function () use ($tenantId, $branchId, $year, $branchCode): string {
-            $prefix = sprintf('INV-%s-%d-', $branchCode, $year);
+        foreach ($previews as $preview) {
+            $sequence = isset($preview['invoice_sequence']) ? (int) $preview['invoice_sequence'] : null;
+            $invoiceDate = (string) ($preview['invoice_date'] ?? '');
 
-            $lastNumber = Invoice::query()
-                ->withoutGlobalScopes()
-                ->withTrashed()
-                ->where('tenant_id', $tenantId)
-                ->where('branch_id', $branchId)
-                ->where('invoice_number', 'like', $prefix.'%')
-                ->lockForUpdate()
-                ->orderByDesc('invoice_number')
-                ->value('invoice_number');
-
-            $sequence = 1;
-            if ($lastNumber !== null) {
-                $suffix = substr((string) $lastNumber, strlen($prefix));
-                $sequence = (is_numeric($suffix) ? (int) $suffix : 0) + 1;
+            if ($sequence === null) {
+                continue;
             }
 
-            $padded = str_pad((string) $sequence, max(4, strlen((string) $sequence)), '0', STR_PAD_LEFT);
+            $key = $invoiceDate.'|'.$sequence;
 
-            return sprintf('INV-%s-%d-%s', $branchCode, $year, $padded);
-        });
+            if (isset($seen[$key])) {
+                throw ValidationException::withMessages([
+                    "groups.{$preview['customer_id']}.invoice_sequence" => [
+                        'Each invoice group must use a distinct sequence for the same invoice date.',
+                    ],
+                ]);
+            }
+
+            $seen[$key] = true;
+        }
     }
 
     /**

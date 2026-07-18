@@ -10,20 +10,15 @@
             font-size: 9pt;
             margin: 0;
             padding: 0;
-            color: #0f172a;
-            background: #ffffff;
         }
         .invoice-card {
-            border: 1px solid #d1d5db;
+            border: 1px solid #231f20;
             border-radius: 8px;
             overflow: hidden;
         }
         .top-band {
-            background-color: #2FB36F;
-            background: #2FB36F;
-            color: #ffffff;
             padding: 10px 14px;
-            border-bottom: 2px solid #23965C;
+            border-bottom: 2px solid #231f20;
         }
         .invoice-title {
             font-size: 23px;
@@ -42,13 +37,17 @@
             font-size: 10px;
             opacity: 0.95;
         }
+        .company-logo {
+            width: 92px;
+            height: 58px;
+            object-fit: contain;
+            display: block;
+        }
         .section {
             padding: 10px 12px;
         }
         .chip-title {
-            background: #E9F7F0;
-            color: #23965C;
-            border: 1px solid #cceedd;
+            border: 1px solid #231f20;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -66,7 +65,7 @@
             page-break-inside: avoid;
         }
         th, td {
-            border: 1px solid #d1d5db;
+            border: 1px solid #231f20;
             padding: 5px 4px;
             font-size: 8.3pt;
             word-wrap: break-word;
@@ -111,37 +110,22 @@
             word-break: break-all;
         }
         th {
-            background: #E9F7F0;
-            color: #23965C;
             font-weight: 700;
-        }
-        .meta-table td {
-            background: #f8fafc;
         }
         .meta-label {
             width: 32%;
             font-weight: 700;
-            color: #374151;
-        }
-        .summary-table td {
-            background: #f8fafc;
         }
         .summary-table .grand td {
-            background: #ecfdf5;
             font-weight: 700;
-            color: #14532d;
         }
         .footer-note {
             font-size: 9px;
-            color: #374151;
             line-height: 1.4;
         }
         .signature-box {
             text-align: center;
             font-weight: 700;
-        }
-        .muted {
-            color: #6b7280;
         }
     </style>
 </head>
@@ -177,20 +161,31 @@
             ?? $customer?->state?->code
             ?? $invoice->supplierState?->code
             ?? '—';
+        $logoOwner = $invoice->branch ?? $company;
+        $logoPath = $logoOwner?->logoFilesystemPathForPdf();
         $colWidths = ['5%', '14%', '14%', '28%', '14%', '12%', '13%'];
     @endphp
 
     <div class="invoice-card">
         <div class="top-band">
-            <table style="width: 100%; border-collapse: collapse; border: none;">
+            <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; table-layout: auto;">
                 <tr>
-                    <td style="border: none; vertical-align: top;">
+                    @if ($logoPath)
+                        <td style="width: 120px; padding: 0; border: none; vertical-align: middle;">
+                            <img
+                                src="{{ $logoPath }}"
+                                alt="{{ $company->name }} Logo"
+                                class="company-logo"
+                            >
+                        </td>
+                    @endif
+                    <td style="padding: 0; border: none; vertical-align: middle;">
                         <p class="invoice-title">{{ $documentTitle }}</p>
                         <div class="company-name">{{ $company->name }}</div>
                         <div class="company-meta">
                             {{ $company->address }}
                             @if ($company->state?->name)
-                                , {{ $company->state->name }}
+                                {{ $company->state->name }}
                             @endif
                         </div>
                         <div class="company-meta">

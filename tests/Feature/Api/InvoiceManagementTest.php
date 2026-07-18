@@ -154,10 +154,111 @@ class InvoiceManagementTest extends TestCase
         $this->assertSame(7000.0, (float) $invoiceB->freight_amount);
         $this->assertSame(1, $invoiceB->items()->count());
 
+        $branchId = (int) $trip->branch_id;
+        $year = (int) now()->format('Y');
+        $numbers = collect([$invoiceA->invoice_number, $invoiceB->invoice_number])->sort()->values();
+        $this->assertSame(
+            [
+                sprintf('INV-BR%03d-%d-0001', $branchId, $year),
+                sprintf('INV-BR%03d-%d-0002', $branchId, $year),
+            ],
+            $numbers->all(),
+        );
+
         $this->assertSame(
             FreightBillingStatus::Invoiced,
             $trip->fresh()->routeLegs->first()->billing_status
         );
+    }
+
+    public function test_invoice_preview_and_generate_honor_per_group_sequence_overrides(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['b'], 'freight' => 7000, 'to' => 'b'],
+        ]);
+
+        $branchId = (int) $trip->branch_id;
+        $invoiceDate = '2026-07-01';
+
+        $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/preview", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'invoice_date' => $invoiceDate,
+                        'invoice_sequence' => 50,
+                    ],
+                    (string) $customers['b']->id => [
+                        'invoice_date' => $invoiceDate,
+                        'invoice_sequence' => 51,
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $previewGroups = collect($preview->json('data'));
+        $this->assertSame(
+            sprintf('INV-BR%03d-2026-0050', $branchId),
+            $previewGroups->firstWhere('customer_id', $customers['a']->id)['invoice_number'],
+        );
+        $this->assertSame(
+            sprintf('INV-BR%03d-2026-0051', $branchId),
+            $previewGroups->firstWhere('customer_id', $customers['b']->id)['invoice_number'],
+        );
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'invoice_date' => $invoiceDate,
+                        'invoice_sequence' => 50,
+                    ],
+                    (string) $customers['b']->id => [
+                        'invoice_date' => $invoiceDate,
+                        'invoice_sequence' => 51,
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('invoices', [
+            'customer_id' => $customers['a']->id,
+            'invoice_number' => sprintf('INV-BR%03d-2026-0050', $branchId),
+        ]);
+        $this->assertDatabaseHas('invoices', [
+            'customer_id' => $customers['b']->id,
+            'invoice_number' => sprintf('INV-BR%03d-2026-0051', $branchId),
+        ]);
+    }
+
+    public function test_invoice_generation_rejects_duplicate_group_sequences(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['b'], 'freight' => 7000, 'to' => 'b'],
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'invoice_date' => '2026-07-01',
+                        'invoice_sequence' => 7,
+                    ],
+                    (string) $customers['b']->id => [
+                        'invoice_date' => '2026-07-01',
+                        'invoice_sequence' => 7,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['groups.'.$customers['b']->id.'.invoice_sequence']);
     }
 
     public function test_invoiced_trip_cannot_be_fully_edited_even_by_super_admin(): void

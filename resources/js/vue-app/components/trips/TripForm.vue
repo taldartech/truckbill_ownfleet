@@ -75,7 +75,37 @@
                                     {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
                                 </span>
                             </label>
-                            <input :value="tripNumberDisplay" type="text" class="form-control bg-light" readonly />
+                            <template v-if="mode === 'create'">
+                                <div class="input-group flex-nowrap">
+                                    <input
+                                        :value="tripNumberDisplay"
+                                        type="text"
+                                        class="form-control bg-light"
+                                        readonly
+                                    />
+                                    <input
+                                        :value="form.trip_sequence"
+                                        type="text"
+                                        inputmode="numeric"
+                                        class="form-control"
+                                        style="width: 7rem; flex: 0 0 7rem"
+                                        :class="{ 'is-invalid': fieldErrors.trip_sequence }"
+                                        placeholder="Seq"
+                                        @input="onTripSequenceInput"
+                                    />
+                                </div>
+                                <div v-if="fieldErrors.trip_sequence" class="invalid-feedback d-block">
+                                    {{ fieldErrors.trip_sequence[0] }}
+                                </div>
+                                <div class="form-text">Preview uses start date. Edit sequence to override.</div>
+                            </template>
+                            <input
+                                v-else
+                                :value="tripNumberDisplay"
+                                type="text"
+                                class="form-control bg-light"
+                                readonly
+                            />
                         </div>
                         <div>
                             <label class="form-label">Trip Type</label>
@@ -998,7 +1028,15 @@ const emit = defineEmits([
     'vehicle-selected',
     'status-updated',
     'clear-field-error',
+    'trip-sequence-change',
 ]);
+
+function onTripSequenceInput(event) {
+    const raw = String(event.target.value ?? '').replace(/\D/g, '');
+    props.form.trip_sequence = raw;
+    emit('clear-field-error', 'trip_sequence');
+    emit('trip-sequence-change');
+}
 
 const slots = useSlots();
 const toast = useAppToast();

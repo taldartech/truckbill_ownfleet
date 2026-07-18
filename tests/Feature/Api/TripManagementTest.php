@@ -49,6 +49,7 @@ class TripManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('trip_number', $expectedTripNumber);
+        $response->assertJsonPath('sequence', 1);
     }
 
     public function test_trip_numbers_are_scoped_per_branch_within_same_company(): void
@@ -936,20 +937,187 @@ class TripManagementTest extends TestCase
             ->assertJsonValidationErrors(['expenses.0.expense_date']);
     }
 
-    public function test_trip_number_uses_branch_trip_sequence_start(): void
+    public function test_trip_number_accepts_sequence_override(): void
     {
-        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
 
         $branchId = (int) BranchContext::branchId();
-        Branch::query()->whereKey($branchId)->update(['trip_sequence_start' => 10000]);
-
         $expectedTripNumber = $this->formatTripNumber($branchId, 10000);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge(
+                $this->sampleTripPayload($vehicle, $driver, $stations),
+                ['trip_sequence' => 10000],
+            ))
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $expectedTripNumber);
+    }
+
+    public function test_trip_number_uses_document_date_and_rejects_duplicate_sequence(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        DriverAssignment::query()
+            ->where('vehicle_id', $vehicle->id)
+            ->update(['assigned_from' => '2025-01-01']);
+
+        $payload = $this->sampleTripPayload($vehicle, $driver, $stations);
+        $payload['start_at'] = '2025-12-15 08:00:00';
+        $payload['end_at'] = '2025-12-20 20:00:00';
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $this->formatTripNumber($branchId, 1, 2025));
+
+        $secondVehicle = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'registration_number' => 'MH12DUP001',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 2000,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'vehicle_id' => $secondVehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2025-01-01',
+            'is_primary' => true,
+        ]);
+
+        $duplicatePayload = $this->sampleTripPayload($secondVehicle, $driver, $stations);
+        $duplicatePayload['start_at'] = '2025-11-01 08:00:00';
+        $duplicatePayload['end_at'] = '2025-11-05 20:00:00';
+        $duplicatePayload['trip_sequence'] = 1;
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $duplicatePayload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['trip_sequence']);
+    }
+
+    public function test_trip_number_blank_year_omits_second_separator(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        \App\BranchSetting::query()->where('branch_id', $branchId)->update([
+            'trip_initial' => 'T',
+            'trip_separator_1' => '-',
+            'trip_year_type' => 'blank',
+            'trip_separator_2' => '-',
+            'trip_sequence_digits' => 3,
+        ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', $this->sampleTripPayload($vehicle, $driver, $stations))
             ->assertCreated()
-            ->assertJsonPath('data.trip_number', $expectedTripNumber);
+            ->assertJsonPath('data.trip_number', 'T-001');
+    }
+
+    public function test_trip_number_financial_year_uses_april_march_boundary(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+        \App\BranchSetting::query()->where('branch_id', $branchId)->update([
+            'trip_initial' => 'TRIP',
+            'trip_separator_1' => '-',
+            'trip_year_type' => 'financial_year',
+            'trip_year_digits' => 4,
+            'trip_separator_2' => '-',
+            'trip_sequence_digits' => 4,
+        ]);
+
+        $marchPayload = $this->sampleTripPayload($vehicle, $driver, $stations);
+        $marchPayload['start_at'] = '2026-03-15 08:00:00';
+        $marchPayload['end_at'] = '2026-03-20 20:00:00';
+
+        DriverAssignment::query()
+            ->where('vehicle_id', $vehicle->id)
+            ->update(['assigned_from' => '2025-01-01']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $marchPayload)
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', 'TRIP-2025-26-0001');
+
+        $secondVehicle = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'registration_number' => 'MH12FY0002',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 3000,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'vehicle_id' => $secondVehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2025-01-01',
+            'is_primary' => true,
+        ]);
+
+        $aprilPayload = $this->sampleTripPayload($secondVehicle, $driver, $stations);
+        $aprilPayload['start_at'] = '2026-04-02 08:00:00';
+        $aprilPayload['end_at'] = '2026-04-08 20:00:00';
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $aprilPayload)
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', 'TRIP-2026-27-0001');
+    }
+
+    public function test_archived_trip_numbers_are_not_reused(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $branchId = (int) BranchContext::branchId();
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $this->sampleTripPayload($vehicle, $driver, $stations))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $firstNumber = $createResponse->json('data.trip_number');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/api/trips/{$tripId}/archive", [
+                'archive_reason' => 'Testing archive reservation',
+            ])
+            ->assertNoContent();
+
+        $secondVehicle = Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'registration_number' => 'MH12ARC002',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 4000,
+        ]);
+
+        DriverAssignment::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'vehicle_id' => $secondVehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2025-01-01',
+            'is_primary' => true,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $driver, $stations, '2026-07-10 09:00:00'))
+            ->assertCreated()
+            ->assertJsonPath('data.trip_number', $this->formatTripNumber($branchId, 2))
+            ->assertJsonMissing(['data' => ['trip_number' => $firstNumber]]);
     }
 
     public function test_other_expense_stores_custom_type_and_notes_separately(): void
@@ -1964,8 +2132,26 @@ class TripManagementTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.0.registration_number', 'MH12TR0001');
         $response->assertJsonPath('data.0.odometer_km', 1000);
+        $response->assertJsonPath('data.0.vehicle_type', 'TRUCK');
         $response->assertJsonPath('data.0.selectable', true);
         $response->assertJsonPath('data.0.primary_driver_name', 'Trip Driver');
+        $response->assertJsonStructure([
+            'data' => [
+                [
+                    'vehicle_id',
+                    'registration_number',
+                    'vehicle_type',
+                    'make',
+                    'model',
+                    'manufacture_year',
+                    'odometer_km',
+                    'default_mileage_km_per_liter',
+                    'max_load_ton',
+                    'primary_driver_name',
+                    'selectable',
+                ],
+            ],
+        ]);
     }
 
     public function test_vehicle_for_trip_selection_lists_selectable_trucks_first(): void
@@ -2880,6 +3066,81 @@ class TripManagementTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips/'.$trip->id.'/archive-impact')
             ->assertNotFound();
+    }
+
+    public function test_admin_can_restore_archived_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Archived so it can be restored in this test.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertNoContent();
+
+        $restoredTrip = Trip::query()->find($trip->id);
+
+        $this->assertNotNull($restoredTrip);
+        $this->assertNull($restoredTrip->deleted_at);
+        $this->assertNull($restoredTrip->archived_by);
+        $this->assertNull($restoredTrip->archive_reason);
+
+        $this->assertDatabaseHas('trip_audit_logs', [
+            'trip_id' => $trip->id,
+            'event_type' => 'trip.restored',
+            'performed_by' => $user->id,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id)
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', false);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $trip->id]);
+    }
+
+    public function test_admin_cannot_restore_active_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertForbidden();
+    }
+
+    public function test_moderator_cannot_restore_archived_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'archived_by' => $user->id,
+            'archive_reason' => 'Archived for moderator restore denial test.',
+        ]);
+        $trip->delete();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/restore')
+            ->assertForbidden();
+
+        $this->assertNotNull(Trip::query()->withTrashed()->find($trip->id)?->deleted_at);
     }
 
     /**

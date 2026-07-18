@@ -15,6 +15,7 @@ use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\UploadedFile;
 
 class CompanyController extends Controller
 {
@@ -53,9 +54,18 @@ class CompanyController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $tenant = CompanyProvisioner::create($request->validated(), $user);
+        $validated = collect($request->validated())->except(['company_logo'])->all();
+        $tenant = CompanyProvisioner::create($validated, $user);
 
-        return new CompanyResource($tenant);
+        /** @var UploadedFile|null $logo */
+        $logo = $request->file('company_logo');
+
+        if ($logo instanceof UploadedFile) {
+            $tenant->company_logo = $tenant->storeLogo($logo);
+            $tenant->save();
+        }
+
+        return new CompanyResource($tenant->loadMissing('state'));
     }
 
     public function show(Tenant $company): CompanyResource
@@ -73,7 +83,19 @@ class CompanyController extends Controller
             $this->authorize('block', $company);
         }
 
-        $company->fill($request->validated());
+        $validated = collect($request->validated())->except(['company_logo', 'remove_logo'])->all();
+        $company->fill($validated);
+
+        /** @var UploadedFile|null $logo */
+        $logo = $request->file('company_logo');
+
+        if ($request->boolean('remove_logo')) {
+            $company->deleteLogo();
+        } elseif ($logo instanceof UploadedFile) {
+            $company->deleteLogo();
+            $company->company_logo = $company->storeLogo($logo);
+        }
+
         $company->save();
 
         return new CompanyResource($company->fresh()->load('state'));

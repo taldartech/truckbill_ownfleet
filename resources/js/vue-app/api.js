@@ -248,4 +248,63 @@ export async function logout() {
     }
 }
 
+export function toFormData(payload, prefix = '') {
+    const formData = new FormData();
+
+    function appendValue(key, value) {
+        if (value === undefined || value === null) {
+            return;
+        }
+
+        if (value instanceof File) {
+            formData.append(key, value);
+
+            return;
+        }
+
+        if (typeof value === 'boolean') {
+            formData.append(key, value ? '1' : '0');
+
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                appendValue(`${key}[${index}]`, item);
+            });
+
+            return;
+        }
+
+        if (typeof value === 'object') {
+            Object.entries(value).forEach(([childKey, childValue]) => {
+                appendValue(`${key}[${childKey}]`, childValue);
+            });
+
+            return;
+        }
+
+        formData.append(key, String(value));
+    }
+
+    Object.entries(payload ?? {}).forEach(([key, value]) => {
+        const fieldKey = prefix ? `${prefix}[${key}]` : key;
+        appendValue(fieldKey, value);
+    });
+
+    return formData;
+}
+
+export function payloadNeedsMultipart(payload, fileKeys = []) {
+    if (!payload || typeof payload !== 'object') {
+        return false;
+    }
+
+    if (fileKeys.some((key) => payload[key] instanceof File)) {
+        return true;
+    }
+
+    return Boolean(payload.remove_logo);
+}
+
 export default api;

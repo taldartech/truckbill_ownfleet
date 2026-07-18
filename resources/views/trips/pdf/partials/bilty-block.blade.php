@@ -5,10 +5,28 @@
 <div class="lr-sheet__inner">
 <table class="lr-bilty-table" style="width:100%; border-collapse:collapse;">
     <tr>
-        <td colspan="12" class="text-center fw-bold">
-            <p class="fs-5">{{ $company?->name }}</p>
-            <p class="">{{ $company_line }}</p>
-            <p class="">GST No: {{ $gst_number ?: '—' }}, PAN No: {{ $pan_number ?: '—' }}</p>
+        <td colspan="12" class="fw-bold">
+            <table style="width:100%; border-collapse:collapse; border:none; margin:0; table-layout:auto;">
+                <tr>
+                    @if (! empty($logo_path))
+                        <td style="width:72px; padding:0; border:none; vertical-align:middle;">
+                            <img
+                                src="{{ $logo_path }}"
+                                alt="{{ $company?->name }} Logo"
+                                class="company-logo"
+                            >
+                        </td>
+                    @endif
+                    <td style="padding:0; border:none; vertical-align:middle;" class="text-center">
+                        <p class="fs-5">{{ $company?->name }}</p>
+                        <p class="">{{ $company_line }}</p>
+                        <p class="">GST No: {{ $gst_number ?: '—' }}, PAN No: {{ $pan_number ?: '—' }}</p>
+                    </td>
+                    @if (! empty($logo_path))
+                        <td style="width:72px; padding:0; border:none;"></td>
+                    @endif
+                </tr>
+            </table>
         </td>
     </tr>
     <tr>

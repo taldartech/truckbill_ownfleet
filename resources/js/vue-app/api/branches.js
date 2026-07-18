@@ -1,4 +1,4 @@
-import api from '../api';
+import api, { payloadNeedsMultipart, toFormData } from '../api';
 
 const base = '/app/api/branches';
 
@@ -19,12 +19,26 @@ export async function listAllBranches(params = {}) {
 }
 
 export async function createBranch(payload) {
+    if (payloadNeedsMultipart(payload, ['branch_logo'])) {
+        const { data } = await api.post(base, toFormData(payload));
+
+        return unwrapResource(data);
+    }
+
     const { data } = await api.post(base, payload);
 
     return unwrapResource(data);
 }
 
 export async function updateBranch(id, payload) {
+    if (payloadNeedsMultipart(payload, ['branch_logo'])) {
+        const formData = toFormData(payload);
+        formData.append('_method', 'PUT');
+        const { data } = await api.post(`${base}/${id}`, formData);
+
+        return unwrapResource(data);
+    }
+
     const { data } = await api.put(`${base}/${id}`, payload);
 
     return unwrapResource(data);

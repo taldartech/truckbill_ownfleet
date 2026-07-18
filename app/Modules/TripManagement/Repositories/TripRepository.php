@@ -52,6 +52,16 @@ class TripRepository
         $trip->delete();
     }
 
+    public function restore(Trip $trip): void
+    {
+        $trip->restore();
+
+        $trip->update([
+            'archived_by' => null,
+            'archive_reason' => null,
+        ]);
+    }
+
     /**
      * @deprecated Use archive()
      */

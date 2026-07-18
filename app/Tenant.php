@@ -9,6 +9,8 @@ use App\Enums\TaxLiability;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Tenant extends Model
@@ -32,6 +34,7 @@ class Tenant extends Model
         'address',
         'contact_person',
         'contact_number',
+        'company_logo',
         'plan_end_date',
         'lr_credits',
         'truck_credits',
@@ -107,5 +110,39 @@ class Tenant extends Model
         }
 
         return $candidate;
+    }
+
+    public function storeLogo(UploadedFile $file): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'png');
+        $path = sprintf('logos/companies/%s/%s.%s', $this->id, (string) Str::uuid(), $extension);
+
+        Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+
+        return $path;
+    }
+
+    public function deleteLogo(): void
+    {
+        if ($this->company_logo) {
+            Storage::disk('public')->delete($this->company_logo);
+            $this->company_logo = null;
+        }
+    }
+
+    public function logoPublicUrl(): ?string
+    {
+        return $this->company_logo
+            ? Storage::disk('public')->url($this->company_logo)
+            : null;
+    }
+
+    public function logoFilesystemPathForPdf(): ?string
+    {
+        if (! $this->company_logo || ! Storage::disk('public')->exists($this->company_logo)) {
+            return null;
+        }
+
+        return Storage::disk('public')->path($this->company_logo);
     }
 }

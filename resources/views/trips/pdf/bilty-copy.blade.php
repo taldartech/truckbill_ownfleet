@@ -31,13 +31,10 @@
         .lr-sheet--a {
             border-radius: 10px;
             overflow: hidden;
-            border: 2px solid #10b981;
-            background: #ffffff;
-            box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15);
+            border: 2px solid #231f20;
+            box-shadow: 0 0 0 1px rgba(35, 31, 32, 0.15);
         }
         .lr-sheet--a .lr-sheet__ribbon {
-            background: #059669;
-            color: #ffffff;
             font-weight: 800;
             font-size: 9px;
             letter-spacing: 0.6px;
@@ -46,19 +43,21 @@
         }
         .lr-sheet--a .lr-sheet__inner {
             padding: 6px 7px 8px;
-            background: #f8fffc;
         }
         .lr-sheet--a .lr-bilty-table {
-            border: 1px solid #34d399;
+            border: 1px solid #231f20;
         }
         .lr-sheet--a .lr-bilty-table td,
         .lr-sheet--a .lr-bilty-table th {
-            border: 1px solid #a7f3d0;
+            border: 1px solid #231f20;
             padding: 3px 4px;
             vertical-align: top;
         }
-        .lr-sheet--a .lr-bilty-table tr:nth-child(2) td {
-            background: #ecfdf5;
+        .company-logo {
+            width: 72px;
+            height: 46px;
+            object-fit: contain;
+            display: block;
         }
         .page-break {
             page-break-after: always;
@@ -78,6 +77,7 @@
                 'company_line' => $company_line,
                 'gst_number' => $gst_number,
                 'pan_number' => $pan_number,
+                'logo_path' => $logo_path ?? null,
                 'is_rcm' => $is_rcm,
                 'show_freight' => $show_freight,
                 'copyLabel' => 'CONSIGNOR COPY',
@@ -90,6 +90,7 @@
                 'company_line' => $company_line,
                 'gst_number' => $gst_number,
                 'pan_number' => $pan_number,
+                'logo_path' => $logo_path ?? null,
                 'is_rcm' => $is_rcm,
                 'show_freight' => $show_freight,
                 'copyLabel' => 'DRIVER COPY',

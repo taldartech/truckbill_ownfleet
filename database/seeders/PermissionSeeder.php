@@ -40,6 +40,7 @@ class PermissionSeeder extends Seeder
         'trips.manage',
         'trips.archive',
         'trips.view_archived',
+        'trips.restore',
         'trips.delete',
         'trip_reports.view',
         'trip_reports.export',
