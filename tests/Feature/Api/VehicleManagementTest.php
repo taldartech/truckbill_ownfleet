@@ -366,10 +366,26 @@ class VehicleManagementTest extends TestCase
                 'tyre_layout' => 'TYRES_10',
                 'default_mileage_km_per_liter' => 2.5,
                 'max_load_ton' => 22,
+                'fuel_tank_capacity_ltr' => 350.5,
             ])
             ->assertCreated()
             ->assertJsonPath('data.default_mileage_km_per_liter', '2.50')
-            ->assertJsonPath('data.max_load_ton', '22.000');
+            ->assertJsonPath('data.max_load_ton', '22.000')
+            ->assertJsonPath('data.fuel_tank_capacity_ltr', '350.50');
+    }
+
+    public function test_admin_can_update_vehicle_fuel_tank_capacity(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+        $vehicle = $this->createVehicle($tenant);
+
+        $this->actingAs($admin)
+            ->putJson("/app/api/vehicles/{$vehicle->id}", [
+                'fuel_tank_capacity_ltr' => 400,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.fuel_tank_capacity_ltr', '400.00');
     }
 
     public function test_admin_cannot_create_vehicle_with_future_manufacture_year(): void

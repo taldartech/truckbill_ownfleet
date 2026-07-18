@@ -71,6 +71,7 @@ class UpdateVehicleRequest extends FormRequest
             'odometer_km' => ['nullable', 'numeric', 'min:0'],
             'default_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0'],
             'max_load_ton' => ['nullable', 'numeric', 'min:0'],
+            'fuel_tank_capacity_ltr' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

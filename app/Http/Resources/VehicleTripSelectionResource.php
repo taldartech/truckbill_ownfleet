@@ -32,6 +32,7 @@ class VehicleTripSelectionResource extends JsonResource
             'odometer_km' => $this->odometer_km,
             'default_mileage_km_per_liter' => $this->default_mileage_km_per_liter,
             'max_load_ton' => $this->max_load_ton,
+            'fuel_tank_capacity_ltr' => $this->fuel_tank_capacity_ltr,
             'primary_driver_id' => $eligibility['primary_driver_id'],
             'primary_driver_name' => $eligibility['primary_driver_name'],
             'vehicle_status' => $this->is_active ? 'active' : 'inactive',

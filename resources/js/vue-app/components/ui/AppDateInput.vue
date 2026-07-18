@@ -18,7 +18,10 @@
             inputmode="numeric"
             autocomplete="off"
             :aria-invalid="invalid || undefined"
+            @beforeinput="onBeforeInput"
             @input="onTextInput"
+            @keydown="onKeyDown"
+            @paste="onPaste"
             @blur="onBlur"
             @keydown.enter.prevent="onBlur"
         />
@@ -49,9 +52,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
     USER_DATE_INPUT,
+    caretIndexForDigitCount,
     formatDateInputTyping,
     fromDateInputDisplay,
     toDateInputDisplay,
@@ -106,6 +110,20 @@ const isEditing = ref(false);
 
 const showPickerButton = computed(() => !props.readonly && !props.disabled);
 
+const NAVIGATION_KEYS = new Set([
+    'Backspace',
+    'Delete',
+    'Tab',
+    'Escape',
+    'Enter',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Home',
+    'End',
+]);
+
 watch(
     () => props.modelValue,
     (value) => {
@@ -145,9 +163,94 @@ function emitValue(iso) {
     displayValue.value = toDateInputDisplay(next);
 }
 
+function countDigitsBefore(value, caret) {
+    const safeCaret = Math.max(0, Math.min(caret ?? 0, value.length));
+
+    return value.slice(0, safeCaret).replace(/\D/g, '').length;
+}
+
+function applyFormattedValue(input, formatted, digitCaret) {
+    displayValue.value = formatted;
+
+    if (input.value !== formatted) {
+        input.value = formatted;
+    }
+
+    const nextCaret = caretIndexForDigitCount(formatted, digitCaret);
+    input.setSelectionRange(nextCaret, nextCaret);
+}
+
+function onBeforeInput(event) {
+    if (props.readonly || props.disabled) {
+        return;
+    }
+
+    const type = event.inputType ?? '';
+
+    if (type.startsWith('delete') || type === 'historyUndo' || type === 'historyRedo') {
+        return;
+    }
+
+    if (type === 'insertFromPaste' || type === 'insertFromDrop') {
+        return;
+    }
+
+    const data = event.data ?? '';
+
+    if (data && !/^\d+$/.test(data)) {
+        event.preventDefault();
+    }
+}
+
+function onKeyDown(event) {
+    if (props.readonly || props.disabled) {
+        return;
+    }
+
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+    }
+
+    if (NAVIGATION_KEYS.has(event.key)) {
+        return;
+    }
+
+    if (/^\d$/.test(event.key)) {
+        return;
+    }
+
+    event.preventDefault();
+}
+
+function onPaste(event) {
+    if (props.readonly || props.disabled) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const input = event.target;
+    const pasted = event.clipboardData?.getData('text') ?? '';
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
+    const merged = `${input.value.slice(0, selectionStart)}${pasted}${input.value.slice(selectionEnd)}`;
+    const formatted = formatDateInputTyping(merged);
+    const digitCaret = countDigitsBefore(merged, selectionStart + pasted.length);
+
+    isEditing.value = true;
+    applyFormattedValue(input, formatted, digitCaret);
+}
+
 function onTextInput(event) {
     isEditing.value = true;
-    displayValue.value = formatDateInputTyping(event.target.value);
+
+    const input = event.target;
+    const raw = input.value;
+    const caret = input.selectionStart ?? raw.length;
+    const digitCaret = countDigitsBefore(raw, caret);
+    const formatted = formatDateInputTyping(raw);
+
+    applyFormattedValue(input, formatted, digitCaret);
 }
 
 function onBlur() {
@@ -163,6 +266,12 @@ function onBlur() {
 
     if (!iso) {
         displayValue.value = toDateInputDisplay(props.modelValue);
+
+        nextTick(() => {
+            if (textInputRef.value) {
+                textInputRef.value.value = displayValue.value;
+            }
+        });
 
         return;
     }

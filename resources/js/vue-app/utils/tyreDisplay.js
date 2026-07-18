@@ -85,9 +85,9 @@ export function formatWarrantySummary(tyre) {
         parts.push(`Until ${formatWarrantyDate(tyre.warranty_valid_until)}`);
     }
 
-    if (tyre.warranty_km != null && Number(tyre.warranty_km) > 0) {
-        parts.push(formatWarrantyKm(tyre.warranty_km));
-    }
+    // if (tyre.warranty_km != null && Number(tyre.warranty_km) > 0) {
+    //     parts.push(formatWarrantyKm(tyre.warranty_km));
+    // }
 
     return parts.length > 0 ? parts.join(' · ') : '—';
 }

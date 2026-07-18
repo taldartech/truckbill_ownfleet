@@ -120,13 +120,7 @@
                                 <div class="d-flex justify-content-between mb-1">
                                     <span>{{ estimateLifePercent(tyre) }}%</span>
                                 </div>
-                                <div class="progress" style="height: 6px">
-                                    <div
-                                        class="progress-bar"
-                                        :class="lifeBarClass(estimateLifePercent(tyre))"
-                                        :style="{ width: Math.min(100, estimateLifePercent(tyre)) + '%' }"
-                                    ></div>
-                                </div>
+                                
                             </td>
                             <td class="small">
                                 <template v-if="hasTyreWarranty(tyre)">
@@ -280,7 +274,7 @@
                                         {{ fieldErrors.current_km[0] }}
                                     </div>
                                 </div>
-                                <div class="tyre-form-grid__full">
+                                <div>
                                     <label class="form-label" for="tyreForm_purchase_cost">Purchase Cost <span class="text-muted fw-normal">(optional)</span></label>
                                     <input
                                         id="tyreForm_purchase_cost"
@@ -301,6 +295,18 @@
                                     <div v-if="fieldErrors.purchase_cost" class="invalid-feedback d-block">
                                         {{ fieldErrors.purchase_cost[0] }}
                                     </div>
+                                </div>
+                                <div>
+                                    <label class="form-label" for="tyreForm_type">Type *</label>
+                                    <AppSelect
+                                        input-id="tyreForm_type"
+                                        v-model="form.tyre_type"
+                                        :options="tyreTypeOptions"
+                                        placeholder="Select type"
+                                        search-placeholder="Search type…"
+                                        :invalid="Boolean(fieldErrors.tyre_type)"
+                                        :error-message="fieldErrors.tyre_type?.[0] ?? ''"
+                                    />
                                 </div>
                                 <div>
                                     <label class="form-label" for="tyreForm_warranty_until">Warranty Valid Until <span class="text-muted fw-normal">(optional)</span></label>
@@ -403,6 +409,7 @@ import { friendlyApiErrorMessage } from '../../utils/formErrors';
 import {
     TYRE_STATUS_FILTER_ALL,
     TYRE_STATUSES,
+    TYRE_TYPES,
     formatTyreStatus,
     formatTyreType,
     formatWarrantySummary,
@@ -500,6 +507,7 @@ const { canInCompany } = usePermissions();
 const canManage = computed(() => canInCompany('tyres.manage'));
 
 const tyreStatuses = TYRE_STATUSES;
+const tyreTypeOptions = TYRE_TYPES;
 
 const tyres = ref([]);
 const loading = ref(false);
@@ -730,7 +738,7 @@ async function openEdit(tyre) {
         serial_number: tyre.serial_number,
         brand: tyre.brand ?? '',
         size: tyre.size ?? '',
-        tyre_type: tyre.tyre_type ?? '',
+        tyre_type: tyre.tyre_type || DEFAULT_TYRE_TYPE,
         purchase_date: tyre.purchase_date ?? '',
         purchase_cost: Number(tyre.purchase_cost ?? 0),
         expected_life_km: tyre.expected_life_km ?? 40000,
@@ -801,7 +809,7 @@ function buildPayload() {
         serial_number: form.serial_number,
         brand: form.brand,
         size: form.size,
-        tyre_type: DEFAULT_TYRE_TYPE,
+        tyre_type: form.tyre_type || DEFAULT_TYRE_TYPE,
         purchase_date: form.purchase_date || null,
         purchase_cost: purchaseCostForPayload(form.purchase_cost),
         expected_life_km: form.expected_life_km,
@@ -825,6 +833,10 @@ function validateForm() {
 
     if (!String(form.size ?? '').trim()) {
         errors.size = ['Size is required.'];
+    }
+
+    if (!String(form.tyre_type ?? '').trim()) {
+        errors.tyre_type = ['Type is required.'];
     }
 
     if (!form.purchase_date) {

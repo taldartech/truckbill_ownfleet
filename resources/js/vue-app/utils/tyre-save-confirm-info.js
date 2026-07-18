@@ -1,5 +1,5 @@
 import { formatDate } from './datetime';
-import { formatTyreStatus } from './tyreDisplay';
+import { formatTyreStatus, formatTyreType } from './tyreDisplay';
 
 function formatKm(value) {
     if (value === '' || value == null || !Number.isFinite(Number(value))) {
@@ -25,6 +25,7 @@ export function buildTyreSaveConfirmSummary({ editing, form, editingTyre }) {
         `Tyre number will be saved as ${form.serial_number || '—'}`,
         `Brand will be saved as ${form.brand || '—'}`,
         `Size will be saved as ${form.size || '—'}`,
+        `Type will be saved as ${formatTyreType(form.tyre_type)}`,
         `Purchase date will be saved as ${formatDate(form.purchase_date) || '—'}`,
         `Expected life will be saved as ${formatKm(form.expected_life_km)}`,
         `Initial running KM will be saved as ${formatKm(form.current_km ?? 0)}`,

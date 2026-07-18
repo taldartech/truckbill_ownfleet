@@ -39,6 +39,7 @@
                     :drivers="drivers"
                     :vehicle-odometer-km="vehicleOdometerKm"
                     :vehicle-expected-mileage="vehicleExpectedMileage"
+                    :vehicle-fuel-tank-capacity="vehicleFuelTankCapacity"
                     :status-locked="isTerminalStatus"
                     :display-status="originalStatus"
                     :vehicle-make="vehicleMake"
@@ -194,6 +195,7 @@ const saving = ref(false);
 const snapshotVehicleLabel = ref('');
 const vehicleOdometerKm = ref('');
 const vehicleExpectedMileage = ref('');
+const vehicleFuelTankCapacity = ref('');
 const vehicleMake = ref('');
 const vehicleModel = ref('');
 const snapshotDriverName = ref('');
@@ -431,6 +433,7 @@ async function loadTrip() {
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
         vehicleOdometerKm.value = trip.vehicle?.odometer_km ?? '';
         vehicleExpectedMileage.value = trip.vehicle?.default_mileage_km_per_liter ?? '';
+        vehicleFuelTankCapacity.value = trip.vehicle?.fuel_tank_capacity_ltr ?? '';
         vehicleMake.value = trip.vehicle?.make ?? '';
         vehicleModel.value = trip.vehicle?.model ?? '';
         snapshotDriverName.value = trip.driver?.name ?? '—';

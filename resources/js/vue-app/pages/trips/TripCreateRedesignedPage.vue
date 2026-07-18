@@ -27,6 +27,7 @@
                 :vehicle-odometer-km="vehicleOdometerKm"
                 :vehicle-expected-mileage="vehicleDefaultMileage"
                 :vehicle-max-load="vehicleMaxLoad"
+                :vehicle-fuel-tank-capacity="vehicleFuelTankCapacity"
                 @add-stop="handleAddStop"
                 @return-to-start="handleReturnToStart"
                 @remove-route-leg="removeRouteLeg"
@@ -158,6 +159,7 @@ const selectedVehicleLabel = ref('');
 const vehicleOdometerKm = ref('');
 const vehicleDefaultMileage = ref('');
 const vehicleMaxLoad = ref('');
+const vehicleFuelTankCapacity = ref('');
 
 const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form);
 const { applyWindowValidation } = useTripWindowValidation(form, {
@@ -175,6 +177,7 @@ function onVehicleSelected(vehicle) {
     const defaultMileage =
         vehicle?.default_mileage_km_per_liter ?? vehicle?.expected_mileage_km_per_liter ?? 0;
     const maxLoad = vehicle?.max_load_ton ?? 0;
+    const fuelTankCapacity = vehicle?.fuel_tank_capacity_ltr ?? 0;
 
     form.planned_mileage_km_per_liter =
         defaultMileage !== '' && defaultMileage != null ? Number(defaultMileage) : 0;
@@ -183,6 +186,8 @@ function onVehicleSelected(vehicle) {
 
     vehicleDefaultMileage.value = defaultMileage !== '' && defaultMileage != null ? defaultMileage : '';
     vehicleMaxLoad.value = maxLoad !== '' && maxLoad != null ? maxLoad : '';
+    vehicleFuelTankCapacity.value =
+        fuelTankCapacity !== '' && fuelTankCapacity != null ? fuelTankCapacity : '';
 }
 
 function onStationCreated({ station, legIndex }) {
@@ -250,6 +255,7 @@ function handleClearForm() {
     vehicleOdometerKm.value = '';
     vehicleDefaultMileage.value = '';
     vehicleMaxLoad.value = '';
+    vehicleFuelTankCapacity.value = '';
 }
 
 function handleReturnToStart() {

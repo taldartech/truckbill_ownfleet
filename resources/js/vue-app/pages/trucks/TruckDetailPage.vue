@@ -98,6 +98,10 @@
                                 <span class="text-muted">Max Load (Ton)</span>
                                 <div>{{ vehicle.max_load_ton ? formatOdometer(vehicle.max_load_ton) : '—' }}</div>
                             </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">Fuel Tank Capacity (Ltr)</span>
+                                <div>{{ vehicle.fuel_tank_capacity_ltr ? formatOdometer(vehicle.fuel_tank_capacity_ltr) : '—' }}</div>
+                            </div>
                         </div>
                         <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;">
                             <div class="d-flex align-items-center">

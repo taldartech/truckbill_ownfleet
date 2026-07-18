@@ -503,8 +503,8 @@ onBeforeUnmount(() => {
     font-size: 15px;
 }
 .picker-trigger-main-text.text-placeholder {
-    font-weight: 400;
-    color: #94a3b8;
+    font-weight: var(--form-placeholder-weight, 400);
+    color: var(--form-placeholder-color, #9ca3af);
 }
 .picker-trigger-sub-text {
     font-size: 12px;

@@ -32,6 +32,7 @@ class Vehicle extends Model
         'odometer_km',
         'default_mileage_km_per_liter',
         'max_load_ton',
+        'fuel_tank_capacity_ltr',
         'is_active',
         'created_by',
         'updated_by',
@@ -43,6 +44,7 @@ class Vehicle extends Model
             'is_active' => 'boolean',
             'default_mileage_km_per_liter' => 'decimal:2',
             'max_load_ton' => 'decimal:3',
+            'fuel_tank_capacity_ltr' => 'decimal:2',
         ];
     }
 

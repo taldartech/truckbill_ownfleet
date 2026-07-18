@@ -18,7 +18,7 @@ export const USER_DATE_TIME_DISPLAY = {
 
 /** Text box / date-picker display — change HERE only; all date inputs follow. */
 export const USER_DATE_INPUT = {
-    placeholder: 'dd/mm/yyyy',
+    placeholder: 'DD/MM/YYYY',
     separator: '/',
 };
 
@@ -189,9 +189,20 @@ function digitsOnly(value) {
 
 /**
  * Auto-format partial typing into dd/mm/yyyy as the user enters digits.
+ * Soft-clamps day (01–31) and month (01–12) once each segment is complete.
  */
 export function formatDateInputTyping(value) {
-    const digits = digitsOnly(value).slice(0, 8);
+    let digits = digitsOnly(value).slice(0, 8);
+
+    if (digits.length >= 2) {
+        const day = Math.min(31, Math.max(1, Number(digits.slice(0, 2))));
+        digits = String(day).padStart(2, '0') + digits.slice(2);
+    }
+
+    if (digits.length >= 4) {
+        const month = Math.min(12, Math.max(1, Number(digits.slice(2, 4))));
+        digits = digits.slice(0, 2) + String(month).padStart(2, '0') + digits.slice(4);
+    }
 
     if (digits.length <= 2) {
         return digits;
@@ -202,6 +213,29 @@ export function formatDateInputTyping(value) {
     }
 
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * Map a digit-count caret position into a masked dd/mm/yyyy string index.
+ */
+export function caretIndexForDigitCount(formatted, digitCount) {
+    if (digitCount <= 0) {
+        return 0;
+    }
+
+    let seen = 0;
+
+    for (let i = 0; i < formatted.length; i += 1) {
+        if (/\d/.test(formatted[i])) {
+            seen += 1;
+
+            if (seen >= digitCount) {
+                return i + 1;
+            }
+        }
+    }
+
+    return formatted.length;
 }
 
 export function toDateInputValue(date = new Date()) {

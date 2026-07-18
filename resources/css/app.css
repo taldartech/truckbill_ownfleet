@@ -25,8 +25,8 @@
 .trip-form-fields .form-label,
 .trip-form .form-label {
     font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text-secondary);
+    font-weight: var(--form-label-weight, 600);
+    color: var(--form-label-color, #475569);
     margin-bottom: 6px;
     display: block;
 }
@@ -42,6 +42,50 @@
 :root {
     --border-radius-lg: 8px;
     --border-color: var(--brand-border, #dee2e6);
+
+    /* Global form field hierarchy */
+    --form-label-color: #475569;
+    --form-label-weight: 600;
+    --form-input-color: #1f2937;
+    --form-input-weight: 500;
+    --form-placeholder-color: #9ca3af;
+    --form-placeholder-weight: 400;
+}
+
+/* ── Global form field styling standard ───────────────────────── */
+.form-label,
+label.form-label {
+    color: var(--form-label-color);
+    font-weight: var(--form-label-weight);
+}
+
+.form-control,
+.form-select,
+.trf-input,
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']),
+textarea,
+select {
+    color: var(--form-input-color);
+    font-weight: var(--form-input-weight);
+}
+
+input::placeholder,
+textarea::placeholder,
+.form-control::placeholder,
+.trf-input::placeholder,
+.select2-search__field::placeholder,
+.app-date-input__text::placeholder {
+    color: var(--form-placeholder-color) !important;
+    opacity: 1 !important;
+    font-weight: var(--form-placeholder-weight);
+}
+
+/* Empty picker / select triggers that mimic placeholders */
+.text-placeholder,
+.picker-trigger-main-text.text-placeholder {
+    color: var(--form-placeholder-color) !important;
+    font-weight: var(--form-placeholder-weight) !important;
+    opacity: 1;
 }
 
 /* FIX 1 — horizontal scroll for data tables */
@@ -284,8 +328,8 @@
 
 .trip-route-num-input::placeholder {
     font-size: 0.72rem;
-    font-weight: 400;
-    color: #adb5bd;
+    font-weight: var(--form-placeholder-weight, 400);
+    color: var(--form-placeholder-color, #9ca3af);
 }
 
 .trip-route-num-input:focus {

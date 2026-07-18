@@ -90,7 +90,7 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/Ltr)</label>
                                 <input
                                     :id="`${modalId}_default_mileage`"
@@ -106,7 +106,7 @@
                                     {{ props.fieldErrors.default_mileage_km_per_liter[0] }}
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label :for="`${modalId}_max_load`" class="form-label">Max Load (Ton)</label>
                                 <input
                                     :id="`${modalId}_max_load`"
@@ -120,6 +120,22 @@
                                 />
                                 <div v-if="props.fieldErrors.max_load_ton" class="invalid-feedback d-block">
                                     {{ props.fieldErrors.max_load_ton[0] }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label :for="`${modalId}_fuel_tank`" class="form-label">Fuel Tank Capacity (Ltr)</label>
+                                <input
+                                    :id="`${modalId}_fuel_tank`"
+                                    v-model="form.fuel_tank_capacity_ltr"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': props.fieldErrors.fuel_tank_capacity_ltr }"
+                                />
+                                <div v-if="props.fieldErrors.fuel_tank_capacity_ltr" class="invalid-feedback d-block">
+                                    {{ props.fieldErrors.fuel_tank_capacity_ltr[0] }}
                                 </div>
                             </div>
                         </div>
@@ -325,6 +341,7 @@ function emptyForm() {
         odometer_km: '0',
         default_mileage_km_per_liter: '',
         max_load_ton: '',
+        fuel_tank_capacity_ltr: '',
     };
 }
 
@@ -354,6 +371,10 @@ function fillForm(vehicle) {
                 : '',
         max_load_ton:
             vehicle.max_load_ton != null && vehicle.max_load_ton !== '' ? String(vehicle.max_load_ton) : '',
+        fuel_tank_capacity_ltr:
+            vehicle.fuel_tank_capacity_ltr != null && vehicle.fuel_tank_capacity_ltr !== ''
+                ? String(vehicle.fuel_tank_capacity_ltr)
+                : '',
     };
 }
 
@@ -479,6 +500,10 @@ function submit() {
                 : Number(form.value.default_mileage_km_per_liter),
         max_load_ton:
             form.value.max_load_ton === '' || form.value.max_load_ton == null ? 0 : Number(form.value.max_load_ton),
+        fuel_tank_capacity_ltr:
+            form.value.fuel_tank_capacity_ltr === '' || form.value.fuel_tank_capacity_ltr == null
+                ? 0
+                : Number(form.value.fuel_tank_capacity_ltr),
     });
 }
 </script>

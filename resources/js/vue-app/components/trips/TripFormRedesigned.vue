@@ -818,6 +818,7 @@ const props = defineProps({
     vehicleDefaultMileage: { type: [Number, String], default: '' },
     vehicleExpectedMileage: { type: [Number, String], default: '' },
     vehicleMaxLoad: { type: [Number, String], default: '' },
+    vehicleFuelTankCapacity: { type: [Number, String], default: '' },
     vehicleMake: { type: String, default: '' },
     vehicleModel: { type: String, default: '' },
 });
@@ -956,6 +957,25 @@ function onPlannedDieselInput() { props.form.planned_diesel_manually_set = true;
 watch(() => [props.form.start_meter_reading_km, props.form.end_meter_reading_km, props.form.planned_mileage_km_per_liter], syncAutoPlannedDiesel);
 watch(() => vehicleDefaultMileageResolved.value, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.planned_mileage_km_per_liter = m; syncAutoPlannedDiesel(); });
 watch(() => props.vehicleMaxLoad, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.max_load_ton = m; });
+watch(
+    () => props.vehicleFuelTankCapacity,
+    (v) => {
+        if (v === '' || v == null) {
+            fuelTankCapacityLtr.value = 0;
+
+            return;
+        }
+
+        const capacity = Number(v);
+
+        if (!Number.isFinite(capacity) || capacity < 0) {
+            return;
+        }
+
+        fuelTankCapacityLtr.value = capacity;
+    },
+    { immediate: true },
+);
 watch(() => props.form.substitute_driver_id, (v) => { if (v) showSubstituteDriver.value = true; }, { immediate: true });
 watch(showSubstituteDriver, (e) => { if (!e && !isFormLocked.value) { props.form.substitute_driver_id = ''; emit('clear-field-error', 'substitute_driver_id'); } });
 watch(() => props.form.driver_id, (id) => { if (!id) { showSubstituteDriver.value = false; return; } if (props.form.substitute_driver_id && String(props.form.substitute_driver_id) === String(id)) props.form.substitute_driver_id = ''; });
@@ -1077,7 +1097,7 @@ defineExpose({ changeStatus: () => {} });
 .trf-pf { display: flex; flex-direction: column; gap: 6px; }
 .trf-pf__lbl {
     display: flex; align-items: center; gap: 7px;
-    font-size: .75rem; font-weight: 700; color: var(--muted);
+    font-size: .75rem; font-weight: var(--form-label-weight, 600); color: var(--form-label-color, #475569);
     text-transform: uppercase; letter-spacing: .04em;
 }
 .trf-pf__lbl-icon {
@@ -1112,8 +1132,8 @@ defineExpose({ changeStatus: () => {} });
     min-height: 44px;
     padding: 10px 13px;
     font-size: .9rem;
-    font-weight: 500;
-    color: var(--text);
+    font-weight: var(--form-input-weight, 500);
+    color: var(--form-input-color, #1f2937);
     background: #fff;
     border: 1.5px solid var(--border);
     border-radius: 8px;
