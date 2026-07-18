@@ -547,32 +547,6 @@
                                             <span class="trf-route-board__label">
                                                 Stop {{ item.legIndex + 1 }}<span class="trf-pf__req">*</span>
                                             </span>
-                                            <span
-                                                v-if="isEmptyReturnLeg(item.leg, item.legIndex)"
-                                                class="trf-pill trf-pill--orange"
-                                            >Empty Return</span>
-                                        </div>
-                                        <div class="trf-leg__station-picker">
-                                            <div class="trf-leg__station-picker-main">
-                                                <SearchablePickerRedesigned
-                                                    v-if="!isFormLocked"
-                                                    v-model="item.leg.to_station_id"
-                                                    :items="stations"
-                                                    attach-dropdown-to-body
-                                                    placeholder="To station"
-                                                    search-placeholder="Search station…"
-                                                    empty-message="No station found."
-                                                    view-title="Location details"
-                                                    quick-add-title="Add location"
-                                                    :disabled="requiresTruckSelection"
-                                                    :invalid="Boolean(legFieldError(item.legIndex, 'to_station_id'))"
-                                                    :error-message="legFieldError(item.legIndex, 'to_station_id')"
-                                                    :can-quick-add="canQuickAddStation && !requiresTruckSelection"
-                                                    @quick-add="openQuickAddForLeg(item.legIndex)"
-                                                    @update:model-value="handleLegStopChange(item.legIndex)"
-                                                />
-                                                <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(item.leg.to_station_id) }}</span></div>
-                                            </div>
                                             <button
                                                 v-if="!isFormLocked"
                                                 type="button"
@@ -583,6 +557,30 @@
                                             >
                                                 <i class="bi bi-x-lg"></i>
                                             </button>
+                                            <span
+                                                v-if="isEmptyReturnLeg(item.leg, item.legIndex)"
+                                                class="trf-pill trf-pill--orange"
+                                            >Empty Return</span>
+                                        </div>
+                                        <div class="trf-leg__station-picker">
+                                            <SearchablePickerRedesigned
+                                                v-if="!isFormLocked"
+                                                v-model="item.leg.to_station_id"
+                                                :items="stations"
+                                                attach-dropdown-to-body
+                                                placeholder="To station"
+                                                search-placeholder="Search station…"
+                                                empty-message="No station found."
+                                                view-title="Location details"
+                                                quick-add-title="Add location"
+                                                :disabled="requiresTruckSelection"
+                                                :invalid="Boolean(legFieldError(item.legIndex, 'to_station_id'))"
+                                                :error-message="legFieldError(item.legIndex, 'to_station_id')"
+                                                :can-quick-add="canQuickAddStation && !requiresTruckSelection"
+                                                @quick-add="openQuickAddForLeg(item.legIndex)"
+                                                @update:model-value="handleLegStopChange(item.legIndex)"
+                                            />
+                                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(item.leg.to_station_id) }}</span></div>
                                         </div>
                                     </template>
                                 </div>
@@ -592,9 +590,8 @@
                         <div class="trf-route-group__right">
                             <div v-if="group.cardLeg" class="trf-leg__card">
                                 <div class="trf-leg__fields">
-                                    <div class="trf-lf">
-                                        <div class="trf-field-head">
-                                            <label class="trf-lf__lbl">Customer<span class="trf-pf__req">*</span></label>
+                                    <div class="trf-lf trf-lf--customer">
+                                        <div class="trf-field-head trf-field-head--customer">
                                             <label
                                                 v-if="!isFormLocked"
                                                 class="trf-subst-toggle"
@@ -613,57 +610,106 @@
                                                 <span class="trf-subst-toggle__track" aria-hidden="true">
                                                     <span class="trf-subst-toggle__thumb"></span>
                                                 </span>
-                                                <span class="trf-subst-toggle__text">Same as customer</span>
+                                                <span class="trf-subst-toggle__text">Stop-wise Customer<span class="trf-pf__req">*</span></span>
                                             </label>
+                                            <span v-else class="trf-lf__lbl">Stop-wise Customer</span>
+                                            <div class="trf-field-head__actions" aria-hidden="true"></div>
                                         </div>
-                                        <div v-if="!isFormLocked && !group.cardLeg.use_same_customer" class="trf-lf__picker">
-                                            <SearchablePickerRedesigned
-                                                v-model="group.cardLeg.customer_id"
-                                                :items="customers"
-                                                attach-dropdown-to-body
-                                                placeholder="Select customer"
-                                                search-placeholder="Search customer…"
-                                                empty-message="No customer found."
-                                                view-title="Customer details"
-                                                quick-add-title="Add customer"
-                                                :invalid="Boolean(legFieldError(group.cardIndex, 'customer_id'))"
-                                                :error-message="legFieldError(group.cardIndex, 'customer_id')"
-                                                :can-quick-add="canQuickAddCustomer"
-                                                :show-subtext="false"
-                                                title-case-label
-                                                compact-actions
-                                                @quick-add="openQuickAddForLegCustomer(group.cardIndex)"
-                                                @update:model-value="saveProgress"
-                                            />
-                                        </div>
-                                        <div v-else-if="!isFormLocked" class="trf-same-cust">
-                                            {{ customerLabel(group.cardLeg.customer_id, snapshotCustomerName) || 'Same as main' }}
-                                        </div>
+                                        <template v-if="!isFormLocked">
+                                            <div
+                                                v-if="!group.cardLeg.use_same_customer"
+                                                class="trf-lf__picker"
+                                            >
+                                                <SearchablePickerRedesigned
+                                                    v-model="group.cardLeg.customer_id"
+                                                    :items="customers"
+                                                    attach-dropdown-to-body
+                                                    placeholder="Select customer"
+                                                    search-placeholder="Search customer…"
+                                                    empty-message="No customer found."
+                                                    view-title="Customer details"
+                                                    quick-add-title="Add customer"
+                                                    :invalid="Boolean(legFieldError(group.cardIndex, 'customer_id'))"
+                                                    :error-message="legFieldError(group.cardIndex, 'customer_id')"
+                                                    :can-quick-add="canQuickAddCustomer"
+                                                    :show-subtext="false"
+                                                    title-case-label
+                                                    compact-actions
+                                                    @quick-add="openQuickAddForLegCustomer(group.cardIndex)"
+                                                    @update:model-value="saveProgress"
+                                                />
+                                            </div>
+                                            <div
+                                                v-else
+                                                class="trf-same-cust"
+                                            >
+                                                {{ customerLabel(group.cardLeg.customer_id, snapshotCustomerName) || 'Same as main' }}
+                                            </div>
+                                        </template>
                                         <div v-else class="trf-ro-val">
                                             <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.customer_id, snapshotCustomerName) }}</span>
                                         </div>
                                     </div>
 
                                     <div class="trf-lf">
-                                        <label class="trf-lf__lbl">Goods Type<span class="trf-pf__req">*</span></label>
-                                        <SearchablePickerRedesigned
+                                        <label class="trf-lf__lbl">Pickup Date<span class="trf-pf__req">*</span></label>
+                                        <input
                                             v-if="!isFormLocked"
-                                            v-model="group.cardLeg.goods_name"
-                                            :items="goodsTypePickerItems"
-                                            attach-dropdown-to-body
-                                            placeholder="Select goods"
-                                            search-placeholder="Search goods…"
-                                            empty-message="No goods found."
-                                            quick-add-title="Add goods type"
-                                            :invalid="Boolean(legFieldError(group.cardIndex, 'goods_name'))"
-                                            :error-message="legFieldError(group.cardIndex, 'goods_name')"
-                                            :can-quick-add="canQuickAddGoodsType"
-                                            :can-view="false"
-                                            compact-actions
-                                            @quick-add="openQuickAddForLegGoodsType(group.cardIndex)"
-                                            @update:model-value="saveProgress"
+                                            v-model="group.cardLeg.pickup_date"
+                                            type="date"
+                                            class="trf-input"
+                                            :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'pickup_date') }"
+                                            :min="tripStartDate || undefined"
+                                            :max="tripEndDate || undefined"
+                                            :title="legFieldError(group.cardIndex, 'pickup_date') || undefined"
+                                            @change="emit('clear-field-error', `route_legs.${group.cardIndex}.pickup_date`); saveProgress()"
                                         />
+                                        <span v-else class="trf-ro-val__main">{{ group.cardLeg.pickup_date || '—' }}</span>
+                                    </div>
+
+                                    <div class="trf-lf">
+                                        <div class="trf-field-head">
+                                            <label class="trf-lf__lbl">Goods Type<span class="trf-pf__req">*</span></label>
+                                            <div class="trf-field-head__actions" aria-hidden="true"></div>
+                                        </div>
+                                        <div v-if="!isFormLocked" class="trf-lf__picker">
+                                            <SearchablePickerRedesigned
+                                                v-model="group.cardLeg.goods_name"
+                                                :items="goodsTypePickerItems"
+                                                attach-dropdown-to-body
+                                                placeholder="Select goods"
+                                                search-placeholder="Search goods…"
+                                                empty-message="No goods found."
+                                                quick-add-title="Add goods type"
+                                                :invalid="Boolean(legFieldError(group.cardIndex, 'goods_name'))"
+                                                :error-message="legFieldError(group.cardIndex, 'goods_name')"
+                                                :can-quick-add="canQuickAddGoodsType"
+                                                :can-view="false"
+                                                compact-actions
+                                                @quick-add="openQuickAddForLegGoodsType(group.cardIndex)"
+                                                @update:model-value="saveProgress"
+                                            />
+                                        </div>
                                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ group.cardLeg.goods_name || '—' }}</span></div>
+                                    </div>
+
+                                    <div class="trf-lf">
+                                        <label class="trf-lf__lbl">No. of Units<span class="trf-pf__req">*</span></label>
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="group.cardLeg.no_of_units"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            max="100000"
+                                            step="1"
+                                            class="trf-input"
+                                            :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'no_of_units') }"
+                                            :title="legFieldError(group.cardIndex, 'no_of_units') || undefined"
+                                            placeholder="0"
+                                            @input="emit('clear-field-error', `route_legs.${group.cardIndex}.no_of_units`); saveProgress()"
+                                        />
+                                        <span v-else class="trf-ro-val__main">{{ group.cardLeg.no_of_units ?? '—' }}</span>
                                     </div>
 
                                     <div class="trf-lf">
@@ -738,7 +784,7 @@
                                                 <span class="trf-subst-toggle__track" aria-hidden="true">
                                                     <span class="trf-subst-toggle__thumb"></span>
                                                 </span>
-                                                <span class="trf-subst-toggle__text">Auto Calculate</span>
+                                                <span class="trf-subst-toggle__text">Use Rate</span>
                                             </label>
                                         </div>
                                         <div class="trf-num-field trf-num-field--prefix">
@@ -753,6 +799,7 @@
                                                 class="trf-input"
                                                 :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'freight_amount') }"
                                                 placeholder="0.00"
+                                                :disabled="group.cardLeg.freight_auto_calculate"
                                                 @input="onLegFreightManualInput(group.cardIndex); saveProgress()"
                                             />
                                             <span v-else class="trf-ro-val__main">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
@@ -762,21 +809,47 @@
 
                                 <div class="trf-leg__meta">
                                     <div class="trf-leg__meta-left">
-                                        <span class="trf-leg__meta-label">Auto Calculation:</span>
-                                        <span
-                                            class="trf-leg__rate-badge"
-                                            :class="{ 'trf-leg__rate-badge--missing': !(group.cardLeg.freight_rate > 0) }"
-                                        >
-                                            {{ group.cardLeg.freight_rate > 0 ? `Rate: ₹${formatMoney(group.cardLeg.freight_rate)} /Ton` : 'Rate not configured' }}
-                                        </span>
-                                    </div>
-                                    <div class="trf-leg__meta-right">
                                         <span
                                             class="trf-leg__load-badge"
                                             :class="{ 'trf-leg__load-badge--over': isLegOverloaded(group.cardLeg) }"
                                         >
                                             Load Type: {{ legLoadMeta(group.cardLeg.weight_ton).label }}
                                             <template v-if="isLegOverloaded(group.cardLeg)"> · Over capacity</template>
+                                        </span>
+                                    </div>
+                                    <div class="trf-leg__meta-right">
+                                        <span class="trf-leg__dist">
+                                            E-Way Bill:
+                                            <template v-if="!isFormLocked">
+                                                <input
+                                                    v-model="group.cardLeg.ewaybill_no"
+                                                    type="text"
+                                                    maxlength="64"
+                                                    class="trf-leg__dist-input trf-leg__dist-input--wide"
+                                                    placeholder="Optional"
+                                                    @input="saveProgress"
+                                                />
+                                            </template>
+                                            <template v-else>{{ group.cardLeg.ewaybill_no || '—' }}</template>
+                                        </span>
+                                        <span class="trf-leg__dist">
+                                            Goods Value:
+                                            <template v-if="!isFormLocked">
+                                                <span class="trf-leg__meta-prefix">₹</span>
+                                                <input
+                                                    v-model.number="group.cardLeg.goods_value"
+                                                    v-no-scroll-change
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    class="trf-leg__dist-input trf-leg__dist-input--wide"
+                                                    placeholder="0.00"
+                                                    @input="saveProgress"
+                                                />
+                                            </template>
+                                            <template v-else>
+                                                {{ group.cardLeg.goods_value ? `₹${formatMoney(group.cardLeg.goods_value)}` : '—' }}
+                                            </template>
                                         </span>
                                         <span class="trf-leg__dist">
                                             Distance:
@@ -898,7 +971,7 @@
                         <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
                         <div>
                             <span class="trf-vehicle-info__name">Total Freight</span>
-                            <span class="trf-vehicle-info__val">₹{{ formatMoney(summary.freightTotal) }}</span>
+                            <span class="trf-vehicle-info__val">{{ freightTotalDisplay }}</span>
                         </div>
                     </div>
                     <div class="trf-vehicle-info__item">
@@ -908,10 +981,10 @@
                             <span
                                 class="trf-vehicle-info__val"
                                 :class="{
-                                    'trf-vehicle-info__val--profit': summary.profit >= 0,
-                                    'trf-vehicle-info__val--loss': summary.profit < 0,
+                                    'trf-vehicle-info__val--profit': hasFreightSummary && summary.profit >= 0,
+                                    'trf-vehicle-info__val--loss': hasFreightSummary && summary.profit < 0,
                                 }"
-                            >₹{{ formatMoney(summary.profit) }}</span>
+                            >{{ profitDisplay }}</span>
                         </div>
                     </div>
                 </div>
@@ -1407,6 +1480,22 @@ const costPerKmDisplay = computed(() => {
     return '₹' + formatMoney(cost);
 });
 
+const hasFreightSummary = computed(() => Number(summary.value.freightTotal ?? 0) > 0);
+
+const freightTotalDisplay = computed(() => {
+    if (!hasFreightSummary.value) {
+        return '—';
+    }
+    return '₹' + formatMoney(summary.value.freightTotal);
+});
+
+const profitDisplay = computed(() => {
+    if (!hasFreightSummary.value) {
+        return '—';
+    }
+    return '₹' + formatMoney(summary.value.profit);
+});
+
 const driverLicenseWarning = computed(() => {
     const driver = selectedDriver.value;
     if (!driver || !driver.license_expiry_date) {
@@ -1480,7 +1569,23 @@ function onLegMileageInput(i) { const leg = props.form.route_legs[i]; if (leg) l
 function onLegRateInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_rate = clamp(leg.freight_rate, maxFreightRate); applyLegFreightAuto(i); emit('clear-field-error', 'route_legs.' + i + '.freight_rate'); }
 function onLegAutoCalculateChange(i) { if (props.form.route_legs[i]?.freight_auto_calculate) applyLegFreightAuto(i); }
 function onLegFreightManualInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_auto_calculate = false; }
-function onLegSameCustomerChange(i) { const leg = props.form.route_legs[i]; if (!leg) return; if (leg.use_same_customer) { leg.customer_id = props.form.customer_id ?? ''; return; } leg.customer_id = ''; }
+function onLegSameCustomerChange(i) {
+    const leg = props.form.route_legs[i];
+
+    if (!leg) {
+        return;
+    }
+
+    if (leg.use_same_customer) {
+        leg.customer_id = props.form.customer_id ?? '';
+        emit('clear-field-error', `route_legs.${i}.customer_id`);
+
+        return;
+    }
+
+    leg.customer_id = '';
+    emit('clear-field-error', `route_legs.${i}.customer_id`);
+}
 function syncAutoPlannedDiesel() {
     if (props.form.planned_diesel_manually_set || isFormLocked.value) {
         return;
@@ -1674,6 +1779,10 @@ function onApplyRouteTemplate(template) {
         next.customer_id = leg.customer_id ?? '';
         next.use_same_customer = Boolean(leg.use_same_customer);
         next.goods_name = leg.goods_name ?? '';
+        next.pickup_date = leg.pickup_date ?? '';
+        next.no_of_units = leg.no_of_units ?? '';
+        next.ewaybill_no = leg.ewaybill_no ?? '';
+        next.goods_value = leg.goods_value ?? '';
         next.weight_ton = leg.weight_ton ?? '';
         next.freight_rate = leg.freight_rate ?? '';
         next.freight_amount = leg.freight_amount ?? 0;
@@ -2727,6 +2836,12 @@ defineExpose({ changeStatus: () => {} });
 .trf-route-board__label-row .trf-route-board__label {
     margin-bottom: 0;
 }
+.trf-route-board__label-row .trf-leg__station-clear {
+    margin-left: 0;
+}
+.trf-route-board__label-row .trf-pill {
+    margin-left: auto;
+}
 .trf-route-board__hint {
     margin-left: 3px;
     font-size: inherit;
@@ -2779,28 +2894,23 @@ defineExpose({ changeStatus: () => {} });
     background: #fff;
 }
 .trf-leg__station-picker {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-}
-.trf-leg__station-picker-main {
-    flex: 1;
+    display: block;
+    width: 100%;
     min-width: 0;
 }
 .trf-leg__station-clear {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     padding: 0;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 6px;
     background: #fff;
     color: #94a3b8;
-    font-size: .7rem;
+    font-size: .65rem;
     cursor: pointer;
 }
 .trf-leg__station-clear:hover:not(:disabled) {
@@ -2830,7 +2940,7 @@ defineExpose({ changeStatus: () => {} });
     --leg-control-h: 40px;
     --leg-head-h: 24px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     column-gap: 14px;
     row-gap: 12px;
     align-items: stretch;
@@ -2838,7 +2948,7 @@ defineExpose({ changeStatus: () => {} });
     padding: 12px 14px 10px;
     min-width: 0;
 }
-/* Customer / Goods / KM/Ltr / Weight / Rate / Freight — same control size */
+/* Customer / Pickup / Goods / Units / KM/Ltr / Weight / Rate / Freight — same control size */
 .trf-leg__fields :deep(.redesigned-picker-trigger),
 .trf-leg__fields :deep(.picker-trigger) {
     display: flex;
@@ -2872,7 +2982,19 @@ defineExpose({ changeStatus: () => {} });
 .trf-leg__fields .trf-input,
 .trf-leg__fields .trf-num-field,
 .trf-leg__fields .trf-same-cust,
-.trf-leg__fields .trf-ro-val,
+.trf-leg__fields .trf-ro-val {
+    width: 100%;
+    height: var(--leg-control-h);
+    min-height: var(--leg-control-h);
+    max-height: var(--leg-control-h);
+    box-sizing: border-box;
+    font-size: var(--fs-input);
+    font-family: inherit;
+}
+.trf-leg__fields .trf-input[type='date'] {
+    display: flex;
+    align-items: center;
+}
 .trf-leg__fields .trf-lf__picker {
     width: 100%;
     height: var(--leg-control-h);
@@ -2881,6 +3003,13 @@ defineExpose({ changeStatus: () => {} });
     box-sizing: border-box;
     font-size: var(--fs-input);
     font-family: inherit;
+    overflow: visible;
+}
+.trf-leg__fields .trf-lf__picker :deep(.searchable-picker),
+.trf-leg__fields .trf-lf__picker :deep(.searchable-picker-redesigned),
+.trf-leg__fields .trf-lf__picker :deep(.picker-main),
+.trf-leg__fields .trf-lf__picker :deep(.picker-trigger-wrap) {
+    height: 100%;
 }
 .trf-leg__fields .trf-num-field .trf-input {
     height: 100%;
@@ -2977,6 +3106,13 @@ defineExpose({ changeStatus: () => {} });
     font-weight: 600;
     font-family: inherit;
 }
+.trf-leg__dist-input--wide {
+    width: 7.5rem;
+}
+.trf-leg__meta-prefix {
+    margin-right: -1px;
+    font-weight: 600;
+}
 .trf-vehicle-info__input--warn {
     color: #b45309;
 }
@@ -3014,6 +3150,11 @@ defineExpose({ changeStatus: () => {} });
         margin-left: 0;
     }
 }
+@media (max-width: 1199.98px) {
+    .trf-leg__fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 @media (max-width: 767.98px) {
     .trf-leg__fields {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3043,6 +3184,7 @@ defineExpose({ changeStatus: () => {} });
     gap: 5px;
     height: 100%;
     min-height: 0;
+    position: relative;
 }
 .trf-lf__lbl {
     display: inline-flex;
@@ -3060,7 +3202,6 @@ defineExpose({ changeStatus: () => {} });
 .trf-freight-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 6px;
     min-width: 0;
     min-height: var(--leg-head-h, 24px);
@@ -3069,6 +3210,60 @@ defineExpose({ changeStatus: () => {} });
 .trf-field-head .trf-lf__lbl,
 .trf-freight-head .trf-lf__lbl {
     min-height: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.trf-field-head__actions {
+    flex: 0 0 56px;
+    width: 56px;
+    min-width: 56px;
+    height: var(--leg-head-h, 24px);
+}
+.trf-field-head .trf-subst-toggle,
+.trf-freight-head .trf-subst-toggle {
+    flex-shrink: 0;
+    margin-left: 0;
+}
+.trf-freight-head {
+    justify-content: space-between;
+}
+/*
+ * Park view/add over the reserved field-head actions slot.
+ * Keep picker + wrapper static so absolute actions anchor to .trf-lf, not the input.
+ */
+.trf-leg__fields .trf-lf :deep(.searchable-picker),
+.trf-leg__fields .trf-lf :deep(.searchable-picker-redesigned) {
+    position: static;
+}
+.trf-lf__picker {
+    position: static;
+    z-index: auto;
+}
+.trf-leg__fields .trf-lf :deep(.picker-header-actions) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    width: 56px;
+    height: var(--leg-head-h, 24px);
+    z-index: 4;
+}
+.trf-field-head--customer {
+    justify-content: space-between;
+}
+.trf-field-head--customer .trf-subst-toggle {
+    margin-left: 0;
+}
+.trf-field-head--customer .trf-subst-toggle__text .trf-pf__req {
+    margin-left: 1px;
+}
+.trf-leg__fields .trf-lf :deep(.picker-header-btn) {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
 }
 /* Keep every control on the same baseline within a row */
 .trf-lf > .trf-lf__picker,
@@ -3078,12 +3273,6 @@ defineExpose({ changeStatus: () => {} });
 .trf-lf > .trf-ro-val,
 .trf-lf > :deep(.searchable-picker) {
     margin-top: auto;
-}
-.trf-lf__picker {
-    position: relative;
-}
-.trf-leg__fields :deep(.picker-header-actions) {
-    top: -22px;
 }
 .trf-num-field { position: relative; }
 .trf-num-field--prefix .trf-input { padding-left: 24px; }

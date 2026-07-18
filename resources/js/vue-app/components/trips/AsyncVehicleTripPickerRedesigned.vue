@@ -3,13 +3,13 @@
         <div v-if="selectedVehicle" class="picker-header-actions">
             <button
                 type="button"
-                class="picker-header-btn"
+                class="picker-header-btn picker-header-btn--view"
                 title="Truck details"
                 aria-label="Truck details"
                 :aria-expanded="infoOpen"
                 @click.stop="toggleInfo"
             >
-                <i class="bi bi-eye"></i>
+                <i class="bi bi-eye-fill"></i>
             </button>
         </div>
         <div class="picker-trigger-wrap">
@@ -54,36 +54,41 @@
         </div>
         <div v-if="errorMessage" class="invalid-feedback d-block">{{ errorMessage }}</div>
 
-        <Transition name="picker-info">
-            <div
-                v-if="infoOpen && selectedVehicle"
-                class="vehicle-info-popover"
-                role="dialog"
-                aria-label="Truck details"
-            >
-                <div class="vehicle-info-title">Truck Details</div>
-                <dl class="vehicle-info-dl mb-0">
-                    <dt>Registration</dt>
-                    <dd>{{ selectedVehicle.registration_number }}</dd>
-                    <template v-if="selectedVehicle.make || selectedVehicle.model">
-                        <dt>Vehicle</dt>
-                        <dd>{{ [selectedVehicle.make, selectedVehicle.model].filter(Boolean).join(' ') }}</dd>
-                    </template>
-                    <template v-if="selectedVehicle.primary_driver_name || driverLabel">
-                        <dt>Driver</dt>
-                        <dd>{{ driverLabel || selectedVehicle.primary_driver_name }}</dd>
-                    </template>
-                    <template v-if="selectedVehicle.odometer_km != null">
-                        <dt>Odometer</dt>
-                        <dd>{{ selectedVehicle.odometer_km }} KM</dd>
-                    </template>
-                    <template v-if="selectedVehicle.max_load_ton != null">
-                        <dt>Max Load</dt>
-                        <dd>{{ selectedVehicle.max_load_ton }} Ton</dd>
-                    </template>
-                </dl>
-            </div>
-        </Transition>
+        <Teleport to="body">
+            <Transition name="picker-info">
+                <div
+                    v-if="infoOpen && selectedVehicle"
+                    ref="infoRef"
+                    class="vehicle-info-popover vehicle-info-popover--overlay"
+                    role="dialog"
+                    aria-label="Truck details"
+                    :style="infoStyle"
+                    @click.stop
+                >
+                    <div class="vehicle-info-title">Truck Details</div>
+                    <dl class="vehicle-info-dl mb-0">
+                        <dt>Registration</dt>
+                        <dd>{{ selectedVehicle.registration_number }}</dd>
+                        <template v-if="selectedVehicle.make || selectedVehicle.model">
+                            <dt>Vehicle</dt>
+                            <dd>{{ [selectedVehicle.make, selectedVehicle.model].filter(Boolean).join(' ') }}</dd>
+                        </template>
+                        <template v-if="selectedVehicle.primary_driver_name || driverLabel">
+                            <dt>Driver</dt>
+                            <dd>{{ driverLabel || selectedVehicle.primary_driver_name }}</dd>
+                        </template>
+                        <template v-if="selectedVehicle.odometer_km != null">
+                            <dt>Odometer</dt>
+                            <dd>{{ selectedVehicle.odometer_km }} KM</dd>
+                        </template>
+                        <template v-if="selectedVehicle.max_load_ton != null">
+                            <dt>Max Load</dt>
+                            <dd>{{ selectedVehicle.max_load_ton }} Ton</dd>
+                        </template>
+                    </dl>
+                </div>
+            </Transition>
+        </Teleport>
 
         <Teleport to="body">
             <div
@@ -177,6 +182,7 @@ const toast = useAppToast();
 
 const pickerRef = ref(null);
 const dropdownRef = ref(null);
+const infoRef = ref(null);
 const searchInputRef = ref(null);
 const isOpen = ref(false);
 const infoOpen = ref(false);
@@ -187,6 +193,7 @@ const loading = ref(false);
 const loadingMore = ref(false);
 const highlightedIndex = ref(-1);
 const dropdownStyle = ref({});
+const infoStyle = ref({});
 const currentPage = ref(1);
 const lastPage = ref(1);
 const totalResults = ref(null);
@@ -241,6 +248,37 @@ function updateDropdownPosition() {
         left: `${rect.left}px`,
         width: `${Math.max(rect.width, 320)}px`,
         zIndex: '2100',
+    };
+}
+
+function updateInfoPosition() {
+    const el = pickerRef.value;
+
+    if (!el) {
+        return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(320, Math.max(rect.width, 240));
+    let left = rect.left;
+
+    if (left + width > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - width - 8);
+    }
+
+    let top = rect.bottom + 6;
+    const estimatedHeight = 220;
+
+    if (top + estimatedHeight > window.innerHeight - 8 && rect.top > estimatedHeight + 8) {
+        top = Math.max(8, rect.top - estimatedHeight - 6);
+    }
+
+    infoStyle.value = {
+        position: 'fixed',
+        top: `${top}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        zIndex: '2200',
     };
 }
 
@@ -308,6 +346,10 @@ function toggleInfo() {
 
     closeDropdown();
     infoOpen.value = !infoOpen.value;
+
+    if (infoOpen.value) {
+        nextTick(() => updateInfoPosition());
+    }
 }
 
 function selectItem(item) {
@@ -403,7 +445,11 @@ function onListScroll(event) {
 function handleDocumentClick(event) {
     const target = event.target;
 
-    if (pickerRef.value?.contains(target) || dropdownRef.value?.contains(target)) {
+    if (
+        pickerRef.value?.contains(target)
+        || dropdownRef.value?.contains(target)
+        || infoRef.value?.contains(target)
+    ) {
         return;
     }
 
@@ -414,6 +460,10 @@ function handleDocumentClick(event) {
 function handleReposition() {
     if (isOpen.value) {
         updateDropdownPosition();
+    }
+
+    if (infoOpen.value) {
+        updateInfoPosition();
     }
 }
 
@@ -521,21 +571,34 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: #6c757d;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #f8fafc;
+    color: #64748b;
     font-size: 0.78rem;
-    transition: background-color 150ms ease, color 150ms ease;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 .picker-header-btn:hover,
 .picker-header-btn:focus-visible {
-    background: #e7f1ff;
-    color: #0d6efd;
     outline: none;
+}
+.picker-header-btn--view {
+    color: #2563eb;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.picker-header-btn--view:hover,
+.picker-header-btn--view:focus-visible,
+.picker-header-btn--view[aria-expanded='true'] {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-color: #93c5fd;
+}
+.picker-header-btn--view[aria-expanded='true'] {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
 }
 .picker-suffix-actions {
     position: absolute;
@@ -582,6 +645,12 @@ onBeforeUnmount(() => {
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 10px 30px rgba(33, 37, 41, 0.12);
+}
+.vehicle-info-popover--overlay {
+    position: fixed;
+    margin-top: 0;
+    z-index: 2200;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
 }
 .vehicle-info-title {
     margin-bottom: 10px;

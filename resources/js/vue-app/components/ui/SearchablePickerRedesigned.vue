@@ -12,17 +12,21 @@
         <div v-if="hasToolbar" class="picker-toolbar">
             <slot name="toolbar" />
         </div>
-        <div v-if="(canView && selectedItem) || canQuickAdd" class="picker-header-actions">
+        <div
+            v-if="(canView && selectedItem) || canQuickAdd"
+            class="picker-header-actions"
+        >
             <button
                 v-if="canView && selectedItem"
+                ref="infoBtnRef"
                 type="button"
-                class="picker-header-btn"
+                class="picker-header-btn picker-header-btn--view"
                 :title="viewTitle"
                 :aria-label="viewTitle"
                 :aria-expanded="infoOpen"
                 @click.stop="toggleInfo"
             >
-                <i class="bi bi-eye"></i>
+                <i class="bi bi-eye-fill"></i>
             </button>
             <button
                 v-if="canQuickAdd"
@@ -71,56 +75,60 @@
                 </div>
                 <div v-if="errorMessage" class="invalid-feedback d-block">{{ errorMessage }}</div>
 
-                <Transition name="picker-info">
-                    <div
-                        v-if="infoOpen && selectedItem"
-                        ref="infoRef"
-                        class="picker-info-popover"
-                        role="dialog"
-                        :aria-label="viewTitle"
-                    >
-                        <div class="picker-info-title">{{ viewTitle }}</div>
-                        <dl class="picker-info-dl mb-0">
-                            <dt>Name</dt>
-                            <dd>{{ formatLabel(selectedItem.name) }}</dd>
-                            <template v-if="selectedItem.city_name">
-                                <dt>City</dt>
-                                <dd>{{ selectedItem.city_name }}</dd>
-                            </template>
-                            <template v-if="selectedItem.state_name">
-                                <dt>State</dt>
-                                <dd>{{ selectedItem.state_name }}</dd>
-                            </template>
-                            <template v-if="selectedItem.country_name">
-                                <dt>Country</dt>
-                                <dd>{{ selectedItem.country_name }}</dd>
-                            </template>
-                            <template v-if="selectedItem.contact_number || selectedItem.phone">
-                                <dt>Mobile</dt>
-                                <dd>{{ selectedItem.contact_number || selectedItem.phone }}</dd>
-                            </template>
-                            <template v-if="selectedItem.gst_number">
-                                <dt>GST</dt>
-                                <dd>{{ selectedItem.gst_number }}</dd>
-                            </template>
-                            <template v-if="selectedItem.pan_number">
-                                <dt>PAN</dt>
-                                <dd>{{ selectedItem.pan_number }}</dd>
-                            </template>
-                            <template v-if="selectedItem.license_number">
-                                <dt>Licence</dt>
-                                <dd>{{ selectedItem.license_number }}</dd>
-                            </template>
-                            <template v-if="selectedItem.address">
-                                <dt>Address</dt>
-                                <dd>{{ selectedItem.address }}</dd>
-                            </template>
-                            <template v-if="!hasProfileDetails">
-                                <dd class="text-muted mb-0">No additional details on file.</dd>
-                            </template>
-                        </dl>
-                    </div>
-                </Transition>
+                <Teleport to="body">
+                    <Transition name="picker-info">
+                        <div
+                            v-if="infoOpen && selectedItem"
+                            ref="infoRef"
+                            class="picker-info-popover picker-info-popover--overlay"
+                            role="dialog"
+                            :aria-label="viewTitle"
+                            :style="infoStyle"
+                            @click.stop
+                        >
+                            <div class="picker-info-title">{{ viewTitle }}</div>
+                            <dl class="picker-info-dl mb-0">
+                                <dt>Name</dt>
+                                <dd>{{ formatLabel(selectedItem.name) }}</dd>
+                                <template v-if="selectedItem.city_name">
+                                    <dt>City</dt>
+                                    <dd>{{ selectedItem.city_name }}</dd>
+                                </template>
+                                <template v-if="selectedItem.state_name">
+                                    <dt>State</dt>
+                                    <dd>{{ selectedItem.state_name }}</dd>
+                                </template>
+                                <template v-if="selectedItem.country_name">
+                                    <dt>Country</dt>
+                                    <dd>{{ selectedItem.country_name }}</dd>
+                                </template>
+                                <template v-if="selectedItem.contact_number || selectedItem.phone">
+                                    <dt>Mobile</dt>
+                                    <dd>{{ selectedItem.contact_number || selectedItem.phone }}</dd>
+                                </template>
+                                <template v-if="selectedItem.gst_number">
+                                    <dt>GST</dt>
+                                    <dd>{{ selectedItem.gst_number }}</dd>
+                                </template>
+                                <template v-if="selectedItem.pan_number">
+                                    <dt>PAN</dt>
+                                    <dd>{{ selectedItem.pan_number }}</dd>
+                                </template>
+                                <template v-if="selectedItem.license_number">
+                                    <dt>Licence</dt>
+                                    <dd>{{ selectedItem.license_number }}</dd>
+                                </template>
+                                <template v-if="selectedItem.address">
+                                    <dt>Address</dt>
+                                    <dd>{{ selectedItem.address }}</dd>
+                                </template>
+                                <template v-if="!hasProfileDetails">
+                                    <dd class="text-muted mb-0">No additional details on file.</dd>
+                                </template>
+                            </dl>
+                        </div>
+                    </Transition>
+                </Teleport>
 
                 <Teleport to="body" :disabled="!attachDropdownToBody">
                     <div
@@ -151,7 +159,7 @@
                                 type="button"
                                 class="picker-option"
                                 :class="{ active: index === highlightedIndex }"
-                                @click="selectItem(item)"
+                                @mousedown.prevent="selectItem(item)"
                             >
                                 <span class="picker-option-name">{{ optionDisplayName(item) }}</span>
                                 <span v-if="itemLocationLine(item)" class="picker-option-sub">
@@ -212,11 +220,13 @@ const triggerRef = ref(null);
 const searchInputRef = ref(null);
 const dropdownRef = ref(null);
 const infoRef = ref(null);
+const infoBtnRef = ref(null);
 const isOpen = ref(false);
 const infoOpen = ref(false);
 const searchQuery = ref('');
 const highlightedIndex = ref(-1);
 const dropdownStyle = ref({});
+const infoStyle = ref({});
 
 const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
 
@@ -367,6 +377,37 @@ function updateDropdownPosition() {
     };
 }
 
+function updateInfoPosition() {
+    const el = pickerMainRef.value || pickerRef.value;
+
+    if (!el) {
+        return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(320, Math.max(rect.width, 240));
+    let left = rect.left;
+
+    if (left + width > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - width - 8);
+    }
+
+    let top = rect.bottom + 6;
+    const estimatedHeight = 220;
+
+    if (top + estimatedHeight > window.innerHeight - 8 && rect.top > estimatedHeight + 8) {
+        top = Math.max(8, rect.top - estimatedHeight - 6);
+    }
+
+    infoStyle.value = {
+        position: 'fixed',
+        top: `${top}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        zIndex: '2200',
+    };
+}
+
 function closeDropdown() {
     if (!isOpen.value) {
         return;
@@ -412,6 +453,10 @@ function toggleInfo() {
 
     closeDropdown();
     infoOpen.value = !infoOpen.value;
+
+    if (infoOpen.value) {
+        nextTick(() => updateInfoPosition());
+    }
 }
 
 function selectItem(item) {
@@ -473,13 +518,28 @@ function onWindowScrollOrResize() {
     if (isOpen.value) {
         updateDropdownPosition();
     }
+
+    if (infoOpen.value) {
+        updateInfoPosition();
+    }
 }
 
 watch(isOpen, (newVal) => {
     if (newVal) {
         window.addEventListener('scroll', onWindowScrollOrResize, { passive: true });
         window.addEventListener('resize', onWindowScrollOrResize);
-    } else {
+    } else if (!infoOpen.value) {
+        window.removeEventListener('scroll', onWindowScrollOrResize);
+        window.removeEventListener('resize', onWindowScrollOrResize);
+    }
+});
+
+watch(infoOpen, (newVal) => {
+    if (newVal) {
+        window.addEventListener('scroll', onWindowScrollOrResize, { passive: true });
+        window.addEventListener('resize', onWindowScrollOrResize);
+        nextTick(() => updateInfoPosition());
+    } else if (!isOpen.value) {
         window.removeEventListener('scroll', onWindowScrollOrResize);
         window.removeEventListener('resize', onWindowScrollOrResize);
     }
@@ -560,6 +620,7 @@ onBeforeUnmount(() => {
     right: 0;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 3px;
     z-index: 3;
 }
@@ -567,32 +628,52 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: #6c757d;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #f8fafc;
+    color: #64748b;
     font-size: 0.78rem;
-    transition: background-color 150ms ease, color 150ms ease;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 .picker-header-btn:hover,
 .picker-header-btn:focus-visible {
-    background: #e7f1ff;
-    color: #0d6efd;
     outline: none;
+}
+.picker-header-btn--view {
+    color: #2563eb;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.picker-header-btn--view:hover,
+.picker-header-btn--view:focus-visible {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-color: #93c5fd;
+}
+.picker-header-btn--view[aria-expanded='true'] {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
 }
 .picker-header-btn--add {
     color: #198754;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
 }
 .picker-header-btn--add:hover,
 .picker-header-btn--add:focus-visible {
-    background: #d1e7dd;
+    background: #dcfce7;
     color: #146c43;
+    border-color: #86efac;
 }
 .picker-header-btn:disabled {
     color: #adb5bd;
+    background: #f8fafc;
+    border-color: #e2e8f0;
     cursor: not-allowed;
 }
 .picker-suffix-actions {
@@ -644,6 +725,12 @@ onBeforeUnmount(() => {
     box-shadow: 0 10px 30px rgba(33, 37, 41, 0.12);
     position: relative;
     z-index: 5;
+}
+.picker-info-popover--overlay {
+    position: fixed;
+    margin-top: 0;
+    z-index: 2200;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
 }
 .picker-info-title {
     margin-bottom: 10px;

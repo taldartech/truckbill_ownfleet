@@ -23,6 +23,8 @@ function legSignature(leg) {
         leg.to_station_id,
         leg.customer_id,
         String(leg.goods_name ?? '').trim(),
+        String(leg.pickup_date ?? '').trim(),
+        Number(leg.no_of_units ?? 0),
         Number(leg.weight_ton ?? 0),
         Number(leg.expected_mileage_km_per_liter ?? 0),
         Number(leg.freight_rate ?? 0),
@@ -195,6 +197,12 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                 return lookupName(customersList, leg.customer_id, '—');
             case 'goods':
                 return String(leg.goods_name ?? '').trim() || '—';
+            case 'pickupDate':
+                return String(leg.pickup_date ?? '').trim() || '—';
+            case 'units':
+                return leg.no_of_units == null || leg.no_of_units === ''
+                    ? '—'
+                    : String(leg.no_of_units);
             case 'weight':
                 return formatNum(leg.weight_ton);
             case 'expectedMileage':
@@ -221,6 +229,8 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             { key: 'to', label: 'To' },
             { key: 'customer', label: 'Customer' },
             { key: 'goods', label: 'Goods Type' },
+            { key: 'pickupDate', label: 'Pickup Date' },
+            { key: 'units', label: 'No. of Units' },
             { key: 'weight', label: 'Weight (Ton)' },
             { key: 'expectedMileage', label: 'Expected Mileage' },
             { key: 'rate', label: 'Freight Rate' },
@@ -249,6 +259,11 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             to: lookupName(stations, leg.to_station_id),
             customer: lookupName(customers, leg.customer_id, '—'),
             goods: String(leg.goods_name ?? '').trim() || '—',
+            pickupDate: String(leg.pickup_date ?? '').trim() || '—',
+            units:
+                leg.no_of_units == null || leg.no_of_units === ''
+                    ? '—'
+                    : String(leg.no_of_units),
             weight: formatNum(leg.weight_ton),
             expectedMileage:
                 leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''

@@ -280,7 +280,11 @@ export function emptyRouteStop(
         weight_ton: '',
         expected_mileage_km_per_liter: expectedMileage,
         distance_km: '',
+        ewaybill_no: '',
+        goods_value: '',
         goods_name: '',
+        pickup_date: '',
+        no_of_units: '',
         remarks: '',
     };
 }
@@ -540,6 +544,48 @@ export function validateTripPayload(
         if (weight > 0 && !String(leg.goods_name ?? '').trim()) {
             errors[`route_legs.${index}.goods_name`] = [
                 `Stop ${index + 1}: goods type is required for loaded stops.`,
+            ];
+        }
+
+        const pickupDate = String(leg.pickup_date ?? '').trim();
+
+        if (weight > 0 && !pickupDate) {
+            errors[`route_legs.${index}.pickup_date`] = [
+                `Stop ${index + 1}: pickup date is required for loaded stops.`,
+            ];
+        } else if (pickupDate) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
+                errors[`route_legs.${index}.pickup_date`] = [
+                    `Stop ${index + 1}: enter a valid pickup date.`,
+                ];
+            } else if (startDate && pickupDate < startDate) {
+                errors[`route_legs.${index}.pickup_date`] = [
+                    `Stop ${index + 1}: pickup date cannot be before trip start date.`,
+                ];
+            } else if (endDate && pickupDate > endDate) {
+                errors[`route_legs.${index}.pickup_date`] = [
+                    `Stop ${index + 1}: pickup date cannot be after trip end date.`,
+                ];
+            }
+        }
+
+        const unitsRaw = leg.no_of_units;
+
+        if (unitsRaw !== '' && unitsRaw != null) {
+            const units = Number(unitsRaw);
+
+            if (!Number.isInteger(units) || units < 0) {
+                errors[`route_legs.${index}.no_of_units`] = [
+                    `Stop ${index + 1}: no. of units must be a whole number (0 or more).`,
+                ];
+            } else if (units > 100000) {
+                errors[`route_legs.${index}.no_of_units`] = [
+                    `Stop ${index + 1}: max 100,000 units allowed.`,
+                ];
+            }
+        } else if (weight > 0) {
+            errors[`route_legs.${index}.no_of_units`] = [
+                `Stop ${index + 1}: no. of units is required for loaded stops.`,
             ];
         }
 

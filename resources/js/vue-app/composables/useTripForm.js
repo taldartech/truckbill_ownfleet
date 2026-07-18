@@ -256,7 +256,17 @@ export function useTripForm() {
                     leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
                         ? ''
                         : Number(leg.distance_km),
+                ewaybill_no: leg.ewaybill_no ?? '',
+                goods_value:
+                    leg.goods_value == null || leg.goods_value === ''
+                        ? ''
+                        : Number(leg.goods_value),
                 goods_name: leg.goods_name ?? '',
+                pickup_date: leg.pickup_date ? String(leg.pickup_date).slice(0, 10) : '',
+                no_of_units:
+                    leg.no_of_units == null || leg.no_of_units === ''
+                        ? ''
+                        : Number(leg.no_of_units),
                 remarks: leg.remarks ?? '',
             };
         });
@@ -412,7 +422,17 @@ export function useTripForm() {
                         leg.distance_km === '' || leg.distance_km == null
                             ? 0
                             : Number(leg.distance_km),
+                    ewaybill_no: leg.ewaybill_no?.trim() || null,
+                    goods_value:
+                        leg.goods_value === '' || leg.goods_value == null
+                            ? null
+                            : Number(leg.goods_value),
                     goods_name: leg.goods_name?.trim() || null,
+                    pickup_date: leg.pickup_date || null,
+                    no_of_units:
+                        leg.no_of_units === '' || leg.no_of_units == null
+                            ? null
+                            : Number(leg.no_of_units),
                     freight_amount: freight > 0 ? freight : 0,
                     remarks: leg.remarks || null,
                 };

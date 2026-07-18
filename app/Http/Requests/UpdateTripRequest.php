@@ -50,6 +50,10 @@ class UpdateTripRequest extends FormRequest
             'route_legs.*.to_station_id' => ['required_with:route_legs', 'integer', 'exists:stations,id'],
             'route_legs.*.customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'route_legs.*.goods_name' => ['nullable', 'string', 'max:120'],
+            'route_legs.*.pickup_date' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'route_legs.*.no_of_units' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'route_legs.*.ewaybill_no' => ['nullable', 'string', 'max:64'],
+            'route_legs.*.goods_value' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'route_legs.*.from_city' => ['nullable', 'string', 'max:120'],
             'route_legs.*.to_city' => ['nullable', 'string', 'max:120'],
             'route_legs.*.freight_rate' => ['nullable', 'numeric', 'min:0', 'max:100000'],
@@ -85,6 +89,8 @@ class UpdateTripRequest extends FormRequest
             'planned_mileage_km_per_liter.max' => 'Max 100 KM/Lt.',
             'route_legs.*.expected_mileage_km_per_liter.max' => 'Max 100 KM/Lt.',
             'route_legs.*.freight_rate.max' => 'Max ₹1,00,000/Ton.',
+            'route_legs.*.pickup_date.after_or_equal' => 'Pickup date cannot be before the trip start date.',
+            'route_legs.*.no_of_units.max' => 'Max 100,000 units allowed.',
         ];
     }
 }

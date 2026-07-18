@@ -667,6 +667,34 @@ class TripService
                 $leg['to_location'] ?? null,
             ),
             'goods_name' => $leg['goods_name'] ?? null,
+            'pickup_date' => array_key_exists('pickup_date', $leg)
+                ? (
+                    isset($leg['pickup_date']) && $leg['pickup_date'] !== '' && $leg['pickup_date'] !== null
+                        ? (string) $leg['pickup_date']
+                        : null
+                )
+                : ($existing?->pickup_date?->format('Y-m-d')),
+            'no_of_units' => array_key_exists('no_of_units', $leg)
+                ? (
+                    isset($leg['no_of_units']) && $leg['no_of_units'] !== '' && $leg['no_of_units'] !== null
+                        ? max(0, (int) $leg['no_of_units'])
+                        : null
+                )
+                : $existing?->no_of_units,
+            'ewaybill_no' => array_key_exists('ewaybill_no', $leg)
+                ? (
+                    isset($leg['ewaybill_no']) && trim((string) $leg['ewaybill_no']) !== ''
+                        ? trim((string) $leg['ewaybill_no'])
+                        : null
+                )
+                : $existing?->ewaybill_no,
+            'goods_value' => array_key_exists('goods_value', $leg)
+                ? (
+                    isset($leg['goods_value']) && $leg['goods_value'] !== '' && $leg['goods_value'] !== null
+                        ? max(0, round((float) $leg['goods_value'], 2))
+                        : null
+                )
+                : $existing?->goods_value,
             'consignor' => $leg['consignor'] ?? null,
             'consignee' => $leg['consignee'] ?? null,
             'freight_rate' => isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : null,
