@@ -159,7 +159,10 @@
                         <div
                             v-else
                             class="trf-synced-field"
-                            :class="{ 'trf-synced-field--empty': !hasDriverDisplay && !loadingDriver }"
+                            :class="{
+                                'trf-synced-field--empty': !hasDriverDisplay && !loadingDriver,
+                                'trf-synced-field--error': Boolean(fieldErrors.driver_id),
+                            }"
                         >
                             <div class="trf-synced-field__main">
                                 {{ loadingDriver ? 'Syncing from truck…' : (hasDriverDisplay ? driverDisplayName : 'Select truck first') }}
@@ -168,6 +171,8 @@
                                 {{ selectedDriver?.license_number || 'Auto-synced with truck' }}
                             </div>
                         </div>
+                        <div v-if="fieldErrors.driver_id" class="trf-pf__err">{{ fieldErrorMessage('driver_id') }}</div>
+                        <div v-if="fieldErrors.substitute_driver_id && !showSubstituteDriverColumn" class="trf-pf__err">{{ fieldErrorMessage('substitute_driver_id') }}</div>
                     </div>
 
                     <!-- Customer -->
@@ -252,13 +257,14 @@
                             min="0"
                             step="0.01"
                             class="trf-input"
-                            :class="{ 'trf-input--error': startMeterWarning }"
+                            :class="{ 'trf-input--error': startMeterWarning || fieldErrors.start_meter_reading_km }"
                             placeholder="0"
                             :disabled="requiresTruckSelection"
                             :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="saveProgress"
+                            @input="emit('clear-field-error', 'start_meter_reading_km'); saveProgress()"
                         />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ startMeterDisplay }}</span></div>
+                        <div v-if="fieldErrors.start_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('start_meter_reading_km') }}</div>
                     </div>
 
                     <!-- End Meter Reading -->
@@ -274,12 +280,14 @@
                             min="0"
                             step="0.01"
                             class="trf-input"
+                            :class="{ 'trf-input--error': fieldErrors.end_meter_reading_km }"
                             placeholder="0"
                             :disabled="requiresTruckSelection"
                             :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="saveProgress"
+                            @input="emit('clear-field-error', 'end_meter_reading_km'); saveProgress()"
                         />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ endMeterDisplay }}</span></div>
+                        <div v-if="fieldErrors.end_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('end_meter_reading_km') }}</div>
                     </div>
 
                     <!-- Expected Diesel -->
@@ -295,7 +303,6 @@
                             min="0"
                             step="0.01"
                             class="trf-input"
-                            :class="{ 'trf-input--error': dieselOverCapacityWarning }"
                             placeholder="0"
                             :disabled="requiresTruckSelection"
                             :title="requiresTruckSelection ? 'Select a truck first' : undefined"
@@ -360,7 +367,7 @@
                             <span class="trf-vehicle-info__val">{{ fuelTankCapacityLtr || 0 }}</span>
                         </div>
                     </div>
-                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable" :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection }">
+                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable" :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection, 'trf-vehicle-info__item--error': fieldErrors.planned_mileage_km_per_liter }">
                         <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
                         <div class="trf-vehicle-info__field">
                             <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
@@ -372,12 +379,14 @@
                                 min="0"
                                 step="0.01"
                                 class="trf-vehicle-info__input"
+                                :class="{ 'trf-input--error': fieldErrors.planned_mileage_km_per_liter }"
                                 placeholder="0"
                                 :disabled="requiresTruckSelection"
-                                :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                                :title="fieldErrorMessage('planned_mileage_km_per_liter') || (requiresTruckSelection ? 'Select a truck first' : undefined)"
                                 @input="onPlannedMileageInput"
                             />
                             <span v-else class="trf-vehicle-info__val">{{ fuelAvgDisplay }}</span>
+                            <div v-if="fieldErrors.planned_mileage_km_per_liter" class="trf-pf__err">{{ fieldErrorMessage('planned_mileage_km_per_liter') }}</div>
                         </div>
                     </div>
                 </div>
@@ -612,6 +621,7 @@
                                 <button
                                     type="button"
                                     class="trf-leg__summary"
+                                    :class="{ 'trf-leg__summary--error': stopHasFieldErrors(group.cardIndex) }"
                                     :aria-expanded="isStopExpanded(group.cardIndex)"
                                     :disabled="isFormLocked"
                                     @click="toggleStopExpanded(group.cardIndex)"
@@ -745,7 +755,7 @@
                                     </div>
 
                                     <div :id="`trf-leg-${group.cardIndex}-no_of_units`" class="trf-lf">
-                                        <label class="trf-lf__lbl">No. of Units<span class="trf-pf__req">*</span></label>
+                                        <label class="trf-lf__lbl">No. of Units</label>
                                         <input
                                             v-if="!isFormLocked"
                                             v-model.number="group.cardLeg.no_of_units"
@@ -791,6 +801,7 @@
                                                 step="0.001"
                                                 class="trf-input"
                                                 :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'weight_ton') }"
+                                                :title="legFieldError(group.cardIndex, 'weight_ton') || undefined"
                                                 placeholder="0.000"
                                                 @input="onLegWeightInput(group.cardIndex); saveProgress()"
                                             />
@@ -849,18 +860,13 @@
                                                 step="0.01"
                                                 class="trf-input"
                                                 :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'freight_amount') }"
+                                                :title="legFieldError(group.cardIndex, 'freight_amount') || undefined"
                                                 placeholder="0.00"
                                                 :disabled="group.cardLeg.freight_auto_calculate"
                                                 @input="onLegFreightManualInput(group.cardIndex); saveProgress()"
                                             />
                                             <span v-else class="trf-ro-val__main">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
                                         </div>
-                                        <p
-                                            v-if="!isFormLocked && group.cardLeg.freight_auto_calculate && legFreightPreview(group.cardLeg) > 0"
-                                            class="trf-lf__hint"
-                                        >
-                                            Weight × Rate = ₹{{ formatMoney(legFreightPreview(group.cardLeg)) }}
-                                        </p>
                                     </div>
                                 </div>
 
@@ -1507,6 +1513,7 @@ const validationMessages = computed(() => {
 
 const routeErrorChips = computed(() => {
     const chips = [];
+    const seenMessages = new Set();
     Object.entries(props.fieldErrors).forEach(([key, val]) => {
         const match = key.match(/^route_legs\.(\d+)\.(\w+)$/);
         if (!match) {
@@ -1516,14 +1523,19 @@ const routeErrorChips = computed(() => {
         if (!message) {
             return;
         }
+        const text = String(message);
+        if (seenMessages.has(text)) {
+            return;
+        }
+        seenMessages.add(text);
         const stopIndex = Number(match[1]);
         const field = match[2];
         chips.push({
             key,
             stopIndex,
             field,
-            label: `Stop ${stopIndex + 1}: ${LEG_FIELD_LABELS[field] || field}`,
-            message: String(message),
+            label: text,
+            message: text,
         });
     });
     return chips;
@@ -1547,15 +1559,16 @@ function expandStop(index) {
     expandedStopIndex.value = index;
 }
 
+function stopHasFieldErrors(index) {
+    const prefix = `route_legs.${index}.`;
+    return Object.keys(props.fieldErrors).some((key) => key.startsWith(prefix));
+}
+
 function stopSummaryCustomer(leg) {
     if (leg?.use_same_customer) {
         return customerLabel(leg.customer_id, props.snapshotCustomerName) || 'Trip customer';
     }
     return customerLabel(leg?.customer_id, props.snapshotCustomerName) || 'No customer';
-}
-
-function legFreightPreview(leg) {
-    return calculateLegFreight(leg?.weight_ton, leg?.freight_rate);
 }
 
 function focusRouteError(chip) {
@@ -1584,6 +1597,9 @@ watch(
     (chips, previous) => {
         if (chips.length > 0 && (!previous || previous.length === 0)) {
             expandStop(chips[0].stopIndex);
+            nextTick(() => {
+                focusRouteError(chips[0]);
+            });
         }
     },
 );
@@ -2568,6 +2584,10 @@ defineExpose({ changeStatus: () => {} });
 .trf-synced-field--empty {
     background: #f8f9fa;
 }
+.trf-synced-field--error {
+    border-color: var(--danger, #dc2626);
+    background: #fff5f5;
+}
 .trf-synced-field__main {
     display: block;
     font-weight: 600;
@@ -3171,11 +3191,21 @@ defineExpose({ changeStatus: () => {} });
 .trf-leg__summary:hover {
     background: #f1f5f9;
 }
+.trf-leg__summary--error {
+    background: #fff5f5;
+    border-bottom-color: #fecaca;
+}
+.trf-leg__summary--error .trf-leg__summary-stop {
+    color: #dc2626;
+}
 .trf-leg__summary:disabled {
     cursor: default;
 }
 .trf-leg__summary:disabled:hover {
     background: #f8fafc;
+}
+.trf-leg__summary--error:disabled:hover {
+    background: #fff5f5;
 }
 .trf-leg__summary-main {
     display: flex;
@@ -3216,13 +3246,6 @@ defineExpose({ changeStatus: () => {} });
 .trf-leg__summary-freight.is-empty {
     color: #94a3b8;
     font-weight: 600;
-}
-.trf-lf__hint {
-    margin: 4px 0 0;
-    font-size: .68rem;
-    font-weight: 600;
-    color: #64748b;
-    line-height: 1.3;
 }
 .trf-leg__fields {
     --leg-control-h: 40px;

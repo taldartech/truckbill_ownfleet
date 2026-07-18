@@ -24,7 +24,7 @@
                 @search="loadTrips(1)"
                 @reset="clearFilters"
             >
-                <div class="trips-filter-search">
+                <div class="filter-search-col">
                     <label class="form-label" for="trips_search">
                         Search
                         <span v-if="searchIgnoresDateRange" class="text-muted fw-normal ms-1" style="font-size: 0.75rem;">
@@ -34,14 +34,14 @@
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trips_search"
-                        placeholder="Search trip #, truck, driver..."
+                        placeholder="Trip #, truck, driver"
                         max-width="100%"
                         size="md"
                         :disabled="loading"
                         @keydown.enter="loadTrips(1)"
                     />
                 </div>
-                <div class="trips-filter-period">
+                <div class="filter-period-col">
                     <DashboardDateRangePicker
                         v-model:from-date="filters.from_date"
                         v-model:to-date="filters.to_date"
@@ -62,16 +62,6 @@
                         :disabled="loading"
                     />
                 </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Trip Type</label>
-                    <AppSelect
-                        v-model="filters.trip_type"
-                        :options="tripTypes"
-                        placeholder="All trip types"
-                        search-placeholder="Search trip type…"
-                        :disabled="loading"
-                    />
-                </div>
                 <div class="filter-picker-col">
                     <label class="form-label">Customer</label>
                     <SearchablePicker
@@ -81,17 +71,6 @@
                         search-placeholder="Search customer…"
                         empty-message="No customer found."
                         view-title="Customer details"
-                    />
-                </div>
-                <div class="filter-picker-col">
-                    <label class="form-label">Reference</label>
-                    <SearchablePicker
-                        v-model="filters.broker_id"
-                        :items="brokers"
-                        placeholder="All references"
-                        search-placeholder="Search reference…"
-                        empty-message="No reference found."
-                        view-title="Reference details"
                     />
                 </div>
             </AppIndexCollapsibleFilters>
@@ -263,7 +242,6 @@
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
-import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import {
     archiveTrip,
@@ -276,7 +254,6 @@ import {
     canManageTripExpenses,
     tripTypeMeta,
     TRIP_STATUSES,
-    TRIP_TYPES,
 } from '../../api/trips';
 import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
@@ -333,7 +310,6 @@ const { applyApiError } = useApiFormErrors();
 
 const trips = ref([]);
 const customers = ref([]);
-const brokers = ref([]);
 const loading = ref(true);
 const showTripTypeModal = ref(false);
 const showArchiveConfirm = ref(false);
@@ -342,7 +318,6 @@ const archivingTrip = ref(false);
 const archiveFieldErrors = ref({});
 const tripPendingArchive = ref(null);
 const tripStatuses = TRIP_STATUSES;
-const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
 const filters = reactive(defaultTripListFilters());
@@ -368,9 +343,7 @@ const filtersActive = computed(() => {
         filters.to_date !== defaultFilters.to_date ||
         filters.search.trim() !== '' ||
         filters.customer_id !== '' ||
-        filters.broker_id !== '' ||
-        filters.status !== '' ||
-        filters.trip_type !== ''
+        filters.status !== ''
     );
 });
 
@@ -382,9 +355,9 @@ function currentListState() {
         to_date: filters.to_date,
         search: filters.search.trim(),
         status: filters.status,
-        trip_type: filters.trip_type,
+        trip_type: '',
         customer_id: filters.customer_id,
-        broker_id: filters.broker_id,
+        broker_id: '',
         page: pagination.currentPage,
         per_page: pagination.perPage,
     };
@@ -395,9 +368,9 @@ function applyListState(state) {
     filters.to_date = state.to_date ?? defaultFilters.to_date;
     filters.search = state.search ?? '';
     filters.status = state.status ?? '';
-    filters.trip_type = state.trip_type ?? '';
+    filters.trip_type = '';
     filters.customer_id = state.customer_id ?? '';
-    filters.broker_id = state.broker_id ?? '';
+    filters.broker_id = '';
     pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
     pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 10;
 }
@@ -408,9 +381,7 @@ function listStatesEqual(left, right) {
         left.to_date === right.to_date &&
         left.search === right.search &&
         left.status === right.status &&
-        left.trip_type === right.trip_type &&
         String(left.customer_id) === String(right.customer_id) &&
-        String(left.broker_id) === String(right.broker_id) &&
         Number(left.page) === Number(right.page) &&
         Number(left.per_page) === Number(right.per_page)
     );
@@ -628,9 +599,7 @@ async function loadTrips(page = 1) {
             from_date: search ? undefined : filters.from_date || undefined,
             to_date: search ? undefined : filters.to_date || undefined,
             customer_id: filters.customer_id || undefined,
-            broker_id: filters.broker_id || undefined,
             status: filters.status || undefined,
-            trip_type: filters.trip_type || undefined,
         });
 
         trips.value = result.data;
@@ -825,10 +794,7 @@ watch(
 );
 
 async function loadFilterLookups() {
-    const [customerList, brokerList] = await Promise.all([listAllCustomers(), listAllBrokers()]);
-
-    customers.value = customerList;
-    brokers.value = brokerList;
+    customers.value = await listAllCustomers();
 }
 
 function applyRouteFilters() {
@@ -881,46 +847,97 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Custom filters single/multi row layout */
+/* Keep filters + Search/Reset on one row */
 :deep(.app-index-collapsible-filters__inner) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    gap: 10px !important;
 }
 
 :deep(.app-index-filters-fields) {
-    display: contents;
+    display: contents !important;
 }
 
 :deep(.app-index-collapsible-filters__actions) {
-    margin-top: 0;
-    align-self: flex-end;
-    margin-left: auto;
+    margin-top: 0 !important;
+    margin-left: auto !important;
+    align-self: flex-end !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem;
 }
 
-.trips-filter-search {
-    flex: 0 0 320px;
-    width: 320px;
+.filter-search-col {
+    flex: 0 0 240px !important;
+    width: 240px !important;
+    max-width: 240px !important;
+    min-width: 0 !important;
 }
 
-.trips-filter-search :deep(.app-index-search) {
-    max-width: none;
-}
-
-.trips-filter-period {
-    flex: 0 0 260px;
-    width: 260px;
+.filter-period-col {
+    flex: 0 0 200px !important;
+    width: 200px !important;
+    max-width: 200px !important;
+    min-width: 0 !important;
 }
 
 .filter-select-col {
-    flex: 0 0 180px;
-    width: 180px;
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    max-width: 150px !important;
+    min-width: 0 !important;
 }
 
 .filter-picker-col {
-    flex: 0 0 200px;
-    width: 200px;
+    flex: 0 0 270px !important;
+    width: 270px !important;
+    max-width: 270px !important;
+    min-width: 0 !important;
+}
+
+.filter-picker-col :deep(.picker-row) {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+
+.filter-picker-col :deep(.picker-main) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto !important;
+    max-width: none !important;
+}
+
+.filter-picker-col :deep(.picker-trigger) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.filter-picker-col :deep(.picker-actions) {
+    position: static;
+    flex: 0 0 auto;
+    align-self: center;
+    padding-top: 0;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.filter-picker-col :deep(.picker-actions .picker-action-btn) {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.filter-search-col :deep(.app-index-search),
+.filter-period-col :deep(.dashboard-date-range),
+.filter-select-col :deep(.app-select),
+.filter-picker-col :deep(.searchable-picker) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
 }
 
 .trip-number-link {

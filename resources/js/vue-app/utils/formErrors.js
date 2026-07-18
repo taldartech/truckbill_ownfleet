@@ -73,7 +73,26 @@ export function hasFieldError(fieldErrors, field) {
 export function scrollToFirstFormError() {
     requestAnimationFrame(() => {
         const target = document.querySelector(
-            '.trip-expenses-page .is-invalid, .trip-expenses-page .is-invalid-picker, .trip-expenses-page .expense-validation-summary, .trip-form .is-invalid, .trip-form .is-invalid-picker, .trip-form .alert-danger, .maintenance-form .is-invalid, .maintenance-form .is-invalid-picker, .maintenance-form .alert-danger',
+            [
+                '.trf-validation-bar',
+                '.trf .trf-input--error',
+                '.trf .is-invalid-picker',
+                '.trf .trf-trip-id__seq--error',
+                '.trf .trf-pf__err',
+                '.trf-error-chip',
+                '.trip-expenses-page .is-invalid',
+                '.trip-expenses-page .is-invalid-picker',
+                '.trip-expenses-page .expense-validation-summary',
+                '.trip-expenses-redesigned-page .is-invalid',
+                '.trip-expenses-redesigned-page .is-invalid-picker',
+                '.trip-expenses-redesigned-page .expense-validation-summary',
+                '.trip-form .is-invalid',
+                '.trip-form .is-invalid-picker',
+                '.trip-form .alert-danger',
+                '.maintenance-form .is-invalid',
+                '.maintenance-form .is-invalid-picker',
+                '.maintenance-form .alert-danger',
+            ].join(', '),
         );
 
         target?.scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -583,10 +583,6 @@ export function validateTripPayload(
                     `Stop ${index + 1}: max 100,000 units allowed.`,
                 ];
             }
-        } else if (weight > 0) {
-            errors[`route_legs.${index}.no_of_units`] = [
-                `Stop ${index + 1}: no. of units is required for loaded stops.`,
-            ];
         }
 
         const expectedMileageRaw = leg.expected_mileage_km_per_liter;
@@ -637,10 +633,19 @@ export function validateTripPayload(
         && String(lastLeg.to_station_id) !== String(payload.start_station_id)
     ) {
         errors.route_legs = ['Round trip must end at the start station. Use "Return to Start" button.'];
+        errors[`route_legs.${legs.length - 1}.to_station_id`] = [
+            'Round trip must end at the start station.',
+        ];
     }
 
     if (legs.length > 0 && !hasLoadedLeg) {
         errors.route_legs = ['At least one stop with load weight or freight amount is required.'];
+        errors['route_legs.0.weight_ton'] = [
+            'Enter load weight or freight on at least one stop.',
+        ];
+        errors['route_legs.0.freight_amount'] = [
+            'Enter load weight or freight on at least one stop.',
+        ];
     }
 
     if (mode === 'create' && legs.length > 0) {
@@ -648,6 +653,9 @@ export function validateTripPayload(
 
         if (freightTotal <= 0) {
             errors.route_legs = ['Total freight must be greater than zero before creating a trip.'];
+            errors['route_legs.0.freight_amount'] = [
+                'Enter freight amount (or weight × rate) before saving.',
+            ];
         }
     }
 

@@ -255,3 +255,24 @@ button.trip-header-btn:disabled {
     padding-top: 0.85rem;
     padding-bottom: 0.85rem;
 }
+
+/* Redesigned trip pages: keep actions in document flow below the form */
+.trip-create-redesigned-page .trip-form-actions,
+.trip-edit-redesigned-page .trip-form-actions,
+.trip-expenses-redesigned-page .trip-form-actions,
+.vue-app-shell .trip-create-redesigned-page .trip-form-actions,
+.vue-app-shell .trip-edit-redesigned-page .trip-form-actions,
+.vue-app-shell .trip-expenses-redesigned-page .trip-form-actions {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+}

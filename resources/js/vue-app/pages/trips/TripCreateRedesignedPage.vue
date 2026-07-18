@@ -42,8 +42,8 @@
                 @trip-sequence-change="onTripSequenceChange"
             />
 
-            <div class="trip-form-actions card shadow-sm mt-4">
-                <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
+            <div class="trip-form-actions trip-form-actions--inline">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
                     <AppButton
                         variant="secondary"
                         outline
@@ -500,10 +500,6 @@ onMounted(async () => {
 .trip-create-redesigned-page {
     max-width: 1180px;
     margin: 0 auto;
-    padding: 24px 20px 80px;
-}
-.trip-form-actions {
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    padding: 24px 20px 40px;
 }
 </style>

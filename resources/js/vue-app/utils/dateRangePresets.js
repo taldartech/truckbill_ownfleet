@@ -1,10 +1,13 @@
 import { addDaysToDateInput, formatDate, toDateInputValue } from './datetime';
 
-export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'this_month', 'last_month'];
+export const TRIP_LIST_DATE_PRESET_KEYS = ['today', 'upcoming', 'this_month', 'last_month'];
 
 export const DASHBOARD_DATE_PRESET_KEYS = ['today', 'yesterday', 'this_month', 'last_month'];
 
 export const MAX_LIST_DATE_RANGE_MONTHS = 3;
+
+/** Open-ended horizon used by the Upcoming trip-list preset (years ahead). */
+export const UPCOMING_TRIP_RANGE_YEARS = 5;
 
 export const FUTURE_DATE_ERROR = 'Future date is not allowed.';
 
@@ -13,6 +16,7 @@ export const TO_DATE_BEFORE_FROM_ERROR = 'To Date cannot be earlier than From Da
 export const DATE_RANGE_PRESETS = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
+    { key: 'upcoming', label: 'Upcoming' },
     // { key: 'last_7_days', label: 'Last 7 Days' },
     // { key: 'last_30_days', label: 'Last 30 Days' },
     { key: 'this_month', label: 'This Month' },
@@ -86,6 +90,19 @@ export function lastMonthDateRange(referenceDate = new Date()) {
     };
 }
 
+export function upcomingDateRange(
+    referenceDate = new Date(),
+    yearsAhead = UPCOMING_TRIP_RANGE_YEARS,
+) {
+    const fromDate = addDaysToDateInput(toIsoDate(referenceDate), 1);
+    const toDate = addMonthsToDateInput(fromDate, Math.max(1, yearsAhead) * 12);
+
+    return {
+        from_date: fromDate,
+        to_date: toDate,
+    };
+}
+
 export function resolveDateRangePreset(presetKey, referenceDate = new Date()) {
     switch (presetKey) {
         case 'yesterday':
@@ -98,6 +115,8 @@ export function resolveDateRangePreset(presetKey, referenceDate = new Date()) {
             return thisMonthDateRange(referenceDate);
         case 'last_month':
             return lastMonthDateRange(referenceDate);
+        case 'upcoming':
+            return upcomingDateRange(referenceDate);
         case 'custom':
             return todayDateRange(referenceDate);
         case 'today':

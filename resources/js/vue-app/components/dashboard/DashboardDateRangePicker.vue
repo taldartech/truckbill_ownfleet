@@ -182,7 +182,16 @@ const selectablePresets = computed(() => {
     );
 });
 
-const appliedRangeLabel = computed(() => formatDateRangeLabel(appliedFromDate.value, appliedToDate.value));
+const appliedRangeLabel = computed(() => {
+    const presetKey = detectDateRangePreset(appliedFromDate.value, appliedToDate.value);
+    const preset = DATE_RANGE_PRESETS.find((item) => item.key === presetKey);
+
+    if (preset && preset.key !== 'custom') {
+        return preset.label;
+    }
+
+    return formatDateRangeLabel(appliedFromDate.value, appliedToDate.value);
+});
 
 const todayMaxDate = computed(() => (props.blockFutureDates ? toDateInputValue(new Date()) : ''));
 

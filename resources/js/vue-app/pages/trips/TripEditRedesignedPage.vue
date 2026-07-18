@@ -58,8 +58,8 @@
                     @clear-field-error="clearFieldError"
                 />
 
-                <div class="trip-form-actions card shadow-sm mt-4">
-                    <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
+                <div class="trip-form-actions trip-form-actions--inline">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
                         <template v-if="footerStatusActions.length > 0">
                             <AppButton
                                 v-for="action in footerStatusActions"
@@ -674,10 +674,6 @@ onMounted(async () => {
 .trip-edit-redesigned-page {
     max-width: 1180px;
     margin: 0 auto;
-    padding: 24px 20px 80px;
-}
-.trip-form-actions {
-    border-radius: 12px;
-    border: 1px solid #dee2e6;
+    padding: 24px 20px 40px;
 }
 </style>
