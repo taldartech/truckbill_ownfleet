@@ -121,7 +121,6 @@
                                 active: index === highlightedIndex,
                                 'picker-option--disabled': !item.selectable,
                             }"
-                            :disabled="!item.selectable"
                             @click="selectItem(item)"
                         >
                             <span
@@ -157,6 +156,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { searchVehiclesForTripSelection } from '../../api/vehicles';
 import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
+import { useAppToast } from '../../composables/useAppToast';
 import PickerListFooter from '../ui/PickerListFooter.vue';
 
 const props = defineProps({
@@ -173,6 +173,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue', 'vehicle-selected']);
+const toast = useAppToast();
 
 const pickerRef = ref(null);
 const dropdownRef = ref(null);
@@ -311,6 +312,9 @@ function toggleInfo() {
 
 function selectItem(item) {
     if (!item.selectable) {
+        const reason = itemReasonLine(item) || item.disabled_reason || 'This truck is not available for the selected dates.';
+        toast.warning(reason);
+
         return;
     }
 
@@ -612,6 +616,29 @@ onBeforeUnmount(() => {
 .picker-info-leave-to {
     opacity: 0;
     transform: translateY(-4px);
+}
+.async-vehicle-option .picker-option-name {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+}
+.async-vehicle-option .picker-option-meta {
+    display: block;
+    font-size: 0.8rem;
+    color: #6c757d;
+    line-height: 1.3;
+}
+.picker-option--disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+.async-vehicle-option .picker-option-reason {
+    display: block;
+    font-size: 0.75rem;
+    color: #dc3545;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0.1rem;
 }
 @media (max-width: 575.98px) {
     .picker-suffix-btn {

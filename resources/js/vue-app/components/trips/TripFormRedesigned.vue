@@ -41,9 +41,8 @@
             </div>
 
             <div class="trf-section__body">
-                <!-- ── ROW 1: Pickers — Truck | Driver | Customer ── -->
-                <div class="trf-picker-grid trf-picker-grid--3">
-
+                <!-- ── ROW 1: Truck | Driver | Customer | Trip Type | Start Date ── -->
+                <div class="trf-picker-grid trf-picker-grid--5">
                     <!-- Truck -->
                     <div class="trf-pf">
                         <div class="trf-pf__lbl">
@@ -78,6 +77,7 @@
                         <div class="trf-pf__lbl">
                             <div class="trf-pf__lbl-icon trf-pf__lbl-icon--indigo"><i class="bi bi-person-badge-fill"></i></div>
                             <span>Driver</span>
+                            <span class="trf-pf__req">*</span>
                             <label v-if="!isFormLocked && hasPrimaryDriver" class="trf-check-label trf-field-head__check ms-auto">
                                 <input id="subst-sw" v-model="showSubstituteDriver" type="checkbox" />
                                 <span>Use Substitute</span>
@@ -142,26 +142,8 @@
                         </div>
                         <div v-if="fieldErrors.customer_id" class="trf-pf__err">{{ fieldErrorMessage('customer_id') }}</div>
                     </div>
-                </div>
 
-                <!-- ── ROW 2: Trip Type | Start Date | End Date ── -->
-                <div class="trf-picker-grid trf-picker-grid--3 mt-3">
-
-                    <!-- Trip Type -->
-                    <div class="trf-pf">
-                        <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--orange"><i class="bi bi-arrow-left-right"></i></div>
-                            <span>Trip Type</span>
-                            <span class="trf-pf__req">*</span>
-                        </div>
-                        <div class="trf-select-wrap">
-                            <select v-if="!isFormLocked" v-model="form.trip_type" class="trf-select" @change="saveProgress">
-                                <option value="ROUND_TRIP">↩ Round Trip</option>
-                                <option value="ONE_WAY">→ One Way</option>
-                            </select>
-                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ tripTypeDisplay }}</span></div>
-                        </div>
-                    </div>
+                   
 
                     <!-- Start Date -->
                     <div class="trf-pf">
@@ -180,7 +162,6 @@
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ formatDate(form.start_at) }}</span></div>
                         <div v-if="fieldErrors.start_at" class="trf-pf__err">{{ fieldErrorMessage('start_at') }}</div>
                     </div>
-
                     <!-- End Date -->
                     <div class="trf-pf">
                         <div class="trf-pf__lbl">
@@ -203,54 +184,173 @@
                     </div>
                 </div>
 
+                <!-- ── ROW 2: End Date | Start Meter | End Meter | Diesel Rate | Fuel Tank ── -->
+                <div class="trf-picker-grid trf-picker-grid--5 mt-3">
+                    
+                     <!-- Trip Type -->
+                    <div class="trf-pf">
+                        <div class="trf-pf__lbl">
+                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--orange"><i class="bi bi-arrow-left-right"></i></div>
+                            <span>Trip Type</span>
+                            <span class="trf-pf__req">*</span>
+                        </div>
+                        <div class="trf-select-wrap">
+                            <select v-if="!isFormLocked" v-model="form.trip_type" class="trf-select" @change="saveProgress">
+                                <option value="ROUND_TRIP">↩ Round Trip</option>
+                                <option value="ONE_WAY">→ One Way</option>
+                            </select>
+                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ tripTypeDisplay }}</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Start Meter Reading -->
+                    <div class="trf-pf">
+                        <div class="trf-pf__lbl">
+                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--orange"><i class="bi bi-speedometer"></i></div>
+                            <span>Start Meter Reading</span>
+                        </div>
+                        <input
+                            v-if="!isFormLocked"
+                            v-model.number="form.start_meter_reading_km"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            :class="{ 'trf-input--error': startMeterWarning }"
+                            placeholder="0"
+                            @input="saveProgress"
+                        />
+                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ startMeterDisplay }}</span></div>
+                    </div>
+
+                    <!-- End Meter Reading -->
+                    <div class="trf-pf">
+                        <div class="trf-pf__lbl">
+                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--teal"><i class="bi bi-speedometer2"></i></div>
+                            <span>End Meter Reading</span>
+                        </div>
+                        <input
+                            v-if="!isFormLocked"
+                            v-model.number="form.end_meter_reading_km"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            placeholder="0"
+                            @input="saveProgress"
+                        />
+                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ endMeterDisplay }}</span></div>
+                    </div>
+
+                    <!-- Diesel Rate -->
+                    <div class="trf-pf">
+                        <div class="trf-pf__lbl">
+                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--purple"><i class="bi bi-currency-rupee"></i></div>
+                            <span>Diesel Rate (₹/Ltr)</span>
+                        </div>
+                        <input
+                            v-if="!isFormLocked"
+                            v-model.number="form.diesel_rate_per_liter"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            placeholder="0.00"
+                            @input="saveProgress"
+                        />
+                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ form.diesel_rate_per_liter ? '₹' + formatMoney(form.diesel_rate_per_liter) : '—' }}</span></div>
+                    </div>
+
+                    <!-- Fuel Tank Capacity -->
+                    <div class="trf-pf">
+                        <div class="trf-pf__lbl">
+                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--blue"><i class="bi bi-fuel-pump"></i></div>
+                            <span>Fuel Tank Capacity (Ltr)</span>
+                        </div>
+                        <input
+                            v-if="!isFormLocked"
+                            v-model.number="fuelTankCapacityLtr"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            placeholder="0"
+                            @input="saveProgress"
+                        />
+                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ fuelTankCapacityLtr || 0 }}</span></div>
+                    </div>
+                </div>
+
                 <!-- Driver Warning -->
                 <div v-if="driverWarning" class="trf-banner trf-banner--warn mt-4">
                     <i class="bi bi-exclamation-triangle-fill"></i><span>{{ driverWarning }}</span>
                 </div>
 
-                <!-- Truck Telemetry Strip -->
-                <div class="trf-telemetry mt-4">
-                    <div class="trf-telemetry__item">
-                        <div class="trf-telemetry__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
+                <!-- Vehicle Information -->
+                <div class="trf-vehicle-info mt-4">
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
                         <div>
-                            <span class="trf-telemetry__name">Truck Running Meter</span>
-                            <span class="trf-telemetry__val">{{ truckRunningMeterDisplay || '—' }}</span>
+                            <span class="trf-vehicle-info__name">Truck Running Meter</span>
+                            <span class="trf-vehicle-info__val">{{ truckRunningMeterDisplay || '—' }}</span>
                         </div>
                     </div>
-                    <div class="trf-telemetry__divider"></div>
-                    <div class="trf-telemetry__item trf-telemetry__item--editable">
-                        <div class="trf-telemetry__icon" style="--ic:#ea580c;--bg:#fff7ed"><i class="bi bi-fuel-pump-fill"></i></div>
-                        <div>
-                            <span class="trf-telemetry__name">Start Meter Reading</span>
-                            <input v-if="!isFormLocked" v-model.number="form.start_meter_reading_km" v-no-scroll-change type="number" min="0" step="0.01" class="trf-telemetry__input" :class="{ 'trf-telemetry__input--warn': startMeterWarning }" placeholder="0" @input="saveProgress" />
-                            <span v-else class="trf-telemetry__val">{{ startMeterDisplay }}</span>
+                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
+                        <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.planned_mileage_km_per_liter"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="trf-vehicle-info__input"
+                                placeholder="0"
+                                @input="onPlannedMileageInput"
+                            />
+                            <span v-else class="trf-vehicle-info__val">{{ fuelAvgDisplay }}</span>
                         </div>
                     </div>
-                    <div class="trf-telemetry__divider"></div>
-                    <div class="trf-telemetry__item trf-telemetry__item--editable">
-                        <div class="trf-telemetry__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
-                        <div>
-                            <span class="trf-telemetry__name">Fuel Avg. (KM/L)</span>
-                            <input v-if="!isFormLocked" v-model.number="form.planned_mileage_km_per_liter" v-no-scroll-change type="number" min="0" step="0.01" class="trf-telemetry__input" placeholder="0.00" @input="onPlannedMileageInput" />
-                            <span v-else class="trf-telemetry__val">{{ form.planned_mileage_km_per_liter || '—' }}</span>
+                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
+                        <div class="trf-vehicle-info__icon" style="--ic:#7c3aed;--bg:#faf5ff"><i class="bi bi-box-seam-fill"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Max Load Capacity (Ton)</span>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.max_load_ton"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                class="trf-vehicle-info__input"
+                                placeholder="0"
+                                @input="saveProgress"
+                            />
+                            <span v-else class="trf-vehicle-info__val">{{ maxLoadDisplay }}</span>
                         </div>
                     </div>
-                    <div class="trf-telemetry__divider"></div>
-                    <div class="trf-telemetry__item trf-telemetry__item--editable">
-                        <div class="trf-telemetry__icon" style="--ic:#7c3aed;--bg:#faf5ff"><i class="bi bi-box-seam-fill"></i></div>
-                        <div>
-                            <span class="trf-telemetry__name">Max Load (Ton)</span>
-                            <input v-if="!isFormLocked" v-model.number="form.max_load_ton" v-no-scroll-change type="number" min="0" step="0.001" class="trf-telemetry__input" placeholder="0.000" @input="saveProgress" />
-                            <span v-else class="trf-telemetry__val">{{ form.max_load_ton || '—' }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-telemetry__divider"></div>
-                    <div class="trf-telemetry__item trf-telemetry__item--editable">
-                        <div class="trf-telemetry__icon" style="--ic:#059669;--bg:#ecfdf5"><i class="bi bi-droplet-fill"></i></div>
-                        <div>
-                            <span class="trf-telemetry__name">Expected Diesel (Ltr)</span>
-                            <input v-if="!isFormLocked" v-model.number="form.planned_diesel_liters" v-no-scroll-change type="number" min="0" step="0.01" class="trf-telemetry__input" placeholder="0.00" @input="onPlannedDieselInput" />
-                            <span v-else class="trf-telemetry__val">{{ form.planned_diesel_liters || '—' }}</span>
+                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
+                        <div class="trf-vehicle-info__icon" style="--ic:#059669;--bg:#ecfdf5"><i class="bi bi-droplet-fill"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Expected Diesel (Ltr)</span>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.planned_diesel_liters"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="trf-vehicle-info__input"
+                                placeholder="0"
+                                @input="onPlannedDieselInput"
+                            />
+                            <span v-else class="trf-vehicle-info__val">{{ expectedDieselDisplay }}</span>
                         </div>
                     </div>
                 </div>
@@ -546,15 +646,15 @@
         <TripDieselPerformanceCard :performance="dieselPerformance" />
 
         <!-- ─────────────────────────────────────────────────────────────────
-             SECTION 4 — ADVANCED OPTIONS
+             SECTION 4 — REFERENCE & NOTES
         ───────────────────────────────────────────────────────────────── -->
         <div class="trf-section trf-section--collapsible" :class="{ 'trf-section--open': showAdvanced }">
             <div class="trf-section__head trf-section__head--plain trf-section__head--toggle" @click="showAdvanced = !showAdvanced">
                 <div class="trf-section__head-left">
                     <div class="trf-step-num trf-step-num--gray">4</div>
                     <div>
-                        <h2 class="trf-section__title">Advanced Options</h2>
-                        <p class="trf-section__desc">Reference, meter readings, diesel rate, notes, etc.</p>
+                        <h2 class="trf-section__title">Reference &amp; Notes</h2>
+                        <p class="trf-section__desc">Optional reference party and trip notes</p>
                     </div>
                 </div>
                 <div class="trf-collapse-arrow" :class="{ 'trf-collapse-arrow--open': showAdvanced }">
@@ -565,44 +665,45 @@
             <div v-show="showAdvanced" class="trf-section__body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="trf-lf__lbl">Reference by (optional)</label>
-                        <SearchablePickerRedesigned v-if="!isFormLocked" v-model="form.broker_id" :items="brokers" attach-dropdown-to-body placeholder="Select reference" search-placeholder="Search…" empty-message="No reference found." view-title="Reference details" quick-add-title="Add reference" :invalid="Boolean(fieldErrors.broker_id)" :error-message="fieldErrorMessage('broker_id')" :can-quick-add="canQuickAddBroker" @quick-add="showBrokerQuickAdd = true" @update:model-value="saveProgress" />
+                        <label class="trf-lf__lbl">Reference</label>
+                        <SearchablePickerRedesigned
+                            v-if="!isFormLocked"
+                            v-model="form.broker_id"
+                            :items="brokers"
+                            attach-dropdown-to-body
+                            placeholder="Select reference"
+                            search-placeholder="Search…"
+                            empty-message="No reference found."
+                            view-title="Reference details"
+                            quick-add-title="Add reference"
+                            :invalid="Boolean(fieldErrors.broker_id)"
+                            :error-message="fieldErrorMessage('broker_id')"
+                            :can-quick-add="canQuickAddBroker"
+                            @quick-add="showBrokerQuickAdd = true"
+                            @update:model-value="saveProgress"
+                        />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ partyLabel(brokers, form.broker_id, snapshotBrokerName) }}</span></div>
                     </div>
-                   <div class="col-md-4">
-                        <label class="trf-lf__lbl">End Meter Reading</label>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="form.end_meter_reading_km"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            @input="saveProgress"
-                        />
-                        <div v-else class="trf-ro-val">
-                            <span class="trf-ro-val__main">{{ endMeterDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="trf-lf__lbl">Diesel Rate (₹/Ltr)</label>
-                        <input v-if="!isFormLocked" v-model.number="form.diesel_rate_per_liter" v-no-scroll-change type="number" min="0" step="0.01" class="trf-input" @input="saveProgress" />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ form.diesel_rate_per_liter ? '₹' + formatMoney(form.diesel_rate_per_liter) : '—' }}</span></div>
-                    </div>
-                    <div v-if="showActualArrivalField" class="col-md-4">
-                        <label class="trf-lf__lbl">Actual Arrival</label>
-                        <input v-if="!isFormLocked" v-model="form.actual_arrival_at" type="datetime-local" class="trf-input" @change="saveProgress" />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ formatDate(form.actual_arrival_at) }}</span></div>
-                        <span v-if="arrivalTiming" class="trf-pill mt-1" :class="arrivalTiming === 'on-time' ? 'trf-pill--green' : arrivalTiming === 'early' ? 'trf-pill--blue' : 'trf-pill--red'">{{ arrivalTiming === 'on-time' ? 'On Time' : arrivalTiming === 'early' ? 'Early' : 'Late' }}</span>
-                    </div>
-                    <div class="col-12">
+                    <div class="col-md-8">
                         <label class="trf-lf__lbl">Trip Notes</label>
-                        <textarea v-if="!isFormLocked" v-model="form.notes" class="trf-input trf-input--textarea" rows="3" placeholder="Optional notes, instructions, or remarks for this trip…" @input="saveProgress"></textarea>
+                        <textarea
+                            v-if="!isFormLocked"
+                            v-model="form.notes"
+                            class="trf-input trf-input--textarea"
+                            rows="3"
+                            placeholder="Optional notes, instructions, or remarks for this trip…"
+                            @input="saveProgress"
+                        ></textarea>
                         <div v-else class="trf-ro-val" style="min-height:3rem;white-space:pre-wrap">{{ form.notes && form.notes.trim() ? form.notes.trim() : '—' }}</div>
                     </div>
                     <div v-if="form.status === 'CANCELLED'" class="col-12">
-                        <div class="trf-banner trf-banner--error"><i class="bi bi-x-circle-fill"></i><div><strong>Trip Cancelled:</strong> {{ formatDate(form.cancelled_at) }}<div v-if="form.cancellation_reason" class="mt-1"><strong>Reason:</strong> {{ form.cancellation_reason }}</div></div></div>
+                        <div class="trf-banner trf-banner--error">
+                            <i class="bi bi-x-circle-fill"></i>
+                            <div>
+                                <strong>Trip Cancelled:</strong> {{ formatDate(form.cancelled_at) }}
+                                <div v-if="form.cancellation_reason" class="mt-1"><strong>Reason:</strong> {{ form.cancellation_reason }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -764,7 +865,6 @@ const dieselPerformance = computed(() =>
 const expectedMileageDisplay = computed(() => summary.value.expectedMileage == null ? '—' : formatNum(summary.value.expectedMileage) + ' KM/Ltr');
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
 const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
-const showActualArrivalField = computed(() => { if (props.mode !== 'edit') return false; const s = String(props.form.status ?? '').toUpperCase(); return s === 'COMPLETED' || s === 'IN_PROGRESS' || Boolean(props.form.actual_arrival_at); });
 const arrivalTiming = computed(() => { const e = tripEndDate.value; const a = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at); if (!e || !a) return null; if (e === a) return 'on-time'; return e > a ? 'early' : 'late'; });
 const effectiveTripStatus = computed(() => props.displayStatus || props.form.status);
 const currentStatusBadge = computed(() => tripStatusMeta(effectiveTripStatus.value));
@@ -787,6 +887,40 @@ const tripTypeDisplay = computed(() => tripTypeLabel(props.form.trip_type));
 const truckRunningMeterDisplay = computed(() => formatMeterKm(props.vehicleOdometerKm));
 const startMeterDisplay = computed(() => { const v = props.form.start_meter_reading_km; if (v === '' || v == null) return '—'; const r = Number(v); return Number.isFinite(r) && r > 0 ? formatMeterKm(r) : '—'; });
 const endMeterDisplay = computed(() => formatMeterKm(props.form.end_meter_reading_km));
+const fuelTankCapacityLtr = ref(0);
+const fuelAvgDisplay = computed(() => {
+    const v = props.form.planned_mileage_km_per_liter;
+
+    if (v === '' || v == null) {
+        return '0';
+    }
+
+    const n = Number(v);
+
+    return Number.isFinite(n) ? formatNum(n) : '0';
+});
+const maxLoadDisplay = computed(() => {
+    const v = props.form.max_load_ton;
+
+    if (v === '' || v == null) {
+        return '0';
+    }
+
+    const n = Number(v);
+
+    return Number.isFinite(n) ? formatNum(n) : '0';
+});
+const expectedDieselDisplay = computed(() => {
+    const v = props.form.planned_diesel_liters;
+
+    if (v === '' || v == null) {
+        return '0';
+    }
+
+    const n = Number(v);
+
+    return Number.isFinite(n) ? formatNum(n) : '0';
+});
 const startMeterWarning = computed(() => { if (isFormLocked.value) return false; const s = Number(props.form.start_meter_reading_km ?? 0), t = Number(props.vehicleOdometerKm ?? 0); return Number.isFinite(s) && s > 0 && Number.isFinite(t) && t > 0 && s < t; });
 const canReturnToStart = computed(() => { if (!isRoundTrip.value || !props.form.start_station_id || props.form.route_legs.length === 0) return false; const last = props.form.route_legs[props.form.route_legs.length - 1]; return String(last.to_station_id) !== String(props.form.start_station_id); });
 const validationMessages = computed(() => { const msgs = []; let hasRoute = false; Object.entries(props.fieldErrors).forEach(([k, v]) => { if (k.startsWith('route_legs.')) { hasRoute = true; return; } const m = Array.isArray(v) ? v : [v]; m.forEach((x) => { if (x) msgs.push(x); }); }); if (hasRoute) msgs.push('Route: fix highlighted stop fields.'); return [...new Set(msgs)].slice(0, 5); });
@@ -817,8 +951,8 @@ function onLegAutoCalculateChange(i) { if (props.form.route_legs[i]?.freight_aut
 function onLegFreightManualInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_auto_calculate = false; }
 function onLegSameCustomerChange(i) { const leg = props.form.route_legs[i]; if (!leg) return; if (leg.use_same_customer) { leg.customer_id = props.form.customer_id ?? ''; return; } leg.customer_id = ''; }
 function syncAutoPlannedDiesel() { if (props.form.planned_diesel_manually_set || isFormLocked.value) return; const rk = calculateExpectedRunningKm(props.form.start_meter_reading_km, props.form.end_meter_reading_km || props.form.start_meter_reading_km); if (rk === null) return; const p = calculatePlannedDiesel(rk, props.form.planned_mileage_km_per_liter); if (p !== null) props.form.planned_diesel_liters = p; }
-function onPlannedMileageInput() { props.form.planned_mileage_km_per_liter = clamp(props.form.planned_mileage_km_per_liter, maxExpectedMileage); emit('clear-field-error', 'planned_mileage_km_per_liter'); syncAutoPlannedDiesel(); }
-function onPlannedDieselInput() { props.form.planned_diesel_manually_set = true; }
+function onPlannedMileageInput() { props.form.planned_mileage_km_per_liter = clamp(props.form.planned_mileage_km_per_liter, maxExpectedMileage); emit('clear-field-error', 'planned_mileage_km_per_liter'); syncAutoPlannedDiesel(); saveProgress(); }
+function onPlannedDieselInput() { props.form.planned_diesel_manually_set = true; saveProgress(); }
 watch(() => [props.form.start_meter_reading_km, props.form.end_meter_reading_km, props.form.planned_mileage_km_per_liter], syncAutoPlannedDiesel);
 watch(() => vehicleDefaultMileageResolved.value, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.planned_mileage_km_per_liter = m; syncAutoPlannedDiesel(); });
 watch(() => props.vehicleMaxLoad, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.max_load_ton = m; });
@@ -912,16 +1046,32 @@ defineExpose({ changeStatus: () => {} });
 /* ── Picker Grids ──────────────────── */
 .trf-picker-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 16px;
 }
-/* 3-col variant — used for both picker rows in Trip Details */
-.trf-picker-grid--3 { grid-template-columns: repeat(3, 1fr); }
-.trf-picker-grid--6 { grid-template-columns: repeat(6, 1fr); }
-@media (max-width: 1399px) { .trf-picker-grid--6 { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 1199px) { .trf-picker-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 767px)  { .trf-picker-grid, .trf-picker-grid--3, .trf-picker-grid--6 { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px)  { .trf-picker-grid, .trf-picker-grid--3, .trf-picker-grid--6 { grid-template-columns: 1fr; } }
+.trf-picker-grid--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.trf-picker-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.trf-picker-grid--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1399px) {
+    .trf-picker-grid--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .trf-picker-grid--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1199px) {
+    .trf-picker-grid,
+    .trf-picker-grid--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 767px)  {
+    .trf-picker-grid,
+    .trf-picker-grid--3,
+    .trf-picker-grid--5,
+    .trf-picker-grid--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px)  {
+    .trf-picker-grid,
+    .trf-picker-grid--3,
+    .trf-picker-grid--5,
+    .trf-picker-grid--6 { grid-template-columns: 1fr; }
+}
 
 /* ── Picker Field ───────────────────── */
 .trf-pf { display: flex; flex-direction: column; gap: 6px; }
@@ -958,13 +1108,27 @@ defineExpose({ changeStatus: () => {} });
 
 /* ── Form Inputs ────────────────────── */
 .trf-input {
-    width: 100%; padding: 10px 13px; font-size: .9rem; font-weight: 500;
-    color: var(--text); background: #fff; border: 1.5px solid var(--border);
-    border-radius: 8px; outline: none; transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 13px;
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--text);
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color .15s, box-shadow .15s;
 }
 .trf-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
 .trf-input--error { border-color: var(--danger); }
-.trf-input--textarea { resize: vertical; line-height: 1.6; }
+.trf-input--textarea { resize: vertical; line-height: 1.6; min-height: 3rem; }
+.trf-input--readonly {
+    background: #f8f9fa;
+    color: #94a3b8;
+    cursor: default;
+}
 
 .trf-date-input :deep(.app-date-input__text) {
     width: 100%;
@@ -989,12 +1153,23 @@ defineExpose({ changeStatus: () => {} });
 
 .trf-select-wrap { position: relative; }
 .trf-select {
-    width: 100%; padding: 10px 36px 10px 13px; font-size: .9rem; font-weight: 500;
-    color: var(--text); background: #fff; border: 1.5px solid var(--border);
-    border-radius: 8px; outline: none; appearance: none;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 36px 10px 13px;
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--text);
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    appearance: none;
+    box-sizing: border-box;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%236b7280' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center;
-    transition: border-color .15s; cursor: pointer;
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    transition: border-color .15s;
+    cursor: pointer;
 }
 .trf-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
 
@@ -1044,34 +1219,79 @@ defineExpose({ changeStatus: () => {} });
     color: #64748b;
 }
 
-/* ── Telemetry Strip ────────────────── */
-.trf-telemetry {
-    display: flex; align-items: stretch;
-    border: 1.5px solid var(--border); border-radius: 10px;
-    overflow: hidden; background: #fafafa;
+/* ── Vehicle Information Cards ──────── */
+.trf-vehicle-info {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
 }
-@media (max-width: 899px) { .trf-telemetry { flex-wrap: wrap; } .trf-telemetry__divider { display: none; } .trf-telemetry__item { flex: 1 0 46%; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); } }
-.trf-telemetry__item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 18px; flex: 1; min-width: 0;
+.trf-vehicle-info__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 72px;
+    padding: 14px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: #fafafa;
 }
-.trf-telemetry__divider { width: 1px; background: var(--border); flex-shrink: 0; }
-.trf-telemetry__icon {
-    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
+.trf-vehicle-info__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 1.1rem;
-    background: var(--bg); color: var(--ic);
+    background: var(--bg);
+    color: var(--ic);
 }
-.trf-telemetry__name { display: block; font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
-.trf-telemetry__val { font-size: .95rem; font-weight: 800; color: var(--text); display: block; margin-top: 2px; }
-.trf-telemetry__input {
-    border: none; background: transparent; padding: 0; margin-top: 2px;
-    font-size: .95rem; font-weight: 800; color: var(--text);
-    width: 90px; outline: none; border-bottom: 2px solid transparent;
+.trf-vehicle-info__name {
     display: block;
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
 }
-.trf-telemetry__input:focus { border-bottom-color: var(--primary); }
-.trf-telemetry__input--warn { color: var(--danger); }
+.trf-vehicle-info__val {
+    display: block;
+    margin-top: 2px;
+    font-size: .95rem;
+    font-weight: 800;
+    color: var(--text);
+}
+.trf-vehicle-info__field {
+    min-width: 0;
+    flex: 1;
+}
+.trf-vehicle-info__input {
+    display: block;
+    width: 100%;
+    max-width: 120px;
+    margin-top: 2px;
+    padding: 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    outline: none;
+    font-size: .95rem;
+    font-weight: 800;
+    color: var(--text);
+}
+.trf-vehicle-info__input:focus {
+    border-bottom-color: var(--primary);
+}
+.trf-vehicle-info__item--editable {
+    background: #fff;
+}
+@media (max-width: 1199px) {
+    .trf-vehicle-info { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+    .trf-vehicle-info { grid-template-columns: 1fr; }
+}
 
 /* ── Banners ────────────────────────── */
 .trf-banner {
