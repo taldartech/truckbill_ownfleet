@@ -31,24 +31,57 @@
                     <div class="trf-step-num">1</div>
                     <div>
                         <h2 class="trf-section__title">Trip Details</h2>
-                        <p class="trf-section__desc">Assign vehicle, driver, customer and set dates</p>
+                        <p class="trf-section__desc">Vehicle, driver, customer and trip dates</p>
                     </div>
                 </div>
-                <!--<div class="d-flex align-items-center gap-2">
-                    <span v-if="tripNumberDisplay" class="trf-pill trf-pill--blue">{{ tripNumberDisplay }}</span>
-                    <span v-if="effectiveTripStatus" class="trf-pill" :class="statusPillClass">{{ currentStatusBadge.label }}</span>
-                </div> -->
+                <div class="trf-section__head-right">
+                    <div class="trf-trip-id trf-trip-id--head">
+                        <div class="trf-trip-id__meta">
+                            <span class="trf-trip-id__label">Trip Number</span>
+                            <span
+                                v-if="mode !== 'create'"
+                                class="trf-trip-num-badge"
+                                :class="currentStatusBadge.badge"
+                            >
+                                {{ currentStatusBadge.label }}
+                            </span>
+                        </div>
+                        <template v-if="mode === 'create'">
+                            <div class="trf-trip-id__value">
+                                <input
+                                    :value="tripNumberDisplay"
+                                    type="text"
+                                    class="trf-trip-id__preview"
+                                    readonly
+                                    placeholder="Preview…"
+                                    tabindex="-1"
+                                />
+                                <input
+                                    :value="form.trip_sequence"
+                                    type="text"
+                                    inputmode="numeric"
+                                    class="trf-trip-id__seq"
+                                    :class="{ 'trf-trip-id__seq--error': fieldErrors.trip_sequence }"
+                                    placeholder="Seq"
+                                    title="Change this number if you want a different trip number"
+                                    @input="onTripSequenceInput"
+                                />
+                            </div>
+                            <p class="trf-trip-id__hint">Change the last number if you want a different trip number</p>
+                            <div v-if="fieldErrors.trip_sequence" class="trf-pf__err">{{ fieldErrorMessage('trip_sequence') }}</div>
+                        </template>
+                        <div v-else class="trf-trip-id__preview trf-trip-id__preview--static">{{ tripNumberDisplay || '—' }}</div>
+                    </div>
+                </div>
             </div>
 
             <div class="trf-section__body">
-                <!-- ── ROW 1: Truck | Driver | Customer | Trip Type | Start Date ── -->
-                <div class="trf-picker-grid trf-picker-grid--5">
+                <!-- ── ROW 1: Truck | Driver | Customer | Start Date | End Date ── -->
+                <div class="trf-picker-grid trf-picker-grid--details">
                     <!-- Truck -->
                     <div class="trf-pf">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--blue"><i class="bi bi-truck-front-fill"></i></div>
-                            <span>Truck</span>
-                            <span class="trf-pf__req">*</span>
+                            <span class="trf-pf__lbl-text">Truck<span class="trf-pf__req">*</span></span>
                         </div>
                         <AsyncVehicleTripPickerRedesigned
                             v-if="mode === 'create' && !isFormLocked"
@@ -74,12 +107,25 @@
                     <!-- Driver -->
                     <div class="trf-pf">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--indigo"><i class="bi bi-person-badge-fill"></i></div>
-                            <span>Driver</span>
-                            <span class="trf-pf__req">*</span>
-                            <label v-if="!isFormLocked && hasPrimaryDriver" class="trf-check-label trf-field-head__check trf-pf__subst ms-auto">
-                                <input id="subst-sw" v-model="showSubstituteDriver" type="checkbox" />
-                                <span>Substitute</span>
+                            <span class="trf-pf__lbl-text">Driver<span class="trf-pf__req">*</span></span>
+                            <label
+                                v-if="!isFormLocked && hasPrimaryDriver"
+                                class="trf-subst-toggle"
+                                :class="{ 'is-on': showSubstituteDriver }"
+                                for="subst-sw"
+                            >
+                                <input
+                                    id="subst-sw"
+                                    v-model="showSubstituteDriver"
+                                    type="checkbox"
+                                    class="trf-subst-toggle__input"
+                                    role="switch"
+                                    :aria-checked="showSubstituteDriver"
+                                />
+                                <span class="trf-subst-toggle__track" aria-hidden="true">
+                                    <span class="trf-subst-toggle__thumb"></span>
+                                </span>
+                                <span class="trf-subst-toggle__text">Substitute</span>
                             </label>
                         </div>
                         <template v-if="showSubstituteDriverColumn && !isFormLocked">
@@ -110,11 +156,9 @@
                     </div>
 
                     <!-- Customer -->
-                    <div class="trf-pf">
+                    <div class="trf-pf trf-pf--customer">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--purple"><i class="bi bi-building-fill"></i></div>
-                            <span>Customer</span>
-                            <span class="trf-pf__req">*</span>
+                            <span class="trf-pf__lbl-text">Customer<span class="trf-pf__req">*</span></span>
                         </div>
                         <SearchablePickerRedesigned
                             v-if="!isFormLocked"
@@ -141,14 +185,10 @@
                         <div v-if="fieldErrors.customer_id" class="trf-pf__err">{{ fieldErrorMessage('customer_id') }}</div>
                     </div>
 
-                   
-
                     <!-- Start Date -->
-                    <div class="trf-pf">
+                    <div class="trf-pf trf-pf--date">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--teal"><i class="bi bi-calendar-check-fill"></i></div>
-                            <span>Start Date</span>
-                            <span class="trf-pf__req">*</span>
+                            <span class="trf-pf__lbl-text">Start Date<span class="trf-pf__req">*</span></span>
                         </div>
                         <AppDateInput
                             v-if="!isFormLocked"
@@ -160,11 +200,11 @@
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ formatDate(form.start_at) }}</span></div>
                         <div v-if="fieldErrors.start_at" class="trf-pf__err">{{ fieldErrorMessage('start_at') }}</div>
                     </div>
+
                     <!-- End Date -->
-                    <div class="trf-pf">
+                    <div class="trf-pf trf-pf--date">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--rose"><i class="bi bi-calendar-x-fill"></i></div>
-                            <span>End Date</span>
+                            <span class="trf-pf__lbl-text">End Date</span>
                             <span v-if="arrivalTiming === 'on-time'" class="trf-timing-pill trf-timing-pill--ok"><i class="bi bi-check-circle-fill"></i> On Time</span>
                             <span v-else-if="arrivalTiming === 'early'" class="trf-timing-pill trf-timing-pill--early"><i class="bi bi-arrow-down-circle-fill"></i> Early</span>
                             <span v-else-if="arrivalTiming === 'late'" class="trf-timing-pill trf-timing-pill--late"><i class="bi bi-exclamation-circle-fill"></i> Late</span>
@@ -182,30 +222,12 @@
                     </div>
                 </div>
 
-                <!-- ── ROW 2: End Date | Start Meter | End Meter | Diesel Rate | Fuel Tank ── -->
-                <div class="trf-picker-grid trf-picker-grid--5 mt-3">
-                    
-                     <!-- Trip Type -->
-                    <div class="trf-pf">
-                        <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--orange"><i class="bi bi-arrow-left-right"></i></div>
-                            <span>Trip Type</span>
-                            <span class="trf-pf__req">*</span>
-                        </div>
-                        <div class="trf-select-wrap">
-                            <select v-if="!isFormLocked" v-model="form.trip_type" class="trf-select" @change="saveProgress">
-                                <option value="ROUND_TRIP">↩ Round Trip</option>
-                                <option value="ONE_WAY">→ One Way</option>
-                            </select>
-                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ tripTypeDisplay }}</span></div>
-                        </div>
-                    </div>
-
+                <!-- ── ROW 2: Start Meter | End Meter | Expected Diesel | Diesel Rate ── -->
+                <div class="trf-picker-grid trf-picker-grid--4 mt-3">
                     <!-- Start Meter Reading -->
-                    <div class="trf-pf">
+                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--orange"><i class="bi bi-speedometer"></i></div>
-                            <span>Start Meter Reading</span>
+                            <span class="trf-pf__lbl-text">Start Meter Reading<span class="trf-pf__req">*</span></span>
                         </div>
                         <input
                             v-if="!isFormLocked"
@@ -217,16 +239,17 @@
                             class="trf-input"
                             :class="{ 'trf-input--error': startMeterWarning }"
                             placeholder="0"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
                             @input="saveProgress"
                         />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ startMeterDisplay }}</span></div>
                     </div>
 
                     <!-- End Meter Reading -->
-                    <div class="trf-pf">
+                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--teal"><i class="bi bi-speedometer2"></i></div>
-                            <span>End Meter Reading</span>
+                            <span class="trf-pf__lbl-text">End Meter Reading</span>
                         </div>
                         <input
                             v-if="!isFormLocked"
@@ -237,16 +260,39 @@
                             step="0.01"
                             class="trf-input"
                             placeholder="0"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
                             @input="saveProgress"
                         />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ endMeterDisplay }}</span></div>
                     </div>
 
-                    <!-- Diesel Rate -->
-                    <div class="trf-pf">
+                    <!-- Expected Diesel -->
+                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
                         <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--purple"><i class="bi bi-currency-rupee"></i></div>
-                            <span>Diesel Rate (₹/Ltr)</span>
+                            <span class="trf-pf__lbl-text">Expected Diesel (Ltr)</span>
+                        </div>
+                        <input
+                            v-if="!isFormLocked"
+                            v-model.number="form.planned_diesel_liters"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            :class="{ 'trf-input--error': dieselOverCapacityWarning }"
+                            placeholder="0"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                            @input="onPlannedDieselInput"
+                        />
+                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ expectedDieselDisplay }}</span></div>
+                    </div>
+
+                    <!-- Diesel Rate -->
+                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
+                        <div class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-text">Diesel Rate (₹/Ltr)</span>
                         </div>
                         <input
                             v-if="!isFormLocked"
@@ -257,39 +303,27 @@
                             step="0.01"
                             class="trf-input"
                             placeholder="0.00"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
                             @input="saveProgress"
                         />
                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ form.diesel_rate_per_liter ? '₹' + formatMoney(form.diesel_rate_per_liter) : '—' }}</span></div>
                     </div>
-
-                    <!-- Fuel Tank Capacity -->
-                    <div class="trf-pf">
-                        <div class="trf-pf__lbl">
-                            <div class="trf-pf__lbl-icon trf-pf__lbl-icon--blue"><i class="bi bi-fuel-pump"></i></div>
-                            <span>Fuel Tank Capacity (Ltr)</span>
-                        </div>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="fuelTankCapacityLtr"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            placeholder="0"
-                            @input="saveProgress"
-                        />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ fuelTankCapacityLtr || 0 }}</span></div>
-                    </div>
                 </div>
+                <p v-if="requiresTruckSelection" class="trf-pf__hint mt-2">Select a truck first to enter meter readings and diesel details.</p>
 
                 <!-- Driver Warning -->
                 <div v-if="driverWarning" class="trf-banner trf-banner--warn mt-4">
                     <i class="bi bi-exclamation-triangle-fill"></i><span>{{ driverWarning }}</span>
                 </div>
 
+                <div v-if="driverLicenseWarning" class="trf-banner trf-banner--warn mt-3">
+                    <i class="bi bi-card-heading"></i>
+                    <span>{{ driverLicenseWarning }}</span>
+                </div>
+
                 <!-- Vehicle Information -->
-                <div class="trf-vehicle-info mt-4">
+                <div class="trf-vehicle-info mt-3">
                     <div class="trf-vehicle-info__item">
                         <div class="trf-vehicle-info__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
                         <div>
@@ -297,7 +331,21 @@
                             <span class="trf-vehicle-info__val">{{ truckRunningMeterDisplay || '—' }}</span>
                         </div>
                     </div>
-                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#7c3aed;--bg:#faf5ff"><i class="bi bi-box-seam-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Max Load Capacity (Ton)</span>
+                            <span class="trf-vehicle-info__val">{{ maxLoadDisplay }}</span>
+                        </div>
+                    </div>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-fuel-pump-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Fuel Tank Capacity (Ltr)</span>
+                            <span class="trf-vehicle-info__val">{{ fuelTankCapacityLtr || 0 }}</span>
+                        </div>
+                    </div>
+                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable" :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection }">
                         <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
                         <div class="trf-vehicle-info__field">
                             <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
@@ -310,45 +358,11 @@
                                 step="0.01"
                                 class="trf-vehicle-info__input"
                                 placeholder="0"
+                                :disabled="requiresTruckSelection"
+                                :title="requiresTruckSelection ? 'Select a truck first' : undefined"
                                 @input="onPlannedMileageInput"
                             />
                             <span v-else class="trf-vehicle-info__val">{{ fuelAvgDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
-                        <div class="trf-vehicle-info__icon" style="--ic:#7c3aed;--bg:#faf5ff"><i class="bi bi-box-seam-fill"></i></div>
-                        <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Max Load Capacity (Ton)</span>
-                            <input
-                                v-if="!isFormLocked"
-                                v-model.number="form.max_load_ton"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.001"
-                                class="trf-vehicle-info__input"
-                                placeholder="0"
-                                @input="saveProgress"
-                            />
-                            <span v-else class="trf-vehicle-info__val">{{ maxLoadDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable">
-                        <div class="trf-vehicle-info__icon" style="--ic:#059669;--bg:#ecfdf5"><i class="bi bi-droplet-fill"></i></div>
-                        <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Expected Diesel (Ltr)</span>
-                            <input
-                                v-if="!isFormLocked"
-                                v-model.number="form.planned_diesel_liters"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                class="trf-vehicle-info__input"
-                                placeholder="0"
-                                @input="onPlannedDieselInput"
-                            />
-                            <span v-else class="trf-vehicle-info__val">{{ expectedDieselDisplay }}</span>
                         </div>
                     </div>
                 </div>
@@ -356,6 +370,11 @@
                 <div v-if="startMeterWarning" class="trf-banner trf-banner--warn mt-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span>Start Meter entered ({{ form.start_meter_reading_km }} KM) is lower than current truck odometer ({{ truckRunningMeterDisplay }}). Please verify before saving.</span>
+                </div>
+
+                <div v-if="dieselOverCapacityWarning" class="trf-banner trf-banner--warn mt-3">
+                    <i class="bi bi-fuel-pump-fill"></i>
+                    <span>{{ dieselOverCapacityWarning }}</span>
                 </div>
             </div>
         </div>
@@ -369,224 +388,450 @@
                     <div class="trf-step-num trf-step-num--green">2</div>
                     <div>
                         <h2 class="trf-section__title">Route &amp; Stops</h2>
-                        <p class="trf-section__desc">Define the pickup and delivery locations</p>
+                        <p class="trf-section__desc">Add stops, then return to source or end the trip</p>
                     </div>
+                    <span
+                        class="trf-route-type-badge"
+                        :class="inferredTripTypeLabel
+                            ? (isRoundTrip ? 'trf-route-type-badge--round' : 'trf-route-type-badge--oneway')
+                            : 'trf-route-type-badge--placeholder'"
+                        :title="inferredTripTypeHint || 'Trip type appears after you add stops'"
+                    >
+                        <template v-if="inferredTripTypeLabel">
+                            <i :class="isRoundTrip ? 'bi bi-arrow-repeat' : 'bi bi-arrow-right'"></i>
+                            {{ inferredTripTypeLabel }}
+                        </template>
+                        <template v-else>
+                            <i class="bi bi-dash"></i>
+                            Trip type
+                        </template>
+                    </span>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button v-if="!isFormLocked && canReturnToStart" type="button" class="trf-outline-btn" @click="$emit('return-to-start')">
-                        <i class="bi bi-arrow-return-left me-1"></i>Return to Start
-                    </button>
-                    <button v-if="!isFormLocked" type="button" class="trf-primary-btn" @click="$emit('add-stop')">
-                        <i class="bi bi-plus-lg me-1"></i>Add Stop
-                    </button>
+                <div class="trf-section__head-right">
+                    <div v-if="!isFormLocked" class="trf-route-actions">
+                        <button
+                            type="button"
+                            class="trf-head-btn trf-head-btn--ghost"
+                            :disabled="!canReturnToSource"
+                            title="Add a return leg back to the start station (round trip)"
+                            @click="handleReturnToSource"
+                        >
+                            <i class="bi bi-arrow-return-left"></i>
+                            <span>Return to source</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="trf-head-btn trf-head-btn--solid"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : addStopActionTitle"
+                            @click="onAddStopClick"
+                        >
+                            <i :class="hasStartStation ? 'bi bi-plus-lg' : 'bi bi-geo-alt-fill'"></i>
+                            <span>{{ addStopActionLabel }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="trf-head-btn trf-head-btn--ghost"
+                            :disabled="!canEndTrip"
+                            title="Finish the trip at the last stop without returning (one way)"
+                            @click="handleEndTrip"
+                        >
+                            <i class="bi bi-flag-fill"></i>
+                            <span>End trip</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="trf-section__body">
-                <!-- Home Base Row -->
-                <div class="trf-route-home">
-                    <div class="trf-route-home__timeline">
-                        <div class="trf-route-home__dot"><i class="bi bi-house-door-fill"></i></div>
-                        <div v-if="form.route_legs.length > 0" class="trf-route-home__line"></div>
-                    </div>
-                    <div class="trf-route-home__content">
-                        <div class="trf-route-home__info">
-                            <span class="trf-route-home__label">Home Base <span class="text-muted">(Start)</span></span>
-                            <span class="trf-route-home__req">*</span>
-                        </div>
-                        <div class="trf-route-home__picker">
-                            <SearchablePickerRedesigned
-                                v-if="!isFormLocked"
-                                v-model="form.start_station_id"
-                                :items="stations"
-                                attach-dropdown-to-body
-                                placeholder="Select start station / depot"
-                                search-placeholder="Search station…"
-                                empty-message="No station found."
-                                view-title="Location details"
-                                quick-add-title="Add location"
-                                :invalid="Boolean(fieldErrors.start_station_id)"
-                                :error-message="fieldErrorMessage('start_station_id')"
-                                :can-quick-add="canQuickAddStation"
-                                @quick-add="openQuickAddForLeg(null)"
-                                @update:model-value="handleStartStationPickerChange"
-                            />
-                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(form.start_station_id) }}</span></div>
-                        </div>
-                    </div>
+            <div class="trf-section__body" :class="{ 'trf-section__body--locked': requiresTruckSelection }">
+                <div v-if="requiresTruckSelection" class="trf-banner trf-banner--info mb-3">
+                    <i class="bi bi-truck-front-fill"></i>
+                    <span>Select a truck in Trip Details first, then build the route and stops.</span>
                 </div>
 
-                <!-- Empty state -->
-                <div v-if="form.route_legs.length === 0" class="trf-route-empty">
-                    <div class="trf-route-empty__dashed">
-                        <i class="bi bi-map"></i>
-                        <p>Select home base then click <strong>+ Add Stop</strong> to build the route</p>
-                    </div>
+                <div v-if="routeEndedOneWay && !isFormLocked && !requiresTruckSelection" class="trf-banner trf-banner--info mb-3">
+                    <i class="bi bi-flag-fill"></i>
+                    <span>
+                        One way trip — ends at <strong>{{ lastStopStationName }}</strong>.
+                        Add a stop or return to source if you need to change this.
+                    </span>
                 </div>
 
-                <!-- Leg rows -->
-                <div v-else class="trf-legs">
-                    <div v-for="(leg, index) in form.route_legs" :key="index" class="trf-leg">
-                        <!-- Timeline Left -->
-                        <div class="trf-leg__timeline">
-                            <div class="trf-leg__dot">{{ index + 1 }}</div>
-                        </div>
+                <div v-if="!isFormLocked && !requiresTruckSelection" class="mb-3">
+                    <TripRouteTemplateSelector
+                        :stations="stations"
+                        :customers="customers"
+                        @apply="onApplyRouteTemplate"
+                    />
+                </div>
 
-                        <!-- Station Selector + Remove -->
-                        <div class="trf-leg__station">
-                            <div class="trf-leg__station-head">
-                                <span class="trf-leg__station-tag">STOP {{ index + 1 }}</span>
-                                <button
-                                    v-if="!isFormLocked"
-                                    type="button"
-                                    class="trf-leg__remove-btn"
-                                    :title="stopRemoveTitle(index)"
-                                    :disabled="isStopRemoveBlocked(index)"
-                                    @click="openRemoveStopConfirm(index)"
-                                >
-                                    <i class="bi bi-trash3"></i>
-                                    Remove
-                                </button>
-                            </div>
-                            <SearchablePickerRedesigned
-                                v-if="!isFormLocked"
-                                v-model="leg.to_station_id"
-                                :items="stations"
-                                attach-dropdown-to-body
-                                placeholder="To station"
-                                search-placeholder="Search station…"
-                                empty-message="No station found."
-                                view-title="Location details"
-                                quick-add-title="Add location"
-                                :invalid="Boolean(legFieldError(index, 'to_station_id'))"
-                                :error-message="legFieldError(index, 'to_station_id')"
-                                :can-quick-add="canQuickAddStation"
-                                @quick-add="openQuickAddForLeg(index)"
-                                @update:model-value="handleLegStopChange(index)"
-                            />
-                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(leg.to_station_id) }}</span></div>
-                        </div>
+                <!-- Route groups: Home+Stop1 share one right card height; later stops pair 1:1 -->
+                <div
+                    class="trf-route-board"
+                    :class="{
+                        'trf-route-board--has-stops': hasRouteStops,
+                        'trf-route-board--locked': requiresTruckSelection,
+                    }"
+                >
+                    <div v-if="overloadWarning && hasRouteStops" class="trf-banner trf-banner--warn trf-route-board__banner">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>{{ overloadWarning }}</span>
+                    </div>
 
-                        <!-- Leg Detail Card -->
-                        <div class="trf-leg__card">
-                            <div class="trf-leg__fields">
-                                <!-- Customer -->
-                                <div class="trf-lf">
-                                    <div class="trf-field-head trf-field-head--with-picker">
-                                        <label class="trf-lf__lbl">Customer <span class="trf-pf__req">*</span></label>
-                                        <label v-if="!isFormLocked" class="trf-check-label trf-field-head__check">
-                                            <input v-model="leg.use_same_customer" type="checkbox" @change="onLegSameCustomerChange(index); saveProgress()" />
-                                            <span>Same as customer</span>
-                                        </label>
+                    <div
+                        v-for="group in routeGroups"
+                        :key="group.id"
+                        class="trf-route-group"
+                        :class="[
+                            `trf-route-group--${group.type}`,
+                            {
+                                'trf-route-group--no-card': !group.cardLeg && group.type !== 'primary',
+                                'trf-route-group--empty-right': group.type === 'primary' && !group.cardLeg,
+                            },
+                        ]"
+                    >
+                        <div class="trf-route-group__left">
+                            <div
+                                v-for="item in group.stations"
+                                :key="item.id"
+                                class="trf-route-station"
+                                :class="`trf-route-station--${item.kind}`"
+                            >
+                                <div class="trf-route-board__rail" :class="`trf-route-board__rail--${item.kind}`">
+                                    <div
+                                        v-if="item.kind === 'stop' && group.type === 'stop'"
+                                        class="trf-route-board__line trf-route-board__line--lead"
+                                    ></div>
+                                    <div
+                                        v-if="item.kind === 'home'"
+                                        class="trf-route-board__dot trf-route-board__dot--home"
+                                    >
+                                        <i class="bi bi-house-door-fill"></i>
                                     </div>
-                                    <div v-if="!isFormLocked && !leg.use_same_customer" class="trf-lf__picker">
+                                    <div
+                                        v-else
+                                        class="trf-route-board__dot"
+                                        :class="{ 'trf-route-board__dot--empty': isEmptyReturnLeg(item.leg, item.legIndex) }"
+                                    >
+                                        {{ item.legIndex + 1 }}
+                                    </div>
+                                    <div v-if="item.showLine" class="trf-route-board__line"></div>
+                                </div>
+
+                                <div class="trf-route-board__station" :class="`trf-route-board__station--${item.kind}`">
+                                    <template v-if="item.kind === 'home'">
+                                        <div class="trf-route-board__label">
+                                            Source<span class="trf-pf__req">*</span>
+                                        </div>
                                         <SearchablePickerRedesigned
-                                            v-model="leg.customer_id"
-                                            :items="customers"
+                                            v-if="!isFormLocked"
+                                            v-model="form.start_station_id"
+                                            :items="stations"
                                             attach-dropdown-to-body
-                                            placeholder="Select customer"
-                                            search-placeholder="Search customer…"
-                                            empty-message="No customer found."
-                                            view-title="Customer details"
-                                            quick-add-title="Add customer"
-                                            :invalid="Boolean(legFieldError(index, 'customer_id'))"
-                                            :error-message="legFieldError(index, 'customer_id')"
-                                            :can-quick-add="canQuickAddCustomer"
-                                            :show-subtext="false"
-                                            title-case-label
+                                            placeholder="Select start station / depot"
+                                            search-placeholder="Search station…"
+                                            empty-message="No station found."
+                                            view-title="Location details"
+                                            quick-add-title="Add location"
+                                            :disabled="requiresTruckSelection"
+                                            :invalid="Boolean(fieldErrors.start_station_id)"
+                                            :error-message="fieldErrorMessage('start_station_id')"
+                                            :can-quick-add="canQuickAddStation && !requiresTruckSelection"
+                                            @quick-add="openQuickAddForLeg(null)"
+                                            @update:model-value="handleStartStationPickerChange"
+                                        />
+                                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(form.start_station_id) }}</span></div>
+                                    </template>
+                                    <template v-else>
+                                        <div class="trf-route-board__label-row">
+                                            <span class="trf-route-board__label">
+                                                Stop {{ item.legIndex + 1 }}<span class="trf-pf__req">*</span>
+                                            </span>
+                                            <span
+                                                v-if="isEmptyReturnLeg(item.leg, item.legIndex)"
+                                                class="trf-pill trf-pill--orange"
+                                            >Empty Return</span>
+                                        </div>
+                                        <div class="trf-leg__station-picker">
+                                            <div class="trf-leg__station-picker-main">
+                                                <SearchablePickerRedesigned
+                                                    v-if="!isFormLocked"
+                                                    v-model="item.leg.to_station_id"
+                                                    :items="stations"
+                                                    attach-dropdown-to-body
+                                                    placeholder="To station"
+                                                    search-placeholder="Search station…"
+                                                    empty-message="No station found."
+                                                    view-title="Location details"
+                                                    quick-add-title="Add location"
+                                                    :disabled="requiresTruckSelection"
+                                                    :invalid="Boolean(legFieldError(item.legIndex, 'to_station_id'))"
+                                                    :error-message="legFieldError(item.legIndex, 'to_station_id')"
+                                                    :can-quick-add="canQuickAddStation && !requiresTruckSelection"
+                                                    @quick-add="openQuickAddForLeg(item.legIndex)"
+                                                    @update:model-value="handleLegStopChange(item.legIndex)"
+                                                />
+                                                <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ stationLabel(item.leg.to_station_id) }}</span></div>
+                                            </div>
+                                            <button
+                                                v-if="!isFormLocked"
+                                                type="button"
+                                                class="trf-leg__station-clear"
+                                                :title="stopRemoveTitle(item.legIndex)"
+                                                :disabled="requiresTruckSelection || isStopRemoveBlocked(item.legIndex)"
+                                                @click="openRemoveStopConfirm(item.legIndex)"
+                                            >
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="trf-route-group__right">
+                            <div v-if="group.cardLeg" class="trf-leg__card">
+                                <div class="trf-leg__fields">
+                                    <div class="trf-lf">
+                                        <div class="trf-field-head">
+                                            <label class="trf-lf__lbl">Customer<span class="trf-pf__req">*</span></label>
+                                            <label
+                                                v-if="!isFormLocked"
+                                                class="trf-subst-toggle"
+                                                :class="{ 'is-on': group.cardLeg.use_same_customer }"
+                                                :for="`same-cust-${group.cardIndex}`"
+                                            >
+                                                <input
+                                                    :id="`same-cust-${group.cardIndex}`"
+                                                    v-model="group.cardLeg.use_same_customer"
+                                                    type="checkbox"
+                                                    class="trf-subst-toggle__input"
+                                                    role="switch"
+                                                    :aria-checked="group.cardLeg.use_same_customer"
+                                                    @change="onLegSameCustomerChange(group.cardIndex); saveProgress()"
+                                                />
+                                                <span class="trf-subst-toggle__track" aria-hidden="true">
+                                                    <span class="trf-subst-toggle__thumb"></span>
+                                                </span>
+                                                <span class="trf-subst-toggle__text">Same as customer</span>
+                                            </label>
+                                        </div>
+                                        <div v-if="!isFormLocked && !group.cardLeg.use_same_customer" class="trf-lf__picker">
+                                            <SearchablePickerRedesigned
+                                                v-model="group.cardLeg.customer_id"
+                                                :items="customers"
+                                                attach-dropdown-to-body
+                                                placeholder="Select customer"
+                                                search-placeholder="Search customer…"
+                                                empty-message="No customer found."
+                                                view-title="Customer details"
+                                                quick-add-title="Add customer"
+                                                :invalid="Boolean(legFieldError(group.cardIndex, 'customer_id'))"
+                                                :error-message="legFieldError(group.cardIndex, 'customer_id')"
+                                                :can-quick-add="canQuickAddCustomer"
+                                                :show-subtext="false"
+                                                title-case-label
+                                                compact-actions
+                                                @quick-add="openQuickAddForLegCustomer(group.cardIndex)"
+                                                @update:model-value="saveProgress"
+                                            />
+                                        </div>
+                                        <div v-else-if="!isFormLocked" class="trf-same-cust">
+                                            {{ customerLabel(group.cardLeg.customer_id, snapshotCustomerName) || 'Same as main' }}
+                                        </div>
+                                        <div v-else class="trf-ro-val">
+                                            <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.customer_id, snapshotCustomerName) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="trf-lf">
+                                        <label class="trf-lf__lbl">Goods Type<span class="trf-pf__req">*</span></label>
+                                        <SearchablePickerRedesigned
+                                            v-if="!isFormLocked"
+                                            v-model="group.cardLeg.goods_name"
+                                            :items="goodsTypePickerItems"
+                                            attach-dropdown-to-body
+                                            placeholder="Select goods"
+                                            search-placeholder="Search goods…"
+                                            empty-message="No goods found."
+                                            quick-add-title="Add goods type"
+                                            :invalid="Boolean(legFieldError(group.cardIndex, 'goods_name'))"
+                                            :error-message="legFieldError(group.cardIndex, 'goods_name')"
+                                            :can-quick-add="canQuickAddGoodsType"
+                                            :can-view="false"
                                             compact-actions
-                                            @quick-add="openQuickAddForLegCustomer(index)"
+                                            @quick-add="openQuickAddForLegGoodsType(group.cardIndex)"
                                             @update:model-value="saveProgress"
                                         />
+                                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ group.cardLeg.goods_name || '—' }}</span></div>
                                     </div>
-                                    <div v-else-if="!isFormLocked" class="trf-same-cust">{{ customerLabel(leg.customer_id, snapshotCustomerName) || 'Same as main' }}</div>
-                                    <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ customerLabel(leg.customer_id, snapshotCustomerName) }}</span></div>
-                                </div>
 
-                                <!-- Goods -->
-                                <div class="trf-lf">
-                                    <label class="trf-lf__lbl">Goods Type <span class="trf-pf__req">*</span></label>
-                                    <SearchablePickerRedesigned
-                                        v-if="!isFormLocked"
-                                        v-model="leg.goods_name"
-                                        :items="goodsTypePickerItems"
-                                        attach-dropdown-to-body
-                                        placeholder="Select goods"
-                                        search-placeholder="Search goods…"
-                                        empty-message="No goods found."
-                                        quick-add-title="Add goods type"
-                                        :invalid="Boolean(legFieldError(index, 'goods_name'))"
-                                        :error-message="legFieldError(index, 'goods_name')"
-                                        :can-quick-add="canQuickAddGoodsType"
-                                        :can-view="false"
-                                        compact-actions
-                                        @quick-add="openQuickAddForLegGoodsType(index)"
-                                        @update:model-value="saveProgress"
-                                    />
-                                    <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ leg.goods_name || '—' }}</span></div>
-                                </div>
+                                    <div class="trf-lf">
+                                        <label class="trf-lf__lbl">KM/Ltr</label>
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="group.cardLeg.expected_mileage_km_per_liter"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="trf-input"
+                                            placeholder="0.00"
+                                            @input="onLegMileageInput(group.cardIndex); saveProgress()"
+                                        />
+                                        <span v-else class="trf-ro-val__main">{{ group.cardLeg.expected_mileage_km_per_liter || '—' }}</span>
+                                    </div>
 
-                                <!-- KM/Ltr -->
-                                <div class="trf-lf">
-                                    <label class="trf-lf__lbl">KM/Ltr</label>
-                                    <input v-if="!isFormLocked" v-model.number="leg.expected_mileage_km_per_liter" v-no-scroll-change type="number" min="0" step="0.01" class="trf-input" placeholder="0.00" @input="onLegMileageInput(index); saveProgress()" />
-                                    <span v-else class="trf-ro-val__main">{{ leg.expected_mileage_km_per_liter || '—' }}</span>
-                                </div>
+                                    <div class="trf-lf">
+                                        <label class="trf-lf__lbl">Weight (Ton)<span class="trf-pf__req">*</span></label>
+                                        <div class="trf-num-field">
+                                            <input
+                                                v-if="!isFormLocked"
+                                                v-model.number="group.cardLeg.weight_ton"
+                                                v-no-scroll-change
+                                                type="number"
+                                                min="0"
+                                                step="0.001"
+                                                class="trf-input"
+                                                :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'weight_ton') }"
+                                                placeholder="0.000"
+                                                @input="onLegWeightInput(group.cardIndex); saveProgress()"
+                                            />
+                                            <span v-else class="trf-ro-val__main">{{ group.cardLeg.weight_ton ? formatNum(group.cardLeg.weight_ton) : '—' }}</span>
+                                        </div>
+                                    </div>
 
-                                <!-- Weight -->
-                                <div class="trf-lf">
-                                    <label class="trf-lf__lbl">Weight (Ton) <span class="trf-pf__req">*</span></label>
-                                    <div class="trf-num-field">
-                                        <input v-if="!isFormLocked" v-model.number="leg.weight_ton" v-no-scroll-change type="number" min="0" step="0.001" class="trf-input" :class="{ 'trf-input--error': legFieldError(index, 'weight_ton') }" placeholder="0.000" @input="onLegWeightInput(index); saveProgress()" />
-                                        <span v-else class="trf-ro-val__main">{{ leg.weight_ton ? formatNum(leg.weight_ton) : '—' }}</span>
+                                    <div class="trf-lf">
+                                        <label class="trf-lf__lbl">Rate (₹/Ton)</label>
+                                        <input
+                                            v-if="!isFormLocked"
+                                            v-model.number="group.cardLeg.freight_rate"
+                                            v-no-scroll-change
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="trf-input"
+                                            placeholder="0.00"
+                                            @input="onLegRateInput(group.cardIndex); saveProgress()"
+                                        />
+                                        <span v-else class="trf-ro-val__main">{{ group.cardLeg.freight_rate ? '₹' + formatMoney(group.cardLeg.freight_rate) : '—' }}</span>
+                                    </div>
+
+                                    <div class="trf-lf">
+                                        <div class="trf-freight-head">
+                                            <label class="trf-lf__lbl">Freight (₹)<span class="trf-pf__req">*</span></label>
+                                            <label
+                                                v-if="!isFormLocked"
+                                                class="trf-subst-toggle"
+                                                :class="{ 'is-on': group.cardLeg.freight_auto_calculate }"
+                                                :for="`auto-calc-${group.cardIndex}`"
+                                            >
+                                                <input
+                                                    :id="`auto-calc-${group.cardIndex}`"
+                                                    v-model="group.cardLeg.freight_auto_calculate"
+                                                    type="checkbox"
+                                                    class="trf-subst-toggle__input"
+                                                    role="switch"
+                                                    :aria-checked="group.cardLeg.freight_auto_calculate"
+                                                    @change="onLegAutoCalculateChange(group.cardIndex); saveProgress()"
+                                                />
+                                                <span class="trf-subst-toggle__track" aria-hidden="true">
+                                                    <span class="trf-subst-toggle__thumb"></span>
+                                                </span>
+                                                <span class="trf-subst-toggle__text">Auto Calculate</span>
+                                            </label>
+                                        </div>
+                                        <div class="trf-num-field trf-num-field--prefix">
+                                            <span class="trf-num-field__prefix">₹</span>
+                                            <input
+                                                v-if="!isFormLocked"
+                                                v-model.number="group.cardLeg.freight_amount"
+                                                v-no-scroll-change
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                class="trf-input"
+                                                :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'freight_amount') }"
+                                                placeholder="0.00"
+                                                @input="onLegFreightManualInput(group.cardIndex); saveProgress()"
+                                            />
+                                            <span v-else class="trf-ro-val__main">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- ₹/Ton Rate -->
-                                <div class="trf-lf">
-                                    <label class="trf-lf__lbl">Rate (₹/Ton)</label>
-                                    <input v-if="!isFormLocked" v-model.number="leg.freight_rate" v-no-scroll-change type="number" min="0" step="0.01" class="trf-input" placeholder="0.00" @input="onLegRateInput(index); saveProgress()" />
-                                    <span v-else class="trf-ro-val__main">{{ leg.freight_rate ? '₹' + formatMoney(leg.freight_rate) : '—' }}</span>
-                                </div>
-
-                                <!-- Freight -->
-                                <div class="trf-lf">
-                                    <div class="trf-freight-head">
-                                        <label class="trf-lf__lbl">Freight (₹) <span class="trf-pf__req">*</span></label>
-                                        <label v-if="!isFormLocked" class="trf-check-label trf-freight-auto">
-                                            <input v-model="leg.freight_auto_calculate" type="checkbox" @change="onLegAutoCalculateChange(index); saveProgress()" />
-                                            <span>Auto Calculate</span>
-                                        </label>
+                                <div class="trf-leg__meta">
+                                    <div class="trf-leg__meta-left">
+                                        <span class="trf-leg__meta-label">Auto Calculation:</span>
+                                        <span
+                                            class="trf-leg__rate-badge"
+                                            :class="{ 'trf-leg__rate-badge--missing': !(group.cardLeg.freight_rate > 0) }"
+                                        >
+                                            {{ group.cardLeg.freight_rate > 0 ? `Rate: ₹${formatMoney(group.cardLeg.freight_rate)} /Ton` : 'Rate not configured' }}
+                                        </span>
                                     </div>
-                                    <div class="trf-num-field trf-num-field--prefix">
-                                        <span class="trf-num-field__prefix">₹</span>
-                                        <input v-if="!isFormLocked" v-model.number="leg.freight_amount" v-no-scroll-change type="number" min="0" step="0.01" class="trf-input" :class="{ 'trf-input--error': legFieldError(index, 'freight_amount') }" placeholder="0.00" @input="onLegFreightManualInput(index); saveProgress()" />
-                                        <span v-else class="trf-ro-val__main">₹{{ formatMoney(leg.freight_amount) }}</span>
+                                    <div class="trf-leg__meta-right">
+                                        <span
+                                            class="trf-leg__load-badge"
+                                            :class="{ 'trf-leg__load-badge--over': isLegOverloaded(group.cardLeg) }"
+                                        >
+                                            Load Type: {{ legLoadMeta(group.cardLeg.weight_ton).label }}
+                                            <template v-if="isLegOverloaded(group.cardLeg)"> · Over capacity</template>
+                                        </span>
+                                        <span class="trf-leg__dist">
+                                            Distance:
+                                            <template v-if="!isFormLocked">
+                                                <input
+                                                    v-model.number="group.cardLeg.distance_km"
+                                                    v-no-scroll-change
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    class="trf-leg__dist-input"
+                                                    placeholder="0"
+                                                    @input="saveProgress"
+                                                />
+                                                KM
+                                            </template>
+                                            <template v-else>{{ group.cardLeg.distance_km ?? '—' }} KM</template>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="trf-leg__meta">
-                                <div class="trf-leg__pricing">
-                                    <span class="trf-leg__meta-label">Pricing Status</span>
-                                    <span
-                                        class="trf-leg__pricing-status"
-                                        :class="{ 'trf-leg__pricing-status--missing': !(leg.freight_rate > 0) }"
-                                    >
-                                        <i :class="leg.freight_rate > 0 ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-triangle-fill'"></i>
-                                        {{ leg.freight_rate > 0 ? `₹${formatMoney(leg.freight_rate)} / Ton` : 'Rate Not Configured' }}
-                                    </span>
+                            <div
+                                v-else-if="group.type === 'primary'"
+                                class="trf-route-empty-panel"
+                            >
+                                <div class="trf-route-empty-panel__icon">
+                                    <i :class="requiresTruckSelection ? 'bi bi-truck' : 'bi bi-geo-alt'"></i>
                                 </div>
-                                <span class="trf-leg__load"><strong>Load Type :</strong> {{ legLoadMeta(leg.weight_ton).label }}</span>
-                                <span class="trf-leg__dist"><strong>Distance :</strong> {{ leg.distance_km ?? '—' }} KM</span>
+                                <p class="trf-route-empty-panel__text">
+                                    <template v-if="requiresTruckSelection">
+                                        Select a truck first, then choose source and add stops.
+                                    </template>
+                                    <template v-else-if="!hasStartStation">
+                                        Choose source, then click <strong>+ Add Stop</strong>.
+                                    </template>
+                                    <template v-else-if="!hasRouteStops">
+                                        Click <strong>+ Add Stop</strong> to continue the route.
+                                    </template>
+                                    <template v-else>
+                                        Select the stop station to add cargo details.
+                                    </template>
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Add another stop -->
-                    <button v-if="!isFormLocked" type="button" class="trf-add-stop-row" @click="$emit('add-stop')">
-                        <i class="bi bi-plus-circle-fill text-success me-2"></i>
-                        <span>Add Stop</span>
+                    <button
+                        v-if="!isFormLocked"
+                        type="button"
+                        class="trf-add-stop-row"
+                        :disabled="requiresTruckSelection"
+                        @click="onAddStopClick"
+                    >
+                        <i :class="(hasStartStation ? 'bi bi-plus-circle-fill' : 'bi bi-geo-alt-fill') + ' text-success me-2'"></i>
+                        <span>{{ addStopActionLabel }}</span>
                     </button>
                 </div>
             </div>
@@ -606,36 +851,68 @@
                 </div>
             </div>
             <div class="trf-section__body">
-                <div class="trf-metrics">
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#4f46e5;--bg:#eef2ff"><i class="bi bi-geo-alt-fill"></i></div>
-                        <span class="trf-metric__lbl">Distance</span>
-                        <span class="trf-metric__val">{{ summary.totalKm || 0 }} KM</span>
+                <div class="trf-vehicle-info trf-vehicle-info--summary">
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#4f46e5;--bg:#eef2ff"><i class="bi bi-geo-alt-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Distance</span>
+                            <span class="trf-vehicle-info__val">{{ summary.totalKm || 0 }} KM</span>
+                        </div>
                     </div>
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#0d9488;--bg:#f0fdfa"><i class="bi bi-box-seam-fill"></i></div>
-                        <span class="trf-metric__lbl">Total Load</span>
-                        <span class="trf-metric__val">{{ summary.totalWeightTon ? formatNum(summary.totalWeightTon) : '0' }} Ton</span>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-box-seam-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Total Load</span>
+                            <span class="trf-vehicle-info__val">{{ summary.totalWeightTon ? formatNum(summary.totalWeightTon) : '0' }} Ton</span>
+                        </div>
                     </div>
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#ea580c;--bg:#fff7ed"><i class="bi bi-fuel-pump-fill"></i></div>
-                        <span class="trf-metric__lbl">Expected Diesel</span>
-                        <span class="trf-metric__val">{{ form.planned_diesel_liters ? formatNum(form.planned_diesel_liters) : '0' }} Ltr</span>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#ea580c;--bg:#fff7ed"><i class="bi bi-fuel-pump-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Expected Diesel</span>
+                            <span class="trf-vehicle-info__val">{{ form.planned_diesel_liters ? formatNum(form.planned_diesel_liters) : '0' }} Ltr</span>
+                        </div>
                     </div>
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#16a34a;--bg:#f0fdf4"><i class="bi bi-speedometer2"></i></div>
-                        <span class="trf-metric__lbl">Mileage</span>
-                        <span class="trf-metric__val">{{ expectedMileageDisplay }}</span>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#16a34a;--bg:#f0fdf4"><i class="bi bi-speedometer2"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Mileage</span>
+                            <span class="trf-vehicle-info__val">{{ expectedMileageDisplay }}</span>
+                        </div>
                     </div>
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
-                        <span class="trf-metric__lbl">Total Freight</span>
-                        <span class="trf-metric__val">₹{{ formatMoney(summary.freightTotal) }}</span>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#0891b2;--bg:#ecfeff"><i class="bi bi-clock-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Est. Duration</span>
+                            <span class="trf-vehicle-info__val">{{ estimatedDurationDisplay }}</span>
+                        </div>
                     </div>
-                    <div class="trf-metric">
-                        <div class="trf-metric__icon" style="--c:#2563eb;--bg:#eff6ff"><i class="bi bi-graph-up-arrow"></i></div>
-                        <span class="trf-metric__lbl">Est. Profit</span>
-                        <span class="trf-metric__val" :style="summary.profit >= 0 ? 'color:#16a34a' : 'color:#dc2626'">₹{{ formatMoney(summary.profit) }}</span>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#9333ea;--bg:#faf5ff"><i class="bi bi-signpost-2-fill"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Cost / KM</span>
+                            <span class="trf-vehicle-info__val">{{ costPerKmDisplay }}</span>
+                        </div>
+                    </div>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Total Freight</span>
+                            <span class="trf-vehicle-info__val">₹{{ formatMoney(summary.freightTotal) }}</span>
+                        </div>
+                    </div>
+                    <div class="trf-vehicle-info__item">
+                        <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-graph-up-arrow"></i></div>
+                        <div>
+                            <span class="trf-vehicle-info__name">Est. Profit</span>
+                            <span
+                                class="trf-vehicle-info__val"
+                                :class="{
+                                    'trf-vehicle-info__val--profit': summary.profit >= 0,
+                                    'trf-vehicle-info__val--loss': summary.profit < 0,
+                                }"
+                            >₹{{ formatMoney(summary.profit) }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -655,8 +932,10 @@
                         <p class="trf-section__desc">Optional reference party and trip notes</p>
                     </div>
                 </div>
-                <div class="trf-collapse-arrow" :class="{ 'trf-collapse-arrow--open': showAdvanced }">
-                    <i class="bi bi-chevron-down"></i>
+                <div class="trf-section__head-right">
+                    <div class="trf-collapse-arrow" :class="{ 'trf-collapse-arrow--open': showAdvanced }">
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
                 </div>
             </div>
 
@@ -762,9 +1041,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import {
-    calculateLegFreight, legLoadCategoryMeta, stopHasExpenses,
-    summarizeTripForm, tripStatusMeta, tripTypeLabel,
-    computeDieselPerformance,
+    calculateLegFreight, inferTripTypeFromRoute, legLoadCategoryMeta, stopHasExpenses,
+    summarizeTripForm, tripStatusMeta,
+    computeDieselPerformance, emptyRouteStop,
     MAX_EXPECTED_MILEAGE_KM_PER_LITER, MAX_FREIGHT_RATE_PER_TON,
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
@@ -777,6 +1056,7 @@ import AppModal from '../ui/AppModal.vue';
 import SearchablePickerRedesigned from '../ui/SearchablePickerRedesigned.vue';
 import AsyncVehicleTripPickerRedesigned from './AsyncVehicleTripPickerRedesigned.vue';
 import TripDieselPerformanceCard from './TripDieselPerformanceCard.vue';
+import TripRouteTemplateSelector from './TripRouteTemplateSelector.vue';
 import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
@@ -825,8 +1105,15 @@ const emit = defineEmits([
     'add-stop','return-to-start','remove-route-leg','add-expense','remove-expense',
     'vehicle-selected','start-station-change','stop-change',
     'station-created','broker-created','customer-created','goods-type-created',
-    'status-updated','clear-field-error',
+    'status-updated','clear-field-error','trip-sequence-change',
 ]);
+
+function onTripSequenceInput(event) {
+    const raw = String(event.target.value ?? '').replace(/\D/g, '');
+    props.form.trip_sequence = raw;
+    emit('clear-field-error', 'trip_sequence');
+    emit('trip-sequence-change');
+}
 
 const toast = useAppToast();
 const maxExpectedMileage = MAX_EXPECTED_MILEAGE_KM_PER_LITER;
@@ -843,8 +1130,11 @@ const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
 const quickAddGoodsTypeLegIndex = ref(null);
 const pendingRemoveStopIndex = ref(null);
+const routeEndedOneWay = ref(false);
 
 const isFormLocked = computed(() => props.readonly);
+const hasTruckSelected = computed(() => Boolean(String(props.form.vehicle_id ?? '').trim()));
+const requiresTruckSelection = computed(() => props.mode === 'create' && !hasTruckSelected.value && !isFormLocked.value);
 const goodsTypePickerItems = computed(() => {
     const names = new Set();
     const items = [];
@@ -881,8 +1171,134 @@ const primaryDriverId = computed(() => props.form.driver_id ?? '');
 const hasPrimaryDriver = computed(() => Boolean(String(primaryDriverId.value).trim()));
 const showSubstituteDriverColumn = computed(() => (isFormLocked.value && Boolean(props.form.substitute_driver_id)) || (!isFormLocked.value && hasPrimaryDriver.value && showSubstituteDriver.value));
 const substituteDriverOptions = computed(() => props.drivers.filter((d) => String(d.id) !== String(primaryDriverId.value)));
-const isRoundTrip = computed(() => String(props.form.trip_type ?? 'ROUND_TRIP').toUpperCase() !== 'ONE_WAY');
-const tripTypeDisplay = computed(() => tripTypeLabel(props.form.trip_type));
+function legHasStationSelected(leg) {
+    return Boolean(String(leg?.to_station_id ?? '').trim());
+}
+const routeGroups = computed(() => {
+    const legs = props.form.route_legs ?? [];
+    const groups = [];
+    const primaryStations = [{
+        id: 'home',
+        kind: 'home',
+        leg: null,
+        legIndex: -1,
+        showLine: legs.length > 0,
+    }];
+
+    if (legs[0]) {
+        primaryStations.push({
+            id: 'stop-0',
+            kind: 'stop',
+            leg: legs[0],
+            legIndex: 0,
+            showLine: legs.length > 1,
+        });
+    }
+
+    groups.push({
+        id: 'primary',
+        type: 'primary',
+        stations: primaryStations,
+        cardLeg: legs[0] && legHasStationSelected(legs[0]) ? legs[0] : null,
+        cardIndex: 0,
+    });
+
+    legs.slice(1).forEach((leg, offset) => {
+        const index = offset + 1;
+        groups.push({
+            id: `stop-group-${index}`,
+            type: 'stop',
+            stations: [{
+                id: `stop-${index}`,
+                kind: 'stop',
+                leg,
+                legIndex: index,
+                showLine: index < legs.length - 1,
+            }],
+            cardLeg: legHasStationSelected(leg) ? leg : null,
+            cardIndex: index,
+        });
+    });
+
+    return groups;
+});
+const hasRouteStops = computed(() => (props.form.route_legs ?? []).length > 0);
+const isRoundTrip = computed(() => String(props.form.trip_type ?? 'ONE_WAY').toUpperCase() !== 'ONE_WAY');
+const lastRouteLeg = computed(() => {
+    const legs = props.form.route_legs ?? [];
+
+    return legs.length > 0 ? legs[legs.length - 1] : null;
+});
+const lastStopStationId = computed(() => lastRouteLeg.value?.to_station_id ?? '');
+const lastStopStationName = computed(() => stationLabel(lastStopStationId.value));
+const returnsToSource = computed(() => {
+    if (!props.form.start_station_id || !lastStopStationId.value) {
+        return false;
+    }
+
+    return String(lastStopStationId.value) === String(props.form.start_station_id);
+});
+const inferredTripTypeLabel = computed(() => {
+    if (!props.form.start_station_id || !(props.form.route_legs?.length) || !lastStopStationId.value) {
+        return '';
+    }
+
+    return isRoundTrip.value ? 'Round trip' : 'One way';
+});
+const inferredTripTypeHint = computed(() => {
+    if (!inferredTripTypeLabel.value) {
+        return '';
+    }
+
+    if (isRoundTrip.value) {
+        return 'Last stop is back at the start station';
+    }
+
+    return `Trip ends at ${lastStopStationName.value}`;
+});
+const canReturnToSource = computed(() => {
+    if (isFormLocked.value || requiresTruckSelection.value) {
+        return false;
+    }
+
+    if (props.mode === 'edit' && !isRoundTrip.value) {
+        return false;
+    }
+
+    if (!props.form.start_station_id || !lastStopStationId.value) {
+        return false;
+    }
+
+    return !returnsToSource.value;
+});
+const canEndTrip = computed(() => {
+    if (isFormLocked.value || props.mode !== 'create' || routeEndedOneWay.value || requiresTruckSelection.value) {
+        return false;
+    }
+
+    if (!props.form.start_station_id || !lastStopStationId.value || returnsToSource.value) {
+        return false;
+    }
+
+    return true;
+});
+const hasStartStation = computed(() => Boolean(String(props.form.start_station_id ?? '').trim()));
+const addStopActionLabel = computed(() => {
+    if (requiresTruckSelection.value) {
+        return 'Select Truck';
+    }
+
+    return hasStartStation.value ? 'Add stop' : 'Select Source';
+});
+const addStopActionTitle = computed(() => {
+    if (requiresTruckSelection.value) {
+        return 'Select a truck first';
+    }
+
+    return hasStartStation.value
+        ? 'Add the next stop on this trip'
+        : 'First choose the trip source station';
+});
 const truckRunningMeterDisplay = computed(() => formatMeterKm(props.vehicleOdometerKm));
 const startMeterDisplay = computed(() => { const v = props.form.start_meter_reading_km; if (v === '' || v == null) return '—'; const r = Number(v); return Number.isFinite(r) && r > 0 ? formatMeterKm(r) : '—'; });
 const endMeterDisplay = computed(() => formatMeterKm(props.form.end_meter_reading_km));
@@ -921,10 +1337,115 @@ const expectedDieselDisplay = computed(() => {
     return Number.isFinite(n) ? formatNum(n) : '0';
 });
 const startMeterWarning = computed(() => { if (isFormLocked.value) return false; const s = Number(props.form.start_meter_reading_km ?? 0), t = Number(props.vehicleOdometerKm ?? 0); return Number.isFinite(s) && s > 0 && Number.isFinite(t) && t > 0 && s < t; });
-const canReturnToStart = computed(() => { if (!isRoundTrip.value || !props.form.start_station_id || props.form.route_legs.length === 0) return false; const last = props.form.route_legs[props.form.route_legs.length - 1]; return String(last.to_station_id) !== String(props.form.start_station_id); });
 const validationMessages = computed(() => { const msgs = []; let hasRoute = false; Object.entries(props.fieldErrors).forEach(([k, v]) => { if (k.startsWith('route_legs.')) { hasRoute = true; return; } const m = Array.isArray(v) ? v : [v]; m.forEach((x) => { if (x) msgs.push(x); }); }); if (hasRoute) msgs.push('Route: fix highlighted stop fields.'); return [...new Set(msgs)].slice(0, 5); });
 
+const dieselOverCapacityWarning = computed(() => {
+    const planned = Number(props.form.planned_diesel_liters ?? 0);
+    const capacity = Number(fuelTankCapacityLtr.value ?? 0);
+    if (planned > 0 && capacity > 0 && planned > capacity) {
+        const refuelStops = Math.ceil(planned / capacity) - 1;
+        return `Expected diesel (${formatNum(planned)} Ltr) exceeds tank capacity (${formatNum(capacity)} Ltr). Trip may require ${refuelStops} refueling stop${refuelStops > 1 ? 's' : ''}.`;
+    }
+    return null;
+});
+
+const overloadedLegs = computed(() => {
+    const maxLoad = Number(props.form.max_load_ton ?? 0);
+    if (maxLoad <= 0) {
+        return [];
+    }
+    return (props.form.route_legs ?? [])
+        .map((leg, index) => ({ index, weight: Number(leg.weight_ton ?? 0) }))
+        .filter(({ weight }) => weight > maxLoad);
+});
+
+const overloadWarning = computed(() => {
+    if (overloadedLegs.value.length === 0) {
+        return null;
+    }
+    const maxLoad = Number(props.form.max_load_ton ?? 0);
+    const stops = overloadedLegs.value.map((l) => `Stop ${l.index + 1} (${formatNum(l.weight)} Ton)`).join(', ');
+    return `Load exceeds max capacity (${formatNum(maxLoad)} Ton): ${stops}. Verify weight before proceeding.`;
+});
+
+const estimatedDurationHours = computed(() => {
+    const km = summary.value.totalKm;
+    const avgSpeedKmH = 40;
+    if (km > 0) {
+        return Math.ceil(km / avgSpeedKmH);
+    }
+    return null;
+});
+
+const estimatedDurationDisplay = computed(() => {
+    const hours = estimatedDurationHours.value;
+    if (hours === null) {
+        return '—';
+    }
+    if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+    }
+    return `${hours} hrs`;
+});
+
+const costPerKm = computed(() => {
+    const totalKm = summary.value.totalKm;
+    const dieselCost = Number(props.form.planned_diesel_liters ?? 0) * Number(props.form.diesel_rate_per_liter ?? 0);
+    if (totalKm > 0 && dieselCost > 0) {
+        return dieselCost / totalKm;
+    }
+    return null;
+});
+
+const costPerKmDisplay = computed(() => {
+    const cost = costPerKm.value;
+    if (cost === null) {
+        return '—';
+    }
+    return '₹' + formatMoney(cost);
+});
+
+const driverLicenseWarning = computed(() => {
+    const driver = selectedDriver.value;
+    if (!driver || !driver.license_expiry_date) {
+        return null;
+    }
+    const tripStart = tripStartDate.value;
+    if (!tripStart) {
+        return null;
+    }
+    const expiryDate = new Date(driver.license_expiry_date);
+    const startDate = new Date(tripStart);
+    const diffDays = Math.ceil((expiryDate - startDate) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+        return `Driver's license has expired on ${formatDate(driver.license_expiry_date)}. Please assign a different driver or renew license before starting the trip.`;
+    }
+    if (diffDays <= 30) {
+        return `Driver's license expires in ${diffDays} day${diffDays !== 1 ? 's' : ''} (${formatDate(driver.license_expiry_date)}). Consider renewing before this trip.`;
+    }
+    return null;
+});
+
 function legLoadMeta(w) { return legLoadCategoryMeta(w, props.form.max_load_ton); }
+function isLegOverloaded(leg) {
+    const maxLoad = Number(props.form.max_load_ton ?? 0);
+    const weight = Number(leg?.weight_ton ?? 0);
+
+    return maxLoad > 0 && weight > maxLoad;
+}
+function isEmptyReturnLeg(leg, index) {
+    if (!isRoundTrip.value) {
+        return false;
+    }
+
+    const weight = Number(leg?.weight_ton ?? 0);
+    const isLast = index === props.form.route_legs.length - 1;
+    const returnToStart = String(leg?.to_station_id ?? '') === String(props.form.start_station_id ?? '');
+
+    return isLast && returnToStart && weight === 0;
+}
 function isStopRemoveBlocked(i) { return stopHasExpenses(props.expenseTotalsBySequence, i + 1); }
 function stopRemoveTitle(i) { if (!isStopRemoveBlocked(i)) return 'Remove stop'; const t = props.expenseTotalsBySequence[i + 1] ?? 0; return 'Stop ' + (i + 1) + ' has expenses. Clear them first.'; }
 const pendingRemoveStopLabel = computed(() => {
@@ -941,7 +1462,18 @@ const pendingRemoveStopLabel = computed(() => {
 });
 function openRemoveStopConfirm(i) { if (isStopRemoveBlocked(i)) { const t = props.expenseTotalsBySequence[i + 1] ?? 0; toast.error('Stop ' + (i + 1) + ' has ₹' + formatMoney(t) + ' expenses. Remove them first.'); return; } pendingRemoveStopIndex.value = i; showRemoveStopConfirm.value = true; }
 function cancelRemoveStopConfirm() { pendingRemoveStopIndex.value = null; showRemoveStopConfirm.value = false; }
-function confirmRemoveStop() { const i = pendingRemoveStopIndex.value; if (i === null) { cancelRemoveStopConfirm(); return; } cancelRemoveStopConfirm(); emit('remove-route-leg', i); toast.success('Stop removed.'); saveProgress(); }
+function confirmRemoveStop() {
+    const i = pendingRemoveStopIndex.value;
+    if (i === null) {
+        cancelRemoveStopConfirm();
+        return;
+    }
+    cancelRemoveStopConfirm();
+    emit('remove-route-leg', i);
+    routeEndedOneWay.value = false;
+    toast.success('Stop removed.');
+    saveProgress();
+}
 function applyLegFreightAuto(i) { const leg = props.form.route_legs[i]; if (!leg || !leg.freight_auto_calculate) return; leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate); }
 function onLegWeightInput(i) { applyLegFreightAuto(i); emit('clear-field-error', 'route_legs.' + i + '.weight_ton'); emit('clear-field-error', 'route_legs.' + i + '.freight_amount'); }
 function onLegMileageInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.expected_mileage_km_per_liter = clamp(leg.expected_mileage_km_per_liter, maxExpectedMileage); emit('clear-field-error', 'route_legs.' + i + '.expected_mileage_km_per_liter'); }
@@ -949,10 +1481,40 @@ function onLegRateInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.
 function onLegAutoCalculateChange(i) { if (props.form.route_legs[i]?.freight_auto_calculate) applyLegFreightAuto(i); }
 function onLegFreightManualInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_auto_calculate = false; }
 function onLegSameCustomerChange(i) { const leg = props.form.route_legs[i]; if (!leg) return; if (leg.use_same_customer) { leg.customer_id = props.form.customer_id ?? ''; return; } leg.customer_id = ''; }
-function syncAutoPlannedDiesel() { if (props.form.planned_diesel_manually_set || isFormLocked.value) return; const rk = calculateExpectedRunningKm(props.form.start_meter_reading_km, props.form.end_meter_reading_km || props.form.start_meter_reading_km); if (rk === null) return; const p = calculatePlannedDiesel(rk, props.form.planned_mileage_km_per_liter); if (p !== null) props.form.planned_diesel_liters = p; }
+function syncAutoPlannedDiesel() {
+    if (props.form.planned_diesel_manually_set || isFormLocked.value) {
+        return;
+    }
+
+    let runningKm = calculateExpectedRunningKm(
+        props.form.start_meter_reading_km,
+        props.form.end_meter_reading_km,
+    );
+
+    if (runningKm === null && summary.value.totalKm > 0) {
+        runningKm = summary.value.totalKm;
+    }
+
+    if (runningKm === null) {
+        return;
+    }
+
+    const plannedDiesel = calculatePlannedDiesel(runningKm, props.form.planned_mileage_km_per_liter);
+    if (plannedDiesel !== null) {
+        props.form.planned_diesel_liters = plannedDiesel;
+    }
+}
 function onPlannedMileageInput() { props.form.planned_mileage_km_per_liter = clamp(props.form.planned_mileage_km_per_liter, maxExpectedMileage); emit('clear-field-error', 'planned_mileage_km_per_liter'); syncAutoPlannedDiesel(); saveProgress(); }
 function onPlannedDieselInput() { props.form.planned_diesel_manually_set = true; saveProgress(); }
-watch(() => [props.form.start_meter_reading_km, props.form.end_meter_reading_km, props.form.planned_mileage_km_per_liter], syncAutoPlannedDiesel);
+watch(
+    () => [
+        props.form.start_meter_reading_km,
+        props.form.end_meter_reading_km,
+        props.form.planned_mileage_km_per_liter,
+        summary.value.totalKm,
+    ],
+    syncAutoPlannedDiesel,
+);
 watch(() => vehicleDefaultMileageResolved.value, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.planned_mileage_km_per_liter = m; syncAutoPlannedDiesel(); });
 watch(() => props.vehicleMaxLoad, (v) => { if (props.mode !== 'create' || v === '' || v == null) return; const m = Number(v); if (!Number.isFinite(m) || m < 0) return; props.form.max_load_ton = m; });
 watch(
@@ -977,6 +1539,28 @@ watch(
 watch(() => props.form.substitute_driver_id, (v) => { if (v) showSubstituteDriver.value = true; }, { immediate: true });
 watch(showSubstituteDriver, (e) => { if (!e && !isFormLocked.value) { props.form.substitute_driver_id = ''; emit('clear-field-error', 'substitute_driver_id'); } });
 watch(() => props.form.driver_id, (id) => { if (!id) { showSubstituteDriver.value = false; return; } if (props.form.substitute_driver_id && String(props.form.substitute_driver_id) === String(id)) props.form.substitute_driver_id = ''; });
+watch(
+    () => [
+        props.mode,
+        props.form.start_station_id,
+        (props.form.route_legs ?? []).map((leg) => String(leg?.to_station_id ?? '')).join('|'),
+        (props.form.route_legs ?? []).length,
+    ],
+    (current, previous) => {
+        if (props.mode !== 'create' || isFormLocked.value) {
+            return;
+        }
+
+        const prevLength = previous?.[3] ?? 0;
+        const nextLength = current?.[3] ?? 0;
+
+        if (nextLength !== prevLength) {
+            routeEndedOneWay.value = false;
+        }
+
+        syncInferredTripType();
+    },
+);
 function clamp(r, max) { if (r === '' || r == null) return r; const v = Number(r); if (!Number.isFinite(v)) return ''; if (v < 0) return 0; return v > max ? max : v; }
 function stationLabel(id) { if (!id) return '—'; return props.stations.find((s) => String(s.id) === String(id))?.name ?? ('#' + id); }
 function partyLabel(items, id, fallback) { if (!id) return fallback || '—'; return items.find((i) => String(i.id) === String(id))?.name ?? (fallback ?? ('#' + id)); }
@@ -994,8 +1578,123 @@ function onBrokerCreated(b) { emit('broker-created', b); saveProgress(); }
 function onCustomerCreated(customer) { emit('customer-created', { customer, legIndex: quickAddCustomerLegIndex.value }); quickAddCustomerLegIndex.value = null; saveProgress(); }
 function onGoodsTypeCreated(g) { emit('goods-type-created', { goodsType: g, legIndex: quickAddGoodsTypeLegIndex.value }); quickAddGoodsTypeLegIndex.value = null; saveProgress(); }
 function handleVehicleSelection(v) { emit('vehicle-selected', v); saveProgress(); }
-function handleStartStationPickerChange() { emit('start-station-change'); emit('clear-field-error', 'start_station_id'); saveProgress(); }
-function handleLegStopChange(i) { emit('stop-change', i); saveProgress(); }
+function handleStartStationPickerChange() { emit('start-station-change'); emit('clear-field-error', 'start_station_id'); syncInferredTripType(); saveProgress(); }
+function handleLegStopChange(i) { emit('stop-change', i); routeEndedOneWay.value = false; syncInferredTripType(); saveProgress(); }
+function handleReturnToSource() {
+    if (!canReturnToSource.value) {
+        return;
+    }
+
+    routeEndedOneWay.value = false;
+    emit('return-to-start');
+}
+function onAddStopClick() {
+    routeEndedOneWay.value = false;
+
+    if (requiresTruckSelection.value) {
+        toast.info('Select a truck first, then build the route.');
+        document.querySelector('.trf-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        return;
+    }
+
+    if (!hasStartStation.value) {
+        emit('clear-field-error', 'start_station_id');
+        focusHomeBasePicker();
+        toast.info('Select the source (starting point) first, then add stops.');
+
+        return;
+    }
+
+    emit('add-stop');
+}
+function focusHomeBasePicker() {
+    const homeBase = document.querySelector('.trf-route-board__station--home');
+
+    if (homeBase) {
+        homeBase.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    window.setTimeout(() => {
+        const trigger = document.querySelector('.trf-route-board__station--home .redesigned-picker-trigger, .trf-route-board__station--home .picker-trigger');
+
+        if (trigger instanceof HTMLElement) {
+            trigger.focus();
+            trigger.click();
+        }
+    }, 250);
+}
+function handleEndTrip() {
+    if (!canEndTrip.value) {
+        return;
+    }
+
+    routeEndedOneWay.value = true;
+    props.form.trip_type = 'ONE_WAY';
+    toast.info(`One way trip — ends at ${lastStopStationName.value}.`);
+    saveProgress();
+}
+function syncInferredTripType() {
+    if (props.mode !== 'create' || isFormLocked.value) {
+        return;
+    }
+
+    props.form.trip_type = inferTripTypeFromRoute(props.form.start_station_id, props.form.route_legs);
+
+    if (String(props.form.trip_type) === 'ROUND_TRIP') {
+        routeEndedOneWay.value = false;
+    }
+}
+function onApplyRouteTemplate(template) {
+    if (requiresTruckSelection.value) {
+        toast.info('Select a truck first, then apply a recent route.');
+
+        return;
+    }
+
+    if (!template?.start_station_id || !Array.isArray(template.route_legs)) {
+        return;
+    }
+
+    const defaultMileage =
+        props.form.planned_mileage_km_per_liter !== '' && props.form.planned_mileage_km_per_liter != null
+            ? props.form.planned_mileage_km_per_liter
+            : '';
+
+    props.form.start_station_id = template.start_station_id;
+    props.form.route_legs = template.route_legs.map((leg, index) => {
+        const next = emptyRouteStop(
+            index + 1,
+            index === 0 ? template.start_station_id : (template.route_legs[index - 1]?.to_station_id ?? ''),
+            leg.to_station_id ?? '',
+            '',
+            defaultMileage,
+        );
+
+        next.customer_id = leg.customer_id ?? '';
+        next.use_same_customer = Boolean(leg.use_same_customer);
+        next.goods_name = leg.goods_name ?? '';
+        next.weight_ton = leg.weight_ton ?? '';
+        next.freight_rate = leg.freight_rate ?? '';
+        next.freight_amount = leg.freight_amount ?? 0;
+        next.freight_auto_calculate = leg.freight_auto_calculate !== false;
+        next.distance_km = leg.distance_km ?? '';
+        next.expected_mileage_km_per_liter = leg.expected_mileage_km_per_liter || defaultMileage;
+
+        if (next.use_same_customer) {
+            next.customer_id = props.form.customer_id ?? '';
+        }
+
+        return next;
+    });
+
+    routeEndedOneWay.value = false;
+    emit('start-station-change');
+    emit('clear-field-error', 'start_station_id');
+    syncInferredTripType();
+    toast.success('Recent route applied.');
+    saveProgress();
+}
 function handleEnterKey(e) { const t = e.target; if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.type === 'submit') return; const all = Array.from(document.querySelectorAll('input:not([disabled]):not([readonly]),select:not([disabled])')); const idx = all.indexOf(t); if (idx > -1 && idx < all.length - 1) all[idx + 1].focus(); }
 function saveProgress() { if (props.mode === 'create') { try { localStorage.setItem('truckbill_trip_create_draft', JSON.stringify(props.form)); } catch {} } }
 function loadProgressDraft() { if (props.mode === 'create') { const d = localStorage.getItem('truckbill_trip_create_draft'); if (d) { try { const p = JSON.parse(d); Object.keys(p).forEach((k) => { if (props.form[k] !== undefined) props.form[k] = p[k]; }); toast.info('Restored unsaved draft.'); } catch {} } } }
@@ -1018,8 +1717,19 @@ defineExpose({ changeStatus: () => {} });
     --text: #212529;
     --muted: #6c757d;
     --danger: #dc3545;
+    --fs-title: .9rem;
+    --fs-desc: .72rem;
+    --fs-label: .68rem;
+    --fs-input: .82rem;
+    --fs-value: .82rem;
+    --fs-meta: .68rem;
+    --fs-hint: .66rem;
+    --fs-btn: .76rem;
+    --fs-metric: .95rem;
+    --input-min-h: 40px;
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: var(--text);
+    font-size: var(--fs-input);
 }
 
 /* ── Section Cards ──────────────────── */
@@ -1035,25 +1745,41 @@ defineExpose({ changeStatus: () => {} });
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 24px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--border);
     background: linear-gradient(135deg, #e7f1ff 0%, #f8f9fa 100%);
-    gap: 16px;
+    gap: 14px;
+    min-height: 62px;
 }
 .trf-section__head--green { background: linear-gradient(135deg, #d1e7dd 0%, #f8f9fa 100%); border-bottom-color: #badbcc; }
 .trf-section__head--plain { background: #fafafa; }
 .trf-section__head--toggle { cursor: pointer; user-select: none; }
 .trf-section__head--toggle:hover { background: #f3f4f6; }
-.trf-section__head-left { display: flex; align-items: center; gap: 14px; }
-.trf-section__title { font-size: 1rem; font-weight: 700; color: var(--text); margin: 0; line-height: 1.3; }
-.trf-section__desc { font-size: .78rem; color: var(--muted); margin: 2px 0 0; }
-.trf-section__body { padding: 24px; }
+.trf-section__head-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 0 1 auto;
+}
+.trf-section__head-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+.trf-section__title { font-size: var(--fs-title); font-weight: 700; color: var(--text); margin: 0; line-height: 1.3; }
+.trf-section__desc { font-size: var(--fs-desc); color: var(--muted); margin: 2px 0 0; }
+.trf-section__body { padding: 18px 20px; }
 
 /* ── Step Numbers ───────────────────── */
 .trf-step-num {
-    width: 36px; height: 36px; border-radius: 50%;
+    width: 32px; height: 32px; border-radius: 50%;
     background: var(--primary); color: #fff;
-    font-weight: 800; font-size: .9rem;
+    font-weight: 800; font-size: .8rem;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
@@ -1068,27 +1794,99 @@ defineExpose({ changeStatus: () => {} });
     gap: 16px;
 }
 .trf-picker-grid--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.trf-picker-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .trf-picker-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .trf-picker-grid--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.trf-picker-grid--details {
+    grid-template-columns:
+        minmax(0, 1.15fr)
+        minmax(0, 1.15fr)
+        minmax(0, 1.85fr)
+        minmax(8.5rem, 10rem)
+        minmax(8.5rem, 10rem);
+    align-items: start;
+    --details-label-h: 28px;
+    --details-control-h: 52px;
+}
+.trf-picker-grid--details > .trf-pf > .trf-pf__lbl {
+    height: var(--details-label-h);
+    min-height: var(--details-label-h);
+}
+.trf-picker-grid--details .trf-synced-field,
+.trf-picker-grid--details .trf-pf :deep(.redesigned-picker-trigger),
+.trf-picker-grid--details .trf-date-input :deep(.app-date-input__text) {
+    height: var(--details-control-h);
+    min-height: var(--details-control-h) !important;
+    max-height: var(--details-control-h);
+    box-sizing: border-box;
+}
+.trf-picker-grid--details .trf-synced-field {
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+.trf-picker-grid--details .trf-pf :deep(.redesigned-picker-trigger) {
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+}
+.trf-picker-grid--details .trf-date-input :deep(.app-date-input__text) {
+    display: flex;
+    align-items: center;
+}
+.trf-pf--date {
+    max-width: 10rem;
+}
+.trf-pf--date .trf-date-input :deep(.app-date-input__text) {
+    padding-left: 10px;
+    padding-right: 34px;
+    font-size: var(--fs-input);
+}
+.trf-pf--customer {
+    min-width: 0;
+}
+.trf-pf--customer :deep(.picker-trigger-main-text) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 @media (max-width: 1399px) {
+    .trf-picker-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .trf-picker-grid--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .trf-picker-grid--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .trf-picker-grid--details {
+        grid-template-columns:
+            minmax(0, 1fr)
+            minmax(0, 1fr)
+            minmax(0, 1.4fr)
+            minmax(8rem, 9.5rem)
+            minmax(8rem, 9.5rem);
+    }
 }
 @media (max-width: 1199px) {
     .trf-picker-grid,
-    .trf-picker-grid--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .trf-picker-grid--4,
+    .trf-picker-grid--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .trf-picker-grid--details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .trf-pf--date {
+        max-width: none;
+    }
 }
 @media (max-width: 767px)  {
     .trf-picker-grid,
     .trf-picker-grid--3,
+    .trf-picker-grid--4,
     .trf-picker-grid--5,
-    .trf-picker-grid--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .trf-picker-grid--6,
+    .trf-picker-grid--details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px)  {
     .trf-picker-grid,
     .trf-picker-grid--3,
+    .trf-picker-grid--4,
     .trf-picker-grid--5,
-    .trf-picker-grid--6 { grid-template-columns: 1fr; }
+    .trf-picker-grid--6,
+    .trf-picker-grid--details { grid-template-columns: 1fr; }
 }
 
 /* ── Picker Field ───────────────────── */
@@ -1101,9 +1899,16 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-pf__lbl {
     display: flex; align-items: center; gap: 7px;
-    min-height: 24px;
-    font-size: .75rem; font-weight: var(--form-label-weight, 600); color: var(--form-label-color, #475569);
-    text-transform: uppercase; letter-spacing: .04em;
+    min-height: 20px;
+    font-size: var(--fs-label); font-weight: var(--form-label-weight, 600); color: var(--form-label-color, #475569);
+    text-transform: none;
+    letter-spacing: 0;
+}
+.trf-pf__lbl-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+    min-width: 0;
 }
 .trf-pf__lbl-icon {
     width: 22px; height: 22px; border-radius: 6px;
@@ -1115,35 +1920,248 @@ defineExpose({ changeStatus: () => {} });
 .trf-pf__lbl-icon--purple { background: #faf5ff; color: #7c3aed; }
 .trf-pf__lbl-icon--orange { background: #fff7ed; color: #ea580c; }
 .trf-pf__lbl-icon--teal   { background: #f0fdfa; color: #0d9488; }
-.trf-pf__req { color: var(--danger); font-size: .85rem; font-weight: 700; margin-left: 2px; }
-.trf-pf__subst {
+.trf-pf__lbl-icon--slate  { background: #f1f5f9; color: #475569; }
+.trf-pf__req {
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: 1;
+    margin: 0;
+}
+.trf-pf__hint { font-size: var(--fs-hint); color: var(--muted); margin-top: 4px; line-height: 1.35; }
+
+/* Trip number in section heading */
+.trf-trip-id {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px 10px;
+    min-width: 0;
+}
+.trf-trip-id--head {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    max-width: min(100%, 420px);
+}
+.trf-trip-id__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
-    white-space: nowrap;
-    font-size: .64rem;
+}
+.trf-trip-id__label {
+    font-size: var(--fs-label);
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.trf-trip-id__value {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    width: 220px;
+    max-width: 100%;
+}
+.trf-trip-id__preview {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1.5px solid #e2e8f0;
+    border-right: 0;
+    border-radius: 8px 0 0 8px;
+    background: #fff;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+.trf-trip-id__preview--static {
+    display: inline-flex;
+    align-items: center;
+    border-right: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    max-width: 260px;
+}
+.trf-trip-id__seq {
+    width: 3.75rem;
+    flex: 0 0 3.75rem;
+    min-height: 34px;
+    padding: 6px 4px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 0 8px 8px 0;
+    background: #fff;
+    color: #0f172a;
+    font-size: .78rem;
+    font-weight: 600;
+    text-align: center;
+}
+.trf-trip-id__seq:focus,
+.trf-trip-id__preview:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, .12);
+    z-index: 1;
+}
+.trf-trip-id__seq--error {
+    border-color: var(--danger);
+}
+.trf-trip-id__hint {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: var(--fs-hint);
+    color: #64748b;
+    line-height: 1.3;
+    text-align: right;
+}
+@media (max-width: 767px) {
+    .trf-section__head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .trf-section__head-right {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+    .trf-trip-id--head {
+        max-width: none;
+        flex: 1;
+    }
+    .trf-trip-id__value {
+        width: 100%;
+        max-width: 280px;
+    }
+    .trf-trip-id__hint {
+        text-align: left;
+    }
+}
+.trf-trip-num-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: none;
+}
+.trf-trip-num-badge--created {
+    background: #cff4fc;
+    color: #055160;
+}
+.trf-trip-num-group {
+    display: flex;
+    gap: 0;
+    min-width: 0;
+}
+.trf-trip-num-group .trf-input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: .82rem;
+    letter-spacing: .01em;
+}
+.trf-trip-num-group__seq {
+    width: 4.25rem;
+    flex: 0 0 4.25rem;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: 0 !important;
+    text-align: center;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+}
+.trf-subst-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    flex-shrink: 0;
+    height: 24px;
+    padding: 0 7px 0 3px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
     text-transform: none;
     letter-spacing: 0;
+    transition: border-color .15s, background .15s, box-shadow .15s;
 }
-.trf-pf__subst-toggle {
-    display: inline-flex; align-items: center; gap: 5px;
-    margin-left: auto; cursor: pointer;
-    font-size: .68rem; color: var(--muted);
-    font-weight: 600; text-transform: none; letter-spacing: 0;
-    padding: 2px 7px; border-radius: 5px;
-    border: 1px solid #e5e7eb; background: #f9fafb;
-    transition: all .12s;
+.trf-subst-toggle:hover {
+    border-color: #bfdbfe;
+    background: #f8fbff;
 }
-.trf-pf__subst-toggle:hover { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.trf-pf__toggle { display: flex; align-items: center; gap: 5px; margin-left: auto; }
-.trf-pf__toggle-cb { cursor: pointer; }
-.trf-pf__toggle-lbl { font-size: .68rem; color: var(--muted); cursor: pointer; text-transform: none; letter-spacing: 0; }
-.trf-pf__err { font-size: .73rem; color: var(--danger); font-weight: 600; }
+.trf-subst-toggle.is-on {
+    border-color: #86b7fe;
+    background: #eff6ff;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, .08);
+}
+.trf-subst-toggle__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+.trf-subst-toggle__track {
+    position: relative;
+    width: 24px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: #cbd5e1;
+    transition: background .15s;
+}
+.trf-subst-toggle.is-on .trf-subst-toggle__track {
+    background: var(--primary);
+}
+.trf-subst-toggle__thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .2);
+    transition: transform .15s;
+}
+.trf-subst-toggle.is-on .trf-subst-toggle__thumb {
+    transform: translateX(10px);
+}
+.trf-subst-toggle__text {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    color: var(--muted);
+    line-height: 1;
+    white-space: nowrap;
+}
+.trf-subst-toggle.is-on .trf-subst-toggle__text {
+    color: var(--primary-dark);
+}
+.trf-subst-toggle__input:focus-visible + .trf-subst-toggle__track {
+    outline: 2px solid rgba(13, 110, 253, .35);
+    outline-offset: 2px;
+}
+.trf-field-head .trf-subst-toggle,
+.trf-freight-head .trf-subst-toggle {
+    margin-left: 0;
+}
+.trf-pf__err { font-size: var(--fs-hint); color: var(--danger); font-weight: 600; }
 
 /* ── Form Inputs ────────────────────── */
 .trf-input {
     width: 100%;
-    min-height: 44px;
-    padding: 10px 13px;
-    font-size: .9rem;
+    min-height: var(--input-min-h);
+    padding: 8px 11px;
+    font-size: var(--fs-input);
     font-weight: var(--form-input-weight, 500);
     color: var(--form-input-color, #1f2937);
     background: #fff;
@@ -1154,6 +2172,12 @@ defineExpose({ changeStatus: () => {} });
     transition: border-color .15s, box-shadow .15s;
 }
 .trf-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
+.trf-input:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 1;
+}
 .trf-input--error { border-color: var(--danger); }
 .trf-input--textarea { resize: vertical; line-height: 1.6; min-height: 3rem; }
 .trf-input--readonly {
@@ -1161,13 +2185,35 @@ defineExpose({ changeStatus: () => {} });
     color: #94a3b8;
     cursor: default;
 }
+.trf-pf--locked .trf-pf__lbl {
+    color: #94a3b8;
+}
+.trf-vehicle-info__item--locked {
+    opacity: .75;
+}
+.trf-vehicle-info__input:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+.trf-section__body--locked .trf-route-board,
+.trf-route-board--locked {
+    opacity: .72;
+}
+.trf-route-board--locked {
+    pointer-events: none;
+}
+.trf-add-stop-row:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 .trf-date-input :deep(.app-date-input__text) {
     width: 100%;
-    min-height: 52px;
-    height: 52px;
-    padding: 10px 40px 10px 13px;
-    font-size: .9rem;
+    min-height: var(--input-min-h);
+    height: var(--input-min-h);
+    padding: 8px 36px 8px 11px;
+    font-size: var(--fs-input);
     font-weight: 500;
     color: var(--text);
     background: #fff;
@@ -1188,9 +2234,9 @@ defineExpose({ changeStatus: () => {} });
 .trf-select-wrap { position: relative; }
 .trf-select {
     width: 100%;
-    min-height: 44px;
-    padding: 10px 36px 10px 13px;
-    font-size: .9rem;
+    min-height: var(--input-min-h);
+    padding: 8px 36px 8px 11px;
+    font-size: var(--fs-input);
     font-weight: 500;
     color: var(--text);
     background: #fff;
@@ -1210,14 +2256,14 @@ defineExpose({ changeStatus: () => {} });
 /* ── Readonly Values ────────────────── */
 .trf-ro-val {
     display: flex; flex-direction: column; justify-content: center;
-    min-height: 44px; padding: 10px 13px;
+    min-height: var(--input-min-h); padding: 8px 11px;
     border: 1.5px solid var(--border); border-radius: 8px;
     background: #f9fafb;
 }
-.trf-ro-val__main { font-weight: 600; font-size: .9rem; color: var(--text); }
-.trf-ro-val__sub { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+.trf-ro-val__main { font-weight: 600; font-size: var(--fs-value); color: var(--text); }
+.trf-ro-val__sub { font-size: var(--fs-meta); color: var(--muted); margin-top: 2px; }
 
-/* Driver auto-sync box — matches Truck/Customer picker height & look */
+/* Driver auto-sync box — matches Truck/Customer picker look; grows for make/model */
 .trf-synced-field {
     display: flex;
     flex-direction: column;
@@ -1225,9 +2271,9 @@ defineExpose({ changeStatus: () => {} });
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    height: 52px;
-    min-height: 52px;
-    padding: 8px 13px;
+    height: auto;
+    min-height: var(--input-min-h);
+    padding: 6px 11px;
     border: 1.5px solid var(--border);
     border-radius: 8px;
     background: #fff;
@@ -1240,7 +2286,7 @@ defineExpose({ changeStatus: () => {} });
 .trf-synced-field__main {
     display: block;
     font-weight: 600;
-    font-size: .9rem;
+    font-size: var(--fs-value);
     line-height: 1.25;
     color: #1e293b;
     white-space: nowrap;
@@ -1253,8 +2299,8 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-synced-field__sub {
     display: block;
-    margin-top: 2px;
-    font-size: 12px;
+    margin-top: 1px;
+    font-size: var(--fs-meta);
     line-height: 1.2;
     color: #64748b;
     white-space: nowrap;
@@ -1275,49 +2321,58 @@ defineExpose({ changeStatus: () => {} });
     width: 100% !important;
     max-width: 100%;
     min-width: 0;
-    height: 52px;
-    min-height: 52px !important;
+    height: auto;
+    min-height: var(--input-min-h) !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
     box-sizing: border-box;
     overflow: hidden;
+    font-size: var(--fs-input) !important;
 }
 .trf-pf :deep(.picker-trigger-content-wrap) {
     min-width: 0;
     max-width: 100%;
     overflow: hidden;
 }
-.trf-pf :deep(.picker-trigger-main-text),
+.trf-pf :deep(.picker-trigger-main-text) {
+    font-size: var(--fs-input) !important;
+    line-height: 1.25;
+}
 .trf-pf :deep(.picker-trigger-sub-text) {
-    max-width: 100%;
+    display: block;
+    font-size: var(--fs-meta) !important;
+    line-height: 1.25;
+    margin-top: 1px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /* ── Vehicle Information Cards ──────── */
 .trf-vehicle-info {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: 8px;
 }
 .trf-vehicle-info__item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 72px;
-    padding: 14px 16px;
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
+    gap: 8px;
+    min-height: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     background: #fafafa;
 }
 .trf-vehicle-info__icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: .85rem;
     background: var(--bg);
     color: var(--ic);
 }
@@ -1326,15 +2381,31 @@ defineExpose({ changeStatus: () => {} });
     font-size: .68rem;
     font-weight: 700;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .04em;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.2;
 }
 .trf-vehicle-info__val {
     display: block;
-    margin-top: 2px;
-    font-size: .95rem;
+    margin-top: 1px;
+    font-size: var(--fs-value);
     font-weight: 800;
     color: var(--text);
+    line-height: 1.2;
+}
+.trf-vehicle-info__val--profit { color: #16a34a; }
+.trf-vehicle-info__val--loss { color: #dc2626; }
+.trf-vehicle-info--summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1199px) {
+    .trf-vehicle-info--summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 991px) {
+    .trf-vehicle-info--summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+    .trf-vehicle-info--summary { grid-template-columns: 1fr; }
 }
 .trf-vehicle-info__field {
     min-width: 0;
@@ -1343,16 +2414,17 @@ defineExpose({ changeStatus: () => {} });
 .trf-vehicle-info__input {
     display: block;
     width: 100%;
-    max-width: 120px;
-    margin-top: 2px;
+    max-width: 100px;
+    margin-top: 1px;
     padding: 0;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-bottom: 1.5px solid transparent;
     background: transparent;
     outline: none;
-    font-size: .95rem;
+    font-size: var(--fs-value);
     font-weight: 800;
     color: var(--text);
+    line-height: 1.2;
 }
 .trf-vehicle-info__input:focus {
     border-bottom-color: var(--primary);
@@ -1370,240 +2442,620 @@ defineExpose({ changeStatus: () => {} });
 /* ── Banners ────────────────────────── */
 .trf-banner {
     display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px 16px; border-radius: 8px; font-size: .875rem; line-height: 1.5;
+    padding: 10px 14px; border-radius: 8px; font-size: .8rem; line-height: 1.45;
 }
 .trf-banner--error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
 .trf-banner--warn  { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.trf-banner--info  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+
+.trf-route-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+.trf-head-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: var(--fs-btn);
+    font-weight: 600;
+    line-height: 1.2;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s, box-shadow .15s, opacity .15s;
+}
+.trf-head-btn i {
+    font-size: .85rem;
+}
+.trf-head-btn--solid {
+    min-width: 8.5rem;
+    background: #198754;
+    color: #fff;
+    border: 1.5px solid #198754;
+    box-shadow: 0 1px 3px rgba(25, 135, 84, .25);
+}
+.trf-head-btn--solid:hover {
+    background: #146c43;
+    border-color: #146c43;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, .35);
+}
+.trf-head-btn--ghost {
+    background: #fff;
+    color: #146c43;
+    border: 1.5px solid #198754;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+}
+.trf-head-btn--ghost:hover:not(:disabled) {
+    background: #f0fdf4;
+    border-color: #146c43;
+}
+.trf-head-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+@media (max-width: 991px) {
+    .trf-section__head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .trf-section__head-right {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+    .trf-route-actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
+}
+.trf-route-type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 6.75rem;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    letter-spacing: 0;
+    font-family: inherit;
+    flex-shrink: 0;
+    margin-left: 2px;
+}
+.trf-route-type-badge--round {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+.trf-route-type-badge--oneway {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+.trf-route-type-badge--placeholder {
+    background: #f8fafc;
+    color: #94a3b8;
+    border: 1px dashed #cbd5e1;
+}
 
 /* ── Pills (Badges) ─────────────────── */
 .trf-pill {
     display: inline-flex; align-items: center;
     padding: 3px 10px; border-radius: 999px;
-    font-size: .7rem; font-weight: 700;
-    letter-spacing: .03em; text-transform: uppercase;
+    font-size: var(--fs-meta); font-weight: 600;
+    letter-spacing: 0; text-transform: none;
+    font-family: inherit;
 }
 .trf-pill--blue   { background: #cfe2ff; color: #084298; }
 .trf-pill--green  { background: #d1e7dd; color: #0f5132; }
 .trf-pill--red    { background: #f8d7da; color: #842029; }
 .trf-pill--orange { background: #fff3cd; color: #664d03; }
 
-/* ── Route Home Base ────────────────── */
-.trf-route-home {
-    display: grid;
-    grid-template-columns: 36px minmax(210px, 240px) 1fr;
-    gap: 12px;
-    align-items: stretch;
-    padding: 4px 0 0;
-}
-.trf-route-home__timeline { display: flex; flex-direction: column; align-items: center; min-height: 78px; }
-.trf-route-home__dot {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--success); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .95rem; flex-shrink: 0;
-    position: relative; z-index: 1;
-}
-.trf-route-home__line {
-    width: 2px;
-    flex: 1;
-    min-height: 42px;
-    background: repeating-linear-gradient(
-        to bottom,
-        #6ee7b7,
-        #6ee7b7 6px,
-        transparent 6px,
-        transparent 12px
-    );
-}
-.trf-route-home__content { min-width: 0; padding-bottom: 14px; }
-.trf-route-home__info { display: flex; align-items: center; gap: 4px; min-height: 24px; }
-.trf-route-home__label { font-size: .7rem; font-weight: 800; color: #343a40; text-transform: uppercase; letter-spacing: .04em; }
-.trf-route-home__req { font-size: .85rem; color: var(--danger); font-weight: 700; }
-.trf-route-home__picker { width: 100%; }
-
-/* ── Route Empty ────────────────────── */
-.trf-route-empty { padding: 8px 0 0; }
-.trf-route-empty__dashed {
-    border: 2px dashed #d1d5db; border-radius: 10px;
-    padding: 32px; text-align: center; color: var(--muted);
-}
-.trf-route-empty__dashed i { font-size: 2rem; display: block; margin-bottom: 10px; opacity: .35; }
-
-/* ── Leg Layout ─────────────────────── */
-.trf-legs { display: flex; flex-direction: column; gap: 0; }
-.trf-leg {
-    display: grid;
-    grid-template-columns: 36px minmax(210px, 240px) minmax(0, 1fr);
-    gap: 0 12px;
-    align-items: stretch;
-}
-.trf-leg__timeline {
-    position: relative;
+/* ── Route Board ────────────────────── */
+.trf-route-board {
     display: flex;
-    justify-content: center;
-    padding-top: 24px;
+    flex-direction: column;
+    gap: 12px;
+}
+.trf-route-board__banner {
+    margin: 0;
+}
+.trf-route-group {
+    display: grid;
+    grid-template-columns: minmax(236px, 276px) minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: stretch;
+}
+.trf-route-group--no-card {
+    grid-template-columns: minmax(236px, 276px);
+}
+.trf-route-group--empty-right .trf-route-group__right {
     min-height: 100%;
 }
-.trf-leg__timeline::before,
-.trf-leg__timeline::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    width: 2px;
-    transform: translateX(-50%);
-    background: repeating-linear-gradient(
-        to bottom,
-        #6ee7b7,
-        #6ee7b7 6px,
-        transparent 6px,
-        transparent 12px
-    );
+.trf-route-empty-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 100%;
+    padding: 16px 20px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    text-align: center;
 }
-.trf-leg__timeline::before { top: 0; height: 24px; }
-.trf-leg__timeline::after { top: 60px; bottom: 0; }
-.trf-leg:last-child .trf-leg__timeline::after { display: none; }
-.trf-leg__dot {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 2.5px solid var(--success); background: #fff; color: var(--success);
-    font-weight: 800; font-size: .85rem;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    position: relative; z-index: 1;
-}
-
-.trf-leg__station { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; padding-bottom: 18px; position: relative; }
-.trf-leg__station-head {
+.trf-route-empty-panel__icon {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-    min-height: 24px;
-    /* leave room on the right for the picker's eye/add actions */
-    padding-right: 58px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #4f46e5;
+    font-size: 1rem;
 }
-.trf-leg__station-tag { font-size: .68rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.trf-leg__remove-btn {
+.trf-route-empty-panel__text {
+    margin: 0;
+    max-width: 280px;
+    color: var(--muted);
+    font-size: var(--fs-hint);
+    font-weight: 500;
+    line-height: 1.4;
+}
+.trf-route-empty-panel__text strong {
+    color: var(--text);
+    font-weight: 700;
+}
+.trf-route-group__left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    height: 100%;
+    align-self: stretch;
+}
+.trf-route-group__right {
+    display: flex;
+    min-width: 0;
+    min-height: 100%;
+    align-self: stretch;
+}
+.trf-route-station {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: start;
+    flex: 0 0 auto;
+    min-height: 0;
+}
+/* Source grows so Stop 1 sits on the section bottom; both pickers stay equal size */
+.trf-route-group--primary:not(.trf-route-group--no-card) .trf-route-station--home {
+    flex: 1 1 auto;
+    align-items: stretch;
+}
+.trf-route-group--primary .trf-route-station--stop {
+    flex: 0 0 auto;
+    align-self: stretch;
+}
+/* Later stops: pin equal-sized picker to the section bottom */
+.trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-station {
+    flex: 1 1 auto;
+    align-items: stretch;
+}
+.trf-route-board__rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: stretch;
+    min-height: 100%;
+    padding-top: 2px;
+}
+.trf-route-board__dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--success);
+    color: #fff;
+    font-weight: 700;
+    font-size: var(--fs-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 0 3px #fff;
+}
+.trf-route-board__dot--home {
+    font-size: var(--fs-input);
+}
+.trf-route-board__dot--empty {
+    background: #fd7e14;
+}
+.trf-route-board__line {
+    width: 3px;
+    flex: 1;
+    min-height: 18px;
+    margin-top: 2px;
+    border-radius: 999px;
+    background: #86efac;
+}
+.trf-route-board__line--lead {
+    flex: 1 1 auto;
+    min-height: 18px;
+    margin-top: 0;
+    margin-bottom: 2px;
+}
+.trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-board__station {
+    align-self: end;
+}
+.trf-route-board__station {
+    min-width: 0;
+    width: 100%;
+}
+.trf-route-board__label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+    min-height: 20px;
+    margin-bottom: 6px;
+    font-size: var(--fs-label);
+    font-weight: var(--form-label-weight, 600);
+    color: var(--form-label-color, #475569);
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.trf-route-board__label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 20px;
+    margin-bottom: 6px;
+}
+.trf-route-board__label-row .trf-route-board__label {
+    margin-bottom: 0;
+}
+.trf-route-board__hint {
+    margin-left: 3px;
+    font-size: inherit;
+    font-weight: inherit;
+    color: var(--muted);
+}
+.trf-route-board__station :deep(.redesigned-picker-trigger),
+.trf-route-board__station :deep(.picker-trigger) {
+    font-size: var(--fs-input) !important;
+    font-family: inherit;
+}
+/* Source / Stop pickers share one fixed size & shape */
+.trf-route-board__station :deep(.redesigned-picker-trigger),
+.trf-route-board__station :deep(.picker-trigger) {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+.trf-route-board__station :deep(.picker-trigger-content-wrap) {
+    justify-content: center;
+    overflow: hidden;
+}
+.trf-route-board__station :deep(.picker-trigger-main-text) {
+    font-size: var(--fs-input) !important;
+    font-weight: 600;
+}
+.trf-route-board__station :deep(.picker-trigger-sub-text) {
+    font-size: var(--fs-meta) !important;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.trf-route-board__station > .trf-ro-val {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: 52px;
+    min-height: 52px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+}
+.trf-leg__station-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.trf-leg__station-picker-main {
+    flex: 1;
+    min-width: 0;
+}
+.trf-leg__station-clear {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    min-height: 26px;
-    padding: 2px 8px;
-    border: 1px solid #f1aeb5;
-    border-radius: 6px;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     background: #fff;
-    color: #b02a37;
+    color: #94a3b8;
     font-size: .7rem;
-    font-weight: 700;
-    line-height: 1;
     cursor: pointer;
-    transition: background .15s, border-color .15s;
 }
-.trf-leg__remove-btn:hover:not(:disabled) {
-    border-color: #dc3545;
+.trf-leg__station-clear:hover:not(:disabled) {
+    color: #dc3545;
+    border-color: #f1aeb5;
     background: #fff5f5;
 }
-.trf-leg__remove-btn:disabled {
-    opacity: .45;
+.trf-leg__station-clear:disabled {
+    opacity: .4;
     cursor: not-allowed;
 }
 
-/* ── Leg Card ───────────────────────── */
+/* Leg card stretches to match left column height */
 .trf-leg__card {
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 12px 14px 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     background: #fff;
-    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
-.trf-leg__dist { font-size: .75rem; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 .trf-leg__fields {
+    --leg-control-h: 40px;
+    --leg-head-h: 24px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 16px;
-    row-gap: 14px;
-    align-items: start;
+    column-gap: 14px;
+    row-gap: 12px;
+    align-items: stretch;
+    flex: 1 1 auto;
+    padding: 12px 14px 10px;
+    min-width: 0;
 }
-@media (max-width: 767px)  { .trf-leg__fields { grid-template-columns: repeat(2,1fr); } }
+/* Customer / Goods / KM/Ltr / Weight / Rate / Freight — same control size */
+.trf-leg__fields :deep(.redesigned-picker-trigger),
+.trf-leg__fields :deep(.picker-trigger) {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--leg-control-h);
+    min-height: var(--leg-control-h);
+    max-height: var(--leg-control-h);
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: var(--fs-input) !important;
+    font-family: inherit;
+    line-height: 1.2;
+}
+.trf-leg__fields :deep(.picker-trigger-content-wrap) {
+    justify-content: center;
+    overflow: hidden;
+}
+.trf-leg__fields :deep(.picker-trigger-main-text) {
+    font-size: var(--fs-input) !important;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.trf-leg__fields :deep(.picker-trigger-sub-text) {
+    display: none;
+}
+.trf-leg__fields .trf-input,
+.trf-leg__fields .trf-num-field,
+.trf-leg__fields .trf-same-cust,
+.trf-leg__fields .trf-ro-val,
+.trf-leg__fields .trf-lf__picker {
+    width: 100%;
+    height: var(--leg-control-h);
+    min-height: var(--leg-control-h);
+    max-height: var(--leg-control-h);
+    box-sizing: border-box;
+    font-size: var(--fs-input);
+    font-family: inherit;
+}
+.trf-leg__fields .trf-num-field .trf-input {
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+}
+.trf-leg__fields .trf-same-cust,
+.trf-leg__fields .trf-ro-val {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 11px;
+    overflow: hidden;
+}
+.trf-leg__fields .trf-ro-val__main {
+    font-size: var(--fs-input);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .trf-leg__meta {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 20px;
-    margin: 10px -14px 0;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: auto;
     padding: 8px 14px;
-    border-top: 1px solid #eef1f4;
-    background: #f8f9fa;
-    font-size: .72rem;
+    border-top: 1px solid #eef2f7;
+    background: #f8fafc;
+    font-size: var(--fs-meta);
     font-weight: 600;
-    color: #6c757d;
+    color: var(--form-label-color, #475569);
+    font-family: inherit;
 }
-.trf-leg__pricing { display: flex; align-items: center; gap: 8px; }
-.trf-leg__meta-label { color: #495057; font-weight: 700; }
-.trf-leg__pricing-status {
+.trf-leg__meta-left,
+.trf-leg__meta-right {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    color: #198754;
+    flex-wrap: wrap;
+    gap: 8px;
 }
-.trf-leg__pricing-status--missing { color: #b45309; }
-.trf-leg__load {
-    color: #495057;
+.trf-leg__meta-label {
+    color: var(--form-label-color, #475569);
+    font-size: inherit;
+    font-weight: 600;
+}
+.trf-leg__rate-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 600;
+    font-size: var(--fs-meta);
+}
+.trf-leg__rate-badge--missing {
+    background: #ffedd5;
+    color: #c2410c;
+}
+.trf-leg__load-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid #86efac;
+    background: #f0fdf4;
+    color: #166534;
+    font-weight: 600;
+    font-size: var(--fs-meta);
+}
+.trf-leg__load-badge--over {
+    border-color: #fdba74;
+    background: #fff7ed;
+    color: #c2410c;
+}
+.trf-leg__dist {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    color: var(--form-label-color, #475569);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.trf-leg__dist-input {
+    width: 4.5rem;
+    margin: 0 2px;
+    padding: 2px 6px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    font-family: inherit;
+}
+.trf-vehicle-info__input--warn {
+    color: #b45309;
+}
+.trf-route-board > .trf-add-stop-row {
+    width: calc(100% - 50px);
+    margin-left: 50px;
+    margin-top: 2px;
 }
 @media (max-width: 991.98px) {
-    .trf-route-home {
-        grid-template-columns: 36px minmax(0, 1fr);
+    .trf-route-group {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
     }
-    .trf-leg {
-        grid-template-columns: 36px minmax(0, 1fr);
+    .trf-route-group__left,
+    .trf-route-group__right {
+        min-height: 0;
+        height: auto;
     }
-    .trf-leg__timeline {
-        grid-row: 1 / span 2;
+    .trf-route-group--primary:not(.trf-route-group--no-card) .trf-route-station--home,
+    .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-station {
+        flex: 0 0 auto;
     }
-    .trf-leg__station,
+    .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-board__station {
+        align-self: start;
+    }
+    .trf-route-board__line--lead {
+        display: none;
+    }
     .trf-leg__card {
-        grid-column: 2;
+        height: auto;
+        min-height: 0;
     }
-    .trf-leg__station {
-        padding-bottom: 8px;
+    .trf-route-board > .trf-add-stop-row {
+        width: 100%;
+        margin-left: 0;
     }
-    .trf-leg__meta { justify-content: flex-start; flex-wrap: wrap; }
+}
+@media (max-width: 767.98px) {
+    .trf-leg__fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 @media (max-width: 575.98px) {
-    .trf-route-home,
-    .trf-leg {
-        grid-template-columns: 30px minmax(0, 1fr);
-        gap: 8px;
+    .trf-route-station {
+        grid-template-columns: 28px minmax(0, 1fr);
+        column-gap: 10px;
     }
-    .trf-route-home__dot,
-    .trf-leg__dot {
-        width: 30px;
-        height: 30px;
-    }
-    .trf-leg__timeline::after {
-        top: 54px;
+    .trf-route-board__dot {
+        width: 28px;
+        height: 28px;
+        font-size: .75rem;
     }
     .trf-leg__fields {
         grid-template-columns: 1fr;
-    }
-    .trf-leg__card {
-        padding: 10px 10px 0;
-    }
-    .trf-leg__meta {
-        margin-right: -10px;
-        margin-left: -10px;
-        padding-right: 10px;
-        padding-left: 10px;
-    }
-    .trf-leg__pricing {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 6px;
+        padding: 10px;
     }
 }
 
 /* ── Leg Fields ─────────────────────── */
-.trf-lf { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.trf-lf--sm {}
-.trf-lf__lbl { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.trf-lf {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+    height: 100%;
+    min-height: 0;
+}
+.trf-lf__lbl {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    min-height: var(--leg-head-h, 24px);
+    font-size: var(--fs-label);
+    font-weight: var(--form-label-weight, 600);
+    color: var(--form-label-color, #475569);
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+}
 .trf-field-head,
 .trf-freight-head {
     display: flex;
@@ -1611,73 +3063,64 @@ defineExpose({ changeStatus: () => {} });
     justify-content: space-between;
     gap: 6px;
     min-width: 0;
+    min-height: var(--leg-head-h, 24px);
+    flex-wrap: nowrap;
 }
-.trf-field-head--with-picker {
-    justify-content: flex-start;
-    gap: 10px;
-    /* leave room for SearchablePicker eye/add actions on the right */
-    padding-right: 56px;
-    min-height: 24px;
+.trf-field-head .trf-lf__lbl,
+.trf-freight-head .trf-lf__lbl {
+    min-height: 0;
+}
+/* Keep every control on the same baseline within a row */
+.trf-lf > .trf-lf__picker,
+.trf-lf > .trf-input,
+.trf-lf > .trf-num-field,
+.trf-lf > .trf-same-cust,
+.trf-lf > .trf-ro-val,
+.trf-lf > :deep(.searchable-picker) {
+    margin-top: auto;
 }
 .trf-lf__picker {
     position: relative;
 }
-.trf-field-head__check,
-.trf-freight-auto {
-    flex-shrink: 0;
-    white-space: nowrap;
-    font-size: .64rem;
+.trf-leg__fields :deep(.picker-header-actions) {
+    top: -22px;
 }
 .trf-num-field { position: relative; }
-.trf-leg__fields .trf-input,
-.trf-leg__fields .trf-num-field,
-.trf-leg__fields .trf-same-cust {
-    width: 100%;
-    min-height: 44px;
-    box-sizing: border-box;
-}
 .trf-num-field--prefix .trf-input { padding-left: 24px; }
-.trf-num-field__prefix { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: .85rem; font-weight: 700; color: var(--muted); }
-.trf-same-cust { padding: 9px 12px; font-size: .85rem; font-weight: 600; color: var(--muted); border: 1.5px dashed var(--border); border-radius: 8px; background: #f9fafb; }
-.trf-check-label { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--muted); cursor: pointer; }
+.trf-num-field__prefix {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: var(--fs-input);
+    font-weight: 600;
+    color: var(--muted);
+    line-height: 1;
+    pointer-events: none;
+}
+.trf-same-cust {
+    font-size: var(--fs-input);
+    font-weight: 500;
+    color: var(--muted);
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    background: #f9fafb;
+}
 
 /* ── Add Stop Row ───────────────────── */
 .trf-add-stop-row {
-    width: 100%;
     display: flex; align-items: center; justify-content: center;
     min-height: 38px;
     border: 2px dashed #d1d5db; border-radius: 10px;
     padding: 7px 14px; cursor: pointer;
-    background: transparent; font-size: .875rem; font-weight: 600; color: var(--success);
-    margin-top: 4px; transition: all .15s;
+    background: transparent;
+    font-size: var(--fs-btn);
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--success);
+    transition: all .15s;
 }
 .trf-add-stop-row:hover { border-color: var(--success); background: #d1e7dd33; }
-
-/* ── Summary Metrics ────────────────── */
-.trf-metrics {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-}
-@media (max-width: 1199px) { .trf-metrics { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 767px)  { .trf-metrics { grid-template-columns: repeat(2, 1fr); } }
-
-.trf-metric {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 20px 12px; border: 1.5px solid var(--border);
-    border-radius: 12px; background: #fff; text-align: center;
-    transition: box-shadow .2s, transform .2s;
-    cursor: default;
-}
-.trf-metric:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.trf-metric__icon {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: var(--bg); color: var(--c);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.25rem; margin-bottom: 10px;
-}
-.trf-metric__lbl { font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
-.trf-metric__val { font-size: 1.1rem; font-weight: 800; color: var(--text); }
 
 /* ── Collapse Arrow ─────────────────── */
 .trf-collapse-arrow { color: var(--muted); font-size: .95rem; transition: transform .25s; }
@@ -1686,17 +3129,17 @@ defineExpose({ changeStatus: () => {} });
 /* ── Action Buttons ─────────────────── */
 .trf-primary-btn {
     display: inline-flex; align-items: center;
-    padding: 8px 18px; border-radius: 8px;
+    padding: 7px 14px; border-radius: 8px;
     background: var(--success); color: #fff;
-    border: none; font-weight: 600; font-size: .85rem; cursor: pointer;
+    border: none; font-weight: 600; font-size: var(--fs-btn); cursor: pointer;
     transition: background .15s, box-shadow .15s;
 }
 .trf-primary-btn:hover { background: var(--success-dark); box-shadow: 0 2px 8px rgba(25,135,84,.35); }
 .trf-outline-btn {
     display: inline-flex; align-items: center;
-    padding: 8px 16px; border-radius: 8px;
+    padding: 7px 12px; border-radius: 8px;
     background: transparent; color: var(--success);
-    border: 1.5px solid var(--success); font-weight: 600; font-size: .85rem; cursor: pointer;
+    border: 1.5px solid var(--success); font-weight: 600; font-size: var(--fs-btn); cursor: pointer;
     transition: all .15s;
 }
 .trf-outline-btn:hover { background: #d1e7dd; }
@@ -1719,7 +3162,7 @@ defineExpose({ changeStatus: () => {} });
 .trf-validation-bar__inner { display: flex; flex-direction: column; }
 .trf-validation-bar__row {
     display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px 18px; font-size: .875rem; font-weight: 500; line-height: 1.5;
+    padding: 10px 16px; font-size: .8rem; font-weight: 500; line-height: 1.45;
 }
 .trf-validation-bar__row--error { background: #dc2626; color: #fff; }
 .trf-validation-bar__row--warn  { background: #f59e0b; color: #fff; }

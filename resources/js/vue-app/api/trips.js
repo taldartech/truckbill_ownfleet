@@ -163,6 +163,24 @@ export function tripTypeLabel(type) {
     return TRIP_TYPES.find((t) => t.value === String(type ?? '').toUpperCase())?.label ?? 'Trip';
 }
 
+/**
+ * Infer trip type from route shape: last stop back at start => round trip, else one way.
+ */
+export function inferTripTypeFromRoute(startStationId, routeLegs = []) {
+    if (!startStationId || !Array.isArray(routeLegs) || routeLegs.length === 0) {
+        return 'ONE_WAY';
+    }
+
+    const lastLeg = routeLegs[routeLegs.length - 1];
+    const lastTo = lastLeg?.to_station_id;
+
+    if (lastTo && String(lastTo) === String(startStationId)) {
+        return 'ROUND_TRIP';
+    }
+
+    return 'ONE_WAY';
+}
+
 export function tripTypeMeta(type) {
     const normalized = String(type ?? 'ROUND_TRIP').toUpperCase();
 
@@ -261,6 +279,7 @@ export function emptyRouteStop(
         freight_auto_calculate: true,
         weight_ton: '',
         expected_mileage_km_per_liter: expectedMileage,
+        distance_km: '',
         goods_name: '',
         remarks: '',
     };
@@ -1317,7 +1336,13 @@ export function summarizeTripForm(form) {
         endMeterRaw !== '' && endMeterRaw != null && Number.isFinite(Number(endMeterRaw))
             ? parseNumeric(endMeterRaw)
             : null;
-    const totalKm = endMeter !== null && startMeter > 0 ? Math.max(0, endMeter - startMeter) : 0;
+    const meterKm = endMeter !== null && startMeter > 0 ? Math.max(0, endMeter - startMeter) : 0;
+    const routeDistanceKm = (form.route_legs ?? []).reduce((sum, leg) => {
+        const distance = Number(leg.distance_km ?? 0);
+
+        return sum + (Number.isFinite(distance) && distance > 0 ? distance : 0);
+    }, 0);
+    const totalKm = meterKm > 0 ? meterKm : routeDistanceKm;
 
     const legAverageMileage = averageLegExpectedMileage(form.route_legs);
     const plannedMileageRaw = form.planned_mileage_km_per_liter;
@@ -1332,6 +1357,8 @@ export function summarizeTripForm(form) {
         emptyStops,
         expectedMileage: legAverageMileage ?? plannedMileage,
         totalKm,
+        meterKm,
+        routeDistanceKm,
         totalWeightTon,
         freightTotal,
         expenseTotal,

@@ -19,7 +19,7 @@
                 :can-quick-add-goods-type="canQuickAddGoodsType"
                 :form-error="tripFormError"
                 :field-errors="fieldErrors"
-                :trip-number-display="previewTripNumber ? `Next: ${previewTripNumber}` : ''"
+                :trip-number-display="previewTripNumber"
                 :driver-warning="driverWarning"
                 :loading-driver="loadingDriver"
                 :primary-driver-name="primaryDriverName"
@@ -39,6 +39,7 @@
                 @goods-type-created="onGoodsTypeCreated"
                 @vehicle-selected="onVehicleSelected"
                 @clear-field-error="clearFieldError"
+                @trip-sequence-change="onTripSequenceChange"
             />
 
             <div class="trip-form-actions card shadow-sm mt-4">
@@ -86,7 +87,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
@@ -108,6 +109,7 @@ import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
 import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
+import { buildRouteTemplateFromForm, saveRecentRouteTemplate } from '../../utils/tripRouteTemplates';
 
 const router = useRouter();
 const route = useRoute();
@@ -230,12 +232,19 @@ function onGoodsTypeCreated({ goodsType, legIndex = null }) {
 }
 
 function handleAddStop() {
+    if (!form.vehicle_id) {
+        toast.warning('Select a truck first.');
+        scrollToFirstFormError();
+
+        return;
+    }
+
     if (!form.start_station_id) {
         fieldErrors.value = {
             ...fieldErrors.value,
-            start_station_id: ['Select the start station before adding a stop.'],
+            start_station_id: ['Select the source (starting point) before adding a stop.'],
         };
-        toast.warning('Select a start station first.');
+        toast.warning('Select the source (starting point) first.');
         scrollToFirstFormError();
 
         return;
@@ -246,7 +255,7 @@ function handleAddStop() {
 }
 
 function handleClearForm() {
-    const tripType = form.trip_type;
+    const tripType = 'ONE_WAY';
     resetForm();
     form.trip_type = tripType;
     form.start_at = toDateInputValue();
@@ -256,7 +265,61 @@ function handleClearForm() {
     vehicleDefaultMileage.value = '';
     vehicleMaxLoad.value = '';
     vehicleFuelTankCapacity.value = '';
+    refreshTripNumberPreview({ syncSequence: true });
 }
+
+let tripNumberPreviewTimer = null;
+let tripNumberPreviewRequestId = 0;
+
+function onTripSequenceChange() {
+    if (tripNumberPreviewTimer) {
+        clearTimeout(tripNumberPreviewTimer);
+    }
+
+    tripNumberPreviewTimer = setTimeout(() => {
+        refreshTripNumberPreview({ syncSequence: false });
+    }, 350);
+}
+
+async function refreshTripNumberPreview({ syncSequence = false } = {}) {
+    if (needsCompanySelection.value) {
+        previewTripNumber.value = '';
+
+        return;
+    }
+
+    const requestId = ++tripNumberPreviewRequestId;
+    const sequenceRaw = form.trip_sequence;
+    const hasSequence = sequenceRaw !== '' && sequenceRaw != null;
+
+    try {
+        const preview = await fetchNextTripNumber({
+            startAt: form.start_at || null,
+            sequence: hasSequence ? Number(sequenceRaw) : null,
+        });
+
+        if (requestId !== tripNumberPreviewRequestId) {
+            return;
+        }
+
+        previewTripNumber.value = preview.trip_number || '';
+
+        if (syncSequence && preview.sequence != null) {
+            form.trip_sequence = String(preview.sequence);
+        }
+    } catch {
+        if (requestId === tripNumberPreviewRequestId) {
+            previewTripNumber.value = '';
+        }
+    }
+}
+
+watch(
+    () => form.start_at,
+    () => {
+        refreshTripNumberPreview({ syncSequence: true });
+    },
+);
 
 function handleReturnToStart() {
     if (form.route_legs.length === 0) {
@@ -266,7 +329,7 @@ function handleReturnToStart() {
     }
 
     addReturnToStart();
-    toast.info('Return leg added from start station (empty).');
+    toast.info('Return to source added (empty load).');
 }
 
 async function loadLookups() {
@@ -382,6 +445,12 @@ async function confirmSave(mode = 'index') {
     try {
         const trip = await createTrip(pendingPayload.value);
         showSaveConfirm.value = false;
+
+        const routeTemplate = buildRouteTemplateFromForm(form, stations.value);
+        if (routeTemplate) {
+            saveRecentRouteTemplate(routeTemplate);
+        }
+
         pendingPayload.value = null;
         localStorage.removeItem('truckbill_trip_create_draft');
 
@@ -409,26 +478,20 @@ async function confirmSave(mode = 'index') {
 onMounted(async () => {
     resetForm();
     form.start_at = toDateInputValue();
+    form.trip_type = 'ONE_WAY';
 
     const typeParam = String(route.query.type ?? '');
 
+    // Optional legacy query still accepted, but route shape will override on create.
     if (typeParam === 'one_way') {
         form.trip_type = 'ONE_WAY';
     } else if (typeParam === 'round_trip') {
         form.trip_type = 'ROUND_TRIP';
-    } else {
-        await router.replace(tripListReturnWithFlash({ create: '1' }));
-
-        return;
     }
 
     if (!needsCompanySelection.value) {
         await loadLookups();
-        try {
-            previewTripNumber.value = await fetchNextTripNumber();
-        } catch {
-            previewTripNumber.value = '';
-        }
+        await refreshTripNumberPreview({ syncSequence: true });
     }
 });
 </script>

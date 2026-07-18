@@ -694,7 +694,9 @@ class TripService
                 'tenant_id' => $trip->tenant_id,
                 'trip_id' => $trip->id,
                 'sequence_no' => (int) ($leg['sequence_no'] ?? ($index + 1)),
-                'distance_km' => 0,
+                'distance_km' => isset($leg['distance_km']) && $leg['distance_km'] !== '' && $leg['distance_km'] !== null
+                    ? round((float) $leg['distance_km'], 2)
+                    : 0,
                 ...$this->buildRouteLegAttributes($trip, $leg, null, $stationNames),
             ]);
         }

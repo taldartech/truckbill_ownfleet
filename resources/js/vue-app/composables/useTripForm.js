@@ -4,6 +4,7 @@ import {
     clampExpenseDate,
     emptyExpense,
     emptyRouteStop,
+    inferTripTypeFromRoute,
     parseNumeric,
     resolveExpenseRouteLegSequence,
     resolveLegFreightAutoCalculate,
@@ -21,7 +22,7 @@ export function useTripForm() {
         customer_id: '',
         broker_id: '',
         start_station_id: '',
-        trip_type: 'ROUND_TRIP',
+        trip_type: 'ONE_WAY',
         status: 'CREATED',
         start_at: '',
         end_at: '',
@@ -49,7 +50,7 @@ export function useTripForm() {
         form.customer_id = '';
         form.broker_id = '';
         form.start_station_id = '';
-        form.trip_type = 'ROUND_TRIP';
+        form.trip_type = 'ONE_WAY';
         form.status = 'CREATED';
         form.start_at = '';
         form.end_at = '';
@@ -99,6 +100,10 @@ export function useTripForm() {
         });
     }
 
+    function syncTripTypeFromRoute() {
+        form.trip_type = inferTripTypeFromRoute(form.start_station_id, form.route_legs);
+    }
+
     function addStop() {
         if (!form.start_station_id) {
             return;
@@ -117,6 +122,7 @@ export function useTripForm() {
         const leg = emptyRouteStop(form.route_legs.length + 1, fromStationId, '', '', defaultMileage);
         applySameCustomerDefault(leg);
         form.route_legs.push(leg);
+        syncTripTypeFromRoute();
     }
 
     function addReturnToStart() {
@@ -149,15 +155,18 @@ export function useTripForm() {
         applySameCustomerDefault(returnLeg);
 
         form.route_legs.push(returnLeg);
+        syncTripTypeFromRoute();
     }
 
     function removeRouteLeg(index) {
         form.route_legs.splice(index, 1);
         rebuildLegChain();
+        syncTripTypeFromRoute();
     }
 
     function onStartStationChange() {
         rebuildLegChain();
+        syncTripTypeFromRoute();
     }
 
     function onStopStationChange(index) {
@@ -166,6 +175,8 @@ export function useTripForm() {
         if (index < form.route_legs.length - 1) {
             form.route_legs[index + 1].from_station_id = form.route_legs[index].to_station_id;
         }
+
+        syncTripTypeFromRoute();
     }
 
     function populateFromTrip(trip) {
@@ -241,6 +252,10 @@ export function useTripForm() {
                     leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                         ? ''
                         : Number(leg.expected_mileage_km_per_liter),
+                distance_km:
+                    leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
+                        ? ''
+                        : Number(leg.distance_km),
                 goods_name: leg.goods_name ?? '',
                 remarks: leg.remarks ?? '',
             };
@@ -393,6 +408,10 @@ export function useTripForm() {
                         leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
                             ? null
                             : Number(leg.expected_mileage_km_per_liter),
+                    distance_km:
+                        leg.distance_km === '' || leg.distance_km == null
+                            ? 0
+                            : Number(leg.distance_km),
                     goods_name: leg.goods_name?.trim() || null,
                     freight_amount: freight > 0 ? freight : 0,
                     remarks: leg.remarks || null,
@@ -510,6 +529,7 @@ export function useTripForm() {
         rebuildLegChain,
         onStartStationChange,
         onStopStationChange,
+        syncTripTypeFromRoute,
         addExpense,
         removeExpense,
         buildPayload,

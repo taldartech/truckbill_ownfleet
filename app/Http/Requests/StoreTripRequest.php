@@ -70,6 +70,7 @@ class StoreTripRequest extends FormRequest
             'route_legs.*.freight_rate' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'route_legs.*.weight_ton' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'route_legs.*.distance_km' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.sequence_no' => ['nullable', 'integer', 'min:1'],
             'route_legs.*.freight_amount' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.remarks' => ['nullable', 'string', 'max:1000'],

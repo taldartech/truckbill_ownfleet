@@ -347,9 +347,9 @@ function handleAddStop() {
     if (!form.start_station_id) {
         fieldErrors.value = {
             ...fieldErrors.value,
-            start_station_id: ['Select the start station before adding a stop.'],
+            start_station_id: ['Select the source (starting point) before adding a stop.'],
         };
-        toast.warning('Select a start station first.');
+        toast.warning('Select the source (starting point) first.');
         scrollToFirstFormError();
 
         return;
