@@ -3,7 +3,7 @@
 
         <!-- Sticky validation bar -->
         <Transition name="trf-slide">
-            <div v-if="formError || validationMessages.length > 0" class="trf-validation-bar">
+            <div v-if="formError || validationMessages.length > 0 || routeErrorChips.length > 0" class="trf-validation-bar">
                 <div class="trf-validation-bar__inner">
                     <div v-if="formError" class="trf-validation-bar__row trf-validation-bar__row--error">
                         <i class="bi bi-exclamation-octagon-fill"></i>
@@ -14,6 +14,21 @@
                         <div>
                             <span class="fw-semibold">Fix these issues before saving: </span>
                             {{ validationMessages.join(' • ') }}
+                        </div>
+                    </div>
+                    <div v-if="routeErrorChips.length > 0" class="trf-validation-bar__row trf-validation-bar__row--warn trf-validation-bar__row--chips">
+                        <i class="bi bi-signpost-split-fill"></i>
+                        <div class="trf-error-chips">
+                            <button
+                                v-for="chip in routeErrorChips"
+                                :key="chip.key"
+                                type="button"
+                                class="trf-error-chip"
+                                :title="chip.message"
+                                @click="focusRouteError(chip)"
+                            >
+                                {{ chip.label }}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -588,7 +603,42 @@
                         </div>
 
                         <div class="trf-route-group__right">
-                            <div v-if="group.cardLeg" class="trf-leg__card">
+                            <div
+                                v-if="group.cardLeg"
+                                :id="`trf-leg-card-${group.cardIndex}`"
+                                class="trf-leg__card"
+                                :class="{ 'trf-leg__card--collapsed': !isStopExpanded(group.cardIndex) }"
+                            >
+                                <button
+                                    type="button"
+                                    class="trf-leg__summary"
+                                    :aria-expanded="isStopExpanded(group.cardIndex)"
+                                    :disabled="isFormLocked"
+                                    @click="toggleStopExpanded(group.cardIndex)"
+                                >
+                                    <div class="trf-leg__summary-main">
+                                        <span class="trf-leg__summary-stop">Stop {{ group.cardIndex + 1 }}</span>
+                                        <span class="trf-leg__summary-sep">·</span>
+                                        <span class="trf-leg__summary-station">{{ stationLabel(group.cardLeg.to_station_id) || 'Station' }}</span>
+                                        <span class="trf-leg__summary-sep">·</span>
+                                        <span class="trf-leg__summary-customer">{{ stopSummaryCustomer(group.cardLeg) }}</span>
+                                    </div>
+                                    <div class="trf-leg__summary-meta">
+                                        <span
+                                            class="trf-leg__summary-freight"
+                                            :class="{ 'is-empty': !(Number(group.cardLeg.freight_amount) > 0) }"
+                                        >
+                                            {{ Number(group.cardLeg.freight_amount) > 0 ? `₹${formatMoney(group.cardLeg.freight_amount)}` : 'No freight' }}
+                                        </span>
+                                        <i
+                                            class="bi"
+                                            :class="isStopExpanded(group.cardIndex) ? 'bi-chevron-up' : 'bi-chevron-down'"
+                                            aria-hidden="true"
+                                        ></i>
+                                    </div>
+                                </button>
+
+                                <template v-if="isStopExpanded(group.cardIndex)">
                                 <div class="trf-leg__fields">
                                     <div class="trf-lf trf-lf--customer">
                                         <div class="trf-field-head trf-field-head--customer">
@@ -618,6 +668,7 @@
                                         <template v-if="!isFormLocked">
                                             <div
                                                 v-if="!group.cardLeg.use_same_customer"
+                                                :id="`trf-leg-${group.cardIndex}-customer_id`"
                                                 class="trf-lf__picker"
                                             >
                                                 <SearchablePickerRedesigned
@@ -651,7 +702,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-pickup_date`" class="trf-lf">
                                         <label class="trf-lf__lbl">Pickup Date<span class="trf-pf__req">*</span></label>
                                         <input
                                             v-if="!isFormLocked"
@@ -667,7 +718,7 @@
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.pickup_date || '—' }}</span>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-goods_name`" class="trf-lf">
                                         <div class="trf-field-head">
                                             <label class="trf-lf__lbl">Goods Type<span class="trf-pf__req">*</span></label>
                                             <div class="trf-field-head__actions" aria-hidden="true"></div>
@@ -693,7 +744,7 @@
                                         <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ group.cardLeg.goods_name || '—' }}</span></div>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-no_of_units`" class="trf-lf">
                                         <label class="trf-lf__lbl">No. of Units<span class="trf-pf__req">*</span></label>
                                         <input
                                             v-if="!isFormLocked"
@@ -728,7 +779,7 @@
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.expected_mileage_km_per_liter || '—' }}</span>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-weight_ton`" class="trf-lf">
                                         <label class="trf-lf__lbl">Weight (Ton)<span class="trf-pf__req">*</span></label>
                                         <div class="trf-num-field">
                                             <input
@@ -747,7 +798,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-freight_rate`" class="trf-lf">
                                         <label class="trf-lf__lbl">Rate (₹/Ton)</label>
                                         <input
                                             v-if="!isFormLocked"
@@ -763,7 +814,7 @@
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.freight_rate ? '₹' + formatMoney(group.cardLeg.freight_rate) : '—' }}</span>
                                     </div>
 
-                                    <div class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-freight_amount`" class="trf-lf">
                                         <div class="trf-freight-head">
                                             <label class="trf-lf__lbl">Freight (₹)<span class="trf-pf__req">*</span></label>
                                             <label
@@ -804,6 +855,12 @@
                                             />
                                             <span v-else class="trf-ro-val__main">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
                                         </div>
+                                        <p
+                                            v-if="!isFormLocked && group.cardLeg.freight_auto_calculate && legFreightPreview(group.cardLeg) > 0"
+                                            class="trf-lf__hint"
+                                        >
+                                            Weight × Rate = ₹{{ formatMoney(legFreightPreview(group.cardLeg)) }}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -870,6 +927,7 @@
                                         </span>
                                     </div>
                                 </div>
+                                </template>
                             </div>
                             <div
                                 v-else-if="group.type === 'primary'"
@@ -924,67 +982,76 @@
                 </div>
             </div>
             <div class="trf-section__body">
-                <div class="trf-vehicle-info trf-vehicle-info--summary">
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#4f46e5;--bg:#eef2ff"><i class="bi bi-geo-alt-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Distance</span>
-                            <span class="trf-vehicle-info__val">{{ summary.totalKm || 0 }} KM</span>
+                <div class="trf-summary-block">
+                    <div class="trf-summary-block__label">Operations</div>
+                    <div class="trf-vehicle-info trf-vehicle-info--summary trf-vehicle-info--ops">
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#4f46e5;--bg:#eef2ff"><i class="bi bi-geo-alt-fill"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Distance</span>
+                                <span class="trf-vehicle-info__val">{{ summary.totalKm ? `${summary.totalKm} KM` : '—' }}</span>
+                            </div>
+                        </div>
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-box-seam-fill"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Total Load</span>
+                                <span class="trf-vehicle-info__val">{{ summary.totalWeightTon ? `${formatNum(summary.totalWeightTon)} Ton` : '—' }}</span>
+                            </div>
+                        </div>
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#ea580c;--bg:#fff7ed"><i class="bi bi-fuel-pump-fill"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Expected Diesel</span>
+                                <span class="trf-vehicle-info__val">{{ form.planned_diesel_liters ? `${formatNum(form.planned_diesel_liters)} Ltr` : '—' }}</span>
+                            </div>
+                        </div>
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#16a34a;--bg:#f0fdf4"><i class="bi bi-speedometer2"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Mileage</span>
+                                <span class="trf-vehicle-info__val">{{ expectedMileageDisplay }}</span>
+                            </div>
+                        </div>
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#0891b2;--bg:#ecfeff"><i class="bi bi-clock-fill"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Est. Duration</span>
+                                <span class="trf-vehicle-info__val">{{ estimatedDurationDisplay }}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-box-seam-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Total Load</span>
-                            <span class="trf-vehicle-info__val">{{ summary.totalWeightTon ? formatNum(summary.totalWeightTon) : '0' }} Ton</span>
+                </div>
+
+                <div class="trf-summary-block trf-summary-block--money">
+                    <div class="trf-summary-block__label">Money</div>
+                    <div class="trf-vehicle-info trf-vehicle-info--summary trf-vehicle-info--money">
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#9333ea;--bg:#faf5ff"><i class="bi bi-signpost-2-fill"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Cost / KM</span>
+                                <span class="trf-vehicle-info__val">{{ costPerKmDisplay }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#ea580c;--bg:#fff7ed"><i class="bi bi-fuel-pump-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Expected Diesel</span>
-                            <span class="trf-vehicle-info__val">{{ form.planned_diesel_liters ? formatNum(form.planned_diesel_liters) : '0' }} Ltr</span>
+                        <div class="trf-vehicle-info__item">
+                            <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Total Freight</span>
+                                <span class="trf-vehicle-info__val">{{ freightTotalDisplay }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#16a34a;--bg:#f0fdf4"><i class="bi bi-speedometer2"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Mileage</span>
-                            <span class="trf-vehicle-info__val">{{ expectedMileageDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#0891b2;--bg:#ecfeff"><i class="bi bi-clock-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Est. Duration</span>
-                            <span class="trf-vehicle-info__val">{{ estimatedDurationDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#9333ea;--bg:#faf5ff"><i class="bi bi-signpost-2-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Cost / KM</span>
-                            <span class="trf-vehicle-info__val">{{ costPerKmDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Total Freight</span>
-                            <span class="trf-vehicle-info__val">{{ freightTotalDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-graph-up-arrow"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Est. Profit</span>
-                            <span
-                                class="trf-vehicle-info__val"
-                                :class="{
-                                    'trf-vehicle-info__val--profit': hasFreightSummary && summary.profit >= 0,
-                                    'trf-vehicle-info__val--loss': hasFreightSummary && summary.profit < 0,
-                                }"
-                            >{{ profitDisplay }}</span>
+                        <div class="trf-vehicle-info__item trf-vehicle-info__item--hero">
+                            <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div>
+                                <span class="trf-vehicle-info__name">Est. Profit</span>
+                                <span
+                                    class="trf-vehicle-info__val"
+                                    :class="{
+                                        'trf-vehicle-info__val--profit': hasFreightSummary && summary.profit >= 0,
+                                        'trf-vehicle-info__val--loss': hasFreightSummary && summary.profit < 0,
+                                    }"
+                                >{{ profitDisplay }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1112,7 +1179,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import {
     calculateLegFreight, inferTripTypeFromRoute, legLoadCategoryMeta, stopHasExpenses,
     summarizeTripForm, tripStatusMeta,
@@ -1197,6 +1264,18 @@ const showSubstituteDriver = ref(false);
 const showStationQuickAdd = ref(false);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
+const expandedStopIndex = ref(0);
+
+const LEG_FIELD_LABELS = {
+    to_station_id: 'Station',
+    customer_id: 'Customer',
+    pickup_date: 'Pickup Date',
+    goods_name: 'Goods Type',
+    no_of_units: 'No. of Units',
+    weight_ton: 'Weight',
+    freight_rate: 'Rate',
+    freight_amount: 'Freight',
+};
 const showGoodsTypeQuickAdd = ref(false);
 const showRemoveStopConfirm = ref(false);
 const quickAddLegIndex = ref(null);
@@ -1410,7 +1489,104 @@ const expectedDieselDisplay = computed(() => {
     return Number.isFinite(n) ? formatNum(n) : '0';
 });
 const startMeterWarning = computed(() => { if (isFormLocked.value) return false; const s = Number(props.form.start_meter_reading_km ?? 0), t = Number(props.vehicleOdometerKm ?? 0); return Number.isFinite(s) && s > 0 && Number.isFinite(t) && t > 0 && s < t; });
-const validationMessages = computed(() => { const msgs = []; let hasRoute = false; Object.entries(props.fieldErrors).forEach(([k, v]) => { if (k.startsWith('route_legs.')) { hasRoute = true; return; } const m = Array.isArray(v) ? v : [v]; m.forEach((x) => { if (x) msgs.push(x); }); }); if (hasRoute) msgs.push('Route: fix highlighted stop fields.'); return [...new Set(msgs)].slice(0, 5); });
+const validationMessages = computed(() => {
+    const msgs = [];
+    Object.entries(props.fieldErrors).forEach(([k, v]) => {
+        if (k.startsWith('route_legs.')) {
+            return;
+        }
+        const m = Array.isArray(v) ? v : [v];
+        m.forEach((x) => {
+            if (x) {
+                msgs.push(x);
+            }
+        });
+    });
+    return [...new Set(msgs)].slice(0, 5);
+});
+
+const routeErrorChips = computed(() => {
+    const chips = [];
+    Object.entries(props.fieldErrors).forEach(([key, val]) => {
+        const match = key.match(/^route_legs\.(\d+)\.(\w+)$/);
+        if (!match) {
+            return;
+        }
+        const message = Array.isArray(val) ? val[0] : val;
+        if (!message) {
+            return;
+        }
+        const stopIndex = Number(match[1]);
+        const field = match[2];
+        chips.push({
+            key,
+            stopIndex,
+            field,
+            label: `Stop ${stopIndex + 1}: ${LEG_FIELD_LABELS[field] || field}`,
+            message: String(message),
+        });
+    });
+    return chips;
+});
+
+function isStopExpanded(index) {
+    if (isFormLocked.value) {
+        return true;
+    }
+    return expandedStopIndex.value === index;
+}
+
+function toggleStopExpanded(index) {
+    if (isFormLocked.value) {
+        return;
+    }
+    expandedStopIndex.value = expandedStopIndex.value === index ? -1 : index;
+}
+
+function expandStop(index) {
+    expandedStopIndex.value = index;
+}
+
+function stopSummaryCustomer(leg) {
+    if (leg?.use_same_customer) {
+        return customerLabel(leg.customer_id, props.snapshotCustomerName) || 'Trip customer';
+    }
+    return customerLabel(leg?.customer_id, props.snapshotCustomerName) || 'No customer';
+}
+
+function legFreightPreview(leg) {
+    return calculateLegFreight(leg?.weight_ton, leg?.freight_rate);
+}
+
+function focusRouteError(chip) {
+    expandStop(chip.stopIndex);
+    nextTick(() => {
+        const target =
+            document.getElementById(`trf-leg-${chip.stopIndex}-${chip.field}`)
+            || document.getElementById(`trf-leg-card-${chip.stopIndex}`);
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+}
+
+watch(
+    () => (props.form.route_legs ?? []).length,
+    (length, previous) => {
+        if (length > previous) {
+            expandedStopIndex.value = Math.max(length - 1, 0);
+        } else if (expandedStopIndex.value >= length) {
+            expandedStopIndex.value = Math.max(length - 1, 0);
+        }
+    },
+);
+
+watch(
+    routeErrorChips,
+    (chips, previous) => {
+        if (chips.length > 0 && (!previous || previous.length === 0)) {
+            expandStop(chips[0].stopIndex);
+        }
+    },
+);
 
 const dieselOverCapacityWarning = computed(() => {
     const planned = Number(props.form.planned_diesel_liters ?? 0);
@@ -2504,16 +2680,49 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-vehicle-info__val--profit { color: #16a34a; }
 .trf-vehicle-info__val--loss { color: #dc2626; }
+.trf-summary-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.trf-summary-block + .trf-summary-block {
+    margin-top: 14px;
+}
+.trf-summary-block__label {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
 .trf-vehicle-info--summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.trf-vehicle-info--ops {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.trf-vehicle-info--money {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.trf-vehicle-info__item--hero {
+    background: #f8fbff;
+    border-color: #bfdbfe;
+}
+.trf-vehicle-info__item--hero .trf-vehicle-info__val {
+    font-size: 1.05em;
+}
 @media (max-width: 1199px) {
-    .trf-vehicle-info--summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .trf-vehicle-info--ops { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .trf-vehicle-info--money { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 991px) {
+    .trf-vehicle-info--ops,
+    .trf-vehicle-info--money,
     .trf-vehicle-info--summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 575.98px) {
+    .trf-vehicle-info--ops,
+    .trf-vehicle-info--money,
     .trf-vehicle-info--summary { grid-template-columns: 1fr; }
 }
 .trf-vehicle-info__field {
@@ -2936,6 +3145,85 @@ defineExpose({ changeStatus: () => {} });
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
+.trf-leg__card--collapsed {
+    height: auto;
+    min-height: 0;
+}
+.trf-leg__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid #eef2f7;
+    background: #f8fafc;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+}
+.trf-leg__card--collapsed .trf-leg__summary {
+    border-bottom: 0;
+}
+.trf-leg__summary:hover {
+    background: #f1f5f9;
+}
+.trf-leg__summary:disabled {
+    cursor: default;
+}
+.trf-leg__summary:disabled:hover {
+    background: #f8fafc;
+}
+.trf-leg__summary-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    color: var(--form-label-color, #475569);
+}
+.trf-leg__summary-stop {
+    color: var(--primary-dark, #1d4ed8);
+    font-weight: 700;
+}
+.trf-leg__summary-sep {
+    color: #cbd5e1;
+}
+.trf-leg__summary-station,
+.trf-leg__summary-customer {
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trf-leg__summary-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    color: #64748b;
+}
+.trf-leg__summary-freight {
+    font-size: var(--fs-meta);
+    font-weight: 700;
+    color: #166534;
+}
+.trf-leg__summary-freight.is-empty {
+    color: #94a3b8;
+    font-weight: 600;
+}
+.trf-lf__hint {
+    margin: 4px 0 0;
+    font-size: .68rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.3;
+}
 .trf-leg__fields {
     --leg-control-h: 40px;
     --leg-head-h: 24px;
@@ -3356,6 +3644,30 @@ defineExpose({ changeStatus: () => {} });
 .trf-validation-bar__row--error { background: #dc2626; color: #fff; }
 .trf-validation-bar__row--warn  { background: #f59e0b; color: #fff; }
 .trf-validation-bar__row i { flex-shrink: 0; margin-top: 2px; }
+.trf-validation-bar__row--chips {
+    align-items: center;
+}
+.trf-error-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.trf-error-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.3;
+    cursor: pointer;
+}
+.trf-error-chip:hover {
+    background: rgba(255, 255, 255, .3);
+}
 
 /* ── Vue transition ─────────────────── */
 .trf-slide-enter-active, .trf-slide-leave-active { transition: all .25s cubic-bezier(.4,0,.2,1); }
