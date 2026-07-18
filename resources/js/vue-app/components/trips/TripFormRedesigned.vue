@@ -55,7 +55,6 @@
                             v-model="form.vehicle_id"
                             placeholder="Select truck"
                             :invalid="Boolean(fieldErrors.vehicle_id)"
-                            :error-message="fieldErrorMessage('vehicle_id')"
                             :as-of-date="tripStartDate"
                             :trip-end-date="tripEndDate"
                             :driver-label="driverDisplayName"
@@ -78,9 +77,9 @@
                             <div class="trf-pf__lbl-icon trf-pf__lbl-icon--indigo"><i class="bi bi-person-badge-fill"></i></div>
                             <span>Driver</span>
                             <span class="trf-pf__req">*</span>
-                            <label v-if="!isFormLocked && hasPrimaryDriver" class="trf-check-label trf-field-head__check ms-auto">
+                            <label v-if="!isFormLocked && hasPrimaryDriver" class="trf-check-label trf-field-head__check trf-pf__subst ms-auto">
                                 <input id="subst-sw" v-model="showSubstituteDriver" type="checkbox" />
-                                <span>Use Substitute</span>
+                                <span>Substitute</span>
                             </label>
                         </div>
                         <template v-if="showSubstituteDriverColumn && !isFormLocked">
@@ -104,7 +103,7 @@
                             <div class="trf-synced-field__main">
                                 {{ loadingDriver ? 'Syncing from truck…' : (hasDriverDisplay ? driverDisplayName : 'Select truck first') }}
                             </div>
-                            <div class="trf-synced-field__sub">
+                            <div v-if="hasDriverDisplay || loadingDriver" class="trf-synced-field__sub">
                                 {{ selectedDriver?.license_number || 'Auto-synced with truck' }}
                             </div>
                         </div>
@@ -128,7 +127,6 @@
                             view-title="Customer details"
                             quick-add-title="Add customer"
                             :invalid="Boolean(fieldErrors.customer_id)"
-                            :error-message="fieldErrorMessage('customer_id')"
                             :can-quick-add="canQuickAddCustomer"
                             subtext-key="gst_number"
                             :show-subtext="false"
@@ -1094,9 +1092,16 @@ defineExpose({ changeStatus: () => {} });
 }
 
 /* ── Picker Field ───────────────────── */
-.trf-pf { display: flex; flex-direction: column; gap: 6px; }
+.trf-pf {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+}
 .trf-pf__lbl {
     display: flex; align-items: center; gap: 7px;
+    min-height: 24px;
     font-size: .75rem; font-weight: var(--form-label-weight, 600); color: var(--form-label-color, #475569);
     text-transform: uppercase; letter-spacing: .04em;
 }
@@ -1111,6 +1116,13 @@ defineExpose({ changeStatus: () => {} });
 .trf-pf__lbl-icon--orange { background: #fff7ed; color: #ea580c; }
 .trf-pf__lbl-icon--teal   { background: #f0fdfa; color: #0d9488; }
 .trf-pf__req { color: var(--danger); font-size: .85rem; font-weight: 700; margin-left: 2px; }
+.trf-pf__subst {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: .64rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
 .trf-pf__subst-toggle {
     display: inline-flex; align-items: center; gap: 5px;
     margin-left: auto; cursor: pointer;
@@ -1152,7 +1164,8 @@ defineExpose({ changeStatus: () => {} });
 
 .trf-date-input :deep(.app-date-input__text) {
     width: 100%;
-    min-height: 44px;
+    min-height: 52px;
+    height: 52px;
     padding: 10px 40px 10px 13px;
     font-size: .9rem;
     font-weight: 500;
@@ -1161,6 +1174,7 @@ defineExpose({ changeStatus: () => {} });
     border: 1.5px solid var(--border);
     border-radius: 8px;
     outline: none;
+    box-sizing: border-box;
     transition: border-color .15s, box-shadow .15s;
 }
 .trf-date-input :deep(.app-date-input__text:focus) {
@@ -1209,13 +1223,16 @@ defineExpose({ changeStatus: () => {} });
     flex-direction: column;
     justify-content: center;
     width: 100%;
-    min-height: 44px;
+    max-width: 100%;
+    min-width: 0;
+    height: 52px;
+    min-height: 52px;
     padding: 8px 13px;
-    border: 1px solid #dee2e6;
+    border: 1.5px solid var(--border);
     border-radius: 8px;
     background: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     box-sizing: border-box;
+    overflow: hidden;
 }
 .trf-synced-field--empty {
     background: #f8f9fa;
@@ -1223,9 +1240,12 @@ defineExpose({ changeStatus: () => {} });
 .trf-synced-field__main {
     display: block;
     font-weight: 600;
-    font-size: 15px;
+    font-size: .9rem;
     line-height: 1.25;
     color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .trf-synced-field--empty .trf-synced-field__main {
     font-weight: 400;
@@ -1237,6 +1257,40 @@ defineExpose({ changeStatus: () => {} });
     font-size: 12px;
     line-height: 1.2;
     color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Keep Truck / Driver / Customer controls the same size in the grid */
+.trf-pf :deep(.async-vehicle-picker-redesigned),
+.trf-pf :deep(.searchable-picker-redesigned),
+.trf-pf :deep(.picker-main),
+.trf-pf :deep(.picker-trigger-wrap) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+.trf-pf :deep(.redesigned-picker-trigger) {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+    height: 52px;
+    min-height: 52px !important;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.trf-pf :deep(.picker-trigger-content-wrap) {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+.trf-pf :deep(.picker-trigger-main-text),
+.trf-pf :deep(.picker-trigger-sub-text) {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── Vehicle Information Cards ──────── */
