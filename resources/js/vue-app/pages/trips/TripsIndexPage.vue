@@ -141,8 +141,37 @@
                             <div>{{ formatDate(trip.start_at) }}</div>
                             <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
                         </td>
-                        <td class="trips-route-col small" :title="formatRoute(trip)">
-                            {{ formatRoute(trip) }}
+                        <td class="trips-route-col small">
+                            <div
+                                class="trips-route"
+                                :class="{ 'trips-route--has-via': routeSummary(trip).middle.length > 0 }"
+                                :title="routeHoverTitle(trip)"
+                            >
+                                <div class="trips-route__main">
+                                    <span class="trips-route__point trips-route__point--from">
+                                        <i class="bi bi-circle-fill" aria-hidden="true"></i>
+                                        <span class="trips-route__name">{{ routeSummary(trip).source }}</span>
+                                    </span>
+                                    <i class="bi bi-arrow-right trips-route__arrow" aria-hidden="true"></i>
+                                    <span class="trips-route__point trips-route__point--to">
+                                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                                        <span class="trips-route__name">{{ routeSummary(trip).destination }}</span>
+                                    </span>
+                                    <span
+                                        v-if="routeSummary(trip).middle.length > 0"
+                                        class="trips-route__via-badge"
+                                    >
+                                        +{{ routeSummary(trip).middle.length }}
+                                    </span>
+                                </div>
+                                <div
+                                    v-if="routeSummary(trip).middle.length > 0"
+                                    class="trips-route__via"
+                                >
+                                    <span class="trips-route__via-label">Via</span>
+                                    <span class="trips-route__via-stops">{{ routeSummary(trip).middle.join(' · ') }}</span>
+                                </div>
+                            </div>
                         </td>
                         <td class="trips-financials-col">
                             <div class="trips-financials" :title="financialSummaryTitle(trip)">
@@ -474,26 +503,47 @@ function onTripStatusUpdated(trip, updated) {
     }
 }
 
-function formatRoute(trip) {
+function routeSummary(trip) {
     const legs = trip.route_legs ?? [];
-
-    if (legs.length === 0) {
-        return '—';
-    }
-
     const points = [];
 
     if (legs[0]?.from_city) {
-        points.push(legs[0].from_city);
+        points.push(String(legs[0].from_city).trim());
     }
 
     legs.forEach((leg) => {
-        if (leg.to_city) {
-            points.push(leg.to_city);
+        const city = String(leg?.to_city ?? '').trim();
+
+        if (city) {
+            points.push(city);
         }
     });
 
-    return points.length > 0 ? points.join(' → ') : '—';
+    const cleaned = points.filter(Boolean);
+
+    if (cleaned.length === 0) {
+        return {
+            source: '—',
+            destination: '—',
+            middle: [],
+        };
+    }
+
+    return {
+        source: cleaned[0],
+        destination: cleaned[cleaned.length - 1],
+        middle: cleaned.length > 2 ? cleaned.slice(1, -1) : [],
+    };
+}
+
+function routeHoverTitle(trip) {
+    const summary = routeSummary(trip);
+
+    if (summary.middle.length === 0) {
+        return `${summary.source} → ${summary.destination}`;
+    }
+
+    return `${summary.source} → ${summary.destination}\nVia: ${summary.middle.join(' · ')}`;
 }
 
 function showRouteFlash() {
@@ -1005,10 +1055,113 @@ onBeforeUnmount(() => {
 }
 
 .trips-route-col {
-    max-width: 11rem;
+    max-width: 14rem;
+    min-width: 10rem;
+    overflow: hidden;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.trips-route {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.trips-route__main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.trips-route__point {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    min-width: 0;
+    max-width: 5.5rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.trips-route__point i {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    line-height: 1;
+}
+
+.trips-route__point--from i {
+    color: #64748b;
+}
+
+.trips-route__point--to i {
+    color: #0d6efd;
+}
+
+.trips-route__name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.trips-route__arrow {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.trips-route__via-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.trips-route__via {
+    display: none;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    padding-left: 0.05rem;
+    color: #64748b;
+    font-size: 0.6875rem;
+    line-height: 1.25;
+}
+
+.trips-route--has-via:hover .trips-route__via,
+.trips-route--has-via:focus-within .trips-route__via {
+    display: flex;
+}
+
+.trips-route__via-label {
+    flex-shrink: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.6rem;
+    color: #94a3b8;
+}
+
+.trips-route__via-stops {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #475569;
 }
 
 .trips-financials {
