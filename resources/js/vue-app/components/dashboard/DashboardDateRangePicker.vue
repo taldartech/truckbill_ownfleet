@@ -471,7 +471,7 @@ watch(draftPreset, () => {
     border: 1px solid #dbe3ef;
     border-radius: 0.5rem;
     background: #fff;
-    color: #0f172a;
+    color: var(--form-input-color, #1f2937);
     text-align: left;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
@@ -491,7 +491,8 @@ watch(draftPreset, () => {
     flex: 1;
     min-width: 0;
     font-size: 0.92rem;
-    font-weight: 500;
+    font-weight: var(--form-input-weight, 500);
+    color: var(--form-input-color, #1f2937);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

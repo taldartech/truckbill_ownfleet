@@ -88,28 +88,20 @@
                             </span>
                         </td>
                         <td v-if="hasRowActions" class="app-index-actions-cell text-end">
-                            <div class="app-index-table-actions">
-                                <button
+                            <AppTableActions>
+                                <AppCrudActionButton
                                     v-if="canManage"
-                                    type="button"
-                                    class="btn btn-sm btn-info text-white app-index-action-btn"
+                                    action="edit"
                                     title="Edit"
-                                    aria-label="Edit"
                                     @click="openEdit(challan)"
-                                >
-                                    <i class="fas fa-edit" aria-hidden="true"></i>
-                                </button>
-                                <button
+                                />
+                                <AppCrudActionButton
                                     v-if="canDelete"
-                                    type="button"
-                                    class="btn btn-sm btn-danger app-index-action-btn"
+                                    action="delete"
                                     title="Delete"
-                                    aria-label="Delete"
                                     @click="handleDelete(challan)"
-                                >
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -156,11 +148,13 @@ import { computed, onMounted, ref } from 'vue';
 import { createChallan, deleteChallan, listChallans, updateChallan } from '../../api/challans';
 import ChallanFormModal from '../../components/challans/ChallanFormModal.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';

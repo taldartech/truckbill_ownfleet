@@ -158,7 +158,7 @@
                                 />
                                 <AppCrudActionButton
                                     v-if="canCreate"
-                                    action="add"
+                                    action="service"
                                     title="Add new service"
                                     @click="goToCreateForTruck(record)"
                                 />

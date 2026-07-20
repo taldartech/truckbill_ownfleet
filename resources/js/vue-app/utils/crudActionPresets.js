@@ -1,81 +1,107 @@
 /**
- * Table row CRUD icons — same as Drivers index (btn-edit blue, btn-danger red).
+ * Shared listing / CRUD icon action presets.
+ * Colors live in resources/css/crud-action-buttons.css.
  */
 export const CRUD_ACTION_PRESETS = {
     view: {
-        btnClass: 'btn-view',
+        btnClass: 'btn-action-view',
         icon: 'fas fa-eye',
         title: 'View details',
     },
     edit: {
-        btnClass: 'btn-outline-secondary',
+        btnClass: 'btn-action-edit',
         icon: 'fas fa-pencil-alt',
         title: 'Edit',
     },
-    add: {
-        btnClass: 'btn-success',
-        icon: 'fas fa-plus',
-        title: 'Add',
-    },
-    archive: {
-        btnClass: 'btn-warning',
-        icon: 'bi bi-archive',
-        title: 'Archive',
-    },
-    restore: {
-        btnClass: 'btn-success',
-        icon: 'bi bi-arrow-counterclockwise',
-        title: 'Restore',
-    },
     delete: {
-        btnClass: 'btn-danger',
+        btnClass: 'btn-action-delete',
         icon: 'fas fa-trash',
         title: 'Delete',
     },
-    driver: {
-        btnClass: 'btn-view',
-        icon: 'fas fa-user-tie',
-        title: 'Driver assignment',
-    },
-    documents: {
-        btnClass: 'btn-primary',
-        icon: 'fas fa-folder-open',
-        title: 'Documents',
-    },
-    markPaid: {
-        btnClass: 'btn-success',
-        icon: 'fas fa-money-bill-wave',
-        title: 'Mark paid',
-    },
-    advance: {
-        btnClass: 'btn-warning',
-        icon: 'fas fa-wallet',
-        title: 'Advance wallet',
-    },
     expenses: {
-        btnClass: 'btn-warning',
-        icon: 'fas fa-receipt',
+        btnClass: 'btn-action-expenses',
+        icon: 'fas fa-wallet',
         title: 'Trip expenses',
     },
-    invoice: {
-        btnClass: 'btn-warning',
-        icon: 'bi bi-file-earmark-text',
-        title: 'Generate invoice',
-    },
     bilty: {
-        btnClass: 'btn-outline-secondary',
-        icon: 'bi bi-printer',
+        btnClass: 'btn-action-bilty',
+        icon: 'fas fa-print',
         title: 'Print bilty',
     },
+    invoice: {
+        btnClass: 'btn-action-invoice',
+        icon: 'fas fa-file-invoice',
+        title: 'Generate invoice',
+    },
+    documents: {
+        btnClass: 'btn-action-documents',
+        icon: 'fas fa-file-alt',
+        title: 'Documents',
+    },
     tyres: {
-        btnClass: 'btn-outline-secondary',
-        icon: 'bi bi-circle',
+        btnClass: 'btn-action-tyres',
+        icon: 'fas fa-dot-circle',
         title: 'Tyre positions',
     },
     service: {
-        btnClass: 'btn-outline-secondary',
+        btnClass: 'btn-action-service',
         icon: 'fas fa-wrench',
         title: 'Add service record',
+    },
+    driver: {
+        btnClass: 'btn-action-driver',
+        icon: 'fas fa-user-plus',
+        title: 'Assign driver',
+    },
+    fuel: {
+        btnClass: 'btn-action-fuel',
+        icon: 'fas fa-gas-pump',
+        title: 'Fuel entry',
+    },
+    complete: {
+        btnClass: 'btn-action-complete',
+        icon: 'fas fa-check-circle',
+        title: 'Complete trip',
+    },
+    cancel: {
+        btnClass: 'btn-action-cancel',
+        icon: 'fas fa-times-circle',
+        title: 'Cancel trip',
+    },
+    archive: {
+        btnClass: 'btn-action-archive',
+        icon: 'fas fa-archive',
+        title: 'Archive',
+    },
+    download: {
+        btnClass: 'btn-action-download',
+        icon: 'fas fa-download',
+        title: 'Download PDF',
+    },
+    history: {
+        btnClass: 'btn-action-history',
+        icon: 'fas fa-history',
+        title: 'History',
+    },
+    restore: {
+        btnClass: 'btn-action-restore',
+        icon: 'fas fa-undo',
+        title: 'Restore',
+    },
+    add: {
+        btnClass: 'btn-action-add',
+        icon: 'fas fa-wrench',
+        title: 'Add service record',
+    },
+    advance: {
+        btnClass: 'btn-action-advance',
+        icon: 'fas fa-wallet',
+        title: 'Advance wallet',
+    },
+    markPaid: {
+        btnClass: 'btn-action-mark-paid',
+        icon: 'fas fa-money-bill-wave',
+        title: 'Mark paid',
     },
 };
 
@@ -87,4 +113,8 @@ export function crudActionButtonClasses(action) {
     }
 
     return `btn btn-icon ${preset.btnClass} btn-sm`;
+}
+
+export function crudActionIcon(action) {
+    return CRUD_ACTION_PRESETS[action]?.icon ?? 'fas fa-circle';
 }

@@ -322,19 +322,20 @@ async function onStatusModalConfirm(data) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 8.25rem;
-    height: 1.75rem;
-    padding: 0 0.55rem;
-    font-size: 0.75rem;
+    min-width: 0;
+    width: max-content;
+    height: 1.35rem;
+    padding: 0 0.35rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
     box-sizing: border-box;
-    border-radius: 0.375rem;
+    border-radius: 0.3rem;
 }
 
 .trip-inline-status__badge-btn {
-    gap: 0.2rem;
+    gap: 0.15rem;
     border: none;
     cursor: pointer;
 }
@@ -345,7 +346,7 @@ async function onStatusModalConfirm(data) {
 }
 
 .trip-inline-status__badge-btn.dropdown-toggle::after {
-    margin-left: 0.2em;
+    margin-left: 0.12em;
     vertical-align: 0;
     opacity: 0.85;
     flex-shrink: 0;

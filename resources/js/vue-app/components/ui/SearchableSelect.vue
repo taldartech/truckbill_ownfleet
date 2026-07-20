@@ -565,13 +565,16 @@ watch([searchQuery, filteredItems], () => {
     display: flex;
     align-items: center;
     gap: 0.45rem;
+    color: var(--form-input-color, #1f2937);
+    font-weight: var(--form-input-weight, 500);
     --bs-form-select-bg-img: none;
     --bs-form-select-bg-icon: none;
     background-image: none;
 }
 
 .select-trigger--placeholder .select-trigger-label {
-    color: #6c757d;
+    color: var(--form-placeholder-color, #9ca3af);
+    font-weight: var(--form-placeholder-weight, 400);
 }
 
 .select-trigger--editable {
@@ -615,6 +618,8 @@ watch([searchQuery, filteredItems], () => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--form-input-color, #1f2937);
+    font-weight: var(--form-input-weight, 500);
 }
 
 .select-trigger-wrap {

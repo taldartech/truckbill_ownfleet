@@ -176,22 +176,18 @@
                                         action="documents"
                                         @click="openDocuments(vehicle)"
                                     />
-                                    <RouterLink
+                                    <AppCrudActionButton
                                         v-if="canViewTyres"
-                                        :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                        :class="`${tyreLinkClasses} btn-icon`"
+                                        action="tyres"
                                         title="Tyre positions"
-                                    >
-                                        <i class="bi bi-circle" aria-hidden="true"></i>
-                                    </RouterLink>
-                                    <RouterLink
+                                        :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                    />
+                                    <AppCrudActionButton
                                         v-if="canCreateMaintenance"
-                                        :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
-                                        :class="`${serviceLinkClasses} btn-icon`"
+                                        action="service"
                                         title="Add service record"
-                                    >
-                                        <i class="fas fa-wrench" aria-hidden="true"></i>
-                                    </RouterLink>
+                                        :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                    />
                                     <AppCrudActionButton
                                         v-if="canEdit"
                                         action="edit"
@@ -294,10 +290,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildTruckFields } from '../../utils/masterCrudSaveConfirm';
-import { crudActionButtonClasses } from '../../utils/crudActionPresets';
 
-const tyreLinkClasses = crudActionButtonClasses('tyres');
-const serviceLinkClasses = crudActionButtonClasses('service');
 const route = useRoute();
 const toast = useAppToast();
 const {

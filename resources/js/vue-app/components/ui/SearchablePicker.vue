@@ -16,11 +16,12 @@
                 <div class="picker-toolbar__start">
                     <slot name="toolbar" />
                 </div>
-                <div class="picker-actions">
+                <div v-if="showPickerActions" class="picker-actions">
                     <button
+                        v-if="showViewAction"
                         type="button"
                         class="btn btn-outline-secondary btn-sm picker-action-btn"
-                        :disabled="!selectedItem || disabled"
+                        :disabled="disabled"
                         :title="viewTitle"
                         @click.stop="toggleInfo"
                     >
@@ -38,11 +39,15 @@
                     </button>
                 </div>
             </div>
-            <div v-else-if="compactActions" class="picker-actions picker-actions--standalone">
+            <div
+                v-else-if="compactActions && showPickerActions"
+                class="picker-actions picker-actions--standalone"
+            >
                 <button
+                    v-if="showViewAction"
                     type="button"
                     class="btn btn-outline-secondary btn-sm picker-action-btn"
-                    :disabled="!selectedItem || disabled"
+                    :disabled="disabled"
                     :title="viewTitle"
                     @click.stop="toggleInfo"
                 >
@@ -59,11 +64,12 @@
                     <i class="bi bi-plus-lg"></i>
                 </button>
             </div>
-            <div v-else class="picker-actions">
+            <div v-else-if="showPickerActions" class="picker-actions">
                 <button
+                    v-if="showViewAction"
                     type="button"
                     class="btn btn-outline-secondary btn-sm picker-action-btn"
-                    :disabled="!selectedItem || disabled"
+                    :disabled="disabled"
                     :title="viewTitle"
                     @click.stop="toggleInfo"
                 >
@@ -86,6 +92,7 @@
                         :id="inputId"
                         type="button"
                         class="form-select text-start picker-trigger"
+                        :class="{ 'picker-trigger--placeholder': !selectedItem }"
                         :disabled="disabled"
                         ref="triggerRef"
                         @click="toggleDropdown"
@@ -223,6 +230,17 @@ const emit = defineEmits(['update:modelValue', 'quick-add']);
 const slots = useSlots();
 const hasToolbar = computed(() => Boolean(slots.toolbar));
 
+const selectedItem = computed(() => {
+    if (!props.modelValue) {
+        return null;
+    }
+
+    return props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null;
+});
+
+const showViewAction = computed(() => Boolean(selectedItem.value));
+const showPickerActions = computed(() => showViewAction.value || props.canQuickAdd);
+
 const pickerRef = ref(null);
 const pickerMainRef = ref(null);
 const triggerRef = ref(null);
@@ -235,14 +253,6 @@ const dropdownStyle = ref({});
 const infoStyle = ref({});
 
 const showSearchInput = computed(() => shouldShowSelectSearch(props.items.length));
-
-const selectedItem = computed(() => {
-    if (!props.modelValue) {
-        return null;
-    }
-
-    return props.items.find((item) => String(item.id) === String(props.modelValue)) ?? null;
-});
 
 const hasProfileDetails = computed(() => {
     const item = selectedItem.value;
@@ -563,7 +573,13 @@ watch(
     min-height: 42px;
     font-size: 14px;
     padding: 8px 2.4rem 8px 12px;
+    color: var(--form-input-color, #1f2937);
+    font-weight: var(--form-input-weight, 500);
     --bs-form-select-bg-icon: none;
+}
+.picker-trigger--placeholder {
+    color: var(--form-placeholder-color, #9ca3af);
+    font-weight: var(--form-placeholder-weight, 400);
 }
 .picker-trigger-wrap:has(.picker-trigger-icons) .picker-trigger {
     padding-right: 3.6rem;

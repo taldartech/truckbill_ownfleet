@@ -1,0 +1,426 @@
+/**
+ * Shared listing / CRUD icon action colors.
+ * Used by AppCrudActionButton and RouterLink action icons.
+ */
+
+:root {
+    --action-view: #3b82f6;
+    --action-view-hover: #2563eb;
+    --action-edit: #f59e0b;
+    --action-edit-hover: #d97706;
+    --action-delete: #ef4444;
+    --action-delete-hover: #dc2626;
+    --action-expenses: #f97316;
+    --action-expenses-hover: #ea580c;
+    --action-bilty: #8b5cf6;
+    --action-bilty-hover: #7c3aed;
+    --action-invoice: #10b981;
+    --action-invoice-hover: #059669;
+    --action-documents: #64748b;
+    --action-documents-hover: #475569;
+    --action-tyres: #6366f1;
+    --action-tyres-hover: #4f46e5;
+    --action-service: #14b8a6;
+    --action-service-hover: #0d9488;
+    --action-driver: #0ea5e9;
+    --action-driver-hover: #0284c7;
+    --action-fuel: #eab308;
+    --action-fuel-hover: #ca8a04;
+    --action-complete: #22c55e;
+    --action-complete-hover: #16a34a;
+    --action-cancel: #dc2626;
+    --action-cancel-hover: #b91c1c;
+    --action-archive: #6b7280;
+    --action-archive-hover: #4b5563;
+    --action-download: #06b6d4;
+    --action-download-hover: #0891b2;
+    --action-history: #64748b;
+    --action-history-hover: #475569;
+    --action-restore: #22c55e;
+    --action-restore-hover: #16a34a;
+    --action-add: #14b8a6;
+    --action-add-hover: #0d9488;
+    --action-advance: #f97316;
+    --action-advance-hover: #ea580c;
+    --action-mark-paid: #10b981;
+    --action-mark-paid-hover: #059669;
+}
+
+.btn.btn-icon.btn-action-view,
+a.btn.btn-icon.btn-action-view,
+.btn.btn-icon.btn-action-edit,
+a.btn.btn-icon.btn-action-edit,
+.btn.btn-icon.btn-action-delete,
+a.btn.btn-icon.btn-action-delete,
+.btn.btn-icon.btn-action-expenses,
+a.btn.btn-icon.btn-action-expenses,
+.btn.btn-icon.btn-action-bilty,
+a.btn.btn-icon.btn-action-bilty,
+.btn.btn-icon.btn-action-invoice,
+a.btn.btn-icon.btn-action-invoice,
+.btn.btn-icon.btn-action-documents,
+a.btn.btn-icon.btn-action-documents,
+.btn.btn-icon.btn-action-tyres,
+a.btn.btn-icon.btn-action-tyres,
+.btn.btn-icon.btn-action-service,
+a.btn.btn-icon.btn-action-service,
+.btn.btn-icon.btn-action-driver,
+a.btn.btn-icon.btn-action-driver,
+.btn.btn-icon.btn-action-fuel,
+a.btn.btn-icon.btn-action-fuel,
+.btn.btn-icon.btn-action-complete,
+a.btn.btn-icon.btn-action-complete,
+.btn.btn-icon.btn-action-cancel,
+a.btn.btn-icon.btn-action-cancel,
+.btn.btn-icon.btn-action-archive,
+a.btn.btn-icon.btn-action-archive,
+.btn.btn-icon.btn-action-download,
+a.btn.btn-icon.btn-action-download,
+.btn.btn-icon.btn-action-history,
+a.btn.btn-icon.btn-action-history,
+.btn.btn-icon.btn-action-restore,
+a.btn.btn-icon.btn-action-restore,
+.btn.btn-icon.btn-action-add,
+a.btn.btn-icon.btn-action-add,
+.btn.btn-icon.btn-action-advance,
+a.btn.btn-icon.btn-action-advance,
+.btn.btn-icon.btn-action-mark-paid,
+a.btn.btn-icon.btn-action-mark-paid {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #fff !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.btn.btn-icon.btn-action-view i,
+a.btn.btn-icon.btn-action-view i,
+.btn.btn-icon.btn-action-edit i,
+a.btn.btn-icon.btn-action-edit i,
+.btn.btn-icon.btn-action-delete i,
+a.btn.btn-icon.btn-action-delete i,
+.btn.btn-icon.btn-action-expenses i,
+a.btn.btn-icon.btn-action-expenses i,
+.btn.btn-icon.btn-action-bilty i,
+a.btn.btn-icon.btn-action-bilty i,
+.btn.btn-icon.btn-action-invoice i,
+a.btn.btn-icon.btn-action-invoice i,
+.btn.btn-icon.btn-action-documents i,
+a.btn.btn-icon.btn-action-documents i,
+.btn.btn-icon.btn-action-tyres i,
+a.btn.btn-icon.btn-action-tyres i,
+.btn.btn-icon.btn-action-service i,
+a.btn.btn-icon.btn-action-service i,
+.btn.btn-icon.btn-action-driver i,
+a.btn.btn-icon.btn-action-driver i,
+.btn.btn-icon.btn-action-complete i,
+a.btn.btn-icon.btn-action-complete i,
+.btn.btn-icon.btn-action-cancel i,
+a.btn.btn-icon.btn-action-cancel i,
+.btn.btn-icon.btn-action-archive i,
+a.btn.btn-icon.btn-action-archive i,
+.btn.btn-icon.btn-action-download i,
+a.btn.btn-icon.btn-action-download i,
+.btn.btn-icon.btn-action-history i,
+a.btn.btn-icon.btn-action-history i,
+.btn.btn-icon.btn-action-restore i,
+a.btn.btn-icon.btn-action-restore i,
+.btn.btn-icon.btn-action-add i,
+a.btn.btn-icon.btn-action-add i,
+.btn.btn-icon.btn-action-advance i,
+a.btn.btn-icon.btn-action-advance i,
+.btn.btn-icon.btn-action-mark-paid i,
+a.btn.btn-icon.btn-action-mark-paid i {
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-view,
+a.btn.btn-icon.btn-action-view {
+    background-color: var(--action-view) !important;
+    border: 1px solid var(--action-view) !important;
+}
+
+.btn.btn-icon.btn-action-view:hover,
+a.btn.btn-icon.btn-action-view:hover {
+    background-color: var(--action-view-hover) !important;
+    border-color: var(--action-view-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-edit,
+a.btn.btn-icon.btn-action-edit {
+    background-color: var(--action-edit) !important;
+    border: 1px solid var(--action-edit) !important;
+}
+
+.btn.btn-icon.btn-action-edit:hover,
+a.btn.btn-icon.btn-action-edit:hover {
+    background-color: var(--action-edit-hover) !important;
+    border-color: var(--action-edit-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-delete,
+a.btn.btn-icon.btn-action-delete {
+    background-color: var(--action-delete) !important;
+    border: 1px solid var(--action-delete) !important;
+}
+
+.btn.btn-icon.btn-action-delete:hover,
+a.btn.btn-icon.btn-action-delete:hover {
+    background-color: var(--action-delete-hover) !important;
+    border-color: var(--action-delete-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-expenses,
+a.btn.btn-icon.btn-action-expenses {
+    background-color: var(--action-expenses) !important;
+    border: 1px solid var(--action-expenses) !important;
+}
+
+.btn.btn-icon.btn-action-expenses:hover,
+a.btn.btn-icon.btn-action-expenses:hover {
+    background-color: var(--action-expenses-hover) !important;
+    border-color: var(--action-expenses-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-bilty,
+a.btn.btn-icon.btn-action-bilty {
+    background-color: var(--action-bilty) !important;
+    border: 1px solid var(--action-bilty) !important;
+}
+
+.btn.btn-icon.btn-action-bilty:hover,
+a.btn.btn-icon.btn-action-bilty:hover {
+    background-color: var(--action-bilty-hover) !important;
+    border-color: var(--action-bilty-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-invoice,
+a.btn.btn-icon.btn-action-invoice {
+    background-color: var(--action-invoice) !important;
+    border: 1px solid var(--action-invoice) !important;
+}
+
+.btn.btn-icon.btn-action-invoice:hover,
+a.btn.btn-icon.btn-action-invoice:hover {
+    background-color: var(--action-invoice-hover) !important;
+    border-color: var(--action-invoice-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-documents,
+a.btn.btn-icon.btn-action-documents {
+    background-color: var(--action-documents) !important;
+    border: 1px solid var(--action-documents) !important;
+}
+
+.btn.btn-icon.btn-action-documents:hover,
+a.btn.btn-icon.btn-action-documents:hover {
+    background-color: var(--action-documents-hover) !important;
+    border-color: var(--action-documents-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-tyres,
+a.btn.btn-icon.btn-action-tyres {
+    background-color: var(--action-tyres) !important;
+    border: 1px solid var(--action-tyres) !important;
+}
+
+.btn.btn-icon.btn-action-tyres:hover,
+a.btn.btn-icon.btn-action-tyres:hover {
+    background-color: var(--action-tyres-hover) !important;
+    border-color: var(--action-tyres-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-service,
+a.btn.btn-icon.btn-action-service {
+    background-color: var(--action-service) !important;
+    border: 1px solid var(--action-service) !important;
+}
+
+.btn.btn-icon.btn-action-service:hover,
+a.btn.btn-icon.btn-action-service:hover {
+    background-color: var(--action-service-hover) !important;
+    border-color: var(--action-service-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-driver,
+a.btn.btn-icon.btn-action-driver {
+    background-color: var(--action-driver) !important;
+    border: 1px solid var(--action-driver) !important;
+}
+
+.btn.btn-icon.btn-action-driver:hover,
+a.btn.btn-icon.btn-action-driver:hover {
+    background-color: var(--action-driver-hover) !important;
+    border-color: var(--action-driver-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-fuel,
+a.btn.btn-icon.btn-action-fuel {
+    background-color: var(--action-fuel) !important;
+    border: 1px solid var(--action-fuel) !important;
+    color: #422006 !important;
+}
+
+.btn.btn-icon.btn-action-fuel i,
+a.btn.btn-icon.btn-action-fuel i {
+    color: #422006 !important;
+}
+
+.btn.btn-icon.btn-action-fuel:hover,
+a.btn.btn-icon.btn-action-fuel:hover {
+    background-color: var(--action-fuel-hover) !important;
+    border-color: var(--action-fuel-hover) !important;
+    color: #422006 !important;
+}
+
+.btn.btn-icon.btn-action-complete,
+a.btn.btn-icon.btn-action-complete {
+    background-color: var(--action-complete) !important;
+    border: 1px solid var(--action-complete) !important;
+}
+
+.btn.btn-icon.btn-action-complete:hover,
+a.btn.btn-icon.btn-action-complete:hover {
+    background-color: var(--action-complete-hover) !important;
+    border-color: var(--action-complete-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-cancel,
+a.btn.btn-icon.btn-action-cancel {
+    background-color: var(--action-cancel) !important;
+    border: 1px solid var(--action-cancel) !important;
+}
+
+.btn.btn-icon.btn-action-cancel:hover,
+a.btn.btn-icon.btn-action-cancel:hover {
+    background-color: var(--action-cancel-hover) !important;
+    border-color: var(--action-cancel-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-archive,
+a.btn.btn-icon.btn-action-archive {
+    background-color: var(--action-archive) !important;
+    border: 1px solid var(--action-archive) !important;
+}
+
+.btn.btn-icon.btn-action-archive:hover,
+a.btn.btn-icon.btn-action-archive:hover {
+    background-color: var(--action-archive-hover) !important;
+    border-color: var(--action-archive-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-download,
+a.btn.btn-icon.btn-action-download {
+    background-color: var(--action-download) !important;
+    border: 1px solid var(--action-download) !important;
+}
+
+.btn.btn-icon.btn-action-download:hover,
+a.btn.btn-icon.btn-action-download:hover {
+    background-color: var(--action-download-hover) !important;
+    border-color: var(--action-download-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-history,
+a.btn.btn-icon.btn-action-history {
+    background-color: var(--action-history) !important;
+    border: 1px solid var(--action-history) !important;
+}
+
+.btn.btn-icon.btn-action-history:hover,
+a.btn.btn-icon.btn-action-history:hover {
+    background-color: var(--action-history-hover) !important;
+    border-color: var(--action-history-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-restore,
+a.btn.btn-icon.btn-action-restore {
+    background-color: var(--action-restore) !important;
+    border: 1px solid var(--action-restore) !important;
+}
+
+.btn.btn-icon.btn-action-restore:hover,
+a.btn.btn-icon.btn-action-restore:hover {
+    background-color: var(--action-restore-hover) !important;
+    border-color: var(--action-restore-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-add,
+a.btn.btn-icon.btn-action-add {
+    background-color: var(--action-add) !important;
+    border: 1px solid var(--action-add) !important;
+}
+
+.btn.btn-icon.btn-action-add:hover,
+a.btn.btn-icon.btn-action-add:hover {
+    background-color: var(--action-add-hover) !important;
+    border-color: var(--action-add-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-advance,
+a.btn.btn-icon.btn-action-advance {
+    background-color: var(--action-advance) !important;
+    border: 1px solid var(--action-advance) !important;
+}
+
+.btn.btn-icon.btn-action-advance:hover,
+a.btn.btn-icon.btn-action-advance:hover {
+    background-color: var(--action-advance-hover) !important;
+    border-color: var(--action-advance-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-mark-paid,
+a.btn.btn-icon.btn-action-mark-paid {
+    background-color: var(--action-mark-paid) !important;
+    border: 1px solid var(--action-mark-paid) !important;
+}
+
+.btn.btn-icon.btn-action-mark-paid:hover,
+a.btn.btn-icon.btn-action-mark-paid:hover {
+    background-color: var(--action-mark-paid-hover) !important;
+    border-color: var(--action-mark-paid-hover) !important;
+    color: #fff !important;
+}
+
+.btn.btn-icon.btn-action-view:disabled,
+.btn.btn-icon.btn-action-edit:disabled,
+.btn.btn-icon.btn-action-delete:disabled,
+.btn.btn-icon.btn-action-expenses:disabled,
+.btn.btn-icon.btn-action-bilty:disabled,
+.btn.btn-icon.btn-action-invoice:disabled,
+.btn.btn-icon.btn-action-documents:disabled,
+.btn.btn-icon.btn-action-tyres:disabled,
+.btn.btn-icon.btn-action-service:disabled,
+.btn.btn-icon.btn-action-driver:disabled,
+.btn.btn-icon.btn-action-fuel:disabled,
+.btn.btn-icon.btn-action-complete:disabled,
+.btn.btn-icon.btn-action-cancel:disabled,
+.btn.btn-icon.btn-action-archive:disabled,
+.btn.btn-icon.btn-action-download:disabled,
+.btn.btn-icon.btn-action-history:disabled,
+.btn.btn-icon.btn-action-restore:disabled,
+.btn.btn-icon.btn-action-add:disabled,
+.btn.btn-icon.btn-action-advance:disabled,
+.btn.btn-icon.btn-action-mark-paid:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}

@@ -305,12 +305,12 @@ a:hover {
     background-color: var(--brand-active-bg) !important;
 }
 
-/* Eye Icon / View Button Utility (Green variant) */
+/* Eye Icon / View Button Utility (Blue — information) */
 .btn-view,
 button.btn-view,
 a.btn-view {
-    background-color: var(--brand-primary) !important;
-    border: 1px solid var(--brand-primary) !important;
+    background-color: #3b82f6 !important;
+    border: 1px solid #3b82f6 !important;
     color: #FFFFFF !important;
     display: inline-flex;
     align-items: center;
@@ -320,19 +320,19 @@ a.btn-view {
 .btn-view:hover,
 button.btn-view:hover,
 a.btn-view:hover {
-    background-color: var(--brand-primary-dark) !important;
-    border-color: var(--brand-primary-dark) !important;
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
     color: #FFFFFF !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(47, 179, 111, 0.2);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
-/* Edit Icon / Button Utility (Blue variant) */
+/* Edit Icon / Button Utility (Amber — modify) */
 .btn-edit,
 button.btn-edit,
 a.btn-edit {
-    background-color: var(--brand-accent-blue) !important;
-    border: 1px solid var(--brand-accent-blue) !important;
+    background-color: #f59e0b !important;
+    border: 1px solid #f59e0b !important;
     color: #FFFFFF !important;
     display: inline-flex;
     align-items: center;
@@ -342,11 +342,11 @@ a.btn-edit {
 .btn-edit:hover,
 button.btn-edit:hover,
 a.btn-edit:hover {
-    background-color: var(--brand-accent-blue-dark) !important;
-    border-color: var(--brand-accent-blue-dark) !important;
+    background-color: #d97706 !important;
+    border-color: #d97706 !important;
     color: #FFFFFF !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
 }
 
 /* Back / Cancel Button Utility (Grey variant) */

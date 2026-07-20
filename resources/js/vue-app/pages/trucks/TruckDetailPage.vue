@@ -32,22 +32,18 @@
                                     action="documents"
                                     @click="openDocuments"
                                 />
-                                <RouterLink
+                                <AppCrudActionButton
                                     v-if="canViewTyres"
-                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                    :class="`${tyreLinkClasses} btn-icon`"
+                                    action="tyres"
                                     title="Tyre positions"
-                                >
-                                    <i class="bi bi-circle" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
-                                <RouterLink
+                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                />
+                                <AppCrudActionButton
                                     v-if="canCreateMaintenance"
-                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
-                                    :class="`${serviceLinkClasses} btn-icon`"
+                                    action="service"
                                     title="Add service record"
-                                >
-                                    <i class="fas fa-wrench" style="color: #475569 !important;" aria-hidden="true"></i>
-                                </RouterLink>
+                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                />
                                 <AppCrudActionButton
                                     v-if="canEdit"
                                     action="edit"
@@ -360,10 +356,6 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
 import { formatDate, formatDateTime } from '../../utils/datetime';
-import { crudActionButtonClasses } from '../../utils/crudActionPresets';
-
-const tyreLinkClasses = crudActionButtonClasses('tyres');
-const serviceLinkClasses = crudActionButtonClasses('service');
 
 const route = useRoute();
 const router = useRouter();

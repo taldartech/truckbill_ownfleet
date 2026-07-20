@@ -1024,6 +1024,8 @@ onBeforeUnmount(() => {
     width: 1%;
     white-space: nowrap;
     vertical-align: middle;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
 }
 
 .trips-financials-col {

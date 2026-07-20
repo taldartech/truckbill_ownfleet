@@ -408,6 +408,51 @@
     padding-bottom: 0.375rem !important;
 }
 
+/* Keep filter control text colors consistent across listing pages */
+.app-index-collapsible-filters__inner .form-control,
+.app-index-collapsible-filters__inner .form-select,
+.app-index-collapsible-filters__inner .select-trigger,
+.app-index-collapsible-filters__inner .select-trigger-label,
+.app-index-collapsible-filters__inner .picker-trigger,
+.app-index-collapsible-filters__inner .dashboard-date-range__trigger,
+.app-index-collapsible-filters__inner .dashboard-date-range__value,
+.app-report-filters-panel__inner .form-control,
+.app-report-filters-panel__inner .form-select,
+.app-report-filters-panel__inner .select-trigger,
+.app-report-filters-panel__inner .select-trigger-label,
+.app-report-filters-panel__inner .picker-trigger,
+.app-report-filters-panel__inner .dashboard-date-range__trigger,
+.app-report-filters-panel__inner .dashboard-date-range__value,
+.app-index-filters-fields .form-control,
+.app-index-filters-fields .form-select,
+.app-index-filters-fields .select-trigger,
+.app-index-filters-fields .select-trigger-label,
+.app-index-filters-fields .picker-trigger,
+.app-index-filters-fields .dashboard-date-range__trigger,
+.app-index-filters-fields .dashboard-date-range__value {
+    color: var(--form-input-color, #1f2937);
+    font-weight: var(--form-input-weight, 500);
+}
+
+.app-index-collapsible-filters__inner .form-control::placeholder,
+.app-report-filters-panel__inner .form-control::placeholder,
+.app-index-filters-fields .form-control::placeholder,
+.app-index-collapsible-filters__inner .select-trigger--placeholder .select-trigger-label,
+.app-report-filters-panel__inner .select-trigger--placeholder .select-trigger-label,
+.app-index-filters-fields .select-trigger--placeholder .select-trigger-label,
+.app-index-collapsible-filters__inner .picker-trigger--placeholder,
+.app-report-filters-panel__inner .picker-trigger--placeholder,
+.app-index-filters-fields .picker-trigger--placeholder {
+    color: var(--form-placeholder-color, #9ca3af) !important;
+    font-weight: var(--form-placeholder-weight, 400) !important;
+}
+
+.app-index-collapsible-filters__inner .select-trigger-label--inactive,
+.app-report-filters-panel__inner .select-trigger-label--inactive,
+.app-index-filters-fields .select-trigger-label--inactive {
+    color: #dc3545 !important;
+}
+
 
 
 

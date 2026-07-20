@@ -1,18 +1,19 @@
 <template>
-    <button
-        type="button"
+    <component
+        :is="rootTag"
+        v-bind="{ ...$attrs, ...rootBindings }"
         :class="buttonClasses"
-        :disabled="disabled"
+        :disabled="isDisabled"
         :title="buttonTitle"
         :aria-label="buttonTitle"
-        v-bind="$attrs"
     >
-        <i :class="preset.icon" :style="iconStyle" aria-hidden="true"></i>
-    </button>
+        <i :class="preset.icon" aria-hidden="true"></i>
+    </component>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
 import { CRUD_ACTION_PRESETS, crudActionButtonClasses } from '../../utils/crudActionPresets';
 
 defineOptions({
@@ -33,6 +34,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    to: {
+        type: [String, Object],
+        default: null,
+    },
 });
 
 const preset = computed(() => CRUD_ACTION_PRESETS[props.action]);
@@ -41,10 +46,17 @@ const buttonClasses = computed(() => crudActionButtonClasses(props.action));
 
 const buttonTitle = computed(() => props.title || preset.value.title);
 
-const iconStyle = computed(() => {
-    if (preset.value?.btnClass === 'btn-outline-secondary') {
-        return 'color: #475569 !important;';
+const isLink = computed(() => Boolean(props.to) && !props.disabled);
+
+const rootTag = computed(() => (isLink.value ? RouterLink : 'button'));
+
+const isDisabled = computed(() => (isLink.value ? undefined : props.disabled));
+
+const rootBindings = computed(() => {
+    if (isLink.value) {
+        return { to: props.to };
     }
-    return '';
+
+    return { type: 'button' };
 });
 </script>

@@ -110,14 +110,13 @@
                             </span>
                         </td>
                         <td class="app-index-actions-cell text-end">
-                            <RouterLink
-                                :to="{ name: 'invoices.show', params: { id: invoice.id } }"
-                                class="btn btn-sm btn-info text-white app-index-action-btn"
-                                title="View"
-                                aria-label="View invoice"
-                            >
-                                <i class="fas fa-eye" aria-hidden="true"></i>
-                            </RouterLink>
+                            <AppTableActions>
+                                <AppCrudActionButton
+                                    action="view"
+                                    title="View invoice"
+                                    :to="{ name: 'invoices.show', params: { id: invoice.id } }"
+                                />
+                            </AppTableActions>
                         </td>
                     </tr>
                 </tbody>
@@ -138,14 +137,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
 import { listInvoices } from '../../api/invoices';
 import AppSelect from '../../components/ui/AppSelect.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
+import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
