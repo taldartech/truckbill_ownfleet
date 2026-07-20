@@ -1942,7 +1942,7 @@ watch(
     text-align: right;
     font-size: 0.8125rem;
     font-weight: 700;
-    color: #334155;
+    color: #fff;
     white-space: nowrap;
 }
 
