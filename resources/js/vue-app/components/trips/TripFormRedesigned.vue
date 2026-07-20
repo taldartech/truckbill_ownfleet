@@ -497,14 +497,6 @@
                     </span>
                 </div>
 
-                <div v-if="!isFormLocked && !requiresTruckSelection" class="mb-3">
-                    <TripRouteTemplateSelector
-                        :stations="stations"
-                        :customers="customers"
-                        @apply="onApplyRouteTemplate"
-                    />
-                </div>
-
                 <!-- Route groups: Home+Stop1 share one right card height; later stops pair 1:1 -->
                 <div
                     class="trf-route-board"
@@ -1282,7 +1274,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import {
     calculateLegFreight, inferTripTypeFromRoute, legLoadCategoryMeta, stopHasExpenses,
     summarizeTripForm, tripStatusMeta,
-    computeDieselPerformance, emptyRouteStop,
+    computeDieselPerformance,
     MAX_DIESEL_RATE_PER_LITER, MAX_EXPECTED_MILEAGE_KM_PER_LITER, MAX_FREIGHT_RATE_PER_TON, MAX_PLANNED_DIESEL_LITERS,
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
@@ -1295,7 +1287,6 @@ import AppModal from '../ui/AppModal.vue';
 import SearchablePickerRedesigned from '../ui/SearchablePickerRedesigned.vue';
 import AsyncVehicleTripPickerRedesigned from './AsyncVehicleTripPickerRedesigned.vue';
 import TripDieselPerformanceCard from './TripDieselPerformanceCard.vue';
-import TripRouteTemplateSelector from './TripRouteTemplateSelector.vue';
 import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
@@ -2147,63 +2138,6 @@ function syncInferredTripType() {
     if (String(props.form.trip_type) === 'ROUND_TRIP') {
         routeEndedOneWay.value = false;
     }
-}
-function onApplyRouteTemplate(template) {
-    if (requiresTruckSelection.value) {
-        toast.info('Select a truck first, then apply a recent route.');
-
-        return;
-    }
-
-    if (!template?.start_station_id || !Array.isArray(template.route_legs)) {
-        return;
-    }
-
-    const defaultMileage =
-        props.form.planned_mileage_km_per_liter !== '' && props.form.planned_mileage_km_per_liter != null
-            ? props.form.planned_mileage_km_per_liter
-            : '';
-
-    props.form.start_station_id = template.start_station_id;
-    props.form.route_legs = template.route_legs.map((leg, index) => {
-        const next = emptyRouteStop(
-            index + 1,
-            index === 0 ? template.start_station_id : (template.route_legs[index - 1]?.to_station_id ?? ''),
-            leg.to_station_id ?? '',
-            '',
-            defaultMileage,
-        );
-
-        next.customer_id = leg.customer_id ?? '';
-        next.use_same_customer = Boolean(leg.use_same_customer);
-        next.goods_name = leg.goods_name ?? '';
-        next.pickup_date = leg.pickup_date || dateOnlyFromDatetimeLocal(props.form.start_at) || '';
-        next.no_of_units = leg.no_of_units ?? '';
-        next.ewaybill_no = leg.ewaybill_no ?? '';
-        next.ewaybill_expiry = leg.ewaybill_expiry ?? '';
-        next.consignor_id = leg.consignor_id ?? '';
-        next.consignee_id = leg.consignee_id ?? '';
-        next.goods_value = leg.goods_value ?? '';
-        next.weight_ton = leg.weight_ton ?? '';
-        next.freight_rate = leg.freight_rate ?? '';
-        next.freight_amount = leg.freight_amount ?? 0;
-        next.freight_auto_calculate = leg.freight_auto_calculate !== false;
-        next.distance_km = leg.distance_km ?? '';
-        next.expected_mileage_km_per_liter = leg.expected_mileage_km_per_liter || defaultMileage;
-
-        if (next.use_same_customer) {
-            next.customer_id = props.form.customer_id ?? '';
-        }
-
-        return next;
-    });
-
-    routeEndedOneWay.value = false;
-    emit('start-station-change');
-    emit('clear-field-error', 'start_station_id');
-    syncInferredTripType();
-    toast.success('Recent route applied.');
-    saveProgress();
 }
 function handleEnterKey(e) { const t = e.target; if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.type === 'submit') return; const all = Array.from(document.querySelectorAll('input:not([disabled]):not([readonly]),select:not([disabled])')); const idx = all.indexOf(t); if (idx > -1 && idx < all.length - 1) all[idx + 1].focus(); }
 function saveProgress() { if (props.mode === 'create') { try { localStorage.setItem('truckbill_trip_create_draft', JSON.stringify(props.form)); } catch {} } }

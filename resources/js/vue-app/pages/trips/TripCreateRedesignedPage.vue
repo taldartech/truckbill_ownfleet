@@ -109,7 +109,6 @@ import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
 import { toDateInputValue } from '../../utils/datetime';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
-import { buildRouteTemplateFromForm, saveRecentRouteTemplate } from '../../utils/tripRouteTemplates';
 
 const router = useRouter();
 const route = useRoute();
@@ -446,11 +445,6 @@ async function confirmSave(mode = 'index') {
     try {
         const trip = await createTrip(pendingPayload.value);
         showSaveConfirm.value = false;
-
-        const routeTemplate = buildRouteTemplateFromForm(form, stations.value);
-        if (routeTemplate) {
-            saveRecentRouteTemplate(routeTemplate);
-        }
 
         pendingPayload.value = null;
         localStorage.removeItem('truckbill_trip_create_draft');
