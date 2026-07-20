@@ -91,7 +91,7 @@
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Start Date</span>
-                                <div class="trip-info-grid__value">{{ formatDateTime(trip.start_at) }}</div>
+                                <div class="trip-info-grid__value">{{ formatDate(trip.start_at) }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label d-flex align-items-center gap-1 flex-wrap">
@@ -112,7 +112,7 @@
                                         title="Arrived after planned end date"
                                     >Late</span>
                                 </span>
-                                <div class="trip-info-grid__value">{{ formatDateTime(trip.end_at) }}</div>
+                                <div class="trip-info-grid__value">{{ formatDate(trip.end_at) }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Actual Arrival</span>
