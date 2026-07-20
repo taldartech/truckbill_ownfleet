@@ -340,6 +340,71 @@ class TripManagementTest extends TestCase
         ]);
     }
 
+    public function test_trip_update_persists_route_leg_distance_km_without_changing_route_structure(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $customer = $this->createSampleCustomer($tenant);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'customer_id' => $customer->id,
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'distance_km' => 100,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'distance_km' => 100,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+        $routeLegs = $createResponse->json('data.route_legs');
+        $routeLegs[0]['distance_km'] = 250.5;
+        $routeLegs[1]['distance_km'] = 175;
+
+        $updateResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'route_legs' => $routeLegs,
+            ])
+            ->assertOk();
+
+        $this->assertEqualsWithDelta(250.5, (float) $updateResponse->json('data.route_legs.0.distance_km'), 0.01);
+        $this->assertEqualsWithDelta(175.0, (float) $updateResponse->json('data.route_legs.1.distance_km'), 0.01);
+
+        $this->assertEqualsWithDelta(
+            250.5,
+            (float) TripRouteLeg::query()
+                ->where('trip_id', $tripId)
+                ->where('sequence_no', 1)
+                ->value('distance_km'),
+            0.01,
+        );
+        $this->assertEqualsWithDelta(
+            175.0,
+            (float) TripRouteLeg::query()
+                ->where('trip_id', $tripId)
+                ->where('sequence_no', 2)
+                ->value('distance_km'),
+            0.01,
+        );
+    }
+
     public function test_trip_create_requires_customer_on_loaded_route_leg(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');

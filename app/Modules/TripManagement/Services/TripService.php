@@ -704,6 +704,9 @@ class TripService
                 : $existing?->goods_value,
             'consignor' => $leg['consignor'] ?? null,
             'consignee' => $leg['consignee'] ?? null,
+            'distance_km' => isset($leg['distance_km']) && $leg['distance_km'] !== '' && $leg['distance_km'] !== null
+                ? round((float) $leg['distance_km'], 2)
+                : ($existing !== null ? round((float) ($existing->distance_km ?? 0), 2) : 0),
             'freight_rate' => isset($leg['freight_rate']) ? (float) $leg['freight_rate'] : null,
             'weight_ton' => $weightTon > 0 ? $weightTon : null,
             'expected_mileage_km_per_liter' => isset($leg['expected_mileage_km_per_liter']) && $leg['expected_mileage_km_per_liter'] !== '' && $leg['expected_mileage_km_per_liter'] !== null
@@ -729,9 +732,6 @@ class TripService
                 'tenant_id' => $trip->tenant_id,
                 'trip_id' => $trip->id,
                 'sequence_no' => (int) ($leg['sequence_no'] ?? ($index + 1)),
-                'distance_km' => isset($leg['distance_km']) && $leg['distance_km'] !== '' && $leg['distance_km'] !== null
-                    ? round((float) $leg['distance_km'], 2)
-                    : 0,
                 ...$this->buildRouteLegAttributes($trip, $leg, null, $stationNames),
             ]);
         }
