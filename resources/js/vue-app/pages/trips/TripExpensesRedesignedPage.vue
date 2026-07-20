@@ -226,7 +226,7 @@
                             :trip-end-meter-km="form.end_meter_reading_km"
                             :field-errors="liveFieldErrors"
                             @add-expense="(options) => addExpense(options)"
-                            @remove-expense="removeExpense"
+                            @remove-expense="requestRemoveExpense"
                             @fuel-field-input="markFuelFieldDirty"
                             @field-input="onExpenseFieldInput"
                         />
@@ -338,6 +338,47 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <AppConfirmModal
+            :show="showRemoveExpenseConfirm"
+            title="Remove Expense"
+            icon="bi bi-trash"
+            icon-tone="danger"
+            confirm-label="Yes, Remove"
+            confirm-variant="danger"
+            confirm-icon="bi bi-trash"
+            @cancel="cancelRemoveExpense"
+            @confirm="confirmRemoveExpense"
+        >
+            <template #message>
+                This expense will be removed from the list. Save the trip to apply the change permanently.
+            </template>
+
+            <div v-if="pendingRemoveExpenseSummary" class="app-confirm-card text-start">
+                <div class="app-confirm-card__body">
+                    <div class="app-confirm-row">
+                        <span class="app-confirm-row__label">Type</span>
+                        <span class="app-confirm-row__value">{{ pendingRemoveExpenseSummary.type }}</span>
+                    </div>
+                    <div class="app-confirm-row">
+                        <span class="app-confirm-row__label">Date</span>
+                        <span class="app-confirm-row__value">{{ pendingRemoveExpenseSummary.date }}</span>
+                    </div>
+                    <div class="app-confirm-row">
+                        <span class="app-confirm-row__label">Amount</span>
+                        <span class="app-confirm-row__value">₹{{ pendingRemoveExpenseSummary.amount }}</span>
+                    </div>
+                    <div v-if="pendingRemoveExpenseSummary.stop" class="app-confirm-row">
+                        <span class="app-confirm-row__label">Stop</span>
+                        <span class="app-confirm-row__value">{{ pendingRemoveExpenseSummary.stop }}</span>
+                    </div>
+                    <div v-if="pendingRemoveExpenseSummary.note" class="app-confirm-row">
+                        <span class="app-confirm-row__label">Note</span>
+                        <span class="app-confirm-row__value">{{ pendingRemoveExpenseSummary.note }}</span>
+                    </div>
+                </div>
+            </div>
+        </AppConfirmModal>
     </div>
 </template>
 
@@ -348,7 +389,10 @@ import { listAllStations } from '../../api/stations';
 import {
     canFullEditTrip,
     canManageTripExpenses,
+    calcDieselAmount,
+    expenseTypeLabel,
     fetchTrip,
+    isDieselExpenseType,
     isTripArchived,
     summarizeTripForm,
     tripStatusMeta,
@@ -358,6 +402,7 @@ import TripExpensesPanel from '../../components/trips/TripExpensesPanel.vue';
 import TripExpenseSaveConfirmModal from '../../components/trips/TripExpenseSaveConfirmModal.vue';
 import TripExpenseValidationSummary from '../../components/trips/TripExpenseValidationSummary.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -393,6 +438,8 @@ const originalExpenses = ref([]);
 const originalStartMeter = ref('');
 const expensesPanelRef = ref(null);
 const validationAttempted = ref(false);
+const showRemoveExpenseConfirm = ref(false);
+const pendingRemoveExpenseIndex = ref(null);
 
 const tripDetailReturnTo = computed(() => ({
     name: 'trips.show',
@@ -609,6 +656,64 @@ function formatNum(value) {
 
 function formatMeter(value) {
     return formatMeterKm(value);
+}
+
+const pendingRemoveExpenseSummary = computed(() => {
+    const index = pendingRemoveExpenseIndex.value;
+
+    if (index == null) {
+        return null;
+    }
+
+    const expense = form.expenses[index];
+
+    if (!expense) {
+        return null;
+    }
+
+    const amount = isDieselExpenseType(expense.expense_type)
+        ? calcDieselAmount(expense.fuel_liters, expense.fuel_rate)
+        : Number(expense.amount ?? 0);
+
+    const sequence = expense.route_leg_sequence;
+    let stop = 'Whole Trip';
+
+    if (sequence !== '' && sequence != null) {
+        const leg = form.route_legs.find(
+            (item) => Number(item.sequence_no) === Number(sequence),
+        );
+        const from = leg?.from_city || '—';
+        const to = leg?.to_city || '—';
+        stop = `Stop ${sequence}: ${from} → ${to}`;
+    }
+
+    return {
+        type: expenseTypeLabel(expense.expense_type, expense.other_type),
+        date: expense.expense_date ? formatDate(expense.expense_date) : '—',
+        amount: formatMoney(amount),
+        stop,
+        note: String(expense.notes ?? '').trim(),
+    };
+});
+
+function requestRemoveExpense(index) {
+    pendingRemoveExpenseIndex.value = index;
+    showRemoveExpenseConfirm.value = true;
+}
+
+function cancelRemoveExpense() {
+    showRemoveExpenseConfirm.value = false;
+    pendingRemoveExpenseIndex.value = null;
+}
+
+function confirmRemoveExpense() {
+    const index = pendingRemoveExpenseIndex.value;
+
+    if (index != null) {
+        removeExpense(index);
+    }
+
+    cancelRemoveExpense();
 }
 
 function onExpenseFieldInput() {
