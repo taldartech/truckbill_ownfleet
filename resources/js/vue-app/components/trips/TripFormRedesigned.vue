@@ -1273,7 +1273,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
     calculateLegFreight, inferTripTypeFromRoute, legLoadCategoryMeta, stopHasExpenses,
     summarizeTripForm, tripStatusMeta,
@@ -2149,10 +2149,123 @@ function syncInferredTripType() {
         routeEndedOneWay.value = false;
     }
 }
-function handleEnterKey(e) { const t = e.target; if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.type === 'submit') return; const all = Array.from(document.querySelectorAll('input:not([disabled]):not([readonly]),select:not([disabled])')); const idx = all.indexOf(t); if (idx > -1 && idx < all.length - 1) all[idx + 1].focus(); }
-function saveProgress() { if (props.mode === 'create') { try { localStorage.setItem('truckbill_trip_create_draft', JSON.stringify(props.form)); } catch {} } }
-function loadProgressDraft() { if (props.mode === 'create') { const d = localStorage.getItem('truckbill_trip_create_draft'); if (d) { try { const p = JSON.parse(d); Object.keys(p).forEach((k) => { if (props.form[k] !== undefined) props.form[k] = p[k]; }); toast.info('Restored unsaved draft.'); } catch {} } } }
-onMounted(() => { loadProgressDraft(); });
+function handleEnterKey(e) {
+    const t = e.target;
+    if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.type === 'submit') {
+        return;
+    }
+    const all = Array.from(
+        document.querySelectorAll('input:not([disabled]):not([readonly]),select:not([disabled])'),
+    );
+    const idx = all.indexOf(t);
+    if (idx > -1 && idx < all.length - 1) {
+        all[idx + 1].focus();
+    }
+}
+
+const TRIP_CREATE_DRAFT_KEY = 'truckbill_trip_create_draft';
+
+function saveProgress() {
+    if (props.mode !== 'create') {
+        return;
+    }
+
+    try {
+        localStorage.setItem(TRIP_CREATE_DRAFT_KEY, JSON.stringify(props.form));
+    } catch {
+        // Ignore quota / private-mode failures.
+    }
+}
+
+function draftHasContent(draft) {
+    if (!draft || typeof draft !== 'object') {
+        return false;
+    }
+
+    return Boolean(
+        draft.vehicle_id
+        || draft.driver_id
+        || draft.substitute_driver_id
+        || draft.customer_id
+        || draft.broker_id
+        || draft.start_station_id
+        || draft.end_at
+        || draft.notes?.trim?.()
+        || (draft.start_meter_reading_km !== '' && draft.start_meter_reading_km != null)
+        || (draft.planned_diesel_liters !== '' && draft.planned_diesel_liters != null)
+        || (draft.diesel_rate_per_liter !== '' && draft.diesel_rate_per_liter != null)
+        || (Array.isArray(draft.route_legs) && draft.route_legs.length > 0)
+        || (Array.isArray(draft.expenses) && draft.expenses.length > 0),
+    );
+}
+
+function applyProgressDraft(draft) {
+    if (!draft || typeof draft !== 'object') {
+        return false;
+    }
+
+    Object.keys(props.form).forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(draft, key)) {
+            return;
+        }
+
+        props.form[key] = draft[key];
+    });
+
+    if (props.form.substitute_driver_id) {
+        showSubstituteDriver.value = true;
+    }
+
+    syncInferredTripType();
+
+    if (
+        String(props.form.trip_type) === 'ONE_WAY'
+        && Array.isArray(props.form.route_legs)
+        && props.form.route_legs.length > 0
+    ) {
+        const lastStopId = props.form.route_legs[props.form.route_legs.length - 1]?.to_station_id;
+        routeEndedOneWay.value = Boolean(lastStopId)
+            && String(lastStopId) !== String(props.form.start_station_id ?? '');
+    }
+
+    return draftHasContent(draft);
+}
+
+function restoreProgressDraft() {
+    if (props.mode !== 'create') {
+        return false;
+    }
+
+    const raw = localStorage.getItem(TRIP_CREATE_DRAFT_KEY);
+
+    if (!raw) {
+        return false;
+    }
+
+    try {
+        const draft = JSON.parse(raw);
+
+        if (!applyProgressDraft(draft)) {
+            return false;
+        }
+
+        toast.info('Restored unsaved draft.');
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function clearProgressDraft() {
+    try {
+        localStorage.removeItem(TRIP_CREATE_DRAFT_KEY);
+    } catch {
+        // Ignore storage failures.
+    }
+}
+
+defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 </script>
 
 <style scoped>

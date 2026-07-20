@@ -6,6 +6,7 @@
 
         <form v-else novalidate @submit.prevent="handleSubmit('index')">
             <TripFormRedesigned
+                ref="tripFormRef"
                 mode="create"
                 :show-expenses="false"
                 :form="form"
@@ -50,7 +51,7 @@
                         size="sm"
                         icon="bi bi-x-lg"
                         label="Cancel"
-                        :to="tripListReturnTo"
+                        @click="handleCancel"
                     />
                     <AppButton
                         type="button"
@@ -95,6 +96,7 @@ import { listAllDrivers } from '../../api/drivers';
 import { listAllGoodsTypes } from '../../api/goodsTypes';
 import { listAllStations } from '../../api/stations';
 import { createTrip, fetchNextTripNumber, validateTripPayload } from '../../api/trips';
+import { fetchVehicle } from '../../api/vehicles';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
 import TripFormRedesigned from '../../components/trips/TripFormRedesigned.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
@@ -151,6 +153,7 @@ const customers = ref([]);
 const goodsTypes = ref([]);
 const drivers = ref([]);
 const saving = ref(false);
+const tripFormRef = ref(null);
 const previewTripNumber = ref('');
 const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], expenses: [] }));
@@ -264,7 +267,43 @@ function handleClearForm() {
     vehicleDefaultMileage.value = '';
     vehicleMaxLoad.value = '';
     vehicleFuelTankCapacity.value = '';
+    tripFormRef.value?.clearProgressDraft?.();
     refreshTripNumberPreview({ syncSequence: true });
+}
+
+function handleCancel() {
+    tripFormRef.value?.clearProgressDraft?.();
+    router.push(tripListReturnTo.value);
+}
+
+async function hydrateRestoredVehicle(vehicleId) {
+    try {
+        const vehicle = await fetchVehicle(vehicleId);
+
+        selectedVehicleLabel.value = vehicle?.registration_number ?? '—';
+        vehicleOdometerKm.value =
+            vehicle?.odometer_km !== undefined && vehicle?.odometer_km !== null && vehicle?.odometer_km !== ''
+                ? vehicle.odometer_km
+                : '';
+        vehicleDefaultMileage.value =
+            vehicle?.default_mileage_km_per_liter !== undefined
+            && vehicle?.default_mileage_km_per_liter !== null
+            && vehicle?.default_mileage_km_per_liter !== ''
+                ? vehicle.default_mileage_km_per_liter
+                : '';
+        vehicleMaxLoad.value =
+            vehicle?.max_load_ton !== undefined && vehicle?.max_load_ton !== null && vehicle?.max_load_ton !== ''
+                ? vehicle.max_load_ton
+                : '';
+        vehicleFuelTankCapacity.value =
+            vehicle?.fuel_tank_capacity_ltr !== undefined
+            && vehicle?.fuel_tank_capacity_ltr !== null
+            && vehicle?.fuel_tank_capacity_ltr !== ''
+                ? vehicle.fuel_tank_capacity_ltr
+                : '';
+    } catch {
+        // Keep draft form values even if vehicle details cannot be loaded.
+    }
 }
 
 let tripNumberPreviewTimer = null;
@@ -448,6 +487,7 @@ async function confirmSave(mode = 'index') {
 
         pendingPayload.value = null;
         localStorage.removeItem('truckbill_trip_create_draft');
+        tripFormRef.value?.clearProgressDraft?.();
 
         if (saveMode.value === 'expenses' && trip?.id) {
             await router.push({ name: 'trips.expenses', params: { id: trip.id } });
@@ -486,7 +526,18 @@ onMounted(async () => {
 
     if (!needsCompanySelection.value) {
         await loadLookups();
-        await refreshTripNumberPreview({ syncSequence: true });
+    }
+
+    // Parent reset runs after the form mounts, so restore only after initialization.
+    const restored = tripFormRef.value?.restoreProgressDraft?.() ?? false;
+
+    if (restored && form.vehicle_id) {
+        await hydrateRestoredVehicle(form.vehicle_id);
+    }
+
+    if (!needsCompanySelection.value) {
+        const hasSequence = form.trip_sequence !== '' && form.trip_sequence != null;
+        await refreshTripNumberPreview({ syncSequence: !hasSequence });
     }
 });
 </script>

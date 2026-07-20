@@ -159,7 +159,7 @@
 
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { searchVehiclesForTripSelection } from '../../api/vehicles';
+import { searchVehiclesForTripSelection, fetchVehicle } from '../../api/vehicles';
 import { claimExclusiveDropdown, releaseExclusiveDropdown } from '../../composables/useExclusiveDropdown';
 import { useAppToast } from '../../composables/useAppToast';
 import PickerListFooter from '../ui/PickerListFooter.vue';
@@ -495,6 +495,35 @@ watch(
 
         if (match) {
             selectedVehicle.value = match;
+
+            return;
+        }
+
+        try {
+            const vehicle = await fetchVehicle(value);
+
+            if (String(props.modelValue) !== String(value)) {
+                return;
+            }
+
+            selectedVehicle.value = {
+                vehicle_id: vehicle.id,
+                registration_number: vehicle.registration_number,
+                make: vehicle.make,
+                model: vehicle.model,
+                odometer_km: vehicle.odometer_km,
+                max_load_ton: vehicle.max_load_ton,
+                default_mileage_km_per_liter: vehicle.default_mileage_km_per_liter,
+                expected_mileage_km_per_liter: vehicle.expected_mileage_km_per_liter,
+                fuel_tank_capacity_ltr: vehicle.fuel_tank_capacity_ltr,
+                selectable: true,
+                primary_driver_id: vehicle.primary_driver_id ?? null,
+                primary_driver_name: vehicle.primary_driver_name ?? vehicle.primary_driver?.name ?? '',
+            };
+        } catch {
+            if (String(props.modelValue) === String(value)) {
+                selectedVehicle.value = null;
+            }
         }
     },
     { immediate: true },
