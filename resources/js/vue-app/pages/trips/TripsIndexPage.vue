@@ -250,12 +250,6 @@
             </template>
         </AppIndexListCard>
 
-        <TripTypeSelectModal
-            :show="showTripTypeModal"
-            @cancel="showTripTypeModal = false"
-            @confirm="onTripTypeSelected"
-        />
-
         <TripArchiveConfirmModal
             :show="showArchiveConfirm"
             :summary="archiveConfirmSummary"
@@ -286,7 +280,6 @@ import {
 } from '../../api/trips';
 import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
-import TripTypeSelectModal from '../../components/trips/TripTypeSelectModal.vue';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
@@ -340,7 +333,6 @@ const { applyApiError } = useApiFormErrors();
 const trips = ref([]);
 const customers = ref([]);
 const loading = ref(true);
-const showTripTypeModal = ref(false);
 const showArchiveConfirm = ref(false);
 const archiveConfirmSummary = ref(null);
 const archivingTrip = ref(false);
@@ -582,7 +574,7 @@ function goToCreate() {
         return false;
     }
 
-    showTripTypeModal.value = true;
+    router.push({ name: 'trips.create' });
 
     return true;
 }
@@ -595,14 +587,6 @@ function openCreateModalFromRoute() {
     const { filters: filterQuery } = splitTripListRouteQuery(route.query);
     router.replace({ query: buildTripListQuery(resolveTripListState(filterQuery, tenantId.value)) });
     goToCreate();
-}
-
-function onTripTypeSelected(tripType) {
-    showTripTypeModal.value = false;
-
-    const typeQuery = tripType === 'ONE_WAY' ? 'one_way' : 'round_trip';
-
-    router.push({ name: 'trips.create', query: { type: typeQuery } });
 }
 
 function clearFilters() {
