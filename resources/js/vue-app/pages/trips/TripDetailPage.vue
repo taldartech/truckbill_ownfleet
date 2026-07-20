@@ -1,94 +1,5 @@
 <template>
     <div class="container mt-4 trip-detail-page pb-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-            <div>
-                <RouterLink :to="tripListReturnTo" class="text-decoration-none small">
-                    <i class="bi bi-arrow-left"></i> {{ trip?.is_archived ? 'Back to Archived Trips' : 'Back to Trips' }}
-                </RouterLink>
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                    <h3 class="mb-0">{{ trip?.trip_number ?? 'Trip Details' }}</h3>
-                    <span v-if="trip" class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
-                </div>
-                <p v-if="trip" class="text-muted small mb-0">
-                    <RouterLink
-                        v-if="trip.vehicle?.id"
-                        :to="{ name: 'trucks.show', params: { vehicleId: trip.vehicle.id } }"
-                        class="text-decoration-none"
-                    >
-                        {{ trip.vehicle.registration_number }}
-                    </RouterLink>
-                    <span v-else>—</span>
-                    <span v-if="trip.driver?.name"> · {{ trip.driver.name }}</span>
-                    <span v-if="tripDuration"> · {{ tripDuration }}</span>
-                </p>
-            </div>
-            <div v-if="trip" class="d-flex flex-wrap align-items-center gap-2">
-                <TripInlineStatusActions
-                    v-if="!isArchived"
-                    :trip="trip"
-                    :can-manage="canManage && canEditTripStatus"
-                    :compact="false"
-                    @updated="onTripUpdated"
-                />
-                <AppButton
-                    v-if="canManage && canManageTripExpensesFor"
-                    variant="success"
-                    outline
-                    size="sm"
-                    icon="bi bi-receipt"
-                    label="Manage Expenses"
-                    :to="{ name: 'trips.expenses', params: { id: trip.id } }"
-                />
-                <AppButton
-                    v-if="canGenerateInvoices"
-                    variant="warning"
-                    outline
-                    size="sm"
-                    icon="bi bi-file-earmark-text"
-                    label="Generate Invoice(s)"
-                    @click="openGenerateInvoices"
-                />
-                <AppButton
-                    v-if="canPrintBilty"
-                    variant="secondary"
-                    outline
-                    size="sm"
-                    icon="bi bi-printer"
-                    label="Print Bilty"
-                    @click="openPrintBilty"
-                />
-                <AppButton
-                    v-if="canManage && canEditTripPage"
-                    variant="primary"
-                    outline
-                    size="sm"
-                    icon="bi bi-pencil"
-                    label="Edit"
-                    :to="{ name: 'trips.edit', params: { id: trip.id } }"
-                />
-                <AppButton
-                    v-if="canArchiveThisTrip && !isArchived"
-                    variant="danger"
-                    outline
-                    size="sm"
-                    icon="bi bi-archive"
-                    label="Archive"
-                    :disabled="archivingTrip"
-                    @click="handleArchive"
-                />
-                <AppButton
-                    v-if="canRestoreThisTrip"
-                    variant="success"
-                    outline
-                    size="sm"
-                    icon="bi bi-arrow-counterclockwise"
-                    label="Restore"
-                    :disabled="restoringTrip"
-                    @click="openRestoreConfirm"
-                />
-            </div>
-        </div>
-
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> to view trip details.
         </div>
@@ -115,20 +26,64 @@
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="card">
-                        <div class="card-header">
-                            <strong><i class="bi bi-signpost-split me-2" aria-hidden="true"></i>Trip Information</strong>
-                            <span v-if="headerMetaText" class="text-muted small ms-2">{{ headerMetaText }}</span>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>Trip Information ({{ trip.trip_number || '—' }})</strong>
+                            <div
+                                class="app-index-table-actions ms-auto"
+                                style="margin-left: auto !important; display: inline-flex !important; gap: 0.375rem !important;"
+                            >
+                                <RouterLink
+                                    :to="tripListReturnTo"
+                                    class="btn btn-sm btn-outline-secondary btn-icon app-index-action-btn"
+                                    :title="trip.is_archived ? 'Back to Archived Trips' : 'Back to Trips'"
+                                    style="background-color: #fff; border-color: #cbd5e1; color: #475569;"
+                                >
+                                    <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
+                                </RouterLink>
+                                <AppCrudActionButton
+                                    v-if="canManage && canManageTripExpensesFor"
+                                    action="expenses"
+                                    title="Manage expenses"
+                                    @click="goToExpenses"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canGenerateInvoices"
+                                    action="invoice"
+                                    title="Generate invoice(s)"
+                                    @click="openGenerateInvoices"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canPrintBilty"
+                                    action="bilty"
+                                    title="Print bilty"
+                                    @click="openPrintBilty"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canManage && canEditTripPage"
+                                    action="edit"
+                                    title="Edit trip"
+                                    @click="goToEdit"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canArchiveThisTrip && !isArchived"
+                                    action="archive"
+                                    title="Archive trip"
+                                    :disabled="archivingTrip"
+                                    @click="handleArchive"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canRestoreThisTrip"
+                                    action="restore"
+                                    title="Restore trip"
+                                    :disabled="restoringTrip"
+                                    @click="openRestoreConfirm"
+                                />
+                            </div>
                         </div>
                         <div class="card-body row g-3 small">
                             <div class="col-md-4">
                                 <span class="text-muted">Trip Number</span>
                                 <div class="fw-semibold">{{ trip.trip_number || '—' }}</div>
-                            </div>
-                            <div class="col-md-4">
-                                <span class="text-muted">Status</span>
-                                <div>
-                                    <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
-                                </div>
                             </div>
                             <div class="col-md-4">
                                 <span class="text-muted">Start Station</span>
@@ -250,72 +205,135 @@
                                 </div>
                             </div>
                         </div>
+                        <div
+                            class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center pt-0 pb-3 pe-3 ps-3"
+                            style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important;"
+                        >
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="text-muted small">Status:</span>
+                                <TripInlineStatusActions
+                                    v-if="!isArchived"
+                                    :trip="trip"
+                                    :can-manage="canManage && canEditTripStatus"
+                                    compact
+                                    @updated="onTripUpdated"
+                                />
+                                <span v-else class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="card mt-3">
                         <div class="card-header">
-                            <strong><i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>{{ routeSectionTitle }}</strong>
+                            <strong>{{ routeSectionTitle }}</strong>
                         </div>
                         <div class="card-body">
-                            <div v-if="routePreview" class="alert alert-light border mb-3 py-2 small mb-3">
+                            <div v-if="routePreview" class="alert alert-light border mb-3 py-2 small">
                                 <strong>Route:</strong> {{ routePreview }}
                             </div>
                             <div v-if="routeLegs.length === 0" class="text-muted text-center py-4">
                                 No route legs recorded.
                             </div>
-                            <div v-else class="table-responsive">
-                                <table class="table table-bordered align-middle mb-0 trip-route-table trip-route-table--readonly">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>From</th>
-                                            <th>To</th>
-                                            <th>Customer</th>
-                                            <th>Goods Type</th>
-                                            <th>Weight (Ton)</th>
-                                            <th>Expected Mileage</th>
-                                            <th>Freight Rate (₹/Ton)</th>
-                                            <th>Freight</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="leg in routeLegs" :key="leg.id ?? leg.sequence_no">
-                                            <td>{{ leg.sequence_no }}</td>
-                                            <td>
-                                                <div>{{ leg.from_city || leg.from_location || '—' }}</div>
-                                                <div v-if="leg.from_address" class="text-muted">{{ leg.from_address }}</div>
-                                            </td>
-                                            <td>
-                                                <div>{{ leg.to_city || leg.to_location || '—' }}</div>
-                                                <div v-if="leg.to_address" class="text-muted">{{ leg.to_address }}</div>
-                                            </td>
-                                            <td>{{ leg.customer_name || '—' }}</td>
-                                            <td>{{ leg.goods_name || '—' }}</td>
-                                            <td>
-                                                <div class="trip-route-weight-field">
-                                                    <span
-                                                        class="trip-route-load-tag"
-                                                        :class="`trip-route-load-tag--${legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).category}`"
-                                                    >
-                                                        {{ legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).label }}
-                                                    </span>
-                                                    <span class="trip-route-weight-readonly">
-                                                        {{ leg.weight_ton ? formatKm(leg.weight_ton) : '—' }}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>
+                            <div v-else class="trip-detail-stops">
+                                <div
+                                    v-for="leg in routeLegs"
+                                    :key="leg.id ?? leg.sequence_no"
+                                    class="trip-detail-stop"
+                                >
+                                    <div class="trip-detail-stop__head">
+                                        <div class="trip-detail-stop__head-main">
+                                            <span class="trip-detail-stop__num">Stop {{ leg.sequence_no }}</span>
+                                            <span class="trip-detail-stop__sep">·</span>
+                                            <span class="trip-detail-stop__route">
+                                                {{ leg.from_city || leg.from_location || '—' }}
+                                                →
+                                                {{ leg.to_city || leg.to_location || '—' }}
+                                            </span>
+                                            <span class="trip-detail-stop__sep">·</span>
+                                            <span
+                                                class="trip-route-load-tag"
+                                                :class="`trip-route-load-tag--${legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).category}`"
+                                            >
+                                                {{ legLoadCategoryMeta(leg.weight_ton, trip.max_load_ton).label }}
+                                            </span>
+                                            <span class="trip-detail-stop__sep">·</span>
+                                            <span class="trip-detail-stop__customer">{{ leg.customer_name || trip.customer_name || '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__freight">
+                                            {{ Number(leg.freight_amount) > 0 ? `₹${formatMoney(leg.freight_amount)}` : 'No freight' }}
+                                        </div>
+                                    </div>
+
+                                    <div class="trip-detail-stop__fields">
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Customer</span>
+                                            <span class="trip-detail-stop__value">{{ leg.customer_name || trip.customer_name || '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Consignor (From)</span>
+                                            <span class="trip-detail-stop__value">{{ leg.consignor || '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Consignee (To)</span>
+                                            <span class="trip-detail-stop__value">{{ leg.consignee || '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Pickup Date</span>
+                                            <span class="trip-detail-stop__value">{{ formatDate(leg.pickup_date) }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Goods Type</span>
+                                            <span class="trip-detail-stop__value">{{ leg.goods_name || '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Goods Value</span>
+                                            <span class="trip-detail-stop__value">
+                                                {{ leg.goods_value ? `₹${formatMoney(leg.goods_value)}` : '—' }}
+                                            </span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">No. of Units</span>
+                                            <span class="trip-detail-stop__value">{{ leg.no_of_units ?? '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Weight (Ton)</span>
+                                            <span class="trip-detail-stop__value">{{ leg.weight_ton ? formatKm(leg.weight_ton) : '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field">
+                                            <span class="trip-detail-stop__label">Rate (₹/Ton)</span>
+                                            <span class="trip-detail-stop__value">{{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}</span>
+                                        </div>
+                                        <div class="trip-detail-stop__field trip-detail-stop__field--freight">
+                                            <span class="trip-detail-stop__label">Freight (₹)</span>
+                                            <span class="trip-detail-stop__value">₹{{ formatMoney(leg.freight_amount) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="trip-detail-stop__meta">
+                                        <span>
+                                            E-Way Bill:
+                                            <strong>{{ leg.ewaybill_no || '—' }}</strong>
+                                        </span>
+                                        <span>
+                                            Expiry:
+                                            <strong>{{ formatDate(leg.ewaybill_expiry) }}</strong>
+                                        </span>
+                                        <span>
+                                            KM/Ltr:
+                                            <strong>
                                                 {{
                                                     leg.expected_mileage_km_per_liter
-                                                        ? `${formatKm(leg.expected_mileage_km_per_liter)} KM/Lt`
+                                                        ? formatKm(leg.expected_mileage_km_per_liter)
                                                         : '—'
                                                 }}
-                                            </td>
-                                            <td>{{ leg.freight_rate ? formatMoney(leg.freight_rate) : '—' }}</td>
-                                            <td>₹{{ formatMoney(leg.freight_amount) }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                            </strong>
+                                        </span>
+                                        <span>
+                                            Distance:
+                                            <strong>{{ leg.distance_km ? `${formatKm(leg.distance_km)} KM` : '—' }}</strong>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div v-if="routeLegs.length > 0" class="card-body p-0 border-top">
@@ -352,7 +370,7 @@
 
                     <div class="card mt-3">
                         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                            <strong><i class="bi bi-receipt me-1"></i>Trip Expenses</strong>
+                            <strong>Trip Expenses</strong>
                             <span class="badge bg-secondary">₹{{ formatMoney(trip.total_expense_amount) }}</span>
                         </div>
                         <div class="card-body">
@@ -876,6 +894,7 @@ import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmMo
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
+import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppModal from '../../components/ui/AppModal.vue';
@@ -1077,24 +1096,6 @@ const routePreview = computed(() => {
     return points.length > 1 ? points.join(' → ') : '';
 });
 
-const headerMetaText = computed(() => {
-    const parts = [];
-
-    if (trip.value?.vehicle?.registration_number) {
-        parts.push(trip.value.vehicle.registration_number);
-    }
-
-    if (trip.value?.driver?.name) {
-        parts.push(trip.value.driver.name);
-    }
-
-    if (trip.value?.start_at) {
-        parts.push(formatDateTime(trip.value.start_at));
-    }
-
-    return parts.join(' · ') || '—';
-});
-
 const vehicleMeta = computed(() => {
     const vehicle = trip.value?.vehicle;
 
@@ -1124,26 +1125,6 @@ const arrivalTiming = computed(() => {
     }
 
     return 'on-time';
-});
-
-const tripDuration = computed(() => {
-    const start = dateOnlyFromDatetimeLocal(trip.value?.start_at);
-    const end = dateOnlyFromDatetimeLocal(trip.value?.end_at || trip.value?.actual_arrival_at);
-
-    if (!start || !end) {
-        return '';
-    }
-
-    const startMs = Date.parse(start);
-    const endMs = Date.parse(end);
-
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
-        return '';
-    }
-
-    const days = Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
-
-    return `${days} day${days === 1 ? '' : 's'}`;
 });
 
 const profitMargin = computed(() => {
@@ -1250,6 +1231,22 @@ function formatOdometerReading(value) {
 
 function onTripUpdated(updated) {
     trip.value = updated;
+}
+
+function goToExpenses() {
+    if (!trip.value?.id) {
+        return;
+    }
+
+    router.push({ name: 'trips.expenses', params: { id: trip.value.id } });
+}
+
+function goToEdit() {
+    if (!trip.value?.id) {
+        return;
+    }
+
+    router.push({ name: 'trips.edit', params: { id: trip.value.id } });
 }
 
 function todayDateString() {
@@ -1738,6 +1735,127 @@ watch(
     gap: 1rem 1.5rem;
     padding: 0.85rem 1rem;
     background: #f8fafc;
+}
+
+.trip-detail-stops {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.trip-detail-stop {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    overflow: hidden;
+    background: #fff;
+}
+
+.trip-detail-stop__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.65rem 0.85rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.trip-detail-stop__head-main {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.45rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+}
+
+.trip-detail-stop__num {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.trip-detail-stop__sep {
+    color: #94a3b8;
+}
+
+.trip-detail-stop__route,
+.trip-detail-stop__customer {
+    font-weight: 600;
+    color: #334155;
+}
+
+.trip-detail-stop__freight {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #166534;
+    white-space: nowrap;
+}
+
+.trip-detail-stop__fields {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.65rem 0.75rem;
+    padding: 0.85rem;
+}
+
+.trip-detail-stop__field {
+    min-width: 0;
+}
+
+.trip-detail-stop__label {
+    display: block;
+    margin-bottom: 0.15rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.trip-detail-stop__value {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.trip-detail-stop__field--freight .trip-detail-stop__value {
+    color: #166534;
+    font-weight: 800;
+}
+
+.trip-detail-stop__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid #eef2f7;
+    background: #f8fafc;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.trip-detail-stop__meta strong {
+    color: #334155;
+    font-weight: 700;
+}
+
+@media (max-width: 1199.98px) {
+    .trip-detail-stop__fields {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .trip-detail-stop__fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .trip-detail-stop__fields {
+        grid-template-columns: 1fr;
+    }
 }
 
 .trip-detail-expense-group + .trip-detail-expense-group {
