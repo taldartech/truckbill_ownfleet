@@ -622,7 +622,15 @@
                                     <div class="trf-leg__summary-main">
                                         <span class="trf-leg__summary-stop">Stop {{ group.cardIndex + 1 }}</span>
                                         <span class="trf-leg__summary-sep">·</span>
-                                        <span class="trf-leg__summary-station">{{ stationLabel(group.cardLeg.to_station_id) || 'Station' }}</span>
+                                        <span class="trf-leg__summary-route">{{ stopRouteLabel(group.cardLeg, group.cardIndex) }}</span>
+                                        <span class="trf-leg__summary-sep">·</span>
+                                        <span
+                                            class="trf-leg__load-badge"
+                                            :class="{ 'trf-leg__load-badge--over': isLegOverloaded(group.cardLeg) }"
+                                        >
+                                            Load Type: {{ legLoadMeta(group.cardLeg.weight_ton).label }}
+                                            <template v-if="isLegOverloaded(group.cardLeg)"> · Over capacity</template>
+                                        </span>
                                         <span class="trf-leg__summary-sep">·</span>
                                         <span class="trf-leg__summary-customer">{{ stopSummaryCustomer(group.cardLeg) }}</span>
                                     </div>
@@ -648,17 +656,17 @@
                                             <label
                                                 v-if="!isFormLocked"
                                                 class="trf-subst-toggle"
-                                                :class="{ 'is-on': group.cardLeg.use_same_customer }"
+                                                :class="{ 'is-on': !group.cardLeg.use_same_customer }"
                                                 :for="`same-cust-${group.cardIndex}`"
                                             >
                                                 <input
                                                     :id="`same-cust-${group.cardIndex}`"
-                                                    v-model="group.cardLeg.use_same_customer"
                                                     type="checkbox"
                                                     class="trf-subst-toggle__input"
                                                     role="switch"
-                                                    :aria-checked="group.cardLeg.use_same_customer"
-                                                    @change="onLegSameCustomerChange(group.cardIndex); saveProgress()"
+                                                    :checked="!group.cardLeg.use_same_customer"
+                                                    :aria-checked="!group.cardLeg.use_same_customer"
+                                                    @change="onStopWiseCustomerToggle(group.cardIndex, $event)"
                                                 />
                                                 <span class="trf-subst-toggle__track" aria-hidden="true">
                                                     <span class="trf-subst-toggle__thumb"></span>
@@ -705,6 +713,56 @@
                                         </div>
                                     </div>
 
+                                    <div :id="`trf-leg-${group.cardIndex}-consignor_id`" class="trf-lf">
+                                        <label class="trf-lf__lbl">Consignor (From)</label>
+                                        <div v-if="!isFormLocked" class="trf-lf__picker">
+                                            <SearchablePickerRedesigned
+                                                v-model="group.cardLeg.consignor_id"
+                                                :items="customers"
+                                                attach-dropdown-to-body
+                                                placeholder="Select consignor"
+                                                search-placeholder="Search customer…"
+                                                empty-message="No customer found."
+                                                view-title="Customer details"
+                                                quick-add-title="Add customer"
+                                                :can-quick-add="canQuickAddCustomer"
+                                                :show-subtext="false"
+                                                title-case-label
+                                                compact-actions
+                                                @quick-add="openQuickAddForLegConsignor(group.cardIndex)"
+                                                @update:model-value="saveProgress"
+                                            />
+                                        </div>
+                                        <div v-else class="trf-ro-val">
+                                            <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.consignor_id) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div :id="`trf-leg-${group.cardIndex}-consignee_id`" class="trf-lf">
+                                        <label class="trf-lf__lbl">Consignee (To)</label>
+                                        <div v-if="!isFormLocked" class="trf-lf__picker">
+                                            <SearchablePickerRedesigned
+                                                v-model="group.cardLeg.consignee_id"
+                                                :items="customers"
+                                                attach-dropdown-to-body
+                                                placeholder="Select consignee"
+                                                search-placeholder="Search customer…"
+                                                empty-message="No customer found."
+                                                view-title="Customer details"
+                                                quick-add-title="Add customer"
+                                                :can-quick-add="canQuickAddCustomer"
+                                                :show-subtext="false"
+                                                title-case-label
+                                                compact-actions
+                                                @quick-add="openQuickAddForLegConsignee(group.cardIndex)"
+                                                @update:model-value="saveProgress"
+                                            />
+                                        </div>
+                                        <div v-else class="trf-ro-val">
+                                            <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.consignee_id) }}</span>
+                                        </div>
+                                    </div>
+
                                     <div :id="`trf-leg-${group.cardIndex}-pickup_date`" class="trf-lf">
                                         <label class="trf-lf__lbl">Pickup Date<span class="trf-pf__req">*</span></label>
                                         <input
@@ -721,6 +779,7 @@
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.pickup_date || '—' }}</span>
                                     </div>
 
+                                    <div class="trf-leg__cargo-row">
                                     <div :id="`trf-leg-${group.cardIndex}-goods_name`" class="trf-lf">
                                         <div class="trf-field-head">
                                             <label class="trf-lf__lbl">Goods Type<span class="trf-pf__req">*</span></label>
@@ -818,7 +877,7 @@
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.freight_rate ? '₹' + formatMoney(group.cardLeg.freight_rate) : '—' }}</span>
                                     </div>
 
-                                    <div :id="`trf-leg-${group.cardIndex}-freight_amount`" class="trf-lf">
+                                    <div :id="`trf-leg-${group.cardIndex}-freight_amount`" class="trf-lf trf-lf--freight">
                                         <div class="trf-freight-head">
                                             <label class="trf-lf__lbl">Freight (₹)<span class="trf-pf__req">*</span></label>
                                             <label
@@ -851,28 +910,20 @@
                                                 type="number"
                                                 min="0"
                                                 step="0.01"
-                                                class="trf-input"
+                                                class="trf-input trf-input--freight"
                                                 :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'freight_amount') }"
                                                 :title="legFieldError(group.cardIndex, 'freight_amount') || undefined"
                                                 placeholder="0.00"
                                                 :disabled="group.cardLeg.freight_auto_calculate"
                                                 @input="onLegFreightManualInput(group.cardIndex); saveProgress()"
                                             />
-                                            <span v-else class="trf-ro-val__main">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
+                                            <span v-else class="trf-ro-val__main trf-ro-val__main--freight">₹{{ formatMoney(group.cardLeg.freight_amount) }}</span>
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
 
                                 <div class="trf-leg__meta">
-                                    <div class="trf-leg__meta-left">
-                                        <span
-                                            class="trf-leg__load-badge"
-                                            :class="{ 'trf-leg__load-badge--over': isLegOverloaded(group.cardLeg) }"
-                                        >
-                                            Load Type: {{ legLoadMeta(group.cardLeg.weight_ton).label }}
-                                            <template v-if="isLegOverloaded(group.cardLeg)"> · Over capacity</template>
-                                        </span>
-                                    </div>
                                     <div class="trf-leg__meta-right">
                                         <span class="trf-leg__dist">
                                             E-Way Bill:
@@ -887,6 +938,18 @@
                                                 />
                                             </template>
                                             <template v-else>{{ group.cardLeg.ewaybill_no || '—' }}</template>
+                                        </span>
+                                        <span class="trf-leg__dist">
+                                            Expiry:
+                                            <template v-if="!isFormLocked">
+                                                <input
+                                                    v-model="group.cardLeg.ewaybill_expiry"
+                                                    type="date"
+                                                    class="trf-leg__dist-input trf-leg__dist-input--date"
+                                                    @change="saveProgress"
+                                                />
+                                            </template>
+                                            <template v-else>{{ group.cardLeg.ewaybill_expiry ? formatDate(group.cardLeg.ewaybill_expiry) : '—' }}</template>
                                         </span>
                                         <span class="trf-leg__dist">
                                             Goods Value:
@@ -1289,6 +1352,8 @@ const expandedStopIndex = ref(0);
 const LEG_FIELD_LABELS = {
     to_station_id: 'Station',
     customer_id: 'Customer',
+    consignor_id: 'Consignor (From)',
+    consignee_id: 'Consignee (To)',
     pickup_date: 'Pickup Date',
     goods_name: 'Goods Type',
     no_of_units: 'No. of Units',
@@ -1300,6 +1365,7 @@ const showGoodsTypeQuickAdd = ref(false);
 const showRemoveStopConfirm = ref(false);
 const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
+const quickAddCustomerField = ref('customer');
 const quickAddGoodsTypeLegIndex = ref(null);
 const pendingRemoveStopIndex = ref(null);
 const routeEndedOneWay = ref(false);
@@ -1579,6 +1645,16 @@ function stopSummaryCustomer(leg) {
     return customerLabel(leg?.customer_id, props.snapshotCustomerName) || 'No customer';
 }
 
+function stopRouteLabel(leg, index) {
+    const fromStationId =
+        leg?.from_station_id
+        || (index === 0 ? props.form.start_station_id : props.form.route_legs[index - 1]?.to_station_id);
+    const fromLabel = stationLabel(fromStationId) || 'Source';
+    const toLabel = stationLabel(leg?.to_station_id) || 'Destination';
+
+    return `${fromLabel} → ${toLabel}`;
+}
+
 function focusRouteError(chip) {
     expandStop(chip.stopIndex);
     nextTick(() => {
@@ -1769,22 +1845,24 @@ function onLegMileageInput(i) { const leg = props.form.route_legs[i]; if (leg) l
 function onLegRateInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_rate = clamp(leg.freight_rate, maxFreightRate); applyLegFreightAuto(i); emit('clear-field-error', 'route_legs.' + i + '.freight_rate'); }
 function onLegAutoCalculateChange(i) { if (props.form.route_legs[i]?.freight_auto_calculate) applyLegFreightAuto(i); }
 function onLegFreightManualInput(i) { const leg = props.form.route_legs[i]; if (leg) leg.freight_auto_calculate = false; }
-function onLegSameCustomerChange(i) {
+function onStopWiseCustomerToggle(i, event) {
     const leg = props.form.route_legs[i];
 
     if (!leg) {
         return;
     }
 
-    if (leg.use_same_customer) {
-        leg.customer_id = props.form.customer_id ?? '';
-        emit('clear-field-error', `route_legs.${i}.customer_id`);
+    const stopWiseEnabled = Boolean(event.target.checked);
+    leg.use_same_customer = !stopWiseEnabled;
 
-        return;
+    if (stopWiseEnabled) {
+        leg.customer_id = '';
+    } else {
+        leg.customer_id = props.form.customer_id ?? '';
     }
 
-    leg.customer_id = '';
     emit('clear-field-error', `route_legs.${i}.customer_id`);
+    saveProgress();
 }
 function syncAutoPlannedDiesel() {
     if (props.form.planned_diesel_manually_set || isFormLocked.value) {
@@ -1875,12 +1953,30 @@ function legFieldError(i, f) { const e = props.fieldErrors['route_legs.' + i + '
 function formatNum(v) { return Number(v ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }); }
 function formatMoney(v) { return Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function openQuickAddForLeg(i) { quickAddLegIndex.value = i; showStationQuickAdd.value = true; }
-function openQuickAddForTripCustomer() { quickAddCustomerLegIndex.value = null; showCustomerQuickAdd.value = true; }
-function openQuickAddForLegCustomer(i) { quickAddCustomerLegIndex.value = i; showCustomerQuickAdd.value = true; }
+function openQuickAddForTripCustomer() { quickAddCustomerLegIndex.value = null; quickAddCustomerField.value = 'customer'; showCustomerQuickAdd.value = true; }
+function openQuickAddForLegCustomer(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'customer'; showCustomerQuickAdd.value = true; }
+function openQuickAddForLegConsignor(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'consignor'; showCustomerQuickAdd.value = true; }
+function openQuickAddForLegConsignee(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'consignee'; showCustomerQuickAdd.value = true; }
 function openQuickAddForLegGoodsType(i) { quickAddGoodsTypeLegIndex.value = i; showGoodsTypeQuickAdd.value = true; }
 function onStationCreated(s) { emit('station-created', { station: s, legIndex: quickAddLegIndex.value }); quickAddLegIndex.value = null; saveProgress(); }
 function onBrokerCreated(b) { emit('broker-created', b); saveProgress(); }
-function onCustomerCreated(customer) { emit('customer-created', { customer, legIndex: quickAddCustomerLegIndex.value }); quickAddCustomerLegIndex.value = null; saveProgress(); }
+function onCustomerCreated(customer) {
+    const legIndex = quickAddCustomerLegIndex.value;
+    const field = quickAddCustomerField.value;
+
+    if (legIndex !== null && props.form.route_legs[legIndex]) {
+        if (field === 'consignor') {
+            props.form.route_legs[legIndex].consignor_id = customer.id;
+        } else if (field === 'consignee') {
+            props.form.route_legs[legIndex].consignee_id = customer.id;
+        }
+    }
+
+    emit('customer-created', { customer, legIndex: field === 'customer' ? legIndex : null });
+    quickAddCustomerLegIndex.value = null;
+    quickAddCustomerField.value = 'customer';
+    saveProgress();
+}
 function onGoodsTypeCreated(g) { emit('goods-type-created', { goodsType: g, legIndex: quickAddGoodsTypeLegIndex.value }); quickAddGoodsTypeLegIndex.value = null; saveProgress(); }
 function handleVehicleSelection(v) { emit('vehicle-selected', v); saveProgress(); }
 function handleStartStationPickerChange() { emit('start-station-change'); emit('clear-field-error', 'start_station_id'); syncInferredTripType(); saveProgress(); }
@@ -1979,9 +2075,12 @@ function onApplyRouteTemplate(template) {
         next.customer_id = leg.customer_id ?? '';
         next.use_same_customer = Boolean(leg.use_same_customer);
         next.goods_name = leg.goods_name ?? '';
-        next.pickup_date = leg.pickup_date ?? '';
+        next.pickup_date = leg.pickup_date || dateOnlyFromDatetimeLocal(props.form.start_at) || '';
         next.no_of_units = leg.no_of_units ?? '';
         next.ewaybill_no = leg.ewaybill_no ?? '';
+        next.ewaybill_expiry = leg.ewaybill_expiry ?? '';
+        next.consignor_id = leg.consignor_id ?? '';
+        next.consignee_id = leg.consignee_id ?? '';
         next.goods_value = leg.goods_value ?? '';
         next.weight_ton = leg.weight_ton ?? '';
         next.freight_rate = leg.freight_rate ?? '';
@@ -3048,12 +3147,12 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-route-group {
     display: grid;
-    grid-template-columns: minmax(236px, 276px) minmax(0, 1fr);
+    grid-template-columns: minmax(236px, 250px) minmax(0, 1fr);
     column-gap: 14px;
     align-items: stretch;
 }
 .trf-route-group--no-card {
-    grid-template-columns: minmax(236px, 276px);
+    grid-template-columns: minmax(236px, 250px);
 }
 .trf-route-group--empty-right .trf-route-group__right {
     min-height: 100%;
@@ -3399,6 +3498,53 @@ defineExpose({ changeStatus: () => {} });
     padding: 12px 14px 10px;
     min-width: 0;
 }
+.trf-leg__cargo-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.55fr)
+        minmax(0, 0.72fr)
+        minmax(0, 0.68fr)
+        minmax(0, 0.82fr)
+        minmax(0, 0.82fr)
+        minmax(0, 1.15fr);
+    column-gap: 12px;
+    align-items: stretch;
+    min-width: 0;
+}
+.trf-lf--freight .trf-num-field {
+    background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1.5px solid #4ade80;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(22, 101, 52, 0.08);
+}
+.trf-lf--freight .trf-num-field .trf-input {
+    font-size: calc(var(--fs-input) + 3px);
+    font-weight: 700;
+    color: #14532d;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+.trf-lf--freight .trf-num-field .trf-input:focus {
+    box-shadow: none;
+}
+.trf-lf--freight .trf-num-field .trf-input:disabled {
+    background: transparent;
+    color: #166534;
+    opacity: 1;
+    cursor: default;
+}
+.trf-lf--freight .trf-num-field__prefix {
+    font-size: calc(var(--fs-input) + 2px);
+    font-weight: 700;
+    color: #15803d;
+}
+.trf-ro-val__main--freight {
+    font-size: calc(var(--fs-input) + 3px) !important;
+    font-weight: 700 !important;
+    color: #14532d !important;
+}
 /* Customer / Pickup / Goods / Units / KM/Ltr / Weight / Rate / Freight — same control size */
 .trf-leg__fields :deep(.redesigned-picker-trigger),
 .trf-leg__fields :deep(.picker-trigger) {
@@ -3560,6 +3706,13 @@ defineExpose({ changeStatus: () => {} });
 .trf-leg__dist-input--wide {
     width: 7.5rem;
 }
+.trf-leg__dist-input--date {
+    width: 8.75rem;
+}
+.trf-leg__summary-route {
+    font-weight: 600;
+    color: #334155;
+}
 .trf-leg__meta-prefix {
     margin-right: -1px;
     font-weight: 600;
@@ -3604,6 +3757,12 @@ defineExpose({ changeStatus: () => {} });
 @media (max-width: 1199.98px) {
     .trf-leg__fields {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .trf-leg__cargo-row {
+        grid-template-columns: repeat(6, minmax(92px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
     }
 }
 @media (max-width: 767.98px) {
@@ -3707,6 +3866,32 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-field-head--customer .trf-subst-toggle {
     margin-left: 0;
+    height: 20px;
+    padding: 0 5px 0 2px;
+    gap: 4px;
+}
+.trf-field-head--customer .trf-subst-toggle__track,
+.trf-freight-head .trf-subst-toggle__track {
+    width: 20px;
+    height: 12px;
+}
+.trf-field-head--customer .trf-subst-toggle__thumb,
+.trf-freight-head .trf-subst-toggle__thumb {
+    width: 8px;
+    height: 8px;
+}
+.trf-field-head--customer .trf-subst-toggle.is-on .trf-subst-toggle__thumb,
+.trf-freight-head .trf-subst-toggle.is-on .trf-subst-toggle__thumb {
+    transform: translateX(8px);
+}
+.trf-field-head--customer .trf-subst-toggle__text,
+.trf-freight-head .trf-subst-toggle__text {
+    font-size: .58rem;
+}
+.trf-freight-head .trf-subst-toggle {
+    height: 20px;
+    padding: 0 5px 0 2px;
+    gap: 4px;
 }
 .trf-field-head--customer .trf-subst-toggle__text .trf-pf__req {
     margin-left: 1px;

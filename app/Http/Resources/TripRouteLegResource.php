@@ -36,6 +36,7 @@ class TripRouteLegResource extends JsonResource
             'sequence_no' => $this->sequence_no,
             'distance_km' => $this->distance_km,
             'ewaybill_no' => $this->ewaybill_no,
+            'ewaybill_expiry' => $this->ewaybill_expiry?->format('Y-m-d'),
             'goods_value' => $this->goods_value,
             'goods_name' => $this->goods_name,
             'pickup_date' => $this->pickup_date?->format('Y-m-d'),

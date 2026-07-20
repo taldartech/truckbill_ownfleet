@@ -265,7 +265,7 @@ function hasUnsavedTripChanges() {
 
     syncLegCustomersFromTrip();
 
-    const currentPayload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false });
+    const currentPayload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value });
 
     return JSON.stringify(currentPayload) !== JSON.stringify(originalConfirmPayload.value);
 }
@@ -424,7 +424,7 @@ async function loadTrip() {
             return;
         }
 
-        populateFromTrip(trip);
+        populateFromTrip(trip, customers.value);
         savedExpenses.value = trip.expenses ?? [];
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? 'CREATED';
@@ -447,7 +447,7 @@ async function loadTrip() {
 
 function refreshOriginalConfirmPayload() {
     originalConfirmPayload.value = JSON.parse(
-        JSON.stringify(buildPayload(stations.value, { mode: 'edit', includeExpenses: false })),
+        JSON.stringify(buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value })),
     );
 }
 
@@ -486,7 +486,7 @@ async function prepareSave() {
 
     clearErrors();
 
-    const payload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false });
+    const payload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value });
     const clientErrors = validateTripPayload(
         {
             ...payload,
@@ -540,7 +540,7 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
 
     try {
         const trip = await updateTrip(route.params.id, payload);
-        populateFromTrip(trip);
+        populateFromTrip(trip, customers.value);
         savedExpenses.value = trip.expenses ?? [];
         form.trip_number = trip.trip_number ?? '';
         originalStatus.value = trip.status ?? form.status;

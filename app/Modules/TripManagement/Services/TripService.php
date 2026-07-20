@@ -688,6 +688,13 @@ class TripService
                         : null
                 )
                 : $existing?->ewaybill_no,
+            'ewaybill_expiry' => array_key_exists('ewaybill_expiry', $leg)
+                ? (
+                    isset($leg['ewaybill_expiry']) && $leg['ewaybill_expiry'] !== '' && $leg['ewaybill_expiry'] !== null
+                        ? (string) $leg['ewaybill_expiry']
+                        : null
+                )
+                : ($existing?->ewaybill_expiry?->format('Y-m-d')),
             'goods_value' => array_key_exists('goods_value', $leg)
                 ? (
                     isset($leg['goods_value']) && $leg['goods_value'] !== '' && $leg['goods_value'] !== null

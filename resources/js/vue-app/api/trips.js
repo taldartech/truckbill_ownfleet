@@ -281,10 +281,13 @@ export function emptyRouteStop(
         expected_mileage_km_per_liter: expectedMileage,
         distance_km: '',
         ewaybill_no: '',
+        ewaybill_expiry: '',
         goods_value: '',
         goods_name: '',
         pickup_date: '',
         no_of_units: '',
+        consignor_id: '',
+        consignee_id: '',
         remarks: '',
     };
 }

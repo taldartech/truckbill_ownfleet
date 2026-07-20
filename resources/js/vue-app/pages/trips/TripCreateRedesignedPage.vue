@@ -373,7 +373,7 @@ function buildConfirmSummary() {
 async function prepareSave() {
     clearErrors();
 
-    const payload = buildPayload(stations.value, { mode: 'create', includeExpenses: false });
+    const payload = buildPayload(stations.value, { mode: 'create', includeExpenses: false, customers: customers.value });
     const clientErrors = validateTripPayload(
         {
             ...payload,

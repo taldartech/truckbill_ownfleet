@@ -10,7 +10,7 @@ import {
     resolveLegFreightAutoCalculate,
     resolveLegWeightTon,
 } from '../api/trips';
-import { toDateInputFromIso } from '../utils/datetime';
+import { dateOnlyFromDatetimeLocal, toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
     const form = reactive({
@@ -69,6 +69,43 @@ export function useTripForm() {
         form.expenses = [];
     }
 
+    function tripStartDateOnly() {
+        return dateOnlyFromDatetimeLocal(form.start_at);
+    }
+
+    function tripEndDateOnly() {
+        return dateOnlyFromDatetimeLocal(form.end_at);
+    }
+
+    function applyDefaultPickupDate(leg) {
+        const startDate = tripStartDateOnly();
+
+        if (startDate) {
+            leg.pickup_date = startDate;
+        }
+    }
+
+    function syncLegPickupDates(previousStartDate = null) {
+        const startDate = tripStartDateOnly();
+        const endDate = tripEndDateOnly();
+
+        if (!startDate) {
+            return;
+        }
+
+        form.route_legs.forEach((leg) => {
+            const pickup = String(leg.pickup_date ?? '').trim();
+
+            if (!pickup || (previousStartDate && pickup === previousStartDate)) {
+                leg.pickup_date = startDate;
+
+                return;
+            }
+
+            leg.pickup_date = clampExpenseDate(leg.pickup_date, startDate, endDate);
+        });
+    }
+
     function applySameCustomerDefault(leg) {
         const customerId = form.customer_id ?? '';
 
@@ -121,6 +158,7 @@ export function useTripForm() {
 
         const leg = emptyRouteStop(form.route_legs.length + 1, fromStationId, '', '', defaultMileage);
         applySameCustomerDefault(leg);
+        applyDefaultPickupDate(leg);
         form.route_legs.push(leg);
         syncTripTypeFromRoute();
     }
@@ -153,6 +191,7 @@ export function useTripForm() {
         returnLeg.freight_rate = '';
         returnLeg.freight_auto_calculate = true;
         applySameCustomerDefault(returnLeg);
+        applyDefaultPickupDate(returnLeg);
 
         form.route_legs.push(returnLeg);
         syncTripTypeFromRoute();
@@ -179,7 +218,7 @@ export function useTripForm() {
         syncTripTypeFromRoute();
     }
 
-    function populateFromTrip(trip) {
+    function populateFromTrip(trip, customers = []) {
         if (!trip) {
             resetForm();
 
@@ -257,12 +296,17 @@ export function useTripForm() {
                         ? ''
                         : Number(leg.distance_km),
                 ewaybill_no: leg.ewaybill_no ?? '',
+                ewaybill_expiry: leg.ewaybill_expiry ? String(leg.ewaybill_expiry).slice(0, 10) : '',
                 goods_value:
                     leg.goods_value == null || leg.goods_value === ''
                         ? ''
                         : Number(leg.goods_value),
                 goods_name: leg.goods_name ?? '',
-                pickup_date: leg.pickup_date ? String(leg.pickup_date).slice(0, 10) : '',
+                pickup_date: leg.pickup_date
+                    ? String(leg.pickup_date).slice(0, 10)
+                    : (dateOnlyFromDatetimeLocal(trip.start_at) || ''),
+                consignor_id: resolveLookupId(customers, leg.consignor_id, leg.consignor),
+                consignee_id: resolveLookupId(customers, leg.consignee_id, leg.consignee),
                 no_of_units:
                     leg.no_of_units == null || leg.no_of_units === ''
                         ? ''
@@ -278,6 +322,8 @@ export function useTripForm() {
                 leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
             }
         });
+
+        syncLegPickupDates();
 
         const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
 
@@ -334,6 +380,16 @@ export function useTripForm() {
         return stations.find((s) => String(s.id) === String(stationId))?.name ?? `#${stationId}`;
     }
 
+    function customerName(customers, customerId) {
+        if (!customerId) {
+            return null;
+        }
+
+        const match = customers.find((customer) => String(customer.id) === String(customerId));
+
+        return match?.name?.trim() || null;
+    }
+
     function resolveLookupId(items, id, name) {
         if (id) {
             return id;
@@ -368,7 +424,7 @@ export function useTripForm() {
         // Trip customer and broker are loaded from persisted ids only.
     }
 
-    function buildPayload(stations = [], { mode = 'create', includeExpenses = true } = {}) {
+    function buildPayload(stations = [], { mode = 'create', includeExpenses = true, customers = [] } = {}) {
         rebuildLegChain();
         syncLegCustomersFromTrip();
 
@@ -423,11 +479,14 @@ export function useTripForm() {
                             ? 0
                             : Number(leg.distance_km),
                     ewaybill_no: leg.ewaybill_no?.trim() || null,
+                    ewaybill_expiry: leg.ewaybill_expiry || null,
                     goods_value:
                         leg.goods_value === '' || leg.goods_value == null
                             ? null
                             : Number(leg.goods_value),
                     goods_name: leg.goods_name?.trim() || null,
+                    consignor: customerName(customers, leg.consignor_id) || null,
+                    consignee: customerName(customers, leg.consignee_id) || null,
                     pickup_date: leg.pickup_date || null,
                     no_of_units:
                         leg.no_of_units === '' || leg.no_of_units == null
@@ -524,10 +583,12 @@ export function useTripForm() {
 
     watch(
         () => [form.start_at, form.end_at],
-        () => {
-            if (!form.start_at) {
+        ([startAt], [previousStartAt]) => {
+            if (!startAt) {
                 return;
             }
+
+            syncLegPickupDates(dateOnlyFromDatetimeLocal(previousStartAt));
 
             form.expenses.forEach((expense) => {
                 expense.expense_date = clampExpenseDate(
