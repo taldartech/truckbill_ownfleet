@@ -61,13 +61,20 @@ export function lastThirtyDaysDateRange(referenceDate = new Date()) {
     return lastDaysDateRange(30, referenceDate);
 }
 
-export function thisMonthDateRange(referenceDate = new Date()) {
-    const [year, month] = toIsoDate(referenceDate).split('-').map(Number);
+export function thisMonthDateRange(referenceDate = new Date(), options = {}) {
+    const clampToToday = Boolean(options.clampToToday);
+    const today = toIsoDate(referenceDate);
+    const [year, month] = today.split('-').map(Number);
     const lastDay = new Date(year, month, 0).getDate();
+    let toDate = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+    if (clampToToday && toDate > today) {
+        toDate = today;
+    }
 
     return {
         from_date: `${year}-${pad(month)}-01`,
-        to_date: `${year}-${pad(month)}-${pad(lastDay)}`,
+        to_date: toDate,
     };
 }
 
@@ -101,7 +108,7 @@ export function upcomingDateRange(
     };
 }
 
-export function resolveDateRangePreset(presetKey, referenceDate = new Date()) {
+export function resolveDateRangePreset(presetKey, referenceDate = new Date(), options = {}) {
     switch (presetKey) {
         case 'yesterday':
             return yesterdayDateRange(referenceDate);
@@ -110,7 +117,7 @@ export function resolveDateRangePreset(presetKey, referenceDate = new Date()) {
         case 'last_30_days':
             return lastThirtyDaysDateRange(referenceDate);
         case 'this_month':
-            return thisMonthDateRange(referenceDate);
+            return thisMonthDateRange(referenceDate, options);
         case 'last_month':
             return lastMonthDateRange(referenceDate);
         case 'upcoming':
@@ -123,13 +130,13 @@ export function resolveDateRangePreset(presetKey, referenceDate = new Date()) {
     }
 }
 
-export function detectDateRangePreset(fromDate, toDate, referenceDate = new Date()) {
+export function detectDateRangePreset(fromDate, toDate, referenceDate = new Date(), options = {}) {
     for (const preset of DATE_RANGE_PRESETS) {
         if (preset.key === 'custom') {
             continue;
         }
 
-        const range = resolveDateRangePreset(preset.key, referenceDate);
+        const range = resolveDateRangePreset(preset.key, referenceDate, options);
 
         if (range.from_date === fromDate && range.to_date === toDate) {
             return preset.key;
@@ -140,7 +147,7 @@ export function detectDateRangePreset(fromDate, toDate, referenceDate = new Date
 }
 
 export function defaultDashboardTripRange(referenceDate = new Date()) {
-    return thisMonthDateRange(referenceDate);
+    return thisMonthDateRange(referenceDate, { clampToToday: true });
 }
 
 export function formatDateRangeLabel(fromDate, toDate) {

@@ -169,7 +169,9 @@ const appliedToDate = ref(props.toDate);
 
 const draftFromDate = ref(props.fromDate);
 const draftToDate = ref(props.toDate);
-const draftPreset = ref(detectDateRangePreset(props.fromDate, props.toDate));
+const draftPreset = ref(detectDateRangePreset(props.fromDate, props.toDate, new Date(), {
+    clampToToday: props.blockFutureDates,
+}));
 const rangeError = ref('');
 
 const selectablePresets = computed(() => {
@@ -182,8 +184,17 @@ const selectablePresets = computed(() => {
     );
 });
 
+const presetResolveOptions = computed(() => ({
+    clampToToday: props.blockFutureDates,
+}));
+
 const appliedRangeLabel = computed(() => {
-    const presetKey = detectDateRangePreset(appliedFromDate.value, appliedToDate.value);
+    const presetKey = detectDateRangePreset(
+        appliedFromDate.value,
+        appliedToDate.value,
+        new Date(),
+        presetResolveOptions.value,
+    );
     const preset = DATE_RANGE_PRESETS.find((item) => item.key === presetKey);
 
     if (preset && preset.key !== 'custom') {
@@ -230,7 +241,12 @@ watch(
 function resetDraftFromApplied() {
     draftFromDate.value = appliedFromDate.value;
     draftToDate.value = appliedToDate.value;
-    draftPreset.value = detectDateRangePreset(appliedFromDate.value, appliedToDate.value);
+    draftPreset.value = detectDateRangePreset(
+        appliedFromDate.value,
+        appliedToDate.value,
+        new Date(),
+        presetResolveOptions.value,
+    );
     rangeError.value = '';
 }
 
@@ -328,7 +344,7 @@ function selectPreset(presetKey) {
         return;
     }
 
-    const range = resolveDateRangePreset(presetKey);
+    const range = resolveDateRangePreset(presetKey, new Date(), presetResolveOptions.value);
     draftFromDate.value = range.from_date;
     draftToDate.value = range.to_date;
     clampDraftToDate();
@@ -348,7 +364,12 @@ function applyDraft() {
 
     appliedFromDate.value = draftFromDate.value;
     appliedToDate.value = draftToDate.value;
-    draftPreset.value = detectDateRangePreset(draftFromDate.value, draftToDate.value);
+    draftPreset.value = detectDateRangePreset(
+        draftFromDate.value,
+        draftToDate.value,
+        new Date(),
+        presetResolveOptions.value,
+    );
 
     emit('update:fromDate', appliedFromDate.value);
     emit('update:toDate', appliedToDate.value);
