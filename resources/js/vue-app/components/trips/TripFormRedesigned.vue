@@ -139,7 +139,7 @@
                                 <span class="trf-subst-toggle__track" aria-hidden="true">
                                     <span class="trf-subst-toggle__thumb"></span>
                                 </span>
-                                <span class="trf-subst-toggle__text">Substitute</span>
+                                <span class="trf-subst-toggle__text">Substitute Driver</span>
                             </label>
                         </div>
                         <div class="trf-driver-fields">
@@ -2260,8 +2260,8 @@ defineExpose({ changeStatus: () => {} });
 .trf-picker-grid--details {
     grid-template-columns:
         minmax(0, 1.15fr)
-        minmax(0, 1.15fr)
-        minmax(0, 1.85fr)
+        minmax(0, 1.45fr)
+        minmax(0, 1.55fr)
         minmax(8.5rem, 10rem)
         minmax(8.5rem, 10rem);
     align-items: start;
