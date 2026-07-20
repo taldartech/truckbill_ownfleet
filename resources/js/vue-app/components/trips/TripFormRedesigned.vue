@@ -242,94 +242,134 @@
                     </div>
                 </div>
 
-                <!-- ── ROW 2: Start Meter | End Meter | Expected Diesel | Diesel Rate ── -->
-                <div class="trf-picker-grid trf-picker-grid--4 mt-3">
-                    <!-- Start Meter Reading -->
-                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
-                        <div class="trf-pf__lbl">
-                            <span class="trf-pf__lbl-text">Start Meter Reading<span class="trf-pf__req">*</span></span>
+                <!-- ── ROW 2: Meter, diesel & fuel cards ── -->
+                <div class="trf-vehicle-info trf-vehicle-info--metrics mt-3">
+                    <div
+                        class="trf-vehicle-info__item trf-vehicle-info__item--editable"
+                        :class="{
+                            'trf-vehicle-info__item--locked': requiresTruckSelection,
+                            'trf-vehicle-info__item--error': startMeterWarning || fieldErrors.start_meter_reading_km,
+                        }"
+                    >
+                        <div class="trf-vehicle-info__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Start Meter Reading</span>
+                            <div class="trf-vehicle-info__value">
+                                <input
+                                    v-if="!isFormLocked"
+                                    v-model.number="form.start_meter_reading_km"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="trf-input trf-input--metric"
+                                    :class="{ 'trf-input--error': startMeterWarning || fieldErrors.start_meter_reading_km }"
+                                    placeholder="0"
+                                    :disabled="requiresTruckSelection"
+                                    :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                                    @input="emit('clear-field-error', 'start_meter_reading_km'); saveProgress()"
+                                />
+                                <span v-else class="trf-input trf-input--metric trf-input--readonly">{{ startMeterDisplay }}</span>
+                            </div>
+                            <div class="trf-vehicle-info__meta-slot">
+                                <div class="trf-vehicle-info__meta">
+                                    <span class="trf-vehicle-info__meta-label">Truck Running Meter</span>
+                                    <span class="trf-vehicle-info__meta-val">{{ truckRunningMeterDisplay || '—' }}</span>
+                                </div>
+                            </div>
+                            <div v-if="fieldErrors.start_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('start_meter_reading_km') }}</div>
                         </div>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="form.start_meter_reading_km"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            :class="{ 'trf-input--error': startMeterWarning || fieldErrors.start_meter_reading_km }"
-                            placeholder="0"
-                            :disabled="requiresTruckSelection"
-                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="emit('clear-field-error', 'start_meter_reading_km'); saveProgress()"
-                        />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ startMeterDisplay }}</span></div>
-                        <div v-if="fieldErrors.start_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('start_meter_reading_km') }}</div>
                     </div>
 
-                    <!-- End Meter Reading -->
-                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
-                        <div class="trf-pf__lbl">
-                            <span class="trf-pf__lbl-text">End Meter Reading</span>
+                    <div
+                        class="trf-vehicle-info__item trf-vehicle-info__item--editable"
+                        :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection }"
+                    >
+                        <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-fuel-pump-fill"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Expected Diesel (Ltr)</span>
+                            <div class="trf-vehicle-info__value">
+                                <input
+                                    v-if="!isFormLocked"
+                                    v-model.number="form.planned_diesel_liters"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="trf-input trf-input--metric"
+                                    placeholder="0"
+                                    :disabled="requiresTruckSelection"
+                                    :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                                    @input="onPlannedDieselInput"
+                                />
+                                <span v-else class="trf-input trf-input--metric trf-input--readonly">{{ expectedDieselDisplay }}</span>
+                            </div>
+                            <div class="trf-vehicle-info__meta-slot">
+                                <div class="trf-vehicle-info__meta">
+                                    <span class="trf-vehicle-info__meta-label">Fuel Tank Capacity (Ltr)</span>
+                                    <span class="trf-vehicle-info__meta-val">{{ fuelTankCapacityDisplay }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="form.end_meter_reading_km"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            :class="{ 'trf-input--error': fieldErrors.end_meter_reading_km }"
-                            placeholder="0"
-                            :disabled="requiresTruckSelection"
-                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="emit('clear-field-error', 'end_meter_reading_km'); saveProgress()"
-                        />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ endMeterDisplay }}</span></div>
-                        <div v-if="fieldErrors.end_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('end_meter_reading_km') }}</div>
                     </div>
 
-                    <!-- Expected Diesel -->
-                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
-                        <div class="trf-pf__lbl">
-                            <span class="trf-pf__lbl-text">Expected Diesel (Ltr)</span>
+                    <div
+                        class="trf-vehicle-info__item trf-vehicle-info__item--editable"
+                        :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection }"
+                    >
+                        <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Diesel Rate (₹/Ltr)</span>
+                            <div class="trf-vehicle-info__value">
+                                <input
+                                    v-if="!isFormLocked"
+                                    v-model.number="form.diesel_rate_per_liter"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="trf-input trf-input--metric"
+                                    placeholder="0.00"
+                                    :disabled="requiresTruckSelection"
+                                    :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                                    @input="saveProgress"
+                                />
+                                <span v-else class="trf-input trf-input--metric trf-input--readonly">{{ form.diesel_rate_per_liter ? '₹' + formatMoney(form.diesel_rate_per_liter) : '—' }}</span>
+                            </div>
+                            <div class="trf-vehicle-info__meta-slot" aria-hidden="true"></div>
                         </div>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="form.planned_diesel_liters"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            placeholder="0"
-                            :disabled="requiresTruckSelection"
-                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="onPlannedDieselInput"
-                        />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ expectedDieselDisplay }}</span></div>
                     </div>
 
-                    <!-- Diesel Rate -->
-                    <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
-                        <div class="trf-pf__lbl">
-                            <span class="trf-pf__lbl-text">Diesel Rate (₹/Ltr)</span>
+                    <div
+                        class="trf-vehicle-info__item trf-vehicle-info__item--editable"
+                        :class="{
+                            'trf-vehicle-info__item--locked': requiresTruckSelection,
+                            'trf-vehicle-info__item--error': fieldErrors.planned_mileage_km_per_liter,
+                        }"
+                    >
+                        <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
+                        <div class="trf-vehicle-info__field">
+                            <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
+                            <div class="trf-vehicle-info__value">
+                                <input
+                                    v-if="!isFormLocked"
+                                    v-model.number="form.planned_mileage_km_per_liter"
+                                    v-no-scroll-change
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="trf-input trf-input--metric"
+                                    :class="{ 'trf-input--error': fieldErrors.planned_mileage_km_per_liter }"
+                                    placeholder="0"
+                                    :disabled="requiresTruckSelection"
+                                    :title="fieldErrorMessage('planned_mileage_km_per_liter') || (requiresTruckSelection ? 'Select a truck first' : undefined)"
+                                    @input="onPlannedMileageInput"
+                                />
+                                <span v-else class="trf-input trf-input--metric trf-input--readonly">{{ fuelAvgDisplay }}</span>
+                            </div>
+                            <div class="trf-vehicle-info__meta-slot" aria-hidden="true"></div>
+                            <div v-if="fieldErrors.planned_mileage_km_per_liter" class="trf-pf__err">{{ fieldErrorMessage('planned_mileage_km_per_liter') }}</div>
                         </div>
-                        <input
-                            v-if="!isFormLocked"
-                            v-model.number="form.diesel_rate_per_liter"
-                            v-no-scroll-change
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            class="trf-input"
-                            placeholder="0.00"
-                            :disabled="requiresTruckSelection"
-                            :title="requiresTruckSelection ? 'Select a truck first' : undefined"
-                            @input="saveProgress"
-                        />
-                        <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ form.diesel_rate_per_liter ? '₹' + formatMoney(form.diesel_rate_per_liter) : '—' }}</span></div>
                     </div>
                 </div>
                 <p v-if="requiresTruckSelection" class="trf-pf__hint mt-2">Select a truck first to enter meter readings and diesel details.</p>
@@ -342,53 +382,6 @@
                 <div v-if="driverLicenseWarning" class="trf-banner trf-banner--warn mt-3">
                     <i class="bi bi-card-heading"></i>
                     <span>{{ driverLicenseWarning }}</span>
-                </div>
-
-                <!-- Vehicle Information -->
-                <div class="trf-vehicle-info mt-3">
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Truck Running Meter</span>
-                            <span class="trf-vehicle-info__val">{{ truckRunningMeterDisplay || '—' }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#7c3aed;--bg:#faf5ff"><i class="bi bi-box-seam-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Max Load Capacity (Ton)</span>
-                            <span class="trf-vehicle-info__val">{{ maxLoadDisplay }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item">
-                        <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-fuel-pump-fill"></i></div>
-                        <div>
-                            <span class="trf-vehicle-info__name">Fuel Tank Capacity (Ltr)</span>
-                            <span class="trf-vehicle-info__val">{{ fuelTankCapacityLtr || 0 }}</span>
-                        </div>
-                    </div>
-                    <div class="trf-vehicle-info__item trf-vehicle-info__item--editable" :class="{ 'trf-vehicle-info__item--locked': requiresTruckSelection, 'trf-vehicle-info__item--error': fieldErrors.planned_mileage_km_per_liter }">
-                        <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
-                        <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
-                            <input
-                                v-if="!isFormLocked"
-                                v-model.number="form.planned_mileage_km_per_liter"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                class="trf-vehicle-info__input"
-                                :class="{ 'trf-input--error': fieldErrors.planned_mileage_km_per_liter }"
-                                placeholder="0"
-                                :disabled="requiresTruckSelection"
-                                :title="fieldErrorMessage('planned_mileage_km_per_liter') || (requiresTruckSelection ? 'Select a truck first' : undefined)"
-                                @input="onPlannedMileageInput"
-                            />
-                            <span v-else class="trf-vehicle-info__val">{{ fuelAvgDisplay }}</span>
-                            <div v-if="fieldErrors.planned_mileage_km_per_liter" class="trf-pf__err">{{ fieldErrorMessage('planned_mileage_km_per_liter') }}</div>
-                        </div>
-                    </div>
                 </div>
 
                 <div v-if="startMeterWarning" class="trf-banner trf-banner--warn mt-3">
@@ -1067,15 +1060,15 @@
         <TripDieselPerformanceCard :performance="dieselPerformance" />
 
         <!-- ─────────────────────────────────────────────────────────────────
-             SECTION 4 — REFERENCE & NOTES
+             SECTION 4 — REFERENCE, END METER & NOTES
         ───────────────────────────────────────────────────────────────── -->
         <div class="trf-section trf-section--collapsible" :class="{ 'trf-section--open': showAdvanced }">
             <div class="trf-section__head trf-section__head--plain trf-section__head--toggle" @click="showAdvanced = !showAdvanced">
                 <div class="trf-section__head-left">
                     <div class="trf-step-num trf-step-num--gray">4</div>
                     <div>
-                        <h2 class="trf-section__title">Reference &amp; Notes</h2>
-                        <p class="trf-section__desc">Optional reference party and trip notes</p>
+                        <h2 class="trf-section__title">Reference, End Meter &amp; Notes</h2>
+                        <p class="trf-section__desc">End meter reading, optional reference party and trip notes</p>
                     </div>
                 </div>
                 <div class="trf-section__head-right">
@@ -1087,6 +1080,27 @@
 
             <div v-show="showAdvanced" class="trf-section__body">
                 <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="trf-pf" :class="{ 'trf-pf--locked': requiresTruckSelection }">
+                            <label class="trf-lf__lbl">End Meter Reading</label>
+                            <input
+                                v-if="!isFormLocked"
+                                v-model.number="form.end_meter_reading_km"
+                                v-no-scroll-change
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="trf-input"
+                                :class="{ 'trf-input--error': fieldErrors.end_meter_reading_km }"
+                                placeholder="0"
+                                :disabled="requiresTruckSelection"
+                                :title="requiresTruckSelection ? 'Select a truck first' : undefined"
+                                @input="emit('clear-field-error', 'end_meter_reading_km'); saveProgress()"
+                            />
+                            <div v-else class="trf-ro-val"><span class="trf-ro-val__main">{{ endMeterDisplay }}</span></div>
+                            <div v-if="fieldErrors.end_meter_reading_km" class="trf-pf__err">{{ fieldErrorMessage('end_meter_reading_km') }}</div>
+                        </div>
+                    </div>
                     <div class="col-md-4">
                         <label class="trf-lf__lbl">Reference</label>
                         <SearchablePickerRedesigned
@@ -1472,16 +1486,10 @@ const fuelAvgDisplay = computed(() => {
 
     return Number.isFinite(n) ? formatNum(n) : '0';
 });
-const maxLoadDisplay = computed(() => {
-    const v = props.form.max_load_ton;
+const fuelTankCapacityDisplay = computed(() => {
+    const capacity = Number(fuelTankCapacityLtr.value ?? 0);
 
-    if (v === '' || v == null) {
-        return '0';
-    }
-
-    const n = Number(v);
-
-    return Number.isFinite(n) ? formatNum(n) : '0';
+    return Number.isFinite(capacity) && capacity > 0 ? formatNum(capacity) : '—';
 });
 const expectedDieselDisplay = computed(() => {
     const v = props.form.planned_diesel_liters;
@@ -2230,6 +2238,24 @@ defineExpose({ changeStatus: () => {} });
     margin: 0;
 }
 .trf-pf__hint { font-size: var(--fs-hint); color: var(--muted); margin-top: 4px; line-height: 1.35; }
+.trf-pf__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+    margin-top: 5px;
+    line-height: 1.3;
+}
+.trf-pf__meta-label {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    color: var(--muted);
+}
+.trf-pf__meta-val {
+    font-size: var(--fs-meta);
+    font-weight: 700;
+    color: #475569;
+}
 
 /* Trip number in section heading */
 .trf-trip-id {
@@ -2659,6 +2685,121 @@ defineExpose({ changeStatus: () => {} });
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
 }
+.trf-vehicle-info--metrics {
+    --metrics-label-h: 1.75em;
+    --metrics-value-h: 32px;
+    --metrics-meta-h: 1.15em;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__item {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: start;
+    height: 100%;
+    padding: 6px 10px;
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__icon {
+    grid-column: 1;
+    grid-row: 1;
+    margin-top: 0;
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__field {
+    grid-column: 2;
+    display: grid;
+    grid-template-rows: var(--metrics-label-h) var(--metrics-value-h) var(--metrics-meta-h);
+    align-content: start;
+    align-items: start;
+    min-width: 0;
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__name {
+    grid-row: 1;
+    align-self: start;
+    min-height: var(--metrics-label-h);
+    margin: 0;
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__value {
+    grid-row: 2;
+    display: flex;
+    align-items: stretch;
+    min-height: var(--metrics-value-h);
+    height: var(--metrics-value-h);
+}
+.trf-vehicle-info--metrics .trf-input--metric {
+    width: 100%;
+    min-height: var(--metrics-value-h);
+    height: var(--metrics-value-h);
+    padding: 3px 8px;
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.trf-vehicle-info--metrics .trf-input--metric:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+.trf-vehicle-info--metrics .trf-input--metric:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+.trf-vehicle-info--metrics .trf-input--metric.trf-input--readonly {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    color: #334155;
+    border-color: #e2e8f0;
+    box-shadow: none;
+    cursor: default;
+}
+.trf-vehicle-info--metrics .trf-input--metric.trf-input--error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.12);
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__meta-slot {
+    grid-row: 3;
+    display: flex;
+    align-items: flex-start;
+    min-height: var(--metrics-meta-h);
+}
+.trf-vehicle-info--metrics .trf-vehicle-info__meta {
+    margin-top: 0;
+}
+.trf-vehicle-info--metrics .trf-pf__err {
+    grid-row: 4;
+    margin-top: 2px;
+}
+.trf-vehicle-info__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+    margin-top: 4px;
+    line-height: 1.25;
+}
+.trf-vehicle-info__meta-label {
+    font-size: .62rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+.trf-vehicle-info__meta-val {
+    font-size: .62rem;
+    font-weight: 700;
+    color: #64748b;
+}
+.trf-vehicle-info__item--editable {
+    background: #fff;
+}
+.trf-vehicle-info__item--editable .trf-vehicle-info__input {
+    max-width: 100%;
+}
 .trf-vehicle-info__item {
     display: flex;
     align-items: center;
@@ -2767,14 +2908,13 @@ defineExpose({ changeStatus: () => {} });
 .trf-vehicle-info__input:focus {
     border-bottom-color: var(--primary);
 }
-.trf-vehicle-info__item--editable {
-    background: #fff;
-}
 @media (max-width: 1199px) {
-    .trf-vehicle-info { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .trf-vehicle-info,
+    .trf-vehicle-info--metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 575.98px) {
-    .trf-vehicle-info { grid-template-columns: 1fr; }
+    .trf-vehicle-info,
+    .trf-vehicle-info--metrics { grid-template-columns: 1fr; }
 }
 
 /* ── Banners ────────────────────────── */
