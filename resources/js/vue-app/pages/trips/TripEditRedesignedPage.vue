@@ -14,7 +14,6 @@
 
             <form novalidate @submit.prevent="handleSubmit('index')">
                 <TripFormRedesigned
-                    ref="tripFormRef"
                     mode="edit"
                     :show-expenses="false"
                     :form="form"
@@ -40,11 +39,9 @@
                     :vehicle-odometer-km="vehicleOdometerKm"
                     :vehicle-expected-mileage="vehicleExpectedMileage"
                     :vehicle-fuel-tank-capacity="vehicleFuelTankCapacity"
-                    :status-locked="isTerminalStatus"
                     :display-status="originalStatus"
                     :vehicle-make="vehicleMake"
                     :vehicle-model="vehicleModel"
-                    status-actions-in-footer
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
                     @remove-route-leg="removeRouteLeg"
@@ -54,32 +51,11 @@
                     @broker-created="onBrokerCreated"
                     @customer-created="onCustomerCreated"
                     @goods-type-created="onGoodsTypeCreated"
-                    @status-updated="handleStatusUpdated"
                     @clear-field-error="clearFieldError"
                 />
 
                 <div class="trip-form-actions trip-form-actions--inline">
                     <div class="d-flex flex-wrap gap-2 justify-content-center">
-                        <template v-if="footerStatusActions.length > 0">
-                            <AppButton
-                                v-for="action in footerStatusActions"
-                                :key="action.value"
-                                :variant="action.variant"
-                                size="sm"
-                                :icon="action.icon"
-                                :label="action.label"
-                                @click="handleFooterStatusChange(action.value)"
-                            />
-                        </template>
-                        <AppButton
-                            v-else-if="canManageExpenses"
-                            variant="success"
-                            outline
-                            size="sm"
-                            icon="bi bi-receipt"
-                            label="Manage Expenses"
-                            :to="{ name: 'trips.expenses', params: { id: route.params.id } }"
-                        />
                         <AppButton
                             variant="secondary"
                             outline
@@ -129,10 +105,8 @@ import {
     fetchTrip,
     isTripArchived,
     resolveTripEditAccess,
-    tripAllowedNextStatuses,
     updateTrip,
     validateTripPayload,
-    validateTripStatusChange,
 } from '../../api/trips';
 import TripFormRedesigned from '../../components/trips/TripFormRedesigned.vue';
 import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
@@ -162,7 +136,6 @@ const {
     addReturnToStart,
     removeRouteLeg,
     buildPayload,
-    buildStatusChangePayload,
     onStartStationChange,
     onStopStationChange,
     syncLegCustomersFromTrip,
@@ -244,68 +217,11 @@ const terminalAlert = computed(() => {
     return `This trip is ${label} and is shown in read-only mode.`;
 });
 
-const tripFormRef = ref(null);
-
 const { applyWindowValidation } = useTripWindowValidation(form, {
     fieldErrors,
     clearFieldError,
     ignoreTripId: computed(() => route.params.id),
 });
-
-const footerStatusActions = computed(() => {
-    if (isTerminalStatus.value || isFormReadonly.value) {
-        return [];
-    }
-
-    return tripAllowedNextStatuses(originalStatus.value);
-});
-
-function hasUnsavedTripChanges() {
-    if (!originalConfirmPayload.value) {
-        return false;
-    }
-
-    syncLegCustomersFromTrip();
-
-    const currentPayload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value });
-
-    return JSON.stringify(currentPayload) !== JSON.stringify(originalConfirmPayload.value);
-}
-
-async function savePendingTripDetailsIfNeeded() {
-    if (!hasUnsavedTripChanges()) {
-        return true;
-    }
-
-    toast.info('Saving trip details before changing status…');
-
-    const payload = await prepareSave();
-
-    if (!payload) {
-        toast.error('Please fix the errors below and click Update before changing trip status.');
-
-        return false;
-    }
-
-    try {
-        await executeSave(payload, { showToast: false });
-        toast.success('Trip details saved.');
-
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function handleFooterStatusChange(status) {
-    const saved = await savePendingTripDetailsIfNeeded();
-
-    if (!saved) {
-        return;
-    }
-
-    tripFormRef.value?.changeStatus(status);
-}
 
 function onStationCreated({ station, legIndex }) {
     stations.value = [station, ...stations.value.filter((s) => s.id !== station.id)];
@@ -570,52 +486,6 @@ async function executeSave(payload, { successMessage = 'Trip updated successfull
         throw error;
     } finally {
         saving.value = false;
-    }
-}
-
-async function handleStatusUpdated() {
-    if (!canManage.value) {
-        return;
-    }
-
-    const previousStatus = originalStatus.value;
-    clearErrors();
-
-    syncLegCustomersFromTrip();
-
-    const payload = buildStatusChangePayload();
-    const clientErrors = validateTripStatusChange(payload, {
-        tripType: form.trip_type,
-        routeLegs: form.route_legs,
-        startStationId: form.start_station_id,
-        previousStatus: originalStatus.value,
-        user: user.value,
-        startMeterReadingKm: form.start_meter_reading_km,
-        hasInvoices: hasInvoices.value,
-    });
-
-    if (Object.keys(clientErrors).length > 0) {
-        form.status = previousStatus;
-        fieldErrors.value = clientErrors;
-        tripFormError.value = 'Could not update trip status.';
-        toast.error(Object.values(clientErrors).flat()[0] ?? tripFormError.value);
-        scrollToFirstFormError();
-
-        return;
-    }
-
-    try {
-        await executeSave(payload, {
-            successMessage: `Trip marked as ${
-                form.status === 'COMPLETED'
-                    ? 'completed'
-                    : form.status === 'CANCELLED'
-                      ? 'cancelled'
-                      : 'in progress'
-            }.`,
-        });
-    } catch {
-        form.status = previousStatus;
     }
 }
 

@@ -1274,24 +1274,6 @@
             </template>
         </AppModal>
 
-        <TripStatusChangeModal
-            :show="showStatusModal"
-            :status="pendingStatus"
-            :from-status="effectiveTripStatus"
-            :trip-number="form.trip_number || tripNumberDisplay"
-            :truck-number="snapshotVehicleLabel"
-            :start-at="form.start_at"
-            :end-at-value="form.end_at"
-            :actual-arrival-at-value="form.actual_arrival_at"
-            :cancelled-at-value="form.cancelled_at"
-            :cancellation-reason-value="form.cancellation_reason"
-            :start-meter-reading-km="form.start_meter_reading_km"
-            :truck-running-meter-km="vehicleOdometerKm"
-            :end-meter-reading-km-value="form.end_meter_reading_km"
-            @cancel="onStatusModalCancel"
-            @confirm="onStatusModalConfirm"
-        />
-
     </div>
 </template>
 
@@ -1318,7 +1300,6 @@ import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
 import GoodsTypeQuickAddModal from './GoodsTypeQuickAddModal.vue';
-import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -1340,9 +1321,7 @@ const props = defineProps({
     driverWarning: { type: String, default: '' },
     loadingDriver: { type: Boolean, default: false },
     primaryDriverName: { type: String, default: '' },
-    statusLocked: { type: Boolean, default: false },
     displayStatus: { type: String, default: '' },
-    statusActionsInFooter: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
     showExpenses: { type: Boolean, default: false },
     expenseTotalsBySequence: { type: Object, default: () => ({}) },
@@ -1363,7 +1342,7 @@ const emit = defineEmits([
     'add-stop','return-to-start','remove-route-leg','add-expense','remove-expense',
     'vehicle-selected','start-station-change','stop-change',
     'station-created','broker-created','customer-created','goods-type-created',
-    'status-updated','clear-field-error','trip-sequence-change',
+    'clear-field-error','trip-sequence-change',
 ]);
 
 function onTripSequenceInput(event) {
@@ -2230,62 +2209,6 @@ function handleEnterKey(e) { const t = e.target; if (t.tagName === 'TEXTAREA' ||
 function saveProgress() { if (props.mode === 'create') { try { localStorage.setItem('truckbill_trip_create_draft', JSON.stringify(props.form)); } catch {} } }
 function loadProgressDraft() { if (props.mode === 'create') { const d = localStorage.getItem('truckbill_trip_create_draft'); if (d) { try { const p = JSON.parse(d); Object.keys(p).forEach((k) => { if (props.form[k] !== undefined) props.form[k] = p[k]; }); toast.info('Restored unsaved draft.'); } catch {} } } }
 onMounted(() => { loadProgressDraft(); });
-
-const showStatusModal = ref(false);
-const pendingStatus = ref('');
-
-function onStatusChange(newStatus) {
-    if (newStatus === props.form.status || props.statusLocked) {
-        return;
-    }
-
-    if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED' || newStatus === 'IN_PROGRESS') {
-        pendingStatus.value = newStatus;
-        showStatusModal.value = true;
-
-        return;
-    }
-
-    props.form.status = newStatus;
-    emit('status-updated', { status: newStatus });
-}
-
-function onStatusModalCancel() {
-    showStatusModal.value = false;
-    pendingStatus.value = '';
-}
-
-function onStatusModalConfirm(data) {
-    props.form.status = pendingStatus.value;
-
-    if (pendingStatus.value === 'CANCELLED') {
-        props.form.cancelled_at = data.cancelled_at;
-        props.form.cancellation_reason = data.cancellation_reason;
-        props.form.end_meter_reading_km = data.end_meter_reading_km;
-    } else if (pendingStatus.value === 'COMPLETED') {
-        props.form.end_at = data.end_at;
-        props.form.actual_arrival_at = data.actual_arrival_at;
-        props.form.end_meter_reading_km = data.end_meter_reading_km;
-    } else if (pendingStatus.value === 'IN_PROGRESS') {
-        if (data.start_at) {
-            props.form.start_at = data.start_at;
-        }
-
-        if (data.start_meter_reading_km != null && data.start_meter_reading_km !== '') {
-            props.form.start_meter_reading_km = data.start_meter_reading_km;
-        }
-    }
-
-    showStatusModal.value = false;
-    pendingStatus.value = '';
-
-    emit('status-updated', {
-        status: props.form.status,
-        ...data,
-    });
-}
-
-defineExpose({ changeStatus: onStatusChange });
 </script>
 
 <style scoped>
