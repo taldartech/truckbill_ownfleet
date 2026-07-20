@@ -70,7 +70,7 @@
                         step="0.01"
                         class="form-control form-control-sm"
                         :class="{ 'is-invalid': litersFieldError }"
-                        placeholder="L"
+                        placeholder="LTR"
                         :title="litersFieldError || 'Fuel liters'"
                         :disabled="disabled"
                         @input="onFuelInput"
@@ -87,7 +87,7 @@
                         step="0.01"
                         class="form-control form-control-sm"
                         :class="{ 'is-invalid': rateFieldError }"
-                        placeholder="₹/L"
+                        placeholder="₹/LTR"
                         :title="rateFieldError || 'Diesel rate per liter'"
                         :disabled="disabled"
                         @input="onFuelInput"
@@ -307,6 +307,17 @@ function onTypeChange() {
         props.expense.fuel_liters = '';
         props.expense.fuel_rate = '';
         props.expense.fuel_odometer_km = '';
+    } else {
+        const startMeter = Number(props.tripStartMeterKm);
+        const currentOdo = props.expense.fuel_odometer_km;
+
+        if (
+            (currentOdo === '' || currentOdo == null)
+            && Number.isFinite(startMeter)
+            && startMeter > 0
+        ) {
+            props.expense.fuel_odometer_km = Math.trunc(startMeter);
+        }
     }
 
     emit('field-input');

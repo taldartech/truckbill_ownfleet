@@ -228,7 +228,7 @@ export const EXPENSE_TYPES = [
 ];
 
 export const EXPENSE_FORM_TYPES = [
-    { value: 'DIESEL', label: 'Fuel (L × Rate)' },
+    { value: 'DIESEL', label: 'Fuel (LTR × Rate)' },
     { value: 'TOLL', label: 'Highway toll' },
     { value: 'LOADING_CHARGES', label: 'Load charges' },
     { value: 'UNLOADING_CHARGES', label: 'Unload charges' },
@@ -247,6 +247,9 @@ export const QUICK_EXPENSE_PILLS = [
     { value: 'LOADING_CHARGES', label: 'Loading', icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
     { value: 'UNLOADING_CHARGES', label: 'Unloading', icon: 'bi-box-arrow-up', className: 'pill-unloading' },
     { value: 'FOOD_EXPENSE', label: 'Food', icon: 'bi-cup-hot', className: 'pill-food' },
+    { value: 'DRIVER_EXPENSE', label: 'Driver', icon: 'bi-person', className: 'pill-driver' },
+    { value: 'REPAIR', label: 'Repair', icon: 'bi-wrench', className: 'pill-repair' },
+    { value: 'PARKING', label: 'Parking', icon: 'bi-p-circle', className: 'pill-parking' },
     { value: 'RTO_EXPENSE', label: 'RTO', icon: 'bi-shield-check', className: 'pill-rto' },
     {
         value: 'PERMIT_BORDER_TAX',
@@ -977,20 +980,33 @@ export function resolveExpenseRouteLegSequence(expense, routeLegs = []) {
     return '';
 }
 
-export function emptyExpense({ defaultDate = '', expenseType = 'DIESEL', dieselRatePerLiter = null } = {}) {
-    const normalizedType = expenseType || 'DIESEL';
+export function emptyExpense({
+    defaultDate = '',
+    expenseType = 'DIESEL',
+    dieselRatePerLiter = null,
+    startMeterReadingKm = null,
+} = {}) {
+    const normalizedType = String(expenseType || 'DIESEL').toUpperCase();
     const dieselRate =
         normalizedType === 'DIESEL' && dieselRatePerLiter != null && dieselRatePerLiter !== ''
             ? Number(dieselRatePerLiter)
             : '';
+    const startMeter =
+        startMeterReadingKm != null && startMeterReadingKm !== ''
+            ? Number(startMeterReadingKm)
+            : NaN;
+    const prefilledOdometer =
+        normalizedType === 'DIESEL' && Number.isFinite(startMeter) && startMeter > 0
+            ? Math.trunc(startMeter)
+            : '';
 
     return {
-        expense_type: normalizedType,
+        expense_type: normalizedType === 'DIESEL' ? 'DIESEL' : expenseType || 'DIESEL',
         expense_date: defaultDate || '',
         amount: 0,
         fuel_liters: '',
         fuel_rate: Number.isFinite(dieselRate) && dieselRate > 0 ? dieselRate : '',
-        fuel_odometer_km: '',
+        fuel_odometer_km: prefilledOdometer,
         route_leg_sequence: '',
         notes: '',
         other_type: '',

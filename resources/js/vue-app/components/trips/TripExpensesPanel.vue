@@ -2,7 +2,7 @@
     <div class="trip-expenses-panel">
         <div v-if="routeLegs.length === 0 && context === 'embedded'" class="alert alert-info mb-3">
             <i class="bi bi-info-circle me-1"></i>
-            Add stops in the <strong>Round Trip Route</strong> table above, then add expenses here.
+            Add stops in the route section above, then add expenses here.
         </div>
 
         <div v-else-if="routeLegs.length === 0 && context === 'standalone'" class="alert alert-info mb-3">
@@ -10,46 +10,96 @@
             This trip has no route stops yet. You can still add <strong>whole-trip</strong> expenses below.
         </div>
 
-        <!-- Whole trip -->
-        <div class="stop-expense-card">
+        <!-- Single stop: merge whole-trip + stop into one expense card -->
+        <div
+            v-if="isSingleStopTrip"
+            class="trf-leg__card"
+            :class="{ 'trf-leg__card--collapsed': isCollapsed(singleStopCard.key) }"
+        >
             <button
                 type="button"
-                class="stop-expense-card__header w-100 border-0 text-start"
-                @click="toggleCollapsed('general')"
+                class="trf-leg__summary"
+                :class="{ 'trf-leg__summary--error': stopHasErrors(singleStopCard) || generalHasErrors }"
+                :aria-expanded="!isCollapsed(singleStopCard.key)"
+                @click="toggleCollapsed(singleStopCard.key)"
             >
-                <div class="stop-expense-card__header-row">
-                    <div class="stop-expense-card__header-left">
-                        <i class="bi stop-expense-card__chevron" :class="isCollapsed('general') ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        <span class="load-badge load-badge--general">Whole trip</span>
-                        <span class="stop-expense-card__title">General expenses</span>
-                        <span class="stop-expense-card__hint d-none d-md-inline">(full-route toll, permits, etc.)</span>
-                    </div>
-                    <span class="stop-header-amount">₹{{ formatMoney(generalSubtotal) }}</span>
+                <div class="trf-leg__summary-main">
+                    <span class="trf-leg__summary-stop">Trip Expenses</span>
+                    <span class="trf-leg__summary-sep">·</span>
+                    <span class="trf-leg__summary-route">{{ singleStopCard.fromLabel }} → {{ singleStopCard.toLabel }}</span>
+                    <span class="trf-leg__summary-sep">·</span>
+                    <span
+                        class="trf-leg__load-badge"
+                        :class="{ 'trf-leg__load-badge--over': singleStopCard.loadOverloaded }"
+                    >
+                        Load Type: {{ singleStopCard.loadLabel }}
+                        <template v-if="singleStopCard.loadOverloaded"> · Over capacity</template>
+                    </span>
+                    <template v-if="singleStopCard.customerLabel">
+                        <span class="trf-leg__summary-sep">·</span>
+                        <span class="trf-leg__summary-customer">{{ singleStopCard.customerLabel }}</span>
+                    </template>
+                </div>
+                <div class="trf-leg__summary-meta">
+                    <span
+                        class="trf-leg__summary-freight"
+                        :class="{ 'is-empty': !(mergedSingleStopSubtotal > 0) }"
+                    >
+                        {{ mergedSingleStopSubtotal > 0 ? `₹${formatMoney(mergedSingleStopSubtotal)}` : 'No Expenses' }}
+                    </span>
+                    <i
+                        class="bi"
+                        :class="isCollapsed(singleStopCard.key) ? 'bi-chevron-down' : 'bi-chevron-up'"
+                        aria-hidden="true"
+                    ></i>
                 </div>
             </button>
-            <div v-show="!isCollapsed('general')" class="stop-expense-card__body">
-                <QuickExpensePills v-if="!readonly" scope="whole-trip" @add="(type) => quickAdd('', type)" />
-                <div v-if="generalItems.length > 0" class="expense-entries-scroll">
+
+            <div v-show="!isCollapsed(singleStopCard.key)" class="trf-leg__expense-body">
+                <div
+                    v-if="singleStopCard.freightAmount > 0 || singleStopCard.distanceKm > 0"
+                    class="trf-leg__stop-facts"
+                >
+                    <span v-if="singleStopCard.distanceKm > 0" class="trf-leg__stop-fact">
+                        <i class="bi bi-signpost-2" aria-hidden="true"></i>
+                        {{ formatNum(singleStopCard.distanceKm) }} km
+                    </span>
+                    <span v-if="singleStopCard.freightAmount > 0" class="trf-leg__stop-fact">
+                        <i class="bi bi-currency-rupee" aria-hidden="true"></i>
+                        Freight ₹{{ formatMoney(singleStopCard.freightAmount) }}
+                    </span>
+                    <span v-if="singleStopCard.goodsName" class="trf-leg__stop-fact">
+                        <i class="bi bi-box-seam" aria-hidden="true"></i>
+                        {{ singleStopCard.goodsName }}
+                    </span>
+                </div>
+
+                <QuickExpensePills
+                    v-if="!readonly"
+                    scope="stop"
+                    @add="(type) => quickAdd(singleStopCard.sequence, type)"
+                />
+                <div v-if="mergedSingleStopItems.length > 0" class="expense-entries-scroll">
                     <div
                         class="expense-entry-columns"
-                        :class="sectionUsesDieselColumns(generalItems) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
+                        :class="sectionUsesDieselColumns(mergedSingleStopItems) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
                     >
                         <span>Date</span>
                         <span>Type</span>
-                        <template v-if="sectionUsesDieselColumns(generalItems)">
-                            <span>km</span>
-                            <span>L</span>
-                            <span>₹/L</span>
+                        <template v-if="sectionUsesDieselColumns(mergedSingleStopItems)">
+                            <span>Km</span>
+                            <span>LTR</span>
+                            <span>₹/LTR</span>
                         </template>
                         <span>Amount</span>
                         <span>Note</span>
                         <span aria-hidden="true"></span>
                     </div>
-                    <template v-for="item in generalItems" :key="item.globalIndex">
+                    <template v-for="item in mergedSingleStopItems" :key="item.globalIndex">
                         <TripExpenseEntry
                             :expense="item.expense"
                             :expense-index="item.globalIndex"
-                            :show-diesel-columns="sectionUsesDieselColumns(generalItems)"
+                            :show-diesel-columns="sectionUsesDieselColumns(mergedSingleStopItems)"
                             :disabled="readonly"
                             :trip-start-date="tripStartDate"
                             :trip-end-date="tripEndDate"
@@ -68,88 +118,232 @@
                         />
                     </template>
                 </div>
-                <div v-if="generalItems.length === 0" class="expense-empty-state">
-                    <i class="bi bi-receipt expense-empty-state__icon"></i>
-                    <span>No whole-trip expenses yet. Tap a button above to add one.</span>
+                <div v-if="mergedSingleStopItems.length === 0" class="expense-empty-state">
+                    <i class="bi bi-plus-circle expense-empty-state__icon"></i>
+                    <span>Tap Diesel, Toll, Loading… To Add An Expense For This Trip.</span>
                 </div>
-                <div class="stop-subtotal">
-                    Subtotal: <strong>₹{{ formatMoney(generalSubtotal) }}</strong>
+                <div class="trf-leg__meta">
+                    <div class="trf-leg__meta-left">
+                        <span class="trf-leg__meta-label">Subtotal</span>
+                    </div>
+                    <div class="trf-leg__meta-right">
+                        <strong>₹{{ formatMoney(mergedSingleStopSubtotal) }}</strong>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Per stop -->
-        <div v-for="stop in stopCards" :key="stop.key" class="stop-expense-card">
-            <button
-                type="button"
-                class="stop-expense-card__header w-100 border-0 text-start"
-                @click="toggleCollapsed(stop.key)"
+        <template v-else>
+            <!-- Whole trip (multi-stop or no stops) -->
+            <div
+                class="trf-leg__card"
+                :class="{ 'trf-leg__card--collapsed': isCollapsed('general') }"
             >
-                <div class="stop-expense-card__header-row">
-                    <div class="stop-expense-card__header-left">
-                        <i class="bi stop-expense-card__chevron" :class="isCollapsed(stop.key) ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        <span class="stop-expense-card__title">
-                            Stop {{ stop.sequence }} — {{ stop.fromLabel }} → {{ stop.toLabel }}
+                <button
+                    type="button"
+                    class="trf-leg__summary"
+                    :aria-expanded="!isCollapsed('general')"
+                    @click="toggleCollapsed('general')"
+                >
+                    <div class="trf-leg__summary-main">
+                        <span class="trf-leg__summary-stop">Whole Trip</span>
+                        <span class="trf-leg__summary-sep">·</span>
+                        <span class="trf-leg__summary-route">General Expenses</span>
+                        <span class="trf-leg__summary-sep d-none d-md-inline">·</span>
+                        <span class="trf-leg__summary-customer d-none d-md-inline">Full-Route Toll, Permits, Etc.</span>
+                    </div>
+                    <div class="trf-leg__summary-meta">
+                        <span
+                            class="trf-leg__summary-freight"
+                            :class="{ 'is-empty': !(generalSubtotal > 0) }"
+                        >
+                            {{ generalSubtotal > 0 ? `₹${formatMoney(generalSubtotal)}` : 'No Expenses' }}
                         </span>
-                        <span class="load-badge" :class="stop.loadBadge">{{ stop.loadLabel }}</span>
+                        <i
+                            class="bi"
+                            :class="isCollapsed('general') ? 'bi-chevron-down' : 'bi-chevron-up'"
+                            aria-hidden="true"
+                        ></i>
                     </div>
-                    <span class="stop-header-amount">₹{{ formatMoney(stop.subtotal) }}</span>
-                </div>
-            </button>
-            <div v-show="!isCollapsed(stop.key)" class="stop-expense-card__body">
-                <QuickExpensePills v-if="!readonly" scope="stop" @add="(type) => quickAdd(stop.sequence, type)" />
-                <div v-if="stop.items.length > 0" class="expense-entries-scroll">
-                    <div
-                        class="expense-entry-columns"
-                        :class="sectionUsesDieselColumns(stop.items) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
-                    >
-                        <span>Date</span>
-                        <span>Type</span>
-                        <template v-if="sectionUsesDieselColumns(stop.items)">
-                            <span>km</span>
-                            <span>L</span>
-                            <span>₹/L</span>
+                </button>
+
+                <div v-show="!isCollapsed('general')" class="trf-leg__expense-body">
+                    <QuickExpensePills v-if="!readonly" scope="whole-trip" @add="(type) => quickAdd('', type)" />
+                    <div v-if="generalItems.length > 0" class="expense-entries-scroll">
+                        <div
+                            class="expense-entry-columns"
+                            :class="sectionUsesDieselColumns(generalItems) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
+                        >
+                            <span>Date</span>
+                            <span>Type</span>
+                            <template v-if="sectionUsesDieselColumns(generalItems)">
+                                <span>Km</span>
+                                <span>LTR</span>
+                                <span>₹/LTR</span>
+                            </template>
+                            <span>Amount</span>
+                            <span>Note</span>
+                            <span aria-hidden="true"></span>
+                        </div>
+                        <template v-for="item in generalItems" :key="item.globalIndex">
+                            <TripExpenseEntry
+                                :expense="item.expense"
+                                :expense-index="item.globalIndex"
+                                :show-diesel-columns="sectionUsesDieselColumns(generalItems)"
+                                :disabled="readonly"
+                                :trip-start-date="tripStartDate"
+                                :trip-end-date="tripEndDate"
+                                :trip-start-meter-km="tripStartMeterKm"
+                                :trip-end-meter-km="tripEndMeterKm"
+                                :date-field-error="fieldErrorFor(item.globalIndex, 'expense_date')"
+                                :odometer-field-error="fieldErrorFor(item.globalIndex, 'fuel_odometer_km')"
+                                :liters-field-error="fieldErrorFor(item.globalIndex, 'fuel_liters')"
+                                :rate-field-error="fieldErrorFor(item.globalIndex, 'fuel_rate')"
+                                :amount-field-error="fieldErrorFor(item.globalIndex, 'amount')"
+                                :other-type-field-error="fieldErrorFor(item.globalIndex, 'other_type')"
+                                :legacy-warning="legacyWarningFor(item.globalIndex)"
+                                @remove="$emit('remove-expense', item.globalIndex)"
+                                @fuel-field-input="$emit('fuel-field-input', item.globalIndex)"
+                                @field-input="$emit('field-input', item.globalIndex)"
+                            />
                         </template>
-                        <span>Amount</span>
-                        <span>Note</span>
-                        <span aria-hidden="true"></span>
                     </div>
-                    <template v-for="item in stop.items" :key="item.globalIndex">
-                        <TripExpenseEntry
-                            :expense="item.expense"
-                            :expense-index="item.globalIndex"
-                            :show-diesel-columns="sectionUsesDieselColumns(stop.items)"
-                            :disabled="readonly"
-                            :trip-start-date="tripStartDate"
-                            :trip-end-date="tripEndDate"
-                            :trip-start-meter-km="tripStartMeterKm"
-                            :trip-end-meter-km="tripEndMeterKm"
-                            :date-field-error="fieldErrorFor(item.globalIndex, 'expense_date')"
-                            :odometer-field-error="fieldErrorFor(item.globalIndex, 'fuel_odometer_km')"
-                            :liters-field-error="fieldErrorFor(item.globalIndex, 'fuel_liters')"
-                            :rate-field-error="fieldErrorFor(item.globalIndex, 'fuel_rate')"
-                            :amount-field-error="fieldErrorFor(item.globalIndex, 'amount')"
-                            :other-type-field-error="fieldErrorFor(item.globalIndex, 'other_type')"
-                            :legacy-warning="legacyWarningFor(item.globalIndex)"
-                            @remove="$emit('remove-expense', item.globalIndex)"
-                            @fuel-field-input="$emit('fuel-field-input', item.globalIndex)"
-                            @field-input="$emit('field-input', item.globalIndex)"
-                        />
-                    </template>
-                </div>
-                <div v-if="stop.items.length === 0" class="expense-empty-state">
-                    <i class="bi bi-plus-circle expense-empty-state__icon"></i>
-                    <span>Tap Diesel, Toll, Loading… to add an expense for this stop.</span>
-                </div>
-                <div class="stop-subtotal">
-                    Subtotal: <strong>₹{{ formatMoney(stop.subtotal) }}</strong>
+                    <div v-if="generalItems.length === 0" class="expense-empty-state">
+                        <i class="bi bi-receipt expense-empty-state__icon"></i>
+                        <span>No Whole-Trip Expenses Yet. Tap A Button Above To Add One.</span>
+                    </div>
+                    <div class="trf-leg__meta">
+                        <div class="trf-leg__meta-left">
+                            <span class="trf-leg__meta-label">Subtotal</span>
+                        </div>
+                        <div class="trf-leg__meta-right">
+                            <strong>₹{{ formatMoney(generalSubtotal) }}</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Per stop — same card pattern as create-trip route legs -->
+            <div
+                v-for="stop in stopCards"
+                :key="stop.key"
+                class="trf-leg__card"
+                :class="{ 'trf-leg__card--collapsed': isCollapsed(stop.key) }"
+            >
+                <button
+                    type="button"
+                    class="trf-leg__summary"
+                    :class="{ 'trf-leg__summary--error': stopHasErrors(stop) }"
+                    :aria-expanded="!isCollapsed(stop.key)"
+                    @click="toggleCollapsed(stop.key)"
+                >
+                    <div class="trf-leg__summary-main">
+                        <span class="trf-leg__summary-stop">Stop {{ stop.sequence }}</span>
+                        <span class="trf-leg__summary-sep">·</span>
+                        <span class="trf-leg__summary-route">{{ stop.fromLabel }} → {{ stop.toLabel }}</span>
+                        <span class="trf-leg__summary-sep">·</span>
+                        <span
+                            class="trf-leg__load-badge"
+                            :class="{ 'trf-leg__load-badge--over': stop.loadOverloaded }"
+                        >
+                            Load Type: {{ stop.loadLabel }}
+                            <template v-if="stop.loadOverloaded"> · Over capacity</template>
+                        </span>
+                        <template v-if="stop.customerLabel">
+                            <span class="trf-leg__summary-sep">·</span>
+                            <span class="trf-leg__summary-customer">{{ stop.customerLabel }}</span>
+                        </template>
+                    </div>
+                    <div class="trf-leg__summary-meta">
+                        <span
+                            class="trf-leg__summary-freight"
+                            :class="{ 'is-empty': !(stop.subtotal > 0) }"
+                        >
+                            {{ stop.subtotal > 0 ? `₹${formatMoney(stop.subtotal)}` : 'No Expenses' }}
+                        </span>
+                        <i
+                            class="bi"
+                            :class="isCollapsed(stop.key) ? 'bi-chevron-down' : 'bi-chevron-up'"
+                            aria-hidden="true"
+                        ></i>
+                    </div>
+                </button>
+
+                <div v-show="!isCollapsed(stop.key)" class="trf-leg__expense-body">
+                    <div v-if="stop.freightAmount > 0 || stop.distanceKm > 0" class="trf-leg__stop-facts">
+                        <span v-if="stop.distanceKm > 0" class="trf-leg__stop-fact">
+                            <i class="bi bi-signpost-2" aria-hidden="true"></i>
+                            {{ formatNum(stop.distanceKm) }} km
+                        </span>
+                        <span v-if="stop.freightAmount > 0" class="trf-leg__stop-fact">
+                            <i class="bi bi-currency-rupee" aria-hidden="true"></i>
+                            Freight ₹{{ formatMoney(stop.freightAmount) }}
+                        </span>
+                        <span v-if="stop.goodsName" class="trf-leg__stop-fact">
+                            <i class="bi bi-box-seam" aria-hidden="true"></i>
+                            {{ stop.goodsName }}
+                        </span>
+                    </div>
+
+                    <QuickExpensePills v-if="!readonly" scope="stop" @add="(type) => quickAdd(stop.sequence, type)" />
+                    <div v-if="stop.items.length > 0" class="expense-entries-scroll">
+                        <div
+                            class="expense-entry-columns"
+                            :class="sectionUsesDieselColumns(stop.items) ? 'expense-entry-columns--wide' : 'expense-entry-columns--narrow'"
+                        >
+                            <span>Date</span>
+                            <span>Type</span>
+                            <template v-if="sectionUsesDieselColumns(stop.items)">
+                                <span>Km</span>
+                                <span>LTR</span>
+                                <span>₹/LTR</span>
+                            </template>
+                            <span>Amount</span>
+                            <span>Note</span>
+                            <span aria-hidden="true"></span>
+                        </div>
+                        <template v-for="item in stop.items" :key="item.globalIndex">
+                            <TripExpenseEntry
+                                :expense="item.expense"
+                                :expense-index="item.globalIndex"
+                                :show-diesel-columns="sectionUsesDieselColumns(stop.items)"
+                                :disabled="readonly"
+                                :trip-start-date="tripStartDate"
+                                :trip-end-date="tripEndDate"
+                                :trip-start-meter-km="tripStartMeterKm"
+                                :trip-end-meter-km="tripEndMeterKm"
+                                :date-field-error="fieldErrorFor(item.globalIndex, 'expense_date')"
+                                :odometer-field-error="fieldErrorFor(item.globalIndex, 'fuel_odometer_km')"
+                                :liters-field-error="fieldErrorFor(item.globalIndex, 'fuel_liters')"
+                                :rate-field-error="fieldErrorFor(item.globalIndex, 'fuel_rate')"
+                                :amount-field-error="fieldErrorFor(item.globalIndex, 'amount')"
+                                :other-type-field-error="fieldErrorFor(item.globalIndex, 'other_type')"
+                                :legacy-warning="legacyWarningFor(item.globalIndex)"
+                                @remove="$emit('remove-expense', item.globalIndex)"
+                                @fuel-field-input="$emit('fuel-field-input', item.globalIndex)"
+                                @field-input="$emit('field-input', item.globalIndex)"
+                            />
+                        </template>
+                    </div>
+                    <div v-if="stop.items.length === 0" class="expense-empty-state">
+                        <i class="bi bi-plus-circle expense-empty-state__icon"></i>
+                        <span>Tap Diesel, Toll, Loading… To Add An Expense For This Stop.</span>
+                    </div>
+                    <div class="trf-leg__meta">
+                        <div class="trf-leg__meta-left">
+                            <span class="trf-leg__meta-label">Stop Subtotal</span>
+                        </div>
+                        <div class="trf-leg__meta-right">
+                            <strong>₹{{ formatMoney(stop.subtotal) }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
 
         <!-- Summary -->
         <div v-if="expenses.length > 0" class="expense-summary-wrap">
-            <h6 class="expense-summary-title">Expense total by stop</h6>
+            <h6 class="expense-summary-title">Expense Total By Stop</h6>
             <div class="table-responsive">
                 <table class="expense-summary-table">
                     <thead>
@@ -166,7 +360,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="grand-total-row">
-                            <th>Grand total</th>
+                            <th>Grand Total</th>
                             <th class="text-end">₹{{ formatMoney(grandTotal) }}</th>
                         </tr>
                     </tfoot>
@@ -240,9 +434,15 @@ watch(
             return;
         }
 
-        collapsed.general = true;
-        const firstSequence = Number(legs[0]?.sequence_no ?? 1);
-        collapsed[`stop-${firstSequence}`] = false;
+        if (legs.length === 1) {
+            const firstSequence = Number(legs[0]?.sequence_no ?? 1);
+            collapsed[`stop-${firstSequence}`] = false;
+        } else {
+            collapsed.general = true;
+            const firstSequence = Number(legs[0]?.sequence_no ?? 1);
+            collapsed[`stop-${firstSequence}`] = false;
+        }
+
         collapseInitialized.value = true;
     },
     { immediate: true },
@@ -256,11 +456,15 @@ const generalItems = computed(() => collectItems(''));
 
 const generalSubtotal = computed(() => sumItems(generalItems.value));
 
+const isSingleStopTrip = computed(() => props.routeLegs.length === 1);
+
 const stopCards = computed(() =>
     props.routeLegs.map((leg, index) => {
         const sequence = Number(leg.sequence_no ?? index + 1);
         const items = collectItems(sequence);
         const meta = legLoadCategoryMeta(leg.weight_ton, props.maxLoadTon);
+        const maxLoad = Number(props.maxLoadTon ?? 0);
+        const weight = Number(leg.weight_ton ?? 0);
 
         return {
             key: `stop-${sequence}`,
@@ -268,16 +472,50 @@ const stopCards = computed(() =>
             fromLabel: legLabel(leg.from_station_id, leg.from_city),
             toLabel: legLabel(leg.to_station_id, leg.to_city),
             loadLabel: meta.label,
-            loadBadge: loadBadgeClass(meta.value),
+            loadOverloaded: maxLoad > 0 && weight > maxLoad,
+            customerLabel: String(leg.customer_name ?? '').trim(),
+            goodsName: String(leg.goods_name ?? '').trim(),
+            freightAmount: Number(leg.freight_amount ?? 0),
+            distanceKm: Number(leg.distance_km ?? 0),
             items,
             subtotal: sumItems(items),
         };
     }),
 );
 
+const singleStopCard = computed(() => stopCards.value[0] ?? null);
+
+const mergedSingleStopItems = computed(() => {
+    if (!isSingleStopTrip.value || !singleStopCard.value) {
+        return [];
+    }
+
+    return [...generalItems.value, ...singleStopCard.value.items].sort(
+        (a, b) => a.globalIndex - b.globalIndex,
+    );
+});
+
+const mergedSingleStopSubtotal = computed(() => sumItems(mergedSingleStopItems.value));
+
+const generalHasErrors = computed(() =>
+    generalItems.value.some(({ globalIndex }) =>
+        Object.keys(props.fieldErrors).some((key) => key.startsWith(`expenses.${globalIndex}.`)),
+    ),
+);
+
 const summaryRows = computed(() => {
+    if (isSingleStopTrip.value && singleStopCard.value) {
+        return [
+            {
+                key: 'merged',
+                label: `Trip: ${singleStopCard.value.fromLabel} → ${singleStopCard.value.toLabel}`,
+                total: mergedSingleStopSubtotal.value,
+            },
+        ].filter((row) => row.total > 0);
+    }
+
     const rows = [
-        { key: 'general', label: 'Whole trip (general)', total: generalSubtotal.value },
+        { key: 'general', label: 'Whole Trip (General)', total: generalSubtotal.value },
         ...stopCards.value.map((stop) => ({
             key: stop.key,
             label: `Stop ${stop.sequence}: ${stop.fromLabel} → ${stop.toLabel}`,
@@ -314,16 +552,6 @@ function sumItems(items) {
     return items.reduce((sum, item) => sum + Number(item.expense.amount ?? 0), 0);
 }
 
-function loadBadgeClass(category) {
-    const normalized = String(category ?? '').toUpperCase();
-
-    if (normalized === 'EMPTY') {
-        return 'load-badge--empty';
-    }
-
-    return 'load-badge--full';
-}
-
 function stationLabel(stationId) {
     if (!stationId) {
         return '—';
@@ -350,6 +578,12 @@ function toggleCollapsed(key) {
     collapsed[key] = isCollapsed(key) ? false : true;
 }
 
+function stopHasErrors(stop) {
+    return stop.items.some(({ globalIndex }) =>
+        Object.keys(props.fieldErrors).some((key) => key.startsWith(`expenses.${globalIndex}.`)),
+    );
+}
+
 function quickAdd(routeLegSequence, expenseType) {
     const nextIndex = props.expenses.length;
 
@@ -372,6 +606,10 @@ function formatNum(value) {
 }
 
 function collapseKeyForExpense(expense) {
+    if (isSingleStopTrip.value && singleStopCard.value) {
+        return singleStopCard.value.key;
+    }
+
     const seq = expense?.route_leg_sequence;
 
     if (seq === '' || seq == null) {
@@ -418,86 +656,185 @@ defineExpose({ grandTotal, focusExpenseField });
     flex-direction: column;
     gap: 12px;
 }
-.stop-expense-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-.stop-expense-card__header {
-    background: var(--brand-gradient);
-    color: #fff;
-    padding: 14px 18px;
-}
-.stop-expense-card__header-row {
+
+.trf-leg__card {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.trf-leg__card--collapsed {
+    height: auto;
+    min-height: 0;
+}
+
+.trf-leg__summary {
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid #eef2f7;
+    background: #f8fafc;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
 }
-.stop-expense-card__header-left {
+
+.trf-leg__card--collapsed .trf-leg__summary {
+    border-bottom: 0;
+}
+
+.trf-leg__summary:hover {
+    background: #f1f5f9;
+}
+
+.trf-leg__summary--error {
+    background: #fff5f5;
+    border-bottom-color: #fecaca;
+}
+
+.trf-leg__summary--error .trf-leg__summary-stop {
+    color: #dc2626;
+}
+
+.trf-leg__summary-main {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 0.2rem 0.15rem;
     min-width: 0;
-}
-.stop-expense-card__chevron {
-    font-size: 14px;
-    opacity: 0.9;
-}
-.stop-expense-card__title {
-    font-size: 15px;
-    font-weight: 500;
+    flex: 1 1 auto;
+    font-size: 0.78rem;
     line-height: 1.35;
+    color: #334155;
 }
-.stop-expense-card__hint {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.65);
+
+.trf-leg__summary-stop {
+    font-weight: 800;
+    color: #0f172a;
 }
-.load-badge {
-    display: inline-block;
-    border-radius: 99px;
-    padding: 4px 12px;
-    font-size: 12px;
+
+.trf-leg__summary-sep {
+    color: #cbd5e1;
     font-weight: 600;
-    line-height: 1.2;
+    margin: 0 0.1rem;
+}
+
+.trf-leg__summary-route,
+.trf-leg__summary-customer {
+    font-weight: 600;
+    color: #475569;
+}
+
+.trf-leg__summary-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.trf-leg__summary-freight {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
-.load-badge--full {
-    background: var(--brand-active-bg);
-    color: var(--brand-primary-dark);
-}
-.load-badge--half {
-    background: #fef9c3;
-    color: #854d0e;
-}
-.load-badge--empty {
-    background: #faeeda;
-    color: #854f0b;
-}
-.load-badge--general {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-}
-.stop-km-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-    margin-left: 8px;
-}
-.stop-header-amount {
-    font-size: 14px;
+
+.trf-leg__summary-freight.is-empty {
+    color: #94a3b8;
     font-weight: 600;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.22);
-    border-radius: 99px;
-    padding: 5px 12px;
+}
+
+.trf-leg__summary-meta .bi {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.trf-leg__load-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e8f5ee;
+    color: #146c43;
+    font-size: 0.68rem;
+    font-weight: 700;
     white-space: nowrap;
 }
-.stop-expense-card__body {
-    padding: 16px;
+
+.trf-leg__load-badge--over {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.trf-leg__expense-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: #fff;
+}
+
+.trf-leg__stop-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.trf-leg__stop-fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.trf-leg__stop-fact .bi {
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
+.trf-leg__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 2px;
+    padding: 8px 12px;
+    border-top: 1px solid #eef2f7;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.trf-leg__meta-left,
+.trf-leg__meta-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.trf-leg__meta-label {
+    color: #64748b;
+    font-weight: 600;
 }
 
 .expense-entry-columns {
@@ -509,7 +846,6 @@ defineExpose({ grandTotal, focusExpenseField });
     border-bottom: 1px solid #e5e7eb;
     font-size: 0.65rem;
     font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #9ca3af;
 }
@@ -542,74 +878,67 @@ defineExpose({ grandTotal, focusExpenseField });
         display: none;
     }
 }
-.stop-subtotal {
-    border-top: 1px dashed #e5e7eb;
-    padding-top: 10px;
-    margin-top: 12px;
-    text-align: right;
-    font-size: 13px;
-    color: #6b7280;
-}
-.stop-subtotal strong {
-    color: #111827;
-}
+
 .expense-empty-state {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    text-align: center;
-    color: #9ca3af;
-    font-size: 13px;
-    border: 1px dashed #d1d5db;
+    gap: 10px;
+    padding: 14px 12px;
+    border: 1px dashed #dbe3ee;
     border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 4px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.8rem;
 }
+
 .expense-empty-state__icon {
-    font-size: 1.15rem;
-    opacity: 0.85;
+    font-size: 1.1rem;
+    color: #94a3b8;
 }
+
 .expense-summary-wrap {
     margin-top: 4px;
-}
-.expense-summary-title {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: #374151;
-}
-.expense-summary-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    font-size: 13px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     background: #fff;
 }
-.expense-summary-table thead th {
-    background: #f9fafb;
-    padding: 10px 14px;
-    font-weight: 600;
-    color: #374151;
-    border-bottom: 1px solid #e5e7eb;
-}
-.expense-summary-table tbody td {
-    padding: 9px 14px;
-    border-bottom: 1px solid #f3f4f6;
-    color: #4b5563;
-}
-.expense-summary-table tbody tr.is-striped {
-    background: #f9fafb;
-}
-.expense-summary-table tfoot .grand-total-row th {
-    background: #f0fdf4;
-    color: #166534;
+
+.expense-summary-title {
+    margin: 0 0 10px;
+    font-size: 0.78rem;
     font-weight: 700;
-    padding: 11px 14px;
-    border-top: 1px solid #bbf7d0;
+    color: #334155;
+}
+
+.expense-summary-table {
+    width: 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    border-collapse: collapse;
+}
+
+.expense-summary-table th,
+.expense-summary-table td {
+    padding: 8px 4px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.expense-summary-table thead th {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+}
+
+.expense-summary-table tr.is-striped td {
+    background: #f8fafc;
+}
+
+.expense-summary-table .grand-total-row th {
+    border-bottom: 0;
+    padding-top: 12px;
+    font-size: 0.85rem;
+    color: #0f172a;
 }
 </style>

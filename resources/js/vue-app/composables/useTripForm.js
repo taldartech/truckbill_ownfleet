@@ -362,6 +362,7 @@ export function useTripForm() {
             defaultDate: form.start_at,
             expenseType,
             dieselRatePerLiter: form.diesel_rate_per_liter,
+            startMeterReadingKm: form.start_meter_reading_km,
         });
         expense.route_leg_sequence =
             routeLegSequence === '' || routeLegSequence == null ? '' : Number(routeLegSequence);
@@ -605,6 +606,29 @@ export function useTripForm() {
                     form.start_at,
                     form.end_at,
                 );
+            });
+        },
+    );
+
+    watch(
+        () => form.start_meter_reading_km,
+        (startMeterReadingKm) => {
+            const startMeter = Number(startMeterReadingKm);
+
+            if (!Number.isFinite(startMeter) || startMeter <= 0) {
+                return;
+            }
+
+            const odometer = Math.trunc(startMeter);
+
+            form.expenses.forEach((expense) => {
+                if (String(expense.expense_type ?? '').toUpperCase() !== 'DIESEL') {
+                    return;
+                }
+
+                if (expense.fuel_odometer_km === '' || expense.fuel_odometer_km == null) {
+                    expense.fuel_odometer_km = odometer;
+                }
             });
         },
     );

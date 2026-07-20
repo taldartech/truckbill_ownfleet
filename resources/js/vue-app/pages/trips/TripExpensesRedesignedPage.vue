@@ -8,165 +8,201 @@
 
         <template v-else-if="trip">
             <div class="trf">
-                <!-- Section 1 — Trip overview -->
-                <div class="trf-section">
-                    <div class="trf-section__head">
+                <!-- Trip overview (compact) -->
+                <div class="trf-section trf-section--summary">
+                    <div class="trf-section__head trf-section__head--compact">
                         <div class="trf-section__head-left">
-                            <div class="trf-step-num">1</div>
                             <div>
-                                <h2 class="trf-section__title">Trip Expenses</h2>
-                                <p class="trf-section__desc">
-                                    {{ trip.trip_number ?? '—' }}
-                                    <span v-if="trip.vehicle?.registration_number">
-                                        · {{ trip.vehicle.registration_number }}
-                                    </span>
-                                    <span v-if="routePreview"> · {{ routePreview }}</span>
-                                </p>
+                                <h2 class="trf-section__title">Trip Overview</h2>
+                                <p class="trf-section__desc">Customer, Diesel &amp; Meters</p>
                             </div>
                         </div>
                         <div class="trf-section__head-right">
-                            <div class="trf-trip-id trf-trip-id--head">
-                                <div class="trf-trip-id__meta">
-                                    <span class="trf-trip-id__label">Status</span>
-                                    <span class="trf-trip-num-badge" :class="statusMeta.badge">
-                                        {{ statusMeta.label }}
-                                    </span>
-                                </div>
-                                <div class="trf-trip-id__preview trf-trip-id__preview--static">
+                            <div class="trf-trip-id trf-trip-id--head trf-trip-id--compact">
+                                <span class="trf-trip-num-badge" :class="statusMeta.badge">
+                                    {{ statusMeta.label }}
+                                </span>
+                                <span class="trf-trip-id__preview trf-trip-id__preview--static">
                                     {{ trip.trip_number || '—' }}
-                                </div>
+                                </span>
                             </div>
                             <RouterLink :to="tripDetailReturnTo" class="trf-back-link">
-                                <i class="bi bi-arrow-left"></i> Back to Trip
+                                <i class="bi bi-arrow-left"></i> Back
                             </RouterLink>
                         </div>
                     </div>
 
-                    <div class="trf-section__body">
-                        <div class="trf-summary-block trf-summary-block--money">
-                            <div class="trf-summary-block__label">Overview</div>
-                            <div class="trf-vehicle-info trf-vehicle-info--summary trf-vehicle-info--money trf-vehicle-info--overview">
-                                <div class="trf-vehicle-info__item">
-                                    <div class="trf-vehicle-info__icon" style="--ic:#4f46e5;--bg:#eef2ff">
-                                        <i class="bi bi-calendar3"></i>
-                                    </div>
-                                    <div>
-                                        <span class="trf-vehicle-info__name">Trip dates</span>
-                                        <span class="trf-vehicle-info__val">
-                                            {{ formatDate(trip.start_at) }} – {{ formatDate(trip.end_at) }}
+                    <div class="trf-section__body trf-section__body--summary">
+                        <div class="trf-overview-meta">
+                            <span class="trf-overview-meta__item trf-overview-meta__item--route">
+                                <span class="trf-overview-meta__label">Route</span>
+                                <span
+                                    v-if="routePoints.length"
+                                    class="trf-route"
+                                    :class="{ 'trf-route--multi': routePoints.length > 2 }"
+                                    :title="routeFullLabel"
+                                >
+                                    <span class="trf-route__city is-endpoint">{{ routeSource }}</span>
+                                    <template v-if="routeViaPoints.length">
+                                        <span class="trf-route__arrow" aria-hidden="true">→</span>
+                                        <span class="trf-route__via" aria-hidden="true">
+                                            <span
+                                                v-for="(city, index) in routeViaPoints"
+                                                :key="`${city}-${index}`"
+                                                class="trf-route__via-part"
+                                            >
+                                                <span v-if="index > 0" class="trf-route__arrow">→</span>
+                                                <span class="trf-route__city is-via">{{ city }}</span>
+                                            </span>
                                         </span>
-                                    </div>
-                                </div>
-                                <div class="trf-vehicle-info__item">
-                                    <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8">
-                                        <i class="bi bi-currency-rupee"></i>
-                                    </div>
-                                    <div>
-                                        <span class="trf-vehicle-info__name">Total freight</span>
-                                        <span class="trf-vehicle-info__val">₹{{ formatMoney(trip.total_freight_amount) }}</span>
-                                    </div>
-                                </div>
-                                <div class="trf-vehicle-info__item">
-                                    <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa">
-                                        <i class="bi bi-receipt"></i>
-                                    </div>
-                                    <div>
-                                        <span class="trf-vehicle-info__name">Total expenses</span>
-                                        <span class="trf-vehicle-info__val">₹{{ formatMoney(liveExpenseTotal) }}</span>
-                                    </div>
-                                </div>
-                                <div class="trf-vehicle-info__item trf-vehicle-info__item--hero">
-                                    <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff">
-                                        <i class="bi bi-graph-up-arrow"></i>
-                                    </div>
-                                    <div>
-                                        <span class="trf-vehicle-info__name">Profit</span>
-                                        <span
-                                            class="trf-vehicle-info__val"
-                                            :class="{
-                                                'trf-vehicle-info__val--profit': profitAmount >= 0,
-                                                'trf-vehicle-info__val--loss': profitAmount < 0,
-                                            }"
-                                        >
-                                            ₹{{ formatMoney(profitAmount) }}
-                                        </span>
+                                    </template>
+                                    <template v-if="routeDestination">
+                                        <span class="trf-route__arrow" aria-hidden="true">→</span>
+                                        <span class="trf-route__city is-endpoint">{{ routeDestination }}</span>
+                                    </template>
+                                </span>
+                                <span v-else class="trf-overview-meta__value">—</span>
+                            </span>
+                            <span class="trf-overview-meta__divider" aria-hidden="true"></span>
+                            <span class="trf-overview-meta__item">
+                                <span class="trf-overview-meta__label">Dates</span>
+                                <span class="trf-overview-meta__value">
+                                    {{ formatDate(trip.start_at) }}
+                                    <span class="trf-overview-meta__sep">→</span>
+                                    {{ formatDate(trip.end_at) || 'Open' }}
+                                </span>
+                            </span>
+                            <span class="trf-overview-meta__divider" aria-hidden="true"></span>
+                            <span class="trf-overview-meta__item">
+                                <span class="trf-overview-meta__label">Truck</span>
+                                <span class="trf-overview-meta__value">{{ trip.vehicle?.registration_number || '—' }}</span>
+                            </span>
+                            <span class="trf-overview-meta__divider" aria-hidden="true"></span>
+                            <span class="trf-overview-meta__item">
+                                <span class="trf-overview-meta__label">Driver</span>
+                                <span class="trf-overview-meta__value">
+                                    {{ trip.driver?.name || '—' }}
+                                    <template v-if="trip.substitute_driver?.name">
+                                        · Sub {{ trip.substitute_driver.name }}
+                                    </template>
+                                </span>
+                            </span>
+                        </div>
+
+                        <div class="trf-summary-grid trf-summary-grid--compact">
+                            <div class="trf-summary-tile trf-summary-tile--accent">
+                                <span class="trf-summary-tile__label">Customer</span>
+                                <span class="trf-summary-tile__value">{{ primaryCustomerLabel }}</span>
+                                <span v-if="form.broker_name" class="trf-summary-tile__sub">
+                                    Broker: {{ form.broker_name }}
+                                </span>
+                                <span
+                                    v-else-if="stopCustomerLabels.length > 1"
+                                    class="trf-summary-tile__sub"
+                                >
+                                    +{{ stopCustomerLabels.length - 1 }} More On Stops
+                                </span>
+                            </div>
+                            <div class="trf-summary-tile trf-summary-tile--diesel">
+                                <span class="trf-summary-tile__label">Expected Diesel</span>
+                                <span class="trf-summary-tile__value">{{ expectedDieselLabel }}</span>
+                                <span class="trf-summary-tile__sub">
+                                    <template v-if="form.diesel_rate_per_liter">
+                                        ₹{{ formatMoney(form.diesel_rate_per_liter) }}/Ltr
+                                    </template>
+                                    <template v-if="form.diesel_rate_per_liter && form.planned_mileage_km_per_liter"> · </template>
+                                    <template v-if="form.planned_mileage_km_per_liter">
+                                        {{ formatNum(form.planned_mileage_km_per_liter) }} KM/Ltr
+                                    </template>
+                                    <template v-if="!form.diesel_rate_per_liter && !form.planned_mileage_km_per_liter">
+                                        Rate / Mileage —
+                                    </template>
+                                </span>
+                            </div>
+                            <div class="trf-summary-tile">
+                                <span class="trf-summary-tile__label">Freight</span>
+                                <span class="trf-summary-tile__value">₹{{ formatMoney(freightAmount) }}</span>
+                            </div>
+                            <div class="trf-summary-tile trf-summary-tile--loadmix">
+                                <span class="trf-summary-tile__label">Load Mix</span>
+                                <div class="trf-summary-loadmix">
+                                    <div
+                                        v-for="line in loadMixLines"
+                                        :key="line.label"
+                                        class="trf-summary-loadmix__line"
+                                    >
+                                        <span class="trf-summary-loadmix__key">{{ line.label }}:</span>
+                                        <span class="trf-summary-loadmix__val">{{ line.value }}</span>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Meters + distance stay at the right end of the row -->
+                            <template v-if="hasBothMeters">
+                                <div class="trf-summary-tile trf-summary-tile--meters">
+                                    <span class="trf-summary-tile__label">Meter Readings</span>
+                                    <div class="trf-meters-pair">
+                                        <div class="trf-meters-pair__row">
+                                            <span class="trf-meters-pair__key">Start Meter Reading</span>
+                                            <span class="trf-meters-pair__val">{{ formatMeter(form.start_meter_reading_km) }}</span>
+                                        </div>
+                                        <div class="trf-meters-pair__row">
+                                            <span class="trf-meters-pair__key">End Meter Reading</span>
+                                            <span class="trf-meters-pair__val">{{ formatMeter(form.end_meter_reading_km) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="trf-summary-tile trf-summary-tile--distance">
+                                    <span class="trf-summary-tile__label">Distance</span>
+                                    <span class="trf-summary-tile__value">{{ formatNum(meterDistanceKm) }} km</span>
+                                    <span class="trf-summary-tile__sub">End − Start</span>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <div
+                                    class="trf-summary-tile"
+                                    :class="{ 'trf-summary-tile--editable': startMeterEditable }"
+                                >
+                                    <span class="trf-summary-tile__label">Start Meter Reading</span>
+                                    <template v-if="startMeterEditable">
+                                        <div class="trf-meter-edit">
+                                            <input
+                                                v-model.number="form.start_meter_reading_km"
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                class="form-control form-control-sm trf-meter-edit__input"
+                                                placeholder="Enter km"
+                                                aria-label="Start Meter Reading"
+                                            />
+                                        </div>
+                                    </template>
+                                    <span v-else class="trf-summary-tile__value">
+                                        {{ formatMeter(form.start_meter_reading_km) }}
+                                    </span>
+                                </div>
+                                <div class="trf-summary-tile">
+                                    <span class="trf-summary-tile__label">End Meter Reading</span>
+                                    <span class="trf-summary-tile__value">{{ formatMeter(form.end_meter_reading_km) }}</span>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
 
-                <!-- Section 2 — Trip reference -->
-                <div v-if="hasTripMasterData" class="trf-section">
-                    <div class="trf-section__head trf-section__head--green">
-                        <div class="trf-section__head-left">
-                            <div class="trf-step-num trf-step-num--green">2</div>
-                            <div>
-                                <h2 class="trf-section__title">Trip Reference</h2>
-                                <p class="trf-section__desc">Meter readings and diesel defaults from trip master</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="trf-section__body">
-                        <div class="trf-vehicle-info trf-vehicle-info--summary">
-                            <div class="trf-vehicle-info__item">
-                                <div class="trf-vehicle-info__icon" style="--ic:#16a34a;--bg:#f0fdf4">
-                                    <i class="bi bi-speedometer"></i>
-                                </div>
-                                <div>
-                                    <span class="trf-vehicle-info__name">Start Meter Reading</span>
-                                    <span class="trf-vehicle-info__val">{{ formatMeter(form.start_meter_reading_km) }}</span>
-                                </div>
-                            </div>
-                            <div class="trf-vehicle-info__item">
-                                <div class="trf-vehicle-info__icon" style="--ic:#ea580c;--bg:#fff7ed">
-                                    <i class="bi bi-speedometer2"></i>
-                                </div>
-                                <div>
-                                    <span class="trf-vehicle-info__name">End Meter Reading</span>
-                                    <span class="trf-vehicle-info__val">{{ formatMeter(form.end_meter_reading_km) }}</span>
-                                </div>
-                            </div>
-                            <div class="trf-vehicle-info__item">
-                                <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa">
-                                    <i class="bi bi-fuel-pump-fill"></i>
-                                </div>
-                                <div>
-                                    <span class="trf-vehicle-info__name">Diesel rate</span>
-                                    <span class="trf-vehicle-info__val">
-                                        {{ form.diesel_rate_per_liter ? `₹${formatMoney(form.diesel_rate_per_liter)}/Ltr` : '—' }}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="trf-vehicle-info__item">
-                                <div class="trf-vehicle-info__icon" style="--ic:#4f46e5;--bg:#eef2ff">
-                                    <i class="bi bi-droplet-half"></i>
-                                </div>
-                                <div>
-                                    <span class="trf-vehicle-info__name">Expected mileage</span>
-                                    <span class="trf-vehicle-info__val">
-                                        {{ form.planned_mileage_km_per_liter ? `${formatNum(form.planned_mileage_km_per_liter)} KM/Ltr` : '—' }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 3 — Expense entries -->
+                <!-- Stop-wise expenses (page focus) -->
                 <div class="trf-section">
                     <div class="trf-section__head trf-section__head--expense">
                         <div class="trf-section__head-left">
-                            <div class="trf-step-num trf-step-num--expense">{{ hasTripMasterData ? 3 : 2 }}</div>
+                            <div class="trf-step-num trf-step-num--expense">1</div>
                             <div>
-                                <h2 class="trf-section__title">Expense Entries</h2>
-                                <p class="trf-section__desc">Add whole-trip and per-stop expenses</p>
+                                <h2 class="trf-section__title">Stop-wise Expenses</h2>
+                                <p class="trf-section__desc">Add Expenses For The Whole Trip Or Each Stop</p>
                             </div>
                         </div>
                         <div class="trf-section__head-right">
                             <div class="trf-live-total">
-                                Live total: ₹{{ formatMoney(liveExpenseTotal) }}
+                                Live Total: ₹{{ formatMoney(liveExpenseTotal) }}
                             </div>
                         </div>
                     </div>
@@ -194,6 +230,72 @@
                             @fuel-field-input="markFuelFieldDirty"
                             @field-input="onExpenseFieldInput"
                         />
+                    </div>
+                </div>
+
+                <!-- Profitability (after expenses) -->
+                <div class="trf-section trf-section--profit">
+                    <div class="trf-section__head trf-section__head--profit">
+                        <div class="trf-section__head-left">
+                            <div class="trf-step-num trf-step-num--profit">
+                                <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+                            </div>
+                            <div>
+                                <h2 class="trf-section__title">Trip Profitability</h2>
+                                <p class="trf-section__desc">Freight Vs Live Expenses · Updates As You Edit</p>
+                            </div>
+                        </div>
+                        <div class="trf-section__head-right">
+                            <div
+                                class="trf-profit-badge"
+                                :class="profitAmount >= 0 ? 'is-profit' : 'is-loss'"
+                            >
+                                {{ profitAmount >= 0 ? 'Profit' : 'Loss' }}
+                                ₹{{ formatMoney(Math.abs(profitAmount)) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="trf-section__body trf-section__body--profit">
+                        <div class="trf-profit-grid">
+                            <div class="trf-profit-stat">
+                                <span class="trf-profit-stat__label">Freight</span>
+                                <span class="trf-profit-stat__value">₹{{ formatMoney(freightAmount) }}</span>
+                            </div>
+                            <div class="trf-profit-stat">
+                                <span class="trf-profit-stat__label">Expenses</span>
+                                <span class="trf-profit-stat__value trf-profit-stat__value--expense">
+                                    ₹{{ formatMoney(liveExpenseTotal) }}
+                                </span>
+                            </div>
+                            <div class="trf-profit-stat trf-profit-stat--result">
+                                <span class="trf-profit-stat__label">
+                                    {{ profitAmount >= 0 ? 'Net Profit' : 'Net Loss' }}
+                                </span>
+                                <span
+                                    class="trf-profit-stat__value"
+                                    :class="profitAmount >= 0 ? 'is-profit' : 'is-loss'"
+                                >
+                                    ₹{{ formatMoney(profitAmount) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="trf-profit-bar" role="img" :aria-label="profitBarAriaLabel">
+                            <div
+                                class="trf-profit-bar__freight"
+                                :style="{ width: profitBarFreightPct + '%' }"
+                            ></div>
+                            <div
+                                class="trf-profit-bar__expense"
+                                :style="{ width: profitBarExpensePct + '%' }"
+                            ></div>
+                        </div>
+                        <div class="trf-profit-legend">
+                            <span><i class="trf-dot trf-dot--freight"></i> Freight</span>
+                            <span><i class="trf-dot trf-dot--expense"></i> Expenses</span>
+                            <span class="trf-profit-legend__margin">
+                                Margin {{ profitMarginLabel }}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -244,9 +346,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllStations } from '../../api/stations';
 import {
+    canFullEditTrip,
     canManageTripExpenses,
     fetchTrip,
     isTripArchived,
+    summarizeTripForm,
     tripStatusMeta,
     updateTrip,
 } from '../../api/trips';
@@ -277,7 +381,7 @@ const { needsCompanySelection } = useRequireCompanyContext();
 const { user } = usePermissions();
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 
-const { form, populateFromTrip, addExpense, removeExpense, buildExpensesPayload, markFuelFieldDirty } = useTripExpensesForm();
+const { form, populateFromTrip, canEditStartMeter, addExpense, removeExpense, buildExpensesPayload, markFuelFieldDirty } = useTripExpensesForm();
 
 const trip = ref(null);
 const stations = ref([]);
@@ -286,6 +390,7 @@ const saving = ref(false);
 const showSaveConfirm = ref(false);
 const saveConfirmSummary = ref(buildExpenseSaveConfirmViewModel({ expenses: [] }));
 const originalExpenses = ref([]);
+const originalStartMeter = ref('');
 const expensesPanelRef = ref(null);
 const validationAttempted = ref(false);
 
@@ -298,15 +403,112 @@ const statusMeta = computed(() => tripStatusMeta(trip.value?.status));
 const liveExpenseTotal = computed(() =>
     form.expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
 );
-const profitAmount = computed(() => {
-    const freight = Number(trip.value?.total_freight_amount ?? 0);
+const freightAmount = computed(() => Number(form.total_freight_amount ?? trip.value?.total_freight_amount ?? 0));
+const profitAmount = computed(() => freightAmount.value - liveExpenseTotal.value);
 
-    return freight - liveExpenseTotal.value;
+const startMeterEditable = computed(() => canEditStartMeter());
+
+const canPersistStartMeter = computed(() =>
+    canFullEditTrip(trip.value?.status, user.value, { has_invoices: trip.value?.has_invoices }),
+);
+
+const stopCustomerLabels = computed(() => {
+    const names = (form.route_legs ?? [])
+        .map((leg) => String(leg.customer_name ?? '').trim())
+        .filter(Boolean);
+
+    return [...new Set(names)];
 });
 
-const isDirty = computed(
-    () => JSON.stringify(form.expenses) !== JSON.stringify(originalExpenses.value),
+const primaryCustomerLabel = computed(() => {
+    const tripCustomer = String(form.customer_name ?? '').trim();
+
+    if (tripCustomer) {
+        return tripCustomer;
+    }
+
+    return stopCustomerLabels.value[0] || '—';
+});
+
+const expectedDieselLabel = computed(() => {
+    const planned = Number(form.planned_diesel_liters);
+
+    if (Number.isFinite(planned) && planned > 0) {
+        return `${formatNum(planned)} Ltr`;
+    }
+
+    const distance = Number(form.total_distance_km);
+    const mileage = Number(form.planned_mileage_km_per_liter);
+
+    if (Number.isFinite(distance) && distance > 0 && Number.isFinite(mileage) && mileage > 0) {
+        return `${formatNum(distance / mileage)} Ltr`;
+    }
+
+    return '—';
+});
+
+const loadMixLines = computed(() => {
+    const summary = summarizeTripForm(form);
+
+    return [
+        { label: 'Full', value: summary.fullLoadStops ?? 0 },
+        { label: 'Half', value: summary.halfLoadStops ?? 0 },
+        { label: 'Empty', value: summary.emptyStops ?? 0 },
+    ];
+});
+
+const hasStartMeterValue = computed(() => {
+    const start = Number(form.start_meter_reading_km);
+
+    return Number.isFinite(start) && start > 0;
+});
+
+const hasEndMeterValue = computed(() => {
+    const end = Number(form.end_meter_reading_km);
+
+    return Number.isFinite(end) && end > 0;
+});
+
+const hasBothMeters = computed(() => hasStartMeterValue.value && hasEndMeterValue.value);
+
+const meterDistanceKm = computed(() => {
+    if (!hasBothMeters.value) {
+        return 0;
+    }
+
+    return Math.max(0, Number(form.end_meter_reading_km) - Number(form.start_meter_reading_km));
+});
+
+const profitBarScale = computed(() => Math.max(freightAmount.value, liveExpenseTotal.value, 1));
+const profitBarFreightPct = computed(() =>
+    Math.min(100, (freightAmount.value / profitBarScale.value) * 100),
 );
+const profitBarExpensePct = computed(() =>
+    Math.min(100, (liveExpenseTotal.value / profitBarScale.value) * 100),
+);
+const profitMarginLabel = computed(() => {
+    if (!(freightAmount.value > 0)) {
+        return '—';
+    }
+
+    const margin = (profitAmount.value / freightAmount.value) * 100;
+
+    return `${margin.toFixed(1)}%`;
+});
+const profitBarAriaLabel = computed(
+    () =>
+        `Freight ₹${formatMoney(freightAmount.value)}, expenses ₹${formatMoney(liveExpenseTotal.value)}, ` +
+        `${profitAmount.value >= 0 ? 'profit' : 'loss'} ₹${formatMoney(Math.abs(profitAmount.value))}`,
+);
+
+const isDirty = computed(() => {
+    const expensesDirty = JSON.stringify(form.expenses) !== JSON.stringify(originalExpenses.value);
+    const startMeterDirty =
+        startMeterEditable.value
+        && String(form.start_meter_reading_km ?? '') !== String(originalStartMeter.value ?? '');
+
+    return expensesDirty || startMeterDirty;
+});
 
 useUnsavedFormGuard(
     isDirty,
@@ -356,25 +558,45 @@ const saveButtonLabel = computed(() => {
     return 'Save';
 });
 
-const hasTripMasterData = computed(
-    () =>
-        form.start_meter_reading_km !== '' ||
-        form.end_meter_reading_km !== '' ||
-        form.diesel_rate_per_liter !== '' ||
-        form.planned_mileage_km_per_liter !== '' ||
-        Boolean(trip.value?.vehicle?.registration_number),
-);
-
-const routePreview = computed(() => {
-    const legs = trip.value?.route_legs ?? [];
+const routePoints = computed(() => {
+    const legs = trip.value?.route_legs ?? form.route_legs ?? [];
 
     if (legs.length === 0) {
+        return [];
+    }
+
+    const points = [];
+
+    if (legs[0]?.from_city || legs[0]?.from_location) {
+        points.push(legs[0].from_city || legs[0].from_location);
+    }
+
+    legs.forEach((leg) => {
+        const label = leg.to_city || leg.to_location;
+
+        if (label) {
+            points.push(label);
+        }
+    });
+
+    return points.filter(Boolean);
+});
+
+const routeFullLabel = computed(() => routePoints.value.join(' → '));
+const routeSource = computed(() => routePoints.value[0] || '');
+const routeDestination = computed(() => {
+    if (routePoints.value.length < 2) {
         return '';
     }
 
-    const labels = legs.map((leg) => leg.to_city || leg.to_location || '—');
+    return routePoints.value[routePoints.value.length - 1];
+});
+const routeViaPoints = computed(() => {
+    if (routePoints.value.length <= 2) {
+        return [];
+    }
 
-    return labels.join(' → ');
+    return routePoints.value.slice(1, -1);
 });
 
 function formatMoney(value) {
@@ -424,6 +646,7 @@ async function loadTrip() {
         trip.value = loaded;
         populateFromTrip(loaded);
         originalExpenses.value = JSON.parse(JSON.stringify(form.expenses));
+        originalStartMeter.value = form.start_meter_reading_km;
     } catch (error) {
         applyApiError(error, 'Failed to load trip.');
         toast.error(formError.value);
@@ -449,11 +672,14 @@ async function confirmSave() {
     saving.value = true;
 
     try {
-        const payload = buildExpensesPayload();
+        const payload = buildExpensesPayload({
+            includeStartMeter: canPersistStartMeter.value,
+        });
         const updated = await updateTrip(route.params.id, payload);
         trip.value = updated;
         populateFromTrip(updated);
         originalExpenses.value = JSON.parse(JSON.stringify(form.expenses));
+        originalStartMeter.value = form.start_meter_reading_km;
         showSaveConfirm.value = false;
         validationAttempted.value = false;
         toast.success('Trip expenses saved successfully.');
@@ -555,6 +781,11 @@ onMounted(async () => {
     border-bottom-color: #ffe69c;
 }
 
+.trf-section__head--profit {
+    background: linear-gradient(135deg, #d1e7dd 0%, #f0fdf4 55%, #f8f9fa 100%);
+    border-bottom-color: #badbcc;
+}
+
 .trf-section__head-left {
     display: flex;
     align-items: center;
@@ -591,9 +822,425 @@ onMounted(async () => {
     padding: 18px 20px;
 }
 
+.trf-section__body--summary {
+    padding: 10px 16px 12px;
+    background: #f8fafc;
+}
+
+.trf-section__body--profit {
+    padding: 16px 20px 18px;
+    background: #f6fbf8;
+}
+
 .trf-section__body--expenses {
     background: #fffef8;
 }
+
+.trf-section--summary {
+    margin-bottom: 14px;
+}
+
+.trf-section__head--compact {
+    min-height: 48px;
+    padding: 8px 16px;
+}
+
+.trf-trip-id--compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-align: right;
+}
+
+.trf-trip-id--compact .trf-trip-id__preview--static {
+    font-size: 0.85rem;
+}
+
+.trf-overview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 0;
+    margin-bottom: 10px;
+    padding: 12px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.trf-overview-meta__item {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 18px;
+}
+
+.trf-overview-meta__item--route {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.trf-overview-meta__divider {
+    width: 1px;
+    align-self: stretch;
+    min-height: 1.6em;
+    margin: 0 6px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+
+.trf-overview-meta__label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.trf-overview-meta__value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.trf-overview-meta__sep {
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 4px;
+}
+
+.trf-route {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: help;
+}
+
+.trf-route__city {
+    min-width: 0;
+}
+
+.trf-route__city.is-endpoint {
+    flex-shrink: 0;
+    font-weight: 800;
+    color: #0f172a;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #e8f1ff;
+    border: 1px solid #bfdbfe;
+}
+
+.trf-route__city.is-via {
+    font-weight: 600;
+    color: #64748b;
+}
+
+.trf-route__arrow {
+    flex-shrink: 0;
+    margin: 0 5px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.trf-route__via {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trf-route__via-part {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.trf-route--multi .trf-route__via {
+    max-width: 12rem;
+}
+
+.trf-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.trf-summary-grid--compact {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.trf-summary-tile--meters,
+.trf-summary-tile--distance {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+.trf-meters-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+.trf-meters-pair__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.trf-meters-pair__key {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--muted);
+    line-height: 1.15;
+}
+
+.trf-meters-pair__val {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.trf-summary-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.trf-summary-tile--accent {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+}
+
+.trf-summary-tile--diesel {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.trf-summary-tile--loadmix {
+    border-color: #fcd34d;
+    background: #fffbeb;
+}
+
+.trf-summary-tile--editable {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.trf-summary-tile__label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    line-height: 1.2;
+}
+
+.trf-summary-tile__value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.trf-summary-tile__sub {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: #b45309;
+    line-height: 1.25;
+}
+
+.trf-summary-loadmix {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    margin-top: 2px;
+}
+
+.trf-summary-loadmix__line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.trf-summary-loadmix__key {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--muted);
+    line-height: 1.15;
+}
+
+.trf-summary-loadmix__val {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.trf-meter-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 1px;
+}
+
+.trf-meter-edit__input {
+    font-weight: 700;
+    max-width: 120px;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+}
+
+.trf-profit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.trf-profit-stat {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #d8e9df;
+    background: #fff;
+}
+
+.trf-profit-stat--result {
+    border-color: #86efac;
+    background: linear-gradient(180deg, #ecfdf5 0%, #fff 100%);
+}
+
+.trf-profit-stat__label {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.trf-profit-stat__value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+}
+
+.trf-profit-stat__value--expense {
+    color: #b45309;
+}
+
+.trf-profit-stat__value.is-profit {
+    color: #15803d;
+}
+
+.trf-profit-stat__value.is-loss {
+    color: #dc2626;
+}
+
+.trf-profit-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    border: 1px solid transparent;
+}
+
+.trf-profit-badge.is-profit {
+    color: #166534;
+    background: #dcfce7;
+    border-color: #86efac;
+}
+
+.trf-profit-badge.is-loss {
+    color: #991b1b;
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.trf-profit-bar {
+    position: relative;
+    height: 10px;
+    border-radius: 99px;
+    background: #e9ecef;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.trf-profit-bar__freight,
+.trf-profit-bar__expense {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 99px;
+    transition: width 0.25s ease;
+}
+
+.trf-profit-bar__freight {
+    background: #86efac;
+    z-index: 1;
+}
+
+.trf-profit-bar__expense {
+    background: rgba(245, 158, 11, 0.85);
+    z-index: 2;
+    mix-blend-mode: multiply;
+}
+
+.trf-profit-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.trf-profit-legend__margin {
+    margin-left: auto;
+    color: var(--text);
+}
+
+.trf-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.trf-dot--freight { background: #22c55e; }
+.trf-dot--expense { background: #f59e0b; }
 
 .trf-step-num {
     width: 32px;
@@ -609,8 +1256,11 @@ onMounted(async () => {
     flex-shrink: 0;
 }
 
-.trf-step-num--green { background: var(--success); }
 .trf-step-num--expense { background: #d97706; }
+.trf-step-num--profit {
+    background: #15803d;
+    font-size: 0.95rem;
+}
 
 .trf-trip-id--head {
     text-align: right;
@@ -628,7 +1278,6 @@ onMounted(async () => {
     font-size: .66rem;
     font-weight: 700;
     letter-spacing: .04em;
-    text-transform: uppercase;
     color: var(--muted);
 }
 
@@ -672,86 +1321,34 @@ onMounted(async () => {
     padding: 6px 14px;
 }
 
-.trf-summary-block {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.trf-summary-block__label {
-    font-size: .68rem;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-
-.trf-vehicle-info {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.trf-vehicle-info--overview {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.trf-vehicle-info__item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 0;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fafafa;
-}
-
-.trf-vehicle-info__icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .85rem;
-    background: var(--bg);
-    color: var(--ic);
-}
-
-.trf-vehicle-info__name {
-    display: block;
-    font-size: .68rem;
-    font-weight: 700;
-    color: var(--muted);
-    line-height: 1.2;
-}
-
-.trf-vehicle-info__val {
-    display: block;
-    margin-top: 1px;
-    font-size: var(--fs-value);
-    font-weight: 800;
-    color: var(--text);
-    line-height: 1.2;
-}
-
-.trf-vehicle-info__val--profit { color: #16a34a; }
-.trf-vehicle-info__val--loss { color: #dc2626; }
-
-.trf-vehicle-info__item--hero {
-    background: #f8fbff;
-    border-color: #bfdbfe;
-}
-
-.trf-vehicle-info__item--hero .trf-vehicle-info__val {
-    font-size: 1.05em;
+@media (max-width: 1199px) {
+    .trf-summary-grid--compact {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 991px) {
-    .trf-vehicle-info,
-    .trf-vehicle-info--overview {
+    .trf-overview-meta__divider {
+        display: none;
+    }
+
+    .trf-overview-meta__item {
+        width: calc(50% - 4px);
+        padding: 8px 10px;
+    }
+
+    .trf-overview-meta__item--route {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .trf-route--multi .trf-route__via {
+        max-width: 8rem;
+    }
+
+    .trf-summary-grid,
+    .trf-summary-grid--compact,
+    .trf-profit-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -761,9 +1358,23 @@ onMounted(async () => {
 }
 
 @media (max-width: 575.98px) {
-    .trf-vehicle-info,
-    .trf-vehicle-info--overview {
+    .trf-overview-meta__item {
+        width: 100%;
+    }
+
+    .trf-route--multi .trf-route__via {
+        max-width: 5.5rem;
+    }
+
+    .trf-summary-grid,
+    .trf-summary-grid--compact,
+    .trf-profit-grid {
         grid-template-columns: 1fr;
+    }
+
+    .trf-profit-legend__margin {
+        margin-left: 0;
+        width: 100%;
     }
 
     .trip-expenses-redesigned-page {

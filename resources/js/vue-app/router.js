@@ -181,7 +181,7 @@ const router = createRouter({
                 {
                     path: 'trips/:id/expenses',
                     name: 'trips.expenses',
-                    component: () => import('./pages/trips/TripExpensesPage.vue'),
+                    component: () => import('./pages/trips/TripExpensesRedesignedPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {
