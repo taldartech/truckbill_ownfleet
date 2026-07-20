@@ -142,27 +142,8 @@
                                 <span class="trf-subst-toggle__text">Substitute</span>
                             </label>
                         </div>
-                        <div
-                            class="trf-driver-fields"
-                            :class="{ 'trf-driver-fields--subst': showSubstituteDriverColumn }"
-                        >
-                            <div class="trf-driver-fields__primary">
-                                <div
-                                    class="trf-synced-field"
-                                    :class="{
-                                        'trf-synced-field--empty': !hasDriverDisplay && !loadingDriver,
-                                        'trf-synced-field--error': Boolean(fieldErrors.driver_id),
-                                    }"
-                                >
-                                    <div class="trf-synced-field__main">
-                                        {{ loadingDriver ? 'Syncing from truck…' : (hasDriverDisplay ? driverDisplayName : 'Select truck first') }}
-                                    </div>
-                                    <div v-if="hasDriverDisplay || loadingDriver" class="trf-synced-field__sub">
-                                        {{ selectedDriver?.license_number || 'Auto-synced with truck' }}
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-if="showSubstituteDriverColumn" class="trf-driver-fields__subst">
+                        <div class="trf-driver-fields">
+                            <template v-if="showSubstituteDriverColumn">
                                 <SearchablePickerRedesigned
                                     v-if="!isFormLocked"
                                     v-model="form.substitute_driver_id"
@@ -182,10 +163,26 @@
                                 >
                                     <div class="trf-synced-field__main">{{ substituteDriverDisplay || '—' }}</div>
                                 </div>
-                            </div>
+                            </template>
+                            <template v-else>
+                                <div
+                                    class="trf-synced-field"
+                                    :class="{
+                                        'trf-synced-field--empty': !hasDriverDisplay && !loadingDriver,
+                                        'trf-synced-field--error': Boolean(fieldErrors.driver_id),
+                                    }"
+                                >
+                                    <div class="trf-synced-field__main">
+                                        {{ loadingDriver ? 'Syncing from truck…' : (hasDriverDisplay ? driverDisplayName : 'Select truck first') }}
+                                    </div>
+                                    <div v-if="hasDriverDisplay || loadingDriver" class="trf-synced-field__sub">
+                                        {{ selectedDriver?.license_number || 'Auto-synced with truck' }}
+                                    </div>
+                                </div>
+                            </template>
                         </div>
-                        <div v-if="fieldErrors.driver_id" class="trf-pf__err">{{ fieldErrorMessage('driver_id') }}</div>
-                        <div v-if="fieldErrors.substitute_driver_id" class="trf-pf__err">{{ fieldErrorMessage('substitute_driver_id') }}</div>
+                        <div v-if="!showSubstituteDriverColumn && fieldErrors.driver_id" class="trf-pf__err">{{ fieldErrorMessage('driver_id') }}</div>
+                        <div v-if="showSubstituteDriverColumn && fieldErrors.substitute_driver_id" class="trf-pf__err">{{ fieldErrorMessage('substitute_driver_id') }}</div>
                     </div>
 
                     <!-- Customer -->
@@ -2321,16 +2318,11 @@ defineExpose({ changeStatus: () => {} });
 }
 .trf-driver-fields {
     display: flex;
-    gap: 8px;
     min-width: 0;
 }
-.trf-driver-fields__primary,
-.trf-driver-fields__subst {
-    flex: 1 1 0;
-    min-width: 0;
-}
-.trf-driver-fields:not(.trf-driver-fields--subst) .trf-driver-fields__primary {
+.trf-driver-fields > * {
     flex: 1 1 100%;
+    min-width: 0;
 }
 .trf-pf--customer :deep(.picker-trigger-main-text) {
     overflow: hidden;
