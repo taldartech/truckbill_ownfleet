@@ -596,10 +596,6 @@
                                             >
                                                 <i class="bi bi-x-lg"></i>
                                             </button>
-                                            <span
-                                                v-if="isEmptyReturnLeg(item.leg, item.legIndex)"
-                                                class="trf-pill trf-pill--orange"
-                                            >Empty Return</span>
                                         </div>
                                         <div class="trf-leg__station-picker">
                                             <SearchablePickerRedesigned
