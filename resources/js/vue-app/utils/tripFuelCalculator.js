@@ -113,6 +113,7 @@ export function calculatePerformanceSummary({
     }
 
     const extraDiesel = extraKm > 0 && plannedMileage > 0 ? roundCurrency(extraKm / plannedMileage) : 0;
+    const unusedDiesel = unusedKm > 0 && plannedMileage > 0 ? roundCurrency(unusedKm / plannedMileage) : 0;
     const extraDieselCost = extraDiesel > 0 && dieselRate > 0 ? roundCurrency(extraDiesel * dieselRate) : 0;
     const remainingAmount = calculateDifferenceAmount(unusedKm, ratePerKm ?? 0);
 
@@ -129,6 +130,7 @@ export function calculatePerformanceSummary({
         extra_km: hasActual ? extraKm : null,
         remaining_amount: hasActual ? remainingAmount : null,
         performance_status: performanceStatus,
+        unused_diesel_liters: hasActual ? unusedDiesel : null,
         extra_diesel_liters: hasActual ? extraDiesel : null,
         extra_diesel_cost: hasActual ? extraDieselCost : null,
     };

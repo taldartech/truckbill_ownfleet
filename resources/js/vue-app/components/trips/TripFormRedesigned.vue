@@ -992,18 +992,18 @@
                                             class="trf-leg__dist"
                                             :class="{ 'trf-leg__dist--error': legFieldError(group.cardIndex, 'distance_km') }"
                                         >
-                                            Distance<span class="trf-pf__req">*</span>:
+                                            Distance:
                                             <template v-if="!isFormLocked">
                                                 <input
                                                     v-model.number="group.cardLeg.distance_km"
                                                     v-no-scroll-change
                                                     type="number"
-                                                    min="0.01"
+                                                    min="0"
                                                     step="0.01"
                                                     class="trf-leg__dist-input"
                                                     :class="{ 'trf-leg__dist-input--error': legFieldError(group.cardIndex, 'distance_km') }"
                                                     :title="legFieldError(group.cardIndex, 'distance_km') || undefined"
-                                                    placeholder="0"
+                                                    placeholder="Optional"
                                                     @input="emit('clear-field-error', `route_legs.${group.cardIndex}.distance_km`); saveProgress()"
                                                 />
                                                 KM

@@ -70,6 +70,24 @@
 
                 <div class="trip-performance-metrics__divider" aria-hidden="true"></div>
 
+                <div class="trip-performance-metrics__item">
+                    <div class="trip-performance-metrics__label trip-performance-metrics__label--with-info">
+                        <span>Difference LTR</span>
+                        <button
+                            type="button"
+                            class="trip-performance-info-btn"
+                            :aria-expanded="activeInfoKey === 'difference-ltr'"
+                            aria-label="How Difference LTR is calculated"
+                            @click.stop="toggleMetricInfo('difference-ltr', $event)"
+                        >
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="trip-performance-metrics__value" :class="valueToneClass">{{ differenceLtrDisplay }}</div>
+                </div>
+
+                <div class="trip-performance-metrics__divider" aria-hidden="true"></div>
+
                 <div class="trip-performance-metrics__item trip-performance-metrics__item--rate">
                     <div class="trip-performance-metrics__label trip-performance-metrics__label--with-info">
                         <span>Rate / KM</span>
@@ -315,6 +333,50 @@ const activeMetricInfo = computed(() => {
         };
     }
 
+    if (key === 'difference-ltr') {
+        if (!hasActual.value) {
+            return {
+                title: 'Difference LTR',
+                steps: [],
+                emptyMessage: 'Available after actual running KM is known.',
+            };
+        }
+
+        if (isUnder.value) {
+            const unusedKm = Number(performance.unused_km ?? 0);
+            const unusedDiesel = Number(performance.unused_diesel_liters ?? 0);
+
+            return {
+                title: 'Difference LTR',
+                steps: [
+                    'Difference KM ÷ Expected Mileage',
+                    `${formatNumber(unusedKm)} KM ÷ ${formatNumber(mileage)} KM/Ltr = ${formatLiters(unusedDiesel)}`,
+                ],
+                emptyMessage: '',
+            };
+        }
+
+        if (isOver.value) {
+            const extraKm = Number(performance.extra_km ?? 0);
+            const extraDiesel = Number(performance.extra_diesel_liters ?? 0);
+
+            return {
+                title: 'Difference LTR',
+                steps: [
+                    'Difference KM ÷ Expected Mileage',
+                    `${formatNumber(extraKm)} KM ÷ ${formatNumber(mileage)} KM/Ltr = +${formatLiters(extraDiesel)}`,
+                ],
+                emptyMessage: '',
+            };
+        }
+
+        return {
+            title: 'Difference LTR',
+            steps: ['Difference KM ÷ Expected Mileage = 0 Ltr'],
+            emptyMessage: '',
+        };
+    }
+
     if (key === 'rate') {
         if (!performance.rate_per_km) {
             return {
@@ -421,6 +483,22 @@ const differenceKmDisplay = computed(() => {
     }
 
     return '0 KM';
+});
+
+const differenceLtrDisplay = computed(() => {
+    if (!hasActual.value) {
+        return '—';
+    }
+
+    if (isUnder.value) {
+        return formatLiters(props.performance.unused_diesel_liters);
+    }
+
+    if (isOver.value) {
+        return `+${formatNumber(props.performance.extra_diesel_liters)} Ltr`;
+    }
+
+    return '0 Ltr';
 });
 
 const differenceAmountDisplay = computed(() => {

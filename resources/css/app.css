@@ -708,11 +708,11 @@ textarea::placeholder,
 }
 
 .trip-performance-card--compact .trip-performance-metrics__item--rate {
-    grid-column: 1;
+    grid-column: auto;
 }
 
 .trip-performance-card--compact .trip-performance-metrics__item--amount {
-    grid-column: 2 / span 2;
+    grid-column: auto;
     min-width: 0;
 }
 

@@ -99,6 +99,9 @@ class TripFuelCalculator
         $extraDiesel = $extraKm > 0
             ? round($extraKm / $plannedMileage, 2)
             : 0.0;
+        $unusedDiesel = $unusedKm > 0
+            ? round($unusedKm / $plannedMileage, 2)
+            : 0.0;
         $extraDieselCost = $extraDiesel > 0 && $dieselRate > 0
             ? round($extraDiesel * $dieselRate, 2)
             : 0.0;
@@ -117,6 +120,7 @@ class TripFuelCalculator
             'extra_km' => $hasActual ? $extraKm : null,
             'remaining_amount' => $hasActual ? $remainingAmount : null,
             'performance_status' => $performanceStatus,
+            'unused_diesel_liters' => $hasActual ? $unusedDiesel : null,
             'extra_diesel_liters' => $hasActual ? $extraDiesel : null,
             'extra_diesel_cost' => $hasActual ? $extraDieselCost : null,
         ];

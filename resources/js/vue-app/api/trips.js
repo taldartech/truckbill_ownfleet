@@ -677,9 +677,9 @@ export function validateTripPayload(
 
         const distanceRaw = leg.distance_km;
 
-        if (distanceRaw === '' || distanceRaw == null || parseNumeric(distanceRaw) <= 0) {
+        if (distanceRaw !== '' && distanceRaw != null && parseNumeric(distanceRaw) < 0) {
             errors[`route_legs.${index}.distance_km`] = [
-                `Stop ${index + 1}: distance is required.`,
+                `Stop ${index + 1}: distance cannot be negative.`,
             ];
         }
 

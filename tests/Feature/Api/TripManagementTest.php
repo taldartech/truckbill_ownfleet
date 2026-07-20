@@ -405,6 +405,57 @@ class TripManagementTest extends TestCase
         );
     }
 
+    public function test_trip_create_and_update_allow_optional_route_leg_distance_km(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $customer = $this->createSampleCustomer($tenant);
+
+        $createResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->sampleTripPayload($vehicle, $driver, $stations), [
+                'customer_id' => $customer->id,
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'distance_km' => null,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]))
+            ->assertCreated();
+
+        $tripId = $createResponse->json('data.id');
+
+        $this->assertEqualsWithDelta(0.0, (float) $createResponse->json('data.route_legs.0.distance_km'), 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $createResponse->json('data.route_legs.1.distance_km'), 0.01);
+
+        $routeLegs = $createResponse->json('data.route_legs');
+        $routeLegs[0]['distance_km'] = '';
+        $routeLegs[1]['distance_km'] = 125.5;
+
+        $updateResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$tripId}", [
+                'route_legs' => $routeLegs,
+            ])
+            ->assertOk();
+
+        $this->assertEqualsWithDelta(0.0, (float) $updateResponse->json('data.route_legs.0.distance_km'), 0.01);
+        $this->assertEqualsWithDelta(125.5, (float) $updateResponse->json('data.route_legs.1.distance_km'), 0.01);
+    }
+
     public function test_trip_create_requires_customer_on_loaded_route_leg(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');

@@ -35,5 +35,28 @@ class TripFuelCalculatorTest extends TestCase
         $this->assertSame(534.0, $result['expected_total_km']);
         $this->assertSame(550.0, $result['actual_total_km']);
         $this->assertSame('over', $result['performance_status']);
+        $this->assertSame(16.0, $result['extra_km']);
+        $this->assertEqualsWithDelta(5.99, $result['extra_diesel_liters'], 0.01);
+        $this->assertSame(0.0, $result['unused_diesel_liters']);
+    }
+
+    public function test_calculates_unused_diesel_liters_when_actual_is_under_expected(): void
+    {
+        $trip = new Trip([
+            'planned_mileage_km_per_liter' => 2.5,
+            'planned_diesel_liters' => 320,
+            'diesel_rate_per_liter' => 100,
+            'total_distance_km' => 200,
+        ]);
+
+        $result = TripFuelCalculator::calculatePerformanceSummary($trip);
+
+        $this->assertNotNull($result);
+        $this->assertSame(800.0, $result['expected_total_km']);
+        $this->assertSame(200.0, $result['actual_total_km']);
+        $this->assertSame('under', $result['performance_status']);
+        $this->assertSame(600.0, $result['unused_km']);
+        $this->assertSame(240.0, $result['unused_diesel_liters']);
+        $this->assertSame(0.0, $result['extra_diesel_liters']);
     }
 }
