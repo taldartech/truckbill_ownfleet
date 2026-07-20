@@ -1712,7 +1712,7 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.0.trip_number', 'TRIP-2026-SUB-SEARCH');
     }
 
-    public function test_trip_search_ignores_date_range(): void
+    public function test_trip_search_respects_date_range(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -1720,16 +1720,73 @@ class TripManagementTest extends TestCase
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
         $trip->update([
             'start_at' => '2026-01-15 08:00:00',
+            'end_at' => '2026-01-18 20:00:00',
             'trip_number' => 'TRIP-2026-000099',
         ]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips?from_date=2026-06-01&to_date=2026-06-30&search=TRIP-2026-000099')
             ->assertOk()
-            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-000099');
+            ->assertJsonCount(0, 'data');
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips?from_date=2026-06-01&to_date=2026-06-30')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-01-01&to_date=2026-01-31&search=TRIP-2026-000099')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-000099');
+    }
+
+    public function test_trip_list_includes_trips_that_overlap_date_range(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'start_at' => '2026-06-20 08:00:00',
+            'end_at' => '2026-06-30 20:00:00',
+            'trip_number' => 'TRIP-2026-OVERLAP',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-21&to_date=2026-06-25')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-OVERLAP');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-21&to_date=2026-06-25&search=TRIP-2026-OVERLAP')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-OVERLAP');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-07-01&to_date=2026-07-05')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_trip_list_includes_open_ended_trips_that_overlap_date_range(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'start_at' => '2026-06-21 08:00:00',
+            'end_at' => null,
+            'trip_number' => 'TRIP-2026-OPEN',
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-22&to_date=2026-06-30')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_number', 'TRIP-2026-OPEN');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips?from_date=2026-06-01&to_date=2026-06-20')
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }

@@ -139,21 +139,42 @@ class TripRepository
             $query->where('customer_name', 'like', '%'.$filters['customer_name'].'%');
         }
 
-        $hasTextSearch = $this->hasTextSearch($filters);
-
-        if ($hasTextSearch) {
+        if ($this->hasTextSearch($filters)) {
             $this->applyTextSearch($query, $filters);
-        } else {
-            if (! empty($filters['from_date'])) {
-                $query->whereDate('start_at', '>=', $filters['from_date']);
-            }
+        }
 
-            if (! empty($filters['to_date'])) {
-                $query->whereDate('start_at', '<=', $filters['to_date']);
-            }
+        if (! empty($filters['from_date']) || ! empty($filters['to_date'])) {
+            $this->applyDateRangeOverlap($query, $filters);
         }
 
         return $query;
+    }
+
+    /**
+     * Include trips whose duration overlaps the selected date range.
+     *
+     * A trip from 20 Jun–30 Jun matches a filter of 21 Jun–25 Jun.
+     * When end_at is null, the trip is treated as still open (ongoing),
+     * so a trip starting 21 Jun with no end matches a filter from 22 Jun onward.
+     *
+     * @param  Builder<Trip>  $query
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyDateRangeOverlap(Builder $query, array $filters): void
+    {
+        $fromDate = ! empty($filters['from_date']) ? (string) $filters['from_date'] : null;
+        $toDate = ! empty($filters['to_date']) ? (string) $filters['to_date'] : null;
+
+        if ($toDate !== null) {
+            $query->whereDate('start_at', '<=', $toDate);
+        }
+
+        if ($fromDate !== null) {
+            $query->where(function (Builder $durationQuery) use ($fromDate): void {
+                $durationQuery->whereNull('end_at')
+                    ->orWhereDate('end_at', '>=', $fromDate);
+            });
+        }
     }
 
     /**

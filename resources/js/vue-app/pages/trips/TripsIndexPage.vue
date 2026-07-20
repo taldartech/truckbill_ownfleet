@@ -25,12 +25,7 @@
                 @reset="clearFilters"
             >
                 <div class="filter-search-col">
-                    <label class="form-label" for="trips_search">
-                        Search
-                        <span v-if="searchIgnoresDateRange" class="text-muted fw-normal ms-1" style="font-size: 0.75rem;">
-                            (ignores date range)
-                        </span>
-                    </label>
+                    <label class="form-label" for="trips_search">Search</label>
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trips_search"
@@ -346,17 +341,12 @@ const filters = reactive(defaultTripListFilters());
 const { pagination, syncFromMeta } = useListPagination(10);
 
 const defaultFilters = defaultTripListFilters();
-const searchAutoLoadReady = ref(false);
 const listReady = ref(false);
-let searchDebounceTimer = null;
-let skipNextSearchWatch = false;
 let skipNextRouteSync = false;
 
 const tenantId = computed(
     () => currentUser.value?.effective_tenant_id ?? currentUser.value?.company_id ?? null,
 );
-
-const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
 const filtersActive = computed(() => {
     return (
@@ -590,21 +580,12 @@ function openCreateModalFromRoute() {
 }
 
 function clearFilters() {
-    clearTimeout(searchDebounceTimer);
-    skipNextSearchWatch = true;
     clearTripListStateFromSession(tenantId.value);
     Object.assign(filters, defaultTripListFilters());
     pagination.currentPage = 1;
     pagination.perPage = 10;
     syncListStateToRoute();
     loadTrips(1);
-}
-
-function scheduleSearchLoad() {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        loadTrips(1);
-    }, 350);
 }
 
 function onDateRangeChange() {
@@ -630,8 +611,8 @@ async function loadTrips(page = 1) {
             perPage: pagination.perPage,
             archived: 'active',
             search: search || undefined,
-            from_date: search ? undefined : filters.from_date || undefined,
-            to_date: search ? undefined : filters.to_date || undefined,
+            from_date: filters.from_date || undefined,
+            to_date: filters.to_date || undefined,
             customer_id: filters.customer_id || undefined,
             status: filters.status || undefined,
         });
@@ -810,23 +791,6 @@ watch(
     { immediate: true },
 );
 
-watch(
-    () => filters.search,
-    () => {
-        if (!searchAutoLoadReady.value) {
-            return;
-        }
-
-        if (skipNextSearchWatch) {
-            skipNextSearchWatch = false;
-
-            return;
-        }
-
-        scheduleSearchLoad();
-    },
-);
-
 async function loadFilterLookups() {
     customers.value = await listAllCustomers();
 }
@@ -871,11 +835,9 @@ onMounted(async () => {
     }
 
     listReady.value = true;
-    searchAutoLoadReady.value = true;
 });
 
 onBeforeUnmount(() => {
-    clearTimeout(searchDebounceTimer);
     saveTripListStateToSession(tenantId.value, currentListState());
 });
 </script>
