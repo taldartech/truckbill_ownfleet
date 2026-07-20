@@ -23,7 +23,7 @@
                             class="badge"
                             :class="mode === 'create' ? 'bg-light text-dark' : statusBadgeOnGreen"
                         >
-                            {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
+                            {{ mode === 'create' ? 'Pending' : currentStatusBadge.label }}
                         </span>
                     </p>
                 </div>
@@ -72,7 +72,7 @@
                             <label class="form-label trip-number-label">
                                 <span>Trip Number</span>
                                 <span class="badge" :class="mode === 'create' ? 'bg-info text-dark' : currentStatusBadge.badge">
-                                    {{ mode === 'create' ? 'Created' : currentStatusBadge.label }}
+                                    {{ mode === 'create' ? 'Pending' : currentStatusBadge.label }}
                                 </span>
                             </label>
                             <template v-if="mode === 'create'">
@@ -1784,6 +1784,14 @@ function onStatusModalConfirm(data) {
         props.form.end_at = data.end_at;
         props.form.actual_arrival_at = data.actual_arrival_at;
         props.form.end_meter_reading_km = data.end_meter_reading_km;
+    } else if (pendingStatus.value === 'IN_PROGRESS') {
+        if (data.start_at) {
+            props.form.start_at = data.start_at;
+        }
+
+        if (data.start_meter_reading_km != null && data.start_meter_reading_km !== '') {
+            props.form.start_meter_reading_km = data.start_meter_reading_km;
+        }
     }
 
     showStatusModal.value = false;

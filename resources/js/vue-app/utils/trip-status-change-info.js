@@ -62,6 +62,24 @@ export function buildTripStatusChangeUpdateItems({ fromStatus, toStatus, confirm
         items.push('Truck running meter (odometer) will be updated');
     }
 
+    if (toStatus === 'IN_PROGRESS') {
+        const startDate = formatStatusChangeDate(confirmPayload?.start_at);
+
+        if (startDate) {
+            items.push(`Start date will be saved as ${startDate}`);
+        } else {
+            items.push('Start date will be saved');
+        }
+
+        const startMeter = confirmPayload?.start_meter_reading_km;
+
+        if (startMeter !== '' && startMeter != null && Number.isFinite(Number(startMeter))) {
+            items.push(`Start meter reading will be saved as ${formatMeterKm(startMeter)}`);
+        } else {
+            items.push('Start meter reading will be saved');
+        }
+    }
+
     if (toStatus === 'CANCELLED') {
         const cancelledDate = formatStatusChangeDate(confirmPayload?.cancelled_at);
 

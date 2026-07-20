@@ -403,7 +403,7 @@ class AttendanceExceptionFlowTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'trip_number' => 'TRIP-2026-000099',
-            'status' => TripStatus::Created->value,
+            'status' => TripStatus::Pending->value,
             'start_at' => '2026-06-10 08:00:00',
             'end_at' => '2026-06-12 20:00:00',
         ]);

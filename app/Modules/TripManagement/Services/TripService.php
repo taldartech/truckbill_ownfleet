@@ -170,7 +170,7 @@ class TripService
                 'diesel_rate_per_liter' => isset($data['diesel_rate_per_liter']) && $data['diesel_rate_per_liter'] !== ''
                     ? round((float) $data['diesel_rate_per_liter'], 2)
                     : null,
-                'status' => TripStatus::Created->value,
+                'status' => TripStatus::Pending->value,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ];

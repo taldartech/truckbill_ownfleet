@@ -117,6 +117,62 @@
                             </template>
                         </template>
 
+                        <template v-else-if="!awaitingFinalConfirm && status === 'IN_PROGRESS'">
+                            <div v-if="needsStartFields" class="mb-0">
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Start date and start meter reading are required to mark this trip as in progress.
+                                </div>
+                                <div v-if="!hasStartDate" class="mb-3">
+                                    <label class="form-label">Start Date *</label>
+                                    <AppDateInput
+                                        v-model="startAtInput"
+                                        :invalid="!!fieldErrors.start_at"
+                                        required
+                                    />
+                                    <div v-if="fieldErrors.start_at" class="invalid-feedback d-block">
+                                        {{ fieldErrors.start_at }}
+                                    </div>
+                                </div>
+                                <div v-else class="status-readonly-strip mb-3">
+                                    <div class="status-readonly-strip__item">
+                                        <span class="status-readonly-strip__label">Start Date</span>
+                                        <span class="status-readonly-strip__value">{{ formatDate(startAt) }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="!hasStartMeterReading" class="mb-0">
+                                    <label class="form-label">Start Meter Reading *</label>
+                                    <input
+                                        v-model.number="startMeterReadingInput"
+                                        v-no-scroll-change
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': fieldErrors.start_meter_reading_km }"
+                                        required
+                                    />
+                                    <div class="form-text">
+                                        Truck running meter:
+                                        {{ formatMeter(truckRunningMeterKm) }}
+                                    </div>
+                                    <div v-if="fieldErrors.start_meter_reading_km" class="invalid-feedback d-block">
+                                        {{ fieldErrors.start_meter_reading_km }}
+                                    </div>
+                                </div>
+                                <div v-else class="status-readonly-strip mt-3 mb-0">
+                                    <div class="status-readonly-strip__item">
+                                        <span class="status-readonly-strip__label">Start Meter Reading</span>
+                                        <span class="status-readonly-strip__value">{{ formatMeter(startMeterReadingKm) }}</span>
+                                    </div>
+                                </div>
+                                <TripStatusChangeUpdatesPanel
+                                    class="mt-3"
+                                    :items="statusUpdateItems"
+                                />
+                            </div>
+                        </template>
+
                         <template v-else-if="!awaitingFinalConfirm && status === 'COMPLETED'">
                             <div v-if="!hasStartDate" class="alert alert-warning mb-0">
                                 <i class="bi bi-exclamation-triangle me-1"></i>
@@ -222,8 +278,8 @@
                 <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('cancel')">Back</button>
                 <AppButton
                     type="submit"
-                    :label="status === 'CANCELLED' ? 'Confirm Cancellation' : 'Confirm Completion'"
-                    :variant="status === 'CANCELLED' ? 'danger' : 'success'"
+                    :label="confirmSubmitLabel"
+                    :variant="confirmButtonVariant"
                     :disabled="saving || !canSubmit"
                 />
             </template>
@@ -237,6 +293,7 @@ import { toDateInputFromIso, toDateInputValue, formatDate } from '../../utils/da
 import { formatMeterKm } from '../../utils/formatMeter';
 import { buildTripStatusChangeUpdateItems } from '../../utils/trip-status-change-info';
 import AppButton from '../ui/AppButton.vue';
+import AppDateInput from '../ui/AppDateInput.vue';
 import AppModal from '../ui/AppModal.vue';
 import TripStatusChangeUpdatesPanel from './TripStatusChangeUpdatesPanel.vue';
 
@@ -265,6 +322,8 @@ const cancellationReason = ref('');
 const endAt = ref('');
 const actualArrivalAt = ref('');
 const endMeterReadingKm = ref('');
+const startAtInput = ref('');
+const startMeterReadingInput = ref('');
 const formError = ref('');
 const fieldErrors = reactive({});
 const awaitingFinalConfirm = ref(false);
@@ -350,6 +409,18 @@ const confirmButtonVariant = computed(() => {
     return 'success';
 });
 
+const confirmSubmitLabel = computed(() => {
+    if (props.status === 'CANCELLED') {
+        return 'Confirm Cancellation';
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        return 'Continue';
+    }
+
+    return 'Confirm Completion';
+});
+
 const tripStartDateMin = computed(() => toDateInputFromIso(props.startAt));
 
 const hasStartDate = computed(() => Boolean(tripStartDateMin.value));
@@ -360,7 +431,33 @@ const hasStartMeterReading = computed(() => {
     return Number.isFinite(value) && value > 0;
 });
 
+const needsStartFields = computed(() => !hasStartDate.value || !hasStartMeterReading.value);
+
+const resolvedStartAt = computed(() => {
+    if (hasStartDate.value) {
+        return tripStartDateMin.value;
+    }
+
+    return startAtInput.value || '';
+});
+
+const resolvedStartMeter = computed(() => {
+    if (hasStartMeterReading.value) {
+        return Number(props.startMeterReadingKm);
+    }
+
+    return Number(startMeterReadingInput.value);
+});
+
 const canSubmit = computed(() => {
+    if (props.status === 'IN_PROGRESS') {
+        if (!resolvedStartAt.value) {
+            return false;
+        }
+
+        return Number.isFinite(resolvedStartMeter.value) && resolvedStartMeter.value > 0;
+    }
+
     if (!hasStartDate.value) {
         return false;
     }
@@ -471,8 +568,21 @@ watch(
                     ? Number(props.endMeterReadingKmValue)
                     : '';
         } else if (props.status === 'IN_PROGRESS') {
-            awaitingFinalConfirm.value = true;
-            pendingConfirmPayload.value = {};
+            startAtInput.value = tripStartDateMin.value || toDateInputValue();
+            startMeterReadingInput.value =
+                props.startMeterReadingKm !== '' && props.startMeterReadingKm != null
+                    ? Number(props.startMeterReadingKm)
+                    : props.truckRunningMeterKm !== '' && props.truckRunningMeterKm != null
+                      ? Number(props.truckRunningMeterKm)
+                      : '';
+
+            if (!needsStartFields.value) {
+                awaitingFinalConfirm.value = true;
+                pendingConfirmPayload.value = {
+                    start_at: resolvedStartAt.value,
+                    start_meter_reading_km: resolvedStartMeter.value,
+                };
+            }
         }
     },
 );
@@ -510,6 +620,17 @@ function validate() {
         }
 
         validateEndMeterReading();
+    }
+
+    if (props.status === 'IN_PROGRESS') {
+        if (!resolvedStartAt.value) {
+            fieldErrors.start_at = 'Start date is required before marking a trip as in progress.';
+        }
+
+        if (!Number.isFinite(resolvedStartMeter.value) || resolvedStartMeter.value <= 0) {
+            fieldErrors.start_meter_reading_km =
+                'Start meter reading is required before marking a trip as in progress.';
+        }
     }
 
     if (props.status === 'COMPLETED') {
@@ -554,6 +675,13 @@ function buildConfirmPayload() {
         };
     }
 
+    if (props.status === 'IN_PROGRESS') {
+        return {
+            start_at: resolvedStartAt.value,
+            start_meter_reading_km: Number(resolvedStartMeter.value),
+        };
+    }
+
     return {
         end_at: endAt.value,
         actual_arrival_at: actualArrivalAt.value,
@@ -574,7 +702,7 @@ function submit() {
 }
 
 function backToForm() {
-    if (props.status === 'IN_PROGRESS') {
+    if (props.status === 'IN_PROGRESS' && !needsStartFields.value) {
         emit('cancel');
 
         return;

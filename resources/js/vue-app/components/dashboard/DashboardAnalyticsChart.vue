@@ -359,10 +359,11 @@ const expensePct = computed(() => {
 const freightBarPct = computed(() => (totalFreight.value > 0 ? 100 : 0));
 
 const tripTotalCount = computed(() => Number(props.tripStats?.total_count ?? 0));
-const tripCreatedCount = computed(() => Number(props.tripStats?.created_count ?? 0));
+const tripPendingCount = computed(() => Number(props.tripStats?.pending_count ?? props.tripStats?.created_count ?? 0));
 const tripRunningCount = computed(() => Number(props.tripStats?.in_progress_count ?? 0));
 const tripCompletedCount = computed(() => Number(props.tripStats?.completed_count ?? 0));
 const tripCancelledCount = computed(() => Number(props.tripStats?.cancelled_count ?? 0));
+const tripInvoicedCount = computed(() => Number(props.tripStats?.invoiced_count ?? 0));
 
 function tripStatusPct(count) {
     if (tripTotalCount.value <= 0) {
@@ -372,25 +373,26 @@ function tripStatusPct(count) {
     return Math.max(0, Math.min((count / tripTotalCount.value) * 100, 100));
 }
 
-const tripCreatedPct = computed(() => tripStatusPct(tripCreatedCount.value));
+const tripPendingPct = computed(() => tripStatusPct(tripPendingCount.value));
 const tripRunningPct = computed(() => tripStatusPct(tripRunningCount.value));
 const tripCompletedPct = computed(() => tripStatusPct(tripCompletedCount.value));
 const tripCancelledPct = computed(() => tripStatusPct(tripCancelledCount.value));
+const tripInvoicedPct = computed(() => tripStatusPct(tripInvoicedCount.value));
 
 const tripCompletionRate = computed(() => {
     if (tripTotalCount.value <= 0) {
         return 0;
     }
 
-    return (tripCompletedCount.value / tripTotalCount.value) * 100;
+    return ((tripCompletedCount.value + tripInvoicedCount.value) / tripTotalCount.value) * 100;
 });
 
 const tripStatusItems = computed(() => [
     {
-        key: 'created',
-        label: 'Created',
-        count: tripCreatedCount.value,
-        pct: tripCreatedPct.value,
+        key: 'pending',
+        label: 'Pending',
+        count: tripPendingCount.value,
+        pct: tripPendingPct.value,
         barClass: 'trip-status-card__bar--created',
     },
     {
@@ -405,6 +407,13 @@ const tripStatusItems = computed(() => [
         label: 'Completed',
         count: tripCompletedCount.value,
         pct: tripCompletedPct.value,
+        barClass: 'trip-status-card__bar--completed',
+    },
+    {
+        key: 'invoiced',
+        label: 'Invoiced',
+        count: tripInvoicedCount.value,
+        pct: tripInvoicedPct.value,
         barClass: 'trip-status-card__bar--completed',
     },
     {

@@ -142,6 +142,7 @@ class InvoiceManagementTest extends TestCase
             ->assertJsonCount(2, 'data');
 
         $this->assertDatabaseCount('invoices', 2);
+        $this->assertSame(TripStatus::Invoiced, $trip->fresh()->status);
 
         $invoiceA = Invoice::query()->where('customer_id', $customers['a']->id)->first();
         $this->assertNotNull($invoiceA);

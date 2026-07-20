@@ -588,7 +588,7 @@ class DriverManagementModuleTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'trip_number' => 'TRIP-LINKED-1',
-            'status' => 'CREATED',
+            'status' => 'PENDING',
             'start_at' => '2026-06-03 08:00:00',
             'end_at' => '2026-06-03 18:00:00',
         ]);
@@ -684,7 +684,7 @@ class DriverManagementModuleTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'trip_number' => 'TRP-SOFT-DEL-1',
-            'status' => 'CREATED',
+            'status' => 'PENDING',
         ]);
 
         Sanctum::actingAs($user);

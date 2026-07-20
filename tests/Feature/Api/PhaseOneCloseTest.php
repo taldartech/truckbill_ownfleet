@@ -273,7 +273,7 @@ class PhaseOneCloseTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'trip_number' => 'TRP-001',
-            'status' => TripStatus::Created,
+            'status' => TripStatus::Pending,
             'start_at' => $today.' 08:00:00',
         ]);
 
@@ -308,7 +308,7 @@ class PhaseOneCloseTest extends TestCase
             ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
             ->assertJsonPath('trips.total_count', 3)
-            ->assertJsonPath('trips.created_count', 1)
+            ->assertJsonPath('trips.pending_count', 1)
             ->assertJsonPath('trips.in_progress_count', 1)
             ->assertJsonPath('trips.completed_count', 1)
             ->assertJsonPath('trips.cancelled_count', 0)

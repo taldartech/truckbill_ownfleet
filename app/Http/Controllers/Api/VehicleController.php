@@ -64,7 +64,7 @@ class VehicleController extends Controller
                 })
                 ->whereHas('currentPrimaryAssignment.driver', fn ($driverQuery) => $driverQuery->where('is_active', true))
                 ->whereDoesntHave('trips', function ($tripQuery): void {
-                    $tripQuery->whereIn('status', ['CREATED', 'IN_PROGRESS']);
+                    $tripQuery->whereIn('status', ['PENDING', 'IN_PROGRESS']);
                 });
         }
 

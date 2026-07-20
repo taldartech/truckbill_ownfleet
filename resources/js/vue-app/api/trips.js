@@ -104,7 +104,7 @@ export async function fetchTripDeletionImpact(id) {
 export function isTripArchivable(status) {
     const normalized = String(status ?? '').toUpperCase();
 
-    return ['CREATED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(normalized);
+    return ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'INVOICED'].includes(normalized);
 }
 
 export function isTripArchived(trip) {
@@ -206,10 +206,11 @@ export const ROUTE_TYPES = [
 ];
 
 export const TRIP_STATUSES = [
-    { value: 'CREATED', label: 'Created' },
+    { value: 'PENDING', label: 'Pending' },
     { value: 'IN_PROGRESS', label: 'In Progress' },
     { value: 'COMPLETED', label: 'Completed' },
     { value: 'CANCELLED', label: 'Cancelled' },
+    { value: 'INVOICED', label: 'Invoiced' },
 ];
 
 export const EXPENSE_TYPES = [
@@ -601,6 +602,25 @@ export function validateTripPayload(
                 errors[`route_legs.${index}.pickup_date`] = [
                     `Stop ${index + 1}: pickup date cannot be after trip end date.`,
                 ];
+            } else {
+                let previousPickupDate = null;
+                let previousPickupStop = null;
+
+                for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
+                    const previousDate = String(legs[previousIndex]?.pickup_date ?? '').trim();
+
+                    if (previousDate && /^\d{4}-\d{2}-\d{2}$/.test(previousDate)) {
+                        previousPickupDate = previousDate;
+                        previousPickupStop = previousIndex + 1;
+                        break;
+                    }
+                }
+
+                if (previousPickupDate && pickupDate < previousPickupDate) {
+                    errors[`route_legs.${index}.pickup_date`] = [
+                        `Stop ${index + 1}: pickup date cannot be before stop ${previousPickupStop} pickup date.`,
+                    ];
+                }
             }
         }
 
@@ -650,6 +670,14 @@ export function validateTripPayload(
                     `Max ₹${MAX_FREIGHT_RATE_PER_TON.toLocaleString('en-IN')}/Ton.`,
                 ];
             }
+        }
+
+        const distanceRaw = leg.distance_km;
+
+        if (distanceRaw === '' || distanceRaw == null || parseNumeric(distanceRaw) <= 0) {
+            errors[`route_legs.${index}.distance_km`] = [
+                `Stop ${index + 1}: distance is required.`,
+            ];
         }
 
         if (legCountsAsLoaded(leg)) {
@@ -736,7 +764,7 @@ export function validateTripStatusChange(
         if (access.invoiceLocked) {
             errors.trip = ['This trip has invoices and cannot be edited.'];
         } else if (isTerminalTripStatus(previousStatus)) {
-            errors.trip = ['Completed or cancelled trips cannot be edited.'];
+            errors.trip = ['Completed, cancelled, or invoiced trips cannot be edited.'];
         }
     }
 
@@ -760,6 +788,18 @@ export function validateTripStatusChange(
         payload.start_meter_reading_km != null && payload.start_meter_reading_km !== ''
             ? parseNumeric(payload.start_meter_reading_km)
             : parseNumeric(startMeterReadingKm);
+
+    if (payload.status === 'IN_PROGRESS') {
+        if (!payload.start_at) {
+            errors.start_at = ['Start date is required before marking a trip as in progress.'];
+        }
+
+        if (resolvedStartMeter <= 0) {
+            errors.start_meter_reading_km = [
+                'Start meter reading is required before marking a trip as in progress.',
+            ];
+        }
+    }
 
     if (payload.status === 'COMPLETED') {
         if (!payload.start_at) {
@@ -1153,20 +1193,22 @@ export function tripStatusMeta(status) {
     const normalized = String(status ?? '').toUpperCase();
 
     const map = {
-        CREATED: { label: 'Created', badge: 'bg-warning text-dark' },
+        PENDING: { label: 'Pending', badge: 'bg-warning text-dark' },
         IN_PROGRESS: { label: 'In Progress', badge: 'bg-primary' },
         COMPLETED: { label: 'Completed', badge: 'bg-success' },
         CANCELLED: { label: 'Cancelled', badge: 'bg-danger' },
+        INVOICED: { label: 'Invoiced', badge: 'bg-info text-dark' },
     };
 
     return map[normalized] ?? { label: normalized || '—', badge: 'bg-secondary' };
 }
 
 export const TRIP_STATUS_TRANSITIONS = {
-    CREATED: ['IN_PROGRESS'],
+    PENDING: ['IN_PROGRESS'],
     IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
     COMPLETED: [],
     CANCELLED: [],
+    INVOICED: [],
 };
 
 export function tripStatusTransitionError(previousStatus, nextStatus) {
@@ -1183,8 +1225,12 @@ export function tripStatusTransitionError(previousStatus, nextStatus) {
         return null;
     }
 
-    if (current === 'CREATED' && (next === 'COMPLETED' || next === 'CANCELLED')) {
+    if (current === 'PENDING' && (next === 'COMPLETED' || next === 'CANCELLED')) {
         return 'Move this trip to In Progress first, then mark it Completed or Cancelled.';
+    }
+
+    if (next === 'INVOICED') {
+        return 'Invoiced status is set automatically when invoices are generated for a completed trip.';
     }
 
     return `Cannot change trip status from ${current} to ${next}.`;
@@ -1226,7 +1272,7 @@ export function tripStatusActionMeta(status) {
 export function tripAllowedNextStatuses(status) {
     const current = String(status ?? '').toUpperCase();
 
-    if (current === 'CREATED') {
+    if (current === 'PENDING') {
         return ['IN_PROGRESS']
             .map((value) => tripStatusActionMeta(value))
             .filter(Boolean);
@@ -1242,7 +1288,7 @@ export function tripAllowedNextStatuses(status) {
 }
 
 export function isTerminalTripStatus(status) {
-    return ['COMPLETED', 'CANCELLED'].includes(String(status ?? '').toUpperCase());
+    return ['COMPLETED', 'CANCELLED', 'INVOICED'].includes(String(status ?? '').toUpperCase());
 }
 
 function resolveUserRole(user) {
@@ -1262,7 +1308,10 @@ export function resolveTripEditAccess(status, user, options = {}) {
     const hasInvoices = Boolean(options?.has_invoices ?? options?.hasInvoices);
 
     if (hasInvoices) {
-        if ((isSuperAdminUser(user) || isAdminUser(user)) && normalized === 'COMPLETED') {
+        if (
+            (isSuperAdminUser(user) || isAdminUser(user))
+            && (normalized === 'COMPLETED' || normalized === 'INVOICED')
+        ) {
             return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: true };
         }
 

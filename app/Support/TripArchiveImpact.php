@@ -16,7 +16,7 @@ class TripArchiveImpact
     public static function archivableStatuses(): array
     {
         return [
-            TripStatus::Created,
+            TripStatus::Pending,
             TripStatus::InProgress,
             TripStatus::Cancelled,
         ];
@@ -32,7 +32,10 @@ class TripArchiveImpact
             return true;
         }
 
-        if ($status === TripStatus::Completed && $user !== null) {
+        if (
+            in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)
+            && $user !== null
+        ) {
             return RoleHierarchy::isSuperAdminRole((int) $user->user_role_id);
         }
 
@@ -83,7 +86,7 @@ class TripArchiveImpact
             'can_archive' => $canArchive,
             'block_reason' => $canArchive
                 ? null
-                : ($status === TripStatus::Completed
+                : (in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)
                     ? 'Only Super Admin can archive or delete completed trips.'
                     : 'This trip cannot be archived or deleted.'),
         ];
@@ -92,10 +95,11 @@ class TripArchiveImpact
     private static function statusLabel(?TripStatus $status): string
     {
         return match ($status) {
-            TripStatus::Created => 'Draft',
+            TripStatus::Pending => 'Pending',
             TripStatus::Cancelled => 'Cancelled',
             TripStatus::InProgress => 'Running',
             TripStatus::Completed => 'Completed',
+            TripStatus::Invoiced => 'Invoiced',
             default => 'Unknown',
         };
     }

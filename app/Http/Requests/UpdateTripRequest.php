@@ -4,11 +4,13 @@ namespace App\Http\Requests;
 
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
+use App\Http\Requests\Concerns\ValidatesTripRoutePickupSequence;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateTripRequest extends FormRequest
 {
+    use ValidatesTripRoutePickupSequence;
     public function authorize(): bool
     {
         $trip = $this->route('trip');
@@ -70,7 +72,7 @@ class UpdateTripRequest extends FormRequest
             'route_legs.*.freight_rate' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'route_legs.*.weight_ton' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:50'],
-            'route_legs.*.distance_km' => ['nullable', 'numeric', 'min:0'],
+            'route_legs.*.distance_km' => ['required', 'numeric', 'gt:0'],
             'route_legs.*.sequence_no' => ['nullable', 'integer', 'min:1'],
             'route_legs.*.freight_amount' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.remarks' => ['nullable', 'string', 'max:1000'],
@@ -102,6 +104,8 @@ class UpdateTripRequest extends FormRequest
             'planned_diesel_liters.max' => 'Max 10,000 Ltr.',
             'diesel_rate_per_liter.max' => 'Max ₹1,000/Ltr.',
             'route_legs.*.freight_rate.max' => 'Max ₹1,00,000/Ton.',
+            'route_legs.*.distance_km.required' => 'Distance is required for each stop.',
+            'route_legs.*.distance_km.gt' => 'Distance must be greater than zero.',
             'route_legs.*.pickup_date.after_or_equal' => 'Pickup date cannot be before the trip start date.',
             'route_legs.*.pickup_date.before_or_equal' => 'Pickup date cannot be after the trip end date.',
             'route_legs.*.no_of_units.max' => 'Max 100,000 units allowed.',

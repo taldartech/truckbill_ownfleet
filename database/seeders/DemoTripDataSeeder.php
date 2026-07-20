@@ -255,7 +255,7 @@ class DemoTripDataSeeder extends Seeder
             'customer_name' => 'Pending Booking',
             'start_at' => '2026-06-10 07:00:00',
             'end_at' => null,
-            'status' => TripStatus::Created,
+            'status' => TripStatus::Pending,
             'route_legs' => [
                 [
                     'from_city' => 'Mumbai',

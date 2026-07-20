@@ -23,7 +23,7 @@ export function useTripForm() {
         broker_id: '',
         start_station_id: '',
         trip_type: 'ONE_WAY',
-        status: 'CREATED',
+        status: 'PENDING',
         start_at: '',
         end_at: '',
         cancelled_at: '',
@@ -51,7 +51,7 @@ export function useTripForm() {
         form.broker_id = '';
         form.start_station_id = '';
         form.trip_type = 'ONE_WAY';
-        form.status = 'CREATED';
+        form.status = 'PENDING';
         form.start_at = '';
         form.end_at = '';
         form.cancelled_at = '';
@@ -233,7 +233,7 @@ export function useTripForm() {
         form.trip_type = trip.trip_type ?? 'ROUND_TRIP';
         form.customer_id = trip.customer_id ?? '';
         form.broker_id = trip.broker_id ?? '';
-        form.status = trip.status ?? 'CREATED';
+        form.status = trip.status ?? 'PENDING';
         form.start_at = toDateInputFromIso(trip.start_at);
         form.end_at = toDateInputFromIso(trip.end_at);
         form.cancelled_at = toDateInputFromIso(trip.cancelled_at);
@@ -475,8 +475,8 @@ export function useTripForm() {
                             ? null
                             : Number(leg.expected_mileage_km_per_liter),
                     distance_km:
-                        leg.distance_km === '' || leg.distance_km == null
-                            ? 0
+                        leg.distance_km === '' || leg.distance_km == null || Number(leg.distance_km) <= 0
+                            ? null
                             : Number(leg.distance_km),
                     ewaybill_no: leg.ewaybill_no?.trim() || null,
                     ewaybill_expiry: leg.ewaybill_expiry || null,
@@ -542,7 +542,10 @@ export function useTripForm() {
         const status = String(form.status ?? '').toUpperCase();
         const payload = { status };
 
-        if ((status === 'COMPLETED' || status === 'CANCELLED') && form.start_at) {
+        if (
+            (status === 'IN_PROGRESS' || status === 'COMPLETED' || status === 'CANCELLED')
+            && form.start_at
+        ) {
             payload.start_at = form.start_at;
         }
 

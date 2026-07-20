@@ -4,8 +4,9 @@ namespace App\Enums;
 
 enum TripStatus: string
 {
-    case Created = 'CREATED';
+    case Pending = 'PENDING';
     case InProgress = 'IN_PROGRESS';
     case Completed = 'COMPLETED';
     case Cancelled = 'CANCELLED';
+    case Invoiced = 'INVOICED';
 }

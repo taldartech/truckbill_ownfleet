@@ -56,7 +56,7 @@ SQL;
                 ? Carbon::parse($tripEndDate)->toDateString()
                 : $windowStart;
 
-            $createdStatus = TripStatus::Created->value;
+            $createdStatus = TripStatus::Pending->value;
             $inProgressStatus = TripStatus::InProgress->value;
 
             $overlapSql = <<<'SQL'

@@ -51,17 +51,11 @@
                 </div>
                 <div class="trf-section__head-right">
                     <div class="trf-trip-id trf-trip-id--head">
-                        <div class="trf-trip-id__meta">
-                            <span class="trf-trip-id__label">Trip Number</span>
-                            <span
-                                v-if="mode !== 'create'"
-                                class="trf-trip-num-badge"
-                                :class="currentStatusBadge.badge"
-                            >
-                                {{ currentStatusBadge.label }}
-                            </span>
-                        </div>
                         <template v-if="mode === 'create'">
+                            <div class="trf-trip-id__meta">
+                                <span class="trf-trip-id__label">Trip Number</span>
+                                <span class="trf-trip-num-badge bg-warning text-dark">Pending</span>
+                            </div>
                             <div class="trf-trip-id__value">
                                 <input
                                     :value="tripNumberDisplay"
@@ -85,7 +79,18 @@
                             <p class="trf-trip-id__hint">Change the last number if you want a different trip number</p>
                             <div v-if="fieldErrors.trip_sequence" class="trf-pf__err">{{ fieldErrorMessage('trip_sequence') }}</div>
                         </template>
-                        <div v-else class="trf-trip-id__preview trf-trip-id__preview--static">{{ tripNumberDisplay || '—' }}</div>
+                        <template v-else>
+                            <div class="trf-trip-id__meta">
+                                <span class="trf-trip-id__label">Trip Number</span>
+                                <span
+                                    class="trf-trip-num-badge"
+                                    :class="currentStatusBadge.badge"
+                                >
+                                    {{ currentStatusBadge.label }}
+                                </span>
+                            </div>
+                            <div class="trf-trip-id__preview trf-trip-id__preview--static">{{ tripNumberDisplay || '—' }}</div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -789,12 +794,15 @@
                                             type="date"
                                             class="trf-input"
                                             :class="{ 'trf-input--error': legFieldError(group.cardIndex, 'pickup_date') }"
-                                            :min="tripStartDate || undefined"
+                                            :min="pickupDateMinForStop(group.cardIndex)"
                                             :max="tripEndDate || undefined"
                                             :title="legFieldError(group.cardIndex, 'pickup_date') || undefined"
                                             @change="emit('clear-field-error', `route_legs.${group.cardIndex}.pickup_date`); saveProgress()"
                                         />
                                         <span v-else class="trf-ro-val__main">{{ group.cardLeg.pickup_date || '—' }}</span>
+                                        <div v-if="legFieldError(group.cardIndex, 'pickup_date')" class="trf-pf__err">
+                                            {{ legFieldError(group.cardIndex, 'pickup_date') }}
+                                        </div>
                                     </div>
 
                                     <div class="trf-leg__cargo-row">
@@ -988,18 +996,24 @@
                                             </template>
                                             <template v-else>{{ group.cardLeg.expected_mileage_km_per_liter || '—' }}</template>
                                         </span>
-                                        <span class="trf-leg__dist">
-                                            Distance:
+                                        <span
+                                            :id="`trf-leg-${group.cardIndex}-distance_km`"
+                                            class="trf-leg__dist"
+                                            :class="{ 'trf-leg__dist--error': legFieldError(group.cardIndex, 'distance_km') }"
+                                        >
+                                            Distance<span class="trf-pf__req">*</span>:
                                             <template v-if="!isFormLocked">
                                                 <input
                                                     v-model.number="group.cardLeg.distance_km"
                                                     v-no-scroll-change
                                                     type="number"
-                                                    min="0"
+                                                    min="0.01"
                                                     step="0.01"
                                                     class="trf-leg__dist-input"
+                                                    :class="{ 'trf-leg__dist-input--error': legFieldError(group.cardIndex, 'distance_km') }"
+                                                    :title="legFieldError(group.cardIndex, 'distance_km') || undefined"
                                                     placeholder="0"
-                                                    @input="saveProgress"
+                                                    @input="emit('clear-field-error', `route_legs.${group.cardIndex}.distance_km`); saveProgress()"
                                                 />
                                                 KM
                                             </template>
@@ -1264,6 +1278,24 @@
             </template>
         </AppModal>
 
+        <TripStatusChangeModal
+            :show="showStatusModal"
+            :status="pendingStatus"
+            :from-status="effectiveTripStatus"
+            :trip-number="form.trip_number || tripNumberDisplay"
+            :truck-number="snapshotVehicleLabel"
+            :start-at="form.start_at"
+            :end-at-value="form.end_at"
+            :actual-arrival-at-value="form.actual_arrival_at"
+            :cancelled-at-value="form.cancelled_at"
+            :cancellation-reason-value="form.cancellation_reason"
+            :start-meter-reading-km="form.start_meter_reading_km"
+            :truck-running-meter-km="vehicleOdometerKm"
+            :end-meter-reading-km-value="form.end_meter_reading_km"
+            @cancel="onStatusModalCancel"
+            @confirm="onStatusModalConfirm"
+        />
+
     </div>
 </template>
 
@@ -1290,6 +1322,7 @@ import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
 import GoodsTypeQuickAddModal from './GoodsTypeQuickAddModal.vue';
+import TripStatusChangeModal from './TripStatusChangeModal.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -1369,6 +1402,7 @@ const LEG_FIELD_LABELS = {
     weight_ton: 'Weight',
     freight_rate: 'Rate',
     freight_amount: 'Freight',
+    distance_km: 'Distance',
 };
 const showGoodsTypeQuickAdd = ref(false);
 const showRemoveStopConfirm = ref(false);
@@ -1404,7 +1438,13 @@ const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at))
 const arrivalTiming = computed(() => { const e = tripEndDate.value; const a = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at); if (!e || !a) return null; if (e === a) return 'on-time'; return e > a ? 'early' : 'late'; });
 const effectiveTripStatus = computed(() => props.displayStatus || props.form.status);
 const currentStatusBadge = computed(() => tripStatusMeta(effectiveTripStatus.value));
-const statusPillClass = computed(() => { const s = String(effectiveTripStatus.value ?? '').toUpperCase(); if (s === 'IN_PROGRESS') return 'trf-pill--orange'; if (s === 'COMPLETED') return 'trf-pill--green'; if (s === 'CANCELLED') return 'trf-pill--red'; return 'trf-pill--blue'; });
+const statusPillClass = computed(() => {
+    const s = String(effectiveTripStatus.value ?? '').toUpperCase();
+    if (s === 'IN_PROGRESS') return 'trf-pill--orange';
+    if (s === 'COMPLETED' || s === 'INVOICED') return 'trf-pill--green';
+    if (s === 'CANCELLED') return 'trf-pill--red';
+    return 'trf-pill--blue';
+});
 const vehicleDefaultMileageResolved = computed(() => props.vehicleDefaultMileage || props.vehicleExpectedMileage || '');
 const selectedDriver = computed(() => props.drivers.find((d) => String(d.id) === String(props.form.driver_id)) ?? null);
 const selectedCustomer = computed(() => props.customers.find((c) => String(c.id) === String(props.form.customer_id)) ?? null);
@@ -2002,6 +2042,25 @@ function partyLabel(items, id, fallback) { if (!id) return fallback || '—'; re
 function customerLabel(id, fallback) { return String(partyLabel(props.customers, id, fallback)).toLocaleLowerCase().replace(/(^|\s)\S/g, (character) => character.toLocaleUpperCase()); }
 function fieldErrorMessage(f) { const e = props.fieldErrors[f]; return Array.isArray(e) ? e[0] : e; }
 function legFieldError(i, f) { const e = props.fieldErrors['route_legs.' + i + '.' + f]; return Array.isArray(e) ? e[0] : e; }
+function pickupDateMinForStop(index) {
+    const startDate = tripStartDate.value || '';
+    let previousPickupDate = '';
+
+    for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
+        const previousDate = String(props.form.route_legs?.[previousIndex]?.pickup_date ?? '').trim();
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(previousDate)) {
+            previousPickupDate = previousDate;
+            break;
+        }
+    }
+
+    if (startDate && previousPickupDate) {
+        return startDate > previousPickupDate ? startDate : previousPickupDate;
+    }
+
+    return previousPickupDate || startDate || undefined;
+}
 function formatNum(v) { return Number(v ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }); }
 function formatMoney(v) { return Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function openQuickAddForLeg(i) { quickAddLegIndex.value = i; showStationQuickAdd.value = true; }
@@ -2159,7 +2218,62 @@ function handleEnterKey(e) { const t = e.target; if (t.tagName === 'TEXTAREA' ||
 function saveProgress() { if (props.mode === 'create') { try { localStorage.setItem('truckbill_trip_create_draft', JSON.stringify(props.form)); } catch {} } }
 function loadProgressDraft() { if (props.mode === 'create') { const d = localStorage.getItem('truckbill_trip_create_draft'); if (d) { try { const p = JSON.parse(d); Object.keys(p).forEach((k) => { if (props.form[k] !== undefined) props.form[k] = p[k]; }); toast.info('Restored unsaved draft.'); } catch {} } } }
 onMounted(() => { loadProgressDraft(); });
-defineExpose({ changeStatus: () => {} });
+
+const showStatusModal = ref(false);
+const pendingStatus = ref('');
+
+function onStatusChange(newStatus) {
+    if (newStatus === props.form.status || props.statusLocked) {
+        return;
+    }
+
+    if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED' || newStatus === 'IN_PROGRESS') {
+        pendingStatus.value = newStatus;
+        showStatusModal.value = true;
+
+        return;
+    }
+
+    props.form.status = newStatus;
+    emit('status-updated', { status: newStatus });
+}
+
+function onStatusModalCancel() {
+    showStatusModal.value = false;
+    pendingStatus.value = '';
+}
+
+function onStatusModalConfirm(data) {
+    props.form.status = pendingStatus.value;
+
+    if (pendingStatus.value === 'CANCELLED') {
+        props.form.cancelled_at = data.cancelled_at;
+        props.form.cancellation_reason = data.cancellation_reason;
+        props.form.end_meter_reading_km = data.end_meter_reading_km;
+    } else if (pendingStatus.value === 'COMPLETED') {
+        props.form.end_at = data.end_at;
+        props.form.actual_arrival_at = data.actual_arrival_at;
+        props.form.end_meter_reading_km = data.end_meter_reading_km;
+    } else if (pendingStatus.value === 'IN_PROGRESS') {
+        if (data.start_at) {
+            props.form.start_at = data.start_at;
+        }
+
+        if (data.start_meter_reading_km != null && data.start_meter_reading_km !== '') {
+            props.form.start_meter_reading_km = data.start_meter_reading_km;
+        }
+    }
+
+    showStatusModal.value = false;
+    pendingStatus.value = '';
+
+    emit('status-updated', {
+        status: props.form.status,
+        ...data,
+    });
+}
+
+defineExpose({ changeStatus: onStatusChange });
 </script>
 
 <style scoped>
@@ -3910,6 +4024,14 @@ defineExpose({ changeStatus: () => {} });
     font-size: var(--fs-meta);
     font-weight: 600;
     font-family: inherit;
+}
+.trf-leg__dist--error,
+.trf-leg__dist-input--error {
+    color: var(--danger, #dc2626);
+}
+.trf-leg__dist-input--error {
+    border-color: var(--danger, #dc2626);
+    background: #fff5f5;
 }
 .trf-leg__dist-input--wide {
     width: 7.5rem;

@@ -33,10 +33,11 @@ class TripValidationService
      * @var array<string, list<string>>
      */
     private const ALLOWED_STATUS_TRANSITIONS = [
-        'CREATED' => ['IN_PROGRESS'],
+        'PENDING' => ['IN_PROGRESS'],
         'IN_PROGRESS' => ['COMPLETED', 'CANCELLED'],
         'COMPLETED' => [],
         'CANCELLED' => [],
+        'INVOICED' => [],
     ];
 
     public function resolveTripEditScope(Trip $trip, ?User $user): string
@@ -50,7 +51,7 @@ class TripValidationService
                     RoleHierarchy::isSuperAdminRole((int) $user->user_role_id)
                     || in_array((int) $user->user_role_id, [UserRole::ADMIN, UserRole::MODERATOR], true)
                 )
-                && $current === TripStatus::Completed->value
+                && in_array($current, [TripStatus::Completed->value, TripStatus::Invoiced->value], true)
             ) {
                 return self::EDIT_SCOPE_EXPENSES_ONLY;
             }
@@ -58,7 +59,11 @@ class TripValidationService
             return self::EDIT_SCOPE_NONE;
         }
 
-        if (! in_array($current, [TripStatus::Completed->value, TripStatus::Cancelled->value], true)) {
+        if (! in_array($current, [
+            TripStatus::Completed->value,
+            TripStatus::Cancelled->value,
+            TripStatus::Invoiced->value,
+        ], true)) {
             return self::EDIT_SCOPE_FULL;
         }
 
@@ -86,7 +91,7 @@ class TripValidationService
                 'trip' => [
                     $trip->hasInvoices()
                         ? 'This trip has invoices and cannot be edited.'
-                        : 'Completed or cancelled trips cannot be edited.',
+                        : 'Completed, cancelled, or invoiced trips cannot be edited.',
                 ],
             ]);
         }
@@ -117,7 +122,7 @@ class TripValidationService
 
         $query = Trip::query()
             ->whereIn('status', [
-                TripStatus::Created->value,
+                TripStatus::Pending->value,
                 TripStatus::InProgress->value,
             ]);
 
@@ -613,6 +618,27 @@ class TripValidationService
             throw ValidationException::withMessages([
                 'status' => ["Cannot change trip status from {$current} to {$next}."],
             ]);
+        }
+
+        if ($next === TripStatus::InProgress->value) {
+            $errors = [];
+            $startAt = $data['start_at'] ?? $trip->start_at;
+
+            if ($startAt === null || $startAt === '') {
+                $errors['start_at'] = ['Start date is required before marking a trip as in progress.'];
+            }
+
+            $startMeter = array_key_exists('start_meter_reading_km', $data)
+                ? (float) $data['start_meter_reading_km']
+                : (float) ($trip->start_meter_reading_km ?? 0);
+
+            if ($startMeter <= 0) {
+                $errors['start_meter_reading_km'] = ['Start meter reading is required before marking a trip as in progress.'];
+            }
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
         }
 
         if ($next === TripStatus::Completed->value) {

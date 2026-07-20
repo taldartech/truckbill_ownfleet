@@ -182,7 +182,7 @@ function statusActionIcon(status) {
 async function ensureTripLoaded() {
     const fullTrip = await fetchTrip(props.trip.id);
     populateFromTrip(fullTrip);
-    originalStatus.value = fullTrip.status ?? 'CREATED';
+    originalStatus.value = fullTrip.status ?? 'PENDING';
     truckRunningMeterKm.value = fullTrip.vehicle?.odometer_km ?? '';
     vehicleRegistration.value = fullTrip.vehicle?.registration_number ?? '';
     hasInvoices.value = Boolean(fullTrip.has_invoices);
@@ -270,6 +270,14 @@ async function onStatusModalConfirm(data) {
         form.end_at = data.end_at;
         form.actual_arrival_at = data.actual_arrival_at;
         form.end_meter_reading_km = data.end_meter_reading_km;
+    } else if (pendingStatus.value === 'IN_PROGRESS') {
+        if (data.start_at) {
+            form.start_at = data.start_at;
+        }
+
+        if (data.start_meter_reading_km != null && data.start_meter_reading_km !== '') {
+            form.start_meter_reading_km = data.start_meter_reading_km;
+        }
     }
 
     const statusBeingSaved = pendingStatus.value;

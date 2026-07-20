@@ -167,6 +167,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_rate' => 250,
                         'freight_amount' => 25000,
@@ -176,6 +177,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['c']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 48,
                         'freight_rate' => 250,
                         'freight_amount' => 12000,
@@ -184,6 +186,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['c']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 3,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -297,6 +300,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -306,6 +310,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['home']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -330,6 +335,7 @@ class TripManagementTest extends TestCase
         $this->assertDatabaseHas('trip_route_legs', [
             'trip_id' => $tripId,
             'sequence_no' => 2,
+            'distance_km' => 100,
             'customer_id' => null,
         ]);
     }
@@ -346,6 +352,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -354,6 +361,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -378,6 +386,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -386,6 +395,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -411,6 +421,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -420,6 +431,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['home']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 20,
                         'freight_rate' => 100,
                         'freight_amount' => 2000,
@@ -495,6 +507,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -552,6 +565,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 20,
                         'freight_rate' => 100001,
                         'freight_amount' => 2000020,
@@ -561,6 +575,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -587,6 +602,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 20,
                         'freight_rate' => 200,
                         'freight_amount' => 4000,
@@ -596,6 +612,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1138,6 +1155,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -1145,6 +1163,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1188,6 +1207,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 100,
                     'freight_amount' => 25000,
                 ],
@@ -1195,6 +1215,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -1322,6 +1343,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -1413,6 +1435,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -1421,6 +1444,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1446,6 +1470,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['c']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -1504,6 +1529,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -1511,6 +1537,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1609,6 +1636,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -1661,6 +1689,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
@@ -1668,6 +1697,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1716,6 +1746,7 @@ class TripManagementTest extends TestCase
             'from_location' => $stations['home']->name,
             'to_location' => $stations['b']->name,
             'sequence_no' => 1,
+            'distance_km' => 100,
             'weight_ton' => 10,
             'freight_amount' => 5000,
         ]);
@@ -1748,7 +1779,7 @@ class TripManagementTest extends TestCase
             ->getJson('/api/trips/'.$trip->id.'/archive-impact')
             ->assertOk()
             ->assertJsonPath('trip.trip_number', $trip->trip_number)
-            ->assertJsonPath('trip.status_label', 'Draft')
+            ->assertJsonPath('trip.status_label', 'Pending')
             ->assertJsonPath('linked_records.expenses_count', 3)
             ->assertJsonPath('linked_records.total_expense_amount', 5350)
             ->assertJsonPath('warnings.has_financial_records', true)
@@ -1863,7 +1894,7 @@ class TripManagementTest extends TestCase
         $response->assertJsonStructure(['data' => [['trip_count', 'entry_count', 'total_amount']]]);
     }
 
-    public function test_route_profitability_report_uses_trip_meter_distance_when_leg_distance_is_zero(): void
+    public function test_route_profitability_report_uses_stored_leg_distances(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -1880,6 +1911,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -1887,6 +1919,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -1916,8 +1949,8 @@ class TripManagementTest extends TestCase
 
         $rows = collect($report->json('data'));
         $this->assertCount(2, $rows);
-        $this->assertTrue($rows->every(fn (array $row): bool => (float) $row['total_distance_km'] === 250.0));
-        $this->assertSame(500.0, (float) $rows->sum('total_distance_km'));
+        $this->assertTrue($rows->every(fn (array $row): bool => (float) $row['total_distance_km'] === 100.0));
+        $this->assertSame(200.0, (float) $rows->sum('total_distance_km'));
     }
 
     public function test_trip_show_includes_diesel_performance_summary(): void
@@ -1941,6 +1974,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -1948,6 +1982,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2005,6 +2040,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 10,
                         'freight_amount' => 5000,
                     ],
@@ -2012,6 +2048,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2070,12 +2107,14 @@ class TripManagementTest extends TestCase
                     [
                         'from_station_id' => $stations['home']->id,
                         'to_station_id' => $stations['b']->id,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
                     [
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2086,7 +2125,127 @@ class TripManagementTest extends TestCase
         $response->assertJsonValidationErrors(['route_legs']);
     }
 
-    public function test_create_trip_always_stores_created_status(): void
+    public function test_create_trip_requires_distance_km_on_each_route_leg(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'distance_km' => 0,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]));
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors([
+            'route_legs.0.distance_km',
+            'route_legs.1.distance_km',
+        ]);
+    }
+
+    public function test_create_trip_rejects_pickup_date_before_previous_stop(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'end_at' => '2026-06-10 20:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'distance_km' => 100,
+                        'pickup_date' => '2026-06-05',
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 2,
+                        'distance_km' => 100,
+                        'pickup_date' => '2026-06-03',
+                        'weight_ton' => 40,
+                        'freight_rate' => 200,
+                        'freight_amount' => 8000,
+                    ],
+                ],
+            ]));
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['route_legs.1.pickup_date']);
+    }
+
+    public function test_create_trip_rejects_pickup_date_after_trip_end_date(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips', array_merge($this->requiredTripMeterFields(), [
+                'vehicle_id' => $vehicle->id,
+                'driver_id' => $driver->id,
+                'start_station_id' => $stations['home']->id,
+                'start_at' => '2026-06-01 08:00:00',
+                'end_at' => '2026-06-05 20:00:00',
+                'route_legs' => [
+                    [
+                        'from_station_id' => $stations['home']->id,
+                        'to_station_id' => $stations['b']->id,
+                        'customer_id' => $customer->id,
+                        'sequence_no' => 1,
+                        'distance_km' => 100,
+                        'pickup_date' => '2026-06-08',
+                        'weight_ton' => 90,
+                        'freight_rate' => 200,
+                        'freight_amount' => 18000,
+                    ],
+                    [
+                        'from_station_id' => $stations['b']->id,
+                        'to_station_id' => $stations['home']->id,
+                        'sequence_no' => 2,
+                        'distance_km' => 100,
+                        'weight_ton' => 0,
+                        'freight_amount' => 0,
+                    ],
+                ],
+            ]));
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['route_legs.0.pickup_date']);
+    }
+
+    public function test_create_trip_always_stores_pending_status(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -2104,6 +2263,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
@@ -2111,6 +2271,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2351,6 +2512,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
@@ -2358,6 +2520,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2437,6 +2600,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
@@ -2444,6 +2608,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -2492,6 +2657,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
@@ -2499,6 +2665,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -2533,6 +2700,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
@@ -2540,6 +2708,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -2578,6 +2747,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 50,
                     'freight_amount' => 5000,
                 ],
@@ -2585,6 +2755,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -2632,6 +2803,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 50,
                         'freight_amount' => 5000,
                     ],
@@ -2639,6 +2811,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2665,6 +2838,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -2672,6 +2846,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
+                        'distance_km' => 100,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -2764,11 +2939,12 @@ class TripManagementTest extends TestCase
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
         $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
-        $trip->update(['start_at' => null]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
             ->assertOk();
+
+        $trip->update(['start_at' => null]);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson("/api/trips/{$trip->id}", [
@@ -2779,6 +2955,32 @@ class TripManagementTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['start_at']);
+    }
+
+    public function test_in_progress_requires_start_date_and_start_meter(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update([
+            'start_at' => null,
+            'start_meter_reading_km' => null,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", ['status' => TripStatus::InProgress->value])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['start_at', 'start_meter_reading_km']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::InProgress->value,
+                'start_at' => '2026-06-10 09:00:00',
+                'start_meter_reading_km' => 10000,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::InProgress->value)
+            ->assertJsonPath('data.start_meter_reading_km', '10000.00');
     }
 
     public function test_complete_trip_allows_future_start_and_completion_dates(): void
@@ -2826,6 +3028,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -2853,6 +3056,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => 100,
                         'weight_ton' => 100,
                         'freight_amount' => 25000,
                     ],
@@ -3234,6 +3438,7 @@ class TripManagementTest extends TestCase
                 'to_station_id' => $stations['b']->id,
                 'customer_id' => $customer->id,
                 'sequence_no' => 1,
+                'distance_km' => 100,
                 'weight_ton' => 100,
                 'freight_rate' => $loadedFreight / 100,
                 'freight_amount' => $loadedFreight,
@@ -3242,6 +3447,7 @@ class TripManagementTest extends TestCase
                 'from_station_id' => $stations['b']->id,
                 'to_station_id' => $stations['home']->id,
                 'sequence_no' => 2,
+                'distance_km' => 100,
                 'weight_ton' => 0,
                 'freight_amount' => 0,
             ],
@@ -3283,6 +3489,7 @@ class TripManagementTest extends TestCase
                     'to_station_id' => $stations['b']->id,
                     'customer_id' => $customer->id,
                     'sequence_no' => 1,
+                    'distance_km' => 100,
                     'weight_ton' => 90,
                     'freight_rate' => 200,
                     'freight_amount' => 18000,
@@ -3291,6 +3498,7 @@ class TripManagementTest extends TestCase
                     'from_station_id' => $stations['b']->id,
                     'to_station_id' => $stations['home']->id,
                     'sequence_no' => 2,
+                    'distance_km' => 100,
                     'weight_ton' => 0,
                     'freight_amount' => 0,
                 ],
@@ -3327,7 +3535,7 @@ class TripManagementTest extends TestCase
         Vehicle $vehicle,
         Driver $driver,
         array $stations,
-        TripStatus $status = TripStatus::Created,
+        TripStatus $status = TripStatus::Pending,
     ): Trip {
         $operationalAttributes = $this->operationalAttributesForTenant($tenant);
         TenantContext::setTenantId($tenant->id);

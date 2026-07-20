@@ -17,6 +17,7 @@ use App\Support\GstSettingsResolver;
 use App\Support\TripNumberGenerator;
 use App\Trip;
 use App\TripRouteLeg;
+use App\TripStatusHistory;
 use App\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -289,7 +290,7 @@ class InvoiceService
      */
     public function generateForTrip(Trip $trip, array $options = [], ?User $user = null): array
     {
-        return DB::transaction(function () use ($trip, $options): array {
+        return DB::transaction(function () use ($trip, $options, $user): array {
             $previews = $this->previewForTrip($trip, $options);
             $this->assertDistinctInvoiceSequences($previews);
             $invoices = [];
@@ -374,6 +375,8 @@ class InvoiceService
 
                 $invoices[] = $invoice->fresh(['customer', 'items', 'trip']);
             }
+
+            $this->markTripInvoiced($trip, $user);
 
             return $invoices;
         });
@@ -605,11 +608,40 @@ class InvoiceService
             ? $trip->status
             : TripStatus::tryFrom((string) $trip->status);
 
+        if (! in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)) {
+            throw ValidationException::withMessages([
+                'trip' => ['Invoices can only be generated for completed trips.'],
+            ]);
+        }
+    }
+
+    private function markTripInvoiced(Trip $trip, ?User $user = null): void
+    {
+        $status = $trip->status instanceof TripStatus
+            ? $trip->status
+            : TripStatus::tryFrom((string) $trip->status);
+
+        if ($status === TripStatus::Invoiced) {
+            return;
+        }
+
         if ($status !== TripStatus::Completed) {
             throw ValidationException::withMessages([
                 'trip' => ['Invoices can only be generated for completed trips.'],
             ]);
         }
+
+        $trip->update(['status' => TripStatus::Invoiced]);
+
+        TripStatusHistory::query()->create([
+            'tenant_id' => $trip->tenant_id,
+            'trip_id' => $trip->id,
+            'from_status' => TripStatus::Completed->value,
+            'to_status' => TripStatus::Invoiced->value,
+            'changed_at' => now(),
+            'changed_by' => $user?->id,
+            'remarks' => 'Invoice generated',
+        ]);
     }
 
     /**

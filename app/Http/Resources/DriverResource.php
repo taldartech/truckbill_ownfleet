@@ -53,7 +53,7 @@ class DriverResource extends JsonResource
             'total_advance' => $this->getAdvanceTotals()['total_advance'],
             'total_recovery' => $this->getAdvanceTotals()['total_recovery'],
             'active_trips' => $this->relationLoaded('trips') || $this->trips !== null ? $this->trips()
-                ->whereIn('status', [\App\Enums\TripStatus::Created->value, \App\Enums\TripStatus::InProgress->value])
+                ->whereIn('status', [\App\Enums\TripStatus::Pending->value, \App\Enums\TripStatus::InProgress->value])
                 ->with(['vehicle'])
                 ->get()
                 ->map(fn ($trip) => [

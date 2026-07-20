@@ -64,7 +64,7 @@ class SubstituteDriverAvailability
         $trips = Trip::query()
             ->where('tenant_id', $tenantId)
             ->whereIn('status', [
-                TripStatus::Created->value,
+                TripStatus::Pending->value,
                 TripStatus::InProgress->value,
             ])
             ->whereRaw('DATE(start_at) <= ?', [$to->toDateString()])
@@ -117,7 +117,7 @@ class SubstituteDriverAvailability
         return Trip::query()
             ->where('tenant_id', $tenantId)
             ->whereIn('status', [
-                TripStatus::Created->value,
+                TripStatus::Pending->value,
                 TripStatus::InProgress->value,
             ])
             ->where(function ($query) use ($driverId): void {

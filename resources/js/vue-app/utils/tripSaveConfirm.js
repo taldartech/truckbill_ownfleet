@@ -166,7 +166,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             label: 'Status',
             compareValue: form.status,
             comparePrevious: originalPayload?.status,
-            value: form.status ?? 'CREATED',
+            value: form.status ?? 'PENDING',
             previousValue: originalPayload?.status ?? '',
             hidden: mode === 'create',
         },

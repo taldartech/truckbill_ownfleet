@@ -412,7 +412,7 @@ class BranchManagementTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'trip_number' => sprintf('TRIP-BR%03d-2026-10000', $branch->id),
-            'status' => 'CREATED',
+            'status' => 'PENDING',
         ]);
 
         $this->actingAs($superAdmin)

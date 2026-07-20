@@ -427,7 +427,7 @@ async function loadTrip() {
         populateFromTrip(trip, customers.value);
         savedExpenses.value = trip.expenses ?? [];
         form.trip_number = trip.trip_number ?? '';
-        originalStatus.value = trip.status ?? 'CREATED';
+        originalStatus.value = trip.status ?? 'PENDING';
         snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
         vehicleOdometerKm.value = trip.vehicle?.odometer_km ?? '';
         vehicleExpectedMileage.value = trip.vehicle?.default_mileage_km_per_liter ?? '';

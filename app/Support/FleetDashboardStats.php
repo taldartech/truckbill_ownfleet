@@ -150,17 +150,21 @@ class FleetDashboardStats
             ->whereDate('start_at', '<=', $toDate);
 
         $financialQuery = (clone $baseQuery)
-            ->where('status', TripStatus::Completed->value);
+            ->whereIn('status', [
+                TripStatus::Completed->value,
+                TripStatus::Invoiced->value,
+            ]);
 
         $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
         $totalExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
 
         return [
             'total_count' => (clone $baseQuery)->count(),
-            'created_count' => (clone $baseQuery)->where('status', TripStatus::Created->value)->count(),
+            'pending_count' => (clone $baseQuery)->where('status', TripStatus::Pending->value)->count(),
             'in_progress_count' => (clone $baseQuery)->where('status', TripStatus::InProgress->value)->count(),
             'completed_count' => (clone $baseQuery)->where('status', TripStatus::Completed->value)->count(),
             'cancelled_count' => (clone $baseQuery)->where('status', TripStatus::Cancelled->value)->count(),
+            'invoiced_count' => (clone $baseQuery)->where('status', TripStatus::Invoiced->value)->count(),
             'total_freight_amount' => round($totalFreight, 2),
             'total_expense_amount' => round($totalExpenses, 2),
             'profit_amount' => round($totalFreight - $totalExpenses, 2),

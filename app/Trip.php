@@ -176,7 +176,7 @@ class Trip extends Model
             ? $this->status
             : TripStatus::tryFrom((string) $this->status);
 
-        if ($status !== TripStatus::Completed) {
+        if (! in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)) {
             return false;
         }
 
