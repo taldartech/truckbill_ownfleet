@@ -1,4 +1,9 @@
-import { expenseTypeLabel, summarizeTripForm } from '../api/trips';
+import {
+    expenseTypeLabel,
+    legLoadCategoryMeta,
+    summarizeTripForm,
+    tripTypeLabel,
+} from '../api/trips';
 import { formatDate } from './datetime';
 
 function formatNum(value) {
@@ -17,6 +22,14 @@ function lookupName(items, id, fallback = '—') {
     return items.find((item) => String(item.id) === String(id))?.name ?? fallback;
 }
 
+function formatMeter(value) {
+    if (value === '' || value == null || !Number.isFinite(Number(value))) {
+        return '—';
+    }
+
+    return `${formatNum(value)} km`;
+}
+
 function legSignature(leg) {
     return [
         leg.from_station_id,
@@ -29,6 +42,7 @@ function legSignature(leg) {
         Number(leg.expected_mileage_km_per_liter ?? 0),
         Number(leg.freight_rate ?? 0),
         Number(leg.freight_amount ?? 0),
+        Number(leg.distance_km ?? 0),
     ].join('|');
 }
 
@@ -89,18 +103,32 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
     const summary = summarizeTripForm(form);
     const originalLegs = originalPayload?.route_legs ?? [];
     const originalExpenses = normalizePayloadExpenses(originalPayload?.expenses ?? []);
-
     const currentExpenses = normalizePayloadExpenses(form.expenses ?? []);
+    const maxLoadTon = Number(form.max_load_ton ?? 0);
+    const tripType = String(form.trip_type ?? '').toUpperCase() || 'ONE_WAY';
 
     const detailFields = [
         {
             label: 'Trip Number',
             value: tripNumber || 'Auto-generated',
+            accent: true,
             readonly: true,
+        },
+        {
+            label: 'Trip Type',
+            compareValue: tripType,
+            comparePrevious: originalPayload?.trip_type
+                ? String(originalPayload.trip_type).toUpperCase()
+                : undefined,
+            value: tripTypeLabel(tripType),
+            previousValue: originalPayload?.trip_type
+                ? tripTypeLabel(originalPayload.trip_type)
+                : '—',
         },
         {
             label: 'Truck',
             value: vehicleLabel,
+            accent: true,
             readonly: mode === 'edit',
         },
         {
@@ -127,18 +155,11 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             previousValue: lookupName(customers, originalPayload?.customer_id, '—'),
         },
         {
-            label: 'Reference by (optional)',
+            label: 'Reference by',
             compareValue: form.broker_id,
             comparePrevious: originalPayload?.broker_id,
             value: lookupName(brokers, form.broker_id, '—'),
             previousValue: lookupName(brokers, originalPayload?.broker_id, '—'),
-        },
-        {
-            label: 'Start Station',
-            compareValue: form.start_station_id,
-            comparePrevious: originalPayload?.start_station_id,
-            value: lookupName(stations, form.start_station_id),
-            previousValue: lookupName(stations, originalPayload?.start_station_id),
         },
         {
             label: 'Start Date',
@@ -155,20 +176,26 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             previousValue: formatDate(originalPayload?.end_at),
         },
         {
+            label: 'Start Meter',
+            compareValue: form.start_meter_reading_km,
+            comparePrevious: originalPayload?.start_meter_reading_km,
+            value: formatMeter(form.start_meter_reading_km),
+            previousValue: formatMeter(originalPayload?.start_meter_reading_km),
+        },
+        {
+            label: 'End Meter',
+            compareValue: form.end_meter_reading_km,
+            comparePrevious: originalPayload?.end_meter_reading_km,
+            value: formatMeter(form.end_meter_reading_km),
+            previousValue: formatMeter(originalPayload?.end_meter_reading_km),
+        },
+        {
             label: 'Notes',
             compareValue: form.notes?.trim() ?? '',
             comparePrevious: originalPayload?.notes?.trim() ?? '',
             value: form.notes?.trim() || '—',
             previousValue: originalPayload?.notes?.trim() || '—',
-            hidden: !form.notes?.trim() && !(originalPayload?.notes?.trim()),
-        },
-        {
-            label: 'Status',
-            compareValue: form.status,
-            comparePrevious: originalPayload?.status,
-            value: form.status ?? 'PENDING',
-            previousValue: originalPayload?.status ?? '',
-            hidden: mode === 'create',
+            hidden: !form.notes?.trim() && !(originalPayload?.notes?.trim())
         },
     ]
         .filter((field) => !field.hidden)
@@ -184,6 +211,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                 value: field.value,
                 changed,
                 previousValue: changed ? field.previousValue : null,
+                accent: Boolean(field.accent),
             };
         });
 
@@ -198,13 +226,19 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             case 'goods':
                 return String(leg.goods_name ?? '').trim() || '—';
             case 'pickupDate':
-                return String(leg.pickup_date ?? '').trim() || '—';
+                return formatDate(leg.pickup_date) || '—';
             case 'units':
                 return leg.no_of_units == null || leg.no_of_units === ''
                     ? '—'
                     : String(leg.no_of_units);
             case 'weight':
                 return formatNum(leg.weight_ton);
+            case 'load':
+                return legLoadCategoryMeta(leg.weight_ton, maxLoadTon).label;
+            case 'distance':
+                return leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
+                    ? '—'
+                    : `${formatNum(leg.distance_km)} km`;
             case 'expectedMileage':
                 return leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                     ? '—'
@@ -223,18 +257,21 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         const signature = legSignature(leg);
         const isNew = mode === 'edit' && index >= originalLegs.length;
         const changed = mode === 'edit' && originalLeg && legSignature(originalLeg) !== signature;
+        const loadMeta = legLoadCategoryMeta(leg.weight_ton, maxLoadTon);
 
         const legFieldDefs = [
             { key: 'from', label: 'From' },
             { key: 'to', label: 'To' },
             { key: 'customer', label: 'Customer' },
-            { key: 'goods', label: 'Goods Type' },
             { key: 'pickupDate', label: 'Pickup Date' },
+            { key: 'goods', label: 'Goods Type' },
             { key: 'units', label: 'No. of Units' },
             { key: 'weight', label: 'Weight (Ton)' },
-            { key: 'expectedMileage', label: 'Expected Mileage' },
             { key: 'rate', label: 'Freight Rate' },
             { key: 'freight', label: 'Freight' },
+            { key: 'expectedMileage', label: 'Expected Mileage' },
+            { key: 'distance', label: 'Distance' },
+            { key: 'load', label: 'Load' },
         ];
 
         const fieldChanges =
@@ -259,12 +296,18 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             to: lookupName(stations, leg.to_station_id),
             customer: lookupName(customers, leg.customer_id, '—'),
             goods: String(leg.goods_name ?? '').trim() || '—',
-            pickupDate: String(leg.pickup_date ?? '').trim() || '—',
+            pickupDate: formatDate(leg.pickup_date) || '—',
             units:
                 leg.no_of_units == null || leg.no_of_units === ''
                     ? '—'
                     : String(leg.no_of_units),
             weight: formatNum(leg.weight_ton),
+            load: loadMeta.label,
+            loadBadge: loadMeta.badge ?? 'bg-secondary',
+            distance:
+                leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
+                    ? '—'
+                    : `${formatNum(leg.distance_km)} km`,
             expectedMileage:
                 leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                     ? '—'
@@ -287,6 +330,10 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             mode === 'edit' && originalExpense && expenseSignature(originalExpense) !== expenseSignature(expense);
 
         const previousAmount = originalExpense ? formatMoney(originalExpense.amount) : null;
+        const notes = String(expense.notes ?? '').trim() || '—';
+        const previousNotes = originalExpense
+            ? String(originalExpense.notes ?? '').trim() || '—'
+            : null;
 
         return {
             type: expenseTypeLabel(expense.expense_type, expense.other_type),
@@ -301,6 +348,9 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
                     ? `Stop ${originalExpense.route_leg_sequence}`
                     : 'General'
                 : null,
+            notes,
+            previousNotes:
+                changed && previousNotes && previousNotes !== notes ? previousNotes : null,
             amount: formatMoney(expense.amount),
             previousAmount: changed && previousAmount !== formatMoney(expense.amount) ? previousAmount : null,
             isNew,
@@ -310,16 +360,6 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
 
     const removedExpenseCount =
         mode === 'edit' ? Math.max(0, originalExpenses.length - currentExpenses.length) : 0;
-
-    const routePreviewParts = [lookupName(stations, form.start_station_id)];
-
-    (form.route_legs ?? []).forEach((leg) => {
-        const toName = lookupName(stations, leg.to_station_id, '');
-
-        if (toName && toName !== '—') {
-            routePreviewParts.push(toName);
-        }
-    });
 
     const changedFieldCount = detailFields.filter((field) => field.changed).length;
     const changedLegCount = routeLegs.filter((leg) => leg.changed).length;
@@ -332,24 +372,27 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             removedLegCount > 0 ||
             removedExpenseCount > 0);
 
-    const pickFields = (...labels) =>
-        detailFields.filter((field) => labels.includes(field.label));
-
     return {
         mode,
-        title: mode === 'create' ? 'Confirm New Trip Details' : 'Confirm Trip Update',
-        iconTitle: mode === 'create' ? 'Confirm New Trip Details' : 'Confirm Trip Update',
+        title: mode === 'create' ? 'Confirm New Trip' : 'Confirm Trip Update',
+        iconTitle: mode === 'create' ? 'Confirm New Trip' : 'Confirm Trip Update',
         message:
             mode === 'create'
-                ? 'Please review the trip details below. Amounts are highlighted — save only if everything is correct.'
+                ? 'Review every detail below before saving.'
                 : hasChanges
-                  ? 'Please review what you are updating. Changed items are marked — save only if everything is correct.'
-                  : 'Please review the trip details below before saving.',
-        basicInfoFields: pickFields('Trip Number', 'Start Date', 'End Date', 'Status'),
-        partyFields: pickFields('Customer', 'Reference by (optional)', 'Start Station'),
-        transportFields: pickFields('Truck', 'Primary Driver', 'Substitute Driver'),
-        routePreview: routePreviewParts.filter(Boolean).join(' → ') || '—',
+                  ? 'Changed items are highlighted — review before updating.'
+                  : 'Review the trip details below before saving.',
         detailFields,
+        // Kept for backward compatibility with older modal markup.
+        basicInfoFields: detailFields.filter((field) =>
+            ['Trip Number', 'Trip Type', 'Start Date', 'End Date', 'Start Meter', 'End Meter', 'Notes'].includes(field.label),
+        ),
+        partyFields: detailFields.filter((field) =>
+            ['Customer', 'Reference by'].includes(field.label),
+        ),
+        transportFields: detailFields.filter((field) =>
+            ['Truck', 'Primary Driver', 'Substitute Driver'].includes(field.label),
+        ),
         routeLegs,
         expenses,
         removedLegCount,
