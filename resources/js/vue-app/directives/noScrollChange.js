@@ -27,11 +27,53 @@ function clampNegative(el) {
     }
 }
 
+function getScrollParent(el) {
+    let parent = el.parentElement;
+
+    while (parent) {
+        const { overflow, overflowY } = getComputedStyle(parent);
+        const axis = overflowY || overflow;
+
+        if (
+            (axis === 'auto' || axis === 'scroll' || axis === 'overlay')
+            && parent.scrollHeight > parent.clientHeight
+        ) {
+            return parent;
+        }
+
+        parent = parent.parentElement;
+    }
+
+    return null;
+}
+
+function scrollPageFromWheel(el, event) {
+    const scrollParent = getScrollParent(el);
+
+    if (scrollParent) {
+        scrollParent.scrollTop += event.deltaY;
+        scrollParent.scrollLeft += event.deltaX;
+
+        return;
+    }
+
+    window.scrollBy(event.deltaX, event.deltaY);
+}
+
 export const noScrollChange = {
     mounted(el) {
         const onWheel = (event) => {
+            // Only intercept when focused — unfocused number inputs already
+            // allow page scroll without changing the value.
+            if (document.activeElement !== el) {
+                return;
+            }
+
+            // Stop the browser from changing the number, then forward the
+            // same wheel delta to the nearest scrollable container / window.
             event.preventDefault();
             el.blur();
+            scrollPageFromWheel(el, event);
         };
 
         el.addEventListener('wheel', onWheel, { passive: false });
