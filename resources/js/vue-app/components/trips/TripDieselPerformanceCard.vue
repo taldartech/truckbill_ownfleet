@@ -1,8 +1,8 @@
 <template>
     <div
         v-if="performance"
-        class="card mb-4 trip-performance-card"
-        :class="themeClass"
+        class="card trip-performance-card"
+        :class="[themeClass, { 'trip-performance-card--compact': compact, 'mb-4': !compact }]"
     >
         <div class="trip-performance-card__header">
             <h3 class="trip-performance-card__title mb-0">
@@ -125,11 +125,15 @@
                 </div>
             </Teleport>
 
-            <div v-if="statusMessage" class="trip-performance-status" :class="statusBoxClass">
+            <div
+                v-if="statusMessage"
+                class="trip-performance-status"
+                :class="[statusBoxClass, { 'trip-performance-status--compact': compact }]"
+            >
                 <i :class="statusIcon" aria-hidden="true"></i>
-                <div>
-                    <div class="trip-performance-status__title">{{ statusTitle }}</div>
-                    <div v-if="statusSubtitle" class="trip-performance-status__subtitle">{{ statusSubtitle }}</div>
+                <div class="trip-performance-status__content">
+                    <span class="trip-performance-status__title">{{ statusTitle }}</span>
+                    <span v-if="statusSubtitle" class="trip-performance-status__subtitle">{{ statusSubtitle }}</span>
                 </div>
             </div>
         </div>
@@ -141,6 +145,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 
 const props = defineProps({
     performance: { type: Object, default: null },
+    compact: { type: Boolean, default: false },
 });
 
 const activeInfoKey = ref(null);

@@ -608,11 +608,17 @@ textarea::placeholder,
     margin-top: 1px;
 }
 
+.trip-performance-status__content {
+    min-width: 0;
+}
+
 .trip-performance-status__title {
+    display: block;
     font-weight: 600;
 }
 
 .trip-performance-status__subtitle {
+    display: block;
     margin-top: 2px;
     opacity: 0.9;
 }
@@ -645,6 +651,114 @@ textarea::placeholder,
 
     .trip-performance-metrics__value {
         font-size: 0.9rem;
+    }
+}
+
+.trip-performance-card--compact {
+    margin-bottom: 0 !important;
+    border-radius: 8px;
+}
+
+.trip-performance-card--compact .trip-performance-card__header {
+    padding: 6px 10px;
+    gap: 8px;
+}
+
+.trip-performance-card--compact .trip-performance-card__title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.trip-performance-card--compact .trip-performance-card__title i {
+    font-size: 0.72rem;
+}
+
+.trip-performance-card--compact .trip-performance-card__badge {
+    padding: 2px 7px;
+    font-size: 0.58rem;
+    gap: 4px;
+}
+
+.trip-performance-card--compact .trip-performance-card__body {
+    padding: 8px 10px 8px;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__item {
+    min-width: 72px;
+    padding: 0 6px;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__item--amount {
+    min-width: 88px;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__item:first-child {
+    padding-left: 0;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__label {
+    font-size: 0.58rem;
+    margin-bottom: 2px;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__value {
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.trip-performance-card--compact .trip-performance-info-btn {
+    font-size: 0.62rem;
+}
+
+.trip-performance-card--compact .trip-performance-metrics__divider--amount {
+    margin: 0 2px;
+}
+
+.trip-performance-card--compact .trip-performance-status {
+    margin-top: 6px;
+    padding: 5px 8px;
+    gap: 6px;
+    border-radius: 6px;
+    font-size: 0.64rem;
+    align-items: center;
+}
+
+.trip-performance-card--compact .trip-performance-status i {
+    font-size: 0.72rem;
+    margin-top: 0;
+}
+
+.trip-performance-card--compact .trip-performance-status__content {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+    min-width: 0;
+}
+
+.trip-performance-card--compact .trip-performance-status__title,
+.trip-performance-card--compact .trip-performance-status__subtitle {
+    display: inline;
+    margin-top: 0;
+    line-height: 1.25;
+}
+
+.trip-performance-card--compact .trip-performance-status__subtitle::before {
+    content: '·';
+    margin-right: 6px;
+    opacity: 0.75;
+}
+
+@media (max-width: 768px) {
+    .trip-performance-card--compact .trip-performance-metrics__item {
+        min-width: 68px;
+        padding: 0 4px;
+    }
+
+    .trip-performance-card--compact .trip-performance-metrics__value {
+        font-size: 0.72rem;
     }
 }
 

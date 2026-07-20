@@ -416,6 +416,7 @@
                                 v-no-scroll-change
                                 type="number"
                                 min="0"
+                                :max="maxPlannedDieselLiters"
                                 step="0.01"
                                 class="form-control trip-meter-input"
                                 :class="{ 'is-invalid': fieldErrors.planned_diesel_liters }"
@@ -440,9 +441,11 @@
                                 v-no-scroll-change
                                 type="number"
                                 min="0"
+                                :max="maxDieselRatePerLiter"
                                 step="0.01"
                                 class="form-control trip-meter-input"
                                 :class="{ 'is-invalid': fieldErrors.diesel_rate_per_liter }"
+                                @input="onDieselRateInput"
                             />
                             <input
                                 v-else
@@ -955,7 +958,9 @@ import {
     tripTypeLabel,
     tripAllowedNextStatuses,
     MAX_EXPECTED_MILEAGE_KM_PER_LITER,
+    MAX_DIESEL_RATE_PER_LITER,
     MAX_FREIGHT_RATE_PER_TON,
+    MAX_PLANNED_DIESEL_LITERS,
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
@@ -1042,6 +1047,8 @@ const slots = useSlots();
 const toast = useAppToast();
 
 const maxExpectedMileage = MAX_EXPECTED_MILEAGE_KM_PER_LITER;
+const maxPlannedDieselLiters = MAX_PLANNED_DIESEL_LITERS;
+const maxDieselRatePerLiter = MAX_DIESEL_RATE_PER_LITER;
 const maxFreightRate = MAX_FREIGHT_RATE_PER_TON;
 
 const isFormLocked = computed(() => props.readonly);
@@ -1663,7 +1670,7 @@ function syncAutoPlannedDiesel() {
     const plannedDiesel = calculatePlannedDiesel(runningKm, props.form.planned_mileage_km_per_liter);
 
     if (plannedDiesel !== null) {
-        props.form.planned_diesel_liters = plannedDiesel;
+        props.form.planned_diesel_liters = clampNonNegativeMax(plannedDiesel, maxPlannedDieselLiters);
     }
 }
 
@@ -1678,6 +1685,13 @@ function onPlannedMileageInput() {
 
 function onPlannedDieselInput() {
     props.form.planned_diesel_manually_set = true;
+    props.form.planned_diesel_liters = clampNonNegativeMax(props.form.planned_diesel_liters, maxPlannedDieselLiters);
+    emit('clear-field-error', 'planned_diesel_liters');
+}
+
+function onDieselRateInput() {
+    props.form.diesel_rate_per_liter = clampNonNegativeMax(props.form.diesel_rate_per_liter, maxDieselRatePerLiter);
+    emit('clear-field-error', 'diesel_rate_per_liter');
 }
 
 watch(

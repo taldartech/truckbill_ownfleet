@@ -339,10 +339,14 @@ export const MAX_FUEL_LITERS = 5000;
 
 export const MAX_FUEL_RATE = 1000;
 
+export const MAX_PLANNED_DIESEL_LITERS = 10000;
+
+export const MAX_DIESEL_RATE_PER_LITER = MAX_FUEL_RATE;
+
 export const FUEL_DECIMAL_PLACES = 2;
 
 /** Max expected / planned mileage (KM per liter) on trip details and route legs. */
-export const MAX_EXPECTED_MILEAGE_KM_PER_LITER = 100;
+export const MAX_EXPECTED_MILEAGE_KM_PER_LITER = 50;
 
 /** Max freight rate (₹ per ton) on route legs. */
 export const MAX_FREIGHT_RATE_PER_TON = 100000;
@@ -456,6 +460,34 @@ export function validateTripPayload(
             } else if (plannedMileage > MAX_EXPECTED_MILEAGE_KM_PER_LITER) {
                 errors.planned_mileage_km_per_liter = [
                     `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/Lt.`,
+                ];
+            }
+        }
+
+        const plannedDieselRaw = payload.planned_diesel_liters;
+
+        if (plannedDieselRaw !== '' && plannedDieselRaw != null) {
+            const plannedDiesel = parseNumeric(plannedDieselRaw);
+
+            if (plannedDiesel < 0) {
+                errors.planned_diesel_liters = ['Expected diesel cannot be negative.'];
+            } else if (plannedDiesel > MAX_PLANNED_DIESEL_LITERS) {
+                errors.planned_diesel_liters = [
+                    `Max ${MAX_PLANNED_DIESEL_LITERS.toLocaleString('en-IN')} Ltr.`,
+                ];
+            }
+        }
+
+        const dieselRateRaw = payload.diesel_rate_per_liter;
+
+        if (dieselRateRaw !== '' && dieselRateRaw != null) {
+            const dieselRate = parseNumeric(dieselRateRaw);
+
+            if (dieselRate < 0) {
+                errors.diesel_rate_per_liter = ['Diesel rate cannot be negative.'];
+            } else if (dieselRate > MAX_DIESEL_RATE_PER_LITER) {
+                errors.diesel_rate_per_liter = [
+                    `Max ₹${MAX_DIESEL_RATE_PER_LITER.toLocaleString('en-IN')}/Ltr.`,
                 ];
             }
         }
