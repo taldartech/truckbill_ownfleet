@@ -415,20 +415,22 @@ export function validateTripPayload(
         errors.end_at = ['End date cannot be before the actual arrival date.'];
     }
 
-    if (mode === 'edit') {
-        if (parseNumeric(payload.start_meter_reading_km) <= 0) {
-            errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
-        }
-    } else if (mode === 'create') {
-        const createStartMeterRaw = payload.start_meter_reading_km;
+    const activeStatusForMeters = String(payload.status ?? previousStatus ?? '').toUpperCase();
+    const startMeterOptional =
+        mode === 'create' || (mode === 'edit' && (activeStatusForMeters === '' || activeStatusForMeters === 'PENDING'));
 
-        if (createStartMeterRaw !== '' && createStartMeterRaw != null) {
-            const createStartMeter = parseNumeric(createStartMeterRaw);
+    if (startMeterOptional) {
+        const startMeterRaw = payload.start_meter_reading_km;
 
-            if (createStartMeter < 0) {
+        if (startMeterRaw !== '' && startMeterRaw != null) {
+            const startMeterValue = parseNumeric(startMeterRaw);
+
+            if (startMeterValue < 0) {
                 errors.start_meter_reading_km = ['Start meter reading cannot be negative.'];
             }
         }
+    } else if (mode === 'edit' && parseNumeric(payload.start_meter_reading_km) <= 0) {
+        errors.start_meter_reading_km = ['Start meter reading is required and must be greater than zero.'];
     }
 
     if (mode === 'create' || mode === 'edit') {

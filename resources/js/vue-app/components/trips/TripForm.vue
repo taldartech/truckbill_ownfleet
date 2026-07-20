@@ -295,7 +295,11 @@
                             />
                         </div>
                         <div>
-                            <label class="form-label">Start Meter Reading *</label>
+                            <label class="form-label">
+                                Start Meter Reading
+                                <span v-if="isStartMeterOptional"> (optional)</span>
+                                <span v-else> *</span>
+                            </label>
                             <input
                                 v-if="!isFormLocked"
                                 v-model.number="form.start_meter_reading_km"
@@ -1173,6 +1177,14 @@ const effectiveTripStatus = computed(() => {
     }
 
     return props.form.status;
+});
+
+const isStartMeterOptional = computed(() => {
+    if (props.mode === 'create') {
+        return true;
+    }
+
+    return String(effectiveTripStatus.value ?? '').toUpperCase() === 'PENDING';
 });
 
 const currentStatusBadge = computed(() => tripStatusMeta(effectiveTripStatus.value));

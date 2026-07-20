@@ -3048,6 +3048,59 @@ class TripManagementTest extends TestCase
             ->assertJsonPath('data.start_meter_reading_km', '10000.00');
     }
 
+    public function test_pending_trip_update_allows_optional_start_meter_reading(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['start_meter_reading_km' => null]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'notes' => 'Pending update without start meter',
+                'start_meter_reading_km' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::Pending->value)
+            ->assertJsonPath('data.start_meter_reading_km', null)
+            ->assertJsonPath('data.notes', 'Pending update without start meter');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'start_meter_reading_km' => 12500,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.start_meter_reading_km', '12500.00');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'start_meter_reading_km' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.start_meter_reading_km', null);
+    }
+
+    public function test_in_progress_trip_update_requires_start_meter_reading(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'status' => TripStatus::InProgress->value,
+                'start_meter_reading_km' => 10000,
+            ])
+            ->assertOk();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'start_meter_reading_km' => null,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['start_meter_reading_km']);
+    }
+
     public function test_complete_trip_allows_future_start_and_completion_dates(): void
     {
         \Illuminate\Support\Carbon::setTestNow('2026-07-03 10:00:00');

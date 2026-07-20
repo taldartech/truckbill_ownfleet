@@ -264,7 +264,10 @@
                     >
                         <div class="trf-vehicle-info__icon" style="--ic:#6b7280;--bg:#f3f4f6"><i class="bi bi-speedometer2"></i></div>
                         <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Start Meter Reading</span>
+                            <span class="trf-vehicle-info__name">
+                                Start Meter Reading
+                                <span v-if="isStartMeterOptional" class="trf-vehicle-info__optional">(optional)</span>
+                            </span>
                             <div class="trf-vehicle-info__value">
                                 <input
                                     v-if="!isFormLocked"
@@ -1403,6 +1406,13 @@ const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_
 const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
 const arrivalTiming = computed(() => { const e = tripEndDate.value; const a = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at); if (!e || !a) return null; if (e === a) return 'on-time'; return e > a ? 'early' : 'late'; });
 const effectiveTripStatus = computed(() => props.displayStatus || props.form.status);
+const isStartMeterOptional = computed(() => {
+    if (props.mode === 'create') {
+        return true;
+    }
+
+    return String(effectiveTripStatus.value ?? '').toUpperCase() === 'PENDING';
+});
 const currentStatusBadge = computed(() => tripStatusMeta(effectiveTripStatus.value));
 const statusPillClass = computed(() => {
     const s = String(effectiveTripStatus.value ?? '').toUpperCase();
@@ -3017,6 +3027,11 @@ onMounted(() => { loadProgressDraft(); });
     text-transform: none;
     letter-spacing: 0;
     line-height: 1.2;
+}
+.trf-vehicle-info__optional {
+    font-weight: 500;
+    color: #9ca3af;
+    text-transform: none;
 }
 .trf-vehicle-info__val {
     display: block;

@@ -851,11 +851,16 @@ class TripValidationService
      */
     public function assertMeterReadingsOnUpdate(Trip $trip, array $data = []): void
     {
+        $effectiveStatus = isset($data['status'])
+            ? strtoupper((string) $data['status'])
+            : $this->tripStatusValue($trip);
+
         $startMeter = array_key_exists('start_meter_reading_km', $data)
-            ? (float) $data['start_meter_reading_km']
+            ? (float) ($data['start_meter_reading_km'] ?? 0)
             : (float) ($trip->start_meter_reading_km ?? 0);
 
-        if ($startMeter <= 0) {
+        // Pending trips match create: start meter is optional until the trip moves forward.
+        if ($effectiveStatus !== TripStatus::Pending->value && $startMeter <= 0) {
             throw ValidationException::withMessages([
                 'start_meter_reading_km' => ['Start meter reading is required and must be greater than zero.'],
             ]);
@@ -877,7 +882,7 @@ class TripValidationService
             ]);
         }
 
-        if ($endMeter < $startMeter) {
+        if ($startMeter > 0 && $endMeter < $startMeter) {
             throw ValidationException::withMessages([
                 'end_meter_reading_km' => ['End Meter Reading cannot be less than Start Meter Reading.'],
             ]);

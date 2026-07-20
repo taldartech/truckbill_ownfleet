@@ -18,18 +18,49 @@ class UpdateTripRequest extends FormRequest
         return $trip !== null && ($this->user()?->can('update', $trip) ?? false);
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->exists('start_meter_reading_km')) {
+            return;
+        }
+
+        $startMeter = $this->input('start_meter_reading_km');
+
+        if (
+            $startMeter === ''
+            || $startMeter === null
+            || (is_numeric($startMeter) && (float) $startMeter <= 0)
+        ) {
+            $startMeter = null;
+        }
+
+        $this->merge([
+            'start_meter_reading_km' => $startMeter,
+        ]);
+    }
+
     /**
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        $trip = $this->route('trip');
+        $effectiveStatus = strtoupper((string) (
+            $this->input('status')
+            ?? ($trip?->status instanceof TripStatus ? $trip->status->value : $trip?->status)
+            ?? ''
+        ));
+        $startMeterRequired = $effectiveStatus !== '' && $effectiveStatus !== TripStatus::Pending->value;
+
         return [
             'vehicle_id' => ['prohibited'],
             'driver_id' => ['prohibited'],
             'substitute_driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
             'trip_number' => ['prohibited'],
             'trip_type' => ['prohibited'],
-            'start_meter_reading_km' => ['sometimes', 'required', 'numeric', 'gt:0'],
+            'start_meter_reading_km' => $startMeterRequired
+                ? ['sometimes', 'required', 'numeric', 'gt:0']
+                : ['nullable', 'numeric', 'gt:0'],
             'total_distance_km' => ['prohibited'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'broker_id' => ['nullable', 'integer', 'exists:brokers,id'],

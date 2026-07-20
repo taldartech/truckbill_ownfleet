@@ -323,7 +323,12 @@ class TripService
             }
 
             if (array_key_exists('start_meter_reading_km', $data)) {
-                $data['start_meter_reading_km'] = round((float) $data['start_meter_reading_km'], 2);
+                $startMeter = $data['start_meter_reading_km'];
+                $data['start_meter_reading_km'] = $startMeter !== null
+                    && $startMeter !== ''
+                    && (float) $startMeter > 0
+                    ? round((float) $startMeter, 2)
+                    : null;
             }
 
             if (array_key_exists('end_meter_reading_km', $data)) {

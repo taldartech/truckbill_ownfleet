@@ -518,13 +518,19 @@ export function useTripForm() {
                 }));
         }
 
+        const startMeterRaw = form.start_meter_reading_km;
+        const startMeter =
+            startMeterRaw === '' || startMeterRaw == null || Number(startMeterRaw) <= 0
+                ? null
+                : Number(startMeterRaw);
+
         if (mode === 'create') {
             payload.customer_id = form.customer_id || null;
             payload.broker_id = form.broker_id || null;
             payload.vehicle_id = form.vehicle_id;
             payload.driver_id = form.driver_id;
             payload.trip_type = form.trip_type;
-            payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
+            payload.start_meter_reading_km = startMeter;
 
             if (form.trip_sequence !== '' && form.trip_sequence != null) {
                 payload.trip_sequence = Number(form.trip_sequence);
@@ -532,7 +538,7 @@ export function useTripForm() {
         } else {
             payload.customer_id = form.customer_id || null;
             payload.broker_id = form.broker_id || null;
-            payload.start_meter_reading_km = parseNumeric(form.start_meter_reading_km);
+            payload.start_meter_reading_km = startMeter;
         }
 
         return payload;
