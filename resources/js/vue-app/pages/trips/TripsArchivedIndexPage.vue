@@ -12,39 +12,32 @@
                     <i class="bi bi-arrow-left" aria-hidden="true"></i>
                     Back to Trip List
                 </RouterLink>
-                <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="trips-archived-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="trips-archived-filters-panel"
                 :loading="loading"
                 @search="loadTrips(1)"
                 @reset="clearFilters"
             >
-                <div class="trips-filter-search">
-                    <label class="form-label" for="trips_archived_search">Search</label>
+                <div class="filter-search-col">
+                    <label class="form-label" for="trips_archived_search">
+                        Search
+                        <span v-if="searchIgnoresDateRange" class="text-muted fw-normal ms-1" style="font-size: 0.75rem;">
+                            (ignores date range)
+                        </span>
+                    </label>
                     <AppIndexSearchInput
                         v-model="filters.search"
                         input-id="trips_archived_search"
-                        placeholder="Trip #, truck registration, primary or substitute driver…"
+                        placeholder="Trip #, truck, driver"
                         max-width="100%"
+                        size="md"
                         :disabled="loading"
                         @keydown.enter="loadTrips(1)"
                     />
-                    <div v-if="searchIgnoresDateRange" class="form-text mb-0 mt-1">
-                        Search looks across all trips and ignores the date range.
-                    </div>
                 </div>
-                <div class="trips-filter-period">
+                <div class="filter-period-col">
                     <DashboardDateRangePicker
                         v-model:from-date="filters.from_date"
                         v-model:to-date="filters.to_date"
@@ -55,7 +48,7 @@
                         @change="onDateRangeChange"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col">
                     <label class="form-label">Status</label>
                     <AppSelect
                         v-model="filters.status"
@@ -65,17 +58,7 @@
                         :disabled="loading"
                     />
                 </div>
-                <div>
-                    <label class="form-label">Trip Type</label>
-                    <AppSelect
-                        v-model="filters.trip_type"
-                        :options="tripTypes"
-                        placeholder="All trip types"
-                        search-placeholder="Search trip type…"
-                        :disabled="loading"
-                    />
-                </div>
-                <div>
+                <div class="filter-picker-col">
                     <label class="form-label">Customer</label>
                     <SearchablePicker
                         v-model="filters.customer_id"
@@ -86,29 +69,18 @@
                         view-title="Customer details"
                     />
                 </div>
-                <div>
-                    <label class="form-label">Reference</label>
-                    <SearchablePicker
-                        v-model="filters.broker_id"
-                        :items="brokers"
-                        placeholder="All references"
-                        search-placeholder="Search reference…"
-                        empty-message="No reference found."
-                        view-title="Reference details"
-                    />
-                </div>
             </AppIndexCollapsibleFilters>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
                         <th>Trip #</th>
-                        <th>Truck</th>
-                        <th>Driver</th>
+                        <th>Truck / Driver</th>
                         <th class="trips-status-col">Status</th>
-                        <th class="trips-archived-col">Archived At</th>
-                        <th class="trips-archive-reason-col">Archive Reason</th>
-                        <th v-if="showActions" class="app-index-actions-cell text-end" style="width: 80px">Actions</th>
+                        <th class="trips-period-col">Trip Date</th>
+                        <th class="trips-route-col">Route</th>
+                        <th class="trips-financials-col">Freight / Expense / Profit</th>
+                        <th v-if="showActions" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,10 +110,19 @@
                                 </span>
                             </div>
                         </td>
-                        <td>{{ trip.vehicle?.registration_number ?? '—' }}</td>
                         <td>
-                            <div>{{ trip.driver?.name ?? '—' }}</div>
-                            <div v-if="trip.substitute_driver?.name" class="small text-muted">
+                            <div class="fw-bold">
+                                {{ trip.vehicle?.registration_number ?? '—' }}
+                            </div>
+
+                            <div class="text-muted small">
+                                {{ trip.driver?.name ?? '—' }}
+                            </div>
+
+                            <div
+                                v-if="trip.substitute_driver?.name"
+                                class="text-warning small"
+                            >
                                 Substitute: {{ trip.substitute_driver.name }}
                             </div>
                         </td>
@@ -150,14 +131,71 @@
                                 {{ tripStatusInfo(trip.status).label }}
                             </span>
                         </td>
-                        <td class="trips-archived-col small">
-                            {{ formatDate(trip.archived_at) }}
+                        <td class="trips-period-col small">
+                            <div>{{ formatDate(trip.start_at) }}</div>
+                            <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
                         </td>
-                        <td class="trips-archive-reason-col small text-muted">
-                            {{ trip.archive_reason || '—' }}
+                        <td class="trips-route-col small">
+                            <div
+                                class="trips-route"
+                                :class="{ 'trips-route--has-via': routeSummary(trip).middle.length > 0 }"
+                                :title="routeHoverTitle(trip)"
+                            >
+                                <div class="trips-route__main">
+                                    <span class="trips-route__point trips-route__point--from">
+                                        <i class="bi bi-circle-fill" aria-hidden="true"></i>
+                                        <span class="trips-route__name">{{ routeSummary(trip).source }}</span>
+                                    </span>
+                                    <i class="bi bi-arrow-right trips-route__arrow" aria-hidden="true"></i>
+                                    <span class="trips-route__point trips-route__point--to">
+                                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                                        <span class="trips-route__name">{{ routeSummary(trip).destination }}</span>
+                                    </span>
+                                    <span
+                                        v-if="routeSummary(trip).middle.length > 0"
+                                        class="trips-route__via-badge"
+                                    >
+                                        +{{ routeSummary(trip).middle.length }}
+                                    </span>
+                                </div>
+                                <div
+                                    v-if="routeSummary(trip).middle.length > 0"
+                                    class="trips-route__via"
+                                >
+                                    <span class="trips-route__via-label">Via</span>
+                                    <span class="trips-route__via-stops">{{ routeSummary(trip).middle.join(' · ') }}</span>
+                                </div>
+                            </div>
                         </td>
-                        <td v-if="showActions" class="app-index-actions-cell text-end">
-                            <AppTableActions>
+                        <td class="trips-financials-col">
+                            <div class="trips-financials" :title="financialSummaryTitle(trip)">
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Freight</span>
+                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
+                                </div>
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Expense</span>
+                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
+                                </div>
+                                <div class="trips-financials__row">
+                                    <span class="trips-financials__label">Profit</span>
+                                    <span
+                                        class="trips-financials__val"
+                                        :class="tripProfit(trip) >= 0 ? 'text-success' : 'text-danger'"
+                                    >
+                                        ₹{{ formatCompactMoney(tripProfit(trip)) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </td>
+                        <td
+                            v-if="showActions"
+                            class="app-index-actions-cell"
+                            style="text-align: left;"
+                        >
+                            <AppTableActions
+                                style="display: flex; justify-content: flex-start; width: 100%;"
+                            >
                                 <AppCrudActionButton action="view" title="View trip" @click="goToView(trip)" />
                                 <AppCrudActionButton
                                     v-if="canRestore"
@@ -197,7 +235,6 @@
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../../api';
-import { listAllBrokers } from '../../api/brokers';
 import { listAllCustomers } from '../../api/customers';
 import {
     defaultTripListFilters,
@@ -206,7 +243,6 @@ import {
     tripStatusMeta,
     tripTypeMeta,
     TRIP_STATUSES,
-    TRIP_TYPES,
 } from '../../api/trips';
 import DashboardDateRangePicker from '../../components/dashboard/DashboardDateRangePicker.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -215,7 +251,6 @@ import SearchablePicker from '../../components/ui/SearchablePicker.vue';
 import { TRIP_LIST_DATE_PRESET_KEYS } from '../../utils/dateRangePresets';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
-import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
@@ -255,22 +290,19 @@ const { applyApiError } = useApiFormErrors();
 
 const trips = ref([]);
 const customers = ref([]);
-const brokers = ref([]);
 const loading = ref(true);
 const showRestoreConfirm = ref(false);
 const restoreConfirmSummary = ref(null);
 const tripPendingRestore = ref(null);
 const restoringTripId = ref(null);
 const tripStatuses = TRIP_STATUSES;
-const tripTypes = TRIP_TYPES;
 const tripDatePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
-const filtersOpen = ref(false);
 
-const filters = reactive(defaultArchivedFilters());
+const filters = reactive(defaultTripListFilters());
 
 const { pagination, syncFromMeta } = useListPagination(10);
 
-const defaultFilters = defaultArchivedFilters();
+const defaultFilters = defaultTripListFilters();
 const searchAutoLoadReady = ref(false);
 const listReady = ref(false);
 let searchDebounceTimer = null;
@@ -283,35 +315,15 @@ const tenantId = computed(
 
 const searchIgnoresDateRange = computed(() => filters.search.trim() !== '');
 
-const filtersActive = computed(() => {
-    return (
-        filters.from_date !== defaultFilters.from_date ||
-        filters.to_date !== defaultFilters.to_date ||
-        filters.search.trim() !== '' ||
-        filters.customer_id !== '' ||
-        filters.broker_id !== '' ||
-        filters.status !== '' ||
-        filters.trip_type !== ''
-    );
-});
-
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
-}
-
-function defaultArchivedFilters() {
-    return defaultTripListFilters();
-}
-
 function currentListState() {
     return {
         from_date: filters.from_date,
         to_date: filters.to_date,
         search: filters.search.trim(),
         status: filters.status,
-        trip_type: filters.trip_type,
+        trip_type: '',
         customer_id: filters.customer_id,
-        broker_id: filters.broker_id,
+        broker_id: '',
         page: pagination.currentPage,
         per_page: pagination.perPage,
     };
@@ -322,9 +334,9 @@ function applyListState(state) {
     filters.to_date = state.to_date ?? defaultFilters.to_date;
     filters.search = state.search ?? '';
     filters.status = state.status ?? '';
-    filters.trip_type = state.trip_type ?? '';
+    filters.trip_type = '';
     filters.customer_id = state.customer_id ?? '';
-    filters.broker_id = state.broker_id ?? '';
+    filters.broker_id = '';
     pagination.currentPage = Number(state.page) > 0 ? Number(state.page) : 1;
     pagination.perPage = Number(state.per_page) > 0 ? Number(state.per_page) : 10;
 }
@@ -335,9 +347,7 @@ function listStatesEqual(left, right) {
         left.to_date === right.to_date &&
         left.search === right.search &&
         left.status === right.status &&
-        left.trip_type === right.trip_type &&
         String(left.customer_id) === String(right.customer_id) &&
-        String(left.broker_id) === String(right.broker_id) &&
         Number(left.page) === Number(right.page) &&
         Number(left.per_page) === Number(right.per_page)
     );
@@ -362,12 +372,91 @@ function syncListStateToRoute(extraQuery = {}) {
         });
 }
 
+function formatMoney(value) {
+    return Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatCompactMoney(value) {
+    const amount = Number(value ?? 0);
+
+    if (!Number.isFinite(amount)) {
+        return '0';
+    }
+
+    if (amount === 0) {
+        return '0';
+    }
+
+    return amount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function tripProfit(trip) {
+    const freight = Number(trip.total_freight_amount ?? 0);
+    const expense = Number(trip.total_expense_amount ?? 0);
+    const profit = Number(trip.profit_amount ?? freight - expense);
+
+    if (Number.isFinite(profit)) {
+        return profit;
+    }
+
+    return freight - expense;
+}
+
+function financialSummaryTitle(trip) {
+    const profit = tripProfit(trip);
+
+    return `Freight ₹${formatMoney(trip.total_freight_amount)} · Expense ₹${formatMoney(trip.total_expense_amount)} · Profit ₹${formatMoney(profit)}`;
+}
+
 function tripTypeInfo(type) {
     return tripTypeMeta(type);
 }
 
 function tripStatusInfo(status) {
     return tripStatusMeta(status);
+}
+
+function routeSummary(trip) {
+    const legs = trip.route_legs ?? [];
+    const points = [];
+
+    if (legs[0]?.from_city) {
+        points.push(String(legs[0].from_city).trim());
+    }
+
+    legs.forEach((leg) => {
+        const city = String(leg?.to_city ?? '').trim();
+
+        if (city) {
+            points.push(city);
+        }
+    });
+
+    const cleaned = points.filter(Boolean);
+
+    if (cleaned.length === 0) {
+        return {
+            source: '—',
+            destination: '—',
+            middle: [],
+        };
+    }
+
+    return {
+        source: cleaned[0],
+        destination: cleaned[cleaned.length - 1],
+        middle: cleaned.length > 2 ? cleaned.slice(1, -1) : [],
+    };
+}
+
+function routeHoverTitle(trip) {
+    const summary = routeSummary(trip);
+
+    if (summary.middle.length === 0) {
+        return `${summary.source} → ${summary.destination}`;
+    }
+
+    return `${summary.source} → ${summary.destination}\nVia: ${summary.middle.join(' · ')}`;
 }
 
 function showRouteFlash() {
@@ -383,7 +472,7 @@ function clearFilters() {
     clearTimeout(searchDebounceTimer);
     skipNextSearchWatch = true;
     clearTripArchivedListStateFromSession(tenantId.value);
-    Object.assign(filters, defaultArchivedFilters());
+    Object.assign(filters, defaultTripListFilters());
     pagination.currentPage = 1;
     pagination.perPage = 10;
     syncListStateToRoute();
@@ -423,9 +512,7 @@ async function loadTrips(page = 1) {
             from_date: search ? undefined : filters.from_date || undefined,
             to_date: search ? undefined : filters.to_date || undefined,
             customer_id: filters.customer_id || undefined,
-            broker_id: filters.broker_id || undefined,
             status: filters.status || undefined,
-            trip_type: filters.trip_type || undefined,
         });
 
         trips.value = result.data;
@@ -540,10 +627,7 @@ watch(
 );
 
 async function loadFilterLookups() {
-    const [customerList, brokerList] = await Promise.all([listAllCustomers(), listAllBrokers()]);
-
-    customers.value = customerList;
-    brokers.value = brokerList;
+    customers.value = await listAllCustomers();
 }
 
 function applyRouteFilters() {
@@ -585,10 +669,6 @@ onMounted(async () => {
         syncListStateToRoute();
     }
 
-    if (hasArchivedFilterQueryParams(route.query) || filtersActive.value) {
-        filtersOpen.value = true;
-    }
-
     listReady.value = true;
     searchAutoLoadReady.value = true;
 });
@@ -600,16 +680,97 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.trips-filter-search {
-    grid-column: 1 / -1;
+/* Keep filters + Search/Reset on one row */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    gap: 10px !important;
 }
 
-.trips-filter-search :deep(.app-index-search) {
-    max-width: none;
+:deep(.app-index-filters-fields) {
+    display: contents !important;
 }
 
-.trips-filter-period {
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0 !important;
+    margin-left: auto !important;
+    align-self: flex-end !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem;
+}
+
+.filter-search-col {
+    flex: 0 0 240px !important;
+    width: 240px !important;
+    max-width: 240px !important;
+    min-width: 0 !important;
+}
+
+.filter-period-col {
+    flex: 0 0 200px !important;
+    width: 200px !important;
+    max-width: 200px !important;
+    min-width: 0 !important;
+}
+
+.filter-select-col {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    max-width: 150px !important;
+    min-width: 0 !important;
+}
+
+.filter-picker-col {
+    flex: 0 0 270px !important;
+    width: 270px !important;
+    max-width: 270px !important;
+    min-width: 0 !important;
+}
+
+.filter-picker-col :deep(.picker-row) {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+
+.filter-picker-col :deep(.picker-main) {
+    flex: 1 1 auto;
     min-width: 0;
+    width: auto !important;
+    max-width: none !important;
+}
+
+.filter-picker-col :deep(.picker-trigger) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.filter-picker-col :deep(.picker-actions) {
+    position: static;
+    flex: 0 0 auto;
+    align-self: center;
+    padding-top: 0;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.filter-picker-col :deep(.picker-actions .picker-action-btn) {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.filter-search-col :deep(.app-index-search),
+.filter-period-col :deep(.dashboard-date-range),
+.filter-select-col :deep(.app-select),
+.filter-picker-col :deep(.searchable-picker) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
 }
 
 .trip-number-link {
@@ -664,16 +825,156 @@ onBeforeUnmount(() => {
     vertical-align: middle;
 }
 
-.trips-archived-col {
+.trips-financials-col {
     width: 1%;
     white-space: nowrap;
+    min-width: 8.75rem;
 }
 
-.trips-archive-reason-col {
+.trips-period-col {
+    width: 1%;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.trips-route-col {
     max-width: 14rem;
+    min-width: 10rem;
+    overflow: hidden;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.trips-route {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.trips-route__main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.trips-route__point {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    min-width: 0;
+    max-width: 5.5rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.trips-route__point i {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    line-height: 1;
+}
+
+.trips-route__point--from i {
+    color: #64748b;
+}
+
+.trips-route__point--to i {
+    color: #0d6efd;
+}
+
+.trips-route__name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.trips-route__arrow {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.trips-route__via-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.trips-route__via {
+    display: none;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    padding-left: 0.05rem;
+    color: #64748b;
+    font-size: 0.6875rem;
+    line-height: 1.25;
+}
+
+.trips-route--has-via:hover .trips-route__via,
+.trips-route--has-via:focus-within .trips-route__via {
+    display: flex;
+}
+
+.trips-route__via-label {
+    flex-shrink: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.6rem;
+    color: #94a3b8;
+}
+
+.trips-route__via-stops {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #475569;
+}
+
+.trips-financials {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.trips-financials__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.trips-financials__label {
+    color: #6c757d;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.trips-financials__label::after {
+    content: ':';
+}
+
+.trips-financials__val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
 }
 
 .app-index-list-card :deep(.app-table-actions) {

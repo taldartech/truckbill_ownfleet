@@ -62,14 +62,12 @@ export function lastThirtyDaysDateRange(referenceDate = new Date()) {
 }
 
 export function thisMonthDateRange(referenceDate = new Date()) {
-    const today = toIsoDate(referenceDate);
-    const [year, month] = today.split('-').map(Number);
+    const [year, month] = toIsoDate(referenceDate).split('-').map(Number);
     const lastDay = new Date(year, month, 0).getDate();
-    const monthEnd = `${year}-${pad(month)}-${pad(lastDay)}`;
 
     return {
         from_date: `${year}-${pad(month)}-01`,
-        to_date: monthEnd > today ? today : monthEnd,
+        to_date: `${year}-${pad(month)}-${pad(lastDay)}`,
     };
 }
 

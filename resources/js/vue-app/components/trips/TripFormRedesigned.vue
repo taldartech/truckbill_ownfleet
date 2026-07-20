@@ -3,20 +3,16 @@
 
         <!-- Sticky validation bar -->
         <Transition name="trf-slide">
-            <div v-if="formError || validationMessages.length > 0 || routeErrorChips.length > 0" class="trf-validation-bar">
+            <div v-if="bannerMessage || routeErrorChips.length > 0" class="trf-validation-bar">
                 <div class="trf-validation-bar__inner">
-                    <div v-if="formError" class="trf-validation-bar__row trf-validation-bar__row--error">
+                    <div v-if="bannerMessage" class="trf-validation-bar__row trf-validation-bar__row--error">
                         <i class="bi bi-exclamation-octagon-fill"></i>
-                        <span>{{ formError }}</span>
+                        <span>{{ bannerMessage }}</span>
                     </div>
-                    <div v-if="validationMessages.length > 0" class="trf-validation-bar__row trf-validation-bar__row--warn">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <div>
-                            <span class="fw-semibold">Fix these issues before saving: </span>
-                            {{ validationMessages.join(' • ') }}
-                        </div>
-                    </div>
-                    <div v-if="routeErrorChips.length > 0" class="trf-validation-bar__row trf-validation-bar__row--warn trf-validation-bar__row--chips">
+                    <div
+                        v-else-if="routeErrorChips.length > 0"
+                        class="trf-validation-bar__row trf-validation-bar__row--warn trf-validation-bar__row--chips"
+                    >
                         <i class="bi bi-signpost-split-fill"></i>
                         <div class="trf-error-chips">
                             <button
@@ -1640,7 +1636,7 @@ const validationMessages = computed(() => {
             }
         });
     });
-    return [...new Set(msgs)].slice(0, 5);
+    return [...new Set(msgs)];
 });
 
 const routeErrorChips = computed(() => {
@@ -1671,6 +1667,22 @@ const routeErrorChips = computed(() => {
         });
     });
     return chips;
+});
+
+const bannerMessage = computed(() => {
+    if (props.formError) {
+        return props.formError;
+    }
+
+    if (validationMessages.value.length > 0) {
+        return validationMessages.value[0];
+    }
+
+    if (routeErrorChips.value.length === 1) {
+        return routeErrorChips.value[0].message;
+    }
+
+    return '';
 });
 
 function isStopExpanded(index) {

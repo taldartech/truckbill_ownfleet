@@ -368,9 +368,7 @@ export function validateTripPayload(
     if (mode === 'create') {
         if (!payload.vehicle_id) {
             errors.vehicle_id = ['Please select a truck.'];
-        }
-
-        if (!payload.driver_id) {
+        } else if (!payload.driver_id) {
             errors.driver_id = ['Primary driver could not be resolved for the selected truck.'];
         }
 
@@ -734,7 +732,86 @@ export function validateTripPayload(
         }),
     );
 
+    if (mode === 'create') {
+        return pickFirstTripValidationError(errors);
+    }
+
     return errors;
+}
+
+/**
+ * Return only the highest-priority validation error so create shows one message at a time.
+ *
+ * @param {Record<string, string[]|string>} errors
+ * @returns {Record<string, string[]|string>}
+ */
+export function pickFirstTripValidationError(errors = {}) {
+    const priorityKeys = [
+        'vehicle_id',
+        'driver_id',
+        'substitute_driver_id',
+        'trip_type',
+        'start_station_id',
+        'start_at',
+        'end_at',
+        'start_meter_reading_km',
+        'end_meter_reading_km',
+        'planned_mileage_km_per_liter',
+        'planned_diesel_liters',
+        'diesel_rate_per_liter',
+        'customer_id',
+        'broker_id',
+        'notes',
+        'route_legs',
+        'expenses',
+        'trip',
+        'status',
+    ];
+
+    for (const key of priorityKeys) {
+        if (errors[key]) {
+            return { [key]: errors[key] };
+        }
+    }
+
+    const routeFieldKeys = Object.keys(errors)
+        .filter((key) => /^route_legs\.\d+\./.test(key))
+        .sort((left, right) => {
+            const leftParts = left.split('.');
+            const rightParts = right.split('.');
+            const leftIndex = Number(leftParts[1] ?? 0);
+            const rightIndex = Number(rightParts[1] ?? 0);
+
+            if (leftIndex !== rightIndex) {
+                return leftIndex - rightIndex;
+            }
+
+            return left.localeCompare(right);
+        });
+
+    if (routeFieldKeys.length > 0) {
+        const key = routeFieldKeys[0];
+
+        return { [key]: errors[key] };
+    }
+
+    const expenseFieldKeys = Object.keys(errors)
+        .filter((key) => key.startsWith('expenses.'))
+        .sort();
+
+    if (expenseFieldKeys.length > 0) {
+        const key = expenseFieldKeys[0];
+
+        return { [key]: errors[key] };
+    }
+
+    const remaining = Object.keys(errors);
+
+    if (remaining.length === 0) {
+        return {};
+    }
+
+    return { [remaining[0]]: errors[remaining[0]] };
 }
 
 export function validateTripStatusChange(

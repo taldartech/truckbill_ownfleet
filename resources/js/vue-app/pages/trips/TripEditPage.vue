@@ -504,8 +504,9 @@ async function prepareSave() {
 
     if (Object.keys(clientErrors).length > 0) {
         fieldErrors.value = clientErrors;
-        tripFormError.value = 'Please fix the errors below before saving.';
-        toast.error(tripFormError.value);
+        const firstError = Object.values(clientErrors).flat()[0] ?? 'Please fix the error below before saving.';
+        tripFormError.value = firstError;
+        toast.error(firstError);
         scrollToFirstFormError();
 
         return null;
