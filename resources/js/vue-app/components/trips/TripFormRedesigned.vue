@@ -3795,7 +3795,6 @@ defineExpose({ changeStatus: () => {} });
     font-size: var(--leg-fs-input);
 }
 .trf-leg__fields .trf-input[type='date'] {
-    display: flex;
     align-items: center;
 }
 .trf-leg__fields .trf-lf__picker {

@@ -141,7 +141,7 @@ const router = createRouter({
                 {
                     path: 'trips/create',
                     name: 'trips.create',
-                    component: () => import('./pages/trips/TripCreatePage.vue'),
+                    component: () => import('./pages/trips/TripCreateRedesignedPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.create' },
                 },
                 {
@@ -169,7 +169,7 @@ const router = createRouter({
                 {
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
-                    component: () => import('./pages/trips/TripEditPage.vue'),
+                    component: () => import('./pages/trips/TripEditRedesignedPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {
