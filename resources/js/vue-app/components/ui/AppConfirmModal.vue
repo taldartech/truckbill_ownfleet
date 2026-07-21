@@ -52,6 +52,16 @@
                 :icon="confirmIcon"
                 @click="$emit('confirm')"
             />
+            <AppButton
+                v-if="secondaryConfirmLabel"
+                :variant="secondaryConfirmVariant"
+                :label="loading ? loadingLabel : secondaryConfirmLabel"
+                :loading="loading"
+                :disabled="confirmDisabled"
+                class="px-4 fw-semibold"
+                :icon="secondaryConfirmIcon"
+                @click="$emit('secondary-confirm')"
+            />
         </template>
     </AppModal>
 </template>
@@ -79,16 +89,19 @@ const props = defineProps({
     },
     cancelLabel: { type: String, default: 'Cancel' },
     confirmLabel: { type: String, default: 'Confirm' },
+    secondaryConfirmLabel: { type: String, default: '' },
     loadingLabel: { type: String, default: 'Processing…' },
     confirmVariant: { type: String, default: 'primary' },
+    secondaryConfirmVariant: { type: String, default: 'primary' },
     confirmIcon: { type: String, default: '' },
+    secondaryConfirmIcon: { type: String, default: '' },
     confirmDisabled: { type: Boolean, default: false },
     showConfirm: { type: Boolean, default: true },
     contentClass: { type: [String, Object, Array], default: '' },
     bodyClass: { type: [String, Object, Array], default: '' },
 });
 
-const emit = defineEmits(['cancel', 'confirm']);
+const emit = defineEmits(['cancel', 'confirm', 'secondary-confirm']);
 
 const iconClass = computed(() => {
     const tones = {

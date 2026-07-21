@@ -1421,7 +1421,7 @@ export function resolveTripEditAccess(status, user, options = {}) {
         return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
     }
 
-    if (isAdminUser(user) && normalized === 'COMPLETED') {
+    if (isAdminUser(user) && (normalized === 'COMPLETED' || normalized === 'INVOICED')) {
         return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: false };
     }
 
@@ -1439,17 +1439,15 @@ export function canManageTripExpenses(status, user, options = {}) {
 export function canArchiveTrip(status, user = null) {
     const normalized = String(status ?? '').toUpperCase();
 
-    if (! ['COMPLETED'].includes(normalized)) {
-        return true;
-    }
-
-    return isSuperAdminUser(user);
+    return ['PENDING', 'IN_PROGRESS', 'CANCELLED'].includes(normalized);
 }
 
 export function tripArchiveDisabledTitle(status, user = null) {
     if (! canArchiveTrip(status, user)) {
-        if (String(status ?? '').toUpperCase() === 'COMPLETED') {
-            return 'Only Super Admin can archive or delete completed trips.';
+        const normalized = String(status ?? '').toUpperCase();
+
+        if (normalized === 'COMPLETED' || normalized === 'INVOICED') {
+            return 'Completed or invoiced trips cannot be archived.';
         }
 
         return 'This trip cannot be archived or deleted.';

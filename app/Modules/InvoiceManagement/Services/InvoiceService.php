@@ -433,9 +433,9 @@ class InvoiceService
         ]);
     }
 
-    public function cancelInvoice(Invoice $invoice): void
+    public function cancelInvoice(Invoice $invoice, ?User $user = null): void
     {
-        DB::transaction(function () use ($invoice): void {
+        DB::transaction(function () use ($invoice, $user): void {
             if ($invoice->isCancelled()) {
                 throw ValidationException::withMessages([
                     'invoice' => ['This invoice is already cancelled.'],
@@ -458,6 +458,14 @@ class InvoiceService
             $invoice->forceFill([
                 'payment_status' => InvoicePaymentStatus::Cancelled,
             ])->save();
+
+            if ($invoice->trip_id !== null) {
+                $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
+
+                if ($trip !== null) {
+                    $this->revertTripFromInvoicedIfNeeded($trip, $user);
+                }
+            }
         });
     }
 
@@ -641,6 +649,39 @@ class InvoiceService
             'changed_at' => now(),
             'changed_by' => $user?->id,
             'remarks' => 'Invoice generated',
+        ]);
+    }
+
+    private function revertTripFromInvoicedIfNeeded(Trip $trip, ?User $user = null): void
+    {
+        $status = $trip->status instanceof TripStatus
+            ? $trip->status
+            : TripStatus::tryFrom((string) $trip->status);
+
+        if ($status !== TripStatus::Invoiced) {
+            return;
+        }
+
+        $hasActiveInvoices = Invoice::query()
+            ->withoutGlobalScopes()
+            ->where('trip_id', $trip->id)
+            ->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value)
+            ->exists();
+
+        if ($hasActiveInvoices) {
+            return;
+        }
+
+        $trip->update(['status' => TripStatus::Completed]);
+
+        TripStatusHistory::query()->create([
+            'tenant_id' => $trip->tenant_id,
+            'trip_id' => $trip->id,
+            'from_status' => TripStatus::Invoiced->value,
+            'to_status' => TripStatus::Completed->value,
+            'changed_at' => now(),
+            'changed_by' => $user?->id,
+            'remarks' => 'Invoice cancelled',
         ]);
     }
 

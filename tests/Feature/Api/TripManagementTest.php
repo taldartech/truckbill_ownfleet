@@ -3352,7 +3352,7 @@ class TripManagementTest extends TestCase
             ->getJson('/api/trips/'.$trip->id.'/archive-impact')
             ->assertOk()
             ->assertJsonPath('can_archive', false)
-            ->assertJsonPath('block_reason', 'Only Super Admin can archive or delete completed trips.');
+            ->assertJsonPath('block_reason', 'Completed or invoiced trips cannot be archived.');
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips/'.$trip->id.'/archive', [
@@ -3363,7 +3363,7 @@ class TripManagementTest extends TestCase
         $this->assertNotNull(Trip::query()->find($trip->id));
     }
 
-    public function test_super_admin_can_archive_completed_trip_with_reason(): void
+    public function test_super_admin_cannot_archive_completed_trip(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('super_admin');
         $this->actingAs($user);
@@ -3377,16 +3377,41 @@ class TripManagementTest extends TestCase
             ->withHeader('X-Branch-Id', (string) $vehicle->branch_id)
             ->getJson('/api/trips/'.$trip->id.'/archive-impact')
             ->assertOk()
-            ->assertJsonPath('can_archive', true);
+            ->assertJsonPath('can_archive', false)
+            ->assertJsonPath('block_reason', 'Completed or invoiced trips cannot be archived.');
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->withHeader('X-Branch-Id', (string) $vehicle->branch_id)
             ->postJson('/api/trips/'.$trip->id.'/archive', [
                 'archive_reason' => 'Completed trip removed by super admin during testing.',
             ])
-            ->assertNoContent();
+            ->assertForbidden();
 
-        $this->assertNull(Trip::query()->find($trip->id));
+        $this->assertNotNull(Trip::query()->find($trip->id));
+    }
+
+    public function test_admin_cannot_archive_invoiced_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        TenantContext::setTenantId($tenant->id);
+
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+        $trip->update(['status' => TripStatus::Invoiced->value]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/trips/'.$trip->id.'/archive-impact')
+            ->assertOk()
+            ->assertJsonPath('can_archive', false)
+            ->assertJsonPath('block_reason', 'Completed or invoiced trips cannot be archived.');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/trips/'.$trip->id.'/archive', [
+                'archive_reason' => 'Invoiced trip should not be archived.',
+            ])
+            ->assertForbidden();
+
+        $this->assertNotNull(Trip::query()->find($trip->id));
     }
 
     public function test_archived_trip_cannot_be_updated(): void

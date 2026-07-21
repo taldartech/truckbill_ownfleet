@@ -54,7 +54,7 @@ final class PermissionDefinitions
             'trips.create' => self::entry('Create trips', 'trips', 'Create new trip records.', 201),
             'trips.edit' => self::entry('Edit trips', 'trips', 'Update existing trip records.', 202),
             'trips.manage' => self::entry('Manage trips', 'trips', 'Legacy manage trips permission (create and edit).', 203),
-            'trips.archive' => self::entry('Archive trips', 'trips', 'Archive completed or cancelled trips.', 204),
+            'trips.archive' => self::entry('Archive trips', 'trips', 'Archive pending, running, or cancelled trips.', 204),
             'trips.view_archived' => self::entry('View archived trips', 'trips', 'View archived trip records.', 205),
             'trips.restore' => self::entry('Restore trips', 'trips', 'Restore archived trip records.', 206),
             'trips.delete' => self::entry('Delete trips (legacy)', 'trips', 'Legacy hard-delete trips permission.', 207),

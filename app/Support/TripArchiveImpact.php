@@ -28,18 +28,7 @@ class TripArchiveImpact
             return false;
         }
 
-        if (in_array($status, self::archivableStatuses(), true)) {
-            return true;
-        }
-
-        if (
-            in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)
-            && $user !== null
-        ) {
-            return RoleHierarchy::isSuperAdminRole((int) $user->user_role_id);
-        }
-
-        return false;
+        return in_array($status, self::archivableStatuses(), true);
     }
 
     /**
@@ -87,7 +76,7 @@ class TripArchiveImpact
             'block_reason' => $canArchive
                 ? null
                 : (in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)
-                    ? 'Only Super Admin can archive or delete completed trips.'
+                    ? 'Completed or invoiced trips cannot be archived.'
                     : 'This trip cannot be archived or deleted.'),
         ];
     }

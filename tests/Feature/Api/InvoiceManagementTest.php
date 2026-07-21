@@ -432,7 +432,16 @@ class InvoiceManagementTest extends TestCase
             ->deleteJson("/app/api/invoices/{$invoiceId}")
             ->assertForbidden();
 
-        $this->assertFalse($trip->fresh()->hasInvoices());
+        $tripAfterCancel = $trip->fresh();
+        $this->assertFalse($tripAfterCancel->hasInvoices());
+        $this->assertSame(TripStatus::Completed, $tripAfterCancel->status);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/trips/{$trip->id}")
+            ->assertOk()
+            ->assertJsonPath('data.has_invoices', false)
+            ->assertJsonPath('data.can_generate_invoices', true)
+            ->assertJsonPath('data.status', TripStatus::Completed->value);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])

@@ -423,8 +423,8 @@ class TripService
 
         if (! TripArchiveImpact::isArchivable($status, $user)) {
             throw ValidationException::withMessages([
-                'trip' => [$status === TripStatus::Completed
-                    ? 'Only Super Admin can archive or delete completed trips.'
+                'trip' => [in_array($status, [TripStatus::Completed, TripStatus::Invoiced], true)
+                    ? 'Completed or invoiced trips cannot be archived.'
                     : 'This trip cannot be archived or deleted.'],
             ]);
         }

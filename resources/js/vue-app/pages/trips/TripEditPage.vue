@@ -237,7 +237,12 @@ const terminalAlert = computed(() => {
         return '';
     }
 
-    const label = originalStatus.value === 'COMPLETED' ? 'completed' : 'cancelled';
+    const status = String(originalStatus.value ?? '').toUpperCase();
+    const label = status === 'CANCELLED'
+        ? 'cancelled'
+        : status === 'COMPLETED' || status === 'INVOICED'
+          ? 'completed'
+          : 'read-only';
 
     return `This trip is ${label} and is shown in read-only mode.`;
 });

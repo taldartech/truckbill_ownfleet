@@ -114,11 +114,11 @@ class InvoiceController extends Controller
         return response()->noContent();
     }
 
-    public function destroy(Invoice $invoice): Response
+    public function destroy(Invoice $invoice, Request $request): Response
     {
         $this->authorize('delete', $invoice);
 
-        $this->invoiceService->cancelInvoice($invoice);
+        $this->invoiceService->cancelInvoice($invoice, $request->user());
 
         return response()->noContent();
     }

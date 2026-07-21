@@ -581,185 +581,22 @@
             Trip not found or you do not have access.
         </div>
 
-        <AppModal
+        <TripGenerateInvoicesModal
             :show="showGenerateInvoices"
-            :loading="invoiceGenerating"
+            :trip="trip"
+            :groups="invoicePreviewGroups"
+            :preview-loading="invoicePreviewLoading"
+            :preview-refreshing="invoicePreviewRefreshing"
+            :generating="invoiceGenerating"
             :form-error="invoiceFormError"
-            size="xl"
+            :field-errors="invoiceFieldErrors"
+            :status-meta="statusMeta"
+            :route-preview="routePreview"
             @close="closeGenerateInvoices"
-        >
-            <template #title>Generate Invoice(s)</template>
-
-            <div v-if="trip" class="invoice-generate-trip-summary mb-3">
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <strong class="fs-5 mb-0">{{ trip.trip_number }}</strong>
-                    <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
-                    <span class="badge bg-light text-dark border">{{ tripTypeLabel(trip.trip_type) }}</span>
-                </div>
-                <div class="row g-2 small">
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Truck</div>
-                        <div class="fw-semibold">{{ trip.vehicle?.registration_number || '—' }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Driver</div>
-                        <div class="fw-semibold">{{ trip.driver?.name || '—' }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Trip Date</div>
-                        <div class="fw-semibold">
-                            {{ formatDate(trip.start_at) }}
-                            <span v-if="trip.end_at" class="text-muted"> → {{ formatDate(trip.end_at) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Freight</div>
-                        <div class="fw-semibold">₹{{ formatMoney(trip.total_freight_amount) }}</div>
-                    </div>
-                    <div class="col-12">
-                        <div class="text-muted">Route</div>
-                        <div class="fw-semibold">{{ routePreview || '—' }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="invoicePreviewLoading && invoicePreviewGroups.length === 0" class="text-center py-4 text-muted">
-                Loading invoice preview…
-            </div>
-
-            <div v-else-if="invoicePreviewGroups.length === 0" class="alert alert-warning mb-0">
-                No billable routes are available to invoice on this trip.
-            </div>
-
-            <div v-else class="d-flex flex-column gap-3">
-                <p class="text-muted small mb-0">
-                    Review each customer group below. Adjust invoice date and due date before generating. GST rate comes from company/branch GST settings.
-                    <span v-if="invoicePreviewRefreshing" class="ms-1 text-muted">Updating numbers…</span>
-                </p>
-
-                <div
-                    v-for="group in invoicePreviewGroups"
-                    :key="group.customer_id"
-                    class="card"
-                >
-                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <div>
-                            <strong>{{ group.customer_name }}</strong>
-                            <span v-if="group.customer_gst_number" class="text-muted small ms-2">
-                                GST: {{ group.customer_gst_number }}
-                            </span>
-                        </div>
-                        <span class="badge bg-secondary">{{ group.document_type_label }}</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Invoice Date</label>
-                                <AppDateInput
-                                    v-model="group.invoice_date"
-                                    :invalid="Boolean(invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`])"
-                                    @update:model-value="refreshInvoicePreviewDebounced"
-                                />
-                                <div
-                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`]"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.invoice_date`][0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Due Date</label>
-                                <AppDateInput
-                                    v-model="group.due_date"
-                                    :min="group.invoice_date || undefined"
-                                    :invalid="Boolean(invoiceFieldErrors[`groups.${group.customer_id}.due_date`])"
-                                />
-                                <div
-                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.due_date`]"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.due_date`][0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Invoice Number</label>
-                                <div class="input-group">
-                                    <input
-                                        :value="group.invoice_number"
-                                        type="text"
-                                        class="form-control bg-light"
-                                        readonly
-                                    />
-                                    <input
-                                        :value="group.invoice_sequence"
-                                        type="text"
-                                        inputmode="numeric"
-                                        class="form-control"
-                                        style="max-width: 7rem"
-                                        :class="{
-                                            'is-invalid': Boolean(
-                                                invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`],
-                                            ),
-                                        }"
-                                        placeholder="Seq"
-                                        @input="onInvoiceSequenceInput(group, $event)"
-                                    />
-                                </div>
-                                <div
-                                    v-if="invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`]"
-                                    class="invalid-feedback d-block"
-                                >
-                                    {{ invoiceFieldErrors[`groups.${group.customer_id}.invoice_sequence`][0] }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered mb-3">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Route</th>
-                                        <th>Goods</th>
-                                        <th class="text-end">Freight</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="route in group.routes" :key="route.id">
-                                        <td>{{ route.from_location }} → {{ route.to_location }}</td>
-                                        <td>{{ route.goods_name || '—' }}</td>
-                                        <td class="text-end">₹{{ formatMoney(route.freight_amount) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="row g-2 small">
-                            <div class="col-md-4">
-                                <span class="text-muted">Freight</span>
-                                <div class="fw-semibold">₹{{ formatMoney(group.freight_amount) }}</div>
-                            </div>
-                            <div v-if="group.displays_gst" class="col-md-4">
-                                <span class="text-muted">GST ({{ group.gst_rate }}%)</span>
-                                <div>₹{{ formatMoney(group.gst_amount) }}</div>
-                            </div>
-                            <div class="col-md-4">
-                                <span class="text-muted">Total</span>
-                                <div class="fw-semibold text-primary">₹{{ formatMoney(group.total_amount) }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <template #footer>
-                <button type="button" class="btn btn-secondary" @click="closeGenerateInvoices">Cancel</button>
-                <AppButton
-                    label="Generate Invoice(s)"
-                    :disabled="invoicePreviewLoading || invoiceGenerating || invoicePreviewGroups.length === 0"
-                    @click="promptGenerateInvoicesConfirm"
-                />
-            </template>
-        </AppModal>
+            @continue="promptGenerateInvoicesConfirm"
+            @invoice-date-change="refreshInvoicePreviewDebounced"
+            @sequence-input="onInvoiceSequenceInput"
+        />
 
         <AppConfirmModal
             :show="showInvoiceGenerateConfirm"
@@ -769,14 +606,18 @@
             icon-tone="warning"
             size="xl"
             :loading="invoiceGenerating"
-            confirm-label="Confirm & Generate"
+            confirm-label="Generate"
+            secondary-confirm-label="Generate & Print"
             loading-label="Generating…"
             confirm-variant="warning"
+            secondary-confirm-variant="warning"
             confirm-icon="bi bi-check2-circle"
+            secondary-confirm-icon="bi bi-printer"
             content-class="app-confirm-modal__content app-confirm-modal__content--compact border-0 shadow-lg"
             body-class="app-confirm-modal__body--compact"
             @cancel="cancelInvoiceGenerateConfirm"
             @confirm="confirmGenerateInvoices"
+            @secondary-confirm="confirmGenerateInvoicesAndPrint"
         >
             <div class="text-start invoice-generate-confirm">
                 <div v-if="trip" class="app-confirm-card mb-2">
@@ -972,13 +813,13 @@ import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmMo
 import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
+import TripGenerateInvoicesModal from '../../components/trips/TripGenerateInvoicesModal.vue';
 import TripFinancialSummaryCard from '../../components/trips/TripFinancialSummaryCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
-import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppModal from '../../components/ui/AppModal.vue';
-import { generateForTrip, previewForTrip } from '../../api/invoices';
+import { generateForTrip, pdfUrl, previewForTrip } from '../../api/invoices';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useTripDetailListReturn } from '../../composables/useTripListReturn';
@@ -1091,7 +932,6 @@ const isArchived = computed(() => isTripArchived(trip.value));
 const canGenerateInvoices = computed(
     () =>
         !isArchived.value
-        && trip.value?.status === 'COMPLETED'
         && Boolean(trip.value?.can_generate_invoices)
         && canInCompany('invoices.create'),
 );
@@ -1132,7 +972,12 @@ const terminalAlert = computed(() => {
         return 'This trip is completed. Trip details are read-only; use Manage Expenses to update expenses.';
     }
 
-    const label = trip.value?.status === 'COMPLETED' ? 'completed' : 'cancelled';
+    const status = String(trip.value?.status ?? '').toUpperCase();
+    const label = status === 'CANCELLED'
+        ? 'cancelled'
+        : status === 'COMPLETED' || status === 'INVOICED'
+          ? 'completed'
+          : 'read-only';
 
     return `This trip is ${label} and is read-only.`;
 });
@@ -1498,7 +1343,32 @@ function cancelInvoiceGenerateConfirm() {
     showGenerateInvoices.value = true;
 }
 
-async function confirmGenerateInvoices() {
+function openInvoicePdfTabs(invoices, pdfWindows = []) {
+    const list = (Array.isArray(invoices) ? invoices : [invoices]).filter((invoice) => invoice?.id);
+
+    list.forEach((invoice, index) => {
+        const url = pdfUrl(invoice.id);
+        const existingWindow = pdfWindows[index];
+
+        if (existingWindow && !existingWindow.closed) {
+            existingWindow.location.href = url;
+
+            return;
+        }
+
+        window.open(url, '_blank', 'noopener');
+    });
+
+    for (let index = list.length; index < pdfWindows.length; index += 1) {
+        pdfWindows[index]?.close();
+    }
+}
+
+function prepareInvoicePdfWindows() {
+    return invoicePreviewGroups.value.map(() => window.open('about:blank', '_blank', 'noopener'));
+}
+
+async function confirmGenerateInvoices({ openPdfs = false } = {}) {
     if (!trip.value?.id || invoicePreviewGroups.value.length === 0) {
         return;
     }
@@ -1510,22 +1380,34 @@ async function confirmGenerateInvoices() {
         return;
     }
 
+    const pdfWindows = openPdfs ? prepareInvoicePdfWindows() : [];
+
     invoiceGenerating.value = true;
     clearInvoiceErrors();
 
     try {
         const invoices = await generateForTrip(trip.value.id, buildInvoicePreviewPayload());
         const count = Array.isArray(invoices) ? invoices.length : 1;
+
+        if (openPdfs) {
+            openInvoicePdfTabs(invoices, pdfWindows);
+        }
+
         toast.success(`${count} invoice${count === 1 ? '' : 's'} generated.`);
         closeGenerateInvoices();
         await loadTrip();
     } catch (error) {
+        pdfWindows.forEach((pdfWindow) => pdfWindow?.close());
         showInvoiceGenerateConfirm.value = false;
         showGenerateInvoices.value = true;
         applyInvoiceApiError(error, 'Could not generate invoices.');
     } finally {
         invoiceGenerating.value = false;
     }
+}
+
+function confirmGenerateInvoicesAndPrint() {
+    return confirmGenerateInvoices({ openPdfs: true });
 }
 
 async function handleArchive() {
@@ -1768,13 +1650,6 @@ watch(
 </script>
 
 <style scoped>
-.invoice-generate-trip-summary {
-    padding: 0.85rem 1rem;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-}
-
 .invoice-generate-confirm__table {
     font-size: 0.875rem;
 }
