@@ -203,18 +203,36 @@ export function useTripForm() {
         syncTripTypeFromRoute();
     }
 
+    function resetRouteLegLocation(leg, { keepDestination = false } = {}) {
+        leg.from_city = '';
+        leg.to_city = '';
+        leg.distance_km = '';
+
+        if (!keepDestination) {
+            leg.to_station_id = '';
+        }
+    }
+
     function onStartStationChange() {
+        form.route_legs.forEach((leg) => {
+            resetRouteLegLocation(leg);
+        });
         rebuildLegChain();
         syncTripTypeFromRoute();
     }
 
     function onStopStationChange(index) {
-        rebuildLegChain();
+        const changedLeg = form.route_legs[index];
 
-        if (index < form.route_legs.length - 1) {
-            form.route_legs[index + 1].from_station_id = form.route_legs[index].to_station_id;
+        if (changedLeg) {
+            resetRouteLegLocation(changedLeg, { keepDestination: true });
         }
 
+        form.route_legs.slice(index + 1).forEach((leg) => {
+            resetRouteLegLocation(leg);
+        });
+
+        rebuildLegChain();
         syncTripTypeFromRoute();
     }
 
