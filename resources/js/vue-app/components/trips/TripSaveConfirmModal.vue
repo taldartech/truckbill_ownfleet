@@ -400,8 +400,8 @@ defineEmits(['cancel', 'confirm']);
     font-size: 0.78rem;
     font-weight: 700;
     color: #334155;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .tscm__section-meta {
@@ -437,8 +437,8 @@ defineEmits(['cancel', 'confirm']);
     display: block;
     font-size: 0.68rem;
     color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     margin-bottom: 0.15rem;
 }
 
@@ -487,8 +487,8 @@ defineEmits(['cancel', 'confirm']);
     white-space: nowrap;
     background: #f8fafc;
     font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
     border-bottom-width: 1px;
     padding: 0.4rem 0.55rem;
@@ -564,8 +564,8 @@ defineEmits(['cancel', 'confirm']);
 .tscm__total-label {
     display: block;
     font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
     margin-bottom: 0.15rem;
 }

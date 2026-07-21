@@ -141,8 +141,8 @@ function markerIcon(type) {
     display: inline-block;
     font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    letter-spacing: normal;
+    text-transform: none;
     color: #64748b;
     background: #f8fafc;
     border: 1px solid var(--timeline-card-border);

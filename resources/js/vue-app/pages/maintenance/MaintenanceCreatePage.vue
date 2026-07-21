@@ -243,12 +243,21 @@ onMounted(async () => {
 .maintenance-create-redesigned-page {
     max-width: 1180px;
     margin: 0 auto;
-    padding: 24px 20px 40px;
+    padding: 10px 14px 14px !important;
+}
+
+:global(.vue-app-shell) .maintenance-create-redesigned-page {
+    padding-bottom: 14px !important;
+}
+
+.maintenance-create-redesigned-page .trip-form-actions {
+    margin-top: 8px;
+    margin-bottom: 0;
 }
 
 @media (max-width: 575.98px) {
     .maintenance-create-redesigned-page {
-        padding: 16px 12px 32px;
+        padding: 10px 4px 16px !important;
     }
 }
 </style>

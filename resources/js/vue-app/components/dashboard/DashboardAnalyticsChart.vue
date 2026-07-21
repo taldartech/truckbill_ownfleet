@@ -692,8 +692,8 @@ function hideTooltip() {
     font-size: 0.9rem;
     font-weight: 700;
     color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .analytics-card__hint {
@@ -759,8 +759,8 @@ function hideTooltip() {
 .profit-margin-gauge__label {
     font-size: 0.78rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .profit-margin-gauge__label--profit {
@@ -798,8 +798,8 @@ function hideTooltip() {
     font-size: 0.72rem;
     font-weight: 600;
     color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .profit-margin-footer__value {

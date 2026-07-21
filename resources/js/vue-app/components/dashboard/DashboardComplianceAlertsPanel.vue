@@ -13,7 +13,7 @@
                 size="sm"
                 outline
                 variant="primary"
-                label="View all"
+                label="View All"
                 icon="fas fa-list-ul"
                 @click="$emit('view-all')"
             />
@@ -429,8 +429,8 @@ function handleExpirySaved(payload) {
 .compliance-summary-card__label {
     font-size: 0.72rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
 }
 
@@ -477,8 +477,8 @@ function handleExpirySaved(payload) {
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--brand-text-muted, #64748b);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .dashboard-panel__section-head {

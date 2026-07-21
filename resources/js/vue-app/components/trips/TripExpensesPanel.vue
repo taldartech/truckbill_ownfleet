@@ -45,7 +45,7 @@
                         class="trf-leg__summary-freight"
                         :class="{ 'is-empty': !(mergedSingleStopSubtotal > 0) }"
                     >
-                        {{ mergedSingleStopSubtotal > 0 ? `₹${formatMoney(mergedSingleStopSubtotal)}` : 'No Expenses' }}
+                        {{ mergedSingleStopSubtotal > 0 ? `₹${formatMoney(mergedSingleStopSubtotal)}` : 'No expenses' }}
                     </span>
                     <i
                         class="bi"
@@ -87,7 +87,7 @@
                         <span>Date</span>
                         <span>Type</span>
                         <template v-if="sectionUsesDieselColumns(mergedSingleStopItems)">
-                            <span>Km</span>
+                            <span>KM</span>
                             <span>LTR</span>
                             <span>₹/LTR</span>
                         </template>
@@ -120,7 +120,7 @@
                 </div>
                 <div v-if="mergedSingleStopItems.length === 0" class="expense-empty-state">
                     <i class="bi bi-plus-circle expense-empty-state__icon"></i>
-                    <span>Tap Diesel, Toll, Loading… To Add An Expense For This Trip.</span>
+                    <span>Tap Diesel, Toll, or Loading to add an expense for this trip.</span>
                 </div>
                 <div class="trf-leg__meta">
                     <div class="trf-leg__meta-left">
@@ -150,14 +150,14 @@
                         <span class="trf-leg__summary-sep">·</span>
                         <span class="trf-leg__summary-route">General Expenses</span>
                         <span class="trf-leg__summary-sep d-none d-md-inline">·</span>
-                        <span class="trf-leg__summary-customer d-none d-md-inline">Full-Route Toll, Permits, Etc.</span>
+                        <span class="trf-leg__summary-customer d-none d-md-inline">Full-route toll, permits, etc.</span>
                     </div>
                     <div class="trf-leg__summary-meta">
                         <span
                             class="trf-leg__summary-freight"
                             :class="{ 'is-empty': !(generalSubtotal > 0) }"
                         >
-                            {{ generalSubtotal > 0 ? `₹${formatMoney(generalSubtotal)}` : 'No Expenses' }}
+                            {{ generalSubtotal > 0 ? `₹${formatMoney(generalSubtotal)}` : 'No expenses' }}
                         </span>
                         <i
                             class="bi"
@@ -177,7 +177,7 @@
                             <span>Date</span>
                             <span>Type</span>
                             <template v-if="sectionUsesDieselColumns(generalItems)">
-                                <span>Km</span>
+                                <span>KM</span>
                                 <span>LTR</span>
                                 <span>₹/LTR</span>
                             </template>
@@ -210,7 +210,7 @@
                     </div>
                     <div v-if="generalItems.length === 0" class="expense-empty-state">
                         <i class="bi bi-receipt expense-empty-state__icon"></i>
-                        <span>No Whole-Trip Expenses Yet. Tap A Button Above To Add One.</span>
+                        <span>No whole-trip expenses yet. Tap a button above to add one.</span>
                     </div>
                     <div class="trf-leg__meta">
                         <div class="trf-leg__meta-left">
@@ -259,7 +259,7 @@
                             class="trf-leg__summary-freight"
                             :class="{ 'is-empty': !(stop.subtotal > 0) }"
                         >
-                            {{ stop.subtotal > 0 ? `₹${formatMoney(stop.subtotal)}` : 'No Expenses' }}
+                            {{ stop.subtotal > 0 ? `₹${formatMoney(stop.subtotal)}` : 'No expenses' }}
                         </span>
                         <i
                             class="bi"
@@ -294,7 +294,7 @@
                             <span>Date</span>
                             <span>Type</span>
                             <template v-if="sectionUsesDieselColumns(stop.items)">
-                                <span>Km</span>
+                                <span>KM</span>
                                 <span>LTR</span>
                                 <span>₹/LTR</span>
                             </template>
@@ -327,7 +327,7 @@
                     </div>
                     <div v-if="stop.items.length === 0" class="expense-empty-state">
                         <i class="bi bi-plus-circle expense-empty-state__icon"></i>
-                        <span>Tap Diesel, Toll, Loading… To Add An Expense For This Stop.</span>
+                        <span>Tap Diesel, Toll, or Loading to add an expense for this stop.</span>
                     </div>
                     <div class="trf-leg__meta">
                         <div class="trf-leg__meta-left">

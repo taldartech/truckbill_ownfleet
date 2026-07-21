@@ -308,8 +308,8 @@ function lifeClass(percent) {
 .tyre-node__label {
     font-size: 0.58rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+    text-transform: none;
+    letter-spacing: normal;
     line-height: 1.2;
     color: #495057;
 }

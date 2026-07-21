@@ -181,8 +181,8 @@ defineEmits(['cancel', 'confirm']);
 .trip-save-confirm-table thead th {
     background: #f8fafc;
     font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
 }
 
@@ -241,8 +241,8 @@ defineEmits(['cancel', 'confirm']);
 .trip-save-confirm-totals__label {
     display: block;
     font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
     margin-bottom: 0.25rem;
 }

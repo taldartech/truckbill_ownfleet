@@ -108,11 +108,11 @@
                                 <span class="trf-summary-tile__value">{{ expectedDieselLabel }}</span>
                                 <span class="trf-summary-tile__sub">
                                     <template v-if="form.diesel_rate_per_liter">
-                                        ₹{{ formatMoney(form.diesel_rate_per_liter) }}/Ltr
+                                        ₹{{ formatMoney(form.diesel_rate_per_liter) }}/LTR
                                     </template>
                                     <template v-if="form.diesel_rate_per_liter && form.planned_mileage_km_per_liter"> · </template>
                                     <template v-if="form.planned_mileage_km_per_liter">
-                                        {{ formatNum(form.planned_mileage_km_per_liter) }} KM/Ltr
+                                        {{ formatNum(form.planned_mileage_km_per_liter) }} KM/LTR
                                     </template>
                                     <template v-if="!form.diesel_rate_per_liter && !form.planned_mileage_km_per_liter">
                                         Rate / Mileage —
@@ -197,12 +197,12 @@
                             <div class="trf-step-num trf-step-num--expense">1</div>
                             <div>
                                 <h2 class="trf-section__title">Stop-wise Expenses</h2>
-                                <p class="trf-section__desc">Add Expenses For The Whole Trip Or Each Stop</p>
+                                <p class="trf-section__desc">Add expenses for the whole trip or each stop</p>
                             </div>
                         </div>
                         <div class="trf-section__head-right">
                             <div class="trf-live-total">
-                                Live Total: ₹{{ formatMoney(liveExpenseTotal) }}
+                                Live total: ₹{{ formatMoney(liveExpenseTotal) }}
                             </div>
                         </div>
                     </div>
@@ -242,7 +242,7 @@
                             </div>
                             <div>
                                 <h2 class="trf-section__title">Trip Profitability</h2>
-                                <p class="trf-section__desc">Freight Vs Live Expenses · Updates As You Edit</p>
+                                <p class="trf-section__desc">Freight vs live expenses · updates as you edit</p>
                             </div>
                         </div>
                         <div class="trf-section__head-right">
@@ -481,14 +481,14 @@ const expectedDieselLabel = computed(() => {
     const planned = Number(form.planned_diesel_liters);
 
     if (Number.isFinite(planned) && planned > 0) {
-        return `${formatNum(planned)} Ltr`;
+        return `${formatNum(planned)} LTR`;
     }
 
     const distance = Number(form.total_distance_km);
     const mileage = Number(form.planned_mileage_km_per_liter);
 
     if (Number.isFinite(distance) && distance > 0 && Number.isFinite(mileage) && mileage > 0) {
-        return `${formatNum(distance / mileage)} Ltr`;
+        return `${formatNum(distance / mileage)} LTR`;
     }
 
     return '—';
@@ -841,19 +841,19 @@ onMounted(async () => {
 
 .trf {
     --radius: 12px;
-    --border: #dee2e6;
+    --border: var(--brand-border, #e2e8f0);
     --shadow: 0 1px 3px rgba(0, 0, 0, .07), 0 1px 2px rgba(0, 0, 0, .04);
     --primary: #0d6efd;
     --success: #198754;
     --warning: #fd7e14;
-    --text: #212529;
-    --muted: #6c757d;
-    --fs-title: .9rem;
-    --fs-desc: .72rem;
-    --fs-value: .82rem;
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --text: var(--brand-text-primary, #475569);
+    --muted: var(--brand-text-muted, #64748b);
+    --fs-title: var(--app-font-size-section-title, .9rem);
+    --fs-desc: var(--app-font-size-meta, .75rem);
+    --fs-value: var(--app-font-size-input, .875rem);
+    font-family: var(--app-font-family);
     color: var(--text);
-    font-size: .82rem;
+    font-size: var(--app-font-size-input, .875rem);
 }
 
 .trf-section {

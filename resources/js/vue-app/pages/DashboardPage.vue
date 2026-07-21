@@ -469,8 +469,8 @@ watch(
 .live-badge-text {
     font-size: 0.65rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #23965c;
 }
 

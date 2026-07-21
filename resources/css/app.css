@@ -9,8 +9,7 @@
 @source '../**/*.vue';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
     --color-brand-primary: #2FB36F;
     --color-brand-primary-dark: #23965C;
@@ -18,8 +17,8 @@
     --color-brand-accent-blue: #2D8CFF;
     --color-brand-bg: #F8FAFC;
 
-    --color-text-primary: #212529;
-    --color-text-secondary: #6c757d;
+    --color-text-primary: #475569;
+    --color-text-secondary: #64748b;
     --color-background-secondary: #f8f9fa;
 }
 
@@ -45,18 +44,24 @@
     --border-color: var(--brand-border, #dee2e6);
 
     /* Global form field hierarchy */
-    --form-label-color: #475569;
-    --form-label-weight: 600;
+    --form-label-color: var(--brand-text-primary, #475569);
+    --form-label-weight: var(--app-font-weight-semibold, 600);
     --form-input-color: #1f2937;
-    --form-input-weight: 500;
-    --form-placeholder-color: #9ca3af;
-    --form-placeholder-weight: 400;
+    --form-input-weight: var(--app-font-weight-medium, 500);
+    --form-placeholder-color: #94a3b8;
+    --form-placeholder-weight: var(--app-font-weight-regular, 400);
+    --form-placeholder-size: var(--app-font-size-input, 0.875rem);
+    --form-placeholder-opacity: 1;
+    --form-disabled-color: #94a3b8;
+    --form-disabled-bg: #f1f5f9;
 }
 
 /* ── Global form field styling standard ───────────────────────── */
 .form-label,
 label.form-label {
     color: var(--form-label-color);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-label);
     font-weight: var(--form-label-weight);
 }
 
@@ -67,6 +72,8 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='
 textarea,
 select {
     color: var(--form-input-color);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-input);
     font-weight: var(--form-input-weight);
 }
 
@@ -74,11 +81,14 @@ input::placeholder,
 textarea::placeholder,
 .form-control::placeholder,
 .trf-input::placeholder,
+.picker-search-input::placeholder,
 .select2-search__field::placeholder,
 .app-date-input__text::placeholder {
     color: var(--form-placeholder-color) !important;
-    opacity: 1 !important;
+    font-family: var(--app-font-family);
+    font-size: var(--form-placeholder-size);
     font-weight: var(--form-placeholder-weight);
+    opacity: var(--form-placeholder-opacity) !important;
 }
 
 /* Empty picker / select triggers that mimic placeholders */
@@ -88,8 +98,10 @@ textarea::placeholder,
 .select-trigger--placeholder,
 .select-trigger--placeholder .select-trigger-label {
     color: var(--form-placeholder-color) !important;
+    font-family: var(--app-font-family);
+    font-size: var(--form-placeholder-size);
     font-weight: var(--form-placeholder-weight) !important;
-    opacity: 1;
+    opacity: var(--form-placeholder-opacity);
 }
 
 /* FIX 1 — horizontal scroll for data tables */

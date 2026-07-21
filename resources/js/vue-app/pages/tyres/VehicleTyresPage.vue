@@ -263,7 +263,7 @@
                 · Truck: <strong>{{ vehicleLabel }}</strong>
             </div>
             <div class="mb-2">
-                <label class="form-label">Tyre from stock</label>
+                <label class="form-label">Tyre From Stock</label>
                 <AppSelect
                     v-model="installForm.tyre_id"
                     :options="stockTyreOptions"
@@ -277,7 +277,7 @@
                 :tyre="selectedInstallTyre"
             />
             <div class="mb-2">
-                <label class="form-label">Installation date</label>
+                <label class="form-label">Installation Date</label>
                 <AppDateInput
                     v-model="installForm.installed_at"
                     :min="selectedInstallTyre?.purchase_date"
@@ -286,7 +286,7 @@
                 />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current meter reading (km)</label>
+                <label class="form-label">Current Meter Reading (KM)</label>
                 <input
                     v-model.number="installForm.km_at_installation"
                     v-no-scroll-change
@@ -313,11 +313,11 @@
                 <strong>{{ selectedSlot?.tyre?.serial_number }}</strong>
             </div>
             <div class="mb-2">
-                <label class="form-label">Remove date</label>
+                <label class="form-label">Remove Date</label>
                 <AppDateInput v-model="removeForm.removed_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current meter reading (km)</label>
+                <label class="form-label">Current Meter Reading (KM)</label>
                 <input
                     v-model.number="removeForm.odometer_km"
                     v-no-scroll-change

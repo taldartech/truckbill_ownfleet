@@ -6,7 +6,7 @@ export const CRUD_ACTION_PRESETS = {
     view: {
         btnClass: 'btn-action-view',
         icon: 'fas fa-eye',
-        title: 'View details',
+        title: 'View Details',
     },
     edit: {
         btnClass: 'btn-action-edit',
@@ -21,17 +21,17 @@ export const CRUD_ACTION_PRESETS = {
     expenses: {
         btnClass: 'btn-action-expenses',
         icon: 'fas fa-wallet',
-        title: 'Trip expenses',
+        title: 'Trip Expenses',
     },
     bilty: {
         btnClass: 'btn-action-bilty',
         icon: 'fas fa-print',
-        title: 'Print bilty',
+        title: 'Print Bilty',
     },
     invoice: {
         btnClass: 'btn-action-invoice',
         icon: 'fas fa-file-invoice',
-        title: 'Generate invoice',
+        title: 'Generate Invoice',
     },
     documents: {
         btnClass: 'btn-action-documents',
@@ -41,32 +41,32 @@ export const CRUD_ACTION_PRESETS = {
     tyres: {
         btnClass: 'btn-action-tyres',
         icon: 'fas fa-dot-circle',
-        title: 'Tyre positions',
+        title: 'Tyre Positions',
     },
     service: {
         btnClass: 'btn-action-service',
         icon: 'fas fa-wrench',
-        title: 'Add service record',
+        title: 'Add Service Record',
     },
     driver: {
         btnClass: 'btn-action-driver',
         icon: 'fas fa-user-plus',
-        title: 'Assign driver',
+        title: 'Assign Driver',
     },
     fuel: {
         btnClass: 'btn-action-fuel',
         icon: 'fas fa-gas-pump',
-        title: 'Fuel entry',
+        title: 'Fuel Entry',
     },
     complete: {
         btnClass: 'btn-action-complete',
         icon: 'fas fa-check-circle',
-        title: 'Complete trip',
+        title: 'Complete Trip',
     },
     cancel: {
         btnClass: 'btn-action-cancel',
         icon: 'fas fa-times-circle',
-        title: 'Cancel trip',
+        title: 'Cancel Trip',
     },
     archive: {
         btnClass: 'btn-action-archive',
@@ -91,17 +91,17 @@ export const CRUD_ACTION_PRESETS = {
     add: {
         btnClass: 'btn-action-add',
         icon: 'fas fa-wrench',
-        title: 'Add service record',
+        title: 'Add Service Record',
     },
     advance: {
         btnClass: 'btn-action-advance',
         icon: 'fas fa-wallet',
-        title: 'Advance wallet',
+        title: 'Advance Wallet',
     },
     markPaid: {
         btnClass: 'btn-action-mark-paid',
         icon: 'fas fa-money-bill-wave',
-        title: 'Mark paid',
+        title: 'Mark Paid',
     },
 };
 

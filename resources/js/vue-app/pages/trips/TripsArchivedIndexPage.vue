@@ -894,8 +894,8 @@ onBeforeUnmount(() => {
 .trips-route__via-label {
     flex-shrink: 0;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     font-size: 0.6rem;
     color: #94a3b8;
 }

@@ -79,7 +79,7 @@
             </div>
 
             <div v-if="expenseBreakdown.length > 0" class="trip-financial-summary__breakdown">
-                <div class="trip-financial-summary__breakdown-title">Expense breakdown</div>
+                <div class="trip-financial-summary__breakdown-title">Expense Breakdown</div>
                 <ul class="trip-financial-summary__breakdown-list">
                     <li
                         v-for="row in expenseBreakdown"
@@ -457,8 +457,8 @@ function formatMoney(value) {
     font-size: 0.72rem;
     font-weight: 700;
     color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .trip-financial-summary__breakdown-list {

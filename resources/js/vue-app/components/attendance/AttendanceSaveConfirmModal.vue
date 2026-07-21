@@ -151,8 +151,8 @@ defineEmits(['cancel', 'confirm']);
 
 .attendance-save-confirm-table th {
     font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #64748b;
     background: #fff;
 }

@@ -75,11 +75,11 @@
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="small text-muted">Diesel rate</div>
-                            <strong>{{ form.diesel_rate_per_liter ? `₹${formatMoney(form.diesel_rate_per_liter)}/Ltr` : '—' }}</strong>
+                            <strong>{{ form.diesel_rate_per_liter ? `₹${formatMoney(form.diesel_rate_per_liter)}/LTR` : '—' }}</strong>
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="small text-muted">Expected mileage</div>
-                            <strong>{{ form.planned_mileage_km_per_liter ? `${formatNum(form.planned_mileage_km_per_liter)} KM/Ltr` : '—' }}</strong>
+                            <strong>{{ form.planned_mileage_km_per_liter ? `${formatNum(form.planned_mileage_km_per_liter)} KM/LTR` : '—' }}</strong>
                         </div>
                     </div>
                 </div>

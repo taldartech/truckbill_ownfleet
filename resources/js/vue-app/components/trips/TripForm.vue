@@ -364,7 +364,7 @@
 
                     <div class="trip-details-row trip-details-row--five-compact">
                         <div class="trip-details-row__field--compact col-fuel-avg">
-                            <label class="form-label">Fuel Avg. (km/L)</label>
+                            <label class="form-label">Fuel Average (KM/LTR)</label>
                             <input
                                 v-if="!isFormLocked"
                                 v-model.number="form.planned_mileage_km_per_liter"
@@ -413,7 +413,7 @@
                         </div>
                         <div class="form-text trip-details-row__compact-hint-new">From truck profile by default; editable per trip.</div>
                         <div class="col-exp-diesel">
-                            <label class="form-label">Expected Diesel (Ltr)</label>
+                            <label class="form-label">Expected Diesel (LTR)</label>
                             <input
                                 v-if="!isFormLocked"
                                 v-model.number="form.planned_diesel_liters"
@@ -438,7 +438,7 @@
                             </div>
                         </div>
                         <div class="col-diesel-rate">
-                            <label class="form-label">Diesel Rate (₹/Ltr)</label>
+                            <label class="form-label">Diesel Rate (₹/LTR)</label>
                             <input
                                 v-if="!isFormLocked"
                                 v-model.number="form.diesel_rate_per_liter"
@@ -463,7 +463,7 @@
                             </div>
                         </div>
                         <div class="col-reference">
-                            <label class="form-label">Reference by (optional)</label>
+                            <label class="form-label">Reference By (Optional)</label>
                             <SearchablePicker
                                 v-if="!isFormLocked"
                                 v-model="form.broker_id"
@@ -603,7 +603,7 @@
                                 <th class="trip-route-customer-col">Customer</th>
                                 <th class="trip-route-goods-col">Goods Type</th>
                                 <th class="trip-route-weight-col">Weight (Ton)</th>
-                                <th class="trip-route-mileage-col">KM/Lt</th>
+                                <th class="trip-route-mileage-col">KM/LTR</th>
                                 <th class="trip-route-rate-col">₹/Ton</th>
                                 <th class="trip-route-freight-col">Freight ₹</th>
                                 <th v-if="!isFormLocked" class="trip-route-delete-col"></th>
@@ -723,13 +723,13 @@
                                             step="0.01"
                                             class="form-control form-control-sm trip-route-num-input"
                                             :class="{ 'is-invalid': legFieldError(index, 'expected_mileage_km_per_liter') }"
-                                            placeholder="KM/Lt"
+                                            placeholder="KM/LTR"
                                             @input="onLegMileageInput(index)"
                                         />
                                         <span v-else class="trip-route-num-readonly">
                                             {{
                                                 leg.expected_mileage_km_per_liter
-                                                    ? `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`
+                                                    ? `${formatNum(leg.expected_mileage_km_per_liter)} KM/LTR`
                                                     : '—'
                                             }}
                                         </span>
@@ -1114,7 +1114,7 @@ const expectedMileageDisplay = computed(() => {
         return '—';
     }
 
-    return `${formatNum(summary.value.expectedMileage)} KM/Ltr`;
+    return `${formatNum(summary.value.expectedMileage)} KM/LTR`;
 });
 
 const plannedMileageDisplay = computed(() => {
@@ -1130,7 +1130,7 @@ const plannedMileageDisplay = computed(() => {
         return '—';
     }
 
-    return `${formatNum(mileage)} KM/Ltr`;
+    return `${formatNum(mileage)} KM/LTR`;
 });
 
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));

@@ -142,7 +142,7 @@
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Expected Mileage</span>
-                                <div class="trip-info-grid__value">{{ trip.planned_mileage_km_per_liter ? `${formatKm(trip.planned_mileage_km_per_liter)} KM/Ltr` : '—' }}</div>
+                                <div class="trip-info-grid__value">{{ trip.planned_mileage_km_per_liter ? `${formatKm(trip.planned_mileage_km_per_liter)} KM/LTR` : '—' }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Max Load</span>
@@ -150,11 +150,11 @@
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Expected Diesel</span>
-                                <div class="trip-info-grid__value">{{ trip.planned_diesel_liters ? `${formatKm(trip.planned_diesel_liters)} Ltr` : '—' }}</div>
+                                <div class="trip-info-grid__value">{{ trip.planned_diesel_liters ? `${formatKm(trip.planned_diesel_liters)} LTR` : '—' }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Diesel Rate</span>
-                                <div class="trip-info-grid__value">{{ trip.diesel_rate_per_liter ? `₹${formatMoney(trip.diesel_rate_per_liter)}/Ltr` : '—' }}</div>
+                                <div class="trip-info-grid__value">{{ trip.diesel_rate_per_liter ? `₹${formatMoney(trip.diesel_rate_per_liter)}/LTR` : '—' }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Start Meter</span>
@@ -419,7 +419,7 @@
                                                 <strong>{{ formatDate(stop.leg.ewaybill_expiry) }}</strong>
                                             </span>
                                             <span>
-                                                KM/Ltr:
+                                                KM/LTR:
                                                 <strong>
                                                     {{
                                                         stop.leg.expected_mileage_km_per_liter
@@ -865,7 +865,7 @@
 
             <template v-else>
                 <div class="mb-3">
-                    <label class="form-label">Freight on bilty</label>
+                    <label class="form-label">Freight On Bilty</label>
                     <div class="d-flex flex-wrap gap-3">
                         <div class="form-check">
                             <input
@@ -1080,7 +1080,7 @@ const routeSummary = computed(() => {
         expectedMileageDisplay:
             summary.expectedMileage == null
                 ? '—'
-                : `${Number(summary.expectedMileage).toLocaleString('en-IN', { maximumFractionDigits: 2 })} KM/Ltr`,
+                : `${Number(summary.expectedMileage).toLocaleString('en-IN', { maximumFractionDigits: 2 })} KM/LTR`,
     };
 });
 const dieselPerformance = computed(() => trip.value?.diesel_performance ?? null);

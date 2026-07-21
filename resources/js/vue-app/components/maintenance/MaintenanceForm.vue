@@ -232,41 +232,28 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <section class="trf-section">
-            <div class="trf-section__head trf-section__head--plain">
-                <div class="trf-section__head-left">
-                    <div class="trf-step-num trf-step-num--gray">3</div>
-                    <div>
-                        <h2 class="trf-section__title">Notes</h2>
-                        <p class="trf-section__desc">Add service work details or other useful remarks</p>
-                    </div>
-                </div>
-                <span class="trf-optional-badge">Optional</span>
-            </div>
-
-            <div class="trf-section__body">
-                <div class="trf-pf">
-                    <label :for="`${formId}_remarks`" class="trf-pf__lbl">
-                        <span class="trf-pf__lbl-icon trf-pf__lbl-icon--slate">
-                            <i class="bi bi-chat-left-text" aria-hidden="true"></i>
-                        </span>
-                        <span>Remarks</span>
-                    </label>
-                    <textarea
-                        :id="`${formId}_remarks`"
-                        v-model="form.remarks"
-                        class="trf-input trf-input--textarea"
-                        :class="{ 'trf-input--error': displayFieldErrors.remarks }"
-                        rows="3"
-                        placeholder="Work completed, parts replaced, observations…"
-                        :readonly="readonly"
-                        @input="$emit('clear-field-error', 'remarks')"
-                    ></textarea>
-                    <div v-if="displayFieldErrors.remarks" class="trf-pf__err">
-                        {{ displayFieldErrors.remarks[0] }}
+                <div class="trf-notes-row">
+                    <div class="trf-pf">
+                        <label :for="`${formId}_remarks`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--slate">
+                                <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                            </span>
+                            <span>Remarks <span class="trf-pf__optional">Optional</span></span>
+                        </label>
+                        <textarea
+                            :id="`${formId}_remarks`"
+                            v-model="form.remarks"
+                            class="trf-input trf-input--textarea"
+                            :class="{ 'trf-input--error': displayFieldErrors.remarks }"
+                            rows="2"
+                            placeholder="Work completed, parts replaced, observations…"
+                            :readonly="readonly"
+                            @input="$emit('clear-field-error', 'remarks')"
+                        ></textarea>
+                        <div v-if="displayFieldErrors.remarks" class="trf-pf__err">
+                            {{ displayFieldErrors.remarks[0] }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -331,22 +318,22 @@ const truckRunningMeterDisplay = computed(() => {
 <style scoped>
 .trf {
     --radius: 12px;
-    --border: #dee2e6;
+    --border: var(--brand-border, #e2e8f0);
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
     --primary: #0d6efd;
     --success: #198754;
-    --text: #212529;
-    --muted: #6c757d;
+    --text: var(--brand-text-primary, #475569);
+    --muted: var(--brand-text-muted, #64748b);
     --danger: #dc3545;
-    --fs-title: 0.9rem;
-    --fs-desc: 0.72rem;
-    --fs-label: 0.68rem;
-    --fs-input: 0.82rem;
-    --fs-meta: 0.68rem;
-    --fs-hint: 0.66rem;
+    --fs-title: var(--app-font-size-section-title, 0.9rem);
+    --fs-desc: var(--app-font-size-meta, 0.75rem);
+    --fs-label: var(--app-font-size-label, 0.8rem);
+    --fs-input: var(--app-font-size-input, 0.875rem);
+    --fs-meta: var(--app-font-size-meta, 0.75rem);
+    --fs-hint: var(--app-font-size-meta, 0.75rem);
     --input-min-h: 40px;
     color: var(--text);
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--app-font-family);
     font-size: var(--fs-input);
 }
 
@@ -479,6 +466,12 @@ const truckRunningMeterDisplay = computed(() => {
 
 .trf-field-grid--service {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.85fr) minmax(0, 0.85fr);
+}
+
+.trf-notes-row {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #e9ecef;
 }
 
 .trf-pf {

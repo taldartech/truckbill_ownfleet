@@ -1,7 +1,47 @@
 @import './app-index-page.css';
 
 .vue-app-shell {
-    font-size: 15px;
+    color: var(--brand-text-primary);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-body);
+}
+
+.vue-app-shell button,
+.vue-app-shell input,
+.vue-app-shell textarea,
+.vue-app-shell select {
+    font-family: var(--app-font-family);
+}
+
+.vue-app-shell .form-label,
+.vue-app-shell label.form-label {
+    color: var(--form-label-color) !important;
+    font-size: var(--app-font-size-label) !important;
+    font-weight: var(--form-label-weight) !important;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.vue-app-shell .form-control,
+.vue-app-shell .form-select,
+.vue-app-shell .select-trigger,
+.vue-app-shell .picker-trigger,
+.vue-app-shell .app-date-input__text {
+    color: var(--form-input-color);
+    font-size: var(--app-font-size-input);
+    font-weight: var(--form-input-weight);
+}
+
+.vue-app-shell input::placeholder,
+.vue-app-shell textarea::placeholder,
+.vue-app-shell .form-control::placeholder,
+.vue-app-shell .picker-search-input::placeholder,
+.vue-app-shell .app-date-input__text::placeholder {
+    color: var(--form-placeholder-color) !important;
+    font-family: var(--app-font-family);
+    font-size: var(--form-placeholder-size) !important;
+    font-weight: var(--form-placeholder-weight) !important;
+    opacity: var(--form-placeholder-opacity) !important;
 }
 
 /* ── Sidebar layout ─────────────────────────────────────────────── */
@@ -454,8 +494,8 @@
 
 .vue-app-shell .credit-pill .label {
     color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .vue-app-shell .credit-pill .value {
@@ -590,20 +630,20 @@
 }
 
 .vue-app-shell .app-index-filters .card-title {
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: var(--app-font-size-section-title);
+    font-weight: var(--app-font-weight-semibold);
 }
 
 .vue-app-shell .app-index-filters-fields .form-label {
     margin-bottom: 0.35rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--bs-secondary-color, #6c757d);
+    color: var(--form-label-color);
+    font-size: var(--app-font-size-label);
+    font-weight: var(--form-label-weight);
 }
 
 .vue-app-shell .app-index-filters-fields .form-control,
 .vue-app-shell .app-index-filters-fields .form-select {
-    font-size: 0.875rem;
+    font-size: var(--app-font-size-input);
 }
 
 .vue-app-shell .app-index-list-card {
@@ -625,8 +665,8 @@
 }
 
 .vue-app-shell .app-index-list-card > .card-header .card-title {
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: var(--app-font-size-page-title);
+    font-weight: var(--app-font-weight-semibold);
     color: var(--brand-text-on-green) !important;
 }
 
@@ -690,9 +730,10 @@
 }
 
 .vue-app-shell .app-index-list-card .table thead th {
-    background-color: #f8f9fa;
-    font-size: 0.8rem;
-    font-weight: 600;
+    background-color: var(--brand-table-header-bg, #f1f5f9);
+    color: var(--brand-text-primary);
+    font-size: var(--app-font-size-table-head);
+    font-weight: var(--app-font-weight-semibold);
     text-transform: none;
     letter-spacing: normal;
     vertical-align: middle;

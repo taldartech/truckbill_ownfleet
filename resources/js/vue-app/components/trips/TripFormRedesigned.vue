@@ -304,7 +304,7 @@
                     >
                         <div class="trf-vehicle-info__icon" style="--ic:#0d9488;--bg:#f0fdfa"><i class="bi bi-fuel-pump-fill"></i></div>
                         <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Expected Diesel (Ltr)</span>
+                            <span class="trf-vehicle-info__name">Expected Diesel (LTR)</span>
                             <div class="trf-vehicle-info__value">
                                 <input
                                     v-if="!isFormLocked"
@@ -325,7 +325,7 @@
                             </div>
                             <div class="trf-vehicle-info__meta-slot">
                                 <div class="trf-vehicle-info__meta">
-                                    <span class="trf-vehicle-info__meta-label">Fuel Tank Capacity (Ltr)</span>
+                                    <span class="trf-vehicle-info__meta-label">Fuel Tank Capacity (LTR)</span>
                                     <span class="trf-vehicle-info__meta-val">{{ fuelTankCapacityDisplay }}</span>
                                 </div>
                             </div>
@@ -342,7 +342,7 @@
                     >
                         <div class="trf-vehicle-info__icon" style="--ic:#be185d;--bg:#fdf2f8"><i class="bi bi-currency-rupee"></i></div>
                         <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Diesel Rate (₹/Ltr)</span>
+                            <span class="trf-vehicle-info__name">Diesel Rate (₹/LTR)</span>
                             <div class="trf-vehicle-info__value">
                                 <input
                                     v-if="!isFormLocked"
@@ -375,7 +375,7 @@
                     >
                         <div class="trf-vehicle-info__icon" style="--ic:#2563eb;--bg:#eff6ff"><i class="bi bi-speedometer"></i></div>
                         <div class="trf-vehicle-info__field">
-                            <span class="trf-vehicle-info__name">Fuel Average (KM/L)</span>
+                            <span class="trf-vehicle-info__name">Fuel Average (KM/LTR)</span>
                             <div class="trf-vehicle-info__value">
                                 <input
                                     v-if="!isFormLocked"
@@ -972,7 +972,7 @@
                                             <template v-else>{{ group.cardLeg.ewaybill_expiry ? formatDate(group.cardLeg.ewaybill_expiry) : '—' }}</template>
                                         </span>
                                         <span class="trf-leg__dist">
-                                            KM/Ltr:
+                                            KM/LTR:
                                             <template v-if="!isFormLocked">
                                                 <input
                                                     v-model.number="group.cardLeg.expected_mileage_km_per_liter"
@@ -1401,7 +1401,7 @@ const dieselPerformance = computed(() =>
         actualTotalKm: summary.value.totalKm,
     }),
 );
-const expectedMileageDisplay = computed(() => summary.value.expectedMileage == null ? '—' : formatNum(summary.value.expectedMileage) + ' KM/Ltr');
+const expectedMileageDisplay = computed(() => summary.value.expectedMileage == null ? '—' : formatNum(summary.value.expectedMileage) + ' KM/LTR');
 const tripStartDate = computed(() => dateOnlyFromDatetimeLocal(props.form.start_at));
 const tripEndDate = computed(() => dateOnlyFromDatetimeLocal(props.form.end_at));
 const arrivalTiming = computed(() => { const e = tripEndDate.value; const a = dateOnlyFromDatetimeLocal(props.form.actual_arrival_at); if (!e || !a) return null; if (e === a) return 'on-time'; return e > a ? 'early' : 'late'; });
@@ -1743,7 +1743,7 @@ const dieselOverCapacityWarning = computed(() => {
     const capacity = Number(fuelTankCapacityLtr.value ?? 0);
     if (planned > 0 && capacity > 0 && planned > capacity) {
         const refuelStops = Math.ceil(planned / capacity) - 1;
-        return `Expected diesel (${formatNum(planned)} Ltr) exceeds tank capacity (${formatNum(capacity)} Ltr). Trip may require ${refuelStops} refueling stop${refuelStops > 1 ? 's' : ''}.`;
+        return `Expected diesel (${formatNum(planned)} LTR) exceeds tank capacity (${formatNum(capacity)} LTR). Trip may require ${refuelStops} refueling stop${refuelStops > 1 ? 's' : ''}.`;
     }
     return null;
 });
@@ -2272,7 +2272,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 /* ── Tokens ─────────────────────────── */
 .trf {
     --radius: 12px;
-    --border: #dee2e6;
+    --border: var(--brand-border, #e2e8f0);
     --shadow: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
     --shadow-md: 0 4px 16px rgba(0,0,0,.08);
     --primary: #0d6efd;
@@ -2280,20 +2280,20 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     --success: #198754;
     --success-dark: #146c43;
     --warning: #fd7e14;
-    --text: #212529;
-    --muted: #6c757d;
+    --text: var(--brand-text-primary, #475569);
+    --muted: var(--brand-text-muted, #64748b);
     --danger: #dc3545;
-    --fs-title: .9rem;
-    --fs-desc: .72rem;
-    --fs-label: .68rem;
-    --fs-input: .82rem;
-    --fs-value: .82rem;
-    --fs-meta: .68rem;
-    --fs-hint: .66rem;
+    --fs-title: var(--app-font-size-section-title, .9rem);
+    --fs-desc: var(--app-font-size-meta, .75rem);
+    --fs-label: var(--app-font-size-label, .8rem);
+    --fs-input: var(--app-font-size-input, .875rem);
+    --fs-value: var(--app-font-size-input, .875rem);
+    --fs-meta: var(--app-font-size-meta, .75rem);
+    --fs-hint: var(--app-font-size-meta, .75rem);
     --fs-btn: .76rem;
     --fs-metric: .95rem;
     --input-min-h: 40px;
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--app-font-family);
     color: var(--text);
     font-size: var(--fs-input);
 }
@@ -2558,8 +2558,8 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-size: var(--fs-label);
     font-weight: 700;
     color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .04em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 .trf-trip-id__value {
     display: flex;
@@ -3255,8 +3255,8 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 .trf-summary-block__label {
     font-size: .68rem;
     font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
+    letter-spacing: normal;
+    text-transform: none;
     color: var(--muted);
 }
 .trf-vehicle-info--summary {
@@ -3857,7 +3857,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-weight: 700 !important;
     color: #14532d !important;
 }
-/* Customer / Pickup / Goods / Units / KM/Ltr / Weight / Rate / Freight — same control size */
+/* Customer / Pickup / Goods / Units / KM/LTR / Weight / Rate / Freight — same control size */
 .trf-leg__fields :deep(.redesigned-picker-trigger),
 .trf-leg__fields :deep(.picker-trigger) {
     align-items: center;

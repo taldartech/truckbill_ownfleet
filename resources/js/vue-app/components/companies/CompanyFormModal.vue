@@ -26,7 +26,7 @@
                 </div>
             </div>
             <div class="col-md-6 mb-3">
-                <label class="form-label" for="payroll_pay_days_mode">Pay Days (default)</label>
+                <label class="form-label" for="payroll_pay_days_mode">Pay Days (Default)</label>
                 <AppSelect
                     input-id="payroll_pay_days_mode"
                     v-model="form.payroll_pay_days_mode"

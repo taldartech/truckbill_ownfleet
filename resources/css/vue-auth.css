@@ -1,5 +1,6 @@
 .vue-auth-page {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-body);
     background-color: var(--brand-bg);
     min-height: 100vh;
     display: flex;
@@ -10,7 +11,27 @@
 }
 
 .vue-auth-page label {
-    font-weight: bold !important;
+    color: var(--form-label-color, var(--brand-text-primary));
+    font-size: var(--app-font-size-label);
+    font-weight: var(--app-font-weight-semibold) !important;
+}
+
+.vue-auth-page input,
+.vue-auth-page textarea,
+.vue-auth-page select {
+    color: var(--form-input-color);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-input);
+    font-weight: var(--form-input-weight);
+}
+
+.vue-auth-page input::placeholder,
+.vue-auth-page textarea::placeholder {
+    color: var(--form-placeholder-color);
+    font-family: var(--app-font-family);
+    font-size: var(--form-placeholder-size);
+    font-weight: var(--form-placeholder-weight);
+    opacity: var(--form-placeholder-opacity);
 }
 
 .vue-auth-page .auth-card {

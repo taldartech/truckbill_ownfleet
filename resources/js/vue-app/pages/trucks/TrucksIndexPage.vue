@@ -37,7 +37,7 @@
                     />
                 </div>
                 <div class="filter-select-col">
-                    <label class="form-label">Truck type</label>
+                    <label class="form-label">Truck Type</label>
                     <AppSelect
                         v-model="filters.vehicle_type"
                         :options="vehicleTypes"

@@ -5,7 +5,7 @@
                 <label class="form-label d-block">Front Steering Axles</label>
                 <NumberStepper
                     :model-value="modelValue.steer_axles"
-                    label="Front steering axles"
+                    label="Front Steering Axles"
                     :min="0"
                     :max="2"
                     @update:model-value="updateSteerAxles"
@@ -15,7 +15,7 @@
                 <label class="form-label d-block">Rear Axles</label>
                 <NumberStepper
                     :model-value="modelValue.rear_axle_count"
-                    label="Rear axles"
+                    label="Rear Axles"
                     :min="0"
                     :max="8"
                     @update:model-value="updateRearAxleCount"
@@ -25,7 +25,7 @@
                 <label class="form-label d-block">Spare Tyres</label>
                 <NumberStepper
                     :model-value="modelValue.spare_count"
-                    label="Spare tyres"
+                    label="Spare Tyres"
                     :min="0"
                     :max="10"
                     @update:model-value="updateSpareCount"
@@ -34,7 +34,7 @@
         </div>
 
         <div v-if="modelValue.rear_axle_count > 0" class="tyre-layout-axle-fields__rear-section">
-            <p class="form-label mb-1">Rear axle wheel type</p>
+            <p class="form-label mb-1">Rear Axle Wheel Type</p>
             <div class="tyre-layout-axle-fields__rear-list">
                 <div
                     v-for="axle in modelValue.rear_axle_count"

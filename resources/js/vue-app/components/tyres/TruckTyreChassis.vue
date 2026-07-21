@@ -15,7 +15,7 @@
 
         <div class="chassis-frame">
             <div class="chassis-direction">
-                <span class="direction-badge">FRONT</span>
+                <span class="direction-badge">Front</span>
             </div>
 
             <div class="chassis-body">
@@ -93,7 +93,7 @@
             </div>
 
             <div class="chassis-direction chassis-direction--rear">
-                <span class="direction-badge direction-badge--muted">REAR</span>
+                <span class="direction-badge direction-badge--muted">Rear</span>
             </div>
         </div>
 
@@ -234,8 +234,8 @@ const layout = computed(() => buildTruckChassisLayout(props.positions));
     font-size: 0.7rem;
     font-weight: 600;
     color: #6c757d;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .axle-tyres {
@@ -290,8 +290,8 @@ const layout = computed(() => buildTruckChassisLayout(props.positions));
 .spare-heading {
     font-size: 0.75rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: none;
+    letter-spacing: normal;
     color: #1864ab;
     margin-bottom: 0.65rem;
     text-align: center;

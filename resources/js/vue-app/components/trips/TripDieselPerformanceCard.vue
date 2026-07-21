@@ -275,7 +275,7 @@ const activeMetricInfo = computed(() => {
             title: 'Expected Running KM',
             steps: [
                 'Planned Diesel × Expected Mileage (trip details)',
-                `${formatLiters(plannedDiesel)} × ${formatNumber(mileage)} KM/Ltr = ${formatKm(expectedKm)}`,
+                `${formatLiters(plannedDiesel)} × ${formatNumber(mileage)} KM/LTR = ${formatKm(expectedKm)}`,
             ],
             emptyMessage: '',
         };
@@ -350,7 +350,7 @@ const activeMetricInfo = computed(() => {
                 title: 'Difference LTR',
                 steps: [
                     'Difference KM ÷ Expected Mileage',
-                    `${formatNumber(unusedKm)} KM ÷ ${formatNumber(mileage)} KM/Ltr = ${formatLiters(unusedDiesel)}`,
+                    `${formatNumber(unusedKm)} KM ÷ ${formatNumber(mileage)} KM/LTR = ${formatLiters(unusedDiesel)}`,
                 ],
                 emptyMessage: '',
             };
@@ -364,7 +364,7 @@ const activeMetricInfo = computed(() => {
                 title: 'Difference LTR',
                 steps: [
                     'Difference KM ÷ Expected Mileage',
-                    `${formatNumber(extraKm)} KM ÷ ${formatNumber(mileage)} KM/Ltr = +${formatLiters(extraDiesel)}`,
+                    `${formatNumber(extraKm)} KM ÷ ${formatNumber(mileage)} KM/LTR = +${formatLiters(extraDiesel)}`,
                 ],
                 emptyMessage: '',
             };
@@ -372,7 +372,7 @@ const activeMetricInfo = computed(() => {
 
         return {
             title: 'Difference LTR',
-            steps: ['Difference KM ÷ Expected Mileage = 0 Ltr'],
+            steps: ['Difference KM ÷ Expected Mileage = 0 LTR'],
             emptyMessage: '',
         };
     }
@@ -382,7 +382,7 @@ const activeMetricInfo = computed(() => {
             return {
                 title: 'Rate / KM',
                 steps: [],
-                emptyMessage: 'Enter Planned Diesel and Diesel Rate (₹/Ltr) in trip details.',
+                emptyMessage: 'Enter Planned Diesel and Diesel Rate (₹/LTR) in trip details.',
             };
         }
 
@@ -390,7 +390,7 @@ const activeMetricInfo = computed(() => {
             title: 'Rate / KM',
             steps: [
                 'Total Trip Cost ÷ Expected Running KM',
-                `Total Trip Cost = Planned Diesel × Diesel Rate = ${formatLiters(plannedDiesel)} × ${formatTripRate(dieselRate)}/Ltr = ${formatCost(totalCost)}`,
+                `Total Trip Cost = Planned Diesel × Diesel Rate = ${formatLiters(plannedDiesel)} × ${formatTripRate(dieselRate)}/LTR = ${formatCost(totalCost)}`,
                 `Rate / KM = ${formatCost(totalCost)} ÷ ${formatNumber(expectedKm)} KM = ${formatTripRate(performance.rate_per_km)}/KM`,
             ],
             emptyMessage: '',
@@ -495,10 +495,10 @@ const differenceLtrDisplay = computed(() => {
     }
 
     if (isOver.value) {
-        return `+${formatNumber(props.performance.extra_diesel_liters)} Ltr`;
+        return `+${formatNumber(props.performance.extra_diesel_liters)} LTR`;
     }
 
-    return '0 Ltr';
+    return '0 LTR';
 });
 
 const differenceAmountDisplay = computed(() => {
@@ -644,6 +644,6 @@ function formatLiters(value) {
         return '—';
     }
 
-    return `${formatNumber(value)} Ltr`;
+    return `${formatNumber(value)} LTR`;
 }
 </script>

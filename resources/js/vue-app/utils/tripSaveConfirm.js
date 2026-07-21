@@ -242,7 +242,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             case 'expectedMileage':
                 return leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                     ? '—'
-                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`;
+                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/LTR`;
             case 'rate':
                 return `₹${formatMoney(leg.freight_rate)}`;
             case 'freight':
@@ -311,7 +311,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             expectedMileage:
                 leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
                     ? '—'
-                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/Lt`,
+                    : `${formatNum(leg.expected_mileage_km_per_liter)} KM/LTR`,
             rate: formatMoney(leg.freight_rate),
             freight: formatMoney(leg.freight_amount),
             isNew,
@@ -402,7 +402,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             halfLoadStops: summary.halfLoadStops,
             emptyStops: summary.emptyStops,
             expectedMileage:
-                summary.expectedMileage == null ? '—' : `${formatNum(summary.expectedMileage)} KM/Ltr`,
+                summary.expectedMileage == null ? '—' : `${formatNum(summary.expectedMileage)} KM/LTR`,
             totalKm: formatNum(summary.totalKm),
             totalWeight: summary.totalWeightTon > 0 ? formatNum(summary.totalWeightTon) : '—',
             freight: formatMoney(summary.freightTotal),

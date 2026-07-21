@@ -136,7 +136,7 @@
 
             <div class="row g-2">
                 <div class="col-md-12">
-                    <label class="form-label">Layout name *</label>
+                    <label class="form-label">Layout Name *</label>
                     <input
                         v-model="form.name"
                         type="text"
@@ -150,7 +150,7 @@
                     </div>
                 </div>
                 <div :class="form.layout_type === 'standard' ? 'col-md-5' : 'col-md-10'">
-                    <label class="form-label">Vehicle type *</label>
+                    <label class="form-label">Vehicle Type *</label>
                     <AppSelect
                         v-model="form.layout_type"
                         :options="layoutTypeSelectOptions"
@@ -159,7 +159,7 @@
                     />
                 </div>
                 <div v-if="form.layout_type === 'standard'" class="col-md-5">
-                    <label class="form-label" for="tyreLayoutPreset">Quick start template</label>
+                    <label class="form-label" for="tyreLayoutPreset">Quick Start Template</label>
                     <AppSelect
                         input-id="tyreLayoutPreset"
                         v-model="selectedPreset"
@@ -190,7 +190,7 @@
             </div>
 
             <div v-show="showAdvanced" class="tyre-layout-form-modal__advanced mt-2">
-                <label class="form-label" for="layoutSortOrder">Sort order</label>
+                <label class="form-label" for="layoutSortOrder">Sort Order</label>
                 <input
                     id="layoutSortOrder"
                     v-model.number="form.sort_order"

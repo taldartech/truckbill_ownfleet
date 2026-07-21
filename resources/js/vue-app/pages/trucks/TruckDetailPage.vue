@@ -87,7 +87,7 @@
                                 <div class="fw-semibold">{{ formatOdometer(vehicle.odometer_km) }}</div>
                             </div>
                             <div class="col-md-4">
-                                <span class="text-muted">Default Mileage (KM/Ltr)</span>
+                                <span class="text-muted">Default Mileage (KM/LTR)</span>
                                 <div>{{ vehicle.default_mileage_km_per_liter ? formatOdometer(vehicle.default_mileage_km_per_liter) : '—' }}</div>
                             </div>
                             <div class="col-md-4">
@@ -95,7 +95,7 @@
                                 <div>{{ vehicle.max_load_ton ? formatOdometer(vehicle.max_load_ton) : '—' }}</div>
                             </div>
                             <div class="col-md-4">
-                                <span class="text-muted">Fuel Tank Capacity (Ltr)</span>
+                                <span class="text-muted">Fuel Tank Capacity (LTR)</span>
                                 <div>{{ vehicle.fuel_tank_capacity_ltr ? formatOdometer(vehicle.fuel_tank_capacity_ltr) : '—' }}</div>
                             </div>
                         </div>

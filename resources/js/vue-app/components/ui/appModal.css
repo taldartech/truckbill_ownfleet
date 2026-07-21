@@ -49,8 +49,10 @@
 }
 
 .app-modal__header .modal-title {
-    font-size: 1rem;
-    font-weight: 600;
+    color: var(--brand-text-primary);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-page-title);
+    font-weight: var(--app-font-weight-semibold);
 }
 
 .app-modal__shell {
@@ -80,8 +82,10 @@
 }
 
 .app-modal__body .form-label {
-    font-size: 0.8125rem;
-    font-weight: 600;
+    color: var(--form-label-color);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-label);
+    font-weight: var(--form-label-weight);
     margin-bottom: 0.2rem;
 }
 
@@ -151,8 +155,10 @@
 }
 
 .app-confirm-modal__title {
-    font-weight: 700;
-    color: #1e293b;
+    color: var(--brand-text-primary);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-page-title);
+    font-weight: var(--app-font-weight-bold);
 }
 
 .app-confirm-card {
@@ -164,11 +170,12 @@
 
 .app-confirm-card__section-title {
     padding: 0.65rem 0.9rem 0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #64748b;
+    color: var(--brand-text-muted);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size-label);
+    font-weight: var(--app-font-weight-bold);
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .app-confirm-card__header {

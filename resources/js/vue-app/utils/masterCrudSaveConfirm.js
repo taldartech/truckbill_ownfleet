@@ -376,7 +376,7 @@ export function buildTruckFields(payload, original) {
         },
         { label: 'Max Load (ton)', value: payload.max_load_ton, previousValue: original?.max_load_ton },
         {
-            label: 'Fuel Tank Capacity (Ltr)',
+            label: 'Fuel Tank Capacity (LTR)',
             value: payload.fuel_tank_capacity_ltr,
             previousValue: original?.fuel_tank_capacity_ltr,
         },

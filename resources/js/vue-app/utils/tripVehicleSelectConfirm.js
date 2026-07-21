@@ -41,7 +41,7 @@ export function buildTripVehicleSelectConfirmViewModel(vehicle) {
             { label: 'Max Load', value: `${formatNumber(vehicle?.max_load_ton, { maximumFractionDigits: 3 })} ton` },
             {
                 label: 'Default Mileage',
-                value: `${formatNumber(vehicle?.default_mileage_km_per_liter)} km/L`,
+                value: `${formatNumber(vehicle?.default_mileage_km_per_liter)} KM/LTR`,
             },
             {
                 label: 'Status',

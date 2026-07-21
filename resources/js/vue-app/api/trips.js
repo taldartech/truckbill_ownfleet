@@ -223,21 +223,21 @@ export const EXPENSE_TYPES = [
     { value: 'FOOD_EXPENSE', label: 'Food Expense' },
     { value: 'PARKING', label: 'Parking' },
     { value: 'RTO_EXPENSE', label: 'RTO' },
-    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
+    { value: 'PERMIT_BORDER_TAX', label: 'Permit / Border Tax' },
     { value: 'OTHER', label: 'Other' },
 ];
 
 export const EXPENSE_FORM_TYPES = [
     { value: 'DIESEL', label: 'Fuel (LTR × Rate)' },
-    { value: 'TOLL', label: 'Highway toll' },
-    { value: 'LOADING_CHARGES', label: 'Load charges' },
-    { value: 'UNLOADING_CHARGES', label: 'Unload charges' },
-    { value: 'FOOD_EXPENSE', label: 'Driver food' },
-    { value: 'DRIVER_EXPENSE', label: 'Driver cash / misc' },
+    { value: 'TOLL', label: 'Highway Toll' },
+    { value: 'LOADING_CHARGES', label: 'Load Charges' },
+    { value: 'UNLOADING_CHARGES', label: 'Unload Charges' },
+    { value: 'FOOD_EXPENSE', label: 'Driver Food' },
+    { value: 'DRIVER_EXPENSE', label: 'Driver Cash / Misc' },
     { value: 'REPAIR', label: 'Breakdown' },
-    { value: 'PARKING', label: 'Parking fee' },
+    { value: 'PARKING', label: 'Parking Fee' },
     { value: 'RTO_EXPENSE', label: 'RTO' },
-    { value: 'PERMIT_BORDER_TAX', label: 'Permit / border tax' },
+    { value: 'PERMIT_BORDER_TAX', label: 'Permit / Border Tax' },
     { value: 'OTHER', label: 'Other' },
 ];
 
@@ -463,7 +463,7 @@ export function validateTripPayload(
                 errors.planned_mileage_km_per_liter = ['Expected mileage cannot be negative.'];
             } else if (plannedMileage > MAX_EXPECTED_MILEAGE_KM_PER_LITER) {
                 errors.planned_mileage_km_per_liter = [
-                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/Lt.`,
+                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/LTR.`,
                 ];
             }
         }
@@ -477,7 +477,7 @@ export function validateTripPayload(
                 errors.planned_diesel_liters = ['Expected diesel cannot be negative.'];
             } else if (plannedDiesel > MAX_PLANNED_DIESEL_LITERS) {
                 errors.planned_diesel_liters = [
-                    `Max ${MAX_PLANNED_DIESEL_LITERS.toLocaleString('en-IN')} Ltr.`,
+                    `Max ${MAX_PLANNED_DIESEL_LITERS.toLocaleString('en-IN')} LTR.`,
                 ];
             }
         }
@@ -491,7 +491,7 @@ export function validateTripPayload(
                 errors.diesel_rate_per_liter = ['Diesel rate cannot be negative.'];
             } else if (dieselRate > MAX_DIESEL_RATE_PER_LITER) {
                 errors.diesel_rate_per_liter = [
-                    `Max ₹${MAX_DIESEL_RATE_PER_LITER.toLocaleString('en-IN')}/Ltr.`,
+                    `Max ₹${MAX_DIESEL_RATE_PER_LITER.toLocaleString('en-IN')}/LTR.`,
                 ];
             }
         }
@@ -654,7 +654,7 @@ export function validateTripPayload(
                 ];
             } else if (expectedMileage > MAX_EXPECTED_MILEAGE_KM_PER_LITER) {
                 errors[`route_legs.${index}.expected_mileage_km_per_liter`] = [
-                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/Lt.`,
+                    `Max ${MAX_EXPECTED_MILEAGE_KM_PER_LITER} KM/LTR.`,
                 ];
             }
         }

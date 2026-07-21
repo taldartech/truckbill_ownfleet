@@ -71,8 +71,8 @@
 .compliance-table thead th {
     font-size: 0.72rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    text-transform: none;
+    letter-spacing: normal;
     color: var(--brand-text-muted, #64748b);
     border-bottom-width: 1px;
 }

@@ -14,7 +14,7 @@
                         Driver: {{ driverLabel || selectedVehicle.primary_driver_name }}
                     </span>
                 </span>
-                <span v-else class="text-muted">{{ placeholder }}</span>
+                <span v-else class="text-placeholder">{{ placeholder }}</span>
             </button>
             <div v-if="modelValue && !disabled" class="picker-trigger-icons">
                 <button

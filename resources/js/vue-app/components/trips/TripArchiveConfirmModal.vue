@@ -100,7 +100,7 @@
             </div>
 
             <div class="trip-archive-confirm__reason">
-                <label class="form-label mb-1">Reason for Archive <span class="text-danger">*</span></label>
+                <label class="form-label mb-1">Reason For Archive <span class="text-danger">*</span></label>
                 <textarea
                     v-model="archiveReason"
                     class="form-control form-control-sm"

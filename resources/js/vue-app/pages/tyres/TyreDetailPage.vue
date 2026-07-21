@@ -231,7 +231,7 @@
                 <div v-if="activeTab === 'timeline'" class="card-body tyre-history-panel">
                     <div class="row g-2 align-items-start mb-3 tyre-history-filters">
                         <div class="col-sm-4 col-md-3">
-                            <label class="form-label small mb-1" for="historyFromDate">From date</label>
+                            <label class="form-label small mb-1" for="historyFromDate">From Date</label>
                             <AppDateInput
                                 input-id="historyFromDate"
                                 v-model="historyFromDate"
@@ -239,7 +239,7 @@
                             />
                         </div>
                         <div class="col-sm-4 col-md-3">
-                            <label class="form-label small mb-1" for="historyToDate">To date</label>
+                            <label class="form-label small mb-1" for="historyToDate">To Date</label>
                             <AppDateInput
                                 input-id="historyToDate"
                                 v-model="historyToDate"
@@ -248,7 +248,7 @@
                             />
                         </div>
                         <div class="col-sm-4 col-md-3">
-                            <label class="form-label small mb-1" for="historyTypeFilter">Event type</label>
+                            <label class="form-label small mb-1" for="historyTypeFilter">Event Type</label>
                             <AppSelect
                                 input-id="historyTypeFilter"
                                 v-model="historyTypeFilter"
@@ -356,7 +356,7 @@
                 />
             </div>
             <div class="mb-2">
-                <label class="form-label">Meter Reading at Install (km)</label>
+                <label class="form-label">Meter Reading At Install (KM)</label>
                 <input
                     v-model.number="actionForm.km_at_installation"
                     v-no-scroll-change
@@ -387,7 +387,7 @@
                 :position="tyre.active_installation.position_label"
             />
             <div class="mb-2">
-                <label class="form-label">New tyre (from stock)</label>
+                <label class="form-label">New Tyre (From Stock)</label>
                 <AppSelect
                     v-model="actionForm.new_tyre_id"
                     :options="stockTyreSelectOptions"
@@ -396,7 +396,7 @@
                 />
             </div>
             <div class="mb-2">
-                <label class="form-label">Replace date</label>
+                <label class="form-label">Replace Date</label>
                 <AppDateInput
                     v-model="actionForm.replaced_at"
                     :min="replaceActionMinDate"
@@ -405,7 +405,7 @@
                 />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current Meter Reading (km) *</label>
+                <label class="form-label">Current Meter Reading (KM) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -472,7 +472,7 @@
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
-                    <label class="form-label">Current Meter Reading (km) *</label>
+                    <label class="form-label">Current Meter Reading (KM) *</label>
                     <input
                         v-model.number="actionForm.odometer_km"
                         v-no-scroll-change
@@ -537,7 +537,7 @@
                 :position="tyre.active_installation.position_label"
             />
             <div class="mb-2">
-                <label class="form-label">Remove date</label>
+                <label class="form-label">Remove Date</label>
                 <AppDateInput
                     v-model="actionForm.removed_at"
                     :min="tyre.purchase_date"
@@ -546,7 +546,7 @@
                 />
             </div>
             <div class="mb-2">
-                <label class="form-label">Current Meter Reading (km) *</label>
+                <label class="form-label">Current Meter Reading (KM) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -583,7 +583,7 @@
                 :position="tyre.active_installation.position_label"
             />
             <div class="mb-2">
-                <label class="form-label">Current Meter Reading (km) *</label>
+                <label class="form-label">Current Meter Reading (KM) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change
@@ -621,11 +621,11 @@
                 <div><strong>Remaining:</strong> {{ lifeSummary.remaining_life_km }} km</div>
             </div>
             <div class="mb-2">
-                <label class="form-label">Scrap date</label>
+                <label class="form-label">Scrap Date</label>
                 <AppDateInput v-model="actionForm.scrapped_at" :max="maxTyreActionDate" required />
             </div>
             <div class="mb-2">
-                <label class="form-label">Sale amount (recovery)</label>
+                <label class="form-label">Sale Amount (Recovery)</label>
                 <input
                     v-model.number="actionForm.scrap_sale_amount"
                     v-no-scroll-change
@@ -670,7 +670,7 @@
                 :show-truck="false"
             />
             <div class="mb-2">
-                <label class="form-label">Inspection date</label>
+                <label class="form-label">Inspection Date</label>
                 <AppDateInput
                     v-model="actionForm.inspected_at"
                     :min="tyre.purchase_date"
@@ -680,7 +680,7 @@
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
-                    <label class="form-label">Tread depth (mm)</label>
+                    <label class="form-label">Tread Depth (MM)</label>
                     <input
                         v-model.number="actionForm.tread_depth_mm"
                         v-no-scroll-change
@@ -744,7 +744,7 @@
                 />
             </div>
             <div v-if="damageModalMode === 'recapped'" class="mb-2">
-                <label class="form-label">New expected life (km) *</label>
+                <label class="form-label">New Expected Life (KM) *</label>
                 <input
                     v-model.number="actionForm.expected_life_km"
                     type="number"
@@ -778,7 +778,7 @@
                 </div>
             </div>
             <div class="mb-2">
-                <label class="form-label">Current Meter Reading (km) *</label>
+                <label class="form-label">Current Meter Reading (KM) *</label>
                 <input
                     v-model.number="actionForm.odometer_km"
                     v-no-scroll-change

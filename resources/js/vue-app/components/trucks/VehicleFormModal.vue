@@ -34,7 +34,7 @@
                                 <div v-else class="form-text">Letters and numbers only. Saved as uppercase (e.g. RJ27AV5055).</div>
                             </div>
                             <div class="col-md-6">
-                                <label :for="`${modalId}_layout`" class="form-label">Tyre layout *</label>
+                                <label :for="`${modalId}_layout`" class="form-label">Tyre Layout *</label>
                                 <AppSelect
                                     :input-id="`${modalId}_layout`"
                                     v-model="form.tyre_layout"
@@ -91,7 +91,7 @@
 
                         <div class="row mb-3">
                             <div class="col-md-4">
-                                <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/Ltr)</label>
+                                <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/LTR)</label>
                                 <input
                                     :id="`${modalId}_default_mileage`"
                                     v-model="form.default_mileage_km_per_liter"
@@ -123,7 +123,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label :for="`${modalId}_fuel_tank`" class="form-label">Fuel Tank Capacity (Ltr)</label>
+                                <label :for="`${modalId}_fuel_tank`" class="form-label">Fuel Tank Capacity (LTR)</label>
                                 <input
                                     :id="`${modalId}_fuel_tank`"
                                     v-model="form.fuel_tank_capacity_ltr"
