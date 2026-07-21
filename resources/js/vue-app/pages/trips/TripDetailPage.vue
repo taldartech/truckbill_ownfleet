@@ -116,7 +116,7 @@
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Actual Arrival</span>
-                                <div class="trip-info-grid__value">{{ formatDateTime(trip.actual_arrival_at) }}</div>
+                                <div class="trip-info-grid__value">{{ formatDate(trip.actual_arrival_at) }}</div>
                             </div>
                             <div class="trip-info-grid__item">
                                 <span class="trip-info-grid__label">Truck</span>
