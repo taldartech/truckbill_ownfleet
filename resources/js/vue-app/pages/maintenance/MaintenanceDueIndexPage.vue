@@ -9,15 +9,6 @@
         <AppIndexListCard title="Due Services" :loading="loading" loading-text="Loading due services…">
             <template #toolbar>
                 <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="maintenance-due-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
                     aria-label="Add maintenance"
@@ -28,13 +19,12 @@
             </template>
 
             <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
                 panel-id="maintenance-due-filters-panel"
                 :loading="loading"
                 @search="applyFilters"
                 @reset="clearFilters"
             >
-                <div class="maintenance-filter-period">
+                <div class="filter-period-col">
                     <DashboardDateRangePicker
                         v-model:from-date="filters.from_date"
                         v-model:to-date="filters.to_date"
@@ -46,7 +36,7 @@
                         @change="onDateRangeChange"
                     />
                 </div>
-                <div class="maintenance-filter-search">
+                <div class="filter-search-col">
                     <label class="form-label" :for="`${pageId}_search`">Search</label>
                     <AppIndexSearchInput
                         v-model="filters.search"
@@ -58,7 +48,7 @@
                         @keydown.enter.prevent="applyFilters"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col filter-select-col--truck">
                     <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
                     <VehicleSelect
                         :input-id="`${pageId}_vehicle`"
@@ -68,7 +58,7 @@
                         :disabled="loading"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col filter-select-col--service">
                     <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
                     <MaintenanceServiceTypeSelect
                         :input-id="`${pageId}_service_type`"
@@ -78,7 +68,7 @@
                         :disabled="loading"
                     />
                 </div>
-                <div>
+                <div class="filter-select-col filter-select-col--overdue">
                     <label class="form-label">Overdue Type</label>
                     <AppSelect
                         v-model="filters.overdue_reason"
@@ -243,7 +233,6 @@ const serviceTypes = ref([]);
 const vehicles = ref([]);
 const allRecords = ref([]);
 const loading = ref(true);
-const filtersOpen = ref(false);
 
 const filters = reactive(defaultMaintenanceDueFilters());
 const defaultFilters = defaultMaintenanceDueFilters();
@@ -257,16 +246,6 @@ const records = computed(() => {
 
     return allRecords.value.slice(start, start + pagination.perPage);
 });
-
-const filtersActive = computed(
-    () =>
-        filters.from_date !== defaultFilters.from_date ||
-        filters.to_date !== defaultFilters.to_date ||
-        filters.search !== '' ||
-        filters.vehicle_id !== '' ||
-        filters.maintenance_service_type_id !== '' ||
-        filters.overdue_reason !== '',
-);
 
 function currentListState() {
     return {
@@ -339,10 +318,6 @@ function applyStateFromRouteOrSession() {
     }
 
     applyListState(resolveMaintenanceDueListState(tenantId.value));
-}
-
-function toggleFilters() {
-    filtersOpen.value = !filtersOpen.value;
 }
 
 function vehicleLabel(record) {
@@ -511,10 +486,6 @@ onMounted(async () => {
         toast.success('Maintenance record deleted.');
     }
 
-    if (filtersActive.value) {
-        filtersOpen.value = true;
-    }
-
     try {
         const [vehicleList, typeList] = await Promise.all([listAllVehicles(), listMaintenanceServiceTypes()]);
 
@@ -534,13 +505,148 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.maintenance-filter-search :deep(.app-index-search) {
-    width: 100%;
-    max-width: none;
+/* Match the trip-list filter bar: all controls and actions share one row. */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    gap: 7px !important;
+    padding: 0.75rem !important;
 }
 
-.maintenance-filter-search :deep(.app-index-search > .form-control),
-.maintenance-filter-search :deep(.app-index-search > .input-group-text) {
-    min-height: 38px;
+:deep(.app-index-filters-fields) {
+    display: contents !important;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0 !important;
+    margin-left: auto !important;
+    align-self: flex-end !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 0.35rem !important;
+}
+
+.filter-period-col {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 0 !important;
+}
+
+.filter-search-col {
+    flex: 1 1 180px !important;
+    width: 180px !important;
+    min-width: 150px !important;
+    max-width: 210px !important;
+}
+
+.filter-select-col {
+    flex: 0 1 125px !important;
+    width: 125px !important;
+    min-width: 105px !important;
+}
+
+.filter-select-col--truck {
+    flex-basis: 110px !important;
+    width: 110px !important;
+}
+
+.filter-select-col--service {
+    flex-basis: 125px !important;
+    width: 125px !important;
+}
+
+.filter-select-col--overdue {
+    flex-basis: 135px !important;
+    width: 135px !important;
+}
+
+.filter-search-col :deep(.app-index-search),
+.filter-period-col :deep(.dashboard-date-range),
+.filter-select-col :deep(.app-select),
+.filter-select-col :deep(.vehicle-select),
+.filter-select-col :deep(.maintenance-service-type-select),
+.filter-select-col :deep(.searchable-select) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.filter-period-col :deep(.dashboard-date-range__label),
+.filter-search-col > .form-label,
+.filter-select-col > .form-label {
+    margin-bottom: 0.25rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap;
+}
+
+.filter-period-col :deep(.dashboard-date-range__trigger),
+.filter-search-col :deep(.form-control),
+.filter-search-col :deep(.input-group-text),
+.filter-select-col :deep(.select-trigger),
+.filter-select-col :deep(.form-select) {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    font-size: 0.75rem !important;
+}
+
+.filter-period-col :deep(.dashboard-date-range__trigger) {
+    gap: 0.35rem;
+    padding-right: 0.5rem !important;
+    padding-left: 0.5rem !important;
+}
+
+.filter-period-col :deep(.dashboard-date-range__value),
+.filter-select-col :deep(.select-trigger-label) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+:deep(.app-index-collapsible-filters__btn) {
+    height: 34px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+}
+
+.filter-search-col :deep(.app-index-search > .form-control),
+.filter-search-col :deep(.app-index-search > .input-group-text) {
+    min-height: 34px !important;
+}
+
+@media (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        flex-wrap: wrap !important;
+    }
+
+    :deep(.app-index-filters-fields) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 10px;
+    }
+
+    .filter-period-col,
+    .filter-search-col,
+    .filter-select-col {
+        width: auto !important;
+        max-width: none !important;
+        min-width: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 575.98px) {
+    :deep(.app-index-filters-fields) {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
