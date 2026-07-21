@@ -70,6 +70,10 @@
       "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
       "@php artisan package:discover --ansi"
     ],
+    "dev": [
+        "Composer\\Config::disableProcessTimeout",
+        "npx concurrently -c \"#93c5fd,#fdba74\" \"php artisan serve\" \"npm run dev\" --names=server,vite --kill-others"
+    ],
     "test": "@php artisan test",
     "pint": "@php vendor/bin/pint",
     "pint:test": "@php vendor/bin/pint --test"
