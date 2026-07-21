@@ -85,6 +85,16 @@ class TripRouteLeg extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function fromStation(): BelongsTo
+    {
+        return $this->belongsTo(Station::class, 'from_station_id');
+    }
+
+    public function toStation(): BelongsTo
+    {
+        return $this->belongsTo(Station::class, 'to_station_id');
+    }
+
     public function expenses(): HasMany
     {
         return $this->hasMany(TripExpense::class);

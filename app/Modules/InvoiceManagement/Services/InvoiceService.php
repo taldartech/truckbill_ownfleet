@@ -476,8 +476,12 @@ class InvoiceService
             'customer.city',
             'customerState',
             'supplierState',
-            'items',
+            'items.routeLeg.fromStation.city',
+            'items.routeLeg.fromStation.state',
+            'items.routeLeg.toStation.city',
+            'items.routeLeg.toStation.state',
             'trip.vehicle',
+            'trip.driver',
             'branch.company.state',
             'tenant.state',
         ]);

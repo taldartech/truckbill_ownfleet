@@ -1,310 +1,697 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>{{ $invoice->document_type?->label() ?? 'Invoice' }} - {{ $invoice->invoice_number ?? $invoice->id }}</title>
     <style>
-        @page { margin: 14px 12px; }
+        @page {
+            margin: 12px 10px;
+        }
+
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
             font-size: 9pt;
+            color: #111;
             margin: 0;
             padding: 0;
         }
+
         .invoice-card {
-            border: 1px solid #231f20;
-            border-radius: 8px;
+            border: 1.5px solid #231f20;
             overflow: hidden;
         }
-        .top-band {
-            padding: 10px 14px;
-            border-bottom: 2px solid #231f20;
+
+        .invoice-body {
+            padding: 0 12px 10px;
         }
-        .invoice-title {
-            font-size: 23px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            margin: 0;
-            line-height: 1;
-        }
-        .company-name {
-            font-size: 18px;
-            font-weight: 700;
-            margin-top: 4px;
-            margin-bottom: 2px;
-        }
-        .company-meta {
-            font-size: 10px;
-            opacity: 0.95;
-        }
-        .company-logo {
-            width: 92px;
-            height: 58px;
-            object-fit: contain;
-            display: block;
-        }
-        .section {
-            padding: 10px 12px;
-        }
-        .chip-title {
-            border: 1px solid #231f20;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-            margin-bottom: 8px;
-        }
+
         table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            margin-bottom: 8px;
-            page-break-inside: avoid;
         }
-        th, td {
-            border: 1px solid #231f20;
-            padding: 5px 4px;
-            font-size: 8.3pt;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+
+        .header {
+            /* background: #163a6b; */
+            /* color: #fff; */
+            padding: 14px 16px 12px;
+        }
+
+        .header td {
+            border: none;
             vertical-align: top;
+            padding: 0;
         }
+
+        .company-name {
+            font-size: 15pt;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            line-height: 1.2;
+            margin: 0 0 4px;
+            text-transform: uppercase;
+        }
+
+        .company-address {
+            font-size: 8.5pt;
+            line-height: 1.35;
+            margin: 0 0 6px;
+            opacity: 0.95;
+        }
+
+        .company-tax {
+            font-size: 8.5pt;
+            margin: 0;
+        }
+
+        .invoice-meta {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .invoice-number {
+            /* color: #f0c419; */
+            font-size: 13pt;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0 0 4px;
+        }
+
+        .invoice-date {
+            font-size: 9pt;
+            margin: 0;
+        }
+
+        .doc-title {
+            text-align: center;
+            font-size: 16pt;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 12px 0 10px;
+            /* color: #111; */
+        }
+
+        .invoice-to {
+            border: 1px solid #222;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+        }
+
+        .invoice-to-label {
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .invoice-to-name {
+            font-weight: 700;
+            font-size: 10pt;
+            margin-bottom: 2px;
+        }
+
+        .invoice-to-line {
+            font-size: 8.5pt;
+            line-height: 1.35;
+        }
+
+        .section-table {
+            margin-bottom: 10px;
+        }
+
+        .section-table th,
+        .section-table td {
+            border: 1px solid #163a6b;
+            padding: 6px 8px;
+            vertical-align: top;
+            font-size: 8.5pt;
+            line-height: 1.35;
+        }
+
+        .section-table th {
+            /* background: #163a6b; */
+            /* color: #fff; */
+            font-weight: 700;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 8.5pt;
+            letter-spacing: 0.3px;
+        }
+
+        .details-table {
+            margin-bottom: 10px;
+        }
+
+        .details-table .details-head th {
+            /* background: #163a6b; */
+            /* color: #fff; */
+            text-align: center;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 5px 6px;
+            border: 1px solid #163a6b;
+            font-size: 8.5pt;
+        }
+
+        .details-table td {
+            border: 1px solid #163a6b;
+            padding: 5px 6px;
+            font-size: 8.5pt;
+            vertical-align: middle;
+        }
+
+        .details-label {
+            /* background: #dce8f6; */
+            font-weight: 700;
+            width: 16%;
+            /* color: #163a6b; */
+        }
+
+        .details-value {
+            width: 34%;
+        }
+
         .lines-table {
-            page-break-inside: auto;
-            table-layout: fixed;
+            margin-bottom: 8px;
         }
+
         .lines-table th,
         .lines-table td {
-            padding: 2px 2px;
-            font-size: 6.3pt !important;
-            line-height: 1.15;
+            border: 1px solid #222;
+            padding: 5px 4px;
+            font-size: 7.5pt;
             vertical-align: middle;
-            word-wrap: normal;
-            overflow-wrap: normal;
         }
+
         .lines-table th {
-            font-size: 6.5pt !important;
+            /* background: #fff; */
+            /* color: #163a6b; */
             font-weight: 700;
             text-align: center;
-            white-space: normal;
-            line-height: 1.1;
-            padding: 3px 1px;
+            font-size: 7.2pt;
+            line-height: 1.15;
         }
-        .lines-table .c-seq,
-        .lines-table .c-date,
-        .lines-table .c-nowrap {
-            white-space: nowrap;
+
+        .lines-table .c-center {
             text-align: center;
         }
-        .lines-table .c-num,
-        .lines-table .c-money {
+
+        .lines-table .c-right {
+            text-align: right;
             white-space: nowrap;
+        }
+
+        .lines-table .c-left {
+            text-align: left;
+        }
+
+        .page-total-label {
+            font-weight: 700;
             text-align: right;
         }
-        .lines-table .c-text {
-            font-size: 6.8pt;
-            line-height: 1.1;
-            word-break: break-all;
-        }
-        th {
+
+        .page-total-value {
             font-weight: 700;
+            text-align: right;
+            white-space: nowrap;
         }
-        .meta-label {
-            width: 32%;
-            font-weight: 700;
-        }
-        .summary-table .grand td {
-            font-weight: 700;
-        }
+
         .footer-note {
-            font-size: 9px;
+            font-size: 8pt;
             line-height: 1.4;
+            margin-top: 8px;
         }
-        .signature-box {
-            text-align: center;
+
+        .amount-words {
+            font-size: 8.5pt;
+            margin-top: 6px;
+        }
+
+        .signature {
+            text-align: right;
+            font-size: 8.5pt;
             font-weight: 700;
+            margin-top: 18px;
+        }
+
+        .brand-footer {
+            font-size: 7px;
+            text-align: right;
+            /* color: #555; */
+            margin-top: 4px;
+        }
+
+        .muted {
+            color: #555;
         }
     </style>
 </head>
+
 <body>
     @php
         use App\Enums\InvoiceDocumentType;
+        use App\Enums\LoadCategory;
         use App\Enums\TaxLiability;
+        use App\Modules\TripManagement\Support\LoadClassifier;
 
         $company = $company ?? $invoice->tenant;
+        $branch = $invoice->branch;
         $customer = $invoice->customer;
-        $items = $invoice->items ?? collect();
+        $trip = $invoice->trip;
+        $items = ($invoice->items ?? collect())->values();
+
+        $documentType =
+            $invoice->document_type instanceof InvoiceDocumentType
+                ? $invoice->document_type
+                : InvoiceDocumentType::tryFrom((string) $invoice->document_type);
+
+        $isRcm =
+            $documentType === InvoiceDocumentType::TaxInvoiceRcm ||
+            $invoice->tax_liability === TaxLiability::ReverseCharge ||
+            ($invoice->tax_liability?->value ?? $invoice->tax_liability) === 'reverse_charge';
+
+        $displaysGst = $documentType?->displaysGst() ?? false;
+        $collectsGst = $documentType?->collectsGst() ?? false;
+
         $cgst = (float) ($invoice->cgst_amount ?? 0);
         $sgst = (float) ($invoice->sgst_amount ?? 0);
         $igst = (float) ($invoice->igst_amount ?? 0);
+        $cgstRate = (float) ($invoice->cgst_rate ?? 0);
+        $sgstRate = (float) ($invoice->sgst_rate ?? 0);
+        $igstRate = (float) ($invoice->igst_rate ?? 0);
         $baseAmount = (float) ($invoice->freight_amount ?? 0);
-        $documentType = $invoice->document_type instanceof InvoiceDocumentType
-            ? $invoice->document_type
-            : InvoiceDocumentType::tryFrom((string) $invoice->document_type);
-        $isRcm = $documentType === InvoiceDocumentType::TaxInvoiceRcm
-            || $invoice->tax_liability === TaxLiability::ReverseCharge
-            || ($invoice->tax_liability?->value ?? $invoice->tax_liability) === 'reverse_charge';
         $grandTotal = (float) ($invoice->total_amount ?? $baseAmount);
-        $billNumber = $invoice->invoice_number ?? $invoice->id;
         $totalGst = $cgst + $sgst + $igst;
+
         $documentTitle = strtoupper($documentType?->label() ?? 'Invoice');
-        $truckNumber = optional($invoice->trip?->vehicle)->registration_number
-            ?? optional($invoice->trip)->vehicle?->registration_number
-            ?? '-';
-        $invoiceDate = $invoice->invoice_date
-            ? \Carbon\Carbon::parse($invoice->invoice_date)->format('d-m-Y')
-            : '-';
-        $placeOfSupply = $invoice->customerState?->code
-            ?? $customer?->state?->code
-            ?? $invoice->supplierState?->code
-            ?? '—';
-        $logoOwner = $invoice->branch ?? $company;
-        $logoPath = $logoOwner?->logoFilesystemPathForPdf();
-        $colWidths = ['5%', '14%', '14%', '28%', '14%', '12%', '13%'];
+        $billNumber = $invoice->invoice_number ?? $invoice->id;
+        $invoiceDate = $invoice->invoice_date ? \Carbon\Carbon::parse($invoice->invoice_date)->format('d-m-Y') : '—';
+
+        $companyName = $company->name ?? '—';
+        $companyAddress = trim(
+            (string) (($branch && filled($branch->branch_address) ? $branch->branch_address : null) ??
+                ($company->address ?? '')),
+        );
+        if ($company->state?->name && !str_contains(strtolower($companyAddress), strtolower($company->state->name))) {
+            $companyAddress = trim($companyAddress . ($companyAddress !== '' ? ' ' : '') . $company->state->name);
+        }
+
+        $gstNumber =
+            $branch && !($branch->inherit_company_gst ?? true) && filled($branch->gst_number)
+                ? $branch->gst_number
+                : $company->gst_number ?? null;
+        $panNumber = $company->pan_number ?? null;
+
+        $customerAddressParts = array_filter([$customer?->address, $customer?->city?->name, $customer?->state?->name]);
+        $customerAddress = implode(', ', $customerAddressParts) ?: '—';
+
+        $routeLegs = $items->map(fn($item) => $item->routeLeg)->filter()->values();
+
+        $formatStationLocation = function ($leg, string $side): string {
+            $station = $side === 'from' ? $leg->fromStation : $leg->toStation;
+            $stationName = trim(
+                (string) ($station?->name ?: ($side === 'from' ? $leg->from_location : $leg->to_location) ?: ''),
+            );
+            $cityName = trim(
+                (string) ($station?->city?->name ?: ($side === 'from' ? $leg->from_city : $leg->to_city) ?: ''),
+            );
+            $stateCode = strtoupper(trim((string) ($station?->state?->code ?: '')));
+
+            $parts = [];
+
+            if ($stationName !== '') {
+                $parts[] = $stationName;
+            }
+
+            if (
+                $cityName !== '' &&
+                !collect($parts)->contains(
+                    fn(string $part): bool => str_contains(mb_strtolower($part), mb_strtolower($cityName)),
+                )
+            ) {
+                $parts[] = $cityName;
+            }
+
+            if ($stateCode !== '') {
+                $parts[] = $stateCode;
+            }
+
+            return implode(', ', $parts);
+        };
+
+        $formatPartyWithLocation = function (?string $name, ?string $location): ?string {
+            $name = trim((string) $name);
+            $location = trim((string) $location);
+
+            if ($name === '' && $location === '') {
+                return null;
+            }
+
+            if ($name === '') {
+                return $location;
+            }
+
+            if ($location === '') {
+                return $name;
+            }
+
+            if (str_contains(mb_strtolower($name), mb_strtolower($location))) {
+                return $name;
+            }
+
+            return $name . ', ' . $location;
+        };
+
+        $consignors = $routeLegs
+            ->map(function ($leg) use ($formatPartyWithLocation, $formatStationLocation) {
+                return $formatPartyWithLocation($leg->consignor, $formatStationLocation($leg, 'from'));
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($consignors->isEmpty()) {
+            $consignors = $items
+                ->map(fn($item) => $formatPartyWithLocation(null, $item->from_location))
+                ->filter()
+                ->unique()
+                ->values();
+        }
+
+        $consignees = $routeLegs
+            ->map(function ($leg) use ($formatPartyWithLocation, $formatStationLocation) {
+                return $formatPartyWithLocation($leg->consignee, $formatStationLocation($leg, 'to'));
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($consignees->isEmpty()) {
+            $consignees = $items
+                ->map(fn($item) => $formatPartyWithLocation(null, $item->to_location))
+                ->filter()
+                ->unique()
+                ->values();
+        }
+
+        $originParts = $routeLegs->map(fn($leg) => $formatStationLocation($leg, 'from'))->filter()->unique()->values();
+        $origin = $originParts->isNotEmpty()
+            ? $originParts->implode(', ')
+            : ($items->pluck('from_location')->filter()->unique()->values()->implode(', ') ?:
+            '—');
+
+        $destinationParts = $routeLegs
+            ->map(fn($leg) => $formatStationLocation($leg, 'to'))
+            ->filter()
+            ->unique()
+            ->values();
+        $destination = $destinationParts->isNotEmpty()
+            ? $destinationParts
+            : $items->pluck('to_location')->filter()->unique()->values();
+        $destinationLabel =
+            $destination->count() > 1
+                ? $destination->slice(0, -1)->implode(', ') . ' and ' . $destination->last()
+                : ($destination->first() ?:
+                '—');
+
+        $pickupDates = $routeLegs
+            ->map(fn($leg) => $leg->pickup_date)
+            ->filter()
+            ->map(fn($date) => \Carbon\Carbon::parse($date)->format('F j, Y'))
+            ->unique()
+            ->values();
+
+        if ($pickupDates->isEmpty() && $trip?->start_at) {
+            $pickupDates = collect([\Carbon\Carbon::parse($trip->start_at)->format('F j, Y')]);
+        }
+
+        $deliveryDates = collect();
+        if ($trip?->end_at) {
+            $deliveryDates = collect([\Carbon\Carbon::parse($trip->end_at)->format('F j, Y')]);
+        } elseif ($trip?->actual_arrival_at) {
+            $deliveryDates = collect([\Carbon\Carbon::parse($trip->actual_arrival_at)->format('F j, Y')]);
+        }
+
+        $formatDateList = function ($dates) {
+            $dates = collect($dates)->filter()->values();
+            if ($dates->isEmpty()) {
+                return '—';
+            }
+            if ($dates->count() === 1) {
+                return $dates->first();
+            }
+
+            return $dates->slice(0, -1)->implode(', ') . ' and ' . $dates->last();
+        };
+
+        $vehicleNo = optional($trip?->vehicle)->registration_number ?? '—';
+        $driverName = optional($trip?->driver)->name ?? '—';
+
+        $goodsNames = $items->pluck('goods_name')->filter()->unique()->values();
+        $freightDescription = $goodsNames->implode(', ') ?: 'Freight';
+
+        $loadType = '—';
+        if ($trip !== null) {
+            try {
+                $weightTon = (float) ($trip->load_weight_ton ?? $items->sum('weight_ton'));
+                $maxLoadTon = (float) ($trip->max_load_ton ?? 0);
+                $classification = LoadClassifier::classify($weightTon, $maxLoadTon);
+                $loadType = match ($classification->category) {
+                    LoadCategory::Empty => 'Empty',
+                    LoadCategory::Half => 'Half load',
+                    LoadCategory::Full => 'Full-truck load',
+                };
+            } catch (\Throwable) {
+                $loadType = ((float) $items->sum('weight_ton')) > 0 ? 'Full-truck load' : 'Empty';
+            }
+        }
+
+        $hsnCode = '996511';
+
+        $formatMoney = function (float $amount, bool $withSuffix = false): string {
+            $formatted = number_format($amount, $amount == floor($amount) ? 0 : 2);
+
+            return $withSuffix ? $formatted . '/-' : $formatted;
+        };
+
+        $formatGstCell = function (float $rate, float $invoiceGstAmount) use ($displaysGst): string {
+            if (!$displaysGst || $rate <= 0 || $invoiceGstAmount <= 0) {
+                return '—';
+            }
+
+            return rtrim(rtrim(number_format($rate, 2), '0'), '.') . '%';
+        };
+
+        $lineRows = [];
+        $itemCount = $items->count();
+        $allocatedCgst = 0.0;
+        $allocatedSgst = 0.0;
+        $allocatedIgst = 0.0;
+
+        foreach ($items as $index => $item) {
+            $serviceCharge = round((float) $item->freight_amount, 2);
+            $share = $baseAmount > 0 ? $serviceCharge / $baseAmount : ($itemCount > 0 ? 1 / $itemCount : 0);
+            $isLast = $index === $itemCount - 1;
+
+            if ($isLast) {
+                $lineCgst = round($cgst - $allocatedCgst, 2);
+                $lineSgst = round($sgst - $allocatedSgst, 2);
+                $lineIgst = round($igst - $allocatedIgst, 2);
+            } else {
+                $lineCgst = round($cgst * $share, 2);
+                $lineSgst = round($sgst * $share, 2);
+                $lineIgst = round($igst * $share, 2);
+                $allocatedCgst += $lineCgst;
+                $allocatedSgst += $lineSgst;
+                $allocatedIgst += $lineIgst;
+            }
+
+            $taxableGst = $lineCgst + $lineSgst + $lineIgst;
+            $lineTotal = $collectsGst ? $serviceCharge + $taxableGst : $serviceCharge;
+
+            $description =
+                $index === 0
+                    ? 'Freight Charges'
+                    : 'Extra Stop' . ($item->to_location ? ' — ' . $item->to_location : '');
+
+            $lineRows[] = [
+                'sno' => $index + 1,
+                'description' => $description,
+                'hsn' => $index === 0 ? $hsnCode : '',
+                'service_charge' => $serviceCharge,
+                'cgst' => $formatGstCell($cgstRate, $cgst),
+                'sgst' => $formatGstCell($sgstRate, $sgst),
+                'igst' => $formatGstCell($igstRate, $igst),
+                'taxable' => $displaysGst ? $taxableGst : 0,
+                'total' => $lineTotal,
+            ];
+        }
+
+        if ($lineRows === [] && $baseAmount > 0) {
+            $lineRows[] = [
+                'sno' => 1,
+                'description' => 'Freight Charges',
+                'hsn' => $hsnCode,
+                'service_charge' => $baseAmount,
+                'cgst' => $formatGstCell($cgstRate, $cgst),
+                'sgst' => $formatGstCell($sgstRate, $sgst),
+                'igst' => $formatGstCell($igstRate, $igst),
+                'taxable' => $displaysGst ? $totalGst : 0,
+                'total' => $grandTotal,
+            ];
+        }
     @endphp
 
     <div class="invoice-card">
-        <div class="top-band">
-            <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; table-layout: auto;">
-                <tr>
-                    @if ($logoPath)
-                        <td style="width: 120px; padding: 0; border: none; vertical-align: middle;">
-                            <img
-                                src="{{ $logoPath }}"
-                                alt="{{ $company->name }} Logo"
-                                class="company-logo"
-                            >
-                        </td>
-                    @endif
-                    <td style="padding: 0; border: none; vertical-align: middle;">
-                        <p class="invoice-title">{{ $documentTitle }}</p>
-                        <div class="company-name">{{ $company->name }}</div>
-                        <div class="company-meta">
-                            {{ $company->address }}
-                            @if ($company->state?->name)
-                                {{ $company->state->name }}
-                            @endif
-                        </div>
-                        <div class="company-meta">
-                            GSTIN: {{ $company->gst_number ?? '—' }} | PAN: {{ $company->pan_number ?? '—' }}
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <div class="chip-title">Billing Details</div>
-            <table class="meta-table">
-                <tr>
-                    <td width="52%">
-                        <div class="muted">Bill To</div>
-                        <div style="font-weight:700; font-size:10px;">{{ $customer?->name }}</div>
-                        <div>
-                            @if ($customer?->city?->name || $customer?->state?->name)
-                                {{ $customer?->city?->name }}{{ $customer?->city?->name && $customer?->state?->name ? ', ' : '' }}{{ $customer?->state?->name }}
-                            @endif
-                        </div>
-                        <div>GSTIN: {{ $customer?->gst_number ?? '—' }}</div>
-                        <div>PAN: {{ $customer?->pan_number ?? '—' }}</div>
-                    </td>
-                    <td width="48%">
-                        <table>
-                            <tr>
-                                <td class="meta-label">Invoice No.</td>
-                                <td>{{ $billNumber }}</td>
-                            </tr>
-                            <tr>
-                                <td class="meta-label">Invoice Date</td>
-                                <td>{{ $invoiceDate }}</td>
-                            </tr>
-                            <tr>
-                                <td class="meta-label">Reverse Charge</td>
-                                <td>{{ $isRcm ? 'Yes' : 'No' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="meta-label">SAC Code</td>
-                                <td>996511</td>
-                            </tr>
-                            @if ($invoice->due_date)
-                                <tr>
-                                    <td class="meta-label">Due Date</td>
-                                    <td>{{ \Carbon\Carbon::parse($invoice->due_date)->format('d-m-Y') }}</td>
-                                </tr>
-                            @endif
-                        </table>
-                    </td>
-                </tr>
-            </table>
-
-            <div class="chip-title">Transportation Bill</div>
-            <table class="lines-table">
-                <tr>
-                    <th width="{{ $colWidths[0] }}" style="width:{{ $colWidths[0] }}">#</th>
-                    <th width="{{ $colWidths[1] }}" style="width:{{ $colWidths[1] }}">Truck</th>
-                    <th width="{{ $colWidths[2] }}" style="width:{{ $colWidths[2] }}">From</th>
-                    <th width="{{ $colWidths[3] }}" style="width:{{ $colWidths[3] }}">To</th>
-                    <th width="{{ $colWidths[4] }}" style="width:{{ $colWidths[4] }}">Goods</th>
-                    <th width="{{ $colWidths[5] }}" style="width:{{ $colWidths[5] }}">Weight</th>
-                    <th width="{{ $colWidths[6] }}" style="width:{{ $colWidths[6] }}">Amount</th>
-                </tr>
-                @foreach ($items as $index => $item)
-                    <tr>
-                        <td class="c-seq">{{ $index + 1 }}</td>
-                        <td class="c-nowrap">{{ $truckNumber }}</td>
-                        <td class="c-text">{{ $item->from_location }}</td>
-                        <td class="c-text">{{ $item->to_location }}</td>
-                        <td class="c-text">{{ $item->goods_name ?: '—' }}</td>
-                        <td class="c-num">{{ number_format((float) $item->weight_ton, 3) }}</td>
-                        <td class="c-money">{{ number_format((float) $item->freight_amount, 2) }}</td>
-                    </tr>
-                @endforeach
-            </table>
-
+        <div class="header">
             <table>
                 <tr>
-                    <td width="62%">
-                        <div class="chip-title" style="margin-bottom:6px;">Payment Details</div>
-                        <div class="footer-note">
-                            <strong>Place of Supply:</strong> {{ $placeOfSupply }}<br>
-                            @if ($isRcm)
-                                <strong>Note:</strong> GST Liability of Debtor:
-                                {{ $customer?->name }} under Reverse Charge Mechanism of GST Act, 2017.
+                    <td style="width: 68%;">
+                        <div class="company-name">{{ $companyName }}</div>
+                        @if ($companyAddress !== '')
+                            <div class="company-address">{{ $companyAddress }}</div>
+                        @endif
+                        <div class="company-tax">
+                            GST: {{ $gstNumber ?: '—' }}
+                            @if ($panNumber)
+                                | PAN: {{ $panNumber }}
                             @endif
                         </div>
                     </td>
-                    <td width="38%">
-                        <table class="summary-table">
-                            <tr><td>Base Amount</td><td>{{ number_format($baseAmount, 2) }}</td></tr>
-                            @if ($documentType?->displaysGst())
-                                @if ($cgst > 0)
-                                    <tr><td>CGST ({{ number_format((float) $invoice->cgst_rate, 2) }}%)</td><td>{{ number_format($cgst, 2) }}</td></tr>
-                                @endif
-                                @if ($sgst > 0)
-                                    <tr><td>SGST ({{ number_format((float) $invoice->sgst_rate, 2) }}%)</td><td>{{ number_format($sgst, 2) }}</td></tr>
-                                @endif
-                                @if ($igst > 0)
-                                    <tr><td>IGST ({{ number_format((float) $invoice->igst_rate, 2) }}%)</td><td>{{ number_format($igst, 2) }}</td></tr>
-                                @endif
-                                @if ($totalGst > 0)
-                                    <tr><td>Total GST{{ $isRcm ? ' (RCM)' : '' }}</td><td>{{ number_format($totalGst, 2) }}</td></tr>
-                                @endif
-                            @endif
-                            <tr class="grand"><td>Grand Total</td><td>{{ number_format($grandTotal, 2) }}</td></tr>
-                        </table>
+                    <td style="width: 32%;" class="invoice-meta">
+                        <div class="invoice-number">{{ $billNumber }}</div>
+                        <div class="invoice-date">Date: {{ $invoiceDate }}</div>
                     </td>
-                </tr>
-                <tr>
-                    <td class="footer-note"><strong>Amount in words:</strong> {{ ucfirst(getIndianCurrency($grandTotal)) }} Only</td>
-                    <td class="signature-box">FOR {{ $company->name }}<br><br><br><br>Authorized Signature</td>
                 </tr>
             </table>
         </div>
-        <div class="section">
-            <div class="footer-note" style="font-size: 7px; text-align: right;">Digitally Managed by TruckBill (www.truckbill.in)</div>
+
+        <div class="invoice-body">
+            <div class="doc-title">{{ $documentTitle }}</div>
+
+            <div class="invoice-to">
+                <div class="invoice-to-label">Invoice To:</div>
+                <div class="invoice-to-name">{{ $customer?->name ?? '—' }}</div>
+                <div class="invoice-to-line">{{ $customerAddress }}</div>
+                <div class="invoice-to-line">GSTIN {{ $customer?->gst_number ?: '—' }}</div>
+            </div>
+
+            <table class="section-table">
+                <tr>
+                    <th style="width: 50%;">Consignor (From)</th>
+                    <th style="width: 50%;">Consignee (To)</th>
+                </tr>
+                <tr>
+                    <td>
+                        @forelse ($consignors as $consignor)
+                            <div>{{ $consignor }}</div>
+                        @empty
+                            <div class="muted">—</div>
+                        @endforelse
+                    </td>
+                    <td>
+                        @forelse ($consignees as $index => $consignee)
+                            <div>{{ $consignees->count() > 1 ? $index + 1 . ' - ' : '' }}{{ $consignee }}</div>
+                        @empty
+                            <div class="muted">—</div>
+                        @endforelse
+                    </td>
+                </tr>
+            </table>
+
+            <table class="details-table">
+                <tr class="details-head">
+                    <th colspan="4">Details</th>
+                </tr>
+                <tr>
+                    <td class="details-label">Vehicle No.</td>
+                    <td class="details-value">{{ $vehicleNo }}</td>
+                    <td class="details-label">Load Type</td>
+                    <td class="details-value">{{ $loadType }}</td>
+                </tr>
+                <tr>
+                    <td class="details-label">Origin</td>
+                    <td class="details-value">{{ $origin }}</td>
+                    <td class="details-label">Destination</td>
+                    <td class="details-value">{{ $destinationLabel }}</td>
+                </tr>
+                <tr>
+                    <td class="details-label">Pickup Date</td>
+                    <td class="details-value">{{ $formatDateList($pickupDates) }}</td>
+                    <td class="details-label">Delivery Date</td>
+                    <td class="details-value">{{ $formatDateList($deliveryDates) }}</td>
+                </tr>
+                <tr>
+                    <td class="details-label">Freight Description</td>
+                    <td class="details-value">{{ $freightDescription }}</td>
+                    <td class="details-label">Driver</td>
+                    <td class="details-value">{{ $driverName }}</td>
+                </tr>
+            </table>
+
+            <table class="lines-table">
+                <thead>
+                    <tr>
+                        <th style="width: 6%;">S.No.</th>
+                        <th style="width: 18%;">Description</th>
+                        <th style="width: 9%;">HSN</th>
+                        <th style="width: 12%;">Service Charge</th>
+                        <th style="width: 9%;">CGST</th>
+                        <th style="width: 9%;">SGST</th>
+                        <th style="width: 9%;">IGST</th>
+                        <th style="width: 13%;">Taxable Amount</th>
+                        <th style="width: 15%;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($lineRows as $row)
+                        <tr>
+                            <td class="c-center">{{ $row['sno'] }}.</td>
+                            <td class="c-left">{{ $row['description'] }}</td>
+                            <td class="c-center">{{ $row['hsn'] }}</td>
+                            <td class="c-right">{{ $formatMoney($row['service_charge']) }}</td>
+                            <td class="c-center">{{ $row['cgst'] }}</td>
+                            <td class="c-center">{{ $row['sgst'] }}</td>
+                            <td class="c-center">{{ $row['igst'] }}</td>
+                            <td class="c-right">
+                                @if ($displaysGst && $row['taxable'] > 0)
+                                    {{ $formatMoney($row['taxable'], true) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="c-right">{{ $formatMoney($row['total'], true) }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="9" class="c-center muted">No line items</td>
+                        </tr>
+                    @endforelse
+                    <tr>
+                        <td colspan="8" class="page-total-label">Total Amount</td>
+                        <td class="page-total-value">{{ $formatMoney($grandTotal, true) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="amount-words">
+                <strong>Amount in words:</strong> {{ ucfirst(getIndianCurrency($grandTotal)) }} Only
+            </div>
+
+            @if ($isRcm)
+                <div class="footer-note">
+                    <strong>Note:</strong> GST Liability of Debtor: {{ $customer?->name }} under Reverse Charge
+                    Mechanism of GST Act, 2017.
+                </div>
+            @endif
+
+            <div class="signature">
+                For {{ $companyName }}<br><br><br>
+                Authorized Signature
+            </div>
+
+            <div class="brand-footer">Digitally Managed by TruckBill (www.truckbill.in)</div>
         </div>
     </div>
 
@@ -319,4 +706,5 @@
         }
     </script>
 </body>
+
 </html>
