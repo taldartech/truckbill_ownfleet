@@ -24,6 +24,8 @@
             :cities="cities"
             :field-errors="fieldErrors"
             :local-field-errors="localFieldErrors"
+            location-after-contact
+            contact-required
             @clear-field-error="clearLocalFieldError"
         />
 

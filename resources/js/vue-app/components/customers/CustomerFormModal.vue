@@ -14,14 +14,6 @@
         </template>
 
         <div class="row g-2">
-            <IndiaLocationFields
-                v-model:state-id="stateId"
-                v-model:city-id="cityId"
-                :states="states"
-                :cities="cities"
-                :field-errors="fieldErrors"
-            />
-
             <div class="col-12">
                 <label class="form-label">Customer Name *</label>
                 <input
@@ -78,6 +70,13 @@
                     {{ fieldErrors.contact_number[0] }}
                 </div>
             </div>
+            <IndiaLocationFields
+                v-model:state-id="stateId"
+                v-model:city-id="cityId"
+                :states="states"
+                :cities="cities"
+                :field-errors="fieldErrors"
+            />
             <div class="col-12">
                 <label class="form-label">Address</label>
                 <textarea

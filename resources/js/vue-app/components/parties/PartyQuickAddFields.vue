@@ -1,6 +1,7 @@
 <template>
     <div class="row g-2">
         <IndiaLocationFields
+            v-if="!locationAfterContact"
             :states="states"
             :cities="cities"
             :state-id="stateId"
@@ -56,7 +57,7 @@
             </div>
         </div>
         <div class="col-md-4">
-            <label class="form-label">Contact Number</label>
+            <label class="form-label">Contact Number<span v-if="contactRequired"> *</span></label>
             <input
                 :value="contactNumber"
                 type="text"
@@ -64,6 +65,7 @@
                 maxlength="10"
                 class="form-control"
                 placeholder="10-digit mobile"
+                :required="contactRequired"
                 :class="{ 'is-invalid': displayFieldErrors.contact_number }"
                 @input="onContactInput"
             />
@@ -71,6 +73,17 @@
                 {{ displayFieldErrors.contact_number[0] }}
             </div>
         </div>
+
+        <IndiaLocationFields
+            v-if="locationAfterContact"
+            :states="states"
+            :cities="cities"
+            :state-id="stateId"
+            :city-id="cityId"
+            :field-errors="fieldErrors"
+            @update:state-id="$emit('update:stateId', $event)"
+            @update:city-id="$emit('update:cityId', $event)"
+        />
 
         <div class="col-12">
             <label class="form-label">Address</label>
@@ -106,11 +119,13 @@ const props = defineProps({
     gstNumber: { type: String, default: '' },
     panNumber: { type: String, default: '' },
     contactNumber: { type: String, default: '' },
+    contactRequired: { type: Boolean, default: false },
     address: { type: String, default: '' },
     states: { type: Array, default: () => [] },
     cities: { type: Array, default: () => [] },
     stateId: { type: [String, Number], default: '' },
     cityId: { type: [String, Number], default: '' },
+    locationAfterContact: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
     localFieldErrors: { type: Object, default: () => ({}) },
 });
