@@ -517,34 +517,10 @@
                 </div>
 
                 <div class="col-lg-4">
-                    <div class="card">
-                        <div class="card-header"><strong>Financial Summary</strong></div>
-                        <div class="card-body small">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Freight</span>
-                                <span>₹{{ formatMoney(trip.total_freight_amount) }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Expenses</span>
-                                <span>₹{{ formatMoney(trip.total_expense_amount) }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Profit</span>
-                                <strong :class="Number(trip.profit_amount) >= 0 ? 'text-success' : 'text-danger'">
-                                    ₹{{ formatMoney(trip.profit_amount) }}
-                                </strong>
-                            </div>
-                            <div v-if="profitMargin !== null" class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Profit Margin</span>
-                                <span>{{ profitMargin }}%</span>
-                            </div>
-                            <hr class="my-2" />
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Total KM</span>
-                                <strong>{{ formatKm(trip.total_distance_km) }}</strong>
-                            </div>
-                        </div>
-                    </div>
+                    <TripFinancialSummaryCard
+                        :trip="trip"
+                        :expenses="expenses"
+                    />
 
                     <TripDieselPerformanceCard
                         class="mt-3"
@@ -996,6 +972,7 @@ import TripArchiveConfirmModal from '../../components/trips/TripArchiveConfirmMo
 import TripRestoreConfirmModal from '../../components/trips/TripRestoreConfirmModal.vue';
 import TripInlineStatusActions from '../../components/trips/TripInlineStatusActions.vue';
 import TripDieselPerformanceCard from '../../components/trips/TripDieselPerformanceCard.vue';
+import TripFinancialSummaryCard from '../../components/trips/TripFinancialSummaryCard.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
@@ -1228,18 +1205,6 @@ const arrivalTiming = computed(() => {
     }
 
     return 'on-time';
-});
-
-const profitMargin = computed(() => {
-    const freight = Number(trip.value?.total_freight_amount ?? 0);
-
-    if (freight <= 0) {
-        return null;
-    }
-
-    const profit = Number(trip.value?.profit_amount ?? 0);
-
-    return ((profit / freight) * 100).toFixed(1);
 });
 
 const expandedRouteSectionKey = ref(null);
