@@ -139,21 +139,26 @@ function childPath(child) {
 }
 
 function isChildActive(child) {
+    const activeQueryMatches = !child.activeQuery
+        || Object.entries(child.activeQuery).every(
+            ([key, value]) => String(route.query[key] ?? '') === String(value),
+        );
+
     if (Array.isArray(child.activeNames)) {
-        return child.activeNames.includes(route.name);
+        return child.activeNames.includes(route.name) && activeQueryMatches;
     }
 
     const path = childPath(child);
 
     if (!path) {
-        return route.name === child.to?.name;
+        return route.name === child.to?.name && activeQueryMatches;
     }
 
     if (child.exact) {
-        return route.path === path;
+        return route.path === path && activeQueryMatches;
     }
 
-    return route.path === path || route.path.startsWith(`${path}/`);
+    return (route.path === path || route.path.startsWith(`${path}/`)) && activeQueryMatches;
 }
 
 function hasActiveChild(item) {

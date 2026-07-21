@@ -87,7 +87,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
@@ -105,12 +105,18 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 
 const { needsCompanySelection } = useRequireCompanyContext();
+const route = useRoute();
 const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const canExport = computed(() => canInCompany('trip_reports.export'));
 
 const reportTypes = TRIP_REPORT_TYPES;
-const reportType = ref('profitability');
+const requestedReportType = String(route.query.type ?? '');
+const reportType = ref(
+    reportTypes.some((type) => type.value === requestedReportType)
+        ? requestedReportType
+        : 'profitability',
+);
 const vehicles = ref([]);
 const rows = ref([]);
 const tripCount = ref(null);
@@ -208,6 +214,20 @@ watch(reportType, () => {
     resetPagination();
     loadReport(1);
 });
+
+watch(
+    () => route.query.type,
+    (value) => {
+        const requestedType = String(value ?? '');
+
+        if (
+            requestedType !== reportType.value
+            && reportTypes.some((type) => type.value === requestedType)
+        ) {
+            reportType.value = requestedType;
+        }
+    },
+);
 
 onMounted(async () => {
     vehicles.value = await listAllVehicles();
