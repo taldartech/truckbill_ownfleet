@@ -155,24 +155,24 @@ button.trip-header-btn:disabled {
 }
 
 .trip-header-btn--progress {
-    background: var(--brand-warning) !important;
-    color: #fff !important;
-    border: 1px solid var(--brand-warning-dark) !important;
-}
-
-.trip-header-btn--progress:hover {
-    background: var(--brand-warning-dark) !important;
-    color: #fff !important;
-}
-
-.trip-header-btn--update {
     background: var(--brand-accent-blue) !important;
     color: #fff !important;
     border: 1px solid var(--brand-accent-blue-dark) !important;
 }
 
-.trip-header-btn--update:hover:not(:disabled) {
+.trip-header-btn--progress:hover {
     background: var(--brand-accent-blue-dark) !important;
+    color: #fff !important;
+}
+
+.trip-header-btn--update {
+    background: var(--brand-warning) !important;
+    color: #fff !important;
+    border: 1px solid var(--brand-warning-dark) !important;
+}
+
+.trip-header-btn--update:hover:not(:disabled) {
+    background: var(--brand-warning-dark) !important;
     color: #fff !important;
 }
 

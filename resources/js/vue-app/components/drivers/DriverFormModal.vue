@@ -220,7 +220,7 @@
             <button type="button" class="btn btn-secondary btn-sm" :disabled="saving" @click="close">
                 Cancel
             </button>
-            <button type="submit" class="btn btn-success btn-sm" :disabled="saving">
+            <button type="submit" class="btn btn-sm" :class="isEdit ? 'btn-warning' : 'btn-success'" :disabled="saving">
                 <i class="bi bi-check-circle"></i>
                 {{ saving ? (isEdit ? 'Updating...' : 'Adding...') : isEdit ? 'Update Driver' : 'Add Driver' }}
             </button>

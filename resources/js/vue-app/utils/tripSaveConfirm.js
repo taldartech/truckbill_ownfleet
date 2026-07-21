@@ -410,6 +410,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
             profit: formatMoney(summary.profit),
             profitPositive: summary.profit >= 0,
         },
+        isCreate: mode === 'create',
         hasChanges,
         showExpensesAction: (mode === 'create' || mode === 'edit') && options.showExpensesAction !== false,
         confirmLabel: mode === 'create' ? 'Yes, Save Trip' : 'Yes, Update Trip',

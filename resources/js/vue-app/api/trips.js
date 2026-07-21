@@ -1338,7 +1338,7 @@ export function tripStatusActionMeta(status) {
         return {
             value: 'IN_PROGRESS',
             label: 'In Progress',
-            variant: 'warning',
+            variant: 'info',
             icon: 'bi bi-hourglass-split',
         };
     }

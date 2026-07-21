@@ -49,7 +49,7 @@
                     <AppButton variant="secondary" outline size="sm" icon="bi bi-x-lg" label="Cancel" :to="listReturnTo" />
                     <AppButton
                         type="submit"
-                        variant="primary"
+                        variant="warning"
                         size="sm"
                         icon="bi bi-floppy-fill"
                         label="Update"

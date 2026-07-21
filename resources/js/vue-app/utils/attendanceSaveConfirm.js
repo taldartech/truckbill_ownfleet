@@ -208,6 +208,7 @@ export function buildFormModalConfirmSummary({
             dateLabel: formatAttendanceDate(date),
             hasLock: true,
             isDelete: true,
+            isUpdate: false,
             confirmLabel: 'Yes, Clear Mark',
             rows: [
                 {
@@ -256,6 +257,7 @@ export function buildFormModalConfirmSummary({
         dateLabel: formatAttendanceDate(date),
         hasLock: false,
         isDelete: false,
+        isUpdate: Boolean(record?.id),
         confirmLabel: record?.id ? 'Yes, Update Attendance' : 'Yes, Save Attendance',
         rows: [
             {

@@ -598,19 +598,21 @@
             @sequence-input="onInvoiceSequenceInput"
         />
 
+
         <AppConfirmModal
             :show="showInvoiceGenerateConfirm"
             title="Confirm invoice generation"
             message="Review the invoices below, then confirm to generate."
             icon="bi bi-file-earmark-text"
-            icon-tone="warning"
+            icon-tone="success"
             size="xl"
             :loading="invoiceGenerating"
             confirm-label="Generate"
             secondary-confirm-label="Generate & Print"
             loading-label="Generating…"
-            confirm-variant="warning"
-            secondary-confirm-variant="warning"
+            confirm-variant="success"
+            confirm-outline
+            secondary-confirm-variant="purple"
             confirm-icon="bi bi-check2-circle"
             secondary-confirm-icon="bi bi-printer"
             content-class="app-confirm-modal__content app-confirm-modal__content--compact border-0 shadow-lg"
@@ -759,7 +761,7 @@
             <template #footer>
                 <button type="button" class="btn btn-secondary" @click="closePrintBilty">Cancel</button>
                 <AppButton
-                    variant="primary"
+                    variant="purple"
                     icon="bi bi-printer"
                     label="Open PDF"
                     :disabled="biltyGroups.length === 0"

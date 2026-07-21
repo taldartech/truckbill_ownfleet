@@ -92,7 +92,7 @@
                         <AppButton
                             v-if="canSave"
                             type="submit"
-                            variant="primary"
+                            variant="warning"
                             size="sm"
                             icon="bi bi-floppy-fill"
                             label="Update"

@@ -56,7 +56,7 @@
                     />
                     <AppButton
                         type="button"
-                        variant="success"
+                        variant="secondary"
                         outline
                         size="sm"
                         icon="bi bi-eraser"
@@ -67,7 +67,7 @@
                   
                     <AppButton
                         type="submit"
-                        variant="primary"
+                        variant="success"
                         size="sm"
                         icon="bi bi-floppy-fill"
                         label="Save"

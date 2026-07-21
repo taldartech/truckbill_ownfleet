@@ -5,6 +5,20 @@ const VARIANT_SUFFIX = {
     warning: 'warning',
     danger: 'danger',
     info: 'info',
+    purple: 'purple',
+    save: 'success',
+    create: 'success',
+    complete: 'success',
+    generate: 'success',
+    update: 'warning',
+    continue: 'info',
+    next: 'info',
+    print: 'purple',
+    pdf: 'purple',
+    cancel: 'secondary',
+    close: 'secondary',
+    delete: 'danger',
+    'cancel-trip': 'danger',
 };
 
 /**

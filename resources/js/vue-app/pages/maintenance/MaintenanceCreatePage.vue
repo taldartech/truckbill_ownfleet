@@ -33,7 +33,7 @@
                     />
                     <AppButton
                         type="submit"
-                        variant="primary"
+                        variant="success"
                         size="sm"
                         icon="bi bi-floppy-fill"
                         label="Save"

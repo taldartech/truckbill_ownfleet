@@ -196,7 +196,8 @@
             <button
                 v-if="summary.showAddAnotherAction"
                 type="button"
-                class="btn btn-outline-success px-4"
+                class="btn px-4 fw-semibold"
+                :class="summary.isCreate ? 'btn-success' : 'btn-warning'"
                 :disabled="saving"
                 @click="$emit('confirm', 'another')"
             >
@@ -211,7 +212,8 @@
             </button>
             <button
                 type="button"
-                class="btn btn-success px-4 fw-semibold"
+                class="btn px-4"
+                :class="summary.isCreate ? 'btn-outline-info' : 'btn-warning fw-semibold'"
                 :disabled="saving"
                 @click="$emit('confirm', 'index')"
             >

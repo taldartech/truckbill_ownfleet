@@ -5,6 +5,8 @@
     --brand-primary-rgb: 47, 179, 111;
     --brand-accent-blue: #2D8CFF;
     --brand-accent-blue-dark: #1F6FE0;
+    --brand-purple: #8B5CF6;
+    --brand-purple-dark: #7C3AED;
 
     /* Text — no harsh black; pairs with green UI */
     --brand-text-primary: #475569;
@@ -78,6 +80,7 @@
     --brand-soft-primary: rgba(47, 179, 111, 0.1);
     --brand-soft-success: var(--brand-soft-primary);
     --brand-soft-info: rgba(59, 130, 246, 0.1);
+    --brand-soft-purple: rgba(139, 92, 246, 0.1);
     --brand-soft-warning: rgba(245, 158, 11, 0.1);
     --brand-soft-danger: rgba(239, 68, 68, 0.1);
     --brand-soft-secondary: rgba(107, 114, 128, 0.1);
@@ -475,6 +478,19 @@ a.btn-outline-primary:hover {
     color: #FFFFFF !important;
 }
 
+.btn-purple {
+    background-color: var(--brand-purple) !important;
+    border: 1px solid var(--brand-purple) !important;
+    color: #FFFFFF !important;
+}
+
+.btn-purple:hover,
+.btn-purple:focus-visible {
+    background-color: var(--brand-purple-dark) !important;
+    border-color: var(--brand-purple-dark) !important;
+    color: #FFFFFF !important;
+}
+
 .btn-secondary {
     background-color: #E5E7EB !important;
     border-color: #D1D5DB !important;
@@ -578,6 +594,23 @@ a.btn-outline-info:hover {
     border-color: var(--brand-accent-blue-dark) !important;
 }
 
+.btn-outline-purple,
+button.btn-outline-purple,
+a.btn-outline-purple {
+    background-color: #FFFFFF !important;
+    color: var(--brand-purple) !important;
+    border: 1px solid var(--brand-purple) !important;
+}
+
+.btn-outline-purple:hover,
+.btn-outline-purple:focus-visible,
+button.btn-outline-purple:hover,
+a.btn-outline-purple:hover {
+    background-color: var(--brand-soft-purple) !important;
+    color: var(--brand-purple-dark) !important;
+    border-color: var(--brand-purple-dark) !important;
+}
+
 .btn-outline-secondary,
 button.btn-outline-secondary,
 a.btn-outline-secondary {
@@ -611,6 +644,8 @@ a.btn-outline-secondary:hover {
 .btn-danger.disabled,
 .btn-info:disabled,
 .btn-info.disabled,
+.btn-purple:disabled,
+.btn-purple.disabled,
 .btn-secondary:disabled,
 .btn-secondary.disabled,
 .btn-brand-primary:disabled,

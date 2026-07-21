@@ -139,7 +139,7 @@
 
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-            <button type="submit" class="btn btn-brand-primary" :disabled="saving">
+            <button type="submit" class="btn" :class="isEdit ? 'btn-warning' : 'btn-success'" :disabled="saving">
                 {{ saving ? 'Saving…' : isEdit ? 'Update' : 'Create' }}
             </button>
         </template>

@@ -6,7 +6,7 @@
         icon="bi bi-truck"
         icon-tone="primary"
         :confirm-label="summary.confirmLabel"
-        confirm-variant="primary"
+        confirm-variant="info"
         confirm-icon="bi bi-check-lg"
         @cancel="$emit('cancel')"
         @confirm="$emit('confirm')"

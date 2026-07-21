@@ -353,14 +353,14 @@
                 <AppButton
                     v-if="!editing"
                     type="button"
-                    variant="primary"
+                    variant="success"
                     outline
                     size="sm"
                     label="Save & Add Another"
                     :loading="saving"
                     @click="requestSaveConfirm('saveAndNext')"
                 />
-                <AppButton type="submit" variant="primary" size="sm" label="Save" :loading="saving" />
+                <AppButton type="submit" variant="success" size="sm" label="Save" :loading="saving" />
             </template>
         </AppModal>
 
@@ -370,6 +370,7 @@
             :message="saveConfirmSummary?.message ?? ''"
             :loading="saving"
             :confirm-label="saveConfirmSummary?.confirmLabel ?? 'Yes, Save Tyre'"
+            :confirm-variant="editing ? 'warning' : 'success'"
             :icon-tone="saveConfirmSummary?.iconTone ?? 'primary'"
             :tyre-serial="saveConfirmSummary?.tyreSerial ?? ''"
             :truck-number="saveConfirmSummary?.truckNumber ?? ''"

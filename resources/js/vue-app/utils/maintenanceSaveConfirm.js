@@ -115,6 +115,7 @@ export function buildMaintenanceSaveConfirmViewModel(form, options = {}) {
         .map((field) => field.label);
 
     return {
+        isCreate,
         title: isCreate ? 'Confirm Save Maintenance Record' : 'Confirm Update Maintenance Record',
         message: isCreate
             ? 'Are you sure you want to save this maintenance record?'

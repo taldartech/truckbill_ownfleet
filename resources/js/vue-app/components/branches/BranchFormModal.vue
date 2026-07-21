@@ -329,7 +329,12 @@
 
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
-            <AppButton type="submit" :label="isEdit ? 'Update' : 'Save'" :loading="saving" />
+            <AppButton
+                type="submit"
+                :variant="isEdit ? 'warning' : 'success'"
+                :label="isEdit ? 'Update' : 'Save'"
+                :loading="saving"
+            />
         </template>
     </AppModal>
 </template>

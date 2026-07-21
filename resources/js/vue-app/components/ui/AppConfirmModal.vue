@@ -45,6 +45,7 @@
             <AppButton
                 v-if="showConfirm"
                 :variant="confirmVariant"
+                :outline="confirmOutline"
                 :label="loading ? loadingLabel : confirmLabel"
                 :loading="loading"
                 :disabled="confirmDisabled"
@@ -55,6 +56,7 @@
             <AppButton
                 v-if="secondaryConfirmLabel"
                 :variant="secondaryConfirmVariant"
+                :outline="secondaryConfirmOutline"
                 :label="loading ? loadingLabel : secondaryConfirmLabel"
                 :loading="loading"
                 :disabled="confirmDisabled"
@@ -92,7 +94,9 @@ const props = defineProps({
     secondaryConfirmLabel: { type: String, default: '' },
     loadingLabel: { type: String, default: 'Processing…' },
     confirmVariant: { type: String, default: 'primary' },
+    confirmOutline: { type: Boolean, default: false },
     secondaryConfirmVariant: { type: String, default: 'primary' },
+    secondaryConfirmOutline: { type: Boolean, default: false },
     confirmIcon: { type: String, default: '' },
     secondaryConfirmIcon: { type: String, default: '' },
     confirmDisabled: { type: Boolean, default: false },

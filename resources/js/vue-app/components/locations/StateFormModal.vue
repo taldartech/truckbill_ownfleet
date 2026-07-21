@@ -55,7 +55,7 @@
 
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-            <button type="submit" class="btn btn-success" :disabled="saving">
+            <button type="submit" class="btn" :class="isEdit ? 'btn-warning' : 'btn-success'" :disabled="saving">
                 <i class="bi bi-check-circle"></i>
                 {{ saving ? (isEdit ? 'Updating...' : 'Saving...') : isEdit ? 'Update State' : 'Add State' }}
             </button>

@@ -57,7 +57,7 @@
                                             <AppButton
                                                 v-if="canEditDocuments && canRenewDocument(document)"
                                                 size="sm"
-                                                variant="primary"
+                                                variant="warning"
                                                 icon="fas fa-rotate-right"
                                                 title="Renew"
                                                 @click="startRenew(document)"
@@ -135,7 +135,7 @@
                                                 size="sm"
                                                 variant="primary"
                                                 icon="fas fa-calendar-days"
-                                                title="Update expiry"
+                                                title="Update Expiry"
                                                 @click="startExpiryUpdate(license)"
                                             />
                                         </div>

@@ -383,7 +383,7 @@ const finalConfirmIconToneClass = computed(() => {
     }
 
     if (props.status === 'IN_PROGRESS') {
-        return 'text-warning';
+        return 'text-info';
     }
 
     return 'text-success';
@@ -403,7 +403,7 @@ const confirmButtonVariant = computed(() => {
     }
 
     if (props.status === 'IN_PROGRESS') {
-        return 'warning';
+        return 'info';
     }
 
     return 'success';

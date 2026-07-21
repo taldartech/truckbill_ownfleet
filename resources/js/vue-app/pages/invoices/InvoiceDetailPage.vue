@@ -20,7 +20,7 @@
             </div>
             <div v-if="invoice" class="d-flex flex-wrap gap-2">
                 <AppButton
-                    variant="secondary"
+                    variant="purple"
                     outline
                     size="sm"
                     icon="bi bi-file-earmark-pdf"

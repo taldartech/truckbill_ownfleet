@@ -61,7 +61,7 @@
 
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="close">Cancel</button>
-            <button type="submit" class="btn btn-success" :disabled="saving">
+            <button type="submit" class="btn" :class="isEdit ? 'btn-warning' : 'btn-success'" :disabled="saving">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
                 {{ isEdit ? 'Update' : 'Create' }}
             </button>

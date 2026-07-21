@@ -194,6 +194,7 @@
                     Cancel
                 </button>
                 <AppButton
+                    variant="info"
                     label="Continue"
                     icon="bi bi-arrow-right"
                     size="sm"
