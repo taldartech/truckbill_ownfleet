@@ -35,7 +35,7 @@ class UpdateVehicleMaintenanceRequest extends FormRequest
         return [
             'vehicle_id' => ['sometimes', 'required', 'uuid', 'exists:vehicles,id'],
             'service_date' => ['sometimes', 'required', 'date', 'before_or_equal:today'],
-            'odometer_km' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'odometer_km' => ['sometimes', 'required', 'numeric', 'min:0', 'max:9999999999.99'],
             'maintenance_service_type_id' => [
                 'sometimes',
                 'required',
@@ -47,9 +47,9 @@ class UpdateVehicleMaintenanceRequest extends FormRequest
                 ),
             ],
             'service_provider' => ['sometimes', 'required', 'string', 'max:150'],
-            'cost_amount' => ['sometimes', 'required', 'numeric', 'gt:0'],
-            'next_service_due_km' => ['nullable', 'numeric', 'min:0'],
-            'next_service_due_date' => ['nullable', 'date'],
+            'cost_amount' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:9999999999.99'],
+            'next_service_due_km' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'next_service_due_date' => ['nullable', 'date', 'after:today'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -64,11 +64,15 @@ class UpdateVehicleMaintenanceRequest extends FormRequest
             'service_date.required' => 'Service date is required.',
             'service_date.before_or_equal' => 'Service date cannot be in the future.',
             'odometer_km.required' => 'Meter reading is required.',
+            'odometer_km.max' => 'Meter reading is too large.',
+            'cost_amount.max' => 'Cost amount is too large.',
+            'next_service_due_km.max' => 'Next due KM is too large.',
             'maintenance_service_type_id.required' => 'Service type is required.',
             'maintenance_service_type_id.exists' => 'Selected service type is invalid.',
             'service_provider.required' => 'Service provider is required.',
             'cost_amount.required' => 'Cost amount is required.',
             'cost_amount.gt' => 'Cost amount must be greater than 0.',
+            'next_service_due_date.after' => 'Next due date must be a future date.',
         ];
     }
 }

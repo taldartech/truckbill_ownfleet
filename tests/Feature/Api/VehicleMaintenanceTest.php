@@ -226,6 +226,66 @@ class VehicleMaintenanceTest extends TestCase
             ->assertJsonValidationErrors(['next_service_due_date']);
     }
 
+    public function test_next_due_km_must_be_greater_than_meter_reading_and_date_must_be_future(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+
+        $this->actingAs($user)
+            ->postJson('/app/api/vehicle-maintenances', [
+                'vehicle_id' => $vehicle->id,
+                'service_date' => now()->subDay()->toDateString(),
+                'odometer_km' => 15000,
+                'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 2500,
+                'next_service_due_km' => 15000,
+                'next_service_due_date' => now()->toDateString(),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['next_service_due_km', 'next_service_due_date']);
+    }
+
+    public function test_partial_update_validates_due_values_against_existing_maintenance_record(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+
+        $maintenance = VehicleMaintenance::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $vehicle->branch_id,
+            'vehicle_id' => $vehicle->id,
+            'service_date' => now()->subDay()->toDateString(),
+            'odometer_km' => 15000,
+            'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+            'service_provider' => 'City Garage',
+            'cost_amount' => 2500,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson("/app/api/vehicle-maintenances/{$maintenance->id}", [
+                'next_service_due_km' => 14000,
+                'next_service_due_date' => now()->toDateString(),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['next_service_due_km', 'next_service_due_date']);
+    }
+
+    public function test_cannot_create_maintenance_with_out_of_range_numeric_values(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+
+        $this->actingAs($user)
+            ->postJson('/app/api/vehicle-maintenances', [
+                'vehicle_id' => $vehicle->id,
+                'service_date' => '2026-06-01',
+                'odometer_km' => 23423434234234324,
+                'maintenance_service_type_id' => $this->serviceTypeId($tenant, 'OIL_CHANGE'),
+                'service_provider' => 'City Garage',
+                'cost_amount' => 99999999999999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['odometer_km', 'cost_amount']);
+    }
+
     public function test_cannot_create_maintenance_with_future_service_date(): void
     {
         [$tenant, $user, $vehicle] = $this->createFixtures('admin');

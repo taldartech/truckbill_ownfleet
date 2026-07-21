@@ -51,6 +51,8 @@ function optionalNumber(value) {
     return Number.isNaN(parsed) ? null : parsed;
 }
 
+const MAX_DECIMAL_VALUE = 9999999999.99;
+
 export function validateMaintenanceForm(form) {
     const errors = {};
     const today = toDateInputValue();
@@ -72,6 +74,8 @@ export function validateMaintenanceForm(form) {
 
         if (odometer === null || odometer < 0) {
             errors.odometer_km = ['Meter reading must be 0 or greater.'];
+        } else if (odometer > MAX_DECIMAL_VALUE) {
+            errors.odometer_km = ['Meter reading is too large.'];
         }
     }
 
@@ -90,15 +94,26 @@ export function validateMaintenanceForm(form) {
 
         if (costAmount === null || costAmount <= 0) {
             errors.cost_amount = ['Cost amount must be greater than 0.'];
+        } else if (costAmount > MAX_DECIMAL_VALUE) {
+            errors.cost_amount = ['Cost amount is too large.'];
         }
     }
 
-    if (
-        form.next_service_due_date &&
-        form.service_date &&
-        form.next_service_due_date <= form.service_date
-    ) {
-        errors.next_service_due_date = ['Next due date must be after service date.'];
+    if (form.next_service_due_km !== '' && form.next_service_due_km !== null && form.next_service_due_km !== undefined) {
+        const nextDueKm = optionalNumber(form.next_service_due_km);
+        const odometer = optionalNumber(form.odometer_km);
+
+        if (nextDueKm === null || nextDueKm < 0) {
+            errors.next_service_due_km = ['Next due KM must be a valid reading.'];
+        } else if (nextDueKm > MAX_DECIMAL_VALUE) {
+            errors.next_service_due_km = ['Next due KM is too large.'];
+        } else if (odometer !== null && nextDueKm <= odometer) {
+            errors.next_service_due_km = ['Next due KM must be greater than the meter reading.'];
+        }
+    }
+
+    if (form.next_service_due_date && form.next_service_due_date <= today) {
+        errors.next_service_due_date = ['Next due date must be a future date.'];
     }
 
     return errors;
@@ -125,7 +140,12 @@ export function useMaintenanceForm(initialRecord = null) {
     const form = ref(maintenanceFormFromRecord(initialRecord));
     const baselineSnapshot = ref(JSON.stringify(form.value));
 
-    const minNextDueDate = computed(() => addDaysToDateInput(form.value.service_date, 1));
+    const minNextDueDate = computed(() => {
+        const tomorrow = addDaysToDateInput(toDateInputValue(), 1);
+        const dayAfterService = addDaysToDateInput(form.value.service_date, 1);
+
+        return dayAfterService > tomorrow ? dayAfterService : tomorrow;
+    });
 
     function resetForm(record = null) {
         form.value = maintenanceFormFromRecord(record);

@@ -1,84 +1,113 @@
 <template>
-    <div class="maintenance-form trip-form">
-        <div v-if="displayFormError" class="alert alert-danger">
+    <div class="maintenance-form trf">
+        <div v-if="displayFormError" class="trf-validation-bar" role="alert">
+            <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
             <strong>{{ displayFormError }}</strong>
         </div>
 
-        <div class="card mb-4 trip-section-card">
-            <div class="card-header bg-gradient-primary trip-section-card__header">
-                <div class="trip-section-card__info">
-                    <h3 class="card-title mb-0 trip-section-card__title">
-                        <i class="bi bi-wrench-adjustable me-2" aria-hidden="true"></i>
-                        {{ headerTitle }}
-                    </h3>
-                    
+        <section class="trf-section">
+            <div class="trf-section__head">
+                <div class="trf-section__head-left">
+                    <div class="trf-step-num">1</div>
+                    <div>
+                        <h2 class="trf-section__title">Maintenance Details</h2>
+                        <p class="trf-section__desc">Select the truck and record the service date, meter reading, and cost</p>
+                    </div>
                 </div>
-              
+                <div class="trf-section__head-right">
+                    <span class="trf-mode-badge">
+                        <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
+                        {{ headerTitle }}
+                    </span>
+                </div>
             </div>
 
-            <div class="card-body trip-form-fields maintenance-form-fields">
-                <div class="maintenance-form-section">
-                    <div class="maintenance-form-section__title">
-                        <i class="bi bi-info-circle me-1"></i>Maintenance Information
+            <div class="trf-section__body">
+                <div class="trf-field-grid trf-field-grid--primary">
+                    <div class="trf-pf">
+                        <label :for="`${formId}_vehicle`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--blue">
+                                <i class="bi bi-truck" aria-hidden="true"></i>
+                            </span>
+                            <span>Truck <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <VehicleSelect
+                            :input-id="`${formId}_vehicle`"
+                            v-model="form.vehicle_id"
+                            :vehicles="vehicles"
+                            :lookup-vehicle="lookupVehicle"
+                            placeholder="Select truck"
+                            :disabled="lockVehicle || readonly"
+                            :invalid="Boolean(displayFieldErrors.vehicle_id)"
+                            :error-message="displayFieldErrors.vehicle_id?.[0] ?? ''"
+                            @update:model-value="$emit('clear-field-error', 'vehicle_id')"
+                        />
+                        <div v-if="truckModelDisplay" class="trf-pf__meta">
+                            <span class="trf-pf__meta-label">Truck Model</span>
+                            <span class="trf-pf__meta-val">{{ truckModelDisplay }}</span>
+                        </div>
                     </div>
-                    <div class="maintenance-form-row maintenance-form-row--four">
-                        <div>
-                            <label :for="`${formId}_vehicle`" class="form-label">Truck *</label>
-                            <VehicleSelect
-                                :input-id="`${formId}_vehicle`"
-                                v-model="form.vehicle_id"
-                                :vehicles="vehicles"
-                                :lookup-vehicle="lookupVehicle"
-                                placeholder="Select truck"
-                                :disabled="lockVehicle || readonly"
-                                :invalid="Boolean(displayFieldErrors.vehicle_id)"
-                                :error-message="displayFieldErrors.vehicle_id?.[0] ?? ''"
-                                @update:model-value="$emit('clear-field-error', 'vehicle_id')"
-                            />
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_service_date`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--indigo">
+                                <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                            </span>
+                            <span>Service Date <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <AppDateInput
+                            :input-id="`${formId}_service_date`"
+                            v-model="form.service_date"
+                            :invalid="!!displayFieldErrors.service_date"
+                            :max="today"
+                            :readonly="readonly"
+                            required
+                            @update:model-value="$emit('clear-field-error', 'service_date')"
+                        />
+                        <div v-if="displayFieldErrors.service_date" class="trf-pf__err">
+                            {{ displayFieldErrors.service_date[0] }}
                         </div>
-                        <div>
-                            <label :for="`${formId}_service_date`" class="form-label">Service Date *</label>
-                            <AppDateInput
-                                :input-id="`${formId}_service_date`"
-                                v-model="form.service_date"
-                                :invalid="!!displayFieldErrors.service_date"
-                                :max="today"
-                                :readonly="readonly"
-                                required
-                                @update:model-value="$emit('clear-field-error', 'service_date')"
-                            />
-                            <div v-if="displayFieldErrors.service_date" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.service_date[0] }}
-                            </div>
+                    </div>
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_odometer_km`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--orange">
+                                <i class="bi bi-speedometer2" aria-hidden="true"></i>
+                            </span>
+                            <span>Meter Reading (KM) <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <input
+                            :id="`${formId}_odometer_km`"
+                            v-model="form.odometer_km"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            :class="{ 'trf-input--error': displayFieldErrors.odometer_km }"
+                            placeholder="Reading at service"
+                            :readonly="readonly"
+                            required
+                            @input="$emit('clear-field-error', 'odometer_km')"
+                        />
+                        <div v-if="truckRunningMeterDisplay" class="trf-pf__meta">
+                            <span class="trf-pf__meta-label">Current Truck Reading</span>
+                            <span class="trf-pf__meta-val">{{ truckRunningMeterDisplay }} KM</span>
                         </div>
-                        <div>
-                            <label :for="`${formId}_odometer_km`" class="form-label">
-                                Meter Reading (KM) *
-                                
-                            </label>
-                            <input
-                                :id="`${formId}_odometer_km`"
-                                v-model="form.odometer_km"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                class="form-control"
-                                :class="{ 'is-invalid': displayFieldErrors.odometer_km }"
-                                placeholder="Enter meter reading at service"
-                                :readonly="readonly"
-                                required
-                                @input="$emit('clear-field-error', 'odometer_km')"
-                            />
-                            <div v-if="truckRunningMeterDisplay" class="form-text">
-                                Truck Running: {{ truckRunningMeterDisplay }} km
-                            </div>
-                            <div v-if="displayFieldErrors.odometer_km" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.odometer_km[0] }}
-                            </div>
+                        <div v-if="displayFieldErrors.odometer_km" class="trf-pf__err">
+                            {{ displayFieldErrors.odometer_km[0] }}
                         </div>
-                        <div>
-                            <label :for="`${formId}_cost_amount`" class="form-label">Cost Amount (₹) *</label>
+                    </div>
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_cost_amount`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--teal">
+                                <i class="bi bi-currency-rupee" aria-hidden="true"></i>
+                            </span>
+                            <span>Cost Amount <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <div class="trf-input-prefix">
+                            <span class="trf-input-prefix__addon">₹</span>
                             <input
                                 :id="`${formId}_cost_amount`"
                                 v-model="form.cost_amount"
@@ -86,130 +115,171 @@
                                 type="number"
                                 min="0.01"
                                 step="0.01"
-                                class="form-control"
-                                :class="{ 'is-invalid': displayFieldErrors.cost_amount }"
+                                class="trf-input trf-input--prefixed"
+                                :class="{ 'trf-input--error': displayFieldErrors.cost_amount }"
+                                placeholder="0.00"
                                 :readonly="readonly"
                                 required
                                 @input="$emit('clear-field-error', 'cost_amount')"
                             />
-                            <div v-if="displayFieldErrors.cost_amount" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.cost_amount[0] }}
-                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="maintenance-form-section">
-                    <div class="maintenance-form-section__title">
-                        <i class="bi bi-gear me-1"></i>Service Information
-                    </div>
-                    <div class="maintenance-form-row maintenance-form-row--service">
-                        <div>
-                            <label :for="`${formId}_service_type`" class="form-label">Service Type *</label>
-                            <MaintenanceServiceTypeSelect
-                                :input-id="`${formId}_service_type`"
-                                v-model="form.maintenance_service_type_id"
-                                :service-types="serviceTypes"
-                                :lookup-service-type="lookupServiceType"
-                                placeholder="Select type"
-                                :disabled="readonly"
-                                :invalid="Boolean(displayFieldErrors.maintenance_service_type_id)"
-                                :error-message="displayFieldErrors.maintenance_service_type_id?.[0] ?? ''"
-                                @update:model-value="$emit('clear-field-error', 'maintenance_service_type_id')"
-                            />
-                        </div>
-                        <div>
-                            <label :for="`${formId}_service_provider`" class="form-label">Service Provider *</label>
-                            <input
-                                :id="`${formId}_service_provider`"
-                                v-model="form.service_provider"
-                                type="text"
-                                class="form-control"
-                                :class="{ 'is-invalid': displayFieldErrors.service_provider }"
-                                placeholder="Garage / workshop name"
-                                :readonly="readonly"
-                                required
-                                @input="$emit('clear-field-error', 'service_provider')"
-                            />
-                            <div v-if="displayFieldErrors.service_provider" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.service_provider[0] }}
-                            </div>
-                        </div>
-                        <div>
-                            <label :for="`${formId}_next_service_due_km`" class="form-label">
-                                Next Due KM <span class="text-muted fw-normal">(optional)</span>
-                            </label>
-                            <input
-                                :id="`${formId}_next_service_due_km`"
-                                v-model="form.next_service_due_km"
-                                v-no-scroll-change
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                class="form-control"
-                                :class="{ 'is-invalid': displayFieldErrors.next_service_due_km }"
-                                :readonly="readonly"
-                                @input="$emit('clear-field-error', 'next_service_due_km')"
-                            />
-                            <div v-if="displayFieldErrors.next_service_due_km" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.next_service_due_km[0] }}
-                            </div>
-                        </div>
-                        <div>
-                            <label :for="`${formId}_next_service_due_date`" class="form-label">
-                                Next Due Date <span class="text-muted fw-normal">(optional)</span>
-                            </label>
-                            <AppDateInput
-                                :input-id="`${formId}_next_service_due_date`"
-                                v-model="form.next_service_due_date"
-                                :invalid="!!displayFieldErrors.next_service_due_date"
-                                :min="minNextDueDate || undefined"
-                                :disabled="!form.service_date || readonly"
-                                @update:model-value="$emit('clear-field-error', 'next_service_due_date')"
-                            />
-                            <div v-if="displayFieldErrors.next_service_due_date" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.next_service_due_date[0] }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="maintenance-form-section maintenance-form-section--last">
-                    <div class="maintenance-form-section__title">
-                        <i class="bi bi-chat-left-text me-1"></i>Notes
-                    </div>
-                    <div class="maintenance-form-row maintenance-form-row--full">
-                        <div>
-                            <label :for="`${formId}_remarks`" class="form-label">
-                                Remarks <span class="text-muted fw-normal">(optional)</span>
-                            </label>
-                            <textarea
-                                :id="`${formId}_remarks`"
-                                v-model="form.remarks"
-                                class="form-control"
-                                :class="{ 'is-invalid': displayFieldErrors.remarks }"
-                                rows="2"
-                                :readonly="readonly"
-                                @input="$emit('clear-field-error', 'remarks')"
-                            ></textarea>
-                            <div v-if="displayFieldErrors.remarks" class="invalid-feedback d-block">
-                                {{ displayFieldErrors.remarks[0] }}
-                            </div>
+                        <div v-if="displayFieldErrors.cost_amount" class="trf-pf__err">
+                            {{ displayFieldErrors.cost_amount[0] }}
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="trf-section">
+            <div class="trf-section__head trf-section__head--green">
+                <div class="trf-section__head-left">
+                    <div class="trf-step-num trf-step-num--green">2</div>
+                    <div>
+                        <h2 class="trf-section__title">Service &amp; Next Due</h2>
+                        <p class="trf-section__desc">Record the workshop and optionally schedule the next service</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trf-section__body">
+                <div class="trf-field-grid trf-field-grid--service">
+                    <div class="trf-pf">
+                        <label :for="`${formId}_service_type`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--purple">
+                                <i class="bi bi-gear" aria-hidden="true"></i>
+                            </span>
+                            <span>Service Type <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <MaintenanceServiceTypeSelect
+                            :input-id="`${formId}_service_type`"
+                            v-model="form.maintenance_service_type_id"
+                            :service-types="serviceTypes"
+                            :lookup-service-type="lookupServiceType"
+                            placeholder="Select service type"
+                            :disabled="readonly"
+                            :invalid="Boolean(displayFieldErrors.maintenance_service_type_id)"
+                            :error-message="displayFieldErrors.maintenance_service_type_id?.[0] ?? ''"
+                            @update:model-value="$emit('clear-field-error', 'maintenance_service_type_id')"
+                        />
+                    </div>
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_service_provider`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--slate">
+                                <i class="bi bi-building" aria-hidden="true"></i>
+                            </span>
+                            <span>Service Provider <span class="trf-pf__req">*</span></span>
+                        </label>
+                        <input
+                            :id="`${formId}_service_provider`"
+                            v-model="form.service_provider"
+                            type="text"
+                            class="trf-input"
+                            :class="{ 'trf-input--error': displayFieldErrors.service_provider }"
+                            placeholder="Garage or workshop name"
+                            :readonly="readonly"
+                            required
+                            @input="$emit('clear-field-error', 'service_provider')"
+                        />
+                        <div v-if="displayFieldErrors.service_provider" class="trf-pf__err">
+                            {{ displayFieldErrors.service_provider[0] }}
+                        </div>
+                    </div>
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_next_service_due_km`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--orange">
+                                <i class="bi bi-signpost-2" aria-hidden="true"></i>
+                            </span>
+                            <span>Next Due KM <span class="trf-pf__optional">Optional</span></span>
+                        </label>
+                        <input
+                            :id="`${formId}_next_service_due_km`"
+                            v-model="form.next_service_due_km"
+                            v-no-scroll-change
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="trf-input"
+                            :class="{ 'trf-input--error': displayFieldErrors.next_service_due_km }"
+                            placeholder="Enter next due reading"
+                            :readonly="readonly"
+                            @input="$emit('clear-field-error', 'next_service_due_km')"
+                        />
+                        <div v-if="displayFieldErrors.next_service_due_km" class="trf-pf__err">
+                            {{ displayFieldErrors.next_service_due_km[0] }}
+                        </div>
+                    </div>
+
+                    <div class="trf-pf">
+                        <label :for="`${formId}_next_service_due_date`" class="trf-pf__lbl">
+                            <span class="trf-pf__lbl-icon trf-pf__lbl-icon--indigo">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                            </span>
+                            <span>Next Due Date <span class="trf-pf__optional">Optional</span></span>
+                        </label>
+                        <AppDateInput
+                            :input-id="`${formId}_next_service_due_date`"
+                            v-model="form.next_service_due_date"
+                            :invalid="!!displayFieldErrors.next_service_due_date"
+                            :min="minNextDueDate || undefined"
+                            :disabled="!form.service_date || readonly"
+                            @update:model-value="$emit('clear-field-error', 'next_service_due_date')"
+                        />
+                        <div v-if="displayFieldErrors.next_service_due_date" class="trf-pf__err">
+                            {{ displayFieldErrors.next_service_due_date[0] }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="trf-section">
+            <div class="trf-section__head trf-section__head--plain">
+                <div class="trf-section__head-left">
+                    <div class="trf-step-num trf-step-num--gray">3</div>
+                    <div>
+                        <h2 class="trf-section__title">Notes</h2>
+                        <p class="trf-section__desc">Add service work details or other useful remarks</p>
+                    </div>
+                </div>
+                <span class="trf-optional-badge">Optional</span>
+            </div>
+
+            <div class="trf-section__body">
+                <div class="trf-pf">
+                    <label :for="`${formId}_remarks`" class="trf-pf__lbl">
+                        <span class="trf-pf__lbl-icon trf-pf__lbl-icon--slate">
+                            <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                        </span>
+                        <span>Remarks</span>
+                    </label>
+                    <textarea
+                        :id="`${formId}_remarks`"
+                        v-model="form.remarks"
+                        class="trf-input trf-input--textarea"
+                        :class="{ 'trf-input--error': displayFieldErrors.remarks }"
+                        rows="3"
+                        placeholder="Work completed, parts replaced, observations…"
+                        :readonly="readonly"
+                        @input="$emit('clear-field-error', 'remarks')"
+                    ></textarea>
+                    <div v-if="displayFieldErrors.remarks" class="trf-pf__err">
+                        {{ displayFieldErrors.remarks[0] }}
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 </template>
 
 <script setup>
-import { computed, useSlots } from 'vue';
+import { computed } from 'vue';
 import AppDateInput from '../ui/AppDateInput.vue';
 import MaintenanceServiceTypeSelect from '../ui/MaintenanceServiceTypeSelect.vue';
 import VehicleSelect from '../ui/VehicleSelect.vue';
 import { toDateInputValue } from '../../utils/datetime';
-import { resolveVehicleOdometer } from '../../utils/tyreStint';
 
 const props = defineProps({
     mode: { type: String, default: 'create' },
@@ -228,18 +298,26 @@ const props = defineProps({
 
 defineEmits(['clear-field-error']);
 
-const slots = useSlots();
-
 const today = computed(() => toDateInputValue());
 const displayFieldErrors = computed(() => props.fieldErrors ?? {});
 const displayFormError = computed(() => props.formError ?? '');
 const headerTitle = computed(() => (props.mode === 'edit' ? 'Edit Maintenance Record' : 'Add Maintenance Record'));
-const truckRunningMeterDisplay = computed(() => {
-    if (!props.form.vehicle_id) {
-        return '';
+const selectedVehicle = computed(() => {
+    const vehicle = props.vehicles.find((item) => String(item.id) === String(props.form.vehicle_id));
+
+    if (vehicle) {
+        return vehicle;
     }
 
-    const odometer = resolveVehicleOdometer(props.vehicles, props.form.vehicle_id);
+    return String(props.lookupVehicle?.id ?? '') === String(props.form.vehicle_id)
+        ? props.lookupVehicle
+        : null;
+});
+const truckModelDisplay = computed(() =>
+    [selectedVehicle.value?.make, selectedVehicle.value?.model].filter(Boolean).join(' '),
+);
+const truckRunningMeterDisplay = computed(() => {
+    const odometer = selectedVehicle.value?.odometer_km;
 
     if (odometer === null || odometer === undefined) {
         return '';
@@ -248,80 +326,332 @@ const truckRunningMeterDisplay = computed(() => {
     return Number(odometer).toLocaleString('en-IN');
 });
 
-const hasNavActions = computed(() => Boolean(slots['nav-actions']));
-const hasSaveActions = computed(() => Boolean(slots['save-actions']));
-const hasHeaderActions = computed(() => hasNavActions.value || hasSaveActions.value);
 </script>
 
 <style scoped>
-.maintenance-form-fields {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+.trf {
+    --radius: 12px;
+    --border: #dee2e6;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --primary: #0d6efd;
+    --success: #198754;
+    --text: #212529;
+    --muted: #6c757d;
+    --danger: #dc3545;
+    --fs-title: 0.9rem;
+    --fs-desc: 0.72rem;
+    --fs-label: 0.68rem;
+    --fs-input: 0.82rem;
+    --fs-meta: 0.68rem;
+    --fs-hint: 0.66rem;
+    --input-min-h: 40px;
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: var(--fs-input);
 }
 
-.maintenance-form-section {
-    padding-top: 0.85rem;
-    padding-bottom: 0.85rem;
-    border-top: 1px solid #e9ecef;
+.trf-validation-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    background: #fff5f5;
+    color: #b91c1c;
+    font-size: 0.76rem;
 }
 
-.maintenance-form-section:first-child {
-    border-top: 0;
-    padding-top: 0;
+.trf-section {
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #fff;
+    box-shadow: var(--shadow);
 }
 
-.maintenance-form-section--last {
-    padding-bottom: 0;
+.trf-section__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 62px;
+    gap: 14px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #e7f1ff 0%, #f8f9fa 100%);
 }
 
-.maintenance-form-section__title {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: #495057;
-    margin-bottom: 0.75rem;
+.trf-section__head--green {
+    border-bottom-color: #badbcc;
+    background: linear-gradient(135deg, #d1e7dd 0%, #f8f9fa 100%);
 }
 
-.maintenance-form-row {
-    display: grid;
-    gap: 12px 16px;
-    align-items: start;
+.trf-section__head--plain {
+    background: #fafafa;
 }
 
-.maintenance-form-row--four {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 0.85fr) minmax(0, 0.75fr);
+.trf-section__head-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 14px;
 }
 
-.maintenance-form-row--service {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
-}
-
-.maintenance-form-row--full {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.maintenance-form-row > * {
+.trf-section__head-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     min-width: 0;
 }
 
-.maintenance-form-row .form-control,
-.maintenance-form-row :deep(.form-control),
-.maintenance-form-row :deep(.searchable-select),
-.maintenance-form-row :deep(.app-date-input) {
+.trf-section__title {
+    margin: 0;
+    color: var(--text);
+    font-size: var(--fs-title);
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.trf-section__desc {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: var(--fs-desc);
+}
+
+.trf-section__body {
+    padding: 18px 20px;
+}
+
+.trf-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.trf-step-num--green {
+    background: var(--success);
+}
+
+.trf-step-num--gray {
+    background: #6c757d;
+}
+
+.trf-mode-badge,
+.trf-optional-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.trf-optional-badge {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.trf-field-grid {
+    display: grid;
+    align-items: start;
+    gap: 14px 16px;
+}
+
+.trf-field-grid--primary {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 0.75fr);
+}
+
+.trf-field-grid--service {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.85fr) minmax(0, 0.85fr);
+}
+
+.trf-pf {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
+    gap: 6px;
+}
+
+.trf-pf__lbl {
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    gap: 7px;
+    margin: 0;
+    color: var(--form-label-color, #475569);
+    font-size: var(--fs-label);
+    font-weight: var(--form-label-weight, 600);
+}
+
+.trf-pf__lbl-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    font-size: 0.75rem;
+}
+
+.trf-pf__lbl-icon--blue { background: #eff6ff; color: #2563eb; }
+.trf-pf__lbl-icon--indigo { background: #eef2ff; color: #4f46e5; }
+.trf-pf__lbl-icon--purple { background: #faf5ff; color: #7c3aed; }
+.trf-pf__lbl-icon--orange { background: #fff7ed; color: #ea580c; }
+.trf-pf__lbl-icon--teal { background: #f0fdfa; color: #0d9488; }
+.trf-pf__lbl-icon--slate { background: #f1f5f9; color: #475569; }
+
+.trf-pf__req {
+    color: var(--danger);
+}
+
+.trf-pf__optional {
+    margin-left: 3px;
+    color: #94a3b8;
+    font-size: var(--fs-hint);
+    font-weight: 500;
+}
+
+.trf-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--input-min-h);
+    padding: 8px 11px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: var(--form-input-color, #1f2937);
+    font-size: var(--fs-input);
+    font-weight: var(--form-input-weight, 500);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.trf-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.trf-input[readonly],
+.trf-input:disabled {
+    cursor: default;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.trf-input--error {
+    border-color: var(--danger);
+}
+
+.trf-input--textarea {
+    min-height: 76px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.trf-input-prefix {
+    position: relative;
+}
+
+.trf-input-prefix__addon {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    z-index: 1;
+    color: #64748b;
+    font-weight: 700;
+    transform: translateY(-50%);
+}
+
+.trf-input--prefixed {
+    padding-left: 26px;
+}
+
+.trf-pf__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+    margin-top: 1px;
+    line-height: 1.3;
+}
+
+.trf-pf__meta-label {
+    color: var(--muted);
+    font-size: var(--fs-meta);
+    font-weight: 600;
+}
+
+.trf-pf__meta-val {
+    color: #475569;
+    font-size: var(--fs-meta);
+    font-weight: 700;
+}
+
+.trf-pf__err {
+    color: var(--danger);
+    font-size: var(--fs-hint);
+    font-weight: 600;
+}
+
+.trf-pf :deep(.searchable-select),
+.trf-pf :deep(.app-date-input) {
     width: 100%;
     max-width: 100%;
 }
 
-@media (max-width: 1200px) {
-    .maintenance-form-row--four,
-    .maintenance-form-row--service {
+.trf-pf :deep(.select-trigger),
+.trf-pf :deep(.app-date-input__text) {
+    min-height: var(--input-min-h);
+    border-width: 1.5px;
+    border-radius: 8px;
+    font-size: var(--fs-input);
+}
+
+@media (max-width: 1199.98px) {
+    .trf-field-grid--primary,
+    .trf-field-grid--service {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 768px) {
-    .maintenance-form-row--four,
-    .maintenance-form-row--service {
-        grid-template-columns: minmax(0, 1fr);
+@media (max-width: 575.98px) {
+    .trf-section__head {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 11px 14px;
+    }
+
+    .trf-section__head-right {
+        justify-content: flex-start;
+        width: 100%;
+        padding-left: 46px;
+    }
+
+    .trf-section__body {
+        padding: 14px;
+    }
+
+    .trf-field-grid--primary,
+    .trf-field-grid--service {
+        grid-template-columns: 1fr;
     }
 }
 </style>

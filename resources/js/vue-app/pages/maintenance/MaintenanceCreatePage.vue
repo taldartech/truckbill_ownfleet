@@ -1,5 +1,5 @@
 <template>
-    <div class="container-fluid px-3 px-lg-4 mt-4 pb-5 app-index-page maintenance-create-page">
+    <div class="maintenance-create-page maintenance-create-redesigned-page app-index-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before adding maintenance records.
         </div>
@@ -15,34 +15,10 @@
                 :min-next-due-date="minNextDueDate"
                 :lock-vehicle="Boolean(presetVehicleId)"
                 @clear-field-error="clearFieldError"
-            >
-                <template #nav-actions>
-                    <RouterLink
-                        :to="listReturnTo"
-                        class="btn btn-sm trip-header-btn trip-header-btn--back"
-                    >
-                        <i class="bi bi-arrow-left me-1"></i>Cancel
-                    </RouterLink>
-                </template>
-                <template #save-actions>
-                    <button
-                        type="submit"
-                        class="btn btn-sm trip-header-btn trip-header-btn--update"
-                        :disabled="saving"
-                    >
-                        <span
-                            v-if="saving"
-                            class="spinner-border spinner-border-sm me-1"
-                            role="status"
-                            aria-hidden="true"
-                        ></span>
-                        <i v-else class="bi bi-floppy-fill me-1"></i>Save
-                    </button>
-                </template>
-            </MaintenanceForm>
+            />
 
-            <div class="trip-form-actions card shadow-sm">
-                <div class="card-body d-flex flex-wrap gap-2 justify-content-end">
+            <div class="trip-form-actions trip-form-actions--inline">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
                     <AppButton variant="secondary" outline size="sm" icon="bi bi-x-lg" label="Cancel" :to="listReturnTo" />
                     <AppButton
                         type="button"
@@ -262,3 +238,17 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.maintenance-create-redesigned-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+}
+
+@media (max-width: 575.98px) {
+    .maintenance-create-redesigned-page {
+        padding: 16px 12px 32px;
+    }
+}
+</style>
