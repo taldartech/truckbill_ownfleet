@@ -225,7 +225,7 @@ class TripService
             if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
                 $expensesOnlyMessage = $trip->hasInvoices()
                     ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
-                    : 'Only trip expenses can be edited on completed trips.';
+                    : 'Only trip expenses can be updated with your current permissions.';
 
                 if (! array_key_exists('expenses', $data)) {
                     throw ValidationException::withMessages([

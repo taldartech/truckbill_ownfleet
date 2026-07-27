@@ -1885,7 +1885,7 @@ class TripManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_moderator_cannot_update_trip_or_view_archived_list(): void
+    public function test_moderator_cannot_update_trip_details_or_view_archived_list(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
         $this->actingAs($user);
@@ -1895,11 +1895,47 @@ class TripManagementTest extends TestCase
             ->putJson('/api/trips/'.$trip->id, [
                 'notes' => 'Moderator should not update this trip.',
             ])
-            ->assertForbidden();
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['trip']);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips?archived=archived')
             ->assertForbidden();
+    }
+
+    public function test_moderator_can_manage_trip_expenses(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
+        $this->actingAs($user);
+        $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 500,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '500.00');
+
+        $trip->update(['status' => TripStatus::Completed->value]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/api/trips/{$trip->id}", [
+                'expenses' => [
+                    [
+                        'expense_type' => TripExpenseType::Toll->value,
+                        'expense_date' => '2026-06-10',
+                        'amount' => 750,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_expense_amount', '750.00');
     }
 
     public function test_trip_archive_impact_returns_summary_and_expense_breakdown(): void

@@ -22,6 +22,7 @@ final class PermissionAliasResolver
         'vehicle_documents.manage' => ['vehicle_documents.create', 'vehicle_documents.edit'],
         'driver_advances.manage' => ['drivers.manage'],
         'drivers.archive' => ['drivers.manage'],
+        'trips.expenses' => ['trips.edit', 'trips.manage'],
     ];
 
     /**

@@ -39,7 +39,10 @@ class TripPolicy
     {
         return ! $trip->trashed()
             && CurrentTenant::id() === $trip->tenant_id
-            && $user->hasPermission('trips.edit')
+            && (
+                $user->hasPermission('trips.edit')
+                || $user->hasPermission('trips.expenses')
+            )
             && $user->canAccessCompanyPanel();
     }
 

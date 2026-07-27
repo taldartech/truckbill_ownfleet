@@ -200,7 +200,7 @@
                                
 
                                 <AppCrudActionButton
-                                    v-if="canEdit && canManageTripExpensesFor(trip)"
+                                    v-if="canManageExpenses && canManageTripExpensesFor(trip)"
                                     action="expenses"
                                     title="Trip expenses"
                                     @click="goToExpenses(trip)"
@@ -316,12 +316,13 @@ const { needsCompanySelection } = useRequireCompanyContext();
 const { canInCompany, user } = usePermissions(currentUser);
 const canCreate = computed(() => canInCompany('trips.create'));
 const canEdit = computed(() => canInCompany('trips.edit'));
+const canManageExpenses = computed(() => canInCompany('trips.expenses'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
 const canCreateInvoices = computed(() => canInCompany('invoices.create'));
 const tableColspan = computed(() => (showActions.value ? 8 : 7));
 const canView = computed(() => canInCompany('trips.view'));
-const canOpenTrip = computed(() => canView.value || canEdit.value);
-const showActions = computed(() => canOpenTrip.value || canCreateInvoices.value);
+const canOpenTrip = computed(() => canView.value || canEdit.value || canManageExpenses.value);
+const showActions = computed(() => canOpenTrip.value || canCreateInvoices.value || canManageExpenses.value);
 
 const { applyApiError } = useApiFormErrors();
 

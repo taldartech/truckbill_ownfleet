@@ -216,7 +216,7 @@ const canManage = computed(() => canInCompany('trips.edit'));
 const hasInvoices = ref(false);
 const tripEditOptions = computed(() => ({ has_invoices: hasInvoices.value }));
 const canManageExpenses = computed(
-    () => canManage.value && canManageTripExpenses(originalStatus.value, user.value, tripEditOptions.value),
+    () => canInCompany('trips.expenses') && canManageTripExpenses(originalStatus.value, user.value, tripEditOptions.value),
 );
 const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value, tripEditOptions.value));
 const canSave = computed(() => editAccess.value.fullEdit);

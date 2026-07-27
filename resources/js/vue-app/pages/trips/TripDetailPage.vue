@@ -41,7 +41,7 @@
                                     <i class="fas fa-arrow-left" style="color: #475569 !important;" aria-hidden="true"></i>
                                 </RouterLink>
                                 <AppCrudActionButton
-                                    v-if="canManage && canManageTripExpensesFor"
+                                    v-if="canManageExpenses && canManageTripExpensesFor"
                                     action="expenses"
                                     title="Manage expenses"
                                     @click="goToExpenses"
@@ -869,6 +869,7 @@ const restoreConfirmSummary = ref(null);
 const restoringTrip = ref(false);
 
 const canManage = computed(() => canInCompany('trips.edit'));
+const canManageExpenses = computed(() => canInCompany('trips.expenses'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
 const canRestore = computed(() => canInCompany('trips.restore'));
 const canArchiveThisTrip = computed(() => {

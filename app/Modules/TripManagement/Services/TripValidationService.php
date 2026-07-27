@@ -10,7 +10,6 @@ use App\Support\RoleHierarchy;
 use App\Trip;
 use App\TripExpense;
 use App\User;
-use App\UserRole;
 use App\Vehicle;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -43,14 +42,12 @@ class TripValidationService
     public function resolveTripEditScope(Trip $trip, ?User $user): string
     {
         $current = $this->tripStatusValue($trip);
+        $canEditTrips = $user?->hasPermission('trips.edit') ?? false;
+        $canManageExpenses = $user?->hasPermission('trips.expenses') ?? false;
 
         if ($trip->hasInvoices()) {
             if (
-                $user !== null
-                && (
-                    RoleHierarchy::isSuperAdminRole((int) $user->user_role_id)
-                    || in_array((int) $user->user_role_id, [UserRole::ADMIN, UserRole::MODERATOR], true)
-                )
+                $canManageExpenses
                 && in_array($current, [TripStatus::Completed->value, TripStatus::Invoiced->value], true)
             ) {
                 return self::EDIT_SCOPE_EXPENSES_ONLY;
@@ -64,17 +61,28 @@ class TripValidationService
             TripStatus::Cancelled->value,
             TripStatus::Invoiced->value,
         ], true)) {
-            return self::EDIT_SCOPE_FULL;
+            if ($canEditTrips) {
+                return self::EDIT_SCOPE_FULL;
+            }
+
+            if ($canManageExpenses) {
+                return self::EDIT_SCOPE_EXPENSES_ONLY;
+            }
+
+            return self::EDIT_SCOPE_NONE;
         }
 
-        if ($user !== null && RoleHierarchy::isSuperAdminRole((int) $user->user_role_id)) {
+        if (
+            $canEditTrips
+            && $user !== null
+            && RoleHierarchy::isSuperAdminRole((int) $user->user_role_id)
+        ) {
             return self::EDIT_SCOPE_FULL;
         }
 
         if (
-            $user !== null
-            && in_array((int) $user->user_role_id, [UserRole::ADMIN, UserRole::MODERATOR], true)
-            && $current === TripStatus::Completed->value
+            $canManageExpenses
+            && in_array($current, [TripStatus::Completed->value, TripStatus::Invoiced->value], true)
         ) {
             return self::EDIT_SCOPE_EXPENSES_ONLY;
         }
@@ -101,7 +109,7 @@ class TripValidationService
                 'trip' => [
                     $trip->hasInvoices()
                         ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
-                        : 'Only trip expenses can be edited on completed trips.',
+                        : 'Only trip expenses can be updated with your current permissions.',
                 ],
             ]);
         }

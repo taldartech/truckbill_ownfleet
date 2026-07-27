@@ -3,6 +3,7 @@ import { LoadCategory, loadCategoryMeta } from '../constants/loadCategory';
 import { calculatePerformanceSummary } from '../utils/tripFuelCalculator';
 import { thisMonthDateRange } from '../utils/dateRangePresets';
 import { dateOnlyFromDatetimeLocal } from '../utils/datetime';
+import { userHasPermission } from '../utils/permissionAlias';
 
 const tripsBase = '/app/api/trips';
 
@@ -1394,19 +1395,22 @@ function isSuperAdminUser(user) {
     return resolveUserRole(user) === 'super_admin' || Number(user?.user_role_id) === 2;
 }
 
-function isAdminUser(user) {
-    return resolveUserRole(user) === 'admin' || Number(user?.user_role_id) === 3;
+function userHasTripEditPermission(user) {
+    return userHasPermission(user?.permissions ?? [], 'trips.edit');
+}
+
+function userHasTripExpensesPermission(user) {
+    return userHasPermission(user?.permissions ?? [], 'trips.expenses');
 }
 
 export function resolveTripEditAccess(status, user, options = {}) {
     const normalized = String(status ?? '').toUpperCase();
     const hasInvoices = Boolean(options?.has_invoices ?? options?.hasInvoices);
+    const canEditTrips = options.canEditTrips ?? userHasTripEditPermission(user);
+    const canManageExpenses = options.canManageExpenses ?? userHasTripExpensesPermission(user);
 
     if (hasInvoices) {
-        if (
-            (isSuperAdminUser(user) || isAdminUser(user))
-            && (normalized === 'COMPLETED' || normalized === 'INVOICED')
-        ) {
+        if (canManageExpenses && (normalized === 'COMPLETED' || normalized === 'INVOICED')) {
             return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: true };
         }
 
@@ -1414,14 +1418,22 @@ export function resolveTripEditAccess(status, user, options = {}) {
     }
 
     if (!isTerminalTripStatus(normalized)) {
+        if (canEditTrips) {
+            return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
+        }
+
+        if (canManageExpenses) {
+            return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: false };
+        }
+
+        return { canEdit: false, fullEdit: false, expensesOnly: false, invoiceLocked: false };
+    }
+
+    if (canEditTrips && isSuperAdminUser(user)) {
         return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
     }
 
-    if (isSuperAdminUser(user)) {
-        return { canEdit: true, fullEdit: true, expensesOnly: false, invoiceLocked: false };
-    }
-
-    if (isAdminUser(user) && (normalized === 'COMPLETED' || normalized === 'INVOICED')) {
+    if (canManageExpenses && (normalized === 'COMPLETED' || normalized === 'INVOICED')) {
         return { canEdit: true, fullEdit: false, expensesOnly: true, invoiceLocked: false };
     }
 
