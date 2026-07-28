@@ -47,7 +47,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('locations/cities', [LocationController::class, 'cities']);
 });
 
-Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context'])->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscription.active'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 

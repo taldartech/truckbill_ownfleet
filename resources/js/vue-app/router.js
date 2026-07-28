@@ -370,6 +370,30 @@ const router = createRouter({
                         roles: ['master_admin', 'super_admin'],
                     },
                 },
+                {
+                    path: 'subscription',
+                    name: 'subscription.index',
+                    component: () => import('./pages/subscription/SubscriptionsIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/manage',
+                    name: 'subscription.manage',
+                    component: () => import('./pages/subscription/SubscriptionManagePage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/checkout',
+                    name: 'subscription.checkout',
+                    component: () => import('./pages/subscription/SubscriptionCheckoutPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'subscription/history',
+                    name: 'subscription.history',
+                    component: () => import('./pages/subscription/SubscriptionHistoryPage.vue'),
+                    meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
             ],
         },
         {
@@ -459,6 +483,10 @@ router.beforeEach(async (to) => {
         }
     }
 
+    if (to.meta.requiresSuperAdmin && user.role !== 'super_admin') {
+        return { name: 'dashboard', query: { denied: '1', from: to.name ?? to.path } };
+    }
+
     if (to.meta.roles?.length && !to.meta.roles.includes(user.role)) {
         return {
             name: 'dashboard',
@@ -488,6 +516,18 @@ router.beforeEach(async (to) => {
                 },
             };
         }
+    }
+
+    const subscriptionLocked = user.subscription?.access_mode === 'locked';
+    const isSubscriptionRoute = String(to.path).startsWith('/subscription');
+
+    if (
+        subscriptionLocked
+        && to.meta.requiresTenant
+        && !isSubscriptionRoute
+        && to.name !== 'dashboard'
+    ) {
+        return { name: 'dashboard', query: { subscription_locked: '1' } };
     }
 
     return true;

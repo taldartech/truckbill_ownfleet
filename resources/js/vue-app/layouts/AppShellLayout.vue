@@ -6,6 +6,7 @@
             <main class="app-main">
                 <div class="app-content-header main-content">
                     <div class="container-fluid">
+                        <SubscriptionAccessBanner />
                         <RouterView :key="branchContextKey" />
                     </div>
                 </div>
@@ -24,6 +25,7 @@ import AppFooter from '../components/AppFooter.vue';
 import AppHeader from '../components/AppHeader.vue';
 import AppSidebar from '../components/AppSidebar.vue';
 import AppToastHost from '../components/ui/AppToastHost.vue';
+import SubscriptionAccessBanner from '../components/subscription/SubscriptionAccessBanner.vue';
 import { adminNavigation } from '../config/adminNavigation';
 import { useAdminLtePushMenu } from '../composables/useAdminLtePushMenu';
 import { useFilteredNavigation } from '../composables/useFilteredNavigation';

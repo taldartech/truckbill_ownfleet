@@ -11,8 +11,10 @@ use App\Http\Resources\VehicleResource;
 use App\Http\Resources\VehicleTripSelectionResource;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Modules\TripManagement\Services\VehicleTripEligibilityService;
+use App\Services\SubscriptionGuard;
 use App\Support\CurrentTenant;
 use App\Support\TyreLayoutDefaults;
+use App\Tenant;
 use App\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ class VehicleController extends Controller
     public function __construct(
         private readonly DriverAssignmentService $driverAssignmentService,
         private readonly VehicleTripEligibilityService $vehicleTripEligibility,
+        private readonly SubscriptionGuard $subscriptionGuard,
     ) {}
 
     public function forTripSelection(Request $request): AnonymousResourceCollection
@@ -121,12 +124,18 @@ class VehicleController extends Controller
         $validated = $request->validated();
         $validated['tyre_layout'] = $validated['tyre_layout'] ?? TyreLayoutDefaults::defaultCode();
 
+        $tenant = Tenant::query()->with('subscription')->findOrFail(CurrentTenant::requireId());
+
         $vehicle = Vehicle::withTrashed()
             ->where('tenant_id', CurrentTenant::id())
             ->where('registration_number', $validated['registration_number'])
             ->first();
 
         if ($vehicle) {
+            if ($vehicle->trashed()) {
+                $this->subscriptionGuard->assertCanCreateVehicle($tenant);
+            }
+
             $vehicle->restore();
             $vehicle->update([
                 ...$validated,
@@ -135,6 +144,8 @@ class VehicleController extends Controller
             ]);
             $vehicle->wasRecentlyCreated = true;
         } else {
+            $this->subscriptionGuard->assertCanCreateVehicle($tenant);
+
             $vehicle = Vehicle::query()->create([
                 ...$validated,
                 'is_active' => true,

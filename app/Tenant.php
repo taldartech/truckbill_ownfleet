@@ -35,9 +35,6 @@ class Tenant extends Model
         'contact_person',
         'contact_number',
         'company_logo',
-        'plan_end_date',
-        'lr_credits',
-        'truck_credits',
         'payroll_pay_days_mode',
     ];
 
@@ -53,15 +50,60 @@ class Tenant extends Model
         return [
             'is_active' => 'boolean',
             'is_blocked' => 'boolean',
-            'plan_end_date' => 'date',
-            'lr_credits' => 'integer',
-            'truck_credits' => 'integer',
             'state_id' => 'integer',
             'gst_rate' => 'decimal:3',
             'registration_type' => GstRegistrationType::class,
             'tax_liability' => TaxLiability::class,
             'payroll_pay_days_mode' => PayrollPayDaysMode::class,
         ];
+    }
+
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\TenantSubscription::class, 'tenant_id');
+    }
+
+    public function isPlanActive(): bool
+    {
+        return $this->subscription?->isActive() ?? false;
+    }
+
+    public function subscriptionAccessPayload(): array
+    {
+        return app(\App\Services\SubscriptionAccessService::class)->accessPayloadForTenant($this);
+    }
+
+    public function subscriptionCanWrite(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_write'] ?? false;
+    }
+
+    public function subscriptionCanExport(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_export'] ?? false;
+    }
+
+    public function subscriptionCanPrint(): bool
+    {
+        return $this->subscriptionAccessPayload()['can_print'] ?? false;
+    }
+
+    public function pendingUpcomingRenewals()
+    {
+        return $this->hasMany(\App\Models\UpcomingSubscription::class, 'tenant_id')->where('status', 'pending');
+    }
+
+    public function hasPendingUpcomingRenewal(): bool
+    {
+        return \App\Models\UpcomingSubscription::query()
+            ->where('tenant_id', $this->id)
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public function planEndsOn(): ?\Illuminate\Support\Carbon
+    {
+        return $this->subscription?->ends_on;
     }
 
     public function owner(): BelongsTo

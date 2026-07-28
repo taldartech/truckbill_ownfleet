@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Driver;
 use App\DriverAssignment;
+use App\Models\TenantSubscription;
 use App\Support\BranchProvisioner;
 use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
@@ -145,6 +146,60 @@ class VehicleManagementTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.registration_number', $unassignedVehicle->registration_number);
+    }
+
+    public function test_vehicle_creation_is_blocked_when_subscription_vehicle_limit_reached(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+        $tenant->subscription->update([
+            'included_trucks' => 1,
+            'addon_trucks' => 0,
+        ]);
+
+        $this->createVehicle($tenant, 'RJ27AV5001');
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5002',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['registration_number'])
+            ->assertJsonPath(
+                'errors.registration_number.0',
+                'Vehicle limit reached (1/1). Purchase a vehicle add-on from Subscription → Add-ons.',
+            );
+    }
+
+    public function test_deleting_a_vehicle_frees_a_subscription_truck_slot(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->seedTenantLookups($tenant);
+        $tenant->subscription->update([
+            'included_trucks' => 1,
+            'addon_trucks' => 0,
+        ]);
+
+        $vehicle = $this->createVehicle($tenant, 'RJ27AV5001');
+
+        $this->actingAs($admin)
+            ->deleteJson("/app/api/vehicles/{$vehicle->id}")
+            ->assertNoContent();
+
+        $this->assertSoftDeleted('vehicles', [
+            'id' => $vehicle->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson('/app/api/vehicles', [
+                'registration_number' => 'RJ27AV5002',
+                'vehicle_type' => 'TRUCK',
+                'tyre_layout' => 'TYRES_10',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.registration_number', 'RJ27AV5002');
     }
 
     public function test_admin_can_create_vehicle_with_lowercase_registration_normalized(): void
@@ -314,6 +369,22 @@ class VehicleManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
+        ]);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
             'name' => fake()->name(),
@@ -338,7 +409,7 @@ class VehicleManagementTest extends TestCase
 
     private function createOwnedTenant(User $owner, string $name): Tenant
     {
-        return Tenant::query()->create([
+        $tenant = Tenant::query()->create([
             'owner_user_id' => $owner->id,
             'name' => $name,
             'slug' => str()->slug($name).'-'.fake()->unique()->numerify('###'),
@@ -346,6 +417,24 @@ class VehicleManagementTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
+        ]);
+
+        return $tenant;
     }
 
     private function seedTenantLookups(Tenant $tenant): void

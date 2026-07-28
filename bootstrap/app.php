@@ -26,12 +26,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'app/api/*',
             'logout',
+            'api/admin/subscriptions',
+            'api/admin/subscriptions/*',
+            'subscription/callback',
         ]);
 
         $middleware->alias([
             'tenant' => \App\Http\Middleware\ResolveTenant::class,
             'branch' => \App\Http\Middleware\ResolveBranch::class,
             'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
+            'subscription.active' => \App\Http\Middleware\EnsureActiveSubscription::class,
+            'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
             'onboarding.signature' => \App\Http\Middleware\VerifyOnboardingSignature::class,
         ]);

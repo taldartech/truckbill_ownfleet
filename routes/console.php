@@ -23,3 +23,10 @@ Schedule::command('compliance:check-challan-pending --no-interaction')
 Schedule::command('invoices:send-due-reminders --no-interaction')
     ->dailyAt('08:15')
     ->timezone('Asia/Kolkata');
+
+Schedule::command('subscription:apply-upcoming')
+    ->dailyAt('00:15')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Apply pending upcoming subscriptions after term end');
