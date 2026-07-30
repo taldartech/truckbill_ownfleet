@@ -314,6 +314,7 @@
             :field-errors="fieldErrors"
             :form-error="formError"
             @close="closeEdit"
+            @submit="handleUpdate"
         />
 
         <DriverAdvanceModal
