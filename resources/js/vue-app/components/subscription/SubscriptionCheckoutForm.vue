@@ -148,7 +148,7 @@
                             type="button"
                             class="btn btn-primary"
                             :disabled="!canCheckout || paying"
-                            @click="pay(company.name)"
+                            @click="pay()"
                         >
                             {{ paying ? 'Processing…' : 'Pay securely with Razorpay' }}
                         </button>

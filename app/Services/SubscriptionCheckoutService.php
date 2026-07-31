@@ -28,6 +28,8 @@ class SubscriptionCheckoutService
             throw new \InvalidArgumentException(implode(' ', $quote['blocking_errors'] ?: ['Checkout is not available.']));
         }
 
+        $checkoutMeta = $this->razorpayCheckoutMeta($tenant, $actorUserId);
+
         $payment = SubscriptionPayment::create([
             'tenant_id' => $tenant->id,
             'type' => $input['purchase_type'],
@@ -45,11 +47,15 @@ class SubscriptionCheckoutService
         $api = new Api(config('subscription.razorpay_key'), config('subscription.razorpay_secret'));
 
         try {
-            $order = $api->order->create([
+            $orderPayload = [
                 'receipt' => 'sub_'.$payment->id.'_'.time(),
                 'amount' => Money::toPaise($quote['total_amount']),
                 'currency' => 'INR',
-            ]);
+            ];
+            if ($checkoutMeta['notes'] !== []) {
+                $orderPayload['notes'] = $checkoutMeta['notes'];
+            }
+            $order = $api->order->create($orderPayload);
         } catch (\Throwable $exception) {
             $payment->delete();
 
@@ -72,7 +78,57 @@ class SubscriptionCheckoutService
             'razorpay_key' => config('subscription.razorpay_key'),
             'amount' => (float) $quote['total_amount'],
             'razorpay_amount_paise' => Money::toPaise($quote['total_amount']),
+            'description' => 'TruckBill subscription',
+            'prefill' => $checkoutMeta['prefill'],
+            'notes' => $checkoutMeta['notes'],
         ];
+    }
+
+    /**
+     * @return array{notes: array<string, string>, prefill: array<string, string>}
+     */
+    private function razorpayCheckoutMeta(Tenant $tenant, string $actorUserId): array
+    {
+        $actor = \App\User::query()->find($actorUserId);
+        $contact = $this->normalizeIndianMobile($tenant->contact_number);
+
+        $notes = array_filter([
+            'company_name' => $tenant->name,
+            'mobile' => $tenant->contact_number,
+            'gst_number' => $tenant->gst_number,
+            'pan_number' => $tenant->pan_number,
+            'contact_person' => $tenant->contact_person,
+            'gst_rate' => $tenant->gst_rate !== null ? (string) $tenant->gst_rate : null,
+            'address' => filled($tenant->address) ? \Illuminate\Support\Str::limit((string) $tenant->address, 200, '') : null,
+        ], fn ($value) => filled($value));
+
+        $notes = array_map(static fn ($value): string => (string) $value, $notes);
+
+        $prefill = array_filter([
+            'name' => $tenant->contact_person ?: $tenant->name,
+            'email' => $actor?->email,
+            'contact' => $contact,
+        ], fn ($value) => filled($value));
+
+        return [
+            'notes' => $notes,
+            'prefill' => array_map(static fn ($value): string => (string) $value, $prefill),
+        ];
+    }
+
+    private function normalizeIndianMobile(?string $mobile): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $mobile) ?: '';
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (strlen($digits) > 10) {
+            $digits = substr($digits, -10);
+        }
+
+        return $digits;
     }
 
     public function handleCallback(array $payload, string $actorUserId): SubscriptionPayment
