@@ -66,14 +66,16 @@ class FleetMonthlyReportService
                 $tripCount = (int) ($stats->trip_count ?? 0);
                 $totalKm = (float) ($stats->total_km ?? 0);
                 $totalFreight = (float) ($stats->total_freight ?? 0);
+                $totalCustom = (float) ($stats->total_custom ?? 0);
                 $totalExpense = (float) ($stats->total_expense ?? 0);
                 $dieselLiters = (float) ($dieselLitersByVehicle->get($vehicle->id)?->diesel_liters ?? 0);
                 $tyresUsed = (int) ($tyresUsedByVehicle->get($vehicle->id)?->tyres_used ?? 0);
                 $tyreExpense = (float) ($tyreExpenseByVehicle->get($vehicle->id)?->tyre_expense ?? 0);
-                $saving = round($totalFreight - $totalExpense, 2);
+                $totalRevenue = round($totalFreight + $totalCustom, 2);
+                $saving = round($totalRevenue - $totalExpense, 2);
                 $average = $dieselLiters > 0 ? round($totalKm / $dieselLiters, 2) : 0.0;
 
-                $totals['total_bill'] += $totalFreight;
+                $totals['total_bill'] += $totalRevenue;
                 $totals['total_saving'] += $saving;
                 $totals['total_tyres_used'] += $tyresUsed;
 
@@ -197,6 +199,7 @@ class FleetMonthlyReportService
                 DB::raw('COUNT(*) as trip_count'),
                 DB::raw('COALESCE(SUM(total_distance_km), 0) as total_km'),
                 DB::raw('COALESCE(SUM(total_freight_amount), 0) as total_freight'),
+                DB::raw('COALESCE(SUM(total_custom_amount), 0) as total_custom'),
                 DB::raw('COALESCE(SUM(total_expense_amount), 0) as total_expense'),
             ])
             ->get()

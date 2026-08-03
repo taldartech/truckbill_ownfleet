@@ -54,6 +54,7 @@ class Trip extends Model
         'empty_distance_km',
         'total_expense_amount',
         'total_freight_amount',
+        'total_custom_amount',
         'created_by',
         'updated_by',
         'archived_by',
@@ -82,6 +83,7 @@ class Trip extends Model
             'empty_distance_km' => 'decimal:2',
             'total_expense_amount' => 'decimal:2',
             'total_freight_amount' => 'decimal:2',
+            'total_custom_amount' => 'decimal:2',
         ];
     }
 
@@ -147,7 +149,9 @@ class Trip extends Model
 
     public function profitAmount(): float
     {
-        return (float) $this->total_freight_amount - (float) $this->total_expense_amount;
+        return (float) $this->total_freight_amount
+            + (float) $this->total_custom_amount
+            - (float) $this->total_expense_amount;
     }
 
     public function hasInvoices(): bool

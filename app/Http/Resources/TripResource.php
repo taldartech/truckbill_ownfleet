@@ -48,6 +48,7 @@ class TripResource extends JsonResource
             'empty_distance_km' => $this->empty_distance_km,
             'total_expense_amount' => $this->total_expense_amount,
             'total_freight_amount' => $this->total_freight_amount,
+            'total_custom_amount' => $this->total_custom_amount,
             'profit_amount' => $this->profitAmount(),
             'has_invoices' => $this->hasInvoices(),
             'can_generate_invoices' => $this->canGenerateInvoices(),

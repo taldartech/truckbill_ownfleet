@@ -14,6 +14,7 @@ use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
 use App\Invoice;
+use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\State;
 use App\Station;
@@ -262,6 +263,147 @@ class InvoiceManagementTest extends TestCase
             ->assertJsonValidationErrors(['groups.'.$customers['b']->id.'.invoice_sequence']);
     }
 
+    public function test_invoice_preview_includes_custom_items_in_taxable_base_and_gst(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/preview", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                            ['description' => 'Detention', 'amount' => 500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $group = collect($preview->json('data'))->firstWhere('customer_id', $customers['a']->id);
+
+        $this->assertSame(10000.0, (float) $group['route_freight_amount']);
+        $this->assertSame(2000.0, (float) $group['custom_amount']);
+        $this->assertSame(12000.0, (float) $group['freight_amount']);
+        $this->assertSame(600.0, (float) $group['gst_amount']);
+        $this->assertSame(12600.0, (float) $group['total_amount']);
+        $this->assertCount(2, $group['custom_items']);
+    }
+
+    public function test_invoice_generate_persists_custom_items_and_updates_trip_profit(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+        $trip->forceFill(['total_expense_amount' => 3000])->save();
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                            ['description' => 'Detention', 'amount' => 500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+
+        $this->assertSame(12000.0, (float) $invoice->freight_amount);
+        $this->assertSame(3, $invoice->items->count());
+
+        $customItems = $invoice->items->whereNull('trip_route_leg_id')->values();
+        $this->assertCount(2, $customItems);
+        $this->assertSame('Loading charges', $customItems[0]->goods_name);
+        $this->assertSame(1500.0, (float) $customItems[0]->freight_amount);
+        $this->assertSame('Detention', $customItems[1]->goods_name);
+        $this->assertSame(500.0, (float) $customItems[1]->freight_amount);
+
+        $trip = $trip->fresh();
+        $this->assertSame(2000.0, (float) $trip->total_custom_amount);
+        $this->assertSame(10000.0, (float) $trip->total_freight_amount);
+        $this->assertSame(9000.0, $trip->profitAmount());
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/trips/{$trip->id}")
+            ->assertOk()
+            ->assertJsonPath('data.total_custom_amount', '2000.00')
+            ->assertJsonPath('data.profit_amount', 9000);
+    }
+
+    public function test_cancelling_invoice_clears_custom_amount_from_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+        $trip->forceFill(['total_expense_amount' => 3000])->save();
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 2000],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $this->assertSame(9000.0, $trip->fresh()->profitAmount());
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/app/api/invoices/{$invoiceId}")
+            ->assertNoContent();
+
+        $trip = $trip->fresh();
+        $this->assertSame(0.0, (float) $trip->total_custom_amount);
+        $this->assertSame(7000.0, $trip->profitAmount());
+    }
+
+    public function test_custom_items_validation_rejects_blank_description_and_non_positive_amount(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => '', 'amount' => 100],
+                            ['description' => 'Valid', 'amount' => 0],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'groups.'.$customers['a']->id.'.custom_items.0.description',
+                'groups.'.$customers['a']->id.'.custom_items.1.amount',
+            ]);
+    }
+
     public function test_invoiced_trip_cannot_be_fully_edited_even_by_super_admin(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
@@ -508,6 +650,22 @@ class InvoiceManagementTest extends TestCase
             'gst_rate' => 5,
             'contact_person' => 'Admin',
             'contact_number' => '9876500001',
+        ]);
+
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
         ]);
 
         $operational = $this->operationalAttributesForTenant($tenant);

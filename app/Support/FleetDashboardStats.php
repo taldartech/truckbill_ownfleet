@@ -156,6 +156,7 @@ class FleetDashboardStats
             ]);
 
         $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
+        $totalCustom = (float) (clone $financialQuery)->sum('total_custom_amount');
         $totalExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
 
         return [
@@ -166,8 +167,9 @@ class FleetDashboardStats
             'cancelled_count' => (clone $baseQuery)->where('status', TripStatus::Cancelled->value)->count(),
             'invoiced_count' => (clone $baseQuery)->where('status', TripStatus::Invoiced->value)->count(),
             'total_freight_amount' => round($totalFreight, 2),
+            'total_custom_amount' => round($totalCustom, 2),
             'total_expense_amount' => round($totalExpenses, 2),
-            'profit_amount' => round($totalFreight - $totalExpenses, 2),
+            'profit_amount' => round($totalFreight + $totalCustom - $totalExpenses, 2),
             'running_trips' => self::buildRunningTripsList(),
         ];
     }

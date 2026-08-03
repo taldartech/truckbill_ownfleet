@@ -154,7 +154,7 @@
                             aria-hidden="true"
                         ></i>
                         <span>
-                            Routes · Freight ₹{{ formatMoney(group.freight_amount) }}
+                            Routes · Freight ₹{{ formatMoney(group.route_freight_amount ?? group.freight_amount) }}
                         </span>
                     </button>
 
@@ -172,6 +172,66 @@
                                 <strong>₹{{ formatMoney(route.freight_amount) }}</strong>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="tgi-custom">
+                        <div class="tgi-custom__header">
+                            <span class="tgi-custom__title">Additional charges</span>
+                            <button
+                                type="button"
+                                class="btn btn-link btn-sm tgi-custom__add"
+                                @click="addCustomItem(group)"
+                            >
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                Add
+                            </button>
+                        </div>
+                        <div
+                            v-for="(item, index) in ensureCustomItems(group)"
+                            :key="`${group.customer_id}-custom-${index}`"
+                            class="tgi-custom__row"
+                        >
+                            <input
+                                v-model="item.description"
+                                type="text"
+                                class="form-control form-control-sm"
+                                :class="{
+                                    'is-invalid': Boolean(
+                                        fieldErrors[`groups.${group.customer_id}.custom_items.${index}.description`],
+                                    ),
+                                }"
+                                placeholder="Description"
+                                @input="$emit('custom-items-change')"
+                            />
+                            <input
+                                v-model="item.amount"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                class="form-control form-control-sm tgi-custom__amount"
+                                :class="{
+                                    'is-invalid': Boolean(
+                                        fieldErrors[`groups.${group.customer_id}.custom_items.${index}.amount`],
+                                    ),
+                                }"
+                                placeholder="Amount"
+                                @input="$emit('custom-items-change')"
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm tgi-custom__remove"
+                                title="Remove"
+                                @click="removeCustomItem(group, index); $emit('custom-items-change')"
+                            >
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <p
+                            v-if="customItemsError(group)"
+                            class="tgi-field__error"
+                        >
+                            {{ customItemsError(group) }}
+                        </p>
                     </div>
                 </section>
             </div>
@@ -227,7 +287,7 @@ const props = defineProps({
     routePreview: { type: String, default: '' },
 });
 
-defineEmits(['close', 'continue', 'invoice-date-change', 'sequence-input']);
+defineEmits(['close', 'continue', 'invoice-date-change', 'sequence-input', 'custom-items-change']);
 
 const expandedRouteIds = ref(new Set());
 
@@ -271,6 +331,35 @@ const totals = computed(() =>
 
 function routeCount(group) {
     return Array.isArray(group.routes) ? group.routes.length : 0;
+}
+
+function ensureCustomItems(group) {
+    if (!Array.isArray(group.custom_items)) {
+        group.custom_items = [];
+    }
+
+    return group.custom_items;
+}
+
+function addCustomItem(group) {
+    ensureCustomItems(group).push({ description: '', amount: '' });
+}
+
+function removeCustomItem(group, index) {
+    ensureCustomItems(group).splice(index, 1);
+}
+
+function customItemsError(group) {
+    const prefix = `groups.${group.customer_id}.custom_items`;
+    const errors = props.fieldErrors || {};
+
+    for (const [key, messages] of Object.entries(errors)) {
+        if (key.startsWith(prefix) && Array.isArray(messages) && messages[0]) {
+            return messages[0];
+        }
+    }
+
+    return '';
 }
 
 function isRoutesExpanded(customerId) {
@@ -630,6 +719,50 @@ function formatMoney(value) {
 .tgi-route__meta strong {
     color: #0f172a;
     font-size: 0.7rem;
+}
+
+.tgi-custom {
+    padding: 0.4rem 0.55rem 0.55rem;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.tgi-custom__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.tgi-custom__title {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.tgi-custom__add {
+    padding: 0;
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.tgi-custom__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 2rem;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.tgi-custom__amount {
+    text-align: right;
+}
+
+.tgi-custom__remove {
+    padding: 0.15rem;
+    line-height: 1;
 }
 
 .tgi-footer-summary {

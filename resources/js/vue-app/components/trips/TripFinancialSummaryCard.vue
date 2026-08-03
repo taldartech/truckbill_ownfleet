@@ -6,7 +6,7 @@
         <div class="trip-financial-summary__header">
             <div class="trip-financial-summary__header-text">
                 <strong class="trip-financial-summary__title">Financial Summary</strong>
-                <span class="trip-financial-summary__subtitle">Freight vs expenses</span>
+                <span class="trip-financial-summary__subtitle">Revenue vs expenses</span>
             </div>
             <div
                 class="trip-financial-summary__badge"
@@ -22,6 +22,10 @@
                 <div class="trip-financial-summary__stat">
                     <span class="trip-financial-summary__stat-label">Freight</span>
                     <span class="trip-financial-summary__stat-value">₹{{ formatMoney(freightAmount) }}</span>
+                </div>
+                <div v-if="customAmount > 0" class="trip-financial-summary__stat">
+                    <span class="trip-financial-summary__stat-label">Additional</span>
+                    <span class="trip-financial-summary__stat-value">₹{{ formatMoney(customAmount) }}</span>
                 </div>
                 <div class="trip-financial-summary__stat">
                     <span class="trip-financial-summary__stat-label">Expenses</span>
@@ -122,32 +126,34 @@ const props = defineProps({
 });
 
 const freightAmount = computed(() => Number(props.trip?.total_freight_amount ?? 0));
+const customAmount = computed(() => Number(props.trip?.total_custom_amount ?? 0));
+const revenueAmount = computed(() => freightAmount.value + customAmount.value);
 const expenseAmount = computed(() => Number(props.trip?.total_expense_amount ?? 0));
 const profitAmount = computed(() => {
     if (props.trip?.profit_amount != null && props.trip?.profit_amount !== '') {
         return Number(props.trip.profit_amount);
     }
 
-    return freightAmount.value - expenseAmount.value;
+    return revenueAmount.value - expenseAmount.value;
 });
 const isProfit = computed(() => profitAmount.value >= 0);
 const distanceKm = computed(() => Number(props.trip?.total_distance_km ?? 0));
 
-const barScale = computed(() => Math.max(freightAmount.value, expenseAmount.value, 1));
-const freightBarPct = computed(() => Math.min(100, (freightAmount.value / barScale.value) * 100));
+const barScale = computed(() => Math.max(revenueAmount.value, expenseAmount.value, 1));
+const freightBarPct = computed(() => Math.min(100, (revenueAmount.value / barScale.value) * 100));
 const expenseBarPct = computed(() => Math.min(100, (expenseAmount.value / barScale.value) * 100));
 
 const marginLabel = computed(() => {
-    if (!(freightAmount.value > 0)) {
+    if (!(revenueAmount.value > 0)) {
         return '—';
     }
 
-    return `${((profitAmount.value / freightAmount.value) * 100).toFixed(1)}%`;
+    return `${((profitAmount.value / revenueAmount.value) * 100).toFixed(1)}%`;
 });
 
 const barAriaLabel = computed(
     () =>
-        `Freight ₹${formatMoney(freightAmount.value)}, expenses ₹${formatMoney(expenseAmount.value)}, ` +
+        `Revenue ₹${formatMoney(revenueAmount.value)}, expenses ₹${formatMoney(expenseAmount.value)}, ` +
         `${isProfit.value ? 'profit' : 'loss'} ₹${formatMoney(Math.abs(profitAmount.value))}`,
 );
 
@@ -156,13 +162,13 @@ const perKmMetrics = computed(() => {
         return [];
     }
 
-    const freightPerKm = freightAmount.value / distanceKm.value;
+    const freightPerKm = revenueAmount.value / distanceKm.value;
     const expensePerKm = expenseAmount.value / distanceKm.value;
     const profitPerKm = profitAmount.value / distanceKm.value;
 
     return [
         {
-            label: 'Freight / KM',
+            label: 'Revenue / KM',
             value: `₹${formatMoney(freightPerKm)}`,
             toneClass: '',
         },
@@ -295,7 +301,7 @@ function formatMoney(value) {
 
 .trip-financial-summary__stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
     gap: 0.55rem;
     margin-bottom: 0.85rem;
 }

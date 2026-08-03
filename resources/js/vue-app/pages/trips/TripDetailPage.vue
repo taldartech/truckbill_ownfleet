@@ -228,6 +228,9 @@
                                 class="trip-route-header__totals"
                             >
                                 ₹{{ formatMoney(trip.total_freight_amount) }} freight
+                                <template v-if="Number(trip.total_custom_amount) > 0">
+                                    · ₹{{ formatMoney(trip.total_custom_amount) }} additional
+                                </template>
                                 · ₹{{ formatMoney(trip.total_expense_amount) }} expenses
                             </span>
                         </div>
@@ -507,6 +510,13 @@
                                     <div class="trip-detail-km-bar__label">Total Freight</div>
                                     <strong>₹{{ formatMoney(trip.total_freight_amount) }}</strong>
                                 </div>
+                                <div
+                                    v-if="Number(trip.total_custom_amount) > 0"
+                                    class="trip-detail-km-bar__item"
+                                >
+                                    <div class="trip-detail-km-bar__label">Additional</div>
+                                    <strong>₹{{ formatMoney(trip.total_custom_amount) }}</strong>
+                                </div>
                                 <div class="trip-detail-km-bar__item">
                                     <div class="trip-detail-km-bar__label">Total Expenses</div>
                                     <strong>₹{{ formatMoney(trip.total_expense_amount) }}</strong>
@@ -596,6 +606,7 @@
             @continue="promptGenerateInvoicesConfirm"
             @invoice-date-change="refreshInvoicePreviewDebounced"
             @sequence-input="onInvoiceSequenceInput"
+            @custom-items-change="refreshInvoicePreviewDebounced"
         />
 
 
@@ -1173,11 +1184,18 @@ function buildInvoicePreviewPayload() {
     invoicePreviewGroups.value.forEach((group) => {
         const sequenceRaw = group.invoice_sequence;
         const hasSequence = sequenceRaw !== '' && sequenceRaw != null && String(sequenceRaw).trim() !== '';
+        const customItems = (Array.isArray(group.custom_items) ? group.custom_items : [])
+            .map((item) => ({
+                description: String(item?.description ?? '').trim(),
+                amount: Number(item?.amount),
+            }))
+            .filter((item) => item.description !== '' && Number.isFinite(item.amount) && item.amount >= 0.01);
 
         groups[group.customer_id] = {
             invoice_date: group.invoice_date || null,
             due_date: group.due_date || null,
             ...(hasSequence ? { invoice_sequence: Number(sequenceRaw) } : {}),
+            ...(customItems.length > 0 ? { custom_items: customItems } : {}),
         };
     });
 
@@ -1239,6 +1257,8 @@ async function refreshInvoicePreview({ silent = false } = {}) {
 
             existing.invoice_number = updated.invoice_number;
             existing.freight_amount = updated.freight_amount;
+            existing.route_freight_amount = updated.route_freight_amount;
+            existing.custom_amount = updated.custom_amount;
             existing.gst_amount = updated.gst_amount;
             existing.total_amount = updated.total_amount;
             existing.gst_rate = updated.gst_rate;
@@ -1246,6 +1266,7 @@ async function refreshInvoicePreview({ silent = false } = {}) {
             existing.document_type = updated.document_type;
             existing.document_type_label = updated.document_type_label;
             existing.routes = updated.routes;
+            // Keep locally edited custom_items; do not overwrite from preview echo.
         });
     } catch (error) {
         if (requestId === invoicePreviewRequestId) {
@@ -1304,6 +1325,7 @@ async function openGenerateInvoices() {
                 ...group,
                 invoice_date: group.invoice_date || defaultInvoiceDate,
                 invoice_sequence: group.invoice_sequence ?? '',
+                custom_items: Array.isArray(group.custom_items) ? group.custom_items : [],
             }))
             : [];
     } catch (error) {

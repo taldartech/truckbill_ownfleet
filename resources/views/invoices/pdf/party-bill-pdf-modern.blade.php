@@ -510,10 +510,16 @@
             $taxableGst = $lineCgst + $lineSgst + $lineIgst;
             $lineTotal = $collectsGst ? $serviceCharge + $taxableGst : $serviceCharge;
 
-            $description =
-                $index === 0
-                    ? 'Freight Charges'
-                    : 'Extra Stop' . ($item->to_location ? ' — ' . $item->to_location : '');
+            if ($item->trip_route_leg_id === null) {
+                $description = filled($item->goods_name)
+                    ? (string) $item->goods_name
+                    : 'Additional charge';
+            } else {
+                $description =
+                    $index === 0
+                        ? 'Freight Charges'
+                        : 'Extra Stop' . ($item->to_location ? ' — ' . $item->to_location : '');
+            }
 
             $lineRows[] = [
                 'sno' => $index + 1,

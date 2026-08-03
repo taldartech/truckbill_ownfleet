@@ -80,10 +80,11 @@
                                     </tr>
                                     <tr v-for="item in items" :key="item.id">
                                         <td>{{ item.sequence_no }}</td>
-                                        <td>{{ item.from_location }} → {{ item.to_location }}</td>
+                                        <td v-if="item.from_location || item.to_location">{{ item.from_location || '—' }} → {{ item.to_location || '—' }}</td>
+                                        <td v-else>—</td>
                                         <td>{{ item.goods_name || '—' }}</td>
-                                        <td class="text-end">{{ formatWeight(item.weight_ton) }}</td>
-                                        <td class="text-end">₹{{ formatMoney(item.freight_amount) }}</td>
+                                        <td class="text-end">{{ item.weight_ton ? formatWeight(item.weight_ton) : '—' }}</td>
+                                        <td class="text-end">{{ item.freight_amount ? `₹${formatMoney(item.freight_amount)}` : '—' }}</td>
                                     </tr>
                                 </tbody>
                             </table>

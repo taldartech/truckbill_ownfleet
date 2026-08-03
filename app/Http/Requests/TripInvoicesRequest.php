@@ -24,6 +24,9 @@ class TripInvoicesRequest extends FormRequest
             'groups.*.invoice_date' => ['nullable', 'date'],
             'groups.*.due_date' => ['nullable', 'date'],
             'groups.*.invoice_sequence' => ['nullable', 'integer', 'min:1', 'max:999999999'],
+            'groups.*.custom_items' => ['nullable', 'array'],
+            'groups.*.custom_items.*.description' => ['required', 'string', 'max:255'],
+            'groups.*.custom_items.*.amount' => ['required', 'numeric', 'min:0.01'],
         ];
     }
 

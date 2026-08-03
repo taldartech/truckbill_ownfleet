@@ -196,7 +196,13 @@ class InvoiceService
 
             $customer->loadMissing('state');
 
-            $freightAmount = round((float) $legs->sum(fn (TripRouteLeg $leg) => (float) $leg->freight_amount), 2);
+            $routeFreightAmount = round((float) $legs->sum(fn (TripRouteLeg $leg) => (float) $leg->freight_amount), 2);
+            $customItems = $this->normalizeCustomItems($options['groups'][$customerId]['custom_items'] ?? []);
+            $customAmount = round(
+                (float) collect($customItems)->sum(fn (array $item) => (float) $item['amount']),
+                2,
+            );
+            $freightAmount = round($routeFreightAmount + $customAmount, 2);
             $groupInvoiceDate = $options['groups'][$customerId]['invoice_date'] ?? $defaultInvoiceDate;
             $groupDueDate = $options['groups'][$customerId]['due_date'] ?? $dueDate;
             $hasExplicitSequence = array_key_exists('invoice_sequence', $options['groups'][$customerId] ?? [])
@@ -264,6 +270,9 @@ class InvoiceService
                     'weight_ton' => (float) $leg->weight_ton,
                     'freight_amount' => (float) $leg->freight_amount,
                 ])->values()->all(),
+                'custom_items' => $customItems,
+                'route_freight_amount' => $routeFreightAmount,
+                'custom_amount' => $customAmount,
                 'registration_type' => $gstSettings['registration_type']?->value,
                 'tax_liability' => $gstSettings['tax_liability']?->value,
                 'document_type' => $calc['document_type']->value,
@@ -294,6 +303,7 @@ class InvoiceService
             $previews = $this->previewForTrip($trip, $options);
             $this->assertDistinctInvoiceSequences($previews);
             $invoices = [];
+            $customAmountCreated = 0.0;
 
             foreach ($previews as $preview) {
                 if ($trip->branch_id === null) {
@@ -373,7 +383,33 @@ class InvoiceService
                         ->update(['billing_status' => FreightBillingStatus::Invoiced->value]);
                 }
 
+                foreach ($preview['custom_items'] ?? [] as $customItem) {
+                    InvoiceItem::query()->create([
+                        'tenant_id' => $trip->tenant_id,
+                        'branch_id' => $trip->branch_id,
+                        'invoice_id' => $invoice->id,
+                        'trip_route_leg_id' => null,
+                        'sequence_no' => $sequence++,
+                        'from_location' => null,
+                        'to_location' => null,
+                        'goods_name' => $customItem['description'],
+                        'weight_ton' => 0,
+                        'freight_amount' => $customItem['amount'],
+                    ]);
+
+                    $customAmountCreated += (float) $customItem['amount'];
+                }
+
                 $invoices[] = $invoice->fresh(['customer', 'items', 'trip']);
+            }
+
+            if ($customAmountCreated > 0) {
+                $trip->forceFill([
+                    'total_custom_amount' => round(
+                        (float) $trip->total_custom_amount + $customAmountCreated,
+                        2,
+                    ),
+                ])->save();
             }
 
             $this->markTripInvoiced($trip, $user);
@@ -448,12 +484,27 @@ class InvoiceService
                 ]);
             }
 
-            $legIds = $invoice->items()->pluck('trip_route_leg_id');
+            $invoice->loadMissing('items');
 
-            TripRouteLeg::query()
-                ->withoutGlobalScopes()
-                ->whereIn('id', $legIds)
-                ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
+            $legIds = $invoice->items
+                ->pluck('trip_route_leg_id')
+                ->filter()
+                ->values()
+                ->all();
+
+            $customAmount = round(
+                (float) $invoice->items
+                    ->filter(fn (InvoiceItem $item): bool => $item->trip_route_leg_id === null)
+                    ->sum(fn (InvoiceItem $item): float => (float) $item->freight_amount),
+                2,
+            );
+
+            if ($legIds !== []) {
+                TripRouteLeg::query()
+                    ->withoutGlobalScopes()
+                    ->whereIn('id', $legIds)
+                    ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
+            }
 
             $invoice->forceFill([
                 'payment_status' => InvoicePaymentStatus::Cancelled,
@@ -463,6 +514,15 @@ class InvoiceService
                 $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
 
                 if ($trip !== null) {
+                    if ($customAmount > 0) {
+                        $trip->forceFill([
+                            'total_custom_amount' => round(
+                                max(0, (float) $trip->total_custom_amount - $customAmount),
+                                2,
+                            ),
+                        ])->save();
+                    }
+
                     $this->revertTripFromInvoicedIfNeeded($trip, $user);
                 }
             }
@@ -722,5 +782,38 @@ class InvoiceService
         }
 
         return $settings;
+    }
+
+    /**
+     * @param  mixed  $items
+     * @return list<array{description: string, amount: float}>
+     */
+    private function normalizeCustomItems(mixed $items): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $description = trim((string) ($item['description'] ?? ''));
+            $amount = round((float) ($item['amount'] ?? 0), 2);
+
+            if ($description === '' || $amount < 0.01) {
+                continue;
+            }
+
+            $normalized[] = [
+                'description' => $description,
+                'amount' => $amount,
+            ];
+        }
+
+        return $normalized;
     }
 }
