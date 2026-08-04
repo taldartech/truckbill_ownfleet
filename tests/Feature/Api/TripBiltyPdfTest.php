@@ -10,6 +10,7 @@ use App\Enums\GstRegistrationType;
 use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
+use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\State;
 use App\Station;
@@ -146,6 +147,22 @@ class TripBiltyPdfTest extends TestCase
             'contact_person' => 'Admin',
             'contact_number' => '9876500001',
             'address' => 'Test Address',
+        ]);
+
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
         ]);
 
         $operational = $this->operationalAttributesForTenant($tenant);

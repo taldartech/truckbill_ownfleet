@@ -701,7 +701,7 @@
             size="lg"
             @close="closePrintBilty"
         >
-            <template #title>Print Bilty</template>
+            <template #title>Print Lorry Receipt</template>
 
             <div v-if="trip" class="mb-3">
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -709,7 +709,7 @@
                     <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
                 </div>
                 <p class="text-muted small mb-0">
-                    One bilty per customer. Same customer routes are combined. Each bilty prints consignor and driver copies on one page.
+                    One lorry receipt per customer. Same customer routes are combined into a single LR copy.
                 </p>
             </div>
 
