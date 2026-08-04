@@ -12,13 +12,12 @@
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
             font-size: 9pt;
-            color: #111;
             margin: 0;
             padding: 0;
         }
 
         .invoice-card {
-            border: 1.5px solid #231f20;
+            border: 1.5px solid #000;
             overflow: hidden;
         }
 
@@ -33,9 +32,9 @@
         }
 
         .header {
-            /* background: #163a6b; */
-            /* color: #fff; */
             padding: 14px 16px 12px;
+            background: {{ $document_color }};
+            color: {{ $document_text_color }};
         }
 
         .header td {
@@ -71,7 +70,6 @@
         }
 
         .invoice-number {
-            /* color: #f0c419; */
             font-size: 13pt;
             font-weight: 700;
             line-height: 1.2;
@@ -90,11 +88,10 @@
             letter-spacing: 1px;
             text-transform: uppercase;
             margin: 12px 0 10px;
-            /* color: #111; */
         }
 
         .invoice-to {
-            border: 1px solid #222;
+            border: 1px solid #000;
             padding: 8px 10px;
             margin-bottom: 10px;
         }
@@ -121,7 +118,7 @@
 
         .section-table th,
         .section-table td {
-            border: 1px solid #163a6b;
+            border: 1px solid #000;
             padding: 6px 8px;
             vertical-align: top;
             font-size: 8.5pt;
@@ -129,13 +126,13 @@
         }
 
         .section-table th {
-            /* background: #163a6b; */
-            /* color: #fff; */
             font-weight: 700;
             text-align: left;
             text-transform: uppercase;
             font-size: 8.5pt;
             letter-spacing: 0.3px;
+            background: {{ $document_color }};
+            color: {{ $document_text_color }};
         }
 
         .details-table {
@@ -143,29 +140,29 @@
         }
 
         .details-table .details-head th {
-            /* background: #163a6b; */
-            /* color: #fff; */
             text-align: center;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
             padding: 5px 6px;
-            border: 1px solid #163a6b;
+            border: 1px solid #000;
             font-size: 8.5pt;
+            background: {{ $document_color }};
+            color: {{ $document_text_color }};
         }
 
         .details-table td {
-            border: 1px solid #163a6b;
+            border: 1px solid #000;
             padding: 5px 6px;
             font-size: 8.5pt;
             vertical-align: middle;
         }
 
         .details-label {
-            /* background: #dce8f6; */
             font-weight: 700;
             width: 16%;
-            /* color: #163a6b; */
+            color: {{ $document_color }};
+            background: {{ $document_color_soft }};
         }
 
         .details-value {
@@ -178,19 +175,19 @@
 
         .lines-table th,
         .lines-table td {
-            border: 1px solid #222;
+            border: 1px solid #000;
             padding: 5px 4px;
             font-size: 7.5pt;
             vertical-align: middle;
         }
 
         .lines-table th {
-            /* background: #fff; */
-            /* color: #163a6b; */
             font-weight: 700;
             text-align: center;
             font-size: 7.2pt;
             line-height: 1.15;
+            background: {{ $document_color }};
+            color: {{ $document_text_color }};
         }
 
         .lines-table .c-center {
@@ -238,12 +235,7 @@
         .brand-footer {
             font-size: 7px;
             text-align: right;
-            /* color: #555; */
             margin-top: 4px;
-        }
-
-        .muted {
-            color: #555;
         }
     </style>
 </head>

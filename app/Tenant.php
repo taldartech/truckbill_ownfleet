@@ -35,6 +35,7 @@ class Tenant extends Model
         'contact_person',
         'contact_number',
         'company_logo',
+        'document_color',
         'payroll_pay_days_mode',
     ];
 
@@ -186,5 +187,54 @@ class Tenant extends Model
         }
 
         return Storage::disk('public')->path($this->company_logo);
+    }
+
+    public function documentColor(): ?string
+    {
+        $color = strtoupper(trim((string) ($this->document_color ?? '')));
+
+        if (preg_match('/^#[0-9A-F]{6}$/', $color) !== 1) {
+            return null;
+        }
+
+        return $color;
+    }
+
+    public function documentTextColor(): string
+    {
+        $color = $this->documentColor();
+
+        if ($color === null) {
+            return '#000000';
+        }
+
+        $red = hexdec(substr($color, 1, 2));
+        $green = hexdec(substr($color, 3, 2));
+        $blue = hexdec(substr($color, 5, 2));
+        $luminance = ((0.299 * $red) + (0.587 * $green) + (0.114 * $blue)) / 255;
+
+        return $luminance > 0.6 ? '#000000' : '#FFFFFF';
+    }
+
+    /**
+     * Solid hex tint equivalent to the document color at the given opacity over white.
+     * DomPDF does not reliably honor rgba()/opacity, so PDFs use a blended hex instead.
+     */
+    public function documentColorWithOpacity(float $opacity = 0.2): ?string
+    {
+        $color = $this->documentColor();
+
+        if ($color === null) {
+            return null;
+        }
+
+        $opacity = max(0.0, min(1.0, $opacity));
+        $whiteShare = 1 - $opacity;
+
+        $red = (int) round((hexdec(substr($color, 1, 2)) * $opacity) + (255 * $whiteShare));
+        $green = (int) round((hexdec(substr($color, 3, 2)) * $opacity) + (255 * $whiteShare));
+        $blue = (int) round((hexdec(substr($color, 5, 2)) * $opacity) + (255 * $whiteShare));
+
+        return sprintf('#%02X%02X%02X', $red, $green, $blue);
     }
 }

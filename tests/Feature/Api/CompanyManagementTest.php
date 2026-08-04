@@ -456,6 +456,50 @@ class CompanyManagementTest extends TestCase
         Storage::disk('public')->assertMissing($newLogo);
     }
 
+    public function test_company_document_color_can_be_set_and_updated(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $company = $this->createOwnedTenant($superAdmin, 'Color Transport', [
+            'pan_number' => 'CCCCC1234C',
+            'contact_person' => 'Color Contact',
+            'contact_number' => '9876543292',
+            'document_color' => null,
+        ]);
+
+        $this->assertNull($company->documentColor());
+
+        $this->actingAs($superAdmin)
+            ->getJson('/app/api/companies/'.$company->id)
+            ->assertOk()
+            ->assertJsonPath('data.document_color', null);
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$company->id, [
+                'name' => 'Color Transport',
+                'pan_number' => 'CCCCC1234C',
+                'contact_person' => 'Color Contact',
+                'contact_number' => '9876543292',
+                'document_color' => '#1f6f8b',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document_color', '#1F6F8B');
+
+        $this->assertSame('#1F6F8B', $company->fresh()->documentColor());
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$company->id, [
+                'name' => 'Color Transport',
+                'pan_number' => 'CCCCC1234C',
+                'contact_person' => 'Color Contact',
+                'contact_number' => '9876543292',
+                'document_color' => '',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.document_color', null);
+
+        $this->assertNull($company->fresh()->documentColor());
+    }
+
     public function test_company_update_keeps_existing_logo_when_no_file_is_provided(): void
     {
         Storage::fake('public');

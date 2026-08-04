@@ -39,6 +39,7 @@ class StoreCompanyRequest extends FormRequest
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['nullable', Rule::enum(PayrollPayDaysMode::class)],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
+            'document_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 
@@ -53,6 +54,7 @@ class StoreCompanyRequest extends FormRequest
             'company_logo.image' => 'The logo must be an image file.',
             'company_logo.mimes' => 'The logo must be a JPG, PNG, or WEBP image.',
             'company_logo.max' => 'The logo may not be greater than 100 KB.',
+            'document_color.regex' => 'Document color must be a valid hex color (e.g. #0B2A55).',
         ];
     }
 
@@ -67,6 +69,16 @@ class StoreCompanyRequest extends FormRequest
         ) {
             $this->merge([
                 'payroll_pay_days_mode' => PayrollPayDaysMode::Calendar->value,
+            ]);
+        }
+
+        if (! $this->filled('document_color') || $this->input('document_color') === '') {
+            $this->merge([
+                'document_color' => null,
+            ]);
+        } elseif (is_string($this->input('document_color'))) {
+            $this->merge([
+                'document_color' => strtoupper($this->input('document_color')),
             ]);
         }
     }

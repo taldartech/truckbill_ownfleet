@@ -551,6 +551,9 @@ class InvoiceService
         return Pdf::loadView('invoices.pdf.party-bill-pdf-modern', [
             'invoice' => $invoice,
             'company' => $company,
+            'document_color' => $company?->documentColor(),
+            'document_text_color' => $company?->documentTextColor() ?? '#000000',
+            'document_color_soft' => $company?->documentColorWithOpacity(0.2),
         ])->setPaper('a4');
     }
 

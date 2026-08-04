@@ -204,6 +204,11 @@ export function buildCompanyFields(payload, original, { states = [] } = {}) {
                         : 'No logo',
             previousValue: original?.logo_url ? 'Uploaded' : 'No logo',
         },
+        {
+            label: 'Document Color',
+            value: payload.document_color,
+            previousValue: original?.document_color,
+        },
     ];
 }
 

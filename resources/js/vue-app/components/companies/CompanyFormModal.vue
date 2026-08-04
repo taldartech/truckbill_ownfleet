@@ -109,32 +109,73 @@
             </div>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label" for="company_logo">Company Logo</label>
-            <div v-if="logoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
-                <img :src="logoPreviewUrl" alt="Logo preview" class="company-logo-preview" />
-                <button
-                    v-if="isEdit && existingLogoUrl && !removeLogo && !logoFile"
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    @click="onRemoveLogo"
-                >
-                    Remove logo
-                </button>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="company_logo">Company Logo</label>
+                <div v-if="logoPreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                    <img :src="logoPreviewUrl" alt="Logo preview" class="company-logo-preview" />
+                    <button
+                        v-if="isEdit && existingLogoUrl && !removeLogo && !logoFile"
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        @click="onRemoveLogo"
+                    >
+                        Remove logo
+                    </button>
+                </div>
+                <input
+                    id="company_logo"
+                    ref="logoInputRef"
+                    type="file"
+                    class="form-control"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                    :class="{ 'is-invalid': fieldErrors.company_logo }"
+                    @change="onLogoFileChange"
+                />
+                <div v-if="fieldErrors.company_logo" class="invalid-feedback d-block">
+                    {{ fieldErrors.company_logo[0] }}
+                </div>
+                <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
             </div>
-            <input
-                id="company_logo"
-                ref="logoInputRef"
-                type="file"
-                class="form-control"
-                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                :class="{ 'is-invalid': fieldErrors.company_logo }"
-                @change="onLogoFileChange"
-            />
-            <div v-if="fieldErrors.company_logo" class="invalid-feedback d-block">
-                {{ fieldErrors.company_logo[0] }}
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="document_color">Document Color</label>
+                <div class="d-flex align-items-center gap-2">
+                    <input
+                        id="document_color"
+                        type="color"
+                        class="form-control form-control-color document-color-input"
+                        :value="form.document_color || '#0B2A55'"
+                        :class="{ 'is-invalid': fieldErrors.document_color }"
+                        title="Choose document color"
+                        @input="onDocumentColorPickerInput"
+                    />
+                    <input
+                        id="document_color_hex"
+                        v-model="form.document_color"
+                        type="text"
+                        class="form-control text-uppercase"
+                        maxlength="7"
+                        placeholder="Optional"
+                        :class="{ 'is-invalid': fieldErrors.document_color }"
+                        @input="onDocumentColorInput"
+                    />
+                    <button
+                        v-if="form.document_color"
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        title="Clear color"
+                        @click="form.document_color = ''"
+                    >
+                        Clear
+                    </button>
+                </div>
+                <div v-if="fieldErrors.document_color" class="invalid-feedback d-block">
+                    {{ fieldErrors.document_color[0] }}
+                </div>
+                <div v-else class="form-text">
+                    Optional. Accent color for bilty and invoice PDFs.
+                </div>
             </div>
-            <div v-else class="form-text">Optional. JPG, PNG, or WEBP up to 100 KB.</div>
         </div>
 
         <template #footer>
@@ -238,9 +279,50 @@ const form = reactive({
     contact_person: '',
     contact_number: '',
     payroll_pay_days_mode: 'calendar',
+    document_color: '',
 });
 
 const gstForm = ref(createGstFormState());
+
+function normalizeDocumentColor(value) {
+    const color = String(value ?? '')
+        .trim()
+        .toUpperCase();
+
+    if (! color) {
+        return null;
+    }
+
+    if (/^#[0-9A-F]{6}$/.test(color)) {
+        return color;
+    }
+
+    if (/^[0-9A-F]{6}$/.test(color)) {
+        return `#${color}`;
+    }
+
+    return color;
+}
+
+function onDocumentColorInput(event) {
+    const raw = String(event.target.value ?? '')
+        .trim()
+        .toUpperCase();
+
+    if (! raw || raw === '#') {
+        form.document_color = '';
+
+        return;
+    }
+
+    form.document_color = raw.startsWith('#') ? raw.slice(0, 7) : `#${raw.slice(0, 6)}`;
+}
+
+function onDocumentColorPickerInput(event) {
+    form.document_color = String(event.target.value ?? '')
+        .trim()
+        .toUpperCase();
+}
 
 function revokeLogoObjectUrl() {
     if (logoObjectUrl.value) {
@@ -288,6 +370,7 @@ function resetForm() {
     form.contact_person = '';
     form.contact_number = '';
     form.payroll_pay_days_mode = 'calendar';
+    form.document_color = '';
     gstForm.value = createGstFormState();
     resetLogoState();
 }
@@ -299,6 +382,7 @@ function fillForm(company) {
     form.contact_person = company?.contact_person ?? '';
     form.contact_number = normalizeMobile(company?.contact_number ?? '');
     form.payroll_pay_days_mode = company?.payroll_pay_days_mode ?? 'calendar';
+    form.document_color = normalizeDocumentColor(company?.document_color) ?? '';
     gstForm.value = createGstFormState(company);
     resetLogoState();
 }
@@ -326,6 +410,7 @@ function submit() {
         address: form.address.trim() || null,
         contact_person: form.contact_person.trim(),
         contact_number: form.contact_number.trim(),
+        document_color: normalizeDocumentColor(form.document_color),
     };
 
     if (logoFile.value instanceof File) {
@@ -378,5 +463,11 @@ onBeforeUnmount(() => {
     border-radius: 0.5rem;
     background: #fff;
     padding: 0.25rem;
+}
+
+.document-color-input {
+    width: 3rem;
+    height: 2.5rem;
+    padding: 0.2rem;
 }
 </style>

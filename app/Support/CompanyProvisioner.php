@@ -36,6 +36,7 @@ class CompanyProvisioner
             'address' => $attributes['address'] ?? null,
             'contact_person' => $attributes['contact_person'] ?? null,
             'contact_number' => $attributes['contact_number'] ?? null,
+            'document_color' => $attributes['document_color'] ?? null,
             'payroll_pay_days_mode' => isset($attributes['payroll_pay_days_mode'])
                 ? (PayrollPayDaysMode::tryFrom((string) $attributes['payroll_pay_days_mode']) ?? PayrollPayDaysMode::Calendar)
                 : PayrollPayDaysMode::Calendar,

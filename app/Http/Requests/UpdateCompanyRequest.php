@@ -46,6 +46,7 @@ class UpdateCompanyRequest extends FormRequest
             'is_blocked' => ['sometimes', 'boolean'],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
             'remove_logo' => ['sometimes', 'boolean'],
+            'document_color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 
@@ -60,6 +61,7 @@ class UpdateCompanyRequest extends FormRequest
             'company_logo.image' => 'The logo must be an image file.',
             'company_logo.mimes' => 'The logo must be a JPG, PNG, or WEBP image.',
             'company_logo.max' => 'The logo may not be greater than 100 KB.',
+            'document_color.regex' => 'Document color must be a valid hex color (e.g. #0B2A55).',
         ];
     }
 
@@ -67,6 +69,20 @@ class UpdateCompanyRequest extends FormRequest
     {
         $this->normalizeCompanyIdentityFields();
         $this->normalizeContactNumberInput();
+
+        if (! $this->exists('document_color')) {
+            return;
+        }
+
+        if ($this->input('document_color') === '' || $this->input('document_color') === null) {
+            $this->merge([
+                'document_color' => null,
+            ]);
+        } elseif (is_string($this->input('document_color'))) {
+            $this->merge([
+                'document_color' => strtoupper($this->input('document_color')),
+            ]);
+        }
     }
 
     public function withValidator(Validator $validator): void

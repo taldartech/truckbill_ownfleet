@@ -38,6 +38,7 @@ class CompanyResource extends JsonResource
             'contact_number' => $this->contact_number,
             'company_logo' => $this->company_logo,
             'logo_url' => $this->logoPublicUrl(),
+            'document_color' => $this->documentColor(),
             'plan_end_date' => $this->plan_end_date?->toDateString(),
             'plan_end_date_formatted' => $this->plan_end_date
                 ? Carbon::parse($this->plan_end_date)->format('d M, Y')
