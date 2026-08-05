@@ -1377,6 +1377,7 @@ function openInvoicePdfTabs(invoices, pdfWindows = []) {
 
         if (existingWindow && !existingWindow.closed) {
             existingWindow.location.href = url;
+            existingWindow.focus();
 
             return;
         }
@@ -1390,7 +1391,7 @@ function openInvoicePdfTabs(invoices, pdfWindows = []) {
 }
 
 function prepareInvoicePdfWindows() {
-    return invoicePreviewGroups.value.map(() => window.open('about:blank', '_blank', 'noopener'));
+    return invoicePreviewGroups.value.map(() => window.open('about:blank', '_blank'));
 }
 
 async function confirmGenerateInvoices({ openPdfs = false } = {}) {
