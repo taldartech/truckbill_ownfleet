@@ -23,6 +23,7 @@ class Customer extends Model
         'pan_number',
         'address',
         'contact_number',
+        'is_broker',
         'created_by',
         'updated_by',
     ];
@@ -34,6 +35,7 @@ class Customer extends Model
             'state_id' => 'integer',
             'city_id' => 'integer',
             'agency_id' => 'integer',
+            'is_broker' => 'boolean',
         ];
     }
 

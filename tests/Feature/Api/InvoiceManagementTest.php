@@ -628,6 +628,75 @@ class InvoiceManagementTest extends TestCase
         );
     }
 
+    public function test_broker_customer_invoice_skips_gst_for_regular_company(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $customers['a']->update(['is_broker' => true]);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a']->fresh(), 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/preview")
+            ->assertOk();
+
+        $group = collect($preview->json('data'))->firstWhere('customer_id', $customers['a']->id);
+        $this->assertNotNull($group);
+        $this->assertTrue($group['is_broker']);
+        $this->assertSame(InvoiceDocumentType::BillInvoice->value, $group['document_type']);
+        $this->assertFalse($group['displays_gst']);
+        $this->assertFalse($group['collects_gst']);
+        $this->assertSame(0, (int) $group['gst_amount']);
+        $this->assertSame(10000, (int) $group['total_amount']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate")
+            ->assertCreated();
+
+        $invoice = Invoice::query()->where('customer_id', $customers['a']->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame(InvoiceDocumentType::BillInvoice, $invoice->document_type);
+        $this->assertSame(0.0, (float) $invoice->gst_amount);
+        $this->assertSame(10000.0, (float) $invoice->freight_amount);
+        $this->assertSame(10000.0, (float) $invoice->total_amount);
+    }
+
+    public function test_customer_is_broker_flag_can_be_set_and_updated(): void
+    {
+        [$tenant, $user] = array_slice($this->createInvoiceFixtures(), 0, 2);
+        $this->actingAs($user);
+
+        $mh = State::query()->where('code', 'MH')->firstOrFail();
+        $cityId = City::query()->where('state_id', $mh->id)->where('name', 'Mumbai')->value('id');
+
+        $create = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/app/api/customers', [
+                'name' => 'Broker Customer',
+                'state_id' => $mh->id,
+                'city_id' => $cityId,
+                'contact_number' => '9876543299',
+                'is_broker' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_broker', true);
+
+        $customerId = $create->json('data.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/app/api/customers/'.$customerId, [
+                'name' => 'Broker Customer',
+                'state_id' => $mh->id,
+                'city_id' => $cityId,
+                'contact_number' => '9876543299',
+                'is_broker' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_broker', false);
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: Vehicle, 3: Driver, 4: array<string, Station>, 5: array{a: Customer, b: Customer}}
      */

@@ -104,7 +104,7 @@ export function buildMasterCrudSaveConfirmViewModel({ entityLabel, mode = 'creat
 }
 
 export function buildPartyLocationFields(payload, original, { states, cities }) {
-    return [
+    const fields = [
         { label: 'Name', value: payload.name, previousValue: original?.name },
         { label: 'State', value: resolveLookupLabel(states, payload.state_id), previousValue: original?.state_name },
         { label: 'City', value: resolveLookupLabel(cities, payload.city_id), previousValue: original?.city_name },
@@ -113,6 +113,16 @@ export function buildPartyLocationFields(payload, original, { states, cities }) 
         { label: 'Contact Number', value: payload.contact_number, previousValue: original?.contact_number },
         { label: 'Address', value: payload.address, previousValue: original?.address },
     ];
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'is_broker')) {
+        fields.push({
+            label: 'Broker',
+            value: payload.is_broker ? 'Yes' : 'No',
+            previousValue: original?.is_broker ? 'Yes' : 'No',
+        });
+    }
+
+    return fields;
 }
 
 export function buildStationFields(payload, original, { states, cities }) {

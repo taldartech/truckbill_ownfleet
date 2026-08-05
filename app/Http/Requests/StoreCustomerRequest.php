@@ -53,6 +53,7 @@ class StoreCustomerRequest extends FormRequest
             'pan_number' => $this->partyPanNumberRules('customers'),
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_number' => $this->partyContactNumberRules('customers', required: true),
+            'is_broker' => ['sometimes', 'boolean'],
         ];
     }
 

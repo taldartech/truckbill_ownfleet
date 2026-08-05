@@ -60,6 +60,7 @@ class UpdateCustomerRequest extends FormRequest
             'pan_number' => $this->partyPanNumberRules('customers', $customer->id, $customer->tenant_id),
             'address' => ['nullable', 'string', 'max:2000'],
             'contact_number' => $this->partyContactNumberRules('customers', $customer->id, $customer->tenant_id, required: true),
+            'is_broker' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -94,16 +94,40 @@ class InvoiceService
         float $gstRate,
         ?int $customerStateId,
         ?string $customerStateCode,
+        bool $isBroker = false,
     ): array {
+        $freightAmount = round(max(0, $freightAmount), 2);
+        $supplierStateId = $gstSettings['state_id'] ?? null;
+        $supplierStateCode = $gstSettings['state_code'] ?? null;
+
+        if ($isBroker) {
+            return [
+                'document_type' => InvoiceDocumentType::BillInvoice,
+                'gst_rate' => 0.0,
+                'supplier_state_id' => $supplierStateId,
+                'supplier_state_code' => $supplierStateCode,
+                'customer_state_id' => $customerStateId,
+                'customer_state_code' => $customerStateCode,
+                'place_of_supply' => $customerStateCode ?? $supplierStateCode,
+                'freight_amount' => $freightAmount,
+                'cgst_rate' => 0.0,
+                'cgst_amount' => 0.0,
+                'sgst_rate' => 0.0,
+                'sgst_amount' => 0.0,
+                'igst_rate' => 0.0,
+                'igst_amount' => 0.0,
+                'gst_amount' => 0.0,
+                'total_amount' => $freightAmount,
+                'displays_gst' => false,
+                'collects_gst' => false,
+            ];
+        }
+
         $registrationType = $gstSettings['registration_type'] ?? null;
         $taxLiability = $gstSettings['tax_liability'] ?? null;
 
         $documentType = InvoiceDocumentType::fromGstSettings($registrationType, $taxLiability);
-        $freightAmount = round(max(0, $freightAmount), 2);
         $gstRate = round(max(0, $gstRate), 3);
-
-        $supplierStateId = $gstSettings['state_id'] ?? null;
-        $supplierStateCode = $gstSettings['state_code'] ?? null;
 
         $cgstRate = 0.0;
         $sgstRate = 0.0;
@@ -218,6 +242,7 @@ class InvoiceService
                 $defaultGstRate,
                 $customer->state_id !== null ? (int) $customer->state_id : null,
                 $customer->state?->code,
+                (bool) $customer->is_broker,
             );
 
             $dateKey = (string) $groupInvoiceDate;
@@ -260,6 +285,7 @@ class InvoiceService
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_gst_number' => $customer->gst_number,
+                'is_broker' => (bool) $customer->is_broker,
                 'route_leg_ids' => $legs->pluck('id')->values()->all(),
                 'routes' => $legs->map(fn (TripRouteLeg $leg) => [
                     'id' => $leg->id,

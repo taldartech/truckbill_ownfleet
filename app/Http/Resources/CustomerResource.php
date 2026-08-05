@@ -32,6 +32,7 @@ class CustomerResource extends JsonResource
             'pan_number' => $this->pan_number,
             'address' => $this->address,
             'contact_number' => $this->contact_number,
+            'is_broker' => (bool) $this->is_broker,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
             'country' => $this->whenLoaded('country', fn () => [

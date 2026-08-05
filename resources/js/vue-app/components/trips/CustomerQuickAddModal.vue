@@ -29,6 +29,13 @@
             @clear-field-error="clearLocalFieldError"
         />
 
+        <div class="row g-2 mt-1">
+            <CustomerBrokerToggle
+                v-model="isBroker"
+                input-id="quick_add_customer_is_broker"
+            />
+        </div>
+
         <template #footer>
             <button type="button" class="btn btn-secondary" :disabled="saving" @click="$emit('close')">Cancel</button>
             <AppButton type="submit" label="Save" :loading="saving" />
@@ -48,6 +55,7 @@ import {
 import { normalizeMobile } from '../../utils/phone';
 import { normalizeGstNumber, normalizePanNumber } from '../../utils/taxIdentity';
 import PartyQuickAddFields from '../parties/PartyQuickAddFields.vue';
+import CustomerBrokerToggle from '../customers/CustomerBrokerToggle.vue';
 import AppButton from '../ui/AppButton.vue';
 import AppModal from '../ui/AppModal.vue';
 
@@ -63,6 +71,7 @@ const gstNumber = ref('');
 const panNumber = ref('');
 const contactNumber = ref('');
 const address = ref('');
+const isBroker = ref(false);
 const saving = ref(false);
 const localFieldErrors = reactive({});
 const { fieldErrors, formError, applyApiError, clearErrors } = useApiFormErrors();
@@ -94,6 +103,7 @@ function resetForm() {
     panNumber.value = '';
     contactNumber.value = '';
     address.value = '';
+    isBroker.value = false;
 }
 
 function validateClientSide() {
@@ -179,6 +189,7 @@ async function submit() {
             pan_number: normalizePanNumber(panNumber.value) || null,
             contact_number: normalizeMobile(contactNumber.value) || null,
             address: address.value.trim() || null,
+            is_broker: Boolean(isBroker.value),
         });
         resetForm();
         resetLocationFields();

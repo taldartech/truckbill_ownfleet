@@ -67,6 +67,7 @@
                             </div>
                             <div class="tgi-group__sub">
                                 <span v-if="group.customer_gst_number">{{ group.customer_gst_number }}</span>
+                                <span v-if="group.is_broker" class="tgi-group__broker">Broker — GST not applied</span>
                                 <span>{{ routeCount(group) }} route{{ routeCount(group) === 1 ? '' : 's' }}</span>
                             </div>
                         </div>
@@ -585,6 +586,10 @@ function formatMoney(value) {
     font-size: 0.64rem;
     font-weight: 600;
     color: #64748b;
+}
+
+.tgi-group__broker {
+    color: #b45309;
 }
 
 .tgi-group__amount {

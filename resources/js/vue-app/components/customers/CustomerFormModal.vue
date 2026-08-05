@@ -89,6 +89,12 @@
                     {{ fieldErrors.address[0] }}
                 </div>
             </div>
+            <CustomerBrokerToggle
+                v-model="form.is_broker"
+                input-id="customer_is_broker"
+                :invalid="Boolean(fieldErrors.is_broker)"
+                :error-message="fieldErrors.is_broker?.[0] ?? ''"
+            />
         </div>
 
         <template #footer>
@@ -103,6 +109,7 @@ import { computed, reactive, watch } from 'vue';
 import AppModal from '../ui/AppModal.vue';
 import AppButton from '../ui/AppButton.vue';
 import IndiaLocationFields from '../locations/IndiaLocationFields.vue';
+import CustomerBrokerToggle from './CustomerBrokerToggle.vue';
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { buildPartyLocationFields } from '../../utils/masterCrudSaveConfirm';
 import { normalizeMobile } from '../../utils/phone';
@@ -136,6 +143,7 @@ const form = reactive({
     pan_number: '',
     contact_number: '',
     address: '',
+    is_broker: false,
 });
 
 function resetForm() {
@@ -144,6 +152,7 @@ function resetForm() {
     form.pan_number = '';
     form.contact_number = '';
     form.address = '';
+    form.is_broker = false;
 }
 
 function fillForm(customer) {
@@ -156,6 +165,7 @@ function fillForm(customer) {
     form.pan_number = customer.pan_number ?? '';
     form.contact_number = normalizeMobile(customer.contact_number ?? '');
     form.address = customer.address ?? '';
+    form.is_broker = Boolean(customer.is_broker);
 }
 
 watch(
@@ -191,6 +201,7 @@ function submit() {
         pan_number: form.pan_number.trim().toUpperCase() || null,
         contact_number: normalizeMobile(form.contact_number),
         address: form.address.trim() || null,
+        is_broker: Boolean(form.is_broker),
     };
 
     const fields = buildPartyLocationFields(payload, props.customer, {

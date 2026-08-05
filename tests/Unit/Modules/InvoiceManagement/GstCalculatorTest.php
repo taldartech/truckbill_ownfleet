@@ -119,4 +119,30 @@ class GstCalculatorTest extends TestCase
         $this->assertSame(InvoiceDocumentType::BillInvoice, $unregistered['document_type']);
         $this->assertSame(8000.0, $unregistered['total_amount']);
     }
+
+    public function test_broker_customer_skips_gst_even_for_regular_forward_charge(): void
+    {
+        $result = $this->calculator()->calculateGst(
+            [
+                'registration_type' => GstRegistrationType::Regular,
+                'tax_liability' => TaxLiability::ForwardCharge,
+                'state_id' => 1,
+                'state_code' => 'MH',
+            ],
+            freightAmount: 10000,
+            gstRate: 5,
+            customerStateId: 1,
+            customerStateCode: 'MH',
+            isBroker: true,
+        );
+
+        $this->assertSame(InvoiceDocumentType::BillInvoice, $result['document_type']);
+        $this->assertFalse($result['displays_gst']);
+        $this->assertFalse($result['collects_gst']);
+        $this->assertSame(0.0, $result['gst_amount']);
+        $this->assertSame(0.0, $result['cgst_amount']);
+        $this->assertSame(0.0, $result['sgst_amount']);
+        $this->assertSame(0.0, $result['igst_amount']);
+        $this->assertSame(10000.0, $result['total_amount']);
+    }
 }
