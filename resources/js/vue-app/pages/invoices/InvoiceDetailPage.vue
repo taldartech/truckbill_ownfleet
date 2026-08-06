@@ -331,10 +331,32 @@
             :message="deleteConfirmMessage"
             confirm-label="Yes, Delete Invoice"
             confirm-variant="danger"
+            confirm-icon="bi bi-trash"
+            icon="bi bi-trash"
+            icon-tone="danger"
             :loading="deleting"
+            :confirm-disabled="!canConfirmDelete"
             @cancel="closeDeleteConfirm"
             @confirm="confirmDelete"
-        />
+        >
+            <div class="text-start">
+                <label class="form-label mb-1">
+                    Reason For Delete <span class="text-danger">*</span>
+                </label>
+                <textarea
+                    v-model="deletionReason"
+                    class="form-control form-control-sm"
+                    rows="2"
+                    placeholder="Why is this invoice being deleted?"
+                    :class="{ 'is-invalid': Boolean(deletionReasonError) }"
+                    :disabled="deleting"
+                ></textarea>
+                <div v-if="deletionReasonError" class="invalid-feedback d-block">
+                    {{ deletionReasonError }}
+                </div>
+                <div v-else class="form-text">Minimum 10 characters.</div>
+            </div>
+        </AppConfirmModal>
     </div>
 </template>
 
@@ -373,6 +395,8 @@ const showPaymentModal = ref(false);
 const showPaymentConfirm = ref(false);
 const showCancelConfirm = ref(false);
 const showDeleteConfirm = ref(false);
+const deletionReason = ref('');
+const deletionReasonError = ref('');
 const paymentFormError = ref('');
 const paymentFieldErrors = ref({});
 
@@ -411,6 +435,12 @@ const canDelete = computed(
         Boolean(invoice.value?.can_delete)
         && canInCompany('invoices.delete'),
 );
+
+const canConfirmDelete = computed(() => {
+    const reason = deletionReason.value.trim();
+
+    return reason.length >= 10 && reason.length <= 500;
+});
 
 const items = computed(() => invoice.value?.items ?? []);
 const payments = computed(() => invoice.value?.payments ?? []);
@@ -635,26 +665,41 @@ async function confirmCancel() {
 }
 
 function openDeleteConfirm() {
+    deletionReason.value = '';
+    deletionReasonError.value = '';
     showDeleteConfirm.value = true;
 }
 
 function closeDeleteConfirm() {
     showDeleteConfirm.value = false;
+    deletionReason.value = '';
+    deletionReasonError.value = '';
 }
 
 async function confirmDelete() {
-    if (!invoice.value?.id) {
+    if (!invoice.value?.id || !canConfirmDelete.value) {
         return;
     }
 
     deleting.value = true;
+    deletionReasonError.value = '';
 
     try {
-        await deleteInvoice(invoice.value.id);
+        await deleteInvoice(invoice.value.id, {
+            deletion_reason: deletionReason.value.trim(),
+        });
         toast.success('Invoice deleted.');
         closeDeleteConfirm();
         await router.push({ name: 'invoices.index' });
     } catch (error) {
+        const reasonError = error.response?.data?.errors?.deletion_reason?.[0];
+
+        if (reasonError) {
+            deletionReasonError.value = reasonError;
+
+            return;
+        }
+
         const message = error.response?.data?.errors?.invoice?.[0]
             ?? error.response?.data?.message
             ?? 'Could not delete invoice.';

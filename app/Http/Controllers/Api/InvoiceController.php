@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeleteInvoiceRequest;
 use App\Http\Requests\StoreInvoicePaymentRequest;
 use App\Http\Requests\TripInvoicesRequest;
 use App\Http\Resources\InvoicePaymentResource;
@@ -123,11 +124,13 @@ class InvoiceController extends Controller
         return response()->noContent();
     }
 
-    public function softDelete(Invoice $invoice, Request $request): Response
+    public function softDelete(DeleteInvoiceRequest $request, Invoice $invoice): Response
     {
-        $this->authorize('softDelete', $invoice);
-
-        $this->invoiceService->deleteInvoice($invoice, $request->user());
+        $this->invoiceService->deleteInvoice(
+            $invoice,
+            $request->validated('deletion_reason'),
+            $request->user(),
+        );
 
         return response()->noContent();
     }

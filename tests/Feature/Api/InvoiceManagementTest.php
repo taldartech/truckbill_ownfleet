@@ -618,6 +618,13 @@ class InvoiceManagementTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson("/app/api/invoices/{$invoiceId}/delete")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['deletion_reason']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/delete", [
+                'deletion_reason' => 'Created by mistake during testing.',
+            ])
             ->assertNoContent();
 
         $this->assertSoftDeleted('invoices', ['id' => $invoiceId]);
@@ -625,6 +632,8 @@ class InvoiceManagementTest extends TestCase
 
         $deleted = Invoice::withTrashed()->findOrFail($invoiceId);
         $this->assertStringStartsWith($invoiceNumber.'__deleted_', $deleted->invoice_number);
+        $this->assertSame('Created by mistake during testing.', $deleted->deletion_reason);
+        $this->assertSame($user->id, $deleted->deleted_by);
         $this->assertSame(
             FreightBillingStatus::Unbilled,
             $trip->fresh()->routeLegs->first()->billing_status
@@ -671,12 +680,16 @@ class InvoiceManagementTest extends TestCase
             ->assertJsonPath('data.can_delete', false);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete")
+            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete", [
+                'deletion_reason' => 'Older invoice should not delete first.',
+            ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['invoice']);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/app/api/invoices/{$secondInvoiceId}/delete")
+            ->postJson("/app/api/invoices/{$secondInvoiceId}/delete", [
+                'deletion_reason' => 'Removing latest invoice first as required.',
+            ])
             ->assertNoContent();
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -685,7 +698,9 @@ class InvoiceManagementTest extends TestCase
             ->assertJsonPath('data.can_delete', true);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete")
+            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete", [
+                'deletion_reason' => 'Now the previous invoice is latest and removable.',
+            ])
             ->assertNoContent();
     }
 
@@ -716,7 +731,9 @@ class InvoiceManagementTest extends TestCase
             ->assertJsonPath('data.can_delete', false);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->postJson("/app/api/invoices/{$invoiceId}/delete")
+            ->postJson("/app/api/invoices/{$invoiceId}/delete", [
+                'deletion_reason' => 'Should not delete invoice after payment.',
+            ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['invoice']);
 

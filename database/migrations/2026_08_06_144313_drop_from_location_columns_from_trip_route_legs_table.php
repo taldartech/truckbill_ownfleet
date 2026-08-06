@@ -12,88 +12,88 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::table('trip_route_legs')
-            ->join('stations', 'stations.id', '=', 'trip_route_legs.from_station_id')
-            ->update(['trip_route_legs.from_city' => DB::raw('stations.name')]);
+        $stationNames = DB::table('stations')->pluck('name', 'id');
 
-        DB::table('trip_route_legs')
-            ->join('stations', 'stations.id', '=', 'trip_route_legs.to_station_id')
-            ->update(['trip_route_legs.to_city' => DB::raw('stations.name')]);
+        $customerAddresses = [];
 
-        $addressSql = "NULLIF(TRIM(CONCAT_WS(', ', NULLIF(TRIM(customers.address), ''), NULLIF(TRIM(cities.name), ''), NULLIF(TRIM(states.name), ''))), '')";
+        foreach (
+            DB::table('customers')
+                ->leftJoin('cities', 'cities.id', '=', 'customers.city_id')
+                ->leftJoin('states', 'states.id', '=', 'customers.state_id')
+                ->whereNull('customers.deleted_at')
+                ->select([
+                    'customers.id',
+                    'customers.tenant_id',
+                    'customers.name',
+                    'customers.address',
+                    'cities.name as city_name',
+                    'states.name as state_name',
+                ])
+                ->get() as $customer
+        ) {
+            $parts = array_values(array_filter([
+                trim((string) $customer->address),
+                trim((string) $customer->city_name),
+                trim((string) $customer->state_name),
+            ], static fn (string $part): bool => $part !== ''));
 
-        DB::table('trip_route_legs')
-            ->join('customers', function ($join): void {
-                $join->on('customers.tenant_id', '=', 'trip_route_legs.tenant_id')
-                    ->on('customers.name', '=', 'trip_route_legs.consignor')
-                    ->whereNull('customers.deleted_at');
-            })
-            ->leftJoin('cities', 'cities.id', '=', 'customers.city_id')
-            ->leftJoin('states', 'states.id', '=', 'customers.state_id')
-            ->whereNotNull('trip_route_legs.consignor')
-            ->where('trip_route_legs.consignor', '!=', '')
-            ->update(['trip_route_legs.from_address' => DB::raw($addressSql)]);
+            if ($parts === []) {
+                continue;
+            }
 
-        DB::table('trip_route_legs')
-            ->join('customers', function ($join): void {
-                $join->on('customers.tenant_id', '=', 'trip_route_legs.tenant_id')
-                    ->on('customers.name', '=', 'trip_route_legs.consignee')
-                    ->whereNull('customers.deleted_at');
-            })
-            ->leftJoin('cities', 'cities.id', '=', 'customers.city_id')
-            ->leftJoin('states', 'states.id', '=', 'customers.state_id')
-            ->whereNotNull('trip_route_legs.consignee')
-            ->where('trip_route_legs.consignee', '!=', '')
-            ->update(['trip_route_legs.to_address' => DB::raw($addressSql)]);
+            $formatted = implode(', ', $parts);
+            $customerAddresses['id:'.$customer->id] = $formatted;
+            $customerAddresses['name:'.$customer->tenant_id.'|'.mb_strtolower(trim((string) $customer->name))] = $formatted;
+        }
 
-        DB::table('trip_route_legs')
-            ->join('customers', 'customers.id', '=', 'trip_route_legs.customer_id')
-            ->leftJoin('cities', 'cities.id', '=', 'customers.city_id')
-            ->leftJoin('states', 'states.id', '=', 'customers.state_id')
-            ->whereNull('customers.deleted_at')
-            ->where(function ($query): void {
-                $query->whereNull('trip_route_legs.consignor')
-                    ->orWhere('trip_route_legs.consignor', '');
-            })
-            ->where(function ($query): void {
-                $query->whereNull('trip_route_legs.from_address')
-                    ->orWhere('trip_route_legs.from_address', '');
-            })
-            ->update(['trip_route_legs.from_address' => DB::raw($addressSql)]);
+        $hasFromLocation = Schema::hasColumn('trip_route_legs', 'from_location');
+        $hasToLocation = Schema::hasColumn('trip_route_legs', 'to_location');
 
-        if (Schema::hasColumn('trip_route_legs', 'from_location')) {
-            DB::table('trip_route_legs')
-                ->where(function ($query): void {
-                    $query->whereNull('from_city')->orWhere('from_city', '');
-                })
-                ->whereNotNull('from_location')
-                ->where('from_location', '!=', '')
-                ->update(['from_city' => DB::raw('from_location')]);
+        foreach (DB::table('trip_route_legs')->orderBy('id')->get() as $leg) {
+            $fromCity = trim((string) ($stationNames[$leg->from_station_id] ?? $leg->from_city ?? ''));
+            $toCity = trim((string) ($stationNames[$leg->to_station_id] ?? $leg->to_city ?? ''));
 
-            DB::table('trip_route_legs')
-                ->where(function ($query): void {
-                    $query->whereNull('to_city')->orWhere('to_city', '');
-                })
-                ->whereNotNull('to_location')
-                ->where('to_location', '!=', '')
-                ->update(['to_city' => DB::raw('to_location')]);
+            if ($fromCity === '' && $hasFromLocation) {
+                $fromCity = trim((string) ($leg->from_location ?? ''));
+            }
 
-            DB::table('trip_route_legs')
-                ->where(function ($query): void {
-                    $query->whereNull('from_address')->orWhere('from_address', '');
-                })
-                ->whereNotNull('from_location')
-                ->where('from_location', '!=', '')
-                ->update(['from_address' => DB::raw('from_location')]);
+            if ($toCity === '' && $hasToLocation) {
+                $toCity = trim((string) ($leg->to_location ?? ''));
+            }
 
-            DB::table('trip_route_legs')
-                ->where(function ($query): void {
-                    $query->whereNull('to_address')->orWhere('to_address', '');
-                })
-                ->whereNotNull('to_location')
-                ->where('to_location', '!=', '')
-                ->update(['to_address' => DB::raw('to_location')]);
+            $consignor = trim((string) ($leg->consignor ?? ''));
+            $consignee = trim((string) ($leg->consignee ?? ''));
 
+            $fromAddress = trim((string) ($leg->from_address ?? ''));
+            $toAddress = trim((string) ($leg->to_address ?? ''));
+
+            if ($consignor !== '') {
+                $fromAddress = $customerAddresses['name:'.$leg->tenant_id.'|'.mb_strtolower($consignor)] ?? $fromAddress;
+            } elseif ($leg->customer_id) {
+                $fromAddress = $customerAddresses['id:'.$leg->customer_id] ?? $fromAddress;
+            }
+
+            if ($consignee !== '') {
+                $toAddress = $customerAddresses['name:'.$leg->tenant_id.'|'.mb_strtolower($consignee)] ?? $toAddress;
+            }
+
+            if ($fromAddress === '' && $hasFromLocation) {
+                $fromAddress = trim((string) ($leg->from_location ?? ''));
+            }
+
+            if ($toAddress === '' && $hasToLocation) {
+                $toAddress = trim((string) ($leg->to_location ?? ''));
+            }
+
+            DB::table('trip_route_legs')->where('id', $leg->id)->update([
+                'from_city' => $fromCity !== '' ? $fromCity : null,
+                'to_city' => $toCity !== '' ? $toCity : null,
+                'from_address' => $fromAddress !== '' ? $fromAddress : null,
+                'to_address' => $toAddress !== '' ? $toAddress : null,
+            ]);
+        }
+
+        if ($hasFromLocation) {
             Schema::table('trip_route_legs', function (Blueprint $table) {
                 $table->dropColumn([
                     'from_location',

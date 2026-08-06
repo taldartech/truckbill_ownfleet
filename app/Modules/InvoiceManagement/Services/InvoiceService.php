@@ -526,9 +526,9 @@ class InvoiceService
         });
     }
 
-    public function deleteInvoice(Invoice $invoice, ?User $user = null): void
+    public function deleteInvoice(Invoice $invoice, string $deletionReason, ?User $user = null): void
     {
-        DB::transaction(function () use ($invoice, $user): void {
+        DB::transaction(function () use ($invoice, $deletionReason, $user): void {
             $invoice->refresh();
 
             if ($invoice->trashed()) {
@@ -557,6 +557,8 @@ class InvoiceService
 
             $invoice->forceFill([
                 'invoice_number' => $invoice->invoice_number.'__deleted_'.$invoice->id,
+                'deleted_by' => $user?->id,
+                'deletion_reason' => trim($deletionReason),
             ])->save();
 
             $invoice->delete();

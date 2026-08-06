@@ -49,6 +49,8 @@ class Invoice extends Model
         'due_date',
         'payment_status',
         'paid_amount',
+        'deleted_by',
+        'deletion_reason',
     ];
 
     protected function casts(): array
@@ -112,6 +114,11 @@ class Invoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(InvoicePayment::class)->orderByDesc('paid_at');
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public function remainingAmount(): float
