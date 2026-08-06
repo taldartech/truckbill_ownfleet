@@ -614,12 +614,12 @@ const routePoints = computed(() => {
 
     const points = [];
 
-    if (legs[0]?.from_city || legs[0]?.from_location) {
-        points.push(legs[0].from_city || legs[0].from_location);
+    if (legs[0]?.from_city) {
+        points.push(legs[0].from_city);
     }
 
     legs.forEach((leg) => {
-        const label = leg.to_city || leg.to_location;
+        const label = leg.to_city;
 
         if (label) {
             points.push(label);

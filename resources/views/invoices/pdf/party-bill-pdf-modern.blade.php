@@ -303,7 +303,7 @@
         $formatStationLocation = function ($leg, string $side): string {
             $station = $side === 'from' ? $leg->fromStation : $leg->toStation;
             $stationName = trim(
-                (string) ($station?->name ?: ($side === 'from' ? $leg->from_location : $leg->to_location) ?: ''),
+                (string) ($station?->name ?: ($side === 'from' ? $leg->from_city : $leg->to_city) ?: ''),
             );
             $cityName = trim(
                 (string) ($station?->city?->name ?: ($side === 'from' ? $leg->from_city : $leg->to_city) ?: ''),

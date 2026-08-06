@@ -374,11 +374,23 @@
                                             </div>
                                             <div class="trip-detail-stop__field">
                                                 <span class="trip-detail-stop__label">Consignor (From)</span>
-                                                <span class="trip-detail-stop__value">{{ stop.leg.consignor || '—' }}</span>
+                                                <span class="trip-detail-stop__value">
+                                                    {{ stop.leg.consignor || '—' }}
+                                                    <template v-if="stop.leg.from_address">
+                                                        <br>
+                                                        <span class="text-muted">{{ stop.leg.from_address }}</span>
+                                                    </template>
+                                                </span>
                                             </div>
                                             <div class="trip-detail-stop__field">
                                                 <span class="trip-detail-stop__label">Consignee (To)</span>
-                                                <span class="trip-detail-stop__value">{{ stop.leg.consignee || '—' }}</span>
+                                                <span class="trip-detail-stop__value">
+                                                    {{ stop.leg.consignee || '—' }}
+                                                    <template v-if="stop.leg.to_address">
+                                                        <br>
+                                                        <span class="text-muted">{{ stop.leg.to_address }}</span>
+                                                    </template>
+                                                </span>
                                             </div>
                                             <div class="trip-detail-stop__field">
                                                 <span class="trip-detail-stop__label">Pickup Date</span>
@@ -709,7 +721,7 @@
                     <span class="badge" :class="statusMeta.badge">{{ statusMeta.label }}</span>
                 </div>
                 <p class="text-muted small mb-0">
-                    One lorry receipt per customer. Same customer routes are combined into a single LR copy.
+                    One lorry receipt per route leg in a single PDF.
                 </p>
             </div>
 
@@ -748,16 +760,16 @@
                     <table class="table table-sm table-bordered mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
+                                <th>Route</th>
                                 <th>Customer</th>
-                                <th class="text-end">Routes</th>
                                 <th class="text-end">Weight (MT)</th>
                                 <th class="text-end">Freight</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="group in biltyGroups" :key="group.customer_id">
+                            <tr v-for="group in biltyGroups" :key="group.route_leg_id">
+                                <td>{{ group.from_location }} → {{ group.to_location }}</td>
                                 <td>{{ group.customer_name }}</td>
-                                <td class="text-end">{{ group.route_count }}</td>
                                 <td class="text-end">{{ formatWeight(group.total_weight_ton) }}</td>
                                 <td class="text-end">
                                     <template v-if="biltyShowFreight">₹{{ formatMoney(group.freight_amount) }}</template>
@@ -890,32 +902,23 @@ const canRestoreThisTrip = computed(() => canRestore.value && isArchived.value);
 
 const routeLegs = computed(() => trip.value?.route_legs ?? []);
 const biltyGroups = computed(() => {
-    const groups = new Map();
-
-    routeLegs.value.forEach((leg) => {
-        const weight = Number(leg.weight_ton ?? 0);
-        const customerId = leg.customer_id;
-
-        if (!customerId || weight <= 0) {
-            return;
-        }
-
-        const key = String(customerId);
-        const existing = groups.get(key) ?? {
-            customer_id: customerId,
+    return routeLegs.value
+        .filter((leg) => {
+            const weight = Number(leg.weight_ton ?? 0);
+            return Boolean(leg.customer_id) && weight > 0;
+        })
+        .slice()
+        .sort((a, b) => Number(a.sequence_no ?? 0) - Number(b.sequence_no ?? 0))
+        .map((leg) => ({
+            route_leg_id: leg.id,
+            customer_id: leg.customer_id,
             customer_name: leg.customer?.name || trip.value?.customer_name || '—',
-            route_count: 0,
-            total_weight_ton: 0,
-            freight_amount: 0,
-        };
-
-        existing.route_count += 1;
-        existing.total_weight_ton += weight;
-        existing.freight_amount += Number(leg.freight_amount ?? 0);
-        groups.set(key, existing);
-    });
-
-    return Array.from(groups.values());
+            from_location: leg.from_city || '—',
+            to_location: leg.to_city || '—',
+            route_count: 1,
+            total_weight_ton: Number(leg.weight_ton ?? 0),
+            freight_amount: Number(leg.freight_amount ?? 0),
+        }));
 });
 const canPrintBilty = computed(
     () => !isArchived.value && canInCompany('trips.view') && biltyGroups.value.length > 0,
@@ -1014,7 +1017,7 @@ const startStationLabel = computed(() => {
 
     const firstLeg = routeLegs.value[0];
 
-    return firstLeg?.from_city || firstLeg?.from_location || '—';
+    return firstLeg?.from_city || '—';
 });
 
 const routePreview = computed(() => {
@@ -1025,7 +1028,7 @@ const routePreview = computed(() => {
     const points = [startStationLabel.value];
 
     routeLegs.value.forEach((leg) => {
-        const label = leg.to_city || leg.to_location;
+        const label = leg.to_city;
 
         if (label) {
             points.push(label);
@@ -1104,8 +1107,8 @@ const routeStopGroups = computed(() =>
             key: `stop-${sequence}`,
             sequence,
             leg,
-            from: leg.from_city || leg.from_location || '—',
-            to: leg.to_city || leg.to_location || '—',
+            from: leg.from_city || '—',
+            to: leg.to_city || '—',
             expenses: stopExpenses,
             expenseTotal: sumExpenses(stopExpenses),
         };

@@ -12,7 +12,6 @@ use App\Station;
 use App\Support\ArchivedTripGuard;
 use App\Support\BranchContext;
 use App\Support\CurrentTenant;
-use App\Support\RouteLegLocationFormatter;
 use App\Support\TripArchiveImpact;
 use App\Support\TripNumberGenerator;
 use App\Support\TyreStintCalculator;
@@ -661,16 +660,6 @@ class TripService
             'from_address' => $fromAddress ?: null,
             'to_city' => $toCity ?: null,
             'to_address' => $toAddress ?: null,
-            'from_location' => RouteLegLocationFormatter::compose(
-                $fromCity,
-                $fromAddress,
-                $leg['from_location'] ?? null,
-            ),
-            'to_location' => RouteLegLocationFormatter::compose(
-                $toCity,
-                $toAddress,
-                $leg['to_location'] ?? null,
-            ),
             'goods_name' => $leg['goods_name'] ?? null,
             'pickup_date' => array_key_exists('pickup_date', $leg)
                 ? (

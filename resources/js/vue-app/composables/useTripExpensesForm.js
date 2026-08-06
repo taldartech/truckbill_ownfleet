@@ -127,8 +127,8 @@ export function useTripExpensesForm() {
             id: leg.id ?? null,
             from_station_id: leg.from_station_id ?? '',
             to_station_id: leg.to_station_id ?? '',
-            from_city: leg.from_city ?? leg.from_location ?? '',
-            to_city: leg.to_city ?? leg.to_location ?? '',
+            from_city: leg.from_city ?? '',
+            to_city: leg.to_city ?? '',
             sequence_no: leg.sequence_no ?? 1,
             weight_ton:
                 leg.weight_ton === '' || leg.weight_ton == null ? '' : Number(leg.weight_ton),

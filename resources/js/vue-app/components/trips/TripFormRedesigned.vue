@@ -749,6 +749,7 @@
                                         </div>
                                         <div v-else class="trf-ro-val">
                                             <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.consignor_id) }}</span>
+                                            <span v-if="customerAddressLabel(group.cardLeg.consignor_id)" class="trf-ro-val__sub">{{ customerAddressLabel(group.cardLeg.consignor_id) }}</span>
                                         </div>
                                     </div>
 
@@ -774,6 +775,7 @@
                                         </div>
                                         <div v-else class="trf-ro-val">
                                             <span class="trf-ro-val__main">{{ customerLabel(group.cardLeg.consignee_id) }}</span>
+                                            <span v-if="customerAddressLabel(group.cardLeg.consignee_id)" class="trf-ro-val__sub">{{ customerAddressLabel(group.cardLeg.consignee_id) }}</span>
                                         </div>
                                     </div>
 
@@ -1282,6 +1284,7 @@ import {
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
+import { formatCustomerAddress } from '../../utils/customerAddress';
 import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 
@@ -2032,6 +2035,13 @@ function clamp(r, max) { if (r === '' || r == null) return r; const v = Number(r
 function stationLabel(id) { if (!id) return '—'; return props.stations.find((s) => String(s.id) === String(id))?.name ?? ('#' + id); }
 function partyLabel(items, id, fallback) { if (!id) return fallback || '—'; return items.find((i) => String(i.id) === String(id))?.name ?? (fallback ?? ('#' + id)); }
 function customerLabel(id, fallback) { return String(partyLabel(props.customers, id, fallback)).toLocaleLowerCase().replace(/(^|\s)\S/g, (character) => character.toLocaleUpperCase()); }
+function customerAddressLabel(id) {
+    if (!id) {
+        return '';
+    }
+
+    return formatCustomerAddress(props.customers.find((customer) => String(customer.id) === String(id))) || '';
+}
 function fieldErrorMessage(f) { const e = props.fieldErrors[f]; return Array.isArray(e) ? e[0] : e; }
 function legFieldError(i, f) { const e = props.fieldErrors['route_legs.' + i + '.' + f]; return Array.isArray(e) ? e[0] : e; }
 function pickupDateMinForStop(index) {

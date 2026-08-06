@@ -924,8 +924,8 @@ class TripValidationService
                 continue;
             }
 
-            $from = trim((string) ($oldLeg->from_city ?? $oldLeg->from_location ?? '—'));
-            $to = trim((string) ($oldLeg->to_city ?? $oldLeg->to_location ?? '—'));
+            $from = trim((string) ($oldLeg->from_city ?? '—'));
+            $to = trim((string) ($oldLeg->to_city ?? '—'));
 
             throw ValidationException::withMessages([
                 'route_legs' => [

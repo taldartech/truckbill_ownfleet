@@ -69,6 +69,8 @@ class StoreTripRequest extends FormRequest
             'route_legs.*.goods_name' => ['nullable', 'string', 'max:120'],
             'route_legs.*.consignor' => ['nullable', 'string', 'max:120'],
             'route_legs.*.consignee' => ['nullable', 'string', 'max:120'],
+            'route_legs.*.from_address' => ['nullable', 'string', 'max:1000'],
+            'route_legs.*.to_address' => ['nullable', 'string', 'max:1000'],
             'route_legs.*.pickup_date' => [
                 'nullable',
                 'date',

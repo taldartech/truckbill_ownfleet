@@ -179,7 +179,7 @@ class TripReportService
                 $tripLegs = $legsByTrip->get($leg->trip_id, collect());
 
                 return [
-                    'route' => $leg->from_location.' → '.$leg->to_location,
+                    'route' => ($leg->from_city ?? '—').' → '.($leg->to_city ?? '—'),
                     'trip_id' => $leg->trip_id,
                     'distance_km' => $this->resolveLegDistanceKm($leg, $tripLegs),
                     'freight_amount' => (float) $leg->freight_amount,

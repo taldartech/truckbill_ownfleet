@@ -81,7 +81,7 @@ class TripBiltyPdfTest extends TestCase
             ->assertOk();
     }
 
-    public function test_same_customer_consolidates_and_different_customers_produce_pdf(): void
+    public function test_one_bilty_copy_per_revenue_leg_in_single_pdf(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createFixtures();
         $this->actingAs($user);
@@ -92,15 +92,47 @@ class TripBiltyPdfTest extends TestCase
             ['customer' => $customers['b'], 'freight' => 7000, 'to' => 'b'],
         ], complete: true);
 
-        $groups = app(\App\Modules\TripManagement\Services\TripBiltyService::class)->groupsForTrip($trip->fresh(['routeLegs.customer']));
+        $groups = app(\App\Modules\TripManagement\Services\TripBiltyService::class)
+            ->groupsForTrip($trip->fresh(['routeLegs.customer', 'vehicle', 'driver']));
 
-        $this->assertCount(2, $groups);
-        $this->assertSame(15000.0, (float) collect($groups)->firstWhere('customer_id', $customers['a']->id)['freight_amount']);
-        $this->assertSame(2, (int) collect($groups)->firstWhere('customer_id', $customers['a']->id)['route_count']);
+        $this->assertCount(3, $groups);
+        $this->assertSame(10000.0, (float) $groups[0]['freight_amount']);
+        $this->assertSame(5000.0, (float) $groups[1]['freight_amount']);
+        $this->assertSame(7000.0, (float) $groups[2]['freight_amount']);
+        $this->assertSame(1, (int) $groups[0]['route_count']);
+        $this->assertSame($customers['a']->id, (int) $groups[0]['customer_id']);
+        $this->assertSame($customers['a']->id, (int) $groups[1]['customer_id']);
+        $this->assertSame($customers['b']->id, (int) $groups[2]['customer_id']);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get("/app/api/trips/{$trip->id}/bilty.pdf?show_freight=1")
             ->assertOk();
+    }
+
+    public function test_bilty_uses_from_and_to_address_for_party_addresses(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            [
+                'customer' => $customers['a'],
+                'freight' => 10000,
+                'to' => 'b',
+                'consignor' => 'Sender Co',
+                'consignee' => 'Receiver Co',
+                'from_address' => 'Andheri East, Mumbai, Maharashtra',
+                'to_address' => 'Hinjewadi, Pune, Maharashtra',
+            ],
+        ], complete: false);
+
+        $groups = app(\App\Modules\TripManagement\Services\TripBiltyService::class)
+            ->groupsForTrip($trip->fresh(['routeLegs.customer', 'vehicle', 'driver']));
+
+        $this->assertSame('Sender Co', $groups[0]['consignor']);
+        $this->assertSame('Andheri East, Mumbai, Maharashtra', $groups[0]['consignor_address']);
+        $this->assertSame('Receiver Co', $groups[0]['consignee']);
+        $this->assertSame('Hinjewadi, Pune, Maharashtra', $groups[0]['consignee_address']);
     }
 
     public function test_trip_without_revenue_customers_returns_validation_error(): void
@@ -278,6 +310,10 @@ class TripBiltyPdfTest extends TestCase
                 'to_station_id' => $toStation->id,
                 'from_city' => $stations['home']->city?->name ?? 'Mumbai',
                 'to_city' => $toStation->city?->name ?? 'Pune',
+                'from_address' => $leg['from_address'] ?? null,
+                'to_address' => $leg['to_address'] ?? null,
+                'consignor' => $leg['consignor'] ?? null,
+                'consignee' => $leg['consignee'] ?? null,
                 'weight_ton' => $weight,
                 'freight_rate' => $rate,
                 'freight_amount' => $leg['freight'],

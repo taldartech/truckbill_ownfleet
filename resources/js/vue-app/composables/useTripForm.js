@@ -10,6 +10,7 @@ import {
     resolveLegFreightAutoCalculate,
     resolveLegWeightTon,
 } from '../api/trips';
+import { formatCustomerAddress } from '../utils/customerAddress';
 import { dateOnlyFromDatetimeLocal, toDateInputFromIso } from '../utils/datetime';
 
 export function useTripForm() {
@@ -297,8 +298,8 @@ export function useTripForm() {
                     tripCustomerId !== ''
                     && customerId !== ''
                     && String(customerId) === String(tripCustomerId),
-                from_city: leg.from_city ?? leg.from_location ?? '',
-                to_city: leg.to_city ?? leg.to_location ?? '',
+                from_city: leg.from_city ?? '',
+                to_city: leg.to_city ?? '',
                 sequence_no: leg.sequence_no ?? 1,
                 freight_rate:
                     leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
@@ -409,6 +410,16 @@ export function useTripForm() {
         return match?.name?.trim() || null;
     }
 
+    function customerAddress(customers, customerId) {
+        if (!customerId) {
+            return null;
+        }
+
+        const match = customers.find((customer) => String(customer.id) === String(customerId));
+
+        return formatCustomerAddress(match);
+    }
+
     function resolveLookupId(items, id, name) {
         if (id) {
             return id;
@@ -506,6 +517,8 @@ export function useTripForm() {
                     goods_name: leg.goods_name?.trim() || null,
                     consignor: customerName(customers, leg.consignor_id) || null,
                     consignee: customerName(customers, leg.consignee_id) || null,
+                    from_address: customerAddress(customers, leg.consignor_id) || null,
+                    to_address: customerAddress(customers, leg.consignee_id) || null,
                     pickup_date: leg.pickup_date || null,
                     no_of_units:
                         leg.no_of_units === '' || leg.no_of_units == null

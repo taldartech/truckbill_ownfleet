@@ -289,7 +289,7 @@ const routePreview = computed(() => {
         return '';
     }
 
-    const labels = legs.map((leg) => leg.to_city || leg.to_location || '—');
+    const labels = legs.map((leg) => leg.to_city || '—');
 
     return labels.join(' → ');
 });

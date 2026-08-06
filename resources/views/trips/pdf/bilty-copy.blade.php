@@ -142,32 +142,32 @@
         <div class="page-break"></div>
     @endif
 
-    @php
-        $lrDate = \Carbon\Carbon::parse($bilty['lr_date']);
-        $pickupDate = ! empty($bilty['pickup_date'])
-            ? \Carbon\Carbon::parse($bilty['pickup_date'])
-            : null;
-        $distanceLabel = ((float) ($bilty['distance_km'] ?? 0)) > 0
-            ? rtrim(rtrim(number_format((float) $bilty['distance_km'], 2), '0'), '.').'km approx'
-            : '';
-        $weightLabel = ((float) ($bilty['total_weight_ton'] ?? 0)) > 0
-            ? number_format((float) $bilty['total_weight_ton'], 3).' MT'
-            : '';
-        $packagesLabel = ($bilty['no_of_packages'] ?? null) !== null
-            ? (string) $bilty['no_of_packages']
-            : '';
-        $declaredLabel = ($bilty['declared_value'] ?? null) !== null
-            ? ''.number_format((float) $bilty['declared_value'], 2)
-            : '';
-        $freightLabel = $show_freight
-            ? '₹ '.number_format((float) $bilty['freight_amount'], 2)
-            : '( TO BE BILLED )';
-        $ewbValidity = ! empty($bilty['ewaybill_expiry'])
-            ? \Carbon\Carbon::parse($bilty['ewaybill_expiry'])->format('d-m-Y')
-            : '';
-    @endphp
-
     <div class="container">
+        @php
+            $lrDate = \Carbon\Carbon::parse($bilty['lr_date']);
+            $pickupDate = ! empty($bilty['pickup_date'])
+                ? \Carbon\Carbon::parse($bilty['pickup_date'])
+                : null;
+            $distanceLabel = ((float) ($bilty['distance_km'] ?? 0)) > 0
+                ? rtrim(rtrim(number_format((float) $bilty['distance_km'], 2), '0'), '.').'km approx'
+                : '';
+            $weightLabel = ((float) ($bilty['total_weight_ton'] ?? 0)) > 0
+                ? number_format((float) $bilty['total_weight_ton'], 3).' MT'
+                : '';
+            $packagesLabel = ($bilty['no_of_packages'] ?? null) !== null
+                ? (string) $bilty['no_of_packages']
+                : '';
+            $declaredLabel = ($bilty['declared_value'] ?? null) !== null
+                ? ''.number_format((float) $bilty['declared_value'], 2)
+                : '';
+            $freightLabel = $show_freight
+                ? '₹ '.number_format((float) $bilty['freight_amount'], 2)
+                : '( TO BE BILLED )';
+            $ewbValidity = ! empty($bilty['ewaybill_expiry'])
+                ? \Carbon\Carbon::parse($bilty['ewaybill_expiry'])->format('d-m-Y')
+                : '';
+        @endphp
+
         <table class="">
             <tr class="lr-header">
                 <td>
@@ -196,8 +196,20 @@
                 <td>CONSIGNEE (TO)</td>
             </tr>
             <tr class="party-body">
-                <td>{{ $bilty['consignor'] }}</td>
-                <td>{{ $bilty['consignee'] }}</td>
+                <td>
+                    {{ $bilty['consignor'] }}
+                    @if (! empty($bilty['consignor_address']))
+                        <br>
+                        {{ $bilty['consignor_address'] }}
+                    @endif
+                </td>
+                <td>
+                    {{ $bilty['consignee'] }}
+                    @if (! empty($bilty['consignee_address']))
+                        <br>
+                        {{ $bilty['consignee_address'] }}
+                    @endif
+                </td>
             </tr>
         </table>
 
@@ -243,7 +255,7 @@
                     @if ($show_freight)
                         {{ $freightLabel }}
                     @else
-                        <span class="freight-pending">{{ $freightLabel }}</span>
+                        <span class="freight-pending">( TO BE BILLED )</span>
                     @endif
                 </td>
             </tr>

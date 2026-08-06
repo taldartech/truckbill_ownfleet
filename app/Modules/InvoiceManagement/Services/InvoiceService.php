@@ -290,8 +290,8 @@ class InvoiceService
                 'routes' => $legs->map(fn (TripRouteLeg $leg) => [
                     'id' => $leg->id,
                     'sequence_no' => $leg->sequence_no,
-                    'from_location' => $leg->from_location,
-                    'to_location' => $leg->to_location,
+                    'from_location' => $leg->from_city,
+                    'to_location' => $leg->to_city,
                     'goods_name' => $leg->goods_name,
                     'weight_ton' => (float) $leg->weight_ton,
                     'freight_amount' => (float) $leg->freight_amount,

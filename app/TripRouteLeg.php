@@ -25,8 +25,6 @@ class TripRouteLeg extends Model
         'customer_id',
         'from_station_id',
         'to_station_id',
-        'from_location',
-        'to_location',
         'from_city',
         'from_address',
         'to_city',
