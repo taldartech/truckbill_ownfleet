@@ -269,10 +269,11 @@ class TripNumberGenerator
 
         $query = $this->documentQuery($documentType)
             ->withoutGlobalScopes()
-            ->withTrashed()
             ->where('tenant_id', $tenantId)
             ->where('branch_id', $branchId)
             ->where($column, 'like', $prefix.'%');
+
+        $this->applyDocumentVisibility($query, $documentType);
 
         if ($lock) {
             $query->lockForUpdate();
@@ -318,16 +319,30 @@ class TripNumberGenerator
 
         $query = $this->documentQuery($documentType)
             ->withoutGlobalScopes()
-            ->withTrashed()
             ->where('tenant_id', $tenantId)
             ->where('branch_id', $branchId)
             ->where($column, $number);
+
+        $this->applyDocumentVisibility($query, $documentType);
 
         if ($lock) {
             $query->lockForUpdate();
         }
 
         return $query->exists();
+    }
+
+    private function applyDocumentVisibility(Builder $query, string $documentType): void
+    {
+        if ($documentType === self::DOCUMENT_INVOICE) {
+            // Soft-deleted invoices free their numbers for reuse.
+            $query->whereNull($query->getModel()->getQualifiedDeletedAtColumn());
+
+            return;
+        }
+
+        // Archived trips keep their numbers reserved.
+        $query->withTrashed();
     }
 
     private function documentQuery(string $documentType): Builder

@@ -61,3 +61,7 @@ export async function recordPayment(invoiceId, payload) {
 export async function cancelInvoice(id) {
     await api.delete(`${invoicesBase}/${id}`);
 }
+
+export async function deleteInvoice(id) {
+    await api.post(`${invoicesBase}/${id}/delete`);
+}

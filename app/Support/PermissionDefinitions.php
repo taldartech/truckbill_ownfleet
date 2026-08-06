@@ -85,7 +85,7 @@ final class PermissionDefinitions
             'invoices.create' => self::entry('Create invoices', 'invoices', 'Generate invoices from completed trips.', 251),
             'invoices.edit' => self::entry('Edit invoices', 'invoices', 'Record invoice payments and updates.', 252),
             'invoices.manage' => self::entry('Manage invoices', 'invoices', 'Legacy manage invoices permission (create and edit).', 253),
-            'invoices.delete' => self::entry('Cancel invoices', 'invoices', 'Cancel unpaid invoices.', 254),
+            'invoices.delete' => self::entry('Cancel or delete invoices', 'invoices', 'Cancel unpaid invoices or soft-delete the latest unpaid invoice.', 254),
             'invoices.export' => self::entry('Export invoices', 'invoices', 'Download invoice PDFs.', 255),
 
             'drivers.view' => self::entry('View drivers', 'drivers', 'View driver records.', 300),

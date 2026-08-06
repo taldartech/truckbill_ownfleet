@@ -595,6 +595,137 @@ class InvoiceManagementTest extends TestCase
         $this->assertTrue($trip->fresh()->hasInvoices());
     }
 
+    public function test_soft_deleting_latest_invoice_frees_number_and_hides_invoice(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $invoiceNumber = $generate->json('data.0.invoice_number');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk()
+            ->assertJsonPath('data.can_delete', true);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/delete")
+            ->assertNoContent();
+
+        $this->assertSoftDeleted('invoices', ['id' => $invoiceId]);
+        $this->assertNull(Invoice::query()->find($invoiceId));
+
+        $deleted = Invoice::withTrashed()->findOrFail($invoiceId);
+        $this->assertStringStartsWith($invoiceNumber.'__deleted_', $deleted->invoice_number);
+        $this->assertSame(
+            FreightBillingStatus::Unbilled,
+            $trip->fresh()->routeLegs->first()->billing_status
+        );
+        $this->assertSame(TripStatus::Completed, $trip->fresh()->status);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertNotFound();
+
+        $regenerate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $this->assertSame($invoiceNumber, $regenerate->json('data.0.invoice_number'));
+        $this->assertSame(1, Invoice::query()->where('trip_id', $trip->id)->count());
+    }
+
+    public function test_only_latest_invoice_can_be_soft_deleted(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $firstTrip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 8000, 'to' => 'b'],
+        ]);
+        $secondTrip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 9000, 'to' => 'b'],
+        ]);
+
+        $firstInvoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$firstTrip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $secondInvoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$secondTrip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$firstInvoiceId}")
+            ->assertOk()
+            ->assertJsonPath('data.can_delete', false);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['invoice']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$secondInvoiceId}/delete")
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$firstInvoiceId}")
+            ->assertOk()
+            ->assertJsonPath('data.can_delete', true);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$firstInvoiceId}/delete")
+            ->assertNoContent();
+    }
+
+    public function test_cannot_soft_delete_invoice_with_payments(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $invoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 100,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk()
+            ->assertJsonPath('data.can_delete', false);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/delete")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['invoice']);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoiceId,
+            'deleted_at' => null,
+        ]);
+    }
+
     public function test_due_reminder_command_creates_app_notifications(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();

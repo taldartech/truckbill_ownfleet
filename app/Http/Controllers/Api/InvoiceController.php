@@ -122,4 +122,13 @@ class InvoiceController extends Controller
 
         return response()->noContent();
     }
+
+    public function softDelete(Invoice $invoice, Request $request): Response
+    {
+        $this->authorize('softDelete', $invoice);
+
+        $this->invoiceService->deleteInvoice($invoice, $request->user());
+
+        return response()->noContent();
+    }
 }

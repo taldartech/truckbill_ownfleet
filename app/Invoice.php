@@ -128,6 +128,42 @@ class Invoice extends Model
         return $this->payment_status === InvoicePaymentStatus::Cancelled;
     }
 
+    public function hasRecordedPayments(): bool
+    {
+        if ((float) $this->paid_amount > 0) {
+            return true;
+        }
+
+        if ($this->relationLoaded('payments')) {
+            return $this->payments->isNotEmpty();
+        }
+
+        return $this->payments()->exists();
+    }
+
+    public function isLatestForBranch(): bool
+    {
+        if ($this->trashed() || $this->branch_id === null) {
+            return false;
+        }
+
+        $latestId = static::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->where('branch_id', $this->branch_id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->value('id');
+
+        return $latestId === $this->id;
+    }
+
+    public function canBeSoftDeleted(): bool
+    {
+        return ! $this->trashed()
+            && ! $this->hasRecordedPayments()
+            && $this->isLatestForBranch();
+    }
+
     public function isOverdue(): bool
     {
         if ($this->due_date === null || $this->isCancelled()) {

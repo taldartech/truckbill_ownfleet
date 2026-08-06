@@ -45,6 +45,14 @@ class InvoicePolicy
             && $user->canAccessCompanyPanel();
     }
 
+    public function softDelete(User $user, Invoice $invoice): bool
+    {
+        return ! $invoice->trashed()
+            && CurrentTenant::id() === $invoice->tenant_id
+            && $user->hasPermission('invoices.delete')
+            && $user->canAccessCompanyPanel();
+    }
+
     public function export(User $user, Invoice $invoice): bool
     {
         return $this->view($user, $invoice)

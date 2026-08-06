@@ -49,6 +49,7 @@ class InvoiceResource extends JsonResource
             'remaining_amount' => $this->remainingAmount(),
             'is_cancelled' => $this->isCancelled(),
             'is_overdue' => $this->isOverdue(),
+            'can_delete' => $this->canBeSoftDeleted(),
             'customer' => $this->whenLoaded('customer', fn () => [
                 'id' => $this->customer?->id,
                 'name' => $this->customer?->name,

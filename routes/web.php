@@ -344,6 +344,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('invoices.payments.store');
             Route::delete('/invoices/{invoice}/payments/{payment}', [\App\Http\Controllers\Api\InvoiceController::class, 'destroyPayment'])
                 ->name('invoices.payments.destroy');
+            Route::post('/invoices/{invoice}/delete', [\App\Http\Controllers\Api\InvoiceController::class, 'softDelete'])
+                ->name('invoices.soft-delete');
             Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class)->only(['index', 'show', 'destroy']);
 
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);

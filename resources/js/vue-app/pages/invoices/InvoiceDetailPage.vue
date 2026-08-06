@@ -45,6 +45,14 @@
                     label="Cancel"
                     @click="openCancelConfirm"
                 />
+                <AppButton
+                    v-if="canDelete"
+                    variant="danger"
+                    size="sm"
+                    icon="bi bi-trash"
+                    label="Delete"
+                    @click="openDeleteConfirm"
+                />
             </div>
         </div>
 
@@ -316,17 +324,29 @@
             @cancel="closeCancelConfirm"
             @confirm="confirmCancel"
         />
+
+        <AppConfirmModal
+            :show="showDeleteConfirm"
+            title="Delete Invoice"
+            :message="deleteConfirmMessage"
+            confirm-label="Yes, Delete Invoice"
+            confirm-variant="danger"
+            :loading="deleting"
+            @cancel="closeDeleteConfirm"
+            @confirm="confirmDelete"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
     pdfUrl,
     recordPayment,
     showInvoice,
     cancelInvoice,
+    deleteInvoice,
 } from '../../api/invoices';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
@@ -339,6 +359,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { formatDate } from '../../utils/datetime';
 
 const route = useRoute();
+const router = useRouter();
 const toast = useAppToast();
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext } = useRequireCompanyContext();
@@ -347,9 +368,11 @@ const invoice = ref(null);
 const loading = ref(true);
 const savingPayment = ref(false);
 const cancelling = ref(false);
+const deleting = ref(false);
 const showPaymentModal = ref(false);
 const showPaymentConfirm = ref(false);
 const showCancelConfirm = ref(false);
+const showDeleteConfirm = ref(false);
 const paymentFormError = ref('');
 const paymentFieldErrors = ref({});
 
@@ -383,6 +406,12 @@ const canCancel = computed(
         && invoice.value?.payment_status !== 'paid',
 );
 
+const canDelete = computed(
+    () =>
+        Boolean(invoice.value?.can_delete)
+        && canInCompany('invoices.delete'),
+);
+
 const items = computed(() => invoice.value?.items ?? []);
 const payments = computed(() => invoice.value?.payments ?? []);
 
@@ -404,7 +433,13 @@ const pageTitle = computed(() => {
 const cancelConfirmMessage = computed(() => {
     const number = pageTitle.value;
 
-    return `Cancel invoice ${number}? Linked trip routes will become unbilled again. The invoice will remain available for viewing only.`;
+    return `Cancel invoice ${number}? Linked trip routes will become unbilled again. The invoice will remain available for viewing only, and its number cannot be reused.`;
+});
+
+const deleteConfirmMessage = computed(() => {
+    const number = pageTitle.value;
+
+    return `Delete invoice ${number}? This removes it from the invoice list. Linked trip routes will become unbilled again, and the invoice number can be reused.`;
 });
 
 const paymentMethodLabel = computed(() =>
@@ -596,6 +631,36 @@ async function confirmCancel() {
         toast.error(error.response?.data?.message ?? 'Could not cancel invoice.');
     } finally {
         cancelling.value = false;
+    }
+}
+
+function openDeleteConfirm() {
+    showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm() {
+    showDeleteConfirm.value = false;
+}
+
+async function confirmDelete() {
+    if (!invoice.value?.id) {
+        return;
+    }
+
+    deleting.value = true;
+
+    try {
+        await deleteInvoice(invoice.value.id);
+        toast.success('Invoice deleted.');
+        closeDeleteConfirm();
+        await router.push({ name: 'invoices.index' });
+    } catch (error) {
+        const message = error.response?.data?.errors?.invoice?.[0]
+            ?? error.response?.data?.message
+            ?? 'Could not delete invoice.';
+        toast.error(message);
+    } finally {
+        deleting.value = false;
     }
 }
 

@@ -504,33 +504,13 @@ class InvoiceService
                 ]);
             }
 
-            if ((float) $invoice->paid_amount > 0) {
+            if ($invoice->hasRecordedPayments()) {
                 throw ValidationException::withMessages([
                     'invoice' => ['Cannot cancel an invoice that has payments.'],
                 ]);
             }
 
-            $invoice->loadMissing('items');
-
-            $legIds = $invoice->items
-                ->pluck('trip_route_leg_id')
-                ->filter()
-                ->values()
-                ->all();
-
-            $customAmount = round(
-                (float) $invoice->items
-                    ->filter(fn (InvoiceItem $item): bool => $item->trip_route_leg_id === null)
-                    ->sum(fn (InvoiceItem $item): float => (float) $item->freight_amount),
-                2,
-            );
-
-            if ($legIds !== []) {
-                TripRouteLeg::query()
-                    ->withoutGlobalScopes()
-                    ->whereIn('id', $legIds)
-                    ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
-            }
+            $this->releaseInvoiceBilling($invoice);
 
             $invoice->forceFill([
                 'payment_status' => InvoicePaymentStatus::Cancelled,
@@ -540,19 +520,97 @@ class InvoiceService
                 $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
 
                 if ($trip !== null) {
-                    if ($customAmount > 0) {
-                        $trip->forceFill([
-                            'total_custom_amount' => round(
-                                max(0, (float) $trip->total_custom_amount - $customAmount),
-                                2,
-                            ),
-                        ])->save();
-                    }
-
-                    $this->revertTripFromInvoicedIfNeeded($trip, $user);
+                    $this->revertTripFromInvoicedIfNeeded($trip, $user, 'Invoice cancelled');
                 }
             }
         });
+    }
+
+    public function deleteInvoice(Invoice $invoice, ?User $user = null): void
+    {
+        DB::transaction(function () use ($invoice, $user): void {
+            $invoice->refresh();
+
+            if ($invoice->trashed()) {
+                throw ValidationException::withMessages([
+                    'invoice' => ['This invoice is already deleted.'],
+                ]);
+            }
+
+            if ($invoice->hasRecordedPayments()) {
+                throw ValidationException::withMessages([
+                    'invoice' => ['Cannot delete an invoice that has payments.'],
+                ]);
+            }
+
+            if (! $invoice->isLatestForBranch()) {
+                throw ValidationException::withMessages([
+                    'invoice' => ['Only the latest invoice can be deleted. Delete newer invoices first.'],
+                ]);
+            }
+
+            $tripId = $invoice->trip_id;
+
+            if (! $invoice->isCancelled()) {
+                $this->releaseInvoiceBilling($invoice);
+            }
+
+            $invoice->forceFill([
+                'invoice_number' => $invoice->invoice_number.'__deleted_'.$invoice->id,
+            ])->save();
+
+            $invoice->delete();
+
+            if ($tripId !== null) {
+                $trip = Trip::query()->withoutGlobalScopes()->find($tripId);
+
+                if ($trip !== null) {
+                    $this->revertTripFromInvoicedIfNeeded($trip, $user, 'Invoice deleted');
+                }
+            }
+        });
+    }
+
+    private function releaseInvoiceBilling(Invoice $invoice): void
+    {
+        $invoice->loadMissing('items');
+
+        $legIds = $invoice->items
+            ->pluck('trip_route_leg_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        $customAmount = round(
+            (float) $invoice->items
+                ->filter(fn (InvoiceItem $item): bool => $item->trip_route_leg_id === null)
+                ->sum(fn (InvoiceItem $item): float => (float) $item->freight_amount),
+            2,
+        );
+
+        if ($legIds !== []) {
+            TripRouteLeg::query()
+                ->withoutGlobalScopes()
+                ->whereIn('id', $legIds)
+                ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
+        }
+
+        if ($invoice->trip_id === null || $customAmount <= 0) {
+            return;
+        }
+
+        $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
+
+        if ($trip === null) {
+            return;
+        }
+
+        $trip->forceFill([
+            'total_custom_amount' => round(
+                max(0, (float) $trip->total_custom_amount - $customAmount),
+                2,
+            ),
+        ])->save();
     }
 
     public function pdf(Invoice $invoice)
@@ -745,8 +803,11 @@ class InvoiceService
         ]);
     }
 
-    private function revertTripFromInvoicedIfNeeded(Trip $trip, ?User $user = null): void
-    {
+    private function revertTripFromInvoicedIfNeeded(
+        Trip $trip,
+        ?User $user = null,
+        string $historyRemarks = 'Invoice cancelled',
+    ): void {
         $status = $trip->status instanceof TripStatus
             ? $trip->status
             : TripStatus::tryFrom((string) $trip->status);
@@ -758,6 +819,7 @@ class InvoiceService
         $hasActiveInvoices = Invoice::query()
             ->withoutGlobalScopes()
             ->where('trip_id', $trip->id)
+            ->whereNull('deleted_at')
             ->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value)
             ->exists();
 
@@ -774,7 +836,7 @@ class InvoiceService
             'to_status' => TripStatus::Completed->value,
             'changed_at' => now(),
             'changed_by' => $user?->id,
-            'remarks' => 'Invoice cancelled',
+            'remarks' => $historyRemarks,
         ]);
     }
 
