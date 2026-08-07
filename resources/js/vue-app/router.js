@@ -197,10 +197,20 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'invoices.view' },
                 },
                 {
+                    path: 'invoices/archived',
+                    name: 'invoices.archived',
+                    component: () => import('./pages/invoices/InvoicesArchivedIndexPage.vue'),
+                    meta: {
+                        requiresTenant: true,
+                        permission: 'invoices.view_archived',
+                        roles: ['super_admin', 'admin'],
+                    },
+                },
+                {
                     path: 'invoices/:id',
                     name: 'invoices.show',
                     component: () => import('./pages/invoices/InvoiceDetailPage.vue'),
-                    meta: { requiresTenant: true, permission: 'invoices.view' },
+                    meta: { requiresTenant: true, permission: ['invoices.view', 'invoices.view_archived'] },
                 },
                 {
                     path: 'stations',

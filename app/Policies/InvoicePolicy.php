@@ -14,10 +14,23 @@ class InvoicePolicy
             && $user->canAccessCompanyPanel();
     }
 
+    public function viewArchived(User $user): bool
+    {
+        return $user->hasPermission('invoices.view_archived')
+            && $user->canAccessCompanyPanel();
+    }
+
     public function view(User $user, Invoice $invoice): bool
     {
-        return CurrentTenant::id() === $invoice->tenant_id
-            && $this->viewAny($user);
+        if (CurrentTenant::id() !== $invoice->tenant_id || ! $user->canAccessCompanyPanel()) {
+            return false;
+        }
+
+        if ($invoice->trashed()) {
+            return $user->hasPermission('invoices.view_archived');
+        }
+
+        return $user->hasPermission('invoices.view');
     }
 
     public function create(User $user): bool

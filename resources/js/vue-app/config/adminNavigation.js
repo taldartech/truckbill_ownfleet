@@ -59,6 +59,15 @@ export const adminNavigation = [
                 permission: 'invoices.view',
                 requiresTenant: true,
             },
+            {
+                label: 'Archived',
+                icon: 'bi bi-archive nav-icon',
+                to: '/invoices/archived',
+                activeNames: ['invoices.archived'],
+                permission: 'invoices.view_archived',
+                roles: ['super_admin', 'admin'],
+                requiresTenant: true,
+            },
         ],
     },
     {

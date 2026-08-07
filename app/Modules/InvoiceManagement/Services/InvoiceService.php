@@ -38,16 +38,27 @@ class InvoiceService
      */
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        return $this->filteredQuery($filters)
-            ->with(['customer:id,name,gst_number', 'trip:id,trip_number'])
-            ->orderByDesc('invoice_date')
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+        $relations = ['customer:id,name,gst_number', 'trip:id,trip_number'];
+
+        if (($filters['archived'] ?? null) === 'archived') {
+            $relations[] = 'deletedBy:id,name';
+        }
+
+        $query = $this->filteredQuery($filters)->with($relations);
+
+        if (($filters['archived'] ?? null) === 'archived') {
+            $query->orderByDesc('deleted_at')->orderByDesc('id');
+        } else {
+            $query->orderByDesc('invoice_date')->orderByDesc('created_at');
+        }
+
+        return $query->paginate($perPage);
     }
 
     public function find(string $id): Invoice
     {
         return Invoice::query()
+            ->withTrashed()
             ->with([
                 'customer.state',
                 'trip:id,trip_number,status,start_at,end_at',
@@ -56,6 +67,7 @@ class InvoiceService
                 'supplierState',
                 'customerState',
                 'branch:id,branch_name,company_id',
+                'deletedBy:id,name',
             ])
             ->findOrFail($id);
     }
@@ -649,6 +661,10 @@ class InvoiceService
     private function filteredQuery(array $filters): Builder
     {
         $query = Invoice::query();
+
+        if (($filters['archived'] ?? null) === 'archived') {
+            $query->onlyTrashed();
+        }
 
         if (! empty($filters['customer_id'])) {
             $query->where('customer_id', $filters['customer_id']);

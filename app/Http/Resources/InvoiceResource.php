@@ -19,7 +19,7 @@ class InvoiceResource extends JsonResource
             'branch_id' => $this->branch_id,
             'trip_id' => $this->trip_id,
             'customer_id' => $this->customer_id,
-            'invoice_number' => $this->invoice_number,
+            'invoice_number' => $this->displayInvoiceNumber(),
             'registration_type' => $this->registration_type?->value ?? $this->registration_type,
             'tax_liability' => $this->tax_liability?->value ?? $this->tax_liability,
             'document_type' => $this->document_type?->value ?? $this->document_type,
@@ -50,6 +50,16 @@ class InvoiceResource extends JsonResource
             'is_cancelled' => $this->isCancelled(),
             'is_overdue' => $this->isOverdue(),
             'can_delete' => $this->canBeSoftDeleted(),
+            'is_archived' => $this->trashed(),
+            'archived_at' => $this->when($this->trashed(), fn () => ApiDateTime::toIso($this->deleted_at)),
+            'deletion_reason' => $this->when($this->trashed(), $this->deletion_reason),
+            'deleted_by' => $this->when(
+                $this->trashed() && $this->relationLoaded('deletedBy'),
+                fn () => $this->deletedBy ? [
+                    'id' => $this->deletedBy->id,
+                    'name' => $this->deletedBy->name,
+                ] : null,
+            ),
             'customer' => $this->whenLoaded('customer', fn () => [
                 'id' => $this->customer?->id,
                 'name' => $this->customer?->name,

@@ -26,28 +26,37 @@ class InvoiceController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', Invoice::class);
+        $filters = $request->only([
+            'search',
+            'customer_id',
+            'trip_id',
+            'payment_status',
+            'document_type',
+            'due_filter',
+            'archived',
+        ]);
+
+        if (($filters['archived'] ?? null) === 'archived') {
+            $this->authorize('viewArchived', Invoice::class);
+        } else {
+            $this->authorize('viewAny', Invoice::class);
+        }
 
         $invoices = $this->invoiceService->paginate(
             perPage: (int) $request->integer('per_page', 25),
-            filters: $request->only([
-                'search',
-                'customer_id',
-                'trip_id',
-                'payment_status',
-                'document_type',
-                'due_filter',
-            ]),
+            filters: $filters,
         );
 
         return InvoiceResource::collection($invoices);
     }
 
-    public function show(Invoice $invoice): InvoiceResource
+    public function show(string $invoice): InvoiceResource
     {
+        $invoice = $this->invoiceService->find($invoice);
+
         $this->authorize('view', $invoice);
 
-        return new InvoiceResource($this->invoiceService->find($invoice->id));
+        return new InvoiceResource($invoice);
     }
 
     public function previewForTrip(TripInvoicesRequest $request, Trip $trip): JsonResponse

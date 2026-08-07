@@ -171,6 +171,18 @@ class Invoice extends Model
             && $this->isLatestForBranch();
     }
 
+    public function displayInvoiceNumber(): string
+    {
+        $number = (string) $this->invoice_number;
+        $marker = '__deleted_'.$this->id;
+
+        if ($this->trashed() && str_ends_with($number, $marker)) {
+            return substr($number, 0, -strlen($marker));
+        }
+
+        return $number;
+    }
+
     public function isOverdue(): bool
     {
         if ($this->due_date === null || $this->isCancelled()) {

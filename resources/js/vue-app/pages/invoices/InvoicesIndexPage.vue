@@ -2,6 +2,14 @@
     <div class="container mt-4 app-index-page app-index-page--standard">
         <AppIndexListCard title="Invoice Management" :loading="loading" loading-text="Loading invoices…">
             <template #toolbar>
+                <RouterLink
+                    v-if="canViewArchived"
+                    :to="{ name: 'invoices.archived' }"
+                    class="btn btn-outline-secondary btn-sm"
+                >
+                    <i class="bi bi-archive" aria-hidden="true"></i>
+                    Archived
+                </RouterLink>
                 <AppIndexHeaderButton
                     icon="filter"
                     :aria-expanded="filtersOpen"
@@ -137,6 +145,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { listInvoices } from '../../api/invoices';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -148,6 +157,7 @@ import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
+import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { formatDate } from '../../utils/datetime';
 
@@ -164,6 +174,7 @@ const dueFilterOptions = [
 ];
 
 const toast = useAppToast();
+const { canInCompany } = usePermissions();
 const { guardCompanyContext } = useRequireCompanyContext();
 
 const invoices = ref([]);
@@ -173,6 +184,8 @@ const paymentStatusFilter = ref('');
 const dueFilter = ref('');
 const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
+
+const canViewArchived = computed(() => canInCompany('invoices.view_archived'));
 
 const filtersActive = computed(
     () =>

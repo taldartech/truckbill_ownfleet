@@ -642,7 +642,17 @@ class InvoiceManagementTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson("/app/api/invoices/{$invoiceId}")
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', true)
+            ->assertJsonPath('data.invoice_number', $invoiceNumber)
+            ->assertJsonPath('data.deletion_reason', 'Created by mistake during testing.');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/app/api/invoices?archived=archived')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $invoiceId)
+            ->assertJsonPath('data.0.invoice_number', $invoiceNumber)
+            ->assertJsonPath('data.0.deletion_reason', 'Created by mistake during testing.');
 
         $regenerate = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
@@ -650,6 +660,39 @@ class InvoiceManagementTest extends TestCase
 
         $this->assertSame($invoiceNumber, $regenerate->json('data.0.invoice_number'));
         $this->assertSame(1, Invoice::query()->where('trip_id', $trip->id)->count());
+    }
+
+    public function test_active_invoice_list_excludes_archived_invoices(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $invoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/delete", [
+                'deletion_reason' => 'Hidden from active invoice list after delete.',
+            ])
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/app/api/invoices')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/app/api/invoices?archived=archived')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $invoiceId)
+            ->assertJsonPath('data.0.is_archived', true);
     }
 
     public function test_only_latest_invoice_can_be_soft_deleted(): void

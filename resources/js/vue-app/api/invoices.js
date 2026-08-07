@@ -13,6 +13,7 @@ export async function listInvoices({
     search = '',
     payment_status = '',
     due_filter = '',
+    archived = '',
 } = {}) {
     const { data } = await api.get(invoicesBase, {
         params: {
@@ -21,6 +22,7 @@ export async function listInvoices({
             ...(search ? { search } : {}),
             ...(payment_status ? { payment_status } : {}),
             ...(due_filter ? { due_filter } : {}),
+            ...(archived ? { archived } : {}),
         },
     });
 

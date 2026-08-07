@@ -60,6 +60,7 @@ class PermissionSeeder extends Seeder
         'invoices.edit',
         'invoices.manage',
         'invoices.delete',
+        'invoices.view_archived',
         'invoices.export',
         'locations.view',
         'locations.manage',

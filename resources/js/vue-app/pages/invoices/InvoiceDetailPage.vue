@@ -2,11 +2,23 @@
     <div class="container mt-4 invoice-detail-page pb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
             <div>
-                <RouterLink :to="{ name: 'invoices.index' }" class="text-decoration-none small">
+                <RouterLink
+                    v-if="invoice?.is_archived"
+                    :to="{ name: 'invoices.archived' }"
+                    class="text-decoration-none small"
+                >
+                    <i class="bi bi-arrow-left"></i> Back to Archived Invoices
+                </RouterLink>
+                <RouterLink
+                    v-else
+                    :to="{ name: 'invoices.index' }"
+                    class="text-decoration-none small"
+                >
                     <i class="bi bi-arrow-left"></i> Back to Invoices
                 </RouterLink>
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     <h3 class="mb-0">{{ pageTitle }}</h3>
+                    <span v-if="invoice?.is_archived" class="badge bg-secondary">Archived</span>
                     <span v-if="invoice" class="badge" :class="paymentStatusBadge(invoice.payment_status)">
                         {{ paymentStatusLabel(invoice.payment_status) }}
                     </span>
@@ -16,9 +28,12 @@
                     {{ invoice.document_type_label || invoice.document_type || 'Invoice' }}
                     <span v-if="invoice.customer?.name"> · {{ invoice.customer.name }}</span>
                     <span v-if="invoice.trip?.trip_number"> · Trip {{ invoice.trip.trip_number }}</span>
+                    <span v-if="invoice.is_archived && invoice.deletion_reason" class="d-block mt-1">
+                        Reason: {{ invoice.deletion_reason }}
+                    </span>
                 </p>
             </div>
-            <div v-if="invoice" class="d-flex flex-wrap gap-2">
+            <div v-if="invoice && !invoice.is_archived" class="d-flex flex-wrap gap-2">
                 <AppButton
                     variant="purple"
                     outline
@@ -60,7 +75,12 @@
             Select a company and click <strong>Enter</strong> to view invoice details.
         </div>
 
-        <div v-if="invoice?.is_cancelled" class="alert alert-secondary">
+        <div v-if="invoice?.is_archived" class="alert alert-secondary">
+            This invoice is archived and is available for viewing only.
+            <span v-if="invoice.deleted_by?.name"> Deleted by {{ invoice.deleted_by.name }}.</span>
+        </div>
+
+        <div v-else-if="invoice?.is_cancelled" class="alert alert-secondary">
             This invoice is cancelled and is available for viewing only.
         </div>
 
