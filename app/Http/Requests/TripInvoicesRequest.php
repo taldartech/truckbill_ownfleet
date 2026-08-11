@@ -20,9 +20,11 @@ class TripInvoicesRequest extends FormRequest
         return [
             'invoice_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date'],
+            'particulars_mode' => ['nullable', 'string', 'in:combined,separate'],
             'groups' => ['nullable', 'array'],
             'groups.*.invoice_date' => ['nullable', 'date'],
             'groups.*.due_date' => ['nullable', 'date'],
+            'groups.*.particulars_mode' => ['nullable', 'string', 'in:combined,separate'],
             'groups.*.invoice_sequence' => ['nullable', 'integer', 'min:1', 'max:999999999'],
             'groups.*.custom_items' => ['nullable', 'array'],
             'groups.*.custom_items.*.description' => ['required', 'string', 'max:255'],

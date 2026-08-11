@@ -7,6 +7,7 @@ use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use App\Enums\GstRegistrationType;
 use App\Enums\InvoiceDocumentType;
+use App\Enums\InvoiceParticularsMode;
 use App\Enums\InvoicePaymentStatus;
 use App\Enums\TaxLiability;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,10 +30,12 @@ class Invoice extends Model
         'branch_id',
         'trip_id',
         'customer_id',
+        'customer_snapshot',
         'invoice_number',
         'registration_type',
         'tax_liability',
         'document_type',
+        'particulars_mode',
         'gst_rate',
         'supplier_state_id',
         'customer_state_id',
@@ -51,6 +54,7 @@ class Invoice extends Model
         'paid_amount',
         'deleted_by',
         'deletion_reason',
+        'trip_snapshot',
     ];
 
     protected function casts(): array
@@ -59,7 +63,10 @@ class Invoice extends Model
             'registration_type' => GstRegistrationType::class,
             'tax_liability' => TaxLiability::class,
             'document_type' => InvoiceDocumentType::class,
+            'particulars_mode' => InvoiceParticularsMode::class,
             'payment_status' => InvoicePaymentStatus::class,
+            'customer_snapshot' => 'array',
+            'trip_snapshot' => 'array',
             'gst_rate' => 'decimal:3',
             'freight_amount' => 'decimal:2',
             'cgst_rate' => 'decimal:3',

@@ -143,6 +143,30 @@
                         </div>
                     </div>
 
+                    <div v-if="routeCount(group) > 1" class="tgi-particulars">
+                        <span class="tgi-particulars__label">Particulars</span>
+                        <div class="tgi-particulars__options">
+                            <label class="tgi-particulars__option">
+                                <input
+                                    v-model="group.particulars_mode"
+                                    type="radio"
+                                    value="separate"
+                                    @change="$emit('particulars-change')"
+                                />
+                                <span>Separate line per route</span>
+                            </label>
+                            <label class="tgi-particulars__option">
+                                <input
+                                    v-model="group.particulars_mode"
+                                    type="radio"
+                                    value="combined"
+                                    @change="$emit('particulars-change')"
+                                />
+                                <span>Combined (single line)</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <button
                         type="button"
                         class="tgi-routes-toggle"
@@ -161,18 +185,32 @@
 
                     <div v-if="isRoutesExpanded(group.customer_id)" class="tgi-routes">
                         <div
-                            v-for="route in group.routes"
-                            :key="route.id"
-                            class="tgi-route"
+                            v-if="group.particulars_mode === 'combined' && routeCount(group) > 1"
+                            class="tgi-route tgi-route--combined"
                         >
                             <div class="tgi-route__path">
-                                {{ route.from_location }} → {{ route.to_location }}
+                                {{ combinedLineSummary(group) }}
                             </div>
                             <div class="tgi-route__meta">
-                                <span>{{ route.goods_name || '—' }}</span>
-                                <strong>₹{{ formatMoney(route.freight_amount) }}</strong>
+                                <span>{{ combinedGoodsSummary(group) }}</span>
+                                <strong>₹{{ formatMoney(group.route_freight_amount ?? group.freight_amount) }}</strong>
                             </div>
                         </div>
+                        <template v-else>
+                            <div
+                                v-for="route in group.routes"
+                                :key="route.id"
+                                class="tgi-route"
+                            >
+                                <div class="tgi-route__path">
+                                    {{ route.from_location }} → {{ route.to_location }}
+                                </div>
+                                <div class="tgi-route__meta">
+                                    <span>{{ route.goods_name || '—' }}</span>
+                                    <strong>₹{{ formatMoney(route.freight_amount) }}</strong>
+                                </div>
+                            </div>
+                        </template>
                     </div>
 
                     <div class="tgi-custom">
@@ -288,7 +326,7 @@ const props = defineProps({
     routePreview: { type: String, default: '' },
 });
 
-defineEmits(['close', 'continue', 'invoice-date-change', 'sequence-input', 'custom-items-change']);
+defineEmits(['close', 'continue', 'invoice-date-change', 'sequence-input', 'custom-items-change', 'particulars-change']);
 
 const expandedRouteIds = ref(new Set());
 
@@ -332,6 +370,34 @@ const totals = computed(() =>
 
 function routeCount(group) {
     return Array.isArray(group.routes) ? group.routes.length : 0;
+}
+
+function combinedLineSummary(group) {
+    const routes = Array.isArray(group.routes) ? [...group.routes] : [];
+
+    if (routes.length === 0) {
+        return '—';
+    }
+
+    routes.sort((a, b) => (a.sequence_no ?? 0) - (b.sequence_no ?? 0));
+    const first = routes[0];
+    const destinations = [...new Set(routes.map((route) => route.to_location).filter(Boolean))];
+
+    if (destinations.length <= 1) {
+        return `${first.from_location} → ${destinations[0] ?? first.to_location ?? '—'}`;
+    }
+
+    const last = destinations[destinations.length - 1];
+    const middle = destinations.slice(0, -1).join(', ');
+
+    return `${first.from_location} → ${middle} and ${last}`;
+}
+
+function combinedGoodsSummary(group) {
+    const routes = Array.isArray(group.routes) ? group.routes : [];
+    const goods = [...new Set(routes.map((route) => route.goods_name).filter(Boolean))];
+
+    return goods.length > 0 ? goods.join(', ') : '—';
 }
 
 function ensureCustomItems(group) {
@@ -625,6 +691,44 @@ function formatMoney(value) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr);
     gap: 0.35rem 0.45rem;
     padding: 0.45rem 0.55rem;
+}
+
+.tgi-particulars {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    padding: 0.35rem 0.55rem;
+    border-top: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08));
+    background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.03);
+}
+
+.tgi-particulars__label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+}
+
+.tgi-particulars__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.85rem;
+}
+
+.tgi-particulars__option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.tgi-route--combined {
+    border-left: 3px solid var(--bs-primary);
+    padding-left: 0.45rem;
 }
 
 .tgi-field {

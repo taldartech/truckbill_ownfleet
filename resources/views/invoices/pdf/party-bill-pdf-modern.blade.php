@@ -243,6 +243,7 @@
 <body>
     @php
         use App\Enums\InvoiceDocumentType;
+        use App\Enums\InvoiceParticularsMode;
         use App\Enums\LoadCategory;
         use App\Enums\TaxLiability;
         use App\Modules\TripManagement\Support\LoadClassifier;
@@ -298,7 +299,23 @@
         $customerAddressParts = array_filter([$customer?->address, $customer?->city?->name, $customer?->state?->name]);
         $customerAddress = implode(', ', $customerAddressParts) ?: '—';
 
-        $routeLegs = $items->map(fn($item) => $item->routeLeg)->filter()->values();
+        $particularsMode =
+            $invoice->particulars_mode instanceof InvoiceParticularsMode
+                ? $invoice->particulars_mode
+                : InvoiceParticularsMode::tryFrom((string) ($invoice->particulars_mode ?? '')) ??
+                    InvoiceParticularsMode::Separate;
+
+        $itemRouteLegs = $items->map(fn($item) => $item->routeLeg)->filter()->values();
+
+        if ($particularsMode === InvoiceParticularsMode::Combined && $trip && $invoice->customer_id) {
+            $routeLegs = ($trip->relationLoaded('routeLegs') ? $trip->routeLegs : collect())
+                ->filter(fn($leg) => (int) $leg->customer_id === (int) $invoice->customer_id)
+                ->filter(fn($leg) => (float) $leg->freight_amount > 0)
+                ->sortBy('sequence_no')
+                ->values();
+        } else {
+            $routeLegs = $itemRouteLegs->sortBy(fn($leg) => $leg->sequence_no)->values();
+        }
 
         $formatStationLocation = function ($leg, string $side): string {
             $station = $side === 'from' ? $leg->fromStation : $leg->toStation;
@@ -355,10 +372,24 @@
             return $name . ', ' . $location;
         };
 
+        $formatConsignor = function ($leg) use ($formatPartyWithLocation, $formatStationLocation): ?string {
+            $location = filled($leg->from_address)
+                ? (string) $leg->from_address
+                : $formatStationLocation($leg, 'from');
+
+            return $formatPartyWithLocation($leg->consignor, $location);
+        };
+
+        $formatConsignee = function ($leg) use ($formatPartyWithLocation, $formatStationLocation): ?string {
+            $location = filled($leg->to_address)
+                ? (string) $leg->to_address
+                : $formatStationLocation($leg, 'to');
+
+            return $formatPartyWithLocation($leg->consignee, $location);
+        };
+
         $consignors = $routeLegs
-            ->map(function ($leg) use ($formatPartyWithLocation, $formatStationLocation) {
-                return $formatPartyWithLocation($leg->consignor, $formatStationLocation($leg, 'from'));
-            })
+            ->map(fn($leg) => $formatConsignor($leg))
             ->filter()
             ->unique()
             ->values();
@@ -372,9 +403,7 @@
         }
 
         $consignees = $routeLegs
-            ->map(function ($leg) use ($formatPartyWithLocation, $formatStationLocation) {
-                return $formatPartyWithLocation($leg->consignee, $formatStationLocation($leg, 'to'));
-            })
+            ->map(fn($leg) => $formatConsignee($leg))
             ->filter()
             ->unique()
             ->values();
@@ -582,8 +611,8 @@
                 </tr>
                 <tr>
                     <td>
-                        @forelse ($consignors as $consignor)
-                            <div>{{ $consignor }}</div>
+                        @forelse ($consignors as $index => $consignor)
+                            <div>{{ $consignors->count() > 1 ? $index + 1 . ' - ' : '' }}{{ $consignor }}</div>
                         @empty
                             <div class="muted">—</div>
                         @endforelse

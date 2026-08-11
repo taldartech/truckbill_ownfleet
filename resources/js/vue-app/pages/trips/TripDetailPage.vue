@@ -619,6 +619,7 @@
             @invoice-date-change="refreshInvoicePreviewDebounced"
             @sequence-input="onInvoiceSequenceInput"
             @custom-items-change="refreshInvoicePreviewDebounced"
+            @particulars-change="refreshInvoicePreviewDebounced"
         />
 
 
@@ -1197,6 +1198,7 @@ function buildInvoicePreviewPayload() {
         groups[group.customer_id] = {
             invoice_date: group.invoice_date || null,
             due_date: group.due_date || null,
+            particulars_mode: group.particulars_mode === 'combined' ? 'combined' : 'separate',
             ...(hasSequence ? { invoice_sequence: Number(sequenceRaw) } : {}),
             ...(customItems.length > 0 ? { custom_items: customItems } : {}),
         };
@@ -1269,6 +1271,8 @@ async function refreshInvoicePreview({ silent = false } = {}) {
             existing.document_type = updated.document_type;
             existing.document_type_label = updated.document_type_label;
             existing.routes = updated.routes;
+            existing.invoice_lines = updated.invoice_lines;
+            existing.particulars_mode = updated.particulars_mode ?? existing.particulars_mode ?? 'separate';
             // Keep locally edited custom_items; do not overwrite from preview echo.
         });
     } catch (error) {
@@ -1328,6 +1332,7 @@ async function openGenerateInvoices() {
                 ...group,
                 invoice_date: group.invoice_date || defaultInvoiceDate,
                 invoice_sequence: group.invoice_sequence ?? '',
+                particulars_mode: group.particulars_mode ?? 'separate',
                 custom_items: Array.isArray(group.custom_items) ? group.custom_items : [],
             }))
             : [];

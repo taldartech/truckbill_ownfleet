@@ -173,6 +173,265 @@ class InvoiceManagementTest extends TestCase
         );
     }
 
+    public function test_invoice_generation_combined_particulars_merges_routes_into_one_line(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'c'],
+        ]);
+
+        $preview = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/preview", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'particulars_mode' => 'combined',
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $previewGroup = collect($preview->json('data'))->firstWhere('customer_id', $customers['a']->id);
+        $this->assertSame('combined', $previewGroup['particulars_mode']);
+        $this->assertCount(1, $previewGroup['invoice_lines']);
+        $this->assertSame(15000.0, (float) $previewGroup['invoice_lines'][0]['freight_amount']);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'particulars_mode' => 'combined',
+                    ],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonCount(1, 'data');
+
+        $invoice = Invoice::query()->where('customer_id', $customers['a']->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame('combined', $invoice->particulars_mode->value);
+        $this->assertSame(15000.0, (float) $invoice->freight_amount);
+        $this->assertSame(1, $invoice->items()->whereNotNull('trip_route_leg_id')->count());
+        $this->assertSame(15000.0, (float) $invoice->items()->first()->freight_amount);
+
+        foreach ($previewGroup['route_leg_ids'] as $legId) {
+            $leg = $trip->fresh()->routeLegs->firstWhere('id', $legId);
+            $this->assertNotNull($leg);
+            $this->assertSame(FreightBillingStatus::Invoiced, $leg->billing_status);
+        }
+    }
+
+    public function test_combined_invoice_cancel_unbills_all_customer_routes_on_trip(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'c'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'particulars_mode' => 'combined',
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $legIds = $trip->fresh()->routeLegs
+            ->filter(
+                fn ($leg) => (string) $leg->customer_id === (string) $customers['a']->id
+                    && (float) $leg->freight_amount > 0,
+            )
+            ->pluck('id')
+            ->all();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/app/api/invoices/{$invoiceId}")
+            ->assertNoContent();
+
+        foreach ($legIds as $legId) {
+            $leg = $trip->fresh()->routeLegs->firstWhere('id', $legId);
+            $this->assertNotNull($leg);
+            $this->assertSame(FreightBillingStatus::Unbilled, $leg->billing_status);
+        }
+    }
+
+    public function test_combined_invoice_pdf_lists_all_route_consignors_and_consignees(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'c'],
+        ]);
+
+        $revenueLegs = $trip->routeLegs
+            ->filter(fn ($leg) => (float) $leg->freight_amount > 0)
+            ->sortBy('sequence_no')
+            ->values();
+
+        $revenueLegs[0]->update([
+            'consignor' => 'Alpha Corp',
+            'consignee' => 'Beta Ltd',
+            'from_address' => 'Warehouse A, Mumbai',
+            'to_address' => 'Depot B, Pune',
+        ]);
+        $revenueLegs[1]->update([
+            'consignor' => 'Gamma Corp',
+            'consignee' => 'Delta Ltd',
+            'from_address' => 'Warehouse C, Nashik',
+            'to_address' => 'Depot D, Nagpur',
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'particulars_mode' => 'combined',
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoice = Invoice::query()
+            ->with([
+                'customer.state',
+                'customer.city',
+                'customerState',
+                'supplierState',
+                'items.routeLeg.fromStation.city',
+                'items.routeLeg.fromStation.state',
+                'items.routeLeg.toStation.city',
+                'items.routeLeg.toStation.state',
+                'trip.routeLegs.fromStation.city',
+                'trip.routeLegs.fromStation.state',
+                'trip.routeLegs.toStation.city',
+                'trip.routeLegs.toStation.state',
+                'trip.vehicle',
+                'trip.driver',
+                'branch.company.state',
+                'tenant.state',
+            ])
+            ->findOrFail($generate->json('data.0.id'));
+
+        $firstItem = $invoice->items->first();
+        $this->assertNotNull($firstItem);
+        $this->assertIsArray($firstItem->route_legs_snapshot);
+        $this->assertCount(2, $firstItem->route_legs_snapshot);
+
+        $snapshotConsignors = collect($firstItem->route_legs_snapshot)
+            ->pluck('consignor')
+            ->filter()
+            ->values()
+            ->all();
+
+        $snapshotConsignees = collect($firstItem->route_legs_snapshot)
+            ->pluck('consignee')
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->assertContains('Alpha Corp', $snapshotConsignors);
+        $this->assertContains('Gamma Corp', $snapshotConsignors);
+        $this->assertContains('Beta Ltd', $snapshotConsignees);
+        $this->assertContains('Delta Ltd', $snapshotConsignees);
+
+        $html = view('invoices.pdf.party-bill-pdf-modern', [
+            'invoice' => $invoice,
+            'company' => $invoice->branch?->company ?? $invoice->tenant,
+            'document_color' => $tenant->documentColor(),
+            'document_text_color' => $tenant->documentTextColor() ?? '#000000',
+            'document_color_soft' => $tenant->documentColorWithOpacity(0.2),
+        ])->render();
+
+        $this->assertStringContainsString('Alpha Corp', $html);
+        $this->assertStringContainsString('Gamma Corp', $html);
+        $this->assertStringContainsString('Beta Ltd', $html);
+        $this->assertStringContainsString('Delta Ltd', $html);
+    }
+
+    public function test_combined_invoice_pdf_deduplicates_identical_consignors_and_consignees(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'c'],
+        ]);
+
+        $revenueLegs = $trip->routeLegs
+            ->filter(fn ($leg) => (float) $leg->freight_amount > 0)
+            ->sortBy('sequence_no')
+            ->values();
+
+        $sharedConsignor = 'Shared Consignor, Warehouse A, Mumbai';
+        $sharedConsignee = 'Shared Consignee, Depot B, Pune';
+
+        $revenueLegs[0]->update([
+            'consignor' => 'Shared Consignor',
+            'consignee' => 'Shared Consignee',
+            'from_address' => 'Warehouse A, Mumbai',
+            'to_address' => 'Depot B, Pune',
+        ]);
+        $revenueLegs[1]->update([
+            'consignor' => 'Shared Consignor',
+            'consignee' => 'Shared Consignee',
+            'from_address' => 'Warehouse A, Mumbai',
+            'to_address' => 'Depot B, Pune',
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'particulars_mode' => 'combined',
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoice = Invoice::query()
+            ->with([
+                'customer.state',
+                'customer.city',
+                'customerState',
+                'supplierState',
+                'items.routeLeg.fromStation.city',
+                'items.routeLeg.fromStation.state',
+                'items.routeLeg.toStation.city',
+                'items.routeLeg.toStation.state',
+                'trip.routeLegs.fromStation.city',
+                'trip.routeLegs.fromStation.state',
+                'trip.routeLegs.toStation.city',
+                'trip.routeLegs.toStation.state',
+                'trip.vehicle',
+                'trip.driver',
+                'branch.company.state',
+                'tenant.state',
+            ])
+            ->findOrFail($generate->json('data.0.id'));
+
+        $html = view('invoices.pdf.party-bill-pdf-modern', [
+            'invoice' => $invoice,
+            'company' => $invoice->branch?->company ?? $invoice->tenant,
+            'document_color' => $tenant->documentColor(),
+            'document_text_color' => $tenant->documentTextColor() ?? '#000000',
+            'document_color_soft' => $tenant->documentColorWithOpacity(0.2),
+        ])->render();
+
+        $this->assertSame(1, substr_count($html, $sharedConsignor));
+        $this->assertSame(1, substr_count($html, $sharedConsignee));
+    }
+
     public function test_invoice_preview_and_generate_honor_per_group_sequence_overrides(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();

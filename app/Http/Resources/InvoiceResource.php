@@ -24,6 +24,7 @@ class InvoiceResource extends JsonResource
             'tax_liability' => $this->tax_liability?->value ?? $this->tax_liability,
             'document_type' => $this->document_type?->value ?? $this->document_type,
             'document_type_label' => $this->document_type?->label(),
+            'particulars_mode' => $this->particulars_mode?->value ?? $this->particulars_mode,
             'gst_rate' => (float) $this->gst_rate,
             'supplier_state_id' => $this->supplier_state_id,
             'supplier_state_code' => $this->whenLoaded('supplierState', fn () => $this->supplierState?->code),

@@ -7,6 +7,7 @@ use App\Customer;
 use App\Enums\FreightBillingStatus;
 use App\Enums\GstRegistrationType;
 use App\Enums\InvoiceDocumentType;
+use App\Enums\InvoiceParticularsMode;
 use App\Enums\InvoicePaymentStatus;
 use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
@@ -201,6 +202,7 @@ class InvoiceService
     public function previewForTrip(Trip $trip, array $options = []): array
     {
         $this->assertTripIsInvoiceable($trip);
+        $trip->loadMissing(['vehicle', 'driver']);
         $groups = $this->groupUnbilledLegsByCustomer($trip);
         $gstSettings = $this->resolveGstSettingsForTrip($trip);
         $defaultGstRate = (float) ($gstSettings['gst_rate'] ?? 0);
@@ -219,6 +221,17 @@ class InvoiceService
         $previews = [];
         $reservedSequencesByDate = [];
 
+        $tripSnapshot = [
+            'trip_id' => $trip->id,
+            'trip_number' => $trip->trip_number,
+            'trip_type' => $trip->trip_type?->value ?? $trip->trip_type,
+            'status' => $trip->status?->value ?? $trip->status,
+            'start_at' => $trip->start_at?->toDateTimeString(),
+            'end_at' => $trip->end_at?->toDateTimeString(),
+            'vehicle_registration_number' => $trip->vehicle?->registration_number,
+            'driver_name' => $trip->driver?->name,
+        ];
+
         foreach ($groups as $customerId => $legs) {
             /** @var Collection<int, TripRouteLeg> $legs */
             $customer = $legs->first()?->customer
@@ -230,7 +243,18 @@ class InvoiceService
                 ]);
             }
 
-            $customer->loadMissing('state');
+            $customer->loadMissing(['state', 'city']);
+
+            $customerSnapshot = [
+                'customer_id' => $customer->id,
+                'name' => $customer->name,
+                'gst_number' => $customer->gst_number,
+                'pan_number' => $customer->pan_number,
+                'address' => $customer->address,
+                'city_name' => $customer->city?->name,
+                'state_code' => $customer->state?->code,
+                'state_name' => $customer->state?->name,
+            ];
 
             $routeFreightAmount = round((float) $legs->sum(fn (TripRouteLeg $leg) => (float) $leg->freight_amount), 2);
             $customItems = $this->normalizeCustomItems($options['groups'][$customerId]['custom_items'] ?? []);
@@ -293,21 +317,33 @@ class InvoiceService
 
             $reservedSequencesByDate[$dateKey][] = (int) $invoiceNumberPreview['sequence'];
 
+            $routes = $legs->map(fn (TripRouteLeg $leg) => [
+                'id' => $leg->id,
+                'sequence_no' => $leg->sequence_no,
+                'from_location' => $leg->from_city,
+                'to_location' => $leg->to_city,
+                'from_address' => $leg->from_address,
+                'to_address' => $leg->to_address,
+                'goods_name' => $leg->goods_name,
+                'weight_ton' => (float) $leg->weight_ton,
+                'freight_amount' => (float) $leg->freight_amount,
+                'consignor' => $leg->consignor,
+                'consignee' => $leg->consignee,
+            ])->values()->all();
+
+            $particularsMode = $this->resolveParticularsMode($options, $customerId);
+
             $previews[] = [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
                 'customer_gst_number' => $customer->gst_number,
+                'customer_snapshot' => $customerSnapshot,
                 'is_broker' => (bool) $customer->is_broker,
                 'route_leg_ids' => $legs->pluck('id')->values()->all(),
-                'routes' => $legs->map(fn (TripRouteLeg $leg) => [
-                    'id' => $leg->id,
-                    'sequence_no' => $leg->sequence_no,
-                    'from_location' => $leg->from_city,
-                    'to_location' => $leg->to_city,
-                    'goods_name' => $leg->goods_name,
-                    'weight_ton' => (float) $leg->weight_ton,
-                    'freight_amount' => (float) $leg->freight_amount,
-                ])->values()->all(),
+                'particulars_mode' => $particularsMode->value,
+                'routes' => $routes,
+                'invoice_lines' => $this->buildInvoiceLines($routes, $particularsMode),
+                'trip_snapshot' => $tripSnapshot,
                 'custom_items' => $customItems,
                 'route_freight_amount' => $routeFreightAmount,
                 'custom_amount' => $customAmount,
@@ -365,10 +401,13 @@ class InvoiceService
                     'branch_id' => $trip->branch_id,
                     'trip_id' => $trip->id,
                     'customer_id' => $preview['customer_id'],
+                    'customer_snapshot' => $preview['customer_snapshot'] ?? null,
+                    'trip_snapshot' => $preview['trip_snapshot'] ?? null,
                     'invoice_number' => $allocated['number'],
                     'registration_type' => $preview['registration_type'],
                     'tax_liability' => $preview['tax_liability'],
                     'document_type' => $preview['document_type'],
+                    'particulars_mode' => $preview['particulars_mode'] ?? InvoiceParticularsMode::Separate->value,
                     'gst_rate' => $preview['gst_rate'],
                     'supplier_state_id' => $preview['supplier_state_id'],
                     'customer_state_id' => $preview['customer_state_id'],
@@ -388,37 +427,54 @@ class InvoiceService
                 ]);
 
                 $sequence = 1;
-                foreach ($preview['routes'] as $route) {
-                    $alreadyInvoiced = InvoiceItem::query()
-                        ->where('trip_route_leg_id', $route['id'])
-                        ->whereHas('invoice', function ($query): void {
-                            $query->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value);
-                        })
-                        ->exists();
+                $invoiceLines = $preview['invoice_lines'] ?? $this->buildInvoiceLines(
+                    $preview['routes'],
+                    InvoiceParticularsMode::tryFrom((string) ($preview['particulars_mode'] ?? ''))
+                        ?? InvoiceParticularsMode::Separate,
+                );
 
-                    if ($alreadyInvoiced) {
-                        throw ValidationException::withMessages([
-                            'trip' => ['One or more routes are already included on an active invoice.'],
-                        ]);
+                foreach ($invoiceLines as $line) {
+                    $legIds = $line['route_leg_ids'] ?? [$line['id']];
+
+                    foreach ($legIds as $legId) {
+                        $alreadyInvoiced = InvoiceItem::query()
+                            ->where('trip_route_leg_id', $legId)
+                            ->whereHas('invoice', function ($query): void {
+                                $query->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value);
+                            })
+                            ->exists();
+
+                        if ($alreadyInvoiced) {
+                            throw ValidationException::withMessages([
+                                'trip' => ['One or more routes are already included on an active invoice.'],
+                            ]);
+                        }
                     }
 
                     InvoiceItem::query()->create([
                         'tenant_id' => $trip->tenant_id,
                         'branch_id' => $trip->branch_id,
                         'invoice_id' => $invoice->id,
-                        'trip_route_leg_id' => $route['id'],
+                        'trip_route_leg_id' => $line['id'],
                         'sequence_no' => $sequence++,
-                        'from_location' => $route['from_location'],
-                        'to_location' => $route['to_location'],
-                        'goods_name' => $route['goods_name'],
-                        'weight_ton' => $route['weight_ton'],
-                        'freight_amount' => $route['freight_amount'],
+                        'from_location' => $line['from_location'],
+                        'to_location' => $line['to_location'],
+                        'consignor' => $line['consignor'] ?? null,
+                        'consignee' => $line['consignee'] ?? null,
+                        'from_address' => $line['from_address'] ?? null,
+                        'to_address' => $line['to_address'] ?? null,
+                        'goods_name' => $line['goods_name'],
+                        'weight_ton' => $line['weight_ton'],
+                        'freight_amount' => $line['freight_amount'],
+                        'route_legs_snapshot' => $line['route_legs_snapshot'] ?? null,
                     ]);
 
-                    TripRouteLeg::query()
-                        ->withoutGlobalScopes()
-                        ->whereKey($route['id'])
-                        ->update(['billing_status' => FreightBillingStatus::Invoiced->value]);
+                    foreach ($legIds as $legId) {
+                        TripRouteLeg::query()
+                            ->withoutGlobalScopes()
+                            ->whereKey($legId)
+                            ->update(['billing_status' => FreightBillingStatus::Invoiced->value]);
+                    }
                 }
 
                 foreach ($preview['custom_items'] ?? [] as $customItem) {
@@ -589,11 +645,36 @@ class InvoiceService
     {
         $invoice->loadMissing('items');
 
-        $legIds = $invoice->items
-            ->pluck('trip_route_leg_id')
-            ->filter()
-            ->values()
-            ->all();
+        $particularsMode = $invoice->particulars_mode instanceof InvoiceParticularsMode
+            ? $invoice->particulars_mode
+            : InvoiceParticularsMode::tryFrom((string) ($invoice->particulars_mode ?? ''))
+                ?? InvoiceParticularsMode::Separate;
+
+        if (
+            $particularsMode === InvoiceParticularsMode::Combined
+            && $invoice->trip_id !== null
+            && $invoice->customer_id !== null
+        ) {
+            TripRouteLeg::query()
+                ->withoutGlobalScopes()
+                ->where('trip_id', $invoice->trip_id)
+                ->where('customer_id', $invoice->customer_id)
+                ->where('billing_status', FreightBillingStatus::Invoiced->value)
+                ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
+        } else {
+            $legIds = $invoice->items
+                ->pluck('trip_route_leg_id')
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($legIds !== []) {
+                TripRouteLeg::query()
+                    ->withoutGlobalScopes()
+                    ->whereIn('id', $legIds)
+                    ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
+            }
+        }
 
         $customAmount = round(
             (float) $invoice->items
@@ -601,13 +682,6 @@ class InvoiceService
                 ->sum(fn (InvoiceItem $item): float => (float) $item->freight_amount),
             2,
         );
-
-        if ($legIds !== []) {
-            TripRouteLeg::query()
-                ->withoutGlobalScopes()
-                ->whereIn('id', $legIds)
-                ->update(['billing_status' => FreightBillingStatus::Unbilled->value]);
-        }
 
         if ($invoice->trip_id === null || $customAmount <= 0) {
             return;
@@ -638,6 +712,10 @@ class InvoiceService
             'items.routeLeg.fromStation.state',
             'items.routeLeg.toStation.city',
             'items.routeLeg.toStation.state',
+            'trip.routeLegs.fromStation.city',
+            'trip.routeLegs.fromStation.state',
+            'trip.routeLegs.toStation.city',
+            'trip.routeLegs.toStation.state',
             'trip.vehicle',
             'trip.driver',
             'branch.company.state',
@@ -924,5 +1002,70 @@ class InvoiceService
         }
 
         return $normalized;
+    }
+
+    private function resolveParticularsMode(array $options, string $customerId): InvoiceParticularsMode
+    {
+        $groupMode = $options['groups'][$customerId]['particulars_mode'] ?? null;
+        $tripMode = $options['particulars_mode'] ?? null;
+        $value = is_string($groupMode) && $groupMode !== ''
+            ? $groupMode
+            : (is_string($tripMode) && $tripMode !== '' ? $tripMode : InvoiceParticularsMode::Separate->value);
+
+        return InvoiceParticularsMode::tryFrom($value) ?? InvoiceParticularsMode::Separate;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $routes
+     * @return list<array<string, mixed>>
+     */
+    private function buildInvoiceLines(array $routes, InvoiceParticularsMode $mode): array
+    {
+        if ($mode === InvoiceParticularsMode::Separate || count($routes) <= 1) {
+            return array_map(function (array $route): array {
+                return [
+                    ...$route,
+                    'route_leg_ids' => [$route['id']],
+                    'route_legs_snapshot' => [$route],
+                ];
+            }, $routes);
+        }
+
+        return [$this->combineRouteLines($routes)];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $routes
+     * @return array<string, mixed>
+     */
+    private function combineRouteLines(array $routes): array
+    {
+        $sorted = collect($routes)->sortBy('sequence_no')->values();
+        $first = $sorted->first();
+        $destinations = $sorted->pluck('to_location')->filter()->unique()->values();
+
+        $toLocation = $destinations->count() <= 1
+            ? (string) ($destinations->first() ?? $sorted->last()['to_location'] ?? '')
+            : $destinations->slice(0, -1)->implode(', ').' and '.$destinations->last();
+
+        $goodsNames = $sorted->pluck('goods_name')->filter()->unique()->values();
+
+        return [
+            'id' => $first['id'],
+            'route_leg_ids' => $sorted->pluck('id')->values()->all(),
+            'sequence_no' => $first['sequence_no'],
+            'from_location' => $first['from_location'],
+            'to_location' => $toLocation,
+            'consignor' => $first['consignor'] ?? null,
+            'consignee' => $first['consignee'] ?? null,
+            'from_address' => $first['from_address'] ?? null,
+            'to_address' => $first['to_address'] ?? null,
+            'goods_name' => $goodsNames->isNotEmpty()
+                ? $goodsNames->implode(', ')
+                : ($first['goods_name'] ?? null),
+            'weight_ton' => round((float) $sorted->sum(fn (array $route): float => (float) $route['weight_ton']), 3),
+            'freight_amount' => round((float) $sorted->sum(fn (array $route): float => (float) $route['freight_amount']), 2),
+            'route_legs_snapshot' => $sorted->values()->all(),
+        ];
     }
 }

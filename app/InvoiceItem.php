@@ -20,11 +20,16 @@ class InvoiceItem extends Model
         'invoice_id',
         'trip_route_leg_id',
         'sequence_no',
+        'consignor',
+        'consignee',
+        'from_address',
+        'to_address',
         'from_location',
         'to_location',
         'goods_name',
         'weight_ton',
         'freight_amount',
+        'route_legs_snapshot',
     ];
 
     protected function casts(): array
@@ -33,6 +38,7 @@ class InvoiceItem extends Model
             'sequence_no' => 'integer',
             'weight_ton' => 'decimal:3',
             'freight_amount' => 'decimal:2',
+            'route_legs_snapshot' => 'array',
         ];
     }
 
