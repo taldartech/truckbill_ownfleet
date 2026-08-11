@@ -131,33 +131,21 @@ return new class extends Migration
         if ($driver === 'mysql') {
             $this->closeDuplicateActiveTyrePositions();
 
-            if ($this->isMariaDb()) {
-                $this->addMariaDbTyreActivePositionUniqueIndex();
-
-                return;
+            // MariaDB and older MySQL lack functional unique indexes; use a
+            // generated virtual column instead (works on MariaDB 10.4+ / MySQL 5.7+).
+            if (! Schema::hasColumn('tyre_installations', 'active_position_key')) {
+                DB::statement(
+                    'ALTER TABLE tyre_installations
+                     ADD COLUMN active_position_key VARCHAR(300)
+                     AS (IF(removed_at IS NULL, CONCAT(vehicle_id, CHAR(124), position_code), NULL)) VIRTUAL',
+                );
             }
 
             DB::statement(
                 'CREATE UNIQUE INDEX '.self::TYRE_ACTIVE_POSITION_INDEX.'
-                 ON tyre_installations ((IF(removed_at IS NULL, CONCAT(vehicle_id, CHAR(124), position_code), NULL)))',
+                 ON tyre_installations (active_position_key)',
             );
         }
-    }
-
-    private function addMariaDbTyreActivePositionUniqueIndex(): void
-    {
-        if (! Schema::hasColumn('tyre_installations', 'active_position_key')) {
-            DB::statement(
-                'ALTER TABLE tyre_installations
-                 ADD COLUMN active_position_key VARCHAR(300)
-                 AS (IF(removed_at IS NULL, CONCAT(vehicle_id, CHAR(124), position_code), NULL)) VIRTUAL',
-            );
-        }
-
-        DB::statement(
-            'CREATE UNIQUE INDEX '.self::TYRE_ACTIVE_POSITION_INDEX.'
-             ON tyre_installations (active_position_key)',
-        );
     }
 
     private function dropTyreActivePositionUniqueIndex(): void
@@ -179,17 +167,10 @@ return new class extends Migration
                 DB::statement('DROP INDEX tyre_installations_active_position_key_unique ON tyre_installations');
             }
 
-            if ($this->isMariaDb() && Schema::hasColumn('tyre_installations', 'active_position_key')) {
+            if (Schema::hasColumn('tyre_installations', 'active_position_key')) {
                 DB::statement('ALTER TABLE tyre_installations DROP COLUMN active_position_key');
             }
         }
-    }
-
-    private function isMariaDb(): bool
-    {
-        $version = DB::selectOne('SELECT VERSION() AS version');
-
-        return str_contains(strtolower((string) ($version->version ?? '')), 'mariadb');
     }
 
     private function closeDuplicateActiveTyrePositions(): void

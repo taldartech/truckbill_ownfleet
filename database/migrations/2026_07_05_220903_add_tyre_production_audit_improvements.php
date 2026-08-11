@@ -159,26 +159,19 @@ return new class extends Migration
         }
 
         if ($driver === 'mysql') {
-            if ($this->isMariaDb()) {
-                if (! Schema::hasColumn('tyre_installations', 'active_tyre_key')) {
-                    DB::statement(
-                        'ALTER TABLE tyre_installations
-                         ADD COLUMN active_tyre_key CHAR(36)
-                         AS (IF(removed_at IS NULL, tyre_id, NULL)) VIRTUAL',
-                    );
-                }
-
+            // MariaDB and older MySQL lack functional unique indexes; use a
+            // generated virtual column instead (works on MariaDB 10.4+ / MySQL 5.7+).
+            if (! Schema::hasColumn('tyre_installations', 'active_tyre_key')) {
                 DB::statement(
-                    'CREATE UNIQUE INDEX '.self::TYRE_ACTIVE_TYRE_INDEX.'
-                     ON tyre_installations (active_tyre_key)',
+                    'ALTER TABLE tyre_installations
+                     ADD COLUMN active_tyre_key CHAR(36)
+                     AS (IF(removed_at IS NULL, tyre_id, NULL)) VIRTUAL',
                 );
-
-                return;
             }
 
             DB::statement(
                 'CREATE UNIQUE INDEX '.self::TYRE_ACTIVE_TYRE_INDEX.'
-                 ON tyre_installations ((IF(removed_at IS NULL, tyre_id, NULL)))',
+                 ON tyre_installations (active_tyre_key)',
             );
         }
     }
@@ -198,7 +191,7 @@ return new class extends Migration
                 DB::statement('DROP INDEX '.self::TYRE_ACTIVE_TYRE_INDEX.' ON tyre_installations');
             }
 
-            if ($this->isMariaDb() && Schema::hasColumn('tyre_installations', 'active_tyre_key')) {
+            if (Schema::hasColumn('tyre_installations', 'active_tyre_key')) {
                 DB::statement('ALTER TABLE tyre_installations DROP COLUMN active_tyre_key');
             }
         }
@@ -226,12 +219,5 @@ return new class extends Migration
         }
 
         return false;
-    }
-
-    private function isMariaDb(): bool
-    {
-        $version = DB::selectOne('SELECT VERSION() AS version');
-
-        return str_contains(strtolower((string) ($version->version ?? '')), 'mariadb');
     }
 };
