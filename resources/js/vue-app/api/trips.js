@@ -158,10 +158,15 @@ export async function validateTripWindowOverlap(params) {
 export const TRIP_TYPES = [
     { value: 'ROUND_TRIP', label: 'Round Trip' },
     { value: 'ONE_WAY', label: 'One Way Trip' },
+    { value: 'MULTI_POINT', label: 'Multi-Point Trip' },
 ];
 
 export function tripTypeLabel(type) {
     return TRIP_TYPES.find((t) => t.value === String(type ?? '').toUpperCase())?.label ?? 'Trip';
+}
+
+export function isMultiPointTripType(type) {
+    return String(type ?? '').toUpperCase() === 'MULTI_POINT';
 }
 
 /**
@@ -190,6 +195,14 @@ export function tripTypeMeta(type) {
             label: 'One Way',
             icon: 'bi-arrow-right',
             badge: 'trip-type-badge--one-way',
+        };
+    }
+
+    if (normalized === 'MULTI_POINT') {
+        return {
+            label: 'Multi-Point',
+            icon: 'bi-diagram-3',
+            badge: 'trip-type-badge--multi-point',
         };
     }
 
@@ -356,6 +369,286 @@ export const MAX_EXPECTED_MILEAGE_KM_PER_LITER = 50;
 /** Max freight rate (₹ per ton) on route legs. */
 export const MAX_FREIGHT_RATE_PER_TON = 100000;
 
+export function validateMultiPointPickupsPayload(
+    payload,
+    { mode = 'create', startDate = null, endDate = null } = {},
+) {
+    const errors = {};
+    const pickups = payload.pickups ?? [];
+
+    if (!payload.customer_id) {
+        errors.customer_id = ['Select the customer for this multi-point trip.'];
+    }
+
+    if (!Array.isArray(pickups) || pickups.length === 0) {
+        errors.pickups = ['Add at least one pickup for this multi-point trip.'];
+
+        return errors;
+    }
+
+    let hasFreight = false;
+
+    pickups.forEach((pickup, pickupIndex) => {
+        const pickupNo = pickupIndex + 1;
+        const pickupWeight = parseNumeric(pickup?.weight_ton);
+        const drops = pickup?.drops ?? [];
+
+        if (!pickup?.station_id) {
+            errors[`pickups.${pickupIndex}.station_id`] = [`Pickup ${pickupNo}: station is required.`];
+        }
+
+        if (pickupWeight <= 0) {
+            errors[`pickups.${pickupIndex}.weight_ton`] = [`Pickup ${pickupNo}: weight must be greater than zero.`];
+        }
+
+        const pickupDate = String(pickup?.pickup_date ?? '').trim();
+
+        if (pickupDate) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [`Pickup ${pickupNo}: enter a valid pickup date.`];
+            } else if (startDate && pickupDate < startDate) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [
+                    `Pickup ${pickupNo}: pickup date cannot be before trip start date.`,
+                ];
+            } else if (endDate && pickupDate > endDate) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [
+                    `Pickup ${pickupNo}: pickup date cannot be after trip end date.`,
+                ];
+            }
+        }
+
+        if (!Array.isArray(drops) || drops.length === 0) {
+            errors[`pickups.${pickupIndex}.drops`] = [
+                `Pickup ${pickupNo}: no drop weight was allocated. Match total drop weight to total pickup weight.`,
+            ];
+
+            return;
+        }
+
+        let dropWeightTotal = 0;
+
+        drops.forEach((drop, dropIndex) => {
+            const dropNo = dropIndex + 1;
+            const dropWeight = parseNumeric(drop?.weight_ton);
+            const freightAmount = parseNumeric(drop?.freight_amount);
+
+            if (!drop?.to_station_id) {
+                errors[`pickups.${pickupIndex}.drops.${dropIndex}.to_station_id`] = [
+                    `Pickup ${pickupNo} drop ${dropNo}: drop station is required.`,
+                ];
+            }
+
+            if (dropWeight <= 0) {
+                errors[`pickups.${pickupIndex}.drops.${dropIndex}.weight_ton`] = [
+                    `Pickup ${pickupNo} drop ${dropNo}: weight must be greater than zero.`,
+                ];
+            }
+
+            dropWeightTotal += dropWeight;
+
+            if (freightAmount > 0) {
+                hasFreight = true;
+            }
+        });
+
+        if (dropWeightTotal - pickupWeight > 0.0005) {
+            errors[`pickups.${pickupIndex}.weight_ton`] = [
+                `Pickup ${pickupNo}: drop weight (${dropWeightTotal.toFixed(3)}) exceeds pickup weight (${pickupWeight.toFixed(3)}).`,
+            ];
+        }
+    });
+
+    if (mode === 'create' && !hasFreight) {
+        errors.pickups = ['Total freight must be greater than zero before creating a trip.'];
+    }
+
+    return errors;
+}
+
+/**
+ * Validate multi-point form before allocating trip-level drops onto pickups.
+ */
+export function validateMultiPointTripForm(
+    form,
+    { mode = 'create', startDate = null, endDate = null } = {},
+) {
+    const errors = {};
+    const pickups = form?.pickups ?? [];
+    const drops = form?.drops ?? [];
+
+    if (!form?.customer_id) {
+        errors.customer_id = ['Select the customer for this multi-point trip.'];
+    }
+
+    if (!Array.isArray(pickups) || pickups.length === 0) {
+        errors.pickups = ['Add at least one pickup for this multi-point trip.'];
+    }
+
+    if (!Array.isArray(drops) || drops.length === 0) {
+        errors.drops = ['Add at least one drop for this multi-point trip.'];
+    }
+
+    let hasFreight = false;
+    const pickupKeys = new Set((pickups ?? []).map((pickup) => String(pickup?._key ?? '')).filter(Boolean));
+
+    pickups.forEach((pickup, pickupIndex) => {
+        const pickupNo = pickupIndex + 1;
+        const pickupWeight = parseNumeric(pickup?.weight_ton);
+
+        if (!pickup?.station_id) {
+            errors[`pickups.${pickupIndex}.station_id`] = [`Pickup ${pickupNo}: station is required.`];
+        }
+
+        if (pickupWeight <= 0) {
+            errors[`pickups.${pickupIndex}.weight_ton`] = [`Pickup ${pickupNo}: weight must be greater than zero.`];
+        }
+
+        const pickupDate = String(pickup?.pickup_date ?? '').trim();
+
+        if (pickupDate) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [`Pickup ${pickupNo}: enter a valid pickup date.`];
+            } else if (startDate && pickupDate < startDate) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [
+                    `Pickup ${pickupNo}: pickup date cannot be before trip start date.`,
+                ];
+            } else if (endDate && pickupDate > endDate) {
+                errors[`pickups.${pickupIndex}.pickup_date`] = [
+                    `Pickup ${pickupNo}: pickup date cannot be after trip end date.`,
+                ];
+            }
+        }
+    });
+
+    drops.forEach((drop, dropIndex) => {
+        const dropNo = dropIndex + 1;
+        const allocations = drop?.allocations ?? [];
+        const dropWeight = allocations.reduce(
+            (sum, allocation) => sum + parseNumeric(allocation?.weight_ton),
+            0,
+        );
+
+        if (!drop?.to_station_id) {
+            errors[`drops.${dropIndex}.to_station_id`] = [`Drop ${dropNo}: station is required.`];
+        }
+
+        if (!Array.isArray(allocations) || allocations.length === 0) {
+            errors[`drops.${dropIndex}.allocations`] = [
+                `Drop ${dropNo}: select at least one pickup source.`,
+            ];
+        }
+
+        const usedPickupKeys = new Set();
+
+        allocations.forEach((allocation, allocationIndex) => {
+            const pickupKey = String(allocation?.pickup_key ?? '');
+            const allocWeight = parseNumeric(allocation?.weight_ton);
+            const allocNo = allocationIndex + 1;
+
+            let allocFreight = parseNumeric(allocation?.freight_amount);
+
+            if (allocation?.freight_auto_calculate) {
+                allocFreight = calculateLegFreight(allocWeight, allocation.freight_rate);
+            }
+
+            if (allocFreight > 0) {
+                hasFreight = true;
+            }
+
+            if (!pickupKey) {
+                errors[`drops.${dropIndex}.allocations.${allocationIndex}.pickup_key`] = [
+                    `Drop ${dropNo} source ${allocNo}: select a pickup.`,
+                ];
+            } else if (!pickupKeys.has(pickupKey)) {
+                errors[`drops.${dropIndex}.allocations.${allocationIndex}.pickup_key`] = [
+                    `Drop ${dropNo} source ${allocNo}: pickup is invalid.`,
+                ];
+            } else if (usedPickupKeys.has(pickupKey)) {
+                errors[`drops.${dropIndex}.allocations.${allocationIndex}.pickup_key`] = [
+                    `Drop ${dropNo}: the same pickup is selected twice. Merge weights into one source row.`,
+                ];
+            } else {
+                usedPickupKeys.add(pickupKey);
+            }
+
+            if (allocWeight <= 0) {
+                errors[`drops.${dropIndex}.allocations.${allocationIndex}.weight_ton`] = [
+                    `Drop ${dropNo} source ${allocNo}: weight must be greater than zero.`,
+                ];
+            }
+        });
+
+        if (dropWeight <= 0) {
+            errors[`drops.${dropIndex}.weight_ton`] = [
+                `Drop ${dropNo}: total allocated weight must be greater than zero.`,
+            ];
+        }
+    });
+
+    const pickupAllocated = new Map();
+
+    pickups.forEach((pickup) => {
+        const key = String(pickup?._key ?? '');
+        if (key) {
+            pickupAllocated.set(key, {
+                code: pickup.pickup_code || '',
+                weight: parseNumeric(pickup?.weight_ton),
+                allocated: 0,
+            });
+        }
+    });
+
+    let dropTotal = 0;
+
+    drops.forEach((drop) => {
+        (drop?.allocations ?? []).forEach((allocation) => {
+            const key = String(allocation?.pickup_key ?? '');
+            const weight = parseNumeric(allocation?.weight_ton);
+            dropTotal += weight;
+            const row = pickupAllocated.get(key);
+            if (row) {
+                row.allocated += weight;
+            }
+        });
+    });
+
+    dropTotal = Math.round(dropTotal * 1000) / 1000;
+    let pickupTotal = 0;
+
+    for (const row of pickupAllocated.values()) {
+        pickupTotal += row.weight;
+        const allocated = Math.round(row.allocated * 1000) / 1000;
+        const weight = Math.round(row.weight * 1000) / 1000;
+
+        if (allocated - weight > 0.0005) {
+            errors.drops = [
+                `${row.code || 'Pickup'}: allocated ${allocated.toFixed(3)} ton exceeds pickup ${weight.toFixed(3)} ton.`,
+            ];
+            break;
+        }
+
+        if (weight - allocated > 0.0005 && !errors.drops) {
+            errors.drops = [
+                `${row.code || 'Pickup'}: allocate remaining ${(weight - allocated).toFixed(3)} ton to drops.`,
+            ];
+        }
+    }
+
+    pickupTotal = Math.round(pickupTotal * 1000) / 1000;
+
+    if (!errors.drops && dropTotal - pickupTotal > 0.0005) {
+        errors.drops = [
+            `Total drop weight (${dropTotal.toFixed(3)}) exceeds total pickup weight (${pickupTotal.toFixed(3)}).`,
+        ];
+    }
+
+    if (mode === 'create' && !hasFreight && !errors.drops) {
+        errors.drops = ['Total freight must be greater than zero before creating a trip.'];
+    }
+
+    return errors;
+}
+
 export function validateTripPayload(
     payload,
     { mode = 'create', previousStatus = null, user = null, tripType = null, hasInvoices = false } = {},
@@ -395,8 +688,14 @@ export function validateTripPayload(
         }
     }
 
-    if (!payload.start_station_id) {
+    const resolvedTripTypeForStart = String(tripType ?? payload.trip_type ?? 'ROUND_TRIP').toUpperCase();
+
+    if (!payload.start_station_id && resolvedTripTypeForStart !== 'MULTI_POINT') {
         errors.start_station_id = ['Select the start station for this trip.'];
+    }
+
+    if (!payload.start_station_id && resolvedTripTypeForStart === 'MULTI_POINT') {
+        errors.pickups = ['Add a pickup station — it is used as the trip start.'];
     }
 
     if (!payload.start_at) {
@@ -546,6 +845,30 @@ export function validateTripPayload(
         if (endMeter > 0 && startMeter > 0 && endMeter < startMeter) {
             errors.end_meter_reading_km = ['End Meter Reading cannot be less than Start Meter Reading.'];
         }
+    }
+
+    const resolvedTripTypeEarly = String(tripType ?? payload.trip_type ?? 'ROUND_TRIP').toUpperCase();
+
+    if (resolvedTripTypeEarly === 'MULTI_POINT') {
+        Object.assign(errors, validateMultiPointPickupsPayload(payload, { mode, startDate, endDate }));
+
+        Object.assign(
+            errors,
+            validateExpenseDates(payload.expenses ?? [], {
+                startAt: payload.start_at || null,
+                endAt: payload.end_at || null,
+            }),
+            validateDieselExpenses(payload.expenses ?? [], {
+                startMeterKm: payload.start_meter_reading_km ?? null,
+                endMeterKm: payload.end_meter_reading_km ?? null,
+            }),
+        );
+
+        if (mode === 'create') {
+            return pickFirstTripValidationError(errors);
+        }
+
+        return errors;
     }
 
     const legs = payload.route_legs ?? [];
@@ -768,6 +1091,7 @@ export function pickFirstTripValidationError(errors = {}) {
         'customer_id',
         'broker_id',
         'notes',
+        'pickups',
         'route_legs',
         'expenses',
         'trip',
@@ -778,6 +1102,16 @@ export function pickFirstTripValidationError(errors = {}) {
         if (errors[key]) {
             return { [key]: errors[key] };
         }
+    }
+
+    const pickupFieldKeys = Object.keys(errors)
+        .filter((key) => /^pickups\.\d+/.test(key))
+        .sort();
+
+    if (pickupFieldKeys.length > 0) {
+        const key = pickupFieldKeys[0];
+
+        return { [key]: errors[key] };
     }
 
     const routeFieldKeys = Object.keys(errors)
@@ -1552,22 +1886,75 @@ export function summarizeTripForm(form) {
     let emptyStops = 0;
     let freightTotal = 0;
     let totalWeightTon = 0;
+    const isMultiPoint = String(form.trip_type ?? '').toUpperCase() === 'MULTI_POINT';
 
-    (form.route_legs ?? []).forEach((leg) => {
-        const weight = Number(leg.weight_ton ?? 0);
-        const classification = classifyLegLoad(weight, maxLoadTon);
+    if (isMultiPoint) {
+        (form.pickups ?? []).forEach((pickup) => {
+            totalWeightTon += Number(pickup.weight_ton ?? 0);
+        });
 
-        if (classification.category === LoadCategory.FULL) {
-            fullLoadStops += 1;
-        } else if (classification.category === LoadCategory.HALF) {
-            halfLoadStops += 1;
+        const tripDrops = form.drops ?? [];
+
+        if (tripDrops.length > 0) {
+            tripDrops.forEach((drop) => {
+                const weight = Array.isArray(drop.allocations) && drop.allocations.length > 0
+                    ? drop.allocations.reduce((sum, allocation) => sum + Number(allocation.weight_ton ?? 0), 0)
+                    : Number(drop.weight_ton ?? 0);
+                const classification = classifyLegLoad(weight, maxLoadTon);
+
+                if (classification.category === LoadCategory.FULL) {
+                    fullLoadStops += 1;
+                } else if (classification.category === LoadCategory.HALF) {
+                    halfLoadStops += 1;
+                } else {
+                    emptyStops += 1;
+                }
+
+                freightTotal += Array.isArray(drop.allocations) && drop.allocations.length > 0
+                    ? drop.allocations.reduce((sum, allocation) => {
+                        if (allocation?.freight_auto_calculate) {
+                            return sum + calculateLegFreight(allocation.weight_ton, allocation.freight_rate);
+                        }
+
+                        return sum + Number(allocation.freight_amount ?? 0);
+                    }, 0)
+                    : Number(drop.freight_amount ?? 0);
+            });
         } else {
-            emptyStops += 1;
-        }
+            (form.pickups ?? []).forEach((pickup) => {
+                (pickup.drops ?? []).forEach((drop) => {
+                    const weight = Number(drop.weight_ton ?? 0);
+                    const classification = classifyLegLoad(weight, maxLoadTon);
 
-        totalWeightTon += weight;
-        freightTotal += Number(leg.freight_amount ?? 0);
-    });
+                    if (classification.category === LoadCategory.FULL) {
+                        fullLoadStops += 1;
+                    } else if (classification.category === LoadCategory.HALF) {
+                        halfLoadStops += 1;
+                    } else {
+                        emptyStops += 1;
+                    }
+
+                    freightTotal += Number(drop.freight_amount ?? 0);
+                });
+            });
+        }
+    } else {
+        (form.route_legs ?? []).forEach((leg) => {
+            const weight = Number(leg.weight_ton ?? 0);
+            const classification = classifyLegLoad(weight, maxLoadTon);
+
+            if (classification.category === LoadCategory.FULL) {
+                fullLoadStops += 1;
+            } else if (classification.category === LoadCategory.HALF) {
+                halfLoadStops += 1;
+            } else {
+                emptyStops += 1;
+            }
+
+            totalWeightTon += weight;
+            freightTotal += Number(leg.freight_amount ?? 0);
+        });
+    }
 
     const expenseTotal = (form.expenses ?? [])
         .filter((e) => Number(e.amount) > 0)
@@ -1580,14 +1967,25 @@ export function summarizeTripForm(form) {
             ? parseNumeric(endMeterRaw)
             : null;
     const meterKm = endMeter !== null && startMeter > 0 ? Math.max(0, endMeter - startMeter) : 0;
-    const routeDistanceKm = (form.route_legs ?? []).reduce((sum, leg) => {
-        const distance = Number(leg.distance_km ?? 0);
+    const routeDistanceKm = isMultiPoint
+        ? ((form.drops?.length ? form.drops : (form.pickups ?? []).flatMap((pickup) => pickup.drops ?? [])) ?? [])
+            .reduce((sum, drop) => {
+                const distance = Number(drop.distance_km ?? 0);
 
-        return sum + (Number.isFinite(distance) && distance > 0 ? distance : 0);
-    }, 0);
+                return sum + (Number.isFinite(distance) && distance > 0 ? distance : 0);
+            }, 0)
+        : (form.route_legs ?? []).reduce((sum, leg) => {
+            const distance = Number(leg.distance_km ?? 0);
+
+            return sum + (Number.isFinite(distance) && distance > 0 ? distance : 0);
+        }, 0);
     const totalKm = meterKm > 0 ? meterKm : routeDistanceKm;
 
-    const legAverageMileage = averageLegExpectedMileage(form.route_legs);
+    const legAverageMileage = averageLegExpectedMileage(
+        isMultiPoint
+            ? (form.drops?.length ? form.drops : (form.pickups ?? []).flatMap((pickup) => pickup.drops ?? []))
+            : form.route_legs,
+    );
     const plannedMileageRaw = form.planned_mileage_km_per_liter;
     const plannedMileage =
         plannedMileageRaw !== '' && plannedMileageRaw != null && Number.isFinite(Number(plannedMileageRaw))

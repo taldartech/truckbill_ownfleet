@@ -122,6 +122,20 @@ class Trip extends Model
         return $this->hasMany(TripRouteLeg::class)->orderBy('sequence_no');
     }
 
+    public function pickups(): HasMany
+    {
+        return $this->hasMany(TripPickup::class)->orderBy('sequence_no');
+    }
+
+    public function isMultiPoint(): bool
+    {
+        $type = $this->trip_type instanceof TripType
+            ? $this->trip_type
+            : TripType::tryFrom((string) $this->trip_type);
+
+        return $type === TripType::MultiPoint;
+    }
+
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);

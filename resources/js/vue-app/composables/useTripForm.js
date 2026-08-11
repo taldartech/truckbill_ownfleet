@@ -12,6 +12,13 @@ import {
 } from '../api/trips';
 import { formatCustomerAddress } from '../utils/customerAddress';
 import { dateOnlyFromDatetimeLocal, toDateInputFromIso } from '../utils/datetime';
+import {
+    allocateTripDropsToPickups,
+    consolidateNestedDropsToTripDrops,
+    dropAllocatedFreight,
+    emptyAllocation,
+    syncDropWeightFromAllocations,
+} from '../utils/multiPointDrops';
 
 export function useTripForm() {
     const form = reactive({
@@ -39,8 +46,42 @@ export function useTripForm() {
         planned_diesel_manually_set: false,
         diesel_rate_per_liter: '',
         route_legs: [],
+        pickups: [],
+        drops: [],
         expenses: [],
     });
+
+    function isMultiPoint() {
+        return String(form.trip_type ?? '').toUpperCase() === 'MULTI_POINT';
+    }
+
+    function emptyPickupForm(sequence = 1) {
+        return {
+            _key: `pickup-${Date.now()}-${sequence}`,
+            pickup_code: `P${String(sequence).padStart(3, '0')}`,
+            station_id: '',
+            consignor_id: '',
+            from_address: '',
+            goods_name: '',
+            weight_ton: '',
+            pickup_date: tripStartDateOnly() || '',
+        };
+    }
+
+    function emptyDropForm(sequence = 1) {
+        return {
+            _key: `drop-${Date.now()}-${sequence}`,
+            drop_code: `D${String(sequence).padStart(3, '0')}`,
+            to_station_id: '',
+            consignee_id: '',
+            to_address: '',
+            weight_ton: '',
+            freight_amount: 0,
+            lr_number: '',
+            remarks: '',
+            allocations: [emptyAllocation()],
+        };
+    }
 
     function resetForm() {
         form.trip_number = '';
@@ -67,6 +108,8 @@ export function useTripForm() {
         form.planned_diesel_manually_set = false;
         form.diesel_rate_per_liter = '';
         form.route_legs = [];
+        form.pickups = [];
+        form.drops = [];
         form.expenses = [];
     }
 
@@ -139,10 +182,37 @@ export function useTripForm() {
     }
 
     function syncTripTypeFromRoute() {
+        if (isMultiPoint()) {
+            return;
+        }
+
         form.trip_type = inferTripTypeFromRoute(form.start_station_id, form.route_legs);
     }
 
+    function switchToMultiPoint() {
+        form.trip_type = 'MULTI_POINT';
+        form.route_legs = [];
+
+        if (!Array.isArray(form.pickups) || form.pickups.length === 0) {
+            form.pickups = [emptyPickupForm(1)];
+        }
+
+        if (!Array.isArray(form.drops) || form.drops.length === 0) {
+            form.drops = [emptyDropForm(1)];
+        }
+    }
+
+    function switchToSequentialRoute() {
+        form.trip_type = 'ONE_WAY';
+        form.pickups = [];
+        form.drops = [];
+    }
+
     function addStop() {
+        if (isMultiPoint()) {
+            return;
+        }
+
         if (!form.start_station_id) {
             return;
         }
@@ -165,6 +235,10 @@ export function useTripForm() {
     }
 
     function addReturnToStart() {
+        if (isMultiPoint()) {
+            return;
+        }
+
         if (!form.start_station_id || form.route_legs.length === 0) {
             return;
         }
@@ -283,74 +357,140 @@ export function useTripForm() {
                 ? Number(trip.diesel_rate_per_liter)
                 : '';
         const tripCustomerId = trip.customer_id ?? '';
+        const tripIsMultiPoint = String(trip.trip_type ?? '').toUpperCase() === 'MULTI_POINT';
 
-        form.route_legs = (trip.route_legs ?? []).map((leg) => {
-            const customerId = leg.customer_id ?? '';
-            const resolvedWeight = resolveLegWeightTon(leg);
-            const freightAmount = Number(leg.freight_amount ?? 0);
-
-            return {
-                id: leg.id ?? null,
-                from_station_id: leg.from_station_id ?? '',
-                to_station_id: leg.to_station_id ?? '',
-                customer_id: customerId ? String(customerId) : '',
-                use_same_customer:
-                    tripCustomerId !== ''
-                    && customerId !== ''
-                    && String(customerId) === String(tripCustomerId),
-                from_city: leg.from_city ?? '',
-                to_city: leg.to_city ?? '',
-                sequence_no: leg.sequence_no ?? 1,
-                freight_rate:
-                    leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
-                freight_amount: Number(leg.freight_amount ?? 0),
-                freight_auto_calculate: resolveLegFreightAutoCalculate(leg),
-                weight_ton: resolvedWeight > 0 ? resolvedWeight : '',
-                expected_mileage_km_per_liter:
-                    leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
+        if (tripIsMultiPoint) {
+            form.pickups = (trip.pickups ?? []).map((pickup, pickupIndex) => ({
+                _key: `pickup-${pickup.id ?? pickupIndex}`,
+                id: pickup.id ?? null,
+                pickup_code: pickup.pickup_code || `P${String(pickupIndex + 1).padStart(3, '0')}`,
+                station_id: pickup.station_id ? String(pickup.station_id) : '',
+                consignor_id: resolveLookupId(customers, pickup.consignor_id, pickup.consignor),
+                from_address: pickup.from_address ?? '',
+                goods_name: pickup.goods_name ?? '',
+                weight_ton:
+                    pickup.weight_ton == null || pickup.weight_ton === ''
                         ? ''
-                        : Number(leg.expected_mileage_km_per_liter),
-                distance_km:
-                    leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
-                        ? ''
-                        : Number(leg.distance_km),
-                ewaybill_no: leg.ewaybill_no ?? '',
-                ewaybill_expiry: leg.ewaybill_expiry ? String(leg.ewaybill_expiry).slice(0, 10) : '',
-                goods_value:
-                    leg.goods_value == null || leg.goods_value === ''
-                        ? ''
-                        : Number(leg.goods_value),
-                goods_name: leg.goods_name ?? '',
-                pickup_date: leg.pickup_date
-                    ? String(leg.pickup_date).slice(0, 10)
+                        : Number(pickup.weight_ton),
+                pickup_date: pickup.pickup_date
+                    ? String(pickup.pickup_date).slice(0, 10)
                     : (dateOnlyFromDatetimeLocal(trip.start_at) || ''),
-                consignor_id: resolveLookupId(customers, leg.consignor_id, leg.consignor),
-                consignee_id: resolveLookupId(customers, leg.consignee_id, leg.consignee),
-                no_of_units:
-                    leg.no_of_units == null || leg.no_of_units === ''
-                        ? ''
-                        : Number(leg.no_of_units),
-                remarks: leg.remarks ?? '',
-            };
-        });
+            }));
 
-        form.route_legs.forEach((leg) => {
-            normalizeRouteLegForSave(leg);
+            const nestedForConsolidate = (trip.pickups ?? []).map((pickup, pickupIndex) => ({
+                ...form.pickups[pickupIndex],
+                drops: (pickup.drops ?? pickup.route_legs ?? []).map((drop, dropIndex) => ({
+                    _key: `drop-${drop.id ?? `${pickupIndex}-${dropIndex}`}`,
+                    id: drop.id ?? null,
+                    drop_code: drop.drop_code || '',
+                    to_station_id: drop.to_station_id ? String(drop.to_station_id) : '',
+                    consignee_id: resolveLookupId(customers, drop.consignee_id, drop.consignee),
+                    to_address: drop.to_address ?? '',
+                    weight_ton:
+                        drop.weight_ton == null || drop.weight_ton === ''
+                            ? ''
+                            : Number(drop.weight_ton),
+                    freight_rate:
+                        drop.freight_rate == null || drop.freight_rate === ''
+                            ? ''
+                            : Number(drop.freight_rate),
+                    freight_amount: Number(drop.freight_amount ?? 0),
+                    freight_auto_calculate: resolveLegFreightAutoCalculate(drop),
+                    distance_km:
+                        drop.distance_km == null || drop.distance_km === '' || Number(drop.distance_km) <= 0
+                            ? ''
+                            : Number(drop.distance_km),
+                    ewaybill_no: drop.ewaybill_no ?? '',
+                    ewaybill_expiry: drop.ewaybill_expiry ? String(drop.ewaybill_expiry).slice(0, 10) : '',
+                    no_of_units:
+                        drop.no_of_units == null || drop.no_of_units === ''
+                            ? ''
+                            : Number(drop.no_of_units),
+                    goods_value:
+                        drop.goods_value == null || drop.goods_value === ''
+                            ? ''
+                            : Number(drop.goods_value),
+                    lr_number: drop.lr_number ?? '',
+                    remarks: drop.remarks ?? '',
+                })),
+            }));
 
-            if (leg.freight_auto_calculate) {
-                leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
+            form.drops = consolidateNestedDropsToTripDrops(nestedForConsolidate);
+            if (form.drops.length === 0) {
+                form.drops = [emptyDropForm(1)];
             }
-        });
 
-        syncLegPickupDates();
+            form.route_legs = [];
+        } else {
+            form.pickups = [];
+            form.drops = [];
+            form.route_legs = (trip.route_legs ?? []).map((leg) => {
+                const customerId = leg.customer_id ?? '';
+                const resolvedWeight = resolveLegWeightTon(leg);
 
-        const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
+                return {
+                    id: leg.id ?? null,
+                    from_station_id: leg.from_station_id ?? '',
+                    to_station_id: leg.to_station_id ?? '',
+                    customer_id: customerId ? String(customerId) : '',
+                    use_same_customer:
+                        tripCustomerId !== ''
+                        && customerId !== ''
+                        && String(customerId) === String(tripCustomerId),
+                    from_city: leg.from_city ?? '',
+                    to_city: leg.to_city ?? '',
+                    sequence_no: leg.sequence_no ?? 1,
+                    freight_rate:
+                        leg.freight_rate == null || leg.freight_rate === '' ? '' : Number(leg.freight_rate),
+                    freight_amount: Number(leg.freight_amount ?? 0),
+                    freight_auto_calculate: resolveLegFreightAutoCalculate(leg),
+                    weight_ton: resolvedWeight > 0 ? resolvedWeight : '',
+                    expected_mileage_km_per_liter:
+                        leg.expected_mileage_km_per_liter == null || leg.expected_mileage_km_per_liter === ''
+                            ? ''
+                            : Number(leg.expected_mileage_km_per_liter),
+                    distance_km:
+                        leg.distance_km == null || leg.distance_km === '' || Number(leg.distance_km) <= 0
+                            ? ''
+                            : Number(leg.distance_km),
+                    ewaybill_no: leg.ewaybill_no ?? '',
+                    ewaybill_expiry: leg.ewaybill_expiry ? String(leg.ewaybill_expiry).slice(0, 10) : '',
+                    goods_value:
+                        leg.goods_value == null || leg.goods_value === ''
+                            ? ''
+                            : Number(leg.goods_value),
+                    goods_name: leg.goods_name ?? '',
+                    pickup_date: leg.pickup_date
+                        ? String(leg.pickup_date).slice(0, 10)
+                        : (dateOnlyFromDatetimeLocal(trip.start_at) || ''),
+                    consignor_id: resolveLookupId(customers, leg.consignor_id, leg.consignor),
+                    consignee_id: resolveLookupId(customers, leg.consignee_id, leg.consignee),
+                    no_of_units:
+                        leg.no_of_units == null || leg.no_of_units === ''
+                            ? ''
+                            : Number(leg.no_of_units),
+                    remarks: leg.remarks ?? '',
+                };
+            });
 
-        if (!hasLegWeight && trip.load_weight_ton != null && trip.load_weight_ton !== '') {
-            const firstLeg = form.route_legs[0];
+            form.route_legs.forEach((leg) => {
+                normalizeRouteLegForSave(leg);
 
-            if (firstLeg) {
-                firstLeg.weight_ton = Number(trip.load_weight_ton);
+                if (leg.freight_auto_calculate) {
+                    leg.freight_amount = calculateLegFreight(leg.weight_ton, leg.freight_rate);
+                }
+            });
+
+            syncLegPickupDates();
+
+            const hasLegWeight = form.route_legs.some((leg) => Number(leg.weight_ton) > 0);
+
+            if (!hasLegWeight && trip.load_weight_ton != null && trip.load_weight_ton !== '') {
+                const firstLeg = form.route_legs[0];
+
+                if (firstLeg) {
+                    firstLeg.weight_ton = Number(trip.load_weight_ton);
+                }
             }
         }
 
@@ -373,7 +513,9 @@ export function useTripForm() {
             other_type: expense.other_type ?? '',
         }));
 
-        rebuildLegChain();
+        if (!tripIsMultiPoint) {
+            rebuildLegChain();
+        }
     }
 
     function addExpense({ routeLegSequence = '', expenseType = 'DIESEL' } = {}) {
@@ -454,13 +596,94 @@ export function useTripForm() {
         // Trip customer and broker are loaded from persisted ids only.
     }
 
+    function buildMultiPointPickupsPayload(stations = [], customers = []) {
+        const preparedDrops = (form.drops ?? []).map((drop, dropIndex) => {
+            syncDropWeightFromAllocations(drop);
+
+            return {
+                ...drop,
+                drop_code: drop.drop_code || `D${String(dropIndex + 1).padStart(3, '0')}`,
+                freight_amount: dropAllocatedFreight(drop),
+            };
+        });
+
+        const { pickups: allocatedPickups, error } = allocateTripDropsToPickups(form.pickups ?? [], preparedDrops);
+
+        if (error) {
+            const allocationError = new Error(error);
+            allocationError.fieldErrors = { drops: [error] };
+            throw allocationError;
+        }
+
+        return allocatedPickups.map((pickup, pickupIndex) => ({
+            pickup_code: pickup.pickup_code || `P${String(pickupIndex + 1).padStart(3, '0')}`,
+            sequence_no: pickupIndex + 1,
+            station_id: pickup.station_id || null,
+            consignor: customerName(customers, pickup.consignor_id),
+            from_address: customerAddress(customers, pickup.consignor_id) || null,
+            goods_name: pickup.goods_name?.trim() || null,
+            weight_ton: parseNumeric(pickup.weight_ton),
+            pickup_date: pickup.pickup_date || null,
+            drops: (pickup.drops ?? []).map((drop, dropIndex) => ({
+                drop_code: drop.drop_code || null,
+                to_station_id: drop.to_station_id || null,
+                to_city: stationName(stations, drop.to_station_id),
+                consignee: customerName(customers, drop.consignee_id),
+                to_address: customerAddress(customers, drop.consignee_id) || null,
+                weight_ton: parseNumeric(drop.weight_ton) > 0 ? parseNumeric(drop.weight_ton) : null,
+                freight_rate:
+                    drop.freight_rate === '' || drop.freight_rate == null
+                        ? null
+                        : Number(drop.freight_rate),
+                freight_amount: parseNumeric(drop.freight_amount) > 0 ? parseNumeric(drop.freight_amount) : 0,
+                distance_km:
+                    drop.distance_km === '' || drop.distance_km == null || Number(drop.distance_km) <= 0
+                        ? null
+                        : Number(drop.distance_km),
+                ewaybill_no: drop.ewaybill_no?.trim?.() || drop.ewaybill_no || null,
+                ewaybill_expiry: drop.ewaybill_expiry || null,
+                no_of_units:
+                    drop.no_of_units === '' || drop.no_of_units == null
+                        ? null
+                        : Number(drop.no_of_units),
+                goods_value:
+                    drop.goods_value === '' || drop.goods_value == null
+                        ? null
+                        : Number(drop.goods_value),
+                lr_number: drop.lr_number?.trim() || null,
+                remarks: drop.remarks?.trim() || null,
+                sequence_no: dropIndex + 1,
+            })),
+        }));
+    }
+
     function buildPayload(stations = [], { mode = 'create', includeExpenses = true, customers = [] } = {}) {
-        rebuildLegChain();
-        syncLegCustomersFromTrip();
+        const multiPoint = isMultiPoint()
+            || (
+                Array.isArray(form.pickups)
+                && form.pickups.length > 0
+                && Array.isArray(form.drops)
+                && form.drops.length > 0
+            );
+
+        if (multiPoint) {
+            form.trip_type = 'MULTI_POINT';
+            const firstPickupStation = (form.pickups ?? []).find((pickup) => pickup?.station_id)?.station_id;
+            if (firstPickupStation) {
+                form.start_station_id = firstPickupStation;
+            }
+        }
+
+        if (!multiPoint) {
+            rebuildLegChain();
+            syncLegCustomersFromTrip();
+        }
 
         const payload = {
             substitute_driver_id: form.substitute_driver_id || null,
-            start_station_id: form.start_station_id,
+            start_station_id: multiPoint
+                ? ((form.pickups ?? []).find((pickup) => pickup?.station_id)?.station_id || form.start_station_id || null)
+                : form.start_station_id,
             start_at: form.start_at || null,
             end_at: form.end_at || null,
             end_meter_reading_km:
@@ -485,50 +708,61 @@ export function useTripForm() {
             cancellation_reason: form.cancellation_reason || null,
             notes: form.notes?.trim() || null,
             actual_arrival_at: form.actual_arrival_at || null,
-            route_legs: form.route_legs.map((leg, index) => {
-                const { weight, freight } = normalizeRouteLegForSave(leg);
+            route_legs: multiPoint
+                ? null
+                : form.route_legs.map((leg, index) => {
+                    const { weight, freight } = normalizeRouteLegForSave(leg);
 
-                return {
-                    from_station_id: leg.from_station_id,
-                    to_station_id: leg.to_station_id,
-                    customer_id: leg.use_same_customer
-                        ? (form.customer_id || null)
-                        : (leg.customer_id || null),
-                    from_city: stationName(stations, leg.from_station_id),
-                    to_city: stationName(stations, leg.to_station_id),
-                    sequence_no: leg.sequence_no || index + 1,
-                    freight_rate:
-                        leg.freight_rate === '' || leg.freight_rate == null ? null : Number(leg.freight_rate),
-                    weight_ton: weight > 0 ? weight : null,
-                    expected_mileage_km_per_liter:
-                        leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
-                            ? null
-                            : Number(leg.expected_mileage_km_per_liter),
-                    distance_km:
-                        leg.distance_km === '' || leg.distance_km == null || Number(leg.distance_km) <= 0
-                            ? null
-                            : Number(leg.distance_km),
-                    ewaybill_no: leg.ewaybill_no?.trim() || null,
-                    ewaybill_expiry: leg.ewaybill_expiry || null,
-                    goods_value:
-                        leg.goods_value === '' || leg.goods_value == null
-                            ? null
-                            : Number(leg.goods_value),
-                    goods_name: leg.goods_name?.trim() || null,
-                    consignor: customerName(customers, leg.consignor_id) || null,
-                    consignee: customerName(customers, leg.consignee_id) || null,
-                    from_address: customerAddress(customers, leg.consignor_id) || null,
-                    to_address: customerAddress(customers, leg.consignee_id) || null,
-                    pickup_date: leg.pickup_date || null,
-                    no_of_units:
-                        leg.no_of_units === '' || leg.no_of_units == null
-                            ? null
-                            : Number(leg.no_of_units),
-                    freight_amount: freight > 0 ? freight : 0,
-                    remarks: leg.remarks || null,
-                };
-            }),
+                    return {
+                        from_station_id: leg.from_station_id,
+                        to_station_id: leg.to_station_id,
+                        customer_id: leg.use_same_customer
+                            ? (form.customer_id || null)
+                            : (leg.customer_id || null),
+                        from_city: stationName(stations, leg.from_station_id),
+                        to_city: stationName(stations, leg.to_station_id),
+                        sequence_no: leg.sequence_no || index + 1,
+                        freight_rate:
+                            leg.freight_rate === '' || leg.freight_rate == null ? null : Number(leg.freight_rate),
+                        weight_ton: weight > 0 ? weight : null,
+                        expected_mileage_km_per_liter:
+                            leg.expected_mileage_km_per_liter === '' || leg.expected_mileage_km_per_liter == null
+                                ? null
+                                : Number(leg.expected_mileage_km_per_liter),
+                        distance_km:
+                            leg.distance_km === '' || leg.distance_km == null || Number(leg.distance_km) <= 0
+                                ? null
+                                : Number(leg.distance_km),
+                        ewaybill_no: leg.ewaybill_no?.trim() || null,
+                        ewaybill_expiry: leg.ewaybill_expiry || null,
+                        goods_value:
+                            leg.goods_value === '' || leg.goods_value == null
+                                ? null
+                                : Number(leg.goods_value),
+                        goods_name: leg.goods_name?.trim() || null,
+                        consignor: customerName(customers, leg.consignor_id) || null,
+                        consignee: customerName(customers, leg.consignee_id) || null,
+                        from_address: customerAddress(customers, leg.consignor_id) || null,
+                        to_address: customerAddress(customers, leg.consignee_id) || null,
+                        pickup_date: leg.pickup_date || null,
+                        no_of_units:
+                            leg.no_of_units === '' || leg.no_of_units == null
+                                ? null
+                                : Number(leg.no_of_units),
+                        freight_amount: freight > 0 ? freight : 0,
+                        remarks: leg.remarks || null,
+                    };
+                }),
         };
+
+        if (multiPoint) {
+            payload.pickups = buildMultiPointPickupsPayload(stations, customers);
+            delete payload.route_legs;
+
+            if (mode === 'create') {
+                payload.trip_type = 'MULTI_POINT';
+            }
+        }
 
         if (includeExpenses) {
             payload.expenses = form.expenses
@@ -561,7 +795,7 @@ export function useTripForm() {
             payload.broker_id = form.broker_id || null;
             payload.vehicle_id = form.vehicle_id;
             payload.driver_id = form.driver_id;
-            payload.trip_type = form.trip_type;
+            payload.trip_type = multiPoint ? 'MULTI_POINT' : form.trip_type;
             payload.start_meter_reading_km = startMeter;
 
             if (form.trip_sequence !== '' && form.trip_sequence != null) {
@@ -571,6 +805,7 @@ export function useTripForm() {
             payload.customer_id = form.customer_id || null;
             payload.broker_id = form.broker_id || null;
             payload.start_meter_reading_km = startMeter;
+            delete payload.trip_type;
         }
 
         return payload;
@@ -675,6 +910,10 @@ export function useTripForm() {
         onStartStationChange,
         onStopStationChange,
         syncTripTypeFromRoute,
+        switchToMultiPoint,
+        switchToSequentialRoute,
+        emptyPickupForm,
+        emptyDropForm,
         addExpense,
         removeExpense,
         buildPayload,
@@ -682,5 +921,6 @@ export function useTripForm() {
         stationName,
         applyLegacyPartyLookups,
         syncLegCustomersFromTrip,
+        isMultiPoint,
     };
 }

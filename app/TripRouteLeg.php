@@ -5,6 +5,7 @@ namespace App;
 use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
+use App\Enums\DropDeliveryStatus;
 use App\Enums\FreightBillingStatus;
 use App\Enums\FreightPaymentStatus;
 use App\Enums\RouteType;
@@ -22,6 +23,8 @@ class TripRouteLeg extends Model
         'tenant_id',
         'branch_id',
         'trip_id',
+        'trip_pickup_id',
+        'drop_code',
         'customer_id',
         'from_station_id',
         'to_station_id',
@@ -51,6 +54,7 @@ class TripRouteLeg extends Model
         'balance_amount',
         'payment_status',
         'billing_status',
+        'delivery_status',
     ];
 
     protected function casts(): array
@@ -70,12 +74,18 @@ class TripRouteLeg extends Model
             'balance_amount' => 'decimal:2',
             'payment_status' => FreightPaymentStatus::class,
             'billing_status' => FreightBillingStatus::class,
+            'delivery_status' => DropDeliveryStatus::class,
         ];
     }
 
     public function trip(): BelongsTo
     {
         return $this->belongsTo(Trip::class);
+    }
+
+    public function pickup(): BelongsTo
+    {
+        return $this->belongsTo(TripPickup::class, 'trip_pickup_id');
     }
 
     public function customer(): BelongsTo

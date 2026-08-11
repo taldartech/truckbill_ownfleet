@@ -423,17 +423,32 @@
         </div>
 
         <!-- ─────────────────────────────────────────────────────────────────
-             SECTION 2 — ROUTE & STOPS
+             SECTION 2 — ROUTE & STOPS / PICKUPS & DROPS
         ───────────────────────────────────────────────────────────────── -->
         <div class="trf-section">
             <div class="trf-section__head trf-section__head--green">
                 <div class="trf-section__head-left">
                     <div class="trf-step-num trf-step-num--green">2</div>
                     <div>
-                        <h2 class="trf-section__title">Route &amp; Stops</h2>
-                        <p class="trf-section__desc">Add stops, then return to source or end the trip</p>
+                        <h2 class="trf-section__title">
+                            {{ isMultiPointLayout ? 'Pickups &amp; Drops' : 'Route &amp; Stops' }}
+                        </h2>
+                        <p class="trf-section__desc">
+                            {{ isMultiPointLayout
+                                ? 'Add pickups and drops — link each drop to one or more pickups'
+                                : 'Add stops, then return to source or end the trip' }}
+                        </p>
                     </div>
                     <span
+                        v-if="isMultiPointLayout"
+                        class="trf-route-type-badge trf-route-type-badge--multi"
+                        title="Multi-point trip"
+                    >
+                        <i class="bi bi-diagram-3"></i>
+                        Multi-Point
+                    </span>
+                    <span
+                        v-else
                         class="trf-route-type-badge"
                         :class="inferredTripTypeLabel
                             ? (isRoundTrip ? 'trf-route-type-badge--round' : 'trf-route-type-badge--oneway')
@@ -451,7 +466,29 @@
                     </span>
                 </div>
                 <div class="trf-section__head-right">
-                    <div v-if="!isFormLocked" class="trf-route-actions">
+                    <div v-if="!isFormLocked && isMultiPointLayout" class="trf-route-actions">
+                        <button
+                            type="button"
+                            class="trf-head-btn trf-head-btn--ghost"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : 'Add a drop'"
+                            @click="addMultiPointDrop"
+                        >
+                            <i class="bi bi-flag-fill"></i>
+                            <span>Add Drop</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="trf-head-btn trf-head-btn--solid"
+                            :disabled="requiresTruckSelection"
+                            :title="requiresTruckSelection ? 'Select a truck first' : 'Add a pickup'"
+                            @click="addMultiPointPickup"
+                        >
+                            <i class="bi bi-plus-lg"></i>
+                            <span>Add Pickup</span>
+                        </button>
+                    </div>
+                    <div v-else-if="!isFormLocked" class="trf-route-actions">
                         <button
                             type="button"
                             class="trf-head-btn trf-head-btn--ghost"
@@ -491,6 +528,33 @@
                     <i class="bi bi-truck-front-fill"></i>
                     <span>Select a truck in Trip Details first, then build the route and stops.</span>
                 </div>
+
+                <template v-if="isMultiPointLayout">
+                    <div v-if="fieldErrors.pickups" class="trf-banner trf-banner--warn mb-3">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>{{ fieldErrorMessage('pickups') }}</span>
+                    </div>
+                    <div v-if="fieldErrors.drops" class="trf-banner trf-banner--warn mb-3">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>{{ fieldErrorMessage('drops') }}</span>
+                    </div>
+
+                    <TripMultiPointRouteBuilder
+                        ref="multiPointBuilderRef"
+                        :pickups="form.pickups"
+                        :drops="form.drops"
+                        :stations="stations"
+                        :customers="customers"
+                        :goods-types="goodsTypes"
+                        :can-quick-add-customer="canQuickAddCustomer"
+                        :can-quick-add-goods-type="canQuickAddGoodsType"
+                        :disabled="isFormLocked || requiresTruckSelection"
+                        @quick-add-consignor="openQuickAddForMpConsignor"
+                        @quick-add-consignee="openQuickAddForMpConsignee"
+                        @quick-add-goods-type="openQuickAddForMpGoodsType"
+                    />
+                </template>
+                <template v-else>
 
                 <div v-if="routeEndedOneWay && !isFormLocked && !requiresTruckSelection" class="trf-banner trf-banner--info mb-3">
                     <i class="bi bi-flag-fill"></i>
@@ -1052,6 +1116,7 @@
                         <span>{{ addStopActionLabel }}</span>
                     </button>
                 </div>
+                </template>
             </div>
         </div>
 
@@ -1293,6 +1358,8 @@ import AppModal from '../ui/AppModal.vue';
 import SearchablePickerRedesigned from '../ui/SearchablePickerRedesigned.vue';
 import AsyncVehicleTripPickerRedesigned from './AsyncVehicleTripPickerRedesigned.vue';
 import TripDieselPerformanceCard from './TripDieselPerformanceCard.vue';
+import TripMultiPointRouteBuilder from './TripMultiPointRouteBuilder.vue';
+import { consolidateNestedDropsToTripDrops, emptyAllocation } from '../../utils/multiPointDrops';
 import BrokerQuickAddModal from './BrokerQuickAddModal.vue';
 import CustomerQuickAddModal from './CustomerQuickAddModal.vue';
 import StationQuickAddModal from './StationQuickAddModal.vue';
@@ -1301,6 +1368,8 @@ import GoodsTypeQuickAddModal from './GoodsTypeQuickAddModal.vue';
 const props = defineProps({
     form: { type: Object, required: true },
     mode: { type: String, default: 'create' },
+    /** sequential = OW/RT route board; multi-point = pickup/drop builder (separate create/edit pages) */
+    routeLayout: { type: String, default: 'sequential' },
     vehicles: { type: Array, default: () => [] },
     drivers: { type: Array, default: () => [] },
     snapshotVehicleLabel: { type: String, default: '' },
@@ -1358,6 +1427,7 @@ const maxDieselRatePerLiter = MAX_DIESEL_RATE_PER_LITER;
 const showAdvanced = ref(false);
 const showSubstituteDriver = ref(false);
 const showStationQuickAdd = ref(false);
+const multiPointBuilderRef = ref(null);
 const showBrokerQuickAdd = ref(false);
 const showCustomerQuickAdd = ref(false);
 const expandedStopIndex = ref(0);
@@ -1381,6 +1451,8 @@ const showRemoveStopConfirm = ref(false);
 const quickAddLegIndex = ref(null);
 const quickAddCustomerLegIndex = ref(null);
 const quickAddCustomerField = ref('customer');
+const quickAddMpPickupIndex = ref(null);
+const quickAddMpDropIndex = ref(null);
 const quickAddGoodsTypeLegIndex = ref(null);
 const pendingRemoveStopIndex = ref(null);
 const routeEndedOneWay = ref(false);
@@ -1498,6 +1570,7 @@ const routeGroups = computed(() => {
     return groups;
 });
 const hasRouteStops = computed(() => (props.form.route_legs ?? []).length > 0);
+const isMultiPointLayout = computed(() => String(props.routeLayout ?? 'sequential') === 'multi-point');
 const isRoundTrip = computed(() => String(props.form.trip_type ?? 'ONE_WAY').toUpperCase() !== 'ONE_WAY');
 const lastRouteLeg = computed(() => {
     const legs = props.form.route_legs ?? [];
@@ -2031,6 +2104,18 @@ watch(
         syncInferredTripType();
     },
 );
+
+watch(
+    () => [props.form.pickups, props.form.drops],
+    () => {
+        if (!isMultiPointLayout.value) {
+            return;
+        }
+
+        saveProgress();
+    },
+    { deep: true },
+);
 function clamp(r, max) { if (r === '' || r == null) return r; const v = Number(r); if (!Number.isFinite(v)) return ''; if (v < 0) return 0; return v > max ? max : v; }
 function stationLabel(id) { if (!id) return '—'; return props.stations.find((s) => String(s.id) === String(id))?.name ?? ('#' + id); }
 function partyLabel(items, id, fallback) { if (!id) return fallback || '—'; return items.find((i) => String(i.id) === String(id))?.name ?? (fallback ?? ('#' + id)); }
@@ -2066,18 +2151,58 @@ function pickupDateMinForStop(index) {
 function formatNum(v) { return Number(v ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }); }
 function formatMoney(v) { return Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function openQuickAddForLeg(i) { quickAddLegIndex.value = i; showStationQuickAdd.value = true; }
+function addMultiPointPickup() {
+    if (!Array.isArray(props.form.pickups)) {
+        props.form.pickups = [];
+    }
+    if (!Array.isArray(props.form.drops)) {
+        props.form.drops = [];
+    }
+    multiPointBuilderRef.value?.addPickup?.();
+    saveProgress();
+}
+function addMultiPointDrop() {
+    if (!Array.isArray(props.form.drops)) {
+        props.form.drops = [];
+    }
+    multiPointBuilderRef.value?.addDrop?.();
+    saveProgress();
+}
 function openQuickAddForTripCustomer() { quickAddCustomerLegIndex.value = null; quickAddCustomerField.value = 'customer'; showCustomerQuickAdd.value = true; }
 function openQuickAddForLegCustomer(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'customer'; showCustomerQuickAdd.value = true; }
 function openQuickAddForLegConsignor(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'consignor'; showCustomerQuickAdd.value = true; }
 function openQuickAddForLegConsignee(i) { quickAddCustomerLegIndex.value = i; quickAddCustomerField.value = 'consignee'; showCustomerQuickAdd.value = true; }
-function openQuickAddForLegGoodsType(i) { quickAddGoodsTypeLegIndex.value = i; showGoodsTypeQuickAdd.value = true; }
+function openQuickAddForMpConsignor(pickupIndex) {
+    quickAddMpPickupIndex.value = pickupIndex;
+    quickAddMpDropIndex.value = null;
+    quickAddCustomerField.value = 'mp-consignor';
+    showCustomerQuickAdd.value = true;
+}
+function openQuickAddForMpConsignee(dropIndex) {
+    quickAddMpPickupIndex.value = null;
+    quickAddMpDropIndex.value = dropIndex;
+    quickAddCustomerField.value = 'mp-consignee';
+    showCustomerQuickAdd.value = true;
+}
+function openQuickAddForMpGoodsType(pickupIndex) {
+    quickAddMpPickupIndex.value = pickupIndex;
+    quickAddGoodsTypeLegIndex.value = null;
+    showGoodsTypeQuickAdd.value = true;
+}
+function openQuickAddForLegGoodsType(i) { quickAddGoodsTypeLegIndex.value = i; quickAddMpPickupIndex.value = null; showGoodsTypeQuickAdd.value = true; }
 function onStationCreated(s) { emit('station-created', { station: s, legIndex: quickAddLegIndex.value }); quickAddLegIndex.value = null; saveProgress(); }
 function onBrokerCreated(b) { emit('broker-created', b); saveProgress(); }
 function onCustomerCreated(customer) {
     const legIndex = quickAddCustomerLegIndex.value;
     const field = quickAddCustomerField.value;
+    const mpPickupIndex = quickAddMpPickupIndex.value;
+    const mpDropIndex = quickAddMpDropIndex.value;
 
-    if (legIndex !== null && props.form.route_legs[legIndex]) {
+    if (field === 'mp-consignor' && mpPickupIndex !== null && props.form.pickups?.[mpPickupIndex]) {
+        props.form.pickups[mpPickupIndex].consignor_id = customer.id;
+    } else if (field === 'mp-consignee' && mpDropIndex !== null && props.form.drops?.[mpDropIndex]) {
+        props.form.drops[mpDropIndex].consignee_id = customer.id;
+    } else if (legIndex !== null && props.form.route_legs[legIndex]) {
         if (field === 'consignor') {
             props.form.route_legs[legIndex].consignor_id = customer.id;
         } else if (field === 'consignee') {
@@ -2088,9 +2213,23 @@ function onCustomerCreated(customer) {
     emit('customer-created', { customer, legIndex: field === 'customer' ? legIndex : null });
     quickAddCustomerLegIndex.value = null;
     quickAddCustomerField.value = 'customer';
+    quickAddMpPickupIndex.value = null;
+    quickAddMpDropIndex.value = null;
     saveProgress();
 }
-function onGoodsTypeCreated(g) { emit('goods-type-created', { goodsType: g, legIndex: quickAddGoodsTypeLegIndex.value }); quickAddGoodsTypeLegIndex.value = null; saveProgress(); }
+function onGoodsTypeCreated(g) {
+    const mpPickupIndex = quickAddMpPickupIndex.value;
+    const legIndex = quickAddGoodsTypeLegIndex.value;
+
+    if (mpPickupIndex !== null && props.form.pickups?.[mpPickupIndex]) {
+        props.form.pickups[mpPickupIndex].goods_name = g.name;
+    }
+
+    emit('goods-type-created', { goodsType: g, legIndex });
+    quickAddGoodsTypeLegIndex.value = null;
+    quickAddMpPickupIndex.value = null;
+    saveProgress();
+}
 function handleVehicleSelection(v) { emit('vehicle-selected', v); saveProgress(); }
 function handleStartStationPickerChange() { emit('start-station-change'); emit('clear-field-error', 'start_station_id'); syncInferredTripType(); saveProgress(); }
 function handleLegStopChange(i) { emit('stop-change', i); routeEndedOneWay.value = false; syncInferredTripType(); saveProgress(); }
@@ -2153,6 +2292,13 @@ function syncInferredTripType() {
         return;
     }
 
+    // Multi-point trips use a fixed trip type; never infer OW/RT from an empty sequential route.
+    if (isMultiPointLayout.value || String(props.form.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+        props.form.trip_type = 'MULTI_POINT';
+
+        return;
+    }
+
     props.form.trip_type = inferTripTypeFromRoute(props.form.start_station_id, props.form.route_legs);
 
     if (String(props.form.trip_type) === 'ROUND_TRIP') {
@@ -2174,6 +2320,11 @@ function handleEnterKey(e) {
 }
 
 const TRIP_CREATE_DRAFT_KEY = 'truckbill_trip_create_draft';
+const TRIP_MP_CREATE_DRAFT_KEY = 'truckbill_trip_mp_create_draft';
+
+function progressDraftKey() {
+    return isMultiPointLayout.value ? TRIP_MP_CREATE_DRAFT_KEY : TRIP_CREATE_DRAFT_KEY;
+}
 
 function saveProgress() {
     if (props.mode !== 'create') {
@@ -2181,7 +2332,7 @@ function saveProgress() {
     }
 
     try {
-        localStorage.setItem(TRIP_CREATE_DRAFT_KEY, JSON.stringify(props.form));
+        localStorage.setItem(progressDraftKey(), JSON.stringify(props.form));
     } catch {
         // Ignore quota / private-mode failures.
     }
@@ -2205,6 +2356,8 @@ function draftHasContent(draft) {
         || (draft.planned_diesel_liters !== '' && draft.planned_diesel_liters != null)
         || (draft.diesel_rate_per_liter !== '' && draft.diesel_rate_per_liter != null)
         || (Array.isArray(draft.route_legs) && draft.route_legs.length > 0)
+        || (Array.isArray(draft.pickups) && draft.pickups.length > 0)
+        || (Array.isArray(draft.drops) && draft.drops.length > 0)
         || (Array.isArray(draft.expenses) && draft.expenses.length > 0),
     );
 }
@@ -2221,6 +2374,85 @@ function applyProgressDraft(draft) {
 
         props.form[key] = draft[key];
     });
+
+    if (!Array.isArray(props.form.drops)) {
+        props.form.drops = [];
+    }
+
+    if (
+        String(props.form.trip_type ?? '').toUpperCase() === 'MULTI_POINT'
+        && props.form.drops.length === 0
+        && (props.form.pickups ?? []).some((pickup) => Array.isArray(pickup?.drops) && pickup.drops.length > 0)
+    ) {
+        props.form.drops = consolidateNestedDropsToTripDrops(props.form.pickups);
+        props.form.pickups = (props.form.pickups ?? []).map((pickup) => {
+            const { drops, ...rest } = pickup;
+
+            return rest;
+        });
+    }
+
+    if (isMultiPointLayout.value) {
+        props.form.trip_type = 'MULTI_POINT';
+        if (!Array.isArray(props.form.pickups)) {
+            props.form.pickups = [];
+        }
+        if (!Array.isArray(props.form.drops)) {
+            props.form.drops = [];
+        }
+
+        props.form.drops = props.form.drops.map((drop) => {
+            const legacyRate = drop.freight_rate === '' || drop.freight_rate == null
+                ? ''
+                : Number(drop.freight_rate);
+            const legacyFreight = Number(drop.freight_amount ?? 0);
+
+            const allocations = Array.isArray(drop.allocations) && drop.allocations.length > 0
+                ? drop.allocations
+                : [{
+                    pickup_key: '',
+                    weight_ton: drop.weight_ton || '',
+                    freight_rate: legacyRate,
+                    freight_amount: legacyFreight,
+                    freight_auto_calculate: false,
+                    distance_km: drop.distance_km || '',
+                    ewaybill_no: drop.ewaybill_no || '',
+                    ewaybill_expiry: drop.ewaybill_expiry || '',
+                    no_of_units: drop.no_of_units || '',
+                    goods_value: drop.goods_value || '',
+                }];
+
+            return {
+                ...drop,
+                allocations: allocations.map((allocation, allocationIndex) => {
+                    const defaults = emptyAllocation();
+                    const merged = {
+                        ...defaults,
+                        ...allocation,
+                        _key: allocation._key || `alloc-${drop._key || Date.now()}-${allocationIndex}`,
+                        pickup_key: allocation.pickup_key ? String(allocation.pickup_key) : '',
+                    };
+
+                    const missingRate = allocation.freight_rate === undefined
+                        || allocation.freight_rate === null
+                        || allocation.freight_rate === '';
+                    const missingFreight = allocation.freight_amount === undefined
+                        || allocation.freight_amount === null;
+
+                    if (allocationIndex === 0 && missingRate && legacyRate !== '') {
+                        merged.freight_rate = legacyRate;
+                    }
+
+                    if (allocationIndex === 0 && missingFreight && legacyFreight > 0) {
+                        merged.freight_amount = legacyFreight;
+                        merged.freight_auto_calculate = false;
+                    }
+
+                    return merged;
+                }),
+            };
+        });
+    }
 
     if (props.form.substitute_driver_id) {
         showSubstituteDriver.value = true;
@@ -2246,7 +2478,7 @@ function restoreProgressDraft() {
         return false;
     }
 
-    const raw = localStorage.getItem(TRIP_CREATE_DRAFT_KEY);
+    const raw = localStorage.getItem(progressDraftKey());
 
     if (!raw) {
         return false;
@@ -2254,6 +2486,15 @@ function restoreProgressDraft() {
 
     try {
         const draft = JSON.parse(raw);
+
+        if (isMultiPointLayout.value) {
+            const draftType = String(draft?.trip_type ?? '').toUpperCase();
+            if (draftType && draftType !== 'MULTI_POINT') {
+                return false;
+            }
+        } else if (String(draft?.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+            return false;
+        }
 
         if (!applyProgressDraft(draft)) {
             return false;
@@ -2269,7 +2510,7 @@ function restoreProgressDraft() {
 
 function clearProgressDraft() {
     try {
-        localStorage.removeItem(TRIP_CREATE_DRAFT_KEY);
+        localStorage.removeItem(progressDraftKey());
     } catch {
         // Ignore storage failures.
     }
@@ -3430,6 +3671,11 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     background: #eff6ff;
     color: #1d4ed8;
     border: 1px solid #bfdbfe;
+}
+.trf-route-type-badge--multi {
+    background: #f5f3ff;
+    color: #5b21b6;
+    border: 1px solid #ddd6fe;
 }
 .trf-route-type-badge--placeholder {
     background: #f8fafc;

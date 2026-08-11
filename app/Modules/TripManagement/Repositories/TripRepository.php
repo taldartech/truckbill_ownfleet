@@ -79,7 +79,11 @@ class TripRepository
                 'substituteDriver',
                 'startStation.city',
                 'routeLegs.customer',
+                'routeLegs.pickup',
                 'routeLegs.trip',
+                'pickups.station',
+                'pickups.drops.customer',
+                'pickups.drops.pickup',
                 'expenses.routeLeg',
                 'statusHistories' => fn ($query) => $query->latest('changed_at'),
             ])

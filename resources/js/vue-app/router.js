@@ -145,6 +145,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.create' },
                 },
                 {
+                    path: 'trips/multi-point/create',
+                    name: 'trips.multi-point.create',
+                    component: () => import('./pages/trips/TripMultiPointCreatePage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.create' },
+                },
+                {
                     path: 'trips/create-redesigned',
                     name: 'trips.create-redesigned',
                     component: () => import('./pages/trips/TripCreateRedesignedPage.vue'),
@@ -170,6 +176,12 @@ const router = createRouter({
                     path: 'trips/:id/edit',
                     name: 'trips.edit',
                     component: () => import('./pages/trips/TripEditRedesignedPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.edit' },
+                },
+                {
+                    path: 'trips/:id/multi-point/edit',
+                    name: 'trips.multi-point.edit',
+                    component: () => import('./pages/trips/TripMultiPointEditPage.vue'),
                     meta: { requiresTenant: true, permission: 'trips.edit' },
                 },
                 {

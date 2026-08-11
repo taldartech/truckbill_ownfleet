@@ -321,6 +321,12 @@ async function loadTrip() {
             return;
         }
 
+        if (String(trip.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+            await router.replace({ name: 'trips.multi-point.edit', params: { id: trip.id } });
+
+            return;
+        }
+
         hasInvoices.value = Boolean(trip.has_invoices);
 
         if (!canFullEditTrip(trip.status, user.value, { has_invoices: hasInvoices.value })) {

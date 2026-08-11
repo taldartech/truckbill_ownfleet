@@ -22,6 +22,9 @@ class TripRouteLegResource extends JsonResource
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
+            'trip_pickup_id' => $this->trip_pickup_id,
+            'drop_code' => $this->drop_code,
+            'pickup_code' => $this->whenLoaded('pickup', fn () => $this->pickup?->pickup_code),
             'customer_id' => $this->customer_id,
             'customer_name' => $this->whenLoaded('customer', fn () => $this->customer?->name),
             'from_station_id' => $this->from_station_id,
@@ -52,6 +55,7 @@ class TripRouteLegResource extends JsonResource
             'balance_amount' => $this->balance_amount,
             'payment_status' => $this->payment_status?->value ?? $this->payment_status,
             'billing_status' => $this->billing_status?->value ?? $this->billing_status,
+            'delivery_status' => $this->delivery_status?->value ?? $this->delivery_status,
         ];
     }
 }

@@ -4,9 +4,11 @@ namespace App\Modules\TripManagement\Services;
 
 use App\Broker;
 use App\Customer;
+use App\Enums\DropDeliveryStatus;
 use App\Enums\FreightPaymentStatus;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
+use App\Enums\TripType;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Station;
 use App\Support\ArchivedTripGuard;
@@ -17,6 +19,7 @@ use App\Support\TripNumberGenerator;
 use App\Support\TyreStintCalculator;
 use App\Trip;
 use App\TripExpense;
+use App\TripPickup;
 use App\TripRouteLeg;
 use App\TripStatusHistory;
 use App\User;
@@ -62,11 +65,15 @@ class TripService
     {
         return DB::transaction(function () use ($data, $userId): Trip {
             $routeLegs = $data['route_legs'] ?? [];
+            $pickups = $data['pickups'] ?? null;
             $expenses = $data['expenses'] ?? [];
             $tripSequence = array_key_exists('trip_sequence', $data) && $data['trip_sequence'] !== null && $data['trip_sequence'] !== ''
                 ? (int) $data['trip_sequence']
                 : null;
-            unset($data['route_legs'], $data['expenses'], $data['trip_number'], $data['trip_sequence']);
+            unset($data['route_legs'], $data['pickups'], $data['expenses'], $data['trip_number'], $data['trip_sequence']);
+
+            $tripType = strtoupper((string) ($data['trip_type'] ?? TripType::RoundTrip->value));
+            $isMultiPoint = $tripType === TripType::MultiPoint->value;
 
             $vehicleId = (string) $data['vehicle_id'];
             $vehicle = Vehicle::query()
@@ -102,11 +109,22 @@ class TripService
 
             $this->tripValidation->assertDriverIsActive($driverId);
             $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $data['start_at'] ?? null);
-            $this->tripValidation->assertRouteLegsAreValid(
-                $routeLegs,
-                isset($data['start_station_id']) ? (int) $data['start_station_id'] : null,
-                (string) ($data['trip_type'] ?? 'ROUND_TRIP'),
-            );
+
+            if ($isMultiPoint) {
+                $customerId = isset($data['customer_id']) && $data['customer_id'] !== '' && $data['customer_id'] !== null
+                    ? (int) $data['customer_id']
+                    : null;
+                $pickups = is_array($pickups) ? $pickups : [];
+                $this->tripValidation->assertMultiPointPickupsAreValid($pickups, $customerId);
+                $routeLegs = $this->expandMultiPointPickupsToRouteLegs($pickups, $customerId);
+            } else {
+                $this->tripValidation->assertRouteLegsAreValid(
+                    $routeLegs,
+                    isset($data['start_station_id']) ? (int) $data['start_station_id'] : null,
+                    $tripType,
+                );
+            }
+
             $this->tripValidation->assertPositiveFreightTotal($routeLegs);
             $this->tripValidation->assertOptionalEndMeterReadingOnCreate($data, $vehicleId);
             $this->tripValidation->assertExpensesAreValid(
@@ -184,7 +202,11 @@ class TripService
 
             $trip = $this->tripRepository->create($tripPayload);
 
-            $this->syncRouteLegs($trip, $routeLegs);
+            if ($isMultiPoint) {
+                $this->syncPickupsAndDrops($trip, is_array($pickups) ? $pickups : []);
+            } else {
+                $this->syncRouteLegs($trip, $routeLegs);
+            }
             $this->syncExpenses($trip, $expenses, $userId);
             $this->recalculateTotals($trip);
 
@@ -245,9 +267,10 @@ class TripService
 
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
+            $pickups = array_key_exists('pickups', $data) ? $data['pickups'] : null;
             $shouldSyncExpenses = array_key_exists('expenses', $data);
             $expenses = $shouldSyncExpenses ? $data['expenses'] : null;
-            unset($data['route_legs'], $data['expenses'], $data['trip_number']);
+            unset($data['route_legs'], $data['pickups'], $data['expenses'], $data['trip_number']);
 
             if (isset($data['status'])) {
                 $this->tripValidation->assertStatusTransition($trip, (string) $data['status'], $data);
@@ -255,15 +278,30 @@ class TripService
 
             $vehicleId = (string) $trip->vehicle_id;
             $driverId = (string) $trip->driver_id;
+            $tripType = $trip->trip_type instanceof TripType
+                ? $trip->trip_type->value
+                : (string) ($trip->trip_type ?? TripType::RoundTrip->value);
+            $isMultiPoint = $tripType === TripType::MultiPoint->value;
 
-            if ($routeLegs !== null) {
+            if ($isMultiPoint && $pickups !== null) {
+                $customerId = array_key_exists('customer_id', $data)
+                    ? (isset($data['customer_id']) && $data['customer_id'] !== '' && $data['customer_id'] !== null
+                        ? (int) $data['customer_id']
+                        : null)
+                    : ($trip->customer_id !== null ? (int) $trip->customer_id : null);
+
+                $this->tripValidation->assertMultiPointPickupsAreValid(
+                    is_array($pickups) ? $pickups : [],
+                    $customerId,
+                );
+                $routeLegs = $this->expandMultiPointPickupsToRouteLegs(
+                    is_array($pickups) ? $pickups : [],
+                    $customerId,
+                );
+            } elseif ($routeLegs !== null) {
                 $startStationId = isset($data['start_station_id'])
                     ? (int) $data['start_station_id']
                     : (int) $trip->start_station_id;
-
-                $tripType = $trip->trip_type instanceof \App\Enums\TripType
-                    ? $trip->trip_type->value
-                    : (string) ($trip->trip_type ?? 'ROUND_TRIP');
 
                 $this->tripValidation->assertRouteLegsAreValid($routeLegs, $startStationId ?: null, $tripType);
             }
@@ -363,7 +401,10 @@ class TripService
                 'updated_by' => $userId,
             ]);
 
-            if ($routeLegs !== null) {
+            if ($isMultiPoint && $pickups !== null) {
+                $this->tripValidation->assertRouteLegsCanBeUpdated($trip, $routeLegs ?? []);
+                $this->replacePickupsAndDrops($trip, is_array($pickups) ? $pickups : []);
+            } elseif ($routeLegs !== null) {
                 $this->tripValidation->assertRouteLegsCanBeUpdated($trip, $routeLegs);
 
                 if ($this->routeLegsStructureMatchesExisting($trip, $routeLegs)) {
@@ -714,7 +755,221 @@ class TripService
             'balance_amount' => max($freightAmount - $advanceReceived, 0),
             'payment_status' => $this->resolvePaymentStatus($freightAmount, $advanceReceived)->value,
             'billing_status' => $leg['billing_status'] ?? ($existing?->billing_status ?? 'unbilled'),
+            'trip_pickup_id' => $leg['trip_pickup_id'] ?? $existing?->trip_pickup_id,
+            'drop_code' => array_key_exists('drop_code', $leg)
+                ? (
+                    isset($leg['drop_code']) && trim((string) $leg['drop_code']) !== ''
+                        ? strtoupper(trim((string) $leg['drop_code']))
+                        : null
+                )
+                : $existing?->drop_code,
+            'delivery_status' => array_key_exists('delivery_status', $leg)
+                ? ($leg['delivery_status'] ?? null)
+                : ($existing?->delivery_status?->value ?? $existing?->delivery_status),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pickups
+     * @return list<array<string, mixed>>
+     */
+    private function expandMultiPointPickupsToRouteLegs(array $pickups, ?int $customerId): array
+    {
+        $routeLegs = [];
+        $sequence = 1;
+        $dropSequence = 1;
+
+        foreach ($pickups as $pickupIndex => $pickup) {
+            if (! is_array($pickup)) {
+                continue;
+            }
+
+            $pickupCode = strtoupper(trim((string) ($pickup['pickup_code'] ?? '')));
+            if ($pickupCode === '') {
+                $pickupCode = sprintf('P%03d', $pickupIndex + 1);
+            }
+
+            $fromStationId = isset($pickup['station_id']) ? (int) $pickup['station_id'] : null;
+            $drops = is_array($pickup['drops'] ?? null) ? $pickup['drops'] : [];
+
+            foreach ($drops as $drop) {
+                if (! is_array($drop)) {
+                    continue;
+                }
+
+                $dropCode = strtoupper(trim((string) ($drop['drop_code'] ?? '')));
+                if ($dropCode === '') {
+                    $dropCode = sprintf('D%03d', $dropSequence);
+                }
+                $dropSequence++;
+
+                $routeLegs[] = [
+                    ...$drop,
+                    'from_station_id' => $fromStationId,
+                    'to_station_id' => $drop['to_station_id'] ?? null,
+                    'from_address' => $drop['from_address'] ?? ($pickup['from_address'] ?? null),
+                    'consignor' => $drop['consignor'] ?? ($pickup['consignor'] ?? null),
+                    'goods_name' => $drop['goods_name'] ?? ($pickup['goods_name'] ?? null),
+                    'pickup_date' => $drop['pickup_date'] ?? ($pickup['pickup_date'] ?? null),
+                    'no_of_units' => $drop['no_of_units'] ?? ($pickup['no_of_units'] ?? null),
+                    'goods_value' => $drop['goods_value'] ?? ($pickup['goods_value'] ?? null),
+                    'ewaybill_no' => $drop['ewaybill_no'] ?? ($pickup['ewaybill_no'] ?? null),
+                    'ewaybill_expiry' => $drop['ewaybill_expiry'] ?? ($pickup['ewaybill_expiry'] ?? null),
+                    'customer_id' => $customerId,
+                    'sequence_no' => $sequence++,
+                    'pickup_code' => $pickupCode,
+                    'drop_code' => $dropCode,
+                    'delivery_status' => DropDeliveryStatus::Delivered->value,
+                ];
+            }
+        }
+
+        return $routeLegs;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pickups
+     */
+    private function syncPickupsAndDrops(Trip $trip, array $pickups): void
+    {
+        $customerId = $trip->customer_id !== null ? (int) $trip->customer_id : null;
+        $stationIds = collect($pickups)
+            ->flatMap(function (array $pickup): array {
+                $ids = [$pickup['station_id'] ?? null];
+                foreach ($pickup['drops'] ?? [] as $drop) {
+                    if (is_array($drop)) {
+                        $ids[] = $drop['to_station_id'] ?? null;
+                    }
+                }
+
+                return $ids;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $stationNames = Station::query()->whereIn('id', $stationIds)->pluck('name', 'id');
+        $dropSequence = 1;
+        $legSequence = 1;
+
+        foreach ($pickups as $pickupIndex => $pickup) {
+            if (! is_array($pickup)) {
+                continue;
+            }
+
+            $pickupCode = strtoupper(trim((string) ($pickup['pickup_code'] ?? '')));
+            if ($pickupCode === '') {
+                $pickupCode = sprintf('P%03d', $pickupIndex + 1);
+            }
+
+            $stationId = (int) $pickup['station_id'];
+            $pickupModel = TripPickup::query()->create([
+                'tenant_id' => $trip->tenant_id,
+                'branch_id' => $trip->branch_id,
+                'trip_id' => $trip->id,
+                'pickup_code' => $pickupCode,
+                'sequence_no' => (int) ($pickup['sequence_no'] ?? ($pickupIndex + 1)),
+                'station_id' => $stationId,
+                'consignor' => $pickup['consignor'] ?? null,
+                'from_address' => isset($pickup['from_address']) && trim((string) $pickup['from_address']) !== ''
+                    ? trim((string) $pickup['from_address'])
+                    : null,
+                'goods_name' => $pickup['goods_name'] ?? null,
+                'no_of_units' => isset($pickup['no_of_units']) && $pickup['no_of_units'] !== '' && $pickup['no_of_units'] !== null
+                    ? max(0, (int) $pickup['no_of_units'])
+                    : null,
+                'goods_value' => isset($pickup['goods_value']) && $pickup['goods_value'] !== '' && $pickup['goods_value'] !== null
+                    ? max(0, round((float) $pickup['goods_value'], 2))
+                    : null,
+                'ewaybill_no' => isset($pickup['ewaybill_no']) && trim((string) $pickup['ewaybill_no']) !== ''
+                    ? trim((string) $pickup['ewaybill_no'])
+                    : null,
+                'ewaybill_expiry' => isset($pickup['ewaybill_expiry']) && $pickup['ewaybill_expiry'] !== '' && $pickup['ewaybill_expiry'] !== null
+                    ? (string) $pickup['ewaybill_expiry']
+                    : null,
+                'pickup_date' => isset($pickup['pickup_date']) && $pickup['pickup_date'] !== '' && $pickup['pickup_date'] !== null
+                    ? (string) $pickup['pickup_date']
+                    : null,
+                'weight_ton' => round((float) ($pickup['weight_ton'] ?? 0), 3),
+            ]);
+
+            foreach ($pickup['drops'] ?? [] as $drop) {
+                if (! is_array($drop)) {
+                    continue;
+                }
+
+                $dropCode = strtoupper(trim((string) ($drop['drop_code'] ?? '')));
+                if ($dropCode === '') {
+                    $dropCode = sprintf('D%03d', $dropSequence);
+                }
+                $dropSequence++;
+
+                $legPayload = [
+                    ...$drop,
+                    'from_station_id' => $stationId,
+                    'to_station_id' => $drop['to_station_id'] ?? null,
+                    'from_city' => $drop['from_city'] ?? $stationNames->get($stationId),
+                    'from_address' => $drop['from_address'] ?? ($pickup['from_address'] ?? null),
+                    'consignor' => $drop['consignor'] ?? ($pickup['consignor'] ?? null),
+                    'goods_name' => $drop['goods_name'] ?? ($pickup['goods_name'] ?? null),
+                    'pickup_date' => $drop['pickup_date'] ?? ($pickup['pickup_date'] ?? null),
+                    'no_of_units' => $drop['no_of_units'] ?? ($pickup['no_of_units'] ?? null),
+                    'goods_value' => $drop['goods_value'] ?? ($pickup['goods_value'] ?? null),
+                    'ewaybill_no' => $drop['ewaybill_no'] ?? ($pickup['ewaybill_no'] ?? null),
+                    'ewaybill_expiry' => $drop['ewaybill_expiry'] ?? ($pickup['ewaybill_expiry'] ?? null),
+                    'customer_id' => $customerId,
+                    'trip_pickup_id' => $pickupModel->id,
+                    'drop_code' => $dropCode,
+                    'delivery_status' => DropDeliveryStatus::Delivered->value,
+                ];
+
+                TripRouteLeg::query()->create([
+                    'tenant_id' => $trip->tenant_id,
+                    'trip_id' => $trip->id,
+                    'sequence_no' => $legSequence++,
+                    ...$this->buildRouteLegAttributes($trip, $legPayload, null, $stationNames),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pickups
+     */
+    private function replacePickupsAndDrops(Trip $trip, array $pickups): void
+    {
+        $expenseSequencesById = TripExpense::query()
+            ->where('trip_id', $trip->id)
+            ->whereNotNull('trip_route_leg_id')
+            ->with('routeLeg:id,sequence_no')
+            ->get()
+            ->mapWithKeys(fn (TripExpense $expense): array => [
+                $expense->id => $expense->routeLeg?->sequence_no,
+            ])
+            ->filter(fn (?int $sequence): bool => $sequence !== null);
+
+        $trip->routeLegs()->delete();
+        $trip->pickups()->delete();
+        $this->syncPickupsAndDrops($trip->fresh(), $pickups);
+
+        if ($expenseSequencesById->isEmpty()) {
+            return;
+        }
+
+        $newLegsBySequence = $trip->fresh()->routeLegs()->get()->keyBy('sequence_no');
+
+        foreach ($expenseSequencesById as $expenseId => $sequenceNo) {
+            $newLegId = $newLegsBySequence->get($sequenceNo)?->id;
+
+            if ($newLegId === null) {
+                continue;
+            }
+
+            TripExpense::query()
+                ->where('id', $expenseId)
+                ->update(['trip_route_leg_id' => $newLegId]);
+        }
     }
 
     private function syncRouteLegs(Trip $trip, array $routeLegs): void

@@ -1,0 +1,465 @@
+<template>
+    <div class="trip-mp-edit-page app-index-page">
+        <div v-if="needsCompanySelection" class="alert alert-warning">
+            Select a company and click <strong>Enter</strong> before editing trips.
+        </div>
+
+        <div v-else-if="loading" class="text-center py-5 text-muted">Loading trip…</div>
+
+        <form v-else novalidate @submit.prevent="handleSubmit">
+            <div v-if="terminalAlert" class="alert alert-secondary mb-3">
+                <i class="bi bi-lock me-1"></i>
+                {{ terminalAlert }}
+            </div>
+
+            <TripFormRedesigned
+                mode="edit"
+                route-layout="multi-point"
+                :show-expenses="false"
+                :form="form"
+                :stations="stations"
+                :brokers="brokers"
+                :customers="customers"
+                :goods-types="goodsTypes"
+                :readonly="isFormReadonly"
+                :can-quick-add-station="canQuickAddStation && canEditTripFields"
+                :can-quick-add-broker="canQuickAddBroker && canEditTripFields"
+                :can-quick-add-customer="canQuickAddCustomer && canEditTripFields"
+                :can-quick-add-goods-type="canQuickAddGoodsType && canEditTripFields"
+                :snapshot-customer-name="snapshotCustomerName"
+                :snapshot-broker-name="snapshotBrokerName"
+                :form-error="tripFormError"
+                :field-errors="fieldErrors"
+                :trip-number-display="form.trip_number"
+                :snapshot-vehicle-label="snapshotVehicleLabel"
+                :snapshot-driver-name="snapshotDriverName"
+                :snapshot-substitute-driver-name="snapshotSubstituteDriverName"
+                :drivers="drivers"
+                :vehicle-odometer-km="vehicleOdometerKm"
+                :vehicle-expected-mileage="vehicleExpectedMileage"
+                :vehicle-fuel-tank-capacity="vehicleFuelTankCapacity"
+                :display-status="originalStatus"
+                :vehicle-make="vehicleMake"
+                :vehicle-model="vehicleModel"
+                @station-created="onStationCreated"
+                @broker-created="onBrokerCreated"
+                @customer-created="onCustomerCreated"
+                @goods-type-created="onGoodsTypeCreated"
+                @clear-field-error="clearFieldError"
+            />
+
+            <div class="trip-form-actions trip-form-actions--inline">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <AppButton
+                        variant="secondary"
+                        outline
+                        size="sm"
+                        icon="bi bi-x-lg"
+                        label="Cancel"
+                        @click="handleCancel"
+                    />
+                    <AppButton
+                        type="submit"
+                        variant="success"
+                        size="sm"
+                        icon="bi bi-floppy-fill"
+                        label="Update"
+                        :loading="saving"
+                        :disabled="saving || !canSave"
+                    />
+                </div>
+            </div>
+        </form>
+
+        <TripSaveConfirmModal
+            :show="showSaveConfirm"
+            :summary="saveConfirmSummary"
+            :saving="saving"
+            confirm-mode="index"
+            @cancel="cancelSaveConfirm"
+            @confirm="confirmSave"
+        />
+    </div>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { listAllBrokers } from '../../api/brokers';
+import { listAllCustomers } from '../../api/customers';
+import { listAllDrivers } from '../../api/drivers';
+import { listAllGoodsTypes } from '../../api/goodsTypes';
+import { listAllStations } from '../../api/stations';
+import {
+    canFullEditTrip,
+    fetchTrip,
+    isMultiPointTripType,
+    isTripArchived,
+    resolveTripEditAccess,
+    updateTrip,
+    validateMultiPointTripForm,
+    validateTripPayload,
+} from '../../api/trips';
+import TripFormRedesigned from '../../components/trips/TripFormRedesigned.vue';
+import TripSaveConfirmModal from '../../components/trips/TripSaveConfirmModal.vue';
+import AppButton from '../../components/ui/AppButton.vue';
+import { useApiFormErrors } from '../../composables/useApiFormErrors';
+import { useAppToast } from '../../composables/useAppToast';
+import { usePermissions } from '../../composables/usePermissions';
+import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { useTripForm } from '../../composables/useTripForm';
+import { useTripListReturn } from '../../composables/useTripListReturn';
+import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
+import { dateOnlyFromDatetimeLocal } from '../../utils/datetime';
+import { scrollToFirstFormError } from '../../utils/formErrors';
+import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
+
+const route = useRoute();
+const router = useRouter();
+const toast = useAppToast();
+const { needsCompanySelection } = useRequireCompanyContext();
+const { tripListReturnTo } = useTripListReturn();
+const { canInCompany, user } = usePermissions();
+const { fieldErrors, formError: tripFormError, clearErrors, clearFieldError, applyApiError } = useApiFormErrors();
+
+const {
+    form,
+    populateFromTrip,
+    buildPayload,
+} = useTripForm();
+
+const canQuickAddStation = computed(
+    () => canInCompany('stations.manage') || canInCompany('trips.edit'),
+);
+const canQuickAddBroker = computed(
+    () => canInCompany('brokers.manage') || canInCompany('trips.edit'),
+);
+const canQuickAddCustomer = computed(
+    () => canInCompany('customers.manage') || canInCompany('trips.edit'),
+);
+const canQuickAddGoodsType = computed(
+    () =>
+        canInCompany('goods_types.manage')
+        || canInCompany('goods_types.create')
+        || canInCompany('trips.edit')
+        || canInCompany('trips.create'),
+);
+
+const stations = ref([]);
+const brokers = ref([]);
+const customers = ref([]);
+const goodsTypes = ref([]);
+const drivers = ref([]);
+const loading = ref(true);
+const saving = ref(false);
+const hasInvoices = ref(false);
+const originalStatus = ref('PENDING');
+const snapshotVehicleLabel = ref('');
+const snapshotDriverName = ref('');
+const snapshotSubstituteDriverName = ref('');
+const snapshotCustomerName = ref('');
+const snapshotBrokerName = ref('');
+const vehicleOdometerKm = ref('');
+const vehicleExpectedMileage = ref('');
+const vehicleFuelTankCapacity = ref('');
+const vehicleMake = ref('');
+const vehicleModel = ref('');
+const showSaveConfirm = ref(false);
+const saveConfirmSummary = ref(buildTripSaveConfirmViewModel({ route_legs: [], pickups: [], expenses: [] }));
+const pendingPayload = ref(null);
+const originalConfirmPayload = ref(null);
+
+const tripEditOptions = computed(() => ({ has_invoices: hasInvoices.value }));
+const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value, tripEditOptions.value));
+const canEditTripFields = computed(() => editAccess.value.fullEdit);
+const isFormReadonly = computed(() => !canEditTripFields.value);
+const canSave = computed(() => canEditTripFields.value);
+
+const terminalAlert = computed(() => {
+    if (canEditTripFields.value) {
+        return '';
+    }
+
+    return 'This trip is read-only.';
+});
+
+const { applyWindowValidation } = useTripWindowValidation(form, {
+    fieldErrors,
+    clearFieldError,
+    ignoreTripId: computed(() => route.params.id),
+});
+
+function onStationCreated({ station }) {
+    stations.value = [station, ...stations.value.filter((item) => item.id !== station.id)];
+}
+
+function onBrokerCreated(broker) {
+    brokers.value = [broker, ...brokers.value.filter((item) => item.id !== broker.id)];
+    form.broker_id = broker.id;
+}
+
+function onCustomerCreated({ customer }) {
+    customers.value = [customer, ...customers.value.filter((item) => item.id !== customer.id)];
+    form.customer_id = customer.id;
+}
+
+function onGoodsTypeCreated({ goodsType }) {
+    goodsTypes.value = [
+        goodsType,
+        ...goodsTypes.value.filter((item) => String(item.id) !== String(goodsType.id)),
+    ];
+}
+
+function handleCancel() {
+    router.push({ name: 'trips.show', params: { id: route.params.id } });
+}
+
+async function loadLookups() {
+    const [stationList, brokerList, customerList, goodsTypeList, driverList] = await Promise.all([
+        listAllStations(),
+        listAllBrokers(),
+        listAllCustomers(),
+        listAllGoodsTypes(),
+        listAllDrivers({ activeOnly: true }),
+    ]);
+
+    stations.value = stationList;
+    brokers.value = brokerList;
+    customers.value = customerList;
+    goodsTypes.value = goodsTypeList;
+    drivers.value = driverList;
+}
+
+async function loadTrip() {
+    loading.value = true;
+    clearErrors();
+
+    try {
+        const trip = await fetchTrip(route.params.id);
+
+        if (isTripArchived(trip)) {
+            toast.error('This trip has been archived and cannot be edited.');
+            await router.replace({ name: 'trips.archived' });
+
+            return;
+        }
+
+        if (!isMultiPointTripType(trip.trip_type)) {
+            await router.replace({ name: 'trips.edit', params: { id: trip.id } });
+
+            return;
+        }
+
+        hasInvoices.value = Boolean(trip.has_invoices);
+
+        if (!canFullEditTrip(trip.status, user.value, { has_invoices: hasInvoices.value })) {
+            const access = resolveTripEditAccess(trip.status, user.value, { has_invoices: hasInvoices.value });
+
+            if (access.expensesOnly) {
+                toast.error('Trip details are locked. Redirecting to expenses.');
+                await router.replace({ name: 'trips.expenses', params: { id: trip.id } });
+
+                return;
+            }
+
+            toast.error(access.invoiceLocked ? 'This trip has invoices and cannot be edited.' : 'This trip cannot be edited.');
+            await router.replace({ name: 'trips.show', params: { id: trip.id } });
+
+            return;
+        }
+
+        populateFromTrip(trip, customers.value);
+        form.trip_type = 'MULTI_POINT';
+        form.trip_number = trip.trip_number ?? '';
+        originalStatus.value = trip.status ?? 'PENDING';
+        snapshotVehicleLabel.value = trip.vehicle?.registration_number ?? '—';
+        snapshotDriverName.value = trip.driver?.name ?? '—';
+        snapshotSubstituteDriverName.value = trip.substitute_driver?.name ?? '';
+        snapshotCustomerName.value = trip.customer_id ? (trip.customer_name ?? '') : '';
+        snapshotBrokerName.value = trip.broker_id ? (trip.broker_name ?? '') : '';
+        vehicleOdometerKm.value = trip.vehicle?.odometer_km ?? '';
+        vehicleExpectedMileage.value = trip.vehicle?.default_mileage_km_per_liter ?? '';
+        vehicleFuelTankCapacity.value = trip.vehicle?.fuel_tank_capacity_ltr ?? '';
+        vehicleMake.value = trip.vehicle?.make ?? '';
+        vehicleModel.value = trip.vehicle?.model ?? '';
+        refreshOriginalConfirmPayload();
+    } catch (error) {
+        applyApiError(error, 'Failed to load trip.');
+        toast.error(tripFormError.value);
+        await router.replace(tripListReturnTo);
+    } finally {
+        loading.value = false;
+    }
+}
+
+function refreshOriginalConfirmPayload() {
+    try {
+        originalConfirmPayload.value = JSON.parse(
+            JSON.stringify(buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value })),
+        );
+    } catch {
+        originalConfirmPayload.value = null;
+    }
+}
+
+function buildConfirmSummary() {
+    return buildTripSaveConfirmViewModel(form, {
+        mode: 'edit',
+        stations: stations.value,
+        customers: customers.value,
+        brokers: brokers.value,
+        drivers: drivers.value,
+        originalPayload: originalConfirmPayload.value,
+        vehicleLabel: snapshotVehicleLabel.value || '—',
+        driverLabel: snapshotDriverName.value || '—',
+        substituteDriverLabel: snapshotSubstituteDriverName.value || '—',
+        tripNumber: form.trip_number,
+    });
+}
+
+async function prepareSave() {
+    if (!canSave.value) {
+        return null;
+    }
+
+    clearErrors();
+
+    const formErrors = validateMultiPointTripForm(form, {
+        mode: 'edit',
+        startDate: dateOnlyFromDatetimeLocal(form.start_at),
+        endDate: dateOnlyFromDatetimeLocal(form.end_at),
+    });
+
+    if (Object.keys(formErrors).length > 0) {
+        fieldErrors.value = formErrors;
+        const firstError = Object.values(formErrors).flat()[0] ?? 'Please fix the error below before saving.';
+        tripFormError.value = firstError;
+        toast.error(firstError);
+        scrollToFirstFormError();
+
+        return null;
+    }
+
+    let payload;
+
+    try {
+        payload = buildPayload(stations.value, {
+            mode: 'edit',
+            includeExpenses: false,
+            customers: customers.value,
+        });
+    } catch (error) {
+        fieldErrors.value = error?.fieldErrors ?? { drops: [error?.message || 'Could not allocate drops to pickups.'] };
+        tripFormError.value = error?.message || 'Could not allocate drops to pickups.';
+        toast.error(tripFormError.value);
+        scrollToFirstFormError();
+
+        return null;
+    }
+
+    const clientErrors = validateTripPayload(
+        {
+            ...payload,
+            start_meter_reading_km: form.start_meter_reading_km,
+            truck_running_meter_km: vehicleOdometerKm.value,
+        },
+        {
+            mode: 'edit',
+            previousStatus: originalStatus.value,
+            user: user.value,
+            tripType: 'MULTI_POINT',
+            hasInvoices: hasInvoices.value,
+        },
+    );
+
+    if (Object.keys(clientErrors).length > 0) {
+        fieldErrors.value = clientErrors;
+        const firstError = Object.values(clientErrors).flat()[0] ?? 'Please fix the error below before saving.';
+        tripFormError.value = firstError;
+        toast.error(firstError);
+        scrollToFirstFormError();
+
+        return null;
+    }
+
+    try {
+        const windowAvailable = await applyWindowValidation();
+
+        if (!windowAvailable) {
+            tripFormError.value = 'This truck already has another open trip in the selected date range.';
+            toast.error(tripFormError.value);
+            scrollToFirstFormError();
+
+            return null;
+        }
+    } catch (error) {
+        if (!applyApiError(error, 'Could not verify trip dates for this truck.')) {
+            tripFormError.value = error?.response?.data?.message ?? 'Could not verify trip dates for this truck.';
+        }
+
+        toast.error(tripFormError.value);
+        scrollToFirstFormError();
+
+        return null;
+    }
+
+    return payload;
+}
+
+async function handleSubmit() {
+    const payload = await prepareSave();
+
+    if (!payload) {
+        return;
+    }
+
+    pendingPayload.value = payload;
+    saveConfirmSummary.value = buildConfirmSummary();
+    showSaveConfirm.value = true;
+}
+
+function cancelSaveConfirm() {
+    showSaveConfirm.value = false;
+    pendingPayload.value = null;
+}
+
+async function confirmSave() {
+    if (!pendingPayload.value) {
+        return;
+    }
+
+    saving.value = true;
+
+    try {
+        await updateTrip(route.params.id, pendingPayload.value);
+        showSaveConfirm.value = false;
+        pendingPayload.value = null;
+        toast.success('Multi-point trip updated.');
+        await router.push({ name: 'trips.show', params: { id: route.params.id } });
+    } catch (error) {
+        showSaveConfirm.value = false;
+
+        if (!applyApiError(error, 'Failed to update multi-point trip.')) {
+            tripFormError.value = error?.response?.data?.message ?? 'Failed to update multi-point trip.';
+        }
+
+        toast.error(tripFormError.value);
+        scrollToFirstFormError();
+    } finally {
+        saving.value = false;
+    }
+}
+
+onMounted(async () => {
+    await loadLookups();
+    await loadTrip();
+});
+</script>
+
+<style scoped>
+.trip-mp-edit-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+}
+</style>

@@ -101,11 +101,58 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
     } = options;
 
     const summary = summarizeTripForm(form);
-    const originalLegs = originalPayload?.route_legs ?? [];
+    const tripType = String(form.trip_type ?? '').toUpperCase() || 'ONE_WAY';
+
+    function flattenPickupsToLegs(pickups = [], customerId = null, tripDrops = null) {
+        if (Array.isArray(tripDrops) && tripDrops.length > 0) {
+            return tripDrops.map((drop) => ({
+                from_station_id: null,
+                to_station_id: drop.to_station_id,
+                customer_id: customerId,
+                goods_name: '',
+                pickup_date: '',
+                weight_ton: drop.weight_ton,
+                freight_rate: drop.freight_rate,
+                freight_amount: drop.freight_amount,
+                distance_km: drop.distance_km,
+                expected_mileage_km_per_liter: drop.expected_mileage_km_per_liter,
+                no_of_units: null,
+            }));
+        }
+
+        return pickups.flatMap((pickup) =>
+            (pickup.drops ?? []).map((drop) => ({
+                from_station_id: pickup.station_id,
+                to_station_id: drop.to_station_id,
+                customer_id: customerId,
+                goods_name: pickup.goods_name,
+                pickup_date: pickup.pickup_date,
+                weight_ton: drop.weight_ton,
+                freight_rate: drop.freight_rate,
+                freight_amount: drop.freight_amount,
+                distance_km: drop.distance_km,
+                expected_mileage_km_per_liter: drop.expected_mileage_km_per_liter,
+                no_of_units: pickup.no_of_units,
+            })),
+        );
+    }
+
+    const displayForm =
+        tripType === 'MULTI_POINT'
+            ? {
+                ...form,
+                route_legs: flattenPickupsToLegs(form.pickups ?? [], form.customer_id, form.drops),
+            }
+            : form;
+
+    const originalLegs =
+        Array.isArray(originalPayload?.route_legs) && originalPayload.route_legs.length > 0
+            ? originalPayload.route_legs
+            : flattenPickupsToLegs(originalPayload?.pickups ?? [], originalPayload?.customer_id);
+
     const originalExpenses = normalizePayloadExpenses(originalPayload?.expenses ?? []);
     const currentExpenses = normalizePayloadExpenses(form.expenses ?? []);
     const maxLoadTon = Number(form.max_load_ton ?? 0);
-    const tripType = String(form.trip_type ?? '').toUpperCase() || 'ONE_WAY';
 
     const detailFields = [
         {
@@ -252,7 +299,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
         }
     }
 
-    const routeLegs = (form.route_legs ?? []).map((leg, index) => {
+    const routeLegs = (displayForm.route_legs ?? []).map((leg, index) => {
         const originalLeg = originalLegs[index];
         const signature = legSignature(leg);
         const isNew = mode === 'edit' && index >= originalLegs.length;
@@ -321,7 +368,7 @@ export function buildTripSaveConfirmViewModel(form, options = {}) {
     });
 
     const removedLegCount =
-        mode === 'edit' ? Math.max(0, originalLegs.length - (form.route_legs ?? []).length) : 0;
+        mode === 'edit' ? Math.max(0, originalLegs.length - (displayForm.route_legs ?? []).length) : 0;
 
     const expenses = currentExpenses.map((expense, index) => {
         const originalExpense = originalExpenses[index];

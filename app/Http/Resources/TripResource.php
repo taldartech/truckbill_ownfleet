@@ -60,6 +60,7 @@ class TripResource extends JsonResource
             'driver' => new DriverResource($this->whenLoaded('driver')),
             'substitute_driver' => new DriverResource($this->whenLoaded('substituteDriver')),
             'route_legs' => TripRouteLegResource::collection($this->whenLoaded('routeLegs')),
+            'pickups' => TripPickupResource::collection($this->whenLoaded('pickups')),
             'expenses' => TripExpenseResource::collection($this->whenLoaded('expenses')),
             'status_histories' => $this->whenLoaded('statusHistories', fn () => $this->statusHistories->map(fn ($history) => [
                 'id' => $history->id,

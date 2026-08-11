@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
+use App\Enums\TripType;
 use App\Http\Requests\Concerns\ValidatesTripRoutePickupSequence;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -51,6 +52,11 @@ class UpdateTripRequest extends FormRequest
             ?? ''
         ));
         $startMeterRequired = $effectiveStatus !== '' && $effectiveStatus !== TripStatus::Pending->value;
+        $isMultiPoint = strtoupper((string) (
+            $trip?->trip_type instanceof TripType
+                ? $trip->trip_type->value
+                : ($trip?->trip_type ?? '')
+        )) === TripType::MultiPoint->value;
 
         return [
             'vehicle_id' => ['prohibited'],
@@ -78,7 +84,11 @@ class UpdateTripRequest extends FormRequest
             'cancellation_reason' => ['required_if:status,CANCELLED', 'nullable', 'string', 'max:1000'],
             'actual_arrival_at' => ['required_if:status,COMPLETED', 'nullable', 'date', 'after_or_equal:start_at'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'route_legs' => ['sometimes', 'array', 'min:1'],
+            'route_legs' => [
+                'sometimes',
+                'array',
+                Rule::when(fn () => ! $isMultiPoint, ['min:1']),
+            ],
             'route_legs.*.from_station_id' => ['required_with:route_legs', 'integer', 'exists:stations,id'],
             'route_legs.*.to_station_id' => ['required_with:route_legs', 'integer', 'exists:stations,id'],
             'route_legs.*.customer_id' => ['nullable', 'integer', 'exists:customers,id'],
@@ -109,6 +119,44 @@ class UpdateTripRequest extends FormRequest
             'route_legs.*.sequence_no' => ['nullable', 'integer', 'min:1'],
             'route_legs.*.freight_amount' => ['nullable', 'numeric', 'min:0'],
             'route_legs.*.remarks' => ['nullable', 'string', 'max:1000'],
+            'pickups' => ['sometimes', 'array', 'min:1'],
+            'pickups.*.pickup_code' => ['nullable', 'string', 'max:32'],
+            'pickups.*.sequence_no' => ['nullable', 'integer', 'min:1'],
+            'pickups.*.station_id' => ['required_with:pickups', 'integer', 'exists:stations,id'],
+            'pickups.*.consignor' => ['nullable', 'string', 'max:120'],
+            'pickups.*.from_address' => ['nullable', 'string', 'max:1000'],
+            'pickups.*.goods_name' => ['nullable', 'string', 'max:120'],
+            'pickups.*.no_of_units' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'pickups.*.goods_value' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'pickups.*.ewaybill_no' => ['nullable', 'string', 'max:64'],
+            'pickups.*.ewaybill_expiry' => ['nullable', 'date'],
+            'pickups.*.pickup_date' => [
+                'nullable',
+                'date',
+                'after_or_equal:start_at',
+                Rule::when(
+                    fn () => filled($this->input('end_at')),
+                    ['before_or_equal:end_at'],
+                ),
+            ],
+            'pickups.*.weight_ton' => ['required_with:pickups', 'numeric', 'gt:0'],
+            'pickups.*.drops' => ['required_with:pickups', 'array', 'min:1'],
+            'pickups.*.drops.*.drop_code' => ['nullable', 'string', 'max:32'],
+            'pickups.*.drops.*.to_station_id' => ['required', 'integer', 'exists:stations,id'],
+            'pickups.*.drops.*.consignee' => ['nullable', 'string', 'max:120'],
+            'pickups.*.drops.*.to_address' => ['nullable', 'string', 'max:1000'],
+            'pickups.*.drops.*.to_city' => ['nullable', 'string', 'max:120'],
+            'pickups.*.drops.*.weight_ton' => ['required', 'numeric', 'gt:0'],
+            'pickups.*.drops.*.freight_rate' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'pickups.*.drops.*.freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'pickups.*.drops.*.distance_km' => ['nullable', 'numeric', 'min:0'],
+            'pickups.*.drops.*.no_of_units' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'pickups.*.drops.*.ewaybill_no' => ['nullable', 'string', 'max:64'],
+            'pickups.*.drops.*.ewaybill_expiry' => ['nullable', 'date'],
+            'pickups.*.drops.*.goods_value' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'pickups.*.drops.*.lr_number' => ['nullable', 'string', 'max:64'],
+            'pickups.*.drops.*.remarks' => ['nullable', 'string', 'max:1000'],
+            'pickups.*.drops.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:50'],
             'expenses' => ['nullable', 'array'],
             'expenses.*.expense_type' => ['required_with:expenses', Rule::enum(TripExpenseType::class)],
             'expenses.*.expense_date' => ['required_with:expenses', 'date'],

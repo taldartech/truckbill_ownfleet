@@ -313,6 +313,175 @@ class TripValidationService
     }
 
     /**
+     * @param  list<array<string, mixed>>  $pickups
+     */
+    public function assertMultiPointPickupsAreValid(array $pickups, ?int $customerId): void
+    {
+        if ($customerId === null) {
+            throw ValidationException::withMessages([
+                'customer_id' => ['Select the customer for this multi-point trip.'],
+            ]);
+        }
+
+        if ($pickups === []) {
+            throw ValidationException::withMessages([
+                'pickups' => ['Add at least one pickup for this multi-point trip.'],
+            ]);
+        }
+
+        $errors = [];
+        $seenPickupCodes = [];
+        $seenDropCodes = [];
+        $hasFreight = false;
+
+        foreach ($pickups as $pickupIndex => $pickup) {
+            if (! is_array($pickup)) {
+                $errors["pickups.{$pickupIndex}"] = ['Invalid pickup payload.'];
+
+                continue;
+            }
+
+            $pickupNo = $pickupIndex + 1;
+            $stationId = isset($pickup['station_id']) ? (int) $pickup['station_id'] : null;
+            $pickupWeight = round((float) ($pickup['weight_ton'] ?? 0), 3);
+            $pickupCode = strtoupper(trim((string) ($pickup['pickup_code'] ?? '')));
+            $drops = $pickup['drops'] ?? [];
+
+            if ($stationId === null) {
+                $errors["pickups.{$pickupIndex}.station_id"] = ["Pickup {$pickupNo}: station is required."];
+            }
+
+            if ($pickupWeight <= 0) {
+                $errors["pickups.{$pickupIndex}.weight_ton"] = ["Pickup {$pickupNo}: weight must be greater than zero."];
+            }
+
+            if ($pickupCode !== '') {
+                if (isset($seenPickupCodes[$pickupCode])) {
+                    $errors["pickups.{$pickupIndex}.pickup_code"] = ["Pickup code {$pickupCode} is already used on this trip."];
+                }
+
+                $seenPickupCodes[$pickupCode] = true;
+            }
+
+            if (! is_array($drops) || $drops === []) {
+                $errors["pickups.{$pickupIndex}.drops"] = ["Pickup {$pickupNo}: add at least one drop."];
+
+                continue;
+            }
+
+            $dropWeightTotal = 0.0;
+
+            foreach ($drops as $dropIndex => $drop) {
+                if (! is_array($drop)) {
+                    $errors["pickups.{$pickupIndex}.drops.{$dropIndex}"] = ['Invalid drop payload.'];
+
+                    continue;
+                }
+
+                $dropNo = $dropIndex + 1;
+                $toStationId = isset($drop['to_station_id']) ? (int) $drop['to_station_id'] : null;
+                $dropWeight = round((float) ($drop['weight_ton'] ?? 0), 3);
+                $freightAmount = round((float) ($drop['freight_amount'] ?? 0), 2);
+                $dropCode = strtoupper(trim((string) ($drop['drop_code'] ?? '')));
+
+                if ($toStationId === null) {
+                    $errors["pickups.{$pickupIndex}.drops.{$dropIndex}.to_station_id"] = [
+                        "Pickup {$pickupNo} drop {$dropNo}: drop station is required.",
+                    ];
+                }
+
+                if ($dropWeight <= 0) {
+                    $errors["pickups.{$pickupIndex}.drops.{$dropIndex}.weight_ton"] = [
+                        "Pickup {$pickupNo} drop {$dropNo}: weight must be greater than zero.",
+                    ];
+                }
+
+                if ($freightAmount > 0) {
+                    $hasFreight = true;
+                }
+
+                if ($dropCode !== '') {
+                    if (isset($seenDropCodes[$dropCode])) {
+                        $errors["pickups.{$pickupIndex}.drops.{$dropIndex}.drop_code"] = [
+                            "Drop code {$dropCode} is already used on this trip.",
+                        ];
+                    }
+
+                    $seenDropCodes[$dropCode] = true;
+                }
+
+                $dropWeightTotal += $dropWeight;
+            }
+
+            $dropWeightTotal = round($dropWeightTotal, 3);
+
+            if ($dropWeightTotal - $pickupWeight > 0.0005) {
+                $errors["pickups.{$pickupIndex}.weight_ton"] = [
+                    "Pickup {$pickupNo}: total drop weight ({$dropWeightTotal}) cannot exceed pickup weight ({$pickupWeight}).",
+                ];
+            }
+        }
+
+        if (! $hasFreight) {
+            $errors['pickups'] = ['At least one drop with freight amount is required.'];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    public function assertMultiPointWeightsFullyAllocated(Trip $trip): void
+    {
+        $trip->loadMissing(['pickups.drops']);
+
+        if ($trip->pickups->isEmpty()) {
+            throw ValidationException::withMessages([
+                'pickups' => ['Multi-point trip has no pickups to complete.'],
+            ]);
+        }
+
+        $errors = [];
+        $pickupTotal = 0.0;
+        $dropTotal = 0.0;
+
+        foreach ($trip->pickups as $index => $pickup) {
+            $pickupWeight = round((float) $pickup->weight_ton, 3);
+            $delivered = $pickup->deliveredWeightTon();
+            $remaining = $pickup->remainingWeightTon();
+            $pickupTotal += $pickupWeight;
+            $dropTotal += $delivered;
+
+            if ($remaining > 0.0005) {
+                $errors["pickups.{$index}.weight_ton"] = [
+                    sprintf(
+                        'Pickup %s still has %.3f ton remaining. Fully allocate all pickup weight before completing the trip.',
+                        $pickup->pickup_code,
+                        $remaining,
+                    ),
+                ];
+            }
+        }
+
+        $pickupTotal = round($pickupTotal, 3);
+        $dropTotal = round($dropTotal, 3);
+
+        if (abs($pickupTotal - $dropTotal) > 0.0005) {
+            $errors['pickups'] = [
+                sprintf(
+                    'Total pickup weight (%.3f) must equal total drop weight (%.3f) before completing the trip.',
+                    $pickupTotal,
+                    $dropTotal,
+                ),
+            ];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $routeLegs
      */
     /**
@@ -677,6 +846,10 @@ class TripValidationService
             $this->assertMeterReadingsOnComplete($trip, $data);
 
             $this->assertCompletionDatesAreValid($trip, $data);
+
+            if ($trip->isMultiPoint()) {
+                $this->assertMultiPointWeightsFullyAllocated($trip);
+            }
         }
 
         if ($next === TripStatus::Cancelled->value) {

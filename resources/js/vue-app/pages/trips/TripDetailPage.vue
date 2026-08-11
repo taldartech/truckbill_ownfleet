@@ -238,6 +238,51 @@
                             <div v-if="routePreview" class="alert alert-light border mb-3 py-2 small">
                                 <strong>Route:</strong> {{ routePreview }}
                             </div>
+
+                            <div
+                                v-if="isMultiPointTrip && tripPickups.length > 0"
+                                class="trip-mp-tree mb-3"
+                            >
+                                <div
+                                    v-for="pickup in tripPickups"
+                                    :key="pickup.id || pickup.pickup_code"
+                                    class="trip-mp-tree__pickup"
+                                >
+                                    <div class="trip-mp-tree__pickup-head">
+                                        <strong>{{ pickup.pickup_code || 'Pickup' }}</strong>
+                                        <span class="text-muted">
+                                            {{ pickup.station?.name || pickup.station_name || '—' }}
+                                            · {{ Number(pickup.weight_ton ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }) }} ton
+                                        </span>
+                                        <span class="badge ms-auto" :class="{
+                                            'bg-success': pickup.delivery_status === 'delivered',
+                                            'bg-warning text-dark': pickup.delivery_status === 'partial',
+                                            'bg-secondary': !pickup.delivery_status || pickup.delivery_status === 'pending',
+                                        }">
+                                            {{ pickup.delivery_status || 'pending' }}
+                                        </span>
+                                    </div>
+                                    <div class="trip-mp-tree__pickup-meta small text-muted mb-2">
+                                        Delivered {{ Number(pickup.delivered_weight_ton ?? pickup.delivered_weight ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }) }}
+                                        · Remaining {{ Number(pickup.remaining_weight_ton ?? pickup.remaining_weight ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }) }}
+                                        <template v-if="pickup.consignor"> · {{ pickup.consignor }}</template>
+                                    </div>
+                                    <div
+                                        v-for="drop in (pickup.drops || [])"
+                                        :key="drop.id || drop.drop_code"
+                                        class="trip-mp-tree__drop"
+                                    >
+                                        <span class="trip-mp-tree__drop-code">{{ drop.drop_code || 'Drop' }}</span>
+                                        <span>
+                                            → {{ drop.to_city || drop.to_station?.name || '—' }}
+                                            · {{ Number(drop.weight_ton ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 }) }} ton
+                                            · ₹{{ formatMoney(drop.freight_amount) }}
+                                        </span>
+                                        <span v-if="drop.lr_number" class="text-muted small">LR {{ drop.lr_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div
                                 v-if="routeLegs.length === 0 && expenses.length === 0"
                                 class="text-muted text-center py-4"
@@ -1001,9 +1046,22 @@ const terminalAlert = computed(() => {
 });
 const statusMeta = computed(() => tripStatusMeta(trip.value?.status));
 
-const routeSectionTitle = computed(() =>
-    trip.value?.trip_type === 'ONE_WAY' ? 'One Way Route' : 'Round Trip Route',
-);
+const routeSectionTitle = computed(() => {
+    const type = String(trip.value?.trip_type ?? '').toUpperCase();
+
+    if (type === 'ONE_WAY') {
+        return 'One Way Route';
+    }
+
+    if (type === 'MULTI_POINT') {
+        return 'Multi-Point Pickups & Drops';
+    }
+
+    return 'Round Trip Route';
+});
+
+const isMultiPointTrip = computed(() => String(trip.value?.trip_type ?? '').toUpperCase() === 'MULTI_POINT');
+const tripPickups = computed(() => trip.value?.pickups ?? []);
 
 const startStationLabel = computed(() => {
     const station = trip.value?.start_station;
@@ -1168,6 +1226,12 @@ function goToExpenses() {
 
 function goToEdit() {
     if (!trip.value?.id) {
+        return;
+    }
+
+    if (String(trip.value.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+        router.push({ name: 'trips.multi-point.edit', params: { id: trip.value.id } });
+
         return;
     }
 
@@ -1818,6 +1882,40 @@ watch(
     font-weight: 700;
     color: #fff;
     white-space: nowrap;
+}
+
+.trip-mp-tree__pickup {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 0.65rem;
+    background: #fff;
+}
+
+.trip-mp-tree__pickup-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.trip-mp-tree__drop {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-left: 0.75rem;
+    padding: 0.35rem 0.5rem;
+    border-left: 3px solid #0d6efd;
+    background: rgba(13, 110, 253, 0.04);
+    border-radius: 0.35rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.875rem;
+}
+
+.trip-mp-tree__drop-code {
+    font-weight: 700;
+    font-size: 0.75rem;
 }
 
 .trip-detail-km-bar {

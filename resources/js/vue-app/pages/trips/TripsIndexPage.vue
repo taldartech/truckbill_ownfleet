@@ -8,14 +8,24 @@
 
         <AppIndexListCard title="Trip Management" :loading="loading" loading-text="Loading trips…">
             <template #toolbar>
-                <AppIndexHeaderButton
-                    v-if="canCreate"
-                    icon="plus"
-                    aria-label="Create trip"
-                    @click="goToCreate"
-                >
-                    Create
-                </AppIndexHeaderButton>
+                <div class="d-flex flex-wrap gap-2">
+                    <AppIndexHeaderButton
+                        v-if="canCreate"
+                        icon="plus"
+                        aria-label="Create trip"
+                        @click="goToCreate"
+                    >
+                        Create
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canCreate"
+                        icon="plus"
+                        aria-label="Create multi-point trip"
+                        @click="goToMultiPointCreate"
+                    >
+                        Multi-Point
+                    </AppIndexHeaderButton>
+                </div>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -570,6 +580,24 @@ function goToCreate() {
     return true;
 }
 
+function goToMultiPointCreate() {
+    if (needsCompanySelection.value) {
+        toast.warning('Select and enter a company before creating a trip.');
+
+        return false;
+    }
+
+    if (!canCreate.value) {
+        toast.error('You do not have permission to create trips.');
+
+        return false;
+    }
+
+    router.push({ name: 'trips.multi-point.create' });
+
+    return true;
+}
+
 function openCreateModalFromRoute() {
     if (route.query.create !== '1') {
         return;
@@ -681,6 +709,13 @@ function goToEdit(trip) {
     }
 
     saveTripListStateToSession(tenantId.value, currentListState());
+
+    if (String(trip.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+        router.push({ name: 'trips.multi-point.edit', params: { id: trip.id } });
+
+        return;
+    }
+
     router.push({ name: 'trips.edit', params: { id: trip.id } });
 }
 
@@ -977,6 +1012,12 @@ onBeforeUnmount(() => {
     color: #146c43;
     background: #e8f5ee;
     border-color: #a3cfbb;
+}
+
+.trip-type-badge--multi-point {
+    color: #5b21b6;
+    background: #f5f3ff;
+    border-color: #ddd6fe;
 }
 
 .trip-type-badge__label {

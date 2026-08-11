@@ -180,6 +180,10 @@ class TripController extends Controller
             'substituteDriver',
             'startStation.city',
             'routeLegs.customer',
+            'routeLegs.pickup',
+            'pickups.station',
+            'pickups.drops.customer',
+            'pickups.drops.pickup',
             'expenses.routeLeg',
             'statusHistories' => fn ($query) => $query->latest('changed_at'),
         ]);

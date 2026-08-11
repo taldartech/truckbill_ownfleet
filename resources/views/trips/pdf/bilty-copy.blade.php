@@ -185,6 +185,19 @@
                 <td class="lr-title-cell">
                     <span class="lr-title">LORRY RECEIPT (LR)</span>
                     <p class="lr-title-meta">LR No: {{ $bilty['lr_number'] }}</p>
+                    @if (! empty($bilty['pickup_code']) || ! empty($bilty['drop_code']))
+                        <p class="lr-title-meta">
+                            @if (! empty($bilty['pickup_code']))
+                                Pickup: {{ $bilty['pickup_code'] }}
+                            @endif
+                            @if (! empty($bilty['pickup_code']) && ! empty($bilty['drop_code']))
+                                ·
+                            @endif
+                            @if (! empty($bilty['drop_code']))
+                                Drop: {{ $bilty['drop_code'] }}
+                            @endif
+                        </p>
+                    @endif
                     <p class="lr-title-meta">Date: {{ $lrDate->format('d-m-Y') }}</p>
                 </td>
             </tr>

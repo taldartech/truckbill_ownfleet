@@ -26,6 +26,7 @@ class TripBiltyService
             'vehicle',
             'driver',
             'routeLegs.customer',
+            'routeLegs.pickup',
         ]);
 
         $lrDate = $trip->start_at?->toDateString() ?? now()->toDateString();
@@ -78,6 +79,8 @@ class TripBiltyService
                 'customer_name' => $customer?->name ?? '—',
                 'customer_gst_number' => $customer?->gst_number,
                 'route_leg_id' => $leg->id,
+                'pickup_code' => $leg->pickup?->pickup_code,
+                'drop_code' => $leg->drop_code,
                 'lr_number' => $lrNumber,
                 'lr_date' => $lrDate,
                 'trip_number' => $trip->trip_number,
