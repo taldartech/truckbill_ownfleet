@@ -54,7 +54,6 @@
                         panel-align="start"
                         :preset-keys="tripDatePresetKeys"
                         :block-future-dates="false"
-                        @change="onDateRangeChange"
                     />
                 </div>
                 <div class="filter-select-col">
@@ -614,10 +613,6 @@ function clearFilters() {
     pagination.currentPage = 1;
     pagination.perPage = 10;
     syncListStateToRoute();
-    loadTrips(1);
-}
-
-function onDateRangeChange() {
     loadTrips(1);
 }
 
