@@ -130,7 +130,7 @@
             line-height: 1.9;
         }
         .footer-note {
-            margin: 10px;
+            margin: 0px 10px 10px 0px;
             text-align: right;
             font-size: 7px;
         }
