@@ -48,21 +48,7 @@
                         </div>
                         <div class="card-body">
                             <form class="row g-3" @submit.prevent="saveAssignment">
-                                <div class="col-12">
-                                    <label class="form-label" for="assign_driver_id">Driver *</label>
-                                    <SearchableSelect
-                                        input-id="assign_driver_id"
-                                        v-model="assignForm.driver_id"
-                                        :items="driverSelectOptions"
-                                        placeholder="Select driver"
-                                        search-placeholder="Search driver by name or mobile"
-                                        empty-message="No unassigned driver found."
-                                        :invalid="hasFieldError(fieldErrors, 'driver_id')"
-                                        :error-message="fieldErrorMessage(fieldErrors, 'driver_id')"
-                                        :plain="false"
-                                    />
-                                </div>
-                                <div class="col-md-6">
+                                                                <div class="col-md-6">
                                     <label class="form-label" for="assign_from">Effective From *</label>
                                     <AppDateInput
                                         input-id="assign_from"
@@ -118,7 +104,21 @@
                                         Driver is available until {{ formatJoiningDate(selectedDriver.availability.available_until) }} due to another scheduled assignment.
                                     </div>
                                 </div>
-                                <div v-if="!editingAssignment" class="col-12">
+                                <div class="col-12">
+                                    <label class="form-label" for="assign_driver_id">Driver *</label>
+                                    <SearchableSelect
+                                        input-id="assign_driver_id"
+                                        v-model="assignForm.driver_id"
+                                        :items="driverSelectOptions"
+                                        placeholder="Select driver"
+                                        search-placeholder="Search driver by name or mobile"
+                                        empty-message="No unassigned driver found."
+                                        :invalid="hasFieldError(fieldErrors, 'driver_id')"
+                                        :error-message="fieldErrorMessage(fieldErrors, 'driver_id')"
+                                        :plain="false"
+                                    />
+                                </div>
+                                <div v-if="!editingAssignment && hasActivePrimary" class="col-12">
                                     <p class="small text-muted mb-0">
                                         The current primary driver on this truck will be closed automatically one day
                                         before the new effective date.
