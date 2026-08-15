@@ -87,6 +87,7 @@ class FleetMonthlyReportService
                     'total_km' => round($totalKm, 2),
                     'diesel_liters' => round($dieselLiters, 2),
                     'average_km_per_liter' => $average,
+                    'total_freight' => $totalRevenue,
                     'total_expense' => round($totalExpense, 2),
                     'tyres_used' => $tyresUsed,
                     'tyre_expense' => round($tyreExpense, 2),
@@ -132,6 +133,7 @@ class FleetMonthlyReportService
             'total_km' => '',
             'diesel_liters' => '',
             'average_km_per_liter' => '',
+            'total_freight' => '',
             'total_expense' => '',
             'tyres_used' => '',
             'tyre_expense' => '',
@@ -148,10 +150,11 @@ class FleetMonthlyReportService
             'total_km' => $summary['rto_entry'],
             'diesel_liters' => 'Challan RTO',
             'average_km_per_liter' => $summary['challan_rto'],
-            'total_expense' => 'Total Saving',
+            'total_freight' => 'Total Saving',
+            'total_expense' => $summary['total_saving'],
             'tyres_used' => $summary['total_tyres_used'],
-            'tyre_expense' => $summary['total_saving'],
-            'saving' => 'Tyre Bill',
+            'tyre_expense' => 'Tyre Bill',
+            'saving' => $summary['tyre_bill'],
         ];
 
         $exportRows[] = [
@@ -162,10 +165,11 @@ class FleetMonthlyReportService
             'total_km' => '',
             'diesel_liters' => '',
             'average_km_per_liter' => '',
-            'total_expense' => $summary['tyre_bill'],
+            'total_freight' => 'Net Saving',
+            'total_expense' => $summary['net_saving'],
             'tyres_used' => $summary['total_tyres_used'],
-            'tyre_expense' => 'Net Saving',
-            'saving' => $summary['net_saving'],
+            'tyre_expense' => '',
+            'saving' => '',
         ];
 
         return $exportRows;
@@ -179,6 +183,38 @@ class FleetMonthlyReportService
     }
 
     /**
+     * Trip month attribution uses the earlier of actual arrival and end date.
+     */
+    private function tripReportDateExpression(string $alias = 'trips'): string
+    {
+        $arrival = "{$alias}.actual_arrival_at";
+        $end = "{$alias}.end_at";
+
+        return "CASE
+            WHEN {$arrival} IS NULL THEN {$end}
+            WHEN {$end} IS NULL THEN {$arrival}
+            WHEN {$arrival} <= {$end} THEN {$arrival}
+            ELSE {$end}
+        END";
+    }
+
+    /**
+     * @template TQuery of \Illuminate\Database\Eloquent\Builder<\App\Trip>|\Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\App\TripExpense>
+     *
+     * @param  TQuery  $query
+     * @return TQuery
+     */
+    private function whereTripReportDateInMonth($query, Carbon $monthStart, Carbon $monthEnd, string $alias = 'trips')
+    {
+        $expression = $this->tripReportDateExpression($alias);
+
+        return $query
+            ->whereRaw("({$expression}) IS NOT NULL")
+            ->whereRaw("DATE({$expression}) >= ?", [$monthStart->toDateString()])
+            ->whereRaw("DATE({$expression}) <= ?", [$monthEnd->toDateString()]);
+    }
+
+    /**
      * @return \Illuminate\Support\Collection<string, object{
      *     vehicle_id: string,
      *     trip_count: int|string,
@@ -189,10 +225,12 @@ class FleetMonthlyReportService
      */
     private function tripStatsByVehicle(Carbon $monthStart, Carbon $monthEnd): \Illuminate\Support\Collection
     {
-        return Trip::query()
-            ->where('status', '!=', TripStatus::Cancelled->value)
-            ->whereDate('start_at', '>=', $monthStart->toDateString())
-            ->whereDate('start_at', '<=', $monthEnd->toDateString())
+        $query = Trip::query()
+            ->where('status', '!=', TripStatus::Cancelled->value);
+
+        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+
+        return $query
             ->groupBy('vehicle_id')
             ->select([
                 'vehicle_id',
@@ -211,12 +249,14 @@ class FleetMonthlyReportService
      */
     private function dieselLitersByVehicle(Carbon $monthStart, Carbon $monthEnd): \Illuminate\Support\Collection
     {
-        return TripExpense::query()
+        $query = TripExpense::query()
             ->join('trips', 'trips.id', '=', 'trip_expenses.trip_id')
             ->where('trip_expenses.expense_type', TripExpenseType::Diesel->value)
-            ->where('trips.status', '!=', TripStatus::Cancelled->value)
-            ->whereDate('trips.start_at', '>=', $monthStart->toDateString())
-            ->whereDate('trips.start_at', '<=', $monthEnd->toDateString())
+            ->where('trips.status', '!=', TripStatus::Cancelled->value);
+
+        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+
+        return $query
             ->groupBy('trips.vehicle_id')
             ->select([
                 'trips.vehicle_id',
@@ -319,13 +359,14 @@ class FleetMonthlyReportService
 
     private function rtoExpenseTotal(Carbon $monthStart, Carbon $monthEnd): float
     {
-        return (float) TripExpense::query()
+        $query = TripExpense::query()
             ->join('trips', 'trips.id', '=', 'trip_expenses.trip_id')
             ->where('trip_expenses.expense_type', TripExpenseType::RtoExpense->value)
-            ->where('trips.status', '!=', TripStatus::Cancelled->value)
-            ->whereDate('trips.start_at', '>=', $monthStart->toDateString())
-            ->whereDate('trips.start_at', '<=', $monthEnd->toDateString())
-            ->sum('trip_expenses.amount');
+            ->where('trips.status', '!=', TripStatus::Cancelled->value);
+
+        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+
+        return (float) $query->sum('trip_expenses.amount');
     }
 
     private function challanTotal(Carbon $monthStart, Carbon $monthEnd): float
