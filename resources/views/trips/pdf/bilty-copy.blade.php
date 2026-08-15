@@ -12,7 +12,7 @@
             margin: 0;
             padding: 0;
         }
-        table { border-collapse: collapse; width: 100%; }
+        table { border-collapse: collapse; width: 100%; padding: 10px;}
         .page-break { page-break-after: always; }
         .container {
             border: 1px solid #000;
@@ -20,7 +20,7 @@
         .lr {
             border: 1px solid #000;
             width: 100%;
-            margin: 0 10px;
+            margin: 0px;
         }
         .lr-header td {
             padding: 10px 12px;
@@ -130,7 +130,7 @@
             line-height: 1.9;
         }
         .footer-note {
-            margin: 10px;
+            margin: 0px 10px 10px 0px;
             text-align: right;
             font-size: 7px;
         }
@@ -161,7 +161,7 @@
                 ? ''.number_format((float) $bilty['declared_value'], 2)
                 : '';
             $freightLabel = $show_freight
-                ? '₹ '.number_format((float) $bilty['freight_amount'], 2)
+                ? ''.number_format((float) $bilty['freight_amount'], 2)
                 : '( TO BE BILLED )';
             $ewbValidity = ! empty($bilty['ewaybill_expiry'])
                 ? \Carbon\Carbon::parse($bilty['ewaybill_expiry'])->format('d-m-Y')
@@ -203,7 +203,7 @@
             </tr>
         </table>
 
-        <table class="lr" style="margin-top: 20px;">
+        <table class="lr" >
             <tr class="party-head">
                 <td>CONSIGNOR (FROM)</td>
                 <td>CONSIGNEE (TO)</td>
@@ -226,7 +226,7 @@
             </tr>
         </table>
 
-        <table class="lr" style="margin-top: 20px;">
+        <table class="lr" >
             <tr class="section-head">
                 <td colspan="4">SHIPMENT DETAILS</td>
             </tr>
@@ -274,7 +274,7 @@
             </tr>
         </table>
 
-        <table class="lr" style="margin-top: 20px;">
+        <table class="lr" >
             <tr class="section-head">
                 <td colspan="4">E-WAY BILL &amp; COMPLIANCE</td>
             </tr>
