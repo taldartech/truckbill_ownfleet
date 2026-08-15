@@ -50,7 +50,6 @@
                         <template v-if="mode === 'create'">
                             <div class="trf-trip-id__meta">
                                 <span class="trf-trip-id__label">Trip Number</span>
-                                <span class="trf-trip-num-badge bg-warning text-dark">Pending</span>
                             </div>
                             <div class="trf-trip-id__value">
                                 <input
