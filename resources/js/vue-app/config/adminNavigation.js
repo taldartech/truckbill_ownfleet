@@ -118,6 +118,13 @@ export const adminNavigation = [
                 permission: 'tyres.manage',
                 requiresTenant: true,
             },
+            {
+                label: 'Challans',
+                icon: 'bi bi-exclamation-triangle nav-icon',
+                to: '/challans',
+                permission: 'challans.view',
+                requiresTenant: true,
+            }
         ],
     },
     {
