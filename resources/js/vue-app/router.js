@@ -78,6 +78,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'challans.view' },
                 },
                 {
+                    path: 'monthly-expenses',
+                    name: 'monthly-expenses.index',
+                    component: () => import('./pages/monthly-expenses/MonthlyExpensesIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'monthly_expenses.view' },
+                },
+                {
                     path: 'maintenance/records',
                     name: 'maintenance.records',
                     component: () => import('./pages/maintenance/MaintenanceRecordsIndexPage.vue'),

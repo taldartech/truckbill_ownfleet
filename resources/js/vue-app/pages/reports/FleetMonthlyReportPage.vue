@@ -105,6 +105,14 @@
                                 <th scope="row">Total Tyres Used</th>
                                 <td class="text-end">{{ formatNumber(summary.total_tyres_used, 0) }}</td>
                             </tr>
+                            <tr
+                                v-for="(item, index) in monthlyExpenseItems"
+                                :key="`${item.particulars}-${index}`"
+                            >
+                                <th scope="row">{{ item.particulars }}</th>
+                                <td class="text-end">{{ formatNumber(item.amount) }}</td>
+                                <td colspan="2"></td>
+                            </tr>
                             <tr>
                                 <th scope="row">Net Saving</th>
                                 <td class="text-end" colspan="3">{{ formatNumber(summary.net_saving) }}</td>
@@ -144,6 +152,8 @@ const summary = ref(null);
 const companyName = ref('');
 const loading = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+
+const monthlyExpenseItems = computed(() => summary.value?.monthly_expense_items ?? []);
 
 function defaultFilters() {
     return {

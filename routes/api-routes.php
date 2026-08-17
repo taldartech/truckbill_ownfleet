@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\FleetMonthlyReportController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MaintenanceServiceTypeController;
+use App\Http\Controllers\Api\MonthlyExpenseController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\PayrollSettingController;
 use App\Http\Controllers\Api\ReportController;
@@ -151,6 +152,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('vehicle-maintenances/due', [VehicleMaintenanceController::class, 'due']);
     Route::get('vehicles/{vehicle}/maintenances', [VehicleMaintenanceController::class, 'forVehicle']);
     Route::apiResource('vehicle-maintenances', VehicleMaintenanceController::class);
+
+    Route::apiResource('monthly-expenses', MonthlyExpenseController::class);
 
     Route::get('/compliance', [ComplianceController::class, 'index']);
     Route::apiResource('challans', ChallanController::class);

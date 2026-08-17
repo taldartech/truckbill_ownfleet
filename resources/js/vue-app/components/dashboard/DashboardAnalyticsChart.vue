@@ -97,9 +97,20 @@
                             ></div>
                         </div>
                     </div>
+                    <div v-if="monthlyExpenses > 0" class="financial-flow__item">
+                        <div class="financial-flow__label-row">
+                            <span class="financial-flow__lbl">
+                                <i class="fas fa-calendar-day text-danger me-1"></i>
+                                Monthly Expenses
+                            </span>
+                            <span class="financial-flow__val">{{ formatCurrency(monthlyExpenses) }}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <p class="trip-profit-card__hint">Completed trips only. Profit = freight − expenses.</p>
+                <p class="trip-profit-card__hint">
+                    Completed trips only. Profit = freight − trip expenses − monthly expenses.
+                </p>
             </div>
 
             <!-- 3. Net Profit Margin -->
@@ -340,6 +351,7 @@ function formatCurrency(value) {
 // Tab 1: Financials Computed
 const totalFreight = computed(() => Number(props.tripStats?.total_freight_amount ?? 0));
 const totalExpenses = computed(() => Number(props.tripStats?.total_expense_amount ?? 0));
+const monthlyExpenses = computed(() => Number(props.tripStats?.monthly_expenses ?? 0));
 const profitAmount = computed(() => Number(props.tripStats?.profit_amount ?? 0));
 
 const profitMargin = computed(() => {

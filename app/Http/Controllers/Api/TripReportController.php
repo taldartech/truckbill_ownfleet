@@ -78,9 +78,7 @@ class TripReportController extends Controller
         $filters = $this->filters($request);
 
         return ReportPaginator::paginate($request, $report($filters), [
-            'summary' => [
-                'trip_count' => $this->tripReportService->filteredTripCount($filters),
-            ],
+            'summary' => $this->tripReportService->financialSummary($filters),
         ]);
     }
 

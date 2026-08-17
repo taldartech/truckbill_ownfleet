@@ -6,9 +6,11 @@ use App\Enums\LoadCategory;
 use App\Enums\TripExpenseType;
 use App\Modules\TripManagement\Repositories\TripRepository;
 use App\Modules\TripManagement\Support\LoadClassifier;
+use App\MonthlyExpense;
 use App\Trip;
 use App\TripExpense;
 use App\TripRouteLeg;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class TripReportService
@@ -21,6 +23,49 @@ class TripReportService
     public function filteredTripCount(array $filters = []): int
     {
         return $this->tripRepository->filteredQuery($filters)->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{
+     *     trip_count: int,
+     *     total_freight_amount: float,
+     *     total_expense_amount: float,
+     *     monthly_expenses: float,
+     *     profit_amount: float
+     * }
+     */
+    public function financialSummary(array $filters = []): array
+    {
+        $trips = $this->tripRepository->filteredQuery($filters)->get();
+
+        $totalFreight = (float) $trips->sum('total_freight_amount');
+        $totalExpense = (float) $trips->sum('total_expense_amount');
+        $tripProfit = (float) $trips->sum(fn (Trip $trip) => $trip->profitAmount());
+        $monthlyExpenses = $this->monthlyExpensesForFilters($filters);
+
+        return [
+            'trip_count' => $trips->count(),
+            'total_freight_amount' => round($totalFreight, 2),
+            'total_expense_amount' => round($totalExpense, 2),
+            'monthly_expenses' => $monthlyExpenses,
+            'profit_amount' => round($tripProfit - $monthlyExpenses, 2),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function monthlyExpensesForFilters(array $filters): float
+    {
+        $fromDate = ! empty($filters['from_date'])
+            ? (string) $filters['from_date']
+            : Carbon::today()->startOfMonth()->toDateString();
+        $toDate = ! empty($filters['to_date'])
+            ? (string) $filters['to_date']
+            : Carbon::today()->toDateString();
+
+        return MonthlyExpense::sumForMonthRange($fromDate, $toDate);
     }
 
     /**

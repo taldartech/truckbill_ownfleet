@@ -124,6 +124,14 @@ export const adminNavigation = [
                 to: '/challans',
                 permission: 'challans.view',
                 requiresTenant: true,
+            },
+            {
+                label: 'Monthly Expenses',
+                icon: 'bi bi-cash-coin nav-icon',
+                to: '/monthly-expenses',
+                activeNames: ['monthly-expenses.index'],
+                permission: 'monthly_expenses.view',
+                requiresTenant: true,
             }
         ],
     },

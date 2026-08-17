@@ -9,6 +9,7 @@ use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
 use App\Modules\TyreManagement\Services\TyreAlertService;
+use App\MonthlyExpense;
 use App\Trip;
 use App\Tyre;
 use App\TyreExpense;
@@ -157,7 +158,9 @@ class FleetDashboardStats
 
         $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
         $totalCustom = (float) (clone $financialQuery)->sum('total_custom_amount');
-        $totalExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
+        $totalTripExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
+        $monthlyExpenses = MonthlyExpense::sumForMonthRange($fromDate, $toDate);
+        $totalExpenses = $totalTripExpenses + $monthlyExpenses;
 
         return [
             'total_count' => (clone $baseQuery)->count(),
@@ -169,6 +172,7 @@ class FleetDashboardStats
             'total_freight_amount' => round($totalFreight, 2),
             'total_custom_amount' => round($totalCustom, 2),
             'total_expense_amount' => round($totalExpenses, 2),
+            'monthly_expenses' => round($monthlyExpenses, 2),
             'profit_amount' => round($totalFreight + $totalCustom - $totalExpenses, 2),
             'running_trips' => self::buildRunningTripsList(),
         ];

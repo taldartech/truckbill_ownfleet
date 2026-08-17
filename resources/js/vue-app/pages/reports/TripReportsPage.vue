@@ -52,6 +52,30 @@
                 </span>
             </div>
 
+            <div
+                v-if="!loading && reportType === 'profitability' && financialSummary"
+                class="px-3 py-3 border-bottom"
+            >
+                <div class="row g-3 small">
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Total Freight</div>
+                        <div class="fw-semibold">{{ formatMoney(financialSummary.total_freight_amount) }}</div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Trip Expenses</div>
+                        <div class="fw-semibold">{{ formatMoney(financialSummary.total_expense_amount) }}</div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Monthly Expenses</div>
+                        <div class="fw-semibold">{{ formatMoney(financialSummary.monthly_expenses) }}</div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="text-muted">Profit</div>
+                        <div class="fw-semibold">{{ formatMoney(financialSummary.profit_amount) }}</div>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
             <table v-else-if="columns.length" class="table table-striped table-hover align-middle mb-0 report-table">
                 <thead class="table-light">
@@ -120,6 +144,7 @@ const reportType = ref(
 const vehicles = ref([]);
 const rows = ref([]);
 const tripCount = ref(null);
+const financialSummary = ref(null);
 const loading = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
@@ -167,6 +192,14 @@ function formatCell(columnKey, value) {
     return formatTableCell(columnKey, value);
 }
 
+function formatMoney(value) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2,
+    }).format(Number(value ?? 0));
+}
+
 function buildFilterParams() {
     const params = {
         from_date: filters.from_date,
@@ -190,11 +223,21 @@ async function loadReport(page = 1) {
         );
         rows.value = result.rows;
         tripCount.value = result.summary?.trip_count ?? result.meta?.total ?? result.rows.length;
+        financialSummary.value =
+            reportType.value === 'profitability' && result.summary
+                ? {
+                      total_freight_amount: result.summary.total_freight_amount ?? 0,
+                      total_expense_amount: result.summary.total_expense_amount ?? 0,
+                      monthly_expenses: result.summary.monthly_expenses ?? 0,
+                      profit_amount: result.summary.profit_amount ?? 0,
+                  }
+                : null;
         syncFromMeta(result.meta, result.rows.length);
     } catch (error) {
         toast.error(error?.response?.data?.message ?? 'Failed to load trip report.');
         rows.value = [];
         tripCount.value = null;
+        financialSummary.value = null;
         resetPagination();
     } finally {
         loading.value = false;

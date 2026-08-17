@@ -6,6 +6,7 @@ use App\Challan;
 use App\DriverAssignment;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
+use App\MonthlyExpense;
 use App\Support\CurrentTenant;
 use App\Tenant;
 use App\Trip;
@@ -98,8 +99,10 @@ class FleetMonthlyReportService
         $rtoEntry = $this->rtoExpenseTotal($monthStart, $monthEnd);
         $challanRto = $this->challanTotal($monthStart, $monthEnd);
         $tyreBill = $this->tyreBillTotal($monthStart, $monthEnd);
+        $monthlyExpenseItems = MonthlyExpense::itemsForMonthRange($monthStart, $monthEnd);
+        $monthlyExpenses = round((float) collect($monthlyExpenseItems)->sum('amount'), 2);
         $totalSaving = round($totals['total_saving'], 2);
-        $netSaving = round($totalSaving - $tyreBill, 2);
+        $netSaving = round($totalSaving - $tyreBill - $monthlyExpenses, 2);
 
         return [
             'month' => $month,
@@ -111,6 +114,8 @@ class FleetMonthlyReportService
                 'challan_rto' => round($challanRto, 2),
                 'total_saving' => $totalSaving,
                 'tyre_bill' => round($tyreBill, 2),
+                'monthly_expense_items' => $monthlyExpenseItems,
+                'monthly_expenses' => $monthlyExpenses,
                 'total_tyres_used' => $totals['total_tyres_used'],
                 'net_saving' => $netSaving,
             ],
@@ -156,6 +161,23 @@ class FleetMonthlyReportService
             'tyre_expense' => 'Tyre Bill',
             'saving' => $summary['tyre_bill'],
         ];
+
+        foreach ($summary['monthly_expense_items'] as $item) {
+            $exportRows[] = [
+                's_no' => '',
+                'registration_number' => $item['particulars'],
+                'driver_name' => $item['amount'],
+                'trip_count' => '',
+                'total_km' => '',
+                'diesel_liters' => '',
+                'average_km_per_liter' => '',
+                'total_freight' => '',
+                'total_expense' => '',
+                'tyres_used' => '',
+                'tyre_expense' => '',
+                'saving' => '',
+            ];
+        }
 
         $exportRows[] = [
             's_no' => '',

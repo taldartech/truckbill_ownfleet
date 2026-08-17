@@ -163,6 +163,9 @@ final class PermissionDefinitions
             'challans.manage' => self::entry('Create & edit challans', 'compliance', 'Legacy manage challans permission.', 1013),
             'challans.delete' => self::entry('Delete challans', 'compliance', 'Delete challan records.', 1014),
 
+            'monthly_expenses.view' => self::entry('View monthly expenses', 'finance', 'View branch monthly expense records.', 1020),
+            'monthly_expenses.manage' => self::entry('Manage monthly expenses', 'finance', 'Create, edit, and delete monthly expense records.', 1021),
+
             'companies.view' => self::entry('View companies', 'companies', 'View company records.', 1100),
             'companies.create' => self::entry('Create company', 'companies', 'Create new companies.', 1101),
             'companies.update' => self::entry('Update company', 'companies', 'Update company profile details.', 1102),

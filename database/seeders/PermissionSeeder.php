@@ -78,6 +78,8 @@ class PermissionSeeder extends Seeder
         'maintenance_reports.export',
         'emis.view',
         'emis.manage',
+        'monthly_expenses.view',
+        'monthly_expenses.manage',
     ];
 
     /**
@@ -174,6 +176,7 @@ class PermissionSeeder extends Seeder
         'maintenance.view',
         'maintenance_reports.view',
         'emis.view',
+        'monthly_expenses.view',
         'notifications.view',
     ];
 

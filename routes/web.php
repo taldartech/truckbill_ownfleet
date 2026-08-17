@@ -6,12 +6,12 @@ use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ManagedUserController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\SubscriptionController as ApiSubscriptionController;
 use App\Http\Controllers\Api\UserRoleController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\Api\SubscriptionController as ApiSubscriptionController;
 use App\Http\Resources\UserResource;
 use App\Support\DashboardPreviewData;
 use Illuminate\Contracts\View\View;
@@ -205,6 +205,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
 
             Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
+            Route::apiResource('monthly-expenses', \App\Http\Controllers\Api\MonthlyExpenseController::class);
 
             Route::get('/maintenance-service-types', [\App\Http\Controllers\Api\MaintenanceServiceTypeController::class, 'index'])
                 ->name('maintenance-service-types.index');
