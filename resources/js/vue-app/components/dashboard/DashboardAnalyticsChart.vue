@@ -97,15 +97,6 @@
                             ></div>
                         </div>
                     </div>
-                    <div v-if="monthlyExpenses > 0" class="financial-flow__item">
-                        <div class="financial-flow__label-row">
-                            <span class="financial-flow__lbl">
-                                <i class="fas fa-calendar-day text-danger me-1"></i>
-                                Monthly Expenses
-                            </span>
-                            <span class="financial-flow__val">{{ formatCurrency(monthlyExpenses) }}</span>
-                        </div>
-                    </div>
                 </div>
 
                 <p class="trip-profit-card__hint">
