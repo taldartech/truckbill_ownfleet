@@ -7,6 +7,7 @@ export async function fetchComplianceAlerts() {
         documents: data.documents ?? [],
         licenses: data.licenses ?? [],
         dueServices: data.due_services ?? [],
+        ewayBills: data.eway_bills ?? [],
         requiresCompany: Boolean(data.requires_company),
     };
 }

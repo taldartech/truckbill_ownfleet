@@ -160,6 +160,91 @@
                     </div>
                 </div>
 
+                <div v-if="ewayBills.length" class="compliance-section">
+                    <div class="dashboard-panel__section-head">
+                        <div class="dashboard-panel__subtitle mb-0">
+                            E-Way Bill Alerts
+                        </div>
+                        <AppButton
+                            size="sm"
+                            outline
+                            variant="primary"
+                            label="Open Trips"
+                            icon="fas fa-arrow-up-right-from-square"
+                            :to="{ name: 'trips.index' }"
+                        />
+                    </div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Vehicle / Trip</th>
+                                    <th>E-Way Bill</th>
+                                    <th>Expiry</th>
+                                    <th>Status</th>
+                                    <th class="text-end" style="width: 3.5rem">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="ewayBill in ewayBills"
+                                    :key="`eway-${ewayBill.id}`"
+                                    class="dashboard-panel__row"
+                                    :class="ewayBill.status === 'expired'
+                                        ? 'dashboard-panel__row--danger'
+                                        : 'dashboard-panel__row--warning'"
+                                >
+                                    <td>
+                                        <div class="fw-medium">
+                                            {{ ewayBill.vehicle_registration ?? '—' }}
+                                        </div>
+                                    </td>
+                                
+                                    <td class="fw-medium">
+                                        {{ ewayBill.ewaybill_no }}
+                                    </td>
+                                
+                                    <td class="text-muted">
+                                        {{ formatDate(ewayBill.expiry_date) }}
+                                    </td>
+                                
+                                    <td>
+                                        <span
+                                            v-if="ewayBill.status === 'expired'"
+                                            class="badge bg-danger"
+                                        >
+                                            Expired
+                                        </span>
+                                    
+                                        <span
+                                            v-else
+                                            class="badge bg-warning text-dark"
+                                        >
+                                            Expiring
+                                        </span>
+                                    </td>
+                                
+                                    <td class="text-end">
+                                        <AppButton
+                                            size="sm"
+                                            variant="primary"
+                                            outline
+                                            icon="fas fa-arrow-up-right-from-square"
+                                            title="Open Trip"
+                                            :to="{
+                                                name: 'trips.index',
+                                                query: {trip_id: ewayBill.trip_id},
+                                                }"
+                                            />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div v-if="dueServices.length" class="compliance-section">
                     <div class="dashboard-panel__section-head">
                         <div class="dashboard-panel__subtitle mb-0">Due Services</div>
@@ -242,6 +327,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    ewayBills: {
+    type: Array,
+    default: () => [],
+    },
     licenses: {
         type: Array,
         default: () => [],
@@ -285,7 +374,8 @@ const isEmpty = computed(
     () =>
         props.documents.length === 0
         && props.licenses.length === 0
-        && props.dueServices.length === 0,
+        && props.dueServices.length === 0
+        && props.ewayBills.length === 0,
 );
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 const licenseTableColspan = computed(() => (props.canManageLicenses ? 5 : 4));
@@ -321,6 +411,12 @@ const summaryItems = computed(() => [
         key: 'licenses',
         label: 'Licenses',
         value: Number(props.summary?.licenses ?? 0),
+        tone: 'info',
+    },
+    {
+        key: 'ewayBills',
+        label: 'E-Way Bills',
+        value: Number(props.summary?.ewayBills ?? 0),
         tone: 'info',
     },
     {
@@ -403,7 +499,7 @@ function handleExpirySaved(payload) {
 
 .compliance-summary-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.75rem;
     margin-bottom: 1.1rem;
 }
@@ -510,7 +606,7 @@ function handleExpirySaved(payload) {
 
 @media (max-width: 767.98px) {
     .compliance-summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -518,5 +614,23 @@ function handleExpirySaved(payload) {
     .compliance-summary-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.dashboard-panel__row--danger {
+    border-left: 3px solid #dc2626;
+    background: rgba(254, 242, 242, 0.55);
+}
+
+.dashboard-panel__row--warning {
+    border-left: 3px solid #d97706;
+    background: rgba(255, 251, 235, 0.55);
+}
+
+.dashboard-panel__row--danger:hover {
+    background: rgba(254, 226, 226, 0.75);
+}
+
+.dashboard-panel__row--warning:hover {
+    background: rgba(254, 243, 199, 0.75);
 }
 </style>

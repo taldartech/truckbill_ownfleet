@@ -3,7 +3,9 @@
 namespace App\Support;
 
 use App\Driver;
+use App\Enums\TripStatus;
 use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceService;
+use App\TripRouteLeg;
 use App\User;
 use App\VehicleDocument;
 use App\VehicleMaintenance;
@@ -18,6 +20,7 @@ class FleetComplianceAlerts
      *     documents: list<array<string, mixed>>,
      *     licenses: list<array<string, mixed>>,
      *     due_services: list<array<string, mixed>>
+     *     eway_bills: list<array<string, mixed>>
      * }
      */
     public static function build(User $user): array
@@ -26,6 +29,7 @@ class FleetComplianceAlerts
         $documents = [];
         $licenses = [];
         $dueServices = [];
+        $ewayBills = [];
 
         $windowEnd = $today->copy()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString();
 
@@ -93,10 +97,47 @@ class FleetComplianceAlerts
                 ->all();
         }
 
+        if ($user->hasPermission('trips.view')) {
+            $ewayBillStart = $today->copy()->subDay()->toDateString();
+            $ewayBillEnd = $today->copy()->addDay()->toDateString();
+
+            $ewayBillQuery = TripRouteLeg::query()
+                ->with([
+                    'trip.vehicle:id,registration_number',
+                ])
+                ->whereHas('trip', function ($query) {
+                    $query->where('status', '!=', TripStatus::Completed->value);
+                })
+                ->whereNotNull('ewaybill_no')
+                ->where('ewaybill_no', '!=', '')
+                ->whereNotNull('ewaybill_expiry')
+                ->whereDate('ewaybill_expiry', '>=', $ewayBillStart)
+                ->whereDate('ewaybill_expiry', '<=', $ewayBillEnd);
+
+            foreach ($ewayBillQuery->get() as $leg) {
+                $ewayBills[] = self::formatEwayBillAlert($leg, $today);
+            }
+
+            usort($ewayBills, function (array $a, array $b): int {
+                if ($a['sort_priority'] !== $b['sort_priority']) {
+                    return $a['sort_priority'] <=> $b['sort_priority'];
+                }
+
+                return $a['expiry_date'] <=> $b['expiry_date'];
+            });
+
+            $ewayBills = array_map(function (array $alert): array {
+                unset($alert['sort_priority']);
+
+                return $alert;
+            }, $ewayBills);
+        }
+
         return [
             'documents' => $documents,
             'licenses' => $licenses,
             'due_services' => $dueServices,
+            'eway_bills' => $ewayBills,
         ];
     }
 
@@ -170,6 +211,34 @@ class FleetComplianceAlerts
             'reminder_days_before' => $document->reminder_days_before,
             'status' => $isExpired ? 'expired' : 'expiring',
             ...$status,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function formatEwayBillAlert(
+        TripRouteLeg $leg,
+        Carbon $today
+    ): array {
+        $expiryDate = $leg->ewaybill_expiry?->copy()->startOfDay();
+
+        $daysRemaining = $expiryDate !== null
+            ? (int) $today->diffInDays($expiryDate, false)
+            : null;
+
+        $isExpired = $expiryDate !== null && $expiryDate->lt($today);
+
+        return [
+            'id' => $leg->id,
+            'trip_id' => $leg->trip_id,
+            'vehicle_id' => $leg->trip?->vehicle_id,
+            'vehicle_registration' => $leg->trip?->vehicle?->registration_number,
+            'ewaybill_no' => $leg->ewaybill_no,
+            'expiry_date' => $expiryDate?->toDateString(),
+            'days_remaining' => $daysRemaining,
+            'status' => $isExpired ? 'expired' : 'expiring',
+            'sort_priority' => $isExpired ? 0 : 1,
         ];
     }
 }

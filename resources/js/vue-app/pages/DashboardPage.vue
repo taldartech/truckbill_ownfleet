@@ -82,6 +82,7 @@
                             :documents="compliancePreview.documents"
                             :licenses="compliancePreview.licenses"
                             :due-services="compliancePreview.dueServices"
+                            :eway-bills="compliancePreview.ewayBills"
                             :summary="complianceSummary"
                             :loading="complianceLoading"
                             :can-manage-licenses="canManageDrivers"
@@ -156,7 +157,7 @@ const tripStats = ref(null);
 const tyreStats = ref(null);
 const requiresCompany = ref(false);
 const complianceLoading = ref(false);
-const compliancePreview = ref({ documents: [], licenses: [], dueServices: [] });
+const compliancePreview = ref({ documents: [], licenses: [], dueServices: [], ewayBills: [] });
 const complianceSummary = ref({
     total: 0,
     expired: 0,
@@ -236,21 +237,25 @@ function emptyComplianceSummary() {
 }
 
 function emptyCompliancePreview() {
-    return { documents: [], licenses: [], dueServices: [] };
+    return { documents: [], licenses: [], dueServices: [], ewayBills: [] };
 }
 
-function buildComplianceSummary(documents, licenses, dueServices) {
+function buildComplianceSummary(documents, licenses, dueServices, ewayBills) {
     const documentAndLicenseItems = [...documents, ...licenses];
+    const expiredEwayBills = ewayBills.filter(
+        (item) => item.status === 'expired',
+    ).length;
     const expired = documentAndLicenseItems.filter(
         (item) => item.status === 'expired' || item.status_tier === 'expired',
     ).length;
 
     return {
-        total: documentAndLicenseItems.length + dueServices.length,
-        expired,
-        expiring: documentAndLicenseItems.length - expired,
+        total: documentAndLicenseItems.length + dueServices.length + ewayBills.length,
+        expired: expired + expiredEwayBills ,
+        expiring: documentAndLicenseItems.length - expired + ewayBills.filter(item => item.status === 'expiring').length,
         licenses: licenses.length,
         dueServices: dueServices.length,
+        ewayBills: ewayBills.length,
     };
 }
 
@@ -258,12 +263,14 @@ function applyComplianceAlerts(alerts) {
     const documents = sortDocumentsByUrgency(alerts.documents ?? []);
     const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
     const dueServices = alerts.dueServices ?? [];
+    const ewayBills = alerts.ewayBills ?? [];
 
-    complianceSummary.value = buildComplianceSummary(documents, licenses, dueServices);
+    complianceSummary.value = buildComplianceSummary(documents, licenses, dueServices, ewayBills);
     compliancePreview.value = {
         documents: documents.slice(0, 5),
         licenses: licenses.slice(0, 5),
         dueServices: dueServices.slice(0, 5),
+        ewayBills: ewayBills.slice(0, 5),
     };
 }
 
