@@ -47,7 +47,7 @@ class MonthlyExpenseController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.create');
 
         $validated = $this->validatedPayload($request);
         $expense = MonthlyExpense::query()->create($validated);
@@ -64,7 +64,7 @@ class MonthlyExpenseController extends Controller
 
     public function update(Request $request, MonthlyExpense $monthlyExpense): JsonResponse
     {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.edit');
 
         $monthlyExpense->update($this->validatedPayload($request));
 
@@ -73,7 +73,7 @@ class MonthlyExpenseController extends Controller
 
     public function destroy(MonthlyExpense $monthlyExpense): Response
     {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.edit');
         $monthlyExpense->delete();
 
         return response()->noContent();

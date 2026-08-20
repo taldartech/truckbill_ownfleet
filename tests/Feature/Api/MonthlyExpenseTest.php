@@ -191,13 +191,51 @@ class MonthlyExpenseTest extends TestCase
             ->assertJsonPath('summary.profit_amount', 14000);
     }
 
-    public function test_moderator_without_permission_cannot_access_monthly_expenses(): void
+    public function test_moderator_can_view_and_create_monthly_expenses(): void
     {
-        [, $user] = $this->createFixtures('moderator');
+        [$tenant, $user] = $this->createFixtures('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/monthly-expenses')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $create = $this->actingAs($user)
+            ->postJson('/app/api/monthly-expenses', [
+                'month' => '2026-08',
+                'particulars' => 'Yard rent',
+                'amount' => 800,
+            ])
+            ->assertCreated();
+
+        $expenseId = $create->json('data.id');
+
+        $this->assertDatabaseHas('monthly_expenses', [
+            'tenant_id' => $tenant->id,
+            'id' => $expenseId,
+            'month' => '2026-08',
+            'particulars' => 'Yard rent',
+            'amount' => 800.00,
+        ]);
+
+        $this->actingAs($user)
+            ->putJson("/app/api/monthly-expenses/{$expenseId}", [
+                'month' => '2026-08',
+                'particulars' => 'Yard rent updated',
+                'amount' => 900,
+            ])
             ->assertForbidden();
+
+        $this->actingAs($user)
+            ->deleteJson("/app/api/monthly-expenses/{$expenseId}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_expenses', [
+            'tenant_id' => $tenant->id,
+            'id' => $expenseId,
+            'particulars' => 'Yard rent',
+            'amount' => 800.00,
+        ]);
     }
 
     /**

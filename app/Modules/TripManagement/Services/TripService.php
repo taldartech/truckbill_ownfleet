@@ -24,6 +24,7 @@ use App\TripRouteLeg;
 use App\TripStatusHistory;
 use App\User;
 use App\Vehicle;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -270,7 +271,12 @@ class TripService
             $pickups = array_key_exists('pickups', $data) ? $data['pickups'] : null;
             $shouldSyncExpenses = array_key_exists('expenses', $data);
             $expenses = $shouldSyncExpenses ? $data['expenses'] : null;
+            $statusChangeRequested = $this->isStatusChangeRequested($trip, $data);
             unset($data['route_legs'], $data['pickups'], $data['expenses'], $data['trip_number']);
+
+            if ($statusChangeRequested && ! ($user?->hasPermission('trips.change_status') ?? false)) {
+                throw new AuthorizationException('You are not allowed to change trip status.');
+            }
 
             if (isset($data['status'])) {
                 $this->tripValidation->assertStatusTransition($trip, (string) $data['status'], $data);
@@ -1160,5 +1166,21 @@ class TripService
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isStatusChangeRequested(Trip $trip, array $data): bool
+    {
+        if (! isset($data['status'])) {
+            return false;
+        }
+
+        $currentStatus = $trip->status instanceof TripStatus
+            ? $trip->status->value
+            : strtoupper((string) $trip->status);
+
+        return strtoupper((string) $data['status']) !== $currentStatus;
     }
 }

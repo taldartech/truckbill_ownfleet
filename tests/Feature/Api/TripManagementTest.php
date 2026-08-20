@@ -1885,11 +1885,18 @@ class TripManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_moderator_cannot_update_trip_details_or_view_archived_list(): void
+    public function test_moderator_can_change_trip_status_but_cannot_update_trip_details_or_view_archived_list(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
         $this->actingAs($user);
         $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'status' => TripStatus::InProgress->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::InProgress->value);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson('/api/trips/'.$trip->id, [

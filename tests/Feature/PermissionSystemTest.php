@@ -89,7 +89,7 @@ class PermissionSystemTest extends TestCase
         $this->assertFalse($user->hasPermission('trips.edit'));
         $this->assertTrue($user->hasPermission('trips.expenses'));
         $this->assertFalse($user->hasPermission('wages.view'));
-        $this->assertFalse($user->hasPermission('fleet_monthly_report.view'));
+        $this->assertTrue($user->hasPermission('fleet_monthly_report.view'));
         $this->assertTrue(Gate::forUser($user)->allows('create', \App\Driver::class));
         $this->assertFalse($user->canUpdateOperationalRecords());
         $this->assertFalse($user->canDeleteOperationalRecords());

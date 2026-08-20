@@ -65,7 +65,7 @@ class FleetMonthlyReportTest extends TestCase
         $response->assertJsonPath('meta.total', 1);
     }
 
-    public function test_moderator_cannot_access_monthly_fleet_report(): void
+    public function test_moderator_can_access_monthly_fleet_report(): void
     {
         [$tenant, $user] = array_slice($this->createFixtures('moderator'), 0, 2);
         $this->actingAs($user);
@@ -73,7 +73,7 @@ class FleetMonthlyReportTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-06')
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_monthly_fleet_report_includes_tyres_used_and_expense_for_truck(): void
