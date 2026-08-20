@@ -98,7 +98,7 @@ class FleetComplianceAlerts
         }
 
         if ($user->hasPermission('trips.view')) {
-            $ewayBillStart = $today->copy()->subDay()->toDateString();
+    
             $ewayBillEnd = $today->copy()->addDay()->toDateString();
 
             $ewayBillQuery = TripRouteLeg::query()
@@ -111,7 +111,6 @@ class FleetComplianceAlerts
                 ->whereNotNull('ewaybill_no')
                 ->where('ewaybill_no', '!=', '')
                 ->whereNotNull('ewaybill_expiry')
-                ->whereDate('ewaybill_expiry', '>=', $ewayBillStart)
                 ->whereDate('ewaybill_expiry', '<=', $ewayBillEnd);
 
             foreach ($ewayBillQuery->get() as $leg) {
