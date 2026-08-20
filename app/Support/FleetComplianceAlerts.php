@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Driver;
 use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceService;
+use App\TripRouteLeg;
 use App\User;
 use App\VehicleDocument;
 use App\VehicleMaintenance;
@@ -93,6 +94,39 @@ class FleetComplianceAlerts
                 ->all();
         }
 
+        if ($user->hasPermission('trips.view')) {
+            $ewayBillEnd = $today->copy()->addDay()->toDateString();
+
+            $ewayBillQuery = TripRouteLeg::query()
+                ->with([
+                    'trip.vehicle:id,registration_number',
+                ])
+                ->whereHas('trip', function ($query) {
+                    $query->where('status', '!=', TripStatus::Completed->value);
+                })
+                ->whereNotNull('ewaybill_no')
+                ->where('ewaybill_no', '!=', '')
+                ->whereNotNull('ewaybill_expiry')
+                ->whereDate('ewaybill_expiry', '<=', $ewayBillEnd);
+
+            foreach ($ewayBillQuery->get() as $leg) {
+                $ewayBills[] = self::formatEwayBillAlert($leg, $today);
+            }
+
+            usort($ewayBills, function (array $a, array $b): int {
+                if ($a['sort_priority'] !== $b['sort_priority']) {
+                    return $a['sort_priority'] <=> $b['sort_priority'];
+                }
+
+                return $a['expiry_date'] <=> $b['expiry_date'];
+            });
+
+            $ewayBills = array_map(function (array $alert): array {
+                unset($alert['sort_priority']);
+
+                return $alert;
+            }, $ewayBills);
+        }
         return [
             'documents' => $documents,
             'licenses' => $licenses,
