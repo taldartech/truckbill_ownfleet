@@ -128,6 +128,8 @@ final class PermissionDefinitions
             'fleet_monthly_report.view' => self::entry('View monthly fleet report', 'reports', 'View monthly fleet financial report.', 610),
             'fleet_monthly_report.export' => self::entry('Export monthly fleet report', 'reports', 'Export monthly fleet financial report.', 611),
 
+            'alerts.view' => self::entry('View alerts','alerts','View active fleet compliance and operational alerts',650),
+
             'locations.view' => self::entry('View states and cities', 'locations', 'View state and city master data.', 700),
             'locations.create' => self::entry('Create states and cities', 'locations', 'Create state and city master data.', 701),
             'locations.edit' => self::entry('Edit states and cities', 'locations', 'Edit state and city master data.', 702),

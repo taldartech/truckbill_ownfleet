@@ -187,7 +187,8 @@ const canViewComplianceAlerts = computed(
     () =>
         canInCompany('vehicle_documents.view')
         || canInCompany('drivers.view')
-        || canInCompany('maintenance.view'),
+        || canInCompany('maintenance.view')
+        || canInCompany('alerts.view'),
 );
 
 const quickActions = computed(() => {

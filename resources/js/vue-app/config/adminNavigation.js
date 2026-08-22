@@ -205,10 +205,17 @@ export const adminNavigation = [
                 label: 'Tyres',
                 icon: 'bi bi-pie-chart nav-icon',
                 to: '/reports/tyres',
-                permission: 'tyre_reports.view',
                 requiresTenant: true,
             },
         ],
+    },
+    {
+        label: 'Alerts',
+        icon: 'bi bi-bell nav-icon',
+        to: '/alerts',
+        activeNames: ['alerts.index'],
+        permission: 'alerts.view',
+        requiresTenant: true,
     },
     {
         label: 'Settings',
