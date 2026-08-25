@@ -130,8 +130,10 @@ export async function toggleVehicleStatus(id, isActive) {
     return unwrapResource(data);
 }
 
-export async function deleteVehicle(id) {
-    await api.delete(`${vehiclesBase}/${id}`);
+export async function deleteVehicle(id, data) {
+    await api.delete(`/api/vehicles/${id}`, {
+        data,
+    });
 }
 
 export async function fetchVehiclePrimaryAssignment(vehicleId) {

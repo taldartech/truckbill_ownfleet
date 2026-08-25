@@ -86,7 +86,7 @@
                         </td>
                     </tr>
                   
-                     <tr v-for="(vehicle, index) in vehicles" :key="vehicles.id">
+                     <tr v-for="(vehicle, index) in vehicles" :key="vehicle.id">
                             <td class="text-center">{{ rowNumber(index) }}</td>
                             <td>
                                 <RouterLink
@@ -248,6 +248,14 @@
             @assigned="onAssignmentSaved"
         />
 
+        <TruckDeleteConfirmModal
+            :show="showDeleteConfirm"
+            :vehicle="deletingVehicle"
+            :deleting="deleting"
+            @cancel="cancelDelete"
+            @confirm="confirmDelete"
+        />
+
         <MasterCrudSaveConfirmModal
             :show="showSaveConfirm"
             :summary="saveConfirmSummary"
@@ -290,6 +298,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildTruckFields } from '../../utils/masterCrudSaveConfirm';
+import TruckDeleteConfirmModal from '../../pages/trucks/TruckDeleteConfirmModal.vue';
 
 const route = useRoute();
 const toast = useAppToast();
@@ -339,6 +348,9 @@ const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
 const togglingId = ref(null);
 const truckTypes = ref([]);
+const showDeleteConfirm = ref(false);
+const deleting = ref(false);
+const deletingVehicle = ref(null);
 
 const vehicleTypes = computed(() =>
     truckTypes.value.map((type) => ({
@@ -559,17 +571,47 @@ async function handleToggleStatus(vehicle, event) {
     }
 }
 
-async function handleDelete(vehicle) {
-    if (!window.confirm(`Delete truck ${vehicle.registration_number}?`)) {
+function handleDelete(vehicle) {
+    deletingVehicle.value = vehicle;
+
+    showDeleteConfirm.value = true;
+}
+
+function cancelDelete() {
+    if (deleting.value) {
         return;
     }
 
+    showDeleteConfirm.value = false;
+
+    deletingVehicle.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingVehicle.value?.id) {
+        return;
+    }
+
+    deleting.value = true;
+
     try {
-        await deleteVehicle(vehicle.id);
+        await deleteVehicle(
+            deletingVehicle.value.id,
+            {
+                deleted_reason: payload.deleted_reason,
+            },
+        );
+
         toast.success('Truck deleted.');
+
+        showDeleteConfirm.value = false;
+        deletingVehicle.value = null;
+
         await loadVehicles();
-    } catch {
+    } catch (error) {
         toast.error('Unable to delete truck.');
+    } finally {
+        deleting.value = false;
     }
 }
 

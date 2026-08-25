@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\DriverAssignment;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeleteVehicleRequest;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\ToggleVehicleStatusRequest;
 use App\Http\Requests\UpdateVehicleRequest;
@@ -234,11 +235,21 @@ class VehicleController extends Controller
         return new VehicleResource($vehicle->fresh());
     }
 
-    public function destroy(Vehicle $vehicle): Response
+    public function destroy(Request $request, Vehicle $vehicle): Response
     {
         $this->authorize('delete', $vehicle);
+    
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+    
+        $vehicle->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $validated['deleted_reason'],
+        ]);
+    
         $vehicle->delete();
-
+    
         return response()->noContent();
     }
 }
