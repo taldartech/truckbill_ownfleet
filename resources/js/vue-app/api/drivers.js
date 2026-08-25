@@ -61,6 +61,10 @@ export async function listLicenseExpiringDrivers({ days = 30 } = {}) {
     return data.data ?? [];
 }
 
-export async function deleteDriver(id) {
-    await api.delete(`${driversBase}/${id}`);
+export async function deleteDriver(id, payload) {
+    await api.delete(`${driversBase}/${id}`, {
+        data: {
+            deleted_reason: payload.deleted_reason,
+        },
+    });
 }

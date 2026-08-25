@@ -70,8 +70,17 @@ class DriverController extends Controller
     public function destroy(Request $request, Driver $driver): Response
     {
         $this->authorize('delete', $driver);
-        $this->driverService->delete($driver, $request->user()?->id);
-
+    
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+    
+        $this->driverService->delete(
+            $driver,
+            $request->user()?->id,
+            $validated['deleted_reason'],
+        );
+    
         return response()->noContent();
     }
 

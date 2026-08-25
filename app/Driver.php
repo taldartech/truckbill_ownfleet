@@ -37,6 +37,7 @@ class Driver extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'deleted_reason'
     ];
 
     protected function casts(): array

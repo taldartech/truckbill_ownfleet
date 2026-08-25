@@ -192,6 +192,14 @@
             @cancel="cancelAdvanceSaveConfirm"
             @confirm="confirmAdvanceSave"
         />
+
+        <DriverDeleteConfirmModal
+            :show="showDeleteConfirm"
+            :driver="deletingDriver"
+            :deleting="deleting"
+            @cancel="cancelDelete"
+            @confirm="confirmDelete"
+        />
     </div>
 </template>
 
@@ -224,7 +232,7 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { COMPLIANCE_ALERT_WINDOW_DAYS } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import { buildDriverAdvanceFields, buildDriverFields } from '../../utils/masterCrudSaveConfirm';
-
+import DriverDeleteConfirmModal from '../drivers/DriverDeleteConfirmModal.vue';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
@@ -305,6 +313,9 @@ const saving = ref(false);
 const showCreate = ref(false);
 const showEdit = ref(false);
 const editingDriver = ref(null);
+const showDeleteConfirm = ref(false);
+const deletingDriver = ref(null);
+const deleting = ref(false);
 const showAdvance = ref(false);
 const advanceDriver = ref(null);
 const advanceSaving = ref(false);
@@ -575,7 +586,6 @@ function applyValidationError(error) {
 
         return;
     }
-
     toast.error('Unable to save driver. Please try again.');
 }
 
@@ -641,14 +651,39 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(driver) {
-    if (!window.confirm(`Are you sure you want to delete driver "${driver.name}"?`)) {
+function handleDelete(driver) {
+    deletingDriver.value = driver;
+    showDeleteConfirm.value = true;
+}
+
+function cancelDelete() {
+    if (deleting.value) {
         return;
     }
 
+    showDeleteConfirm.value = false;
+    deletingDriver.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingDriver.value?.id) {
+        return;
+    }
+
+    deleting.value = true;
+
     try {
-        await deleteDriver(driver.id);
+        await deleteDriver(
+            deletingDriver.value.id,
+            {
+                deleted_reason: payload.deleted_reason,
+            },
+        );
+
         toast.success('Driver deleted successfully.');
+
+        showDeleteConfirm.value = false;
+        deletingDriver.value = null;
 
         const page =
             drivers.value.length === 1 && pagination.currentPage > 1
@@ -657,8 +692,13 @@ async function handleDelete(driver) {
 
         licenseAlertDrivers.value = [];
         await loadDrivers(page);
-    } catch {
-        toast.error('Unable to delete driver. Please try again.');
+    } catch (error) {
+        toast.error(
+            error?.response?.data?.message
+            ?? 'Unable to delete driver. Please try again.'
+        );
+    } finally {
+        deleting.value = false;
     }
 }
 
