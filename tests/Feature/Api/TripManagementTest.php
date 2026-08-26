@@ -10,6 +10,7 @@ use App\DriverAssignment;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
+use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
 use App\Support\BranchContext;
@@ -2061,7 +2062,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability');
@@ -2078,7 +2079,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/vehicle-wise');
@@ -2092,7 +2093,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         TripExpense::query()->create([
             'tenant_id' => $tenant->id,
@@ -2282,7 +2283,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get('/api/reports/trips/export?type=profitability&from_date=2026-06-01&to_date=2026-06-30');
@@ -2299,7 +2300,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability?from_date=2026-01-01&to_date=2026-01-31');
@@ -3653,6 +3654,22 @@ class TripManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
+        ]);
+
         $operationalAttributes = $this->operationalAttributesForTenant($tenant);
 
         $user = User::query()->create([
@@ -3862,5 +3879,16 @@ class TripManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         return app(TripService::class)->create($this->sampleTripPayload($vehicle, $driver, $stations, $startAt));
+    }
+
+    private function markTripReportable(Trip $trip, string $reportDate = '2026-06-15'): Trip
+    {
+        $trip->forceFill([
+            'status' => TripStatus::Completed->value,
+            'end_at' => $reportDate.' 20:00:00',
+            'actual_arrival_at' => $reportDate.' 18:00:00',
+        ])->save();
+
+        return $trip->fresh();
     }
 }

@@ -100,7 +100,7 @@
                 </div>
 
                 <p class="trip-profit-card__hint">
-                    Completed trips only. Profit = freight − trip expenses − monthly expenses.
+                    Completed & invoiced trips only. Period uses the earlier of end date and actual arrival. Freight includes custom amount. Profit = freight − trip expenses − monthly expenses.
                 </p>
             </div>
 

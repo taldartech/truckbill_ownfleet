@@ -136,6 +136,58 @@ class FleetMonthlyReportTest extends TestCase
             ->assertJsonValidationErrors(['month']);
     }
 
+    public function test_monthly_fleet_report_excludes_pending_and_in_progress_trips(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
+        $this->actingAs($user);
+        Sanctum::actingAs($user);
+
+        $ops = $this->operationalAttributesForTenant($tenant);
+
+        Trip::query()->create([
+            ...$ops,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRIP-PENDING',
+            'start_station_id' => $stations['home']->id,
+            'trip_type' => 'ONE_WAY',
+            'status' => TripStatus::Pending->value,
+            'start_at' => '2026-06-10 09:00:00',
+            'end_at' => '2026-06-12 20:00:00',
+            'actual_arrival_at' => '2026-06-12 18:00:00',
+            'start_meter_reading_km' => 10000,
+            'total_distance_km' => 100,
+            'total_freight_amount' => 9000,
+            'total_expense_amount' => 1000,
+            'total_custom_amount' => 0,
+        ]);
+
+        Trip::query()->create([
+            ...$ops,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRIP-INVOICED',
+            'start_station_id' => $stations['home']->id,
+            'trip_type' => 'ONE_WAY',
+            'status' => TripStatus::Invoiced->value,
+            'start_at' => '2026-06-10 09:00:00',
+            'end_at' => '2026-06-14 20:00:00',
+            'actual_arrival_at' => '2026-06-14 18:00:00',
+            'start_meter_reading_km' => 10100,
+            'total_distance_km' => 100,
+            'total_freight_amount' => 4000,
+            'total_expense_amount' => 500,
+            'total_custom_amount' => 0,
+        ]);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/reports/fleet-monthly?month=2026-06')
+            ->assertOk()
+            ->assertJsonPath('data.0.trip_count', 1)
+            ->assertJsonPath('data.0.total_freight', 4000)
+            ->assertJsonPath('summary.total_bill', 4000);
+    }
+
     public function test_report_attributes_trip_to_earlier_of_actual_arrival_and_end_date(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
@@ -374,6 +426,7 @@ class FleetMonthlyReportTest extends TestCase
         ]);
 
         $trip->forceFill([
+            'status' => TripStatus::Completed->value,
             'end_at' => '2026-06-15 20:00:00',
             'actual_arrival_at' => '2026-06-15 18:00:00',
             'total_distance_km' => 560,

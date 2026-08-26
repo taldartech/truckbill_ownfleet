@@ -22,7 +22,7 @@ class TripReportService
      */
     public function filteredTripCount(array $filters = []): int
     {
-        return $this->tripRepository->filteredQuery($filters)->count();
+        return $this->tripRepository->reportFilteredQuery($filters)->count();
     }
 
     /**
@@ -37,7 +37,7 @@ class TripReportService
      */
     public function financialSummary(array $filters = []): array
     {
-        $trips = $this->tripRepository->filteredQuery($filters)->get();
+        $trips = $this->tripRepository->reportFilteredQuery($filters)->get();
 
         $totalFreight = (float) $trips->sum('total_freight_amount');
         $totalExpense = (float) $trips->sum('total_expense_amount');
@@ -74,7 +74,7 @@ class TripReportService
      */
     public function profitability(array $filters = []): array
     {
-        $rows = $this->tripRepository->filteredQuery($filters)
+        $rows = $this->tripRepository->reportFilteredQuery($filters)
             ->with(['vehicle', 'driver'])
             ->latest('start_at')
             ->get()
@@ -100,7 +100,7 @@ class TripReportService
      */
     public function vehicleWise(array $filters = []): array
     {
-        $rows = $this->tripRepository->filteredQuery($filters)
+        $rows = $this->tripRepository->reportFilteredQuery($filters)
             ->with('vehicle')
             ->get()
             ->groupBy('vehicle_id')
@@ -128,7 +128,7 @@ class TripReportService
      */
     public function driverWise(array $filters = []): array
     {
-        $rows = $this->tripRepository->filteredQuery($filters)
+        $rows = $this->tripRepository->reportFilteredQuery($filters)
             ->with('driver')
             ->get()
             ->groupBy('driver_id')
@@ -156,7 +156,7 @@ class TripReportService
      */
     public function emptyKm(array $filters = []): array
     {
-        $rows = $this->tripRepository->filteredQuery($filters)
+        $rows = $this->tripRepository->reportFilteredQuery($filters)
             ->with(['vehicle', 'driver', 'routeLegs'])
             ->get()
             ->map(function (Trip $trip): array {
@@ -184,7 +184,7 @@ class TripReportService
      */
     public function expenseSummary(array $filters = []): array
     {
-        $tripIds = $this->tripRepository->filteredQuery($filters)
+        $tripIds = $this->tripRepository->reportFilteredQuery($filters)
             ->pluck('id');
 
         $rows = TripExpense::query()
@@ -209,7 +209,7 @@ class TripReportService
      */
     public function routeProfitability(array $filters = []): array
     {
-        $tripIds = $this->tripRepository->filteredQuery($filters)
+        $tripIds = $this->tripRepository->reportFilteredQuery($filters)
             ->pluck('id');
 
         $legs = TripRouteLeg::query()

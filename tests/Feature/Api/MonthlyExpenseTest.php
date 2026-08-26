@@ -172,6 +172,8 @@ class MonthlyExpenseTest extends TestCase
             'trip_number' => 'TRP-DASH-1',
             'status' => TripStatus::Completed,
             'start_at' => '2026-06-12 08:00:00',
+            'end_at' => '2026-06-12 18:00:00',
+            'actual_arrival_at' => '2026-06-12 18:00:00',
             'total_freight_amount' => 5000,
             'total_custom_amount' => 0,
             'total_expense_amount' => 1000,
@@ -180,8 +182,8 @@ class MonthlyExpenseTest extends TestCase
         $this->getJson('/app/dashboard/stats?from_date=2026-06-01&to_date=2026-06-30')
             ->assertOk()
             ->assertJsonPath('trips.monthly_expenses', 800)
-            ->assertJsonPath('trips.total_expense_amount', 1800)
-            ->assertJsonPath('trips.profit_amount', 3200);
+            ->assertJsonPath('trips.total_expense_amount', 9000)
+            ->assertJsonPath('trips.profit_amount', 14000);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability?from_date=2026-06-01&to_date=2026-06-30')
@@ -394,6 +396,7 @@ class MonthlyExpenseTest extends TestCase
         ]);
 
         $trip->forceFill([
+            'status' => TripStatus::Completed->value,
             'end_at' => '2026-06-15 20:00:00',
             'actual_arrival_at' => '2026-06-15 18:00:00',
             'total_distance_km' => 560,

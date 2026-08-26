@@ -8,6 +8,7 @@ use App\Enums\TripStatus;
 use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
+use App\Modules\TripManagement\Support\TripReportScope;
 use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\MonthlyExpense;
 use App\Trip;
@@ -146,34 +147,32 @@ class FleetDashboardStats
      */
     private static function buildTripStats(string $fromDate, string $toDate): array
     {
-        $baseQuery = Trip::query()
-            ->whereDate('start_at', '>=', $fromDate)
-            ->whereDate('start_at', '<=', $toDate);
-
-        $financialQuery = (clone $baseQuery)
-            ->whereIn('status', [
-                TripStatus::Completed->value,
-                TripStatus::Invoiced->value,
-            ]);
+        $financialQuery = Trip::query();
+        TripReportScope::whereReportableStatuses($financialQuery);
+        TripReportScope::whereReportDateInRange($financialQuery, $fromDate, $toDate);
 
         $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
         $totalCustom = (float) (clone $financialQuery)->sum('total_custom_amount');
         $totalTripExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
         $monthlyExpenses = MonthlyExpense::sumForMonthRange($fromDate, $toDate);
         $totalExpenses = $totalTripExpenses + $monthlyExpenses;
+        $totalFreightWithCustom = $totalFreight + $totalCustom;
+
+        $completedCount = (clone $financialQuery)->where('status', TripStatus::Completed->value)->count();
+        $invoicedCount = (clone $financialQuery)->where('status', TripStatus::Invoiced->value)->count();
 
         return [
-            'total_count' => (clone $baseQuery)->count(),
-            'pending_count' => (clone $baseQuery)->where('status', TripStatus::Pending->value)->count(),
-            'in_progress_count' => (clone $baseQuery)->where('status', TripStatus::InProgress->value)->count(),
-            'completed_count' => (clone $baseQuery)->where('status', TripStatus::Completed->value)->count(),
-            'cancelled_count' => (clone $baseQuery)->where('status', TripStatus::Cancelled->value)->count(),
-            'invoiced_count' => (clone $baseQuery)->where('status', TripStatus::Invoiced->value)->count(),
-            'total_freight_amount' => round($totalFreight, 2),
+            'total_count' => $completedCount + $invoicedCount,
+            'pending_count' => 0,
+            'in_progress_count' => 0,
+            'completed_count' => $completedCount,
+            'cancelled_count' => 0,
+            'invoiced_count' => $invoicedCount,
+            'total_freight_amount' => round($totalFreightWithCustom, 2),
             'total_custom_amount' => round($totalCustom, 2),
             'total_expense_amount' => round($totalExpenses, 2),
             'monthly_expenses' => round($monthlyExpenses, 2),
-            'profit_amount' => round($totalFreight + $totalCustom - $totalExpenses, 2),
+            'profit_amount' => round($totalFreightWithCustom - $totalExpenses, 2),
             'running_trips' => self::buildRunningTripsList(),
         ];
     }
