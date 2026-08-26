@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Collection;
 
 class CustomerService
 {
-    public function __construct(private readonly CustomerRepository $customerRepository) {}
+    public function __construct(private readonly CustomerRepository $customerRepository)
+    {
+    }
 
     public function paginate(int $perPage = 15, ?string $search = null): LengthAwarePaginator
     {
@@ -48,9 +50,17 @@ class CustomerService
         return $this->customerRepository->update($customer, $data);
     }
 
-    public function delete(Customer $customer): void
-    {
-        $this->customerRepository->delete($customer);
+    public function delete(
+        Customer $customer,
+        ?string $deletedBy,
+        string $deletedReason,
+    ): void {
+        $customer->update([
+            'deleted_by' => $deletedBy,
+            'deleted_reason' => $deletedReason,
+        ]);
+
+         $this->customerRepository->delete($customer);
     }
 
     /**
@@ -59,14 +69,14 @@ class CustomerService
      */
     private function normalizeLocationData(array $data): array
     {
-        if (! empty($data['city_id'])) {
+        if (!empty($data['city_id'])) {
             $city = City::query()->with('state')->find($data['city_id']);
 
             if ($city) {
                 $data['state_id'] = $city->state_id;
                 $data['country_id'] = $city->state?->country_id;
             }
-        } elseif (! empty($data['state_id'])) {
+        } elseif (!empty($data['state_id'])) {
             $state = State::query()->find($data['state_id']);
 
             if ($state) {

@@ -50,7 +50,10 @@ export async function fetchCustomer(id) {
     return unwrapResource(data);
 }
 
-export async function deleteCustomer(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteCustomer(id, payload) {
+   const {data} = await api.delete(`${base}/${id}`, {
+        data:payload,
+    });
+    return data ?? null;
 }
 
