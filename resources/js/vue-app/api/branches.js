@@ -44,8 +44,10 @@ export async function updateBranch(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteBranch(id) {
-    const { data } = await api.delete(`${base}/${id}`);
+export async function deleteBranch(id, payload={}) {
+    const { data } = await api.delete(`${base}/${id}`, {
+        data:payload,
+    });
 
     return data ?? null;
 }
