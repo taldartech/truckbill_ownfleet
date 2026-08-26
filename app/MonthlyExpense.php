@@ -6,6 +6,7 @@ use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use App\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -22,6 +23,8 @@ class MonthlyExpense extends Model
         'month',
         'particulars',
         'amount',
+        'deleted_reason',
+        'deleted_by'
     ];
 
     /**
@@ -32,6 +35,10 @@ class MonthlyExpense extends Model
         return [
             'amount' => 'decimal:2',
         ];
+    }
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public static function sumForMonthRange(string|\DateTimeInterface $fromDate, string|\DateTimeInterface $toDate): float

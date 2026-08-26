@@ -34,6 +34,8 @@ export async function updateMonthlyExpense(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteMonthlyExpense(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteMonthlyExpense(id, payload) {
+    await api.delete(`${base}/${id}`, {
+        data: payload,
+    });
 }
