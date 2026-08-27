@@ -43,8 +43,12 @@ export async function updateTyreLayout(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteTyreLayout(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteTyreLayout(id, payload) {
+   const {data} =  await api.delete(`${base}/${id}`,{
+    data:payload
+   });
+
+   return data ?? null;
 }
 
 export async function fetchTyreLayout(id) {

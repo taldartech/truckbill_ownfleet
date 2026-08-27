@@ -29,6 +29,8 @@ class TyreLayout extends Model
         'spare_count',
         'sort_order',
         'is_active',
+        'deleted_by',
+        'deleted_reason'
     ];
 
     protected function casts(): array
@@ -64,5 +66,10 @@ class TyreLayout extends Model
         $steer = ($this->steer_axles ?? 0) * 2;
 
         return $steer + $dual + $single + ($this->spare_count ?? 0);
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

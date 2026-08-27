@@ -237,6 +237,14 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <TyreLayoutDeleteConfirmModal
+        :show="showDeleteConfirm"
+        :tyre-layout="deletingTyreLayout"
+        :deleting="deleting"
+        @cancel="closeDeleteConfirm"
+        @confirm="confirmDelete"
+        />
     </div>
 </template>
 
@@ -278,6 +286,7 @@ import {
     layoutTypeLabel,
     payloadFromAxleConfig,
 } from '../../utils/tyreLayoutForm';
+import TyreLayoutDeleteConfirmModal from './TyreLayoutDeleteConfirmModal.vue';
 
 const router = useRouter();
 const toast = useAppToast();
@@ -297,6 +306,9 @@ const canEdit = computed(() => canEditInCompany('tyre_layouts'));
 const layouts = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+const showDeleteConfirm = ref(false);
+const deletingTyreLayout = ref(null);
+const deleting = ref(false);
 const search = ref('');
 const showModal = ref(false);
 const showAdvanced = ref(false);
@@ -539,25 +551,54 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(layout) {
-    if (!window.confirm(`Delete layout "${layout.name}"?`)) {
+function handleDelete(tyreLayout) {
+    deletingTyreLayout.value = tyreLayout;
+    showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return;
+    }
+    showDeleteConfirm.value = false;
+    deletingTyreLayout.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingTyreLayout.value) {
         return;
     }
 
+    deleting.value = true;
+
     try {
-        guardCompanyContext();
-        await deleteTyreLayout(layout.id);
-        toast.success('Layout deleted.');
-        await loadLayouts();
-    } catch (e) {
-        toast.error(
-            e?.response?.data?.errors?.tyre_layout?.[0]
-            ?? e?.response?.data?.message
-            ?? 'Could not delete layout.',
-        );
+        const tyreLayoutId = deletingTyreLayout.value.id;
+
+        await deleteTyreLayout(tyreLayoutId, payload);
+
+        toast.success('Tyre layout deleted successfully.');
+
+        const page =
+            layouts.value.length === 1 &&
+            pagination.currentPage > 1
+                ? pagination.currentPage - 1
+                : pagination.currentPage;
+
+        showDeleteConfirm.value = false;
+        deletingTyreLayout.value = null;
+
+        await loadLayouts(page);
+    } catch (error) {
+        const message =
+            error.response?.data?.errors?.deleted_reason?.[0] ??
+            error.response?.data?.message ??
+            'Could not delete tyre layout.';
+
+        toast.error(message);
+    } finally {
+        deleting.value = false;
     }
 }
-
 onMounted(async () => {
     await loadLayouts();
 });
