@@ -99,28 +99,6 @@ class TripManagementTest extends TestCase
             'is_primary' => true,
         ]);
 
-        $cityA = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
-        $cityB = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Pune')->firstOrFail();
-
-        $secondBranchStations = [
-            'home' => Station::query()->create([
-                'tenant_id' => $tenant->id,
-                'branch_id' => $secondBranch->id,
-                'country_id' => $cityA->state->country_id,
-                'state_id' => $cityA->state_id,
-                'city_id' => $cityA->id,
-                'name' => 'Second Branch Station A',
-            ]),
-            'b' => Station::query()->create([
-                'tenant_id' => $tenant->id,
-                'branch_id' => $secondBranch->id,
-                'country_id' => $cityB->state->country_id,
-                'state_id' => $cityB->state_id,
-                'city_id' => $cityB->id,
-                'name' => 'Second Branch Station B',
-            ]),
-        ];
-
         $firstTripNumber = $this->formatTripNumber($firstBranchId);
 
         $this->actingAs($superAdmin);
@@ -138,7 +116,7 @@ class TripManagementTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->withHeader('X-Branch-Id', (string) $secondBranch->id)
-            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $secondDriver, $secondBranchStations, startAt: '2026-06-11 09:00:00'))
+            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $secondDriver, $stations, startAt: '2026-06-11 09:00:00'))
             ->assertCreated()
             ->assertJsonPath('data.trip_number', $secondTripNumber);
 
