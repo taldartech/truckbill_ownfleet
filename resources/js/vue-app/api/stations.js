@@ -29,7 +29,7 @@ export async function listAllStations({ search } = {}) {
         },
     });
 
-    return data.data ?? [];
+    return data.data ?? [];s
 }
 
 export async function createStation(payload) {
@@ -50,6 +50,9 @@ export async function fetchStation(id) {
     return unwrapResource(data);
 }
 
-export async function deleteStation(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteStation(id, payload) {
+    const {data} = await api.delete(`${base}/${id}`,{
+        data:payload,
+    });
+    return data ?? null;
 }

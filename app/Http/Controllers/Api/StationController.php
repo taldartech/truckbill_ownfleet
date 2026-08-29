@@ -14,7 +14,9 @@ use Illuminate\Http\Response;
 
 class StationController extends Controller
 {
-    public function __construct(private readonly StationService $stationService) {}
+    public function __construct(private readonly StationService $stationService)
+    {
+    }
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -51,10 +53,20 @@ class StationController extends Controller
         return new StationResource($station);
     }
 
-    public function destroy(Station $station): Response
+    public function destroy(Request $request, Station $station): Response
     {
         $this->authorize('delete', $station);
-        $this->stationService->delete($station);
+
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+        
+
+        $this->stationService->delete(
+            $station,
+            $request->user()?->id,
+            $validated['deleted_reason'],
+        );
 
         return response()->noContent();
     }

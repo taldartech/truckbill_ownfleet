@@ -102,6 +102,14 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <StationDeleteConfirmModal
+            :show="showDeleteConfirm"
+            :station="deletingStation"
+            :deleting="deleting"
+            @cancel="closeDeleteConfirm"
+            @confirm="confirmDelete"
+        />
     </div>
 </template>
 
@@ -123,6 +131,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import StationDeleteConfirmModal from './StationDeleteConfirmModal.vue';
 
 const toast = useAppToast();
 const {
@@ -139,7 +148,10 @@ const canEdit = computed(() => canEditInCompany('stations'));
 
 const stations = ref([]);
 const loading = ref(true);
-const saving = ref(false);
+const saving = ref(false);          
+const showDeleteConfirm = ref(false);
+const deletingStation = ref(null);
+const deleting = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -240,17 +252,52 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(station) {
-    if (!window.confirm(`Delete station "${station.name}"?`)) {
+function handleDelete(station) {
+    deletingStation.value = station;
+    showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
         return;
     }
 
+    showDeleteConfirm.value = false;
+    deletingStation.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingStation.value) {
+        return;
+    }
+
+    deleting.value = true;
+
     try {
-        await deleteStation(station.id);
+        const stationId = deletingStation.value.id;
+
+        await deleteStation(stationId, payload);
+
         toast.success('Station deleted successfully.');
-        await loadStations();
+
+        const page =
+            stations.value.length === 1 && pagination.currentPage > 1
+                ? pagination.currentPage - 1
+                : pagination.currentPage;
+
+        showDeleteConfirm.value = false;
+        deletingStation.value = null;
+
+        await loadStations(page);
     } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete station.');
+        const message =
+            error.response?.data?.errors?.deleted_reason?.[0] ??
+            error.response?.data?.message ??
+            'Could not delete station.';
+
+        toast.error(message);
+    } finally {
+        deleting.value = false;
     }
 }
 
