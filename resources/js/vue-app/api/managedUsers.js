@@ -36,6 +36,8 @@ export async function fetchManagedUser(id) {
     return unwrapResource(data);
 }
 
-export async function deleteManagedUser(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteManagedUser(id, payload) {
+    await api.delete(`${base}/${id}`, {
+        data:payload,
+    });
 }

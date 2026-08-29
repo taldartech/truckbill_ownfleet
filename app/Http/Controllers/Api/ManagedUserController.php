@@ -168,12 +168,21 @@ class ManagedUserController extends Controller
         return new ManagedUserResource($managedUser);
     }
 
-    public function destroy(User $managedUser): Response
+    public function destroy(Request $request, User $managedUser): Response
     {
         $this->authorize('delete', $managedUser);
-
+    
+        $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+    
+        $managedUser->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $request->input('deleted_reason'),
+        ]);
+    
         $managedUser->delete();
-
+    
         return response()->noContent();
     }
 

@@ -202,6 +202,15 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <UserDeleteConfirmModal
+            :show="showDeleteConfirm"
+            :user="deletingUser"
+            :deleting="deleting"
+            :user-type-label="managesSuperAdmins ? 'Super Admin' : 'User'"
+            @cancel="closeDeleteConfirm"
+            @confirm="confirmDelete"
+        />
     </div>
 </template>
 
@@ -234,6 +243,7 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildUserFields } from '../../utils/masterCrudSaveConfirm';
+import UserDeleteConfirmModal from './UserDeleteCofirmModal.vue';
 
 const router = useRouter();
 const { can, user } = usePermissions();
@@ -304,6 +314,9 @@ const assignableRoles = ref([]);
 const companies = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+const showDeleteConfirm = ref(false);
+const deletingUser = ref(null);
+const deleting = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingUser = ref(null);
@@ -492,17 +505,56 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(user) {
-    if (!window.confirm(`Delete user ${user.name}?`)) {
+function handleDelete(user) {
+    if (user.is_protected) {
         return;
     }
 
+    deletingUser.value = user;
+    showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return;
+    }
+
+    showDeleteConfirm.value = false;
+    deletingUser.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingUser.value) {
+        return;
+    }
+
+    deleting.value = true;
+
     try {
-        await deleteManagedUser(user.id);
+        const userId = deletingUser.value.id;
+
+        await deleteManagedUser(userId, payload);
+
         toast.success('User deleted.');
-        await loadUsers();
-    } catch {
-        toast.error('Unable to delete user.');
+
+        const page =
+            users.value.length === 1 && pagination.currentPage > 1
+                ? pagination.currentPage - 1
+                : pagination.currentPage;
+
+        showDeleteConfirm.value = false;
+        deletingUser.value = null;
+
+        await loadUsers(page);
+    } catch (error) {
+        const message =
+            error.response?.data?.errors?.deleted_reason?.[0] ??
+            error.response?.data?.message ??
+            'Unable to delete user.';
+
+        toast.error(message);
+    } finally {
+        deleting.value = false;
     }
 }
 
