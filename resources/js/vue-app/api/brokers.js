@@ -50,7 +50,11 @@ export async function fetchBroker(id) {
     return unwrapResource(data);
 }
 
-export async function deleteBroker(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteBroker(id,payload) {
+    const {data} = await api.delete(`${base}/${id}`, {
+        data : payload,
+    });
+
+    return data ?? null;
 }
 

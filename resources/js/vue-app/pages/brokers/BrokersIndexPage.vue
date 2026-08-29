@@ -108,6 +108,14 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <BrokerDeleteConfirmModal
+            :show="showDeleteConfirm"
+            :broker="deletingBroker"
+            :deleting="deleting"
+            @cancel="closeDeleteConfirm"
+            @confirm="confirmDelete"
+        />
     </div>
 </template>
 
@@ -129,6 +137,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import BrokerDeleteConfirmModal from './BrokerDeleteConfirmModal.vue';
 
 const toast = useAppToast();
 const {
@@ -146,6 +155,9 @@ const canEdit = computed(() => canEditInCompany('brokers'));
 const brokers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+const showDeleteConfirm = ref(false);
+const deletingBroker = ref(null);
+const deleting = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -246,17 +258,47 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(broker) {
-    if (!window.confirm(`Delete reference "${broker.name}"?`)) {
+function handleDelete(broker) {
+    deletingBroker.value = broker;
+    showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
         return;
     }
 
+    showDeleteConfirm.value = false;
+    deletingBroker.value = null;
+}
+
+async function confirmDelete(payload) {
+    if (!deletingBroker.value) {
+        return;
+    }
+
+    deleting.value = true;
+
     try {
-        await deleteBroker(broker.id);
+        const brokerId = deletingBroker.value.id;
+
+        await deleteBroker(brokerId, payload);
+
         toast.success('Reference deleted successfully.');
+
+        showDeleteConfirm.value = false;
+        deletingBroker.value = null;
+
         await loadBrokers();
     } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete reference.');
+        const message =
+            error?.response?.data?.errors?.deleted_reason?.[0] ??
+            error?.response?.data?.message ??
+            'Could not delete reference.';
+
+        toast.error(message);
+    } finally {
+        deleting.value = false;
     }
 }
 

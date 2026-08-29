@@ -25,6 +25,8 @@ class Broker extends Model
         'contact_number',
         'created_by',
         'updated_by',
+        'deleted_by',
+        'deleted_reason'
     ];
 
     protected function casts(): array
