@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteInvoiceRequest;
 use App\Http\Requests\StoreInvoicePaymentRequest;
 use App\Http\Requests\TripInvoicesRequest;
+use App\Http\Requests\UpdateInvoiceRequest;
 use App\Http\Resources\InvoicePaymentResource;
 use App\Http\Resources\InvoiceResource;
 use App\Invoice;
@@ -55,6 +56,17 @@ class InvoiceController extends Controller
         $invoice = $this->invoiceService->find($invoice);
 
         $this->authorize('view', $invoice);
+
+        return new InvoiceResource($invoice);
+    }
+
+    public function update(UpdateInvoiceRequest $request, Invoice $invoice): InvoiceResource
+    {
+        $invoice = $this->invoiceService->updatePendingInvoice(
+            $invoice,
+            $request->validated(),
+            $request->user(),
+        );
 
         return new InvoiceResource($invoice);
     }

@@ -123,6 +123,11 @@ class Invoice extends Model
         return $this->hasMany(InvoicePayment::class)->orderByDesc('paid_at');
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(InvoiceAuditLog::class)->orderByDesc('performed_at');
+    }
+
     public function deletedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
@@ -176,6 +181,14 @@ class Invoice extends Model
         return ! $this->trashed()
             && ! $this->hasRecordedPayments()
             && $this->isLatestForBranch();
+    }
+
+    public function canEditCharges(): bool
+    {
+        return ! $this->trashed()
+            && ! $this->isCancelled()
+            && $this->payment_status === InvoicePaymentStatus::Pending
+            && ! $this->hasRecordedPayments();
     }
 
     public function displayInvoiceNumber(): string

@@ -14,6 +14,7 @@ use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
 use App\Invoice;
+use App\InvoiceAuditLog;
 use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\State;
@@ -661,6 +662,156 @@ class InvoiceManagementTest extends TestCase
                 'groups.'.$customers['a']->id.'.custom_items.0.description',
                 'groups.'.$customers['a']->id.'.custom_items.1.amount',
             ]);
+    }
+
+    public function test_pending_invoice_can_be_updated_with_additional_charges(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $update = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                    ['description' => 'Detention', 'amount' => 500],
+                ],
+            ])
+            ->assertOk();
+
+        $update->assertJsonPath('data.invoice_number', $generate->json('data.0.invoice_number'));
+        $update->assertJsonPath('data.route_freight_amount', 10000);
+        $update->assertJsonPath('data.custom_amount', 2500);
+        $update->assertJsonPath('data.freight_amount', 12500);
+        $update->assertJsonPath('data.gst_amount', 625);
+        $update->assertJsonPath('data.total_amount', 13125);
+        $update->assertJsonPath('data.can_edit_charges', true);
+
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+        $this->assertSame(3, $invoice->items->count());
+        $this->assertSame(10000.0, (float) $invoice->items->whereNotNull('trip_route_leg_id')->sum('freight_amount'));
+        $this->assertSame(2500.0, (float) $invoice->items->whereNull('trip_route_leg_id')->sum('freight_amount'));
+        $this->assertSame(2500.0, (float) $trip->fresh()->total_custom_amount);
+
+        $this->assertDatabaseHas('invoice_audit_logs', [
+            'invoice_id' => $invoiceId,
+            'event_type' => 'charges_updated',
+        ]);
+    }
+
+    public function test_non_pending_invoice_cannot_be_updated_via_api(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate")
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'cash',
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                ],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_cancelled_invoice_cannot_be_updated_via_api(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate")
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/app/api/invoices/{$invoiceId}")
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                ],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_pending_invoice_update_can_remove_all_additional_charges(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.custom_amount', 0)
+            ->assertJsonPath('data.freight_amount', 10000)
+            ->assertJsonPath('data.total_amount', 10500);
+
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+        $this->assertCount(1, $invoice->items);
+        $this->assertSame(0.0, (float) $trip->fresh()->total_custom_amount);
+        $this->assertSame(1, InvoiceAuditLog::query()->where('invoice_id', $invoiceId)->count());
     }
 
     public function test_invoiced_trip_cannot_be_fully_edited_even_by_super_admin(): void

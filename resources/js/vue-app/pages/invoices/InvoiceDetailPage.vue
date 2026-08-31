@@ -43,6 +43,15 @@
                     @click="openPdf"
                 />
                 <AppButton
+                    v-if="canEditCharges"
+                    variant="primary"
+                    outline
+                    size="sm"
+                    icon="bi bi-pencil"
+                    label="Edit Charges"
+                    @click="openEditChargesModal"
+                />
+                <AppButton
                     v-if="canRecordPayment"
                     variant="success"
                     outline
@@ -109,6 +118,7 @@
                                     <tr v-for="item in items" :key="item.id">
                                         <td>{{ item.sequence_no }}</td>
                                         <td v-if="item.from_location || item.to_location">{{ item.from_location || '—' }} → {{ item.to_location || '—' }}</td>
+                                        <td v-else-if="item.is_additional_charge">Additional charge</td>
                                         <td v-else>—</td>
                                         <td>{{ item.goods_name || '—' }}</td>
                                         <td class="text-end">{{ item.weight_ton ? formatWeight(item.weight_ton) : '—' }}</td>
@@ -153,7 +163,15 @@
                         <div class="card-header"><strong>Amounts</strong></div>
                         <div class="card-body small">
                             <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Freight</span>
+                                <span class="text-muted">Route freight (Bilty)</span>
+                                <span>₹{{ formatMoney(routeFreightAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Additional charges</span>
+                                <span>₹{{ formatMoney(customAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Taxable amount</span>
                                 <span>₹{{ formatMoney(invoice.freight_amount) }}</span>
                             </div>
                             <div v-if="invoice.displays_gst !== false" class="d-flex justify-content-between mb-2">
@@ -206,6 +224,25 @@
                                 <div>{{ invoice.place_of_supply || '—' }}</div>
                             </div>
                         </div>
+                    </div>
+
+                    <div v-if="auditLogs.length > 0" class="card mt-3">
+                        <div class="card-header"><strong>Change History</strong></div>
+                        <ul class="list-group list-group-flush small">
+                            <li
+                                v-for="log in auditLogs"
+                                :key="log.id"
+                                class="list-group-item"
+                            >
+                                <div class="d-flex justify-content-between gap-2">
+                                    <span>{{ formatAuditEvent(log) }}</span>
+                                    <span class="text-muted text-nowrap">{{ formatDate(log.performed_at) }}</span>
+                                </div>
+                                <div v-if="log.performed_by?.name" class="text-muted">
+                                    by {{ log.performed_by.name }}
+                                </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -377,6 +414,17 @@
                 <div v-else class="form-text">Minimum 10 characters.</div>
             </div>
         </AppConfirmModal>
+
+        <InvoiceEditChargesModal
+            ref="editChargesModalRef"
+            :show="showEditChargesModal"
+            :invoice="invoice"
+            :saving="savingCharges"
+            :form-error="editChargesFormError"
+            :field-errors="editChargesFieldErrors"
+            @close="closeEditChargesModal"
+            @submit="requestEditChargesSave"
+        />
     </div>
 </template>
 
@@ -389,7 +437,9 @@ import {
     showInvoice,
     cancelInvoice,
     deleteInvoice,
+    updateInvoice,
 } from '../../api/invoices';
+import InvoiceEditChargesModal from '../../components/invoices/InvoiceEditChargesModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
@@ -415,6 +465,11 @@ const showPaymentModal = ref(false);
 const showPaymentConfirm = ref(false);
 const showCancelConfirm = ref(false);
 const showDeleteConfirm = ref(false);
+const showEditChargesModal = ref(false);
+const savingCharges = ref(false);
+const editChargesFormError = ref('');
+const editChargesFieldErrors = ref({});
+const editChargesModalRef = ref(null);
 const deletionReason = ref('');
 const deletionReasonError = ref('');
 const paymentFormError = ref('');
@@ -434,6 +489,10 @@ const paymentForm = reactive({
     payment_method: '',
     notes: '',
 });
+
+const canEditCharges = computed(
+    () => Boolean(invoice.value?.can_edit_charges) && canInCompany('invoices.edit'),
+);
 
 const canRecordPayment = computed(
     () =>
@@ -464,6 +523,10 @@ const canConfirmDelete = computed(() => {
 
 const items = computed(() => invoice.value?.items ?? []);
 const payments = computed(() => invoice.value?.payments ?? []);
+const auditLogs = computed(() => invoice.value?.audit_logs ?? []);
+
+const routeFreightAmount = computed(() => Number(invoice.value?.route_freight_amount ?? 0));
+const customAmount = computed(() => Number(invoice.value?.custom_amount ?? 0));
 
 const remainingAmount = computed(() => {
     const total = Number(invoice.value?.total_amount ?? 0);
@@ -560,6 +623,67 @@ function openPdf() {
     }
 
     window.open(pdfUrl(invoice.value.id), '_blank', 'noopener');
+}
+
+function formatAuditEvent(log) {
+    if (log.event_type === 'charges_updated') {
+        const previousTotal = Number(log.payload?.previous?.total_amount ?? 0);
+        const currentTotal = Number(log.payload?.current?.total_amount ?? 0);
+
+        return `Additional charges updated (₹${formatMoney(previousTotal)} → ₹${formatMoney(currentTotal)})`;
+    }
+
+    return 'Invoice updated';
+}
+
+function openEditChargesModal() {
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
+    showEditChargesModal.value = true;
+}
+
+function closeEditChargesModal() {
+    if (savingCharges.value) {
+        return;
+    }
+
+    showEditChargesModal.value = false;
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
+}
+
+async function requestEditChargesSave() {
+    if (!invoice.value?.id || !editChargesModalRef.value) {
+        return;
+    }
+
+    savingCharges.value = true;
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
+
+    try {
+        const payload = editChargesModalRef.value.buildPayload();
+        invoice.value = await updateInvoice(invoice.value.id, payload);
+        toast.success('Invoice charges updated.');
+        closeEditChargesModal();
+    } catch (error) {
+        if (error.response?.status === 422) {
+            editChargesFieldErrors.value = error.response.data.errors ?? {};
+            editChargesFormError.value = error.response.data.message ?? 'Please check the highlighted fields.';
+
+            return;
+        }
+
+        if (error.response?.status === 403) {
+            editChargesFormError.value = 'This invoice cannot be updated.';
+
+            return;
+        }
+
+        editChargesFormError.value = error.response?.data?.message ?? 'Could not update invoice charges.';
+    } finally {
+        savingCharges.value = false;
+    }
 }
 
 function resetPaymentForm() {

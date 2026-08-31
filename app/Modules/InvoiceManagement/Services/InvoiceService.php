@@ -12,6 +12,7 @@ use App\Enums\InvoicePaymentStatus;
 use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
 use App\Invoice;
+use App\InvoiceAuditLog;
 use App\InvoiceItem;
 use App\InvoicePayment;
 use App\Support\GstSettingsResolver;
@@ -65,6 +66,7 @@ class InvoiceService
                 'trip:id,trip_number,status,start_at,end_at',
                 'items.routeLeg',
                 'payments.createdBy:id,name',
+                'auditLogs.performer:id,name',
                 'supplierState',
                 'customerState',
                 'branch:id,branch_name,company_id',
@@ -563,6 +565,137 @@ class InvoiceService
         ]);
     }
 
+    /**
+     * @param  array{custom_items: list<array{description: string, amount: float|int|string}>}  $data
+     */
+    public function updatePendingInvoice(Invoice $invoice, array $data, ?User $user = null): Invoice
+    {
+        return DB::transaction(function () use ($invoice, $data, $user): Invoice {
+            $invoice->refresh()->loadMissing(['items', 'customer.state']);
+
+            $this->assertInvoiceChargesEditable($invoice);
+
+            $routeItems = $invoice->items->filter(
+                fn (InvoiceItem $item): bool => $item->trip_route_leg_id !== null,
+            );
+
+            $previousCustomItems = $invoice->items
+                ->filter(fn (InvoiceItem $item): bool => $item->trip_route_leg_id === null)
+                ->map(fn (InvoiceItem $item): array => [
+                    'description' => (string) $item->goods_name,
+                    'amount' => (float) $item->freight_amount,
+                ])
+                ->values()
+                ->all();
+
+            $routeFreightAmount = round(
+                (float) $routeItems->sum(fn (InvoiceItem $item): float => (float) $item->freight_amount),
+                2,
+            );
+            $customItems = $this->normalizeCustomItems($data['custom_items'] ?? []);
+            $customAmount = round(
+                (float) collect($customItems)->sum(fn (array $item): float => (float) $item['amount']),
+                2,
+            );
+            $freightAmount = round($routeFreightAmount + $customAmount, 2);
+
+            $customer = $invoice->customer;
+            $gstSettings = $this->resolveGstSettingsForInvoice($invoice);
+
+            $calc = $this->calculateGst(
+                $gstSettings,
+                $freightAmount,
+                (float) $invoice->gst_rate,
+                $invoice->customer_state_id !== null
+                    ? (int) $invoice->customer_state_id
+                    : ($customer?->state_id !== null ? (int) $customer->state_id : null),
+                $customer?->state?->code,
+                (bool) ($customer?->is_broker ?? false),
+            );
+
+            InvoiceItem::query()
+                ->where('invoice_id', $invoice->id)
+                ->whereNull('trip_route_leg_id')
+                ->delete();
+
+            $sequence = (int) ($routeItems->max('sequence_no') ?? $routeItems->count());
+
+            foreach ($customItems as $customItem) {
+                $sequence++;
+
+                InvoiceItem::query()->create([
+                    'tenant_id' => $invoice->tenant_id,
+                    'branch_id' => $invoice->branch_id,
+                    'invoice_id' => $invoice->id,
+                    'trip_route_leg_id' => null,
+                    'sequence_no' => $sequence,
+                    'from_location' => null,
+                    'to_location' => null,
+                    'goods_name' => $customItem['description'],
+                    'weight_ton' => 0,
+                    'freight_amount' => $customItem['amount'],
+                ]);
+            }
+
+            $previousTotals = [
+                'freight_amount' => (float) $invoice->freight_amount,
+                'custom_amount' => round((float) collect($previousCustomItems)->sum('amount'), 2),
+                'gst_amount' => (float) $invoice->gst_amount,
+                'total_amount' => (float) $invoice->total_amount,
+                'custom_items' => $previousCustomItems,
+            ];
+
+            $invoice->forceFill([
+                'freight_amount' => $calc['freight_amount'],
+                'cgst_rate' => $calc['cgst_rate'],
+                'cgst_amount' => $calc['cgst_amount'],
+                'sgst_rate' => $calc['sgst_rate'],
+                'sgst_amount' => $calc['sgst_amount'],
+                'igst_rate' => $calc['igst_rate'],
+                'igst_amount' => $calc['igst_amount'],
+                'gst_amount' => $calc['gst_amount'],
+                'total_amount' => $calc['total_amount'],
+            ])->save();
+
+            $customDelta = round($customAmount - $previousTotals['custom_amount'], 2);
+
+            if ($invoice->trip_id !== null && abs($customDelta) >= 0.01) {
+                $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
+
+                if ($trip !== null) {
+                    $trip->forceFill([
+                        'total_custom_amount' => round(
+                            max(0, (float) $trip->total_custom_amount + $customDelta),
+                            2,
+                        ),
+                    ])->save();
+                }
+            }
+
+            InvoiceAuditLog::query()->create([
+                'tenant_id' => $invoice->tenant_id,
+                'branch_id' => $invoice->branch_id,
+                'invoice_id' => $invoice->id,
+                'event_type' => 'charges_updated',
+                'payload' => [
+                    'route_freight_amount' => $routeFreightAmount,
+                    'previous' => $previousTotals,
+                    'current' => [
+                        'freight_amount' => $calc['freight_amount'],
+                        'custom_amount' => $customAmount,
+                        'gst_amount' => $calc['gst_amount'],
+                        'total_amount' => $calc['total_amount'],
+                        'custom_items' => $customItems,
+                    ],
+                ],
+                'performed_by' => $user?->id,
+                'performed_at' => now(),
+            ]);
+
+            return $invoice->fresh(['customer.state', 'items', 'trip', 'payments', 'auditLogs.performer']);
+        });
+    }
+
     public function cancelInvoice(Invoice $invoice, ?User $user = null): void
     {
         DB::transaction(function () use ($invoice, $user): void {
@@ -969,6 +1102,60 @@ class InvoiceService
         }
 
         return $settings;
+    }
+
+    private function assertInvoiceChargesEditable(Invoice $invoice): void
+    {
+        if ($invoice->trashed()) {
+            throw ValidationException::withMessages([
+                'invoice' => ['Archived invoices cannot be updated.'],
+            ]);
+        }
+
+        if ($invoice->isCancelled()) {
+            throw ValidationException::withMessages([
+                'invoice' => ['Cancelled invoices cannot be updated.'],
+            ]);
+        }
+
+        if ($invoice->payment_status !== InvoicePaymentStatus::Pending) {
+            throw ValidationException::withMessages([
+                'invoice' => ['Only pending invoices can be updated.'],
+            ]);
+        }
+
+        if ($invoice->hasRecordedPayments()) {
+            throw ValidationException::withMessages([
+                'invoice' => ['Invoices with recorded payments cannot be updated.'],
+            ]);
+        }
+    }
+
+    /**
+     * @return array{
+     *     inherit_company_gst: bool,
+     *     registration_type: ?GstRegistrationType,
+     *     tax_liability: ?TaxLiability,
+     *     gst_number: ?string,
+     *     gst_rate: ?float,
+     *     state_id: ?int,
+     *     state_code: ?string,
+     *     source: 'company'|'branch'
+     * }
+     */
+    private function resolveGstSettingsForInvoice(Invoice $invoice): array
+    {
+        $branch = Branch::query()
+            ->with(['company.state', 'state'])
+            ->find($invoice->branch_id);
+
+        if ($branch === null) {
+            throw ValidationException::withMessages([
+                'branch' => ['Branch context is required to update invoices.'],
+            ]);
+        }
+
+        return $this->gstSettingsResolver->forBranch($branch);
     }
 
     /**
