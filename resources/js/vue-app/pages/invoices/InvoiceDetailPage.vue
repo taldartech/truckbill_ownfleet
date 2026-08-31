@@ -665,7 +665,9 @@ async function requestEditChargesSave() {
         const payload = editChargesModalRef.value.buildPayload();
         invoice.value = await updateInvoice(invoice.value.id, payload);
         toast.success('Invoice charges updated.');
-        closeEditChargesModal();
+        showEditChargesModal.value = false;
+        editChargesFormError.value = '';
+        editChargesFieldErrors.value = {};
     } catch (error) {
         if (error.response?.status === 422) {
             editChargesFieldErrors.value = error.response.data.errors ?? {};
