@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\StationsTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreStationRequest;
 use App\Http\Requests\UpdateStationRequest;
 use App\Http\Resources\StationResource;
+use App\Imports\StationsBulkImport;
 use App\Modules\TripManagement\Services\StationService;
 use App\Station;
+use App\Support\CurrentTenant;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class StationController extends Controller
 {
@@ -70,4 +75,43 @@ class StationController extends Controller
 
         return response()->noContent();
     }
+
+    public function downloadBulkTemplate()
+{
+    $this->authorize('create', Station::class);
+
+    return Excel::download(
+        new StationsTemplateExport(),
+        'stations_template.xlsx'
+    );
+}
+
+public function bulkUpload(Request $request): JsonResponse
+{
+    $this->authorize('create', Station::class);
+
+    $request->validate([
+        'file' => [
+            'required',
+            'file',
+            'mimes:xlsx,xls,csv',
+            'max:10240',
+        ],
+    ]);
+
+    $import = new StationsBulkImport(
+        (string) CurrentTenant::id(),
+        $request->user()?->id,
+    );
+
+    Excel::import($import, $request->file('file'));
+
+    return response()->json([
+        'message' => 'Bulk upload completed.',
+        'total' => $import->total,
+        'successful' => $import->successful,
+        'failed' => $import->failed,
+        'errors' => $import->errors,
+    ]);
+}
 }

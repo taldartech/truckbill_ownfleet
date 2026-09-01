@@ -10,6 +10,14 @@
                 >
                     Add Station
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="import"
+                    aria-label="Bulk Upload Stations"
+                    @click="openBulkUpload"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -110,13 +118,24 @@
             @cancel="closeDeleteConfirm"
             @confirm="confirmDelete"
         />
+
+        <AppBulkUploadModal
+            :show="showBulkUpload"
+            title="Bulk Upload Stations"
+            template-name="stations_template.xlsx"
+            error-label="Station"
+            :download-template="downloadStationsTemplate"
+            :upload-file="bulkUploadStations"
+            @close="closeBulkUpload"
+            @uploaded="handleBulkUploaded"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { createStation, deleteStation, listStations, updateStation } from '../../api/stations';
+import { createStation, deleteStation, listStations, updateStation, bulkUploadStations, downloadStationsTemplate } from '../../api/stations';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
@@ -132,6 +151,7 @@ import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import StationDeleteConfirmModal from './StationDeleteConfirmModal.vue';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
 
 const toast = useAppToast();
 const {
@@ -152,6 +172,7 @@ const saving = ref(false);
 const showDeleteConfirm = ref(false);
 const deletingStation = ref(null);
 const deleting = ref(false);
+const showBulkUpload = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -299,6 +320,22 @@ async function confirmDelete(payload) {
     } finally {
         deleting.value = false;
     }
+}
+
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
+
+function closeBulkUpload() {
+    showBulkUpload.value = false;
+}
+
+async function handleBulkUploaded(result) {
+    await loadStations();
+
+    toast.success(
+        `Bulk upload completed. ${result?.successful ?? 0} stations imported.`,
+    );
 }
 
 onMounted(async () => {

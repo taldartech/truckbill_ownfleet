@@ -29,7 +29,8 @@ export async function listAllStations({ search } = {}) {
         },
     });
 
-    return data.data ?? [];s
+    return data.data ?? [];
+    s;
 }
 
 export async function createStation(payload) {
@@ -51,8 +52,28 @@ export async function fetchStation(id) {
 }
 
 export async function deleteStation(id, payload) {
-    const {data} = await api.delete(`${base}/${id}`,{
-        data:payload,
+    const { data } = await api.delete(`${base}/${id}`, {
+        data: payload,
     });
     return data ?? null;
+}
+
+export async function downloadStationsTemplate() {
+    const response = await api.get(`${base}/bulk/template`, {
+        responseType: 'blob',
+    });
+
+    return response.data;
+}
+
+export async function bulkUploadStations(file, onUploadProgress) {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    const { data } = await api.post(`${base}/bulk`, formData, {
+        onUploadProgress,
+    });
+
+    return data;
 }

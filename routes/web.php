@@ -354,6 +354,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+            Route::get('/stations/bulk/template',[\App\Http\Controllers\Api\StationController::class, 'downloadBulkTemplate'])->name('stations.bulk.template');
+            Route::post('/stations/bulk',[\App\Http\Controllers\Api\StationController::class, 'bulkUpload'])->name('stations.bulk.upload');
             Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
             Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
             Route::get('/customers/bulk/template',[\App\Http\Controllers\Api\CustomerController::class, 'downloadBulkTemplate'])->name('customers.bulk.template');
