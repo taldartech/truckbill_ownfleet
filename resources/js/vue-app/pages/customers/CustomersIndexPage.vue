@@ -10,6 +10,14 @@
                 >
                     Add Customer
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="import"
+                    aria-label="Bulk Upload Customers"
+                    @click="openBulkUpload"
+                    >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -116,13 +124,24 @@
             @cancel="closeDeleteConfirm"
             @confirm="confirmDelete"
         />
+
+        <AppBulkUploadModal
+            :show="showBulkUpload"
+            title="Bulk Upload Customers"
+            template-name="customers_template.xlsx"
+            error-label="Customers"
+            :download-template="downloadCustomersTemplate"
+            :upload-file="bulkUploadCustomers"
+            @close="closeBulkUpload"
+            @uploaded="handleBulkUploaded"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from '../../api/customers';
+import { bulkUploadCustomers, createCustomer, deleteCustomer, downloadCustomersTemplate, listCustomers, updateCustomer } from '../../api/customers';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
@@ -138,6 +157,8 @@ import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import CustomerDeleteConfirmModal from './CustomerDeleteConfirmModal.vue';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
+
 
 const toast = useAppToast();
 const {
@@ -158,6 +179,7 @@ const saving = ref(false);
 const showDeleteConfirm = ref(false);
 const deletingCustomer = ref(null);
 const deleting = ref(false);
+const showBulkUpload = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -304,6 +326,22 @@ async function confirmDelete(payload) {
     } finally {
         deleting.value = false;
     }
+}
+
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
+
+function closeBulkUpload() {
+    showBulkUpload.value = false;
+}
+
+async function handleBulkUploaded(result) {
+    await loadCustomers();
+
+    toast.success(
+        `Bulk upload completed. ${result?.successful ?? 0} customers imported.`,
+    );
 }
 onMounted(async () => {
     await loadCustomers();

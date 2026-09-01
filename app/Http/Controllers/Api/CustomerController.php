@@ -3,14 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Customer;
+use App\Exports\CustomersTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Resources\CustomerResource;
+use App\Imports\CustomersBulkImport;
 use App\Modules\TripManagement\Services\CustomerService;
+use App\Support\CurrentTenant;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerController extends Controller
 {
@@ -69,4 +74,46 @@ class CustomerController extends Controller
 
         return response()->noContent();
     }
+
+  public function downloadBulkTemplate()
+{
+ \Log::info('Customer bulk template endpoint reached');
+
+    $this->authorize('create', Customer::class);
+
+    \Log::info('Customer bulk template authorization passed');
+
+    return Excel::download(
+        new CustomersTemplateExport(),
+        'customers_template.xlsx'
+    );
+}
+
+public function bulkUpload(Request $request): JsonResponse
+{
+    $this->authorize('create', Customer::class);
+
+    $validated = $request->validate([
+        'file' => [
+            'required',
+            'file',
+            'mimes:xlsx,xls,csv',
+            'max:10240',
+        ],
+    ]);
+
+    $import = new CustomersBulkImport(
+        tenantId: CurrentTenant::id(),
+        userId: $request->user()?->id,
+    );
+
+    Excel::import($import, $validated['file']);
+
+    return response()->json([
+        'total' => $import->total,
+        'successful' => $import->successful,
+        'failed' => $import->failed,
+        'errors' => $import->errors,
+    ]);
+}
 }

@@ -356,6 +356,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
             Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
             Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
+            Route::get('/customers/bulk/template',[\App\Http\Controllers\Api\CustomerController::class, 'downloadBulkTemplate'])->name('customers.bulk.template');
+            Route::post('/customers/bulk',[\App\Http\Controllers\Api\CustomerController::class, 'bulkUpload'])->name('customers.bulk.upload');
 
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 

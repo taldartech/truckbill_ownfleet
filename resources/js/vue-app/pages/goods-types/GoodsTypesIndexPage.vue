@@ -12,7 +12,7 @@
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
-                    icon="fas fa-upload"
+                    icon="import"
                     aria-label="Bulk Upload Goods Types"
                     @click="openBulkUpload"
                     >
@@ -131,7 +131,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { createGoodsType, deleteGoodsType, listGoodsTypes, updateGoodsType } from '../../api/goodsTypes';
+import { createGoodsType, deleteGoodsType, listGoodsTypes, updateGoodsType, bulkUploadGoodsTypes, downloadGoodsTypesTemplate } from '../../api/goodsTypes';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
@@ -148,10 +148,6 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { usePermissions } from '../../composables/usePermissions';
 import GoodsTypeDeleteConfirmModal from './GoodsTypeDeleteConfirmModal.vue';
 import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
-import {
-    bulkUploadGoodsTypes,
-    downloadGoodsTypesTemplate,
-} from '../../api/goodsTypes';
 
 
 const toast = useAppToast();
