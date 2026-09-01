@@ -16,8 +16,6 @@ class GoodsTypeResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'code' => $this->code,
-            'is_active' => (bool) $this->is_active,
             'created_by_name' => $this->whenLoaded('createdBy', fn () => $this->createdBy?->name),
             'updated_by_name' => $this->whenLoaded('updatedBy', fn () => $this->updatedBy?->name),
             'created_at' => ApiDateTime::toIso($this->created_at),

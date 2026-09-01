@@ -10,6 +10,14 @@
                 >
                     Add Goods Type
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="fas fa-upload"
+                    aria-label="Bulk Upload Goods Types"
+                    @click="openBulkUpload"
+                    >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -106,6 +114,17 @@
             @cancel="closeDeleteConfirm"
             @confirm="confirmDelete"
         />
+
+        <AppBulkUploadModal
+            :show="showBulkUpload"
+            title="Bulk Upload Goods Types"
+            template-name="goods_types_template.xlsx"
+            error-label="Goods Type"
+            :download-template="downloadGoodsTypesTemplate"
+            :upload-file="bulkUploadGoodsTypes"
+            @close="closeBulkUpload"
+            @uploaded="handleBulkUploaded"
+        />
     </div>
 </template>
 
@@ -128,6 +147,12 @@ import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import GoodsTypeDeleteConfirmModal from './GoodsTypeDeleteConfirmModal.vue';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
+import {
+    bulkUploadGoodsTypes,
+    downloadGoodsTypesTemplate,
+} from '../../api/goodsTypes';
+
 
 const toast = useAppToast();
 const {
@@ -146,6 +171,8 @@ const goodsTypes = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const showDeleteConfirm = ref(false);
+const showBulkUpload = ref(false);
+const bulkUploading = ref(false);
 const deletingGoodsType = ref(null);
 const deleting = ref(false);
 const search = ref('');
@@ -188,6 +215,26 @@ function goToPage(page) {
     }
 
     loadGoodsTypes(page);
+}
+
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
+
+function closeBulkUpload() {
+    if (bulkUploading.value) {
+        return;
+    }
+
+    showBulkUpload.value = false;
+}
+
+async function handleBulkUploaded(result) {
+    await loadGoodsTypes();
+
+    toast.success(
+        `Bulk upload completed. ${result?.successful ?? 0} goods types imported.`,
+    );
 }
 
 function openCreate() {

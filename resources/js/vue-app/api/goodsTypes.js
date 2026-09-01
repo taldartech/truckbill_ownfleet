@@ -57,4 +57,23 @@ export async function deleteGoodsType(id, payload) {
 
     return data ?? null;
 }
+
+export async function downloadGoodsTypesTemplate() {
+    const response = await api.get(`${base}/bulk/template`, {
+        responseType: 'blob',
+    });
+
+    return response.data;
+}
        
+export async function bulkUploadGoodsTypes(file, onUploadProgress) {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    const { data } = await api.post(`${base}/bulk`, formData, {
+        onUploadProgress,
+    });
+
+    return data;
+}

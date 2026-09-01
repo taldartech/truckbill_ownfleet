@@ -15,20 +15,11 @@ class GoodsType extends Model
     protected $fillable = [
         'tenant_id',
         'name',
-        'code',
-        'is_active',
         'created_by',
         'updated_by',
         'deleted_by',
         'deleted_reason'
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'is_active' => 'boolean',
-        ];
-    }
 
     public function createdBy(): BelongsTo
     {

@@ -21,6 +21,7 @@
                 :class="{ 'is-invalid': fieldErrors.name }"
                 placeholder="e.g. Cement"
                 required
+                maxlength="100"
             />
             <div v-if="fieldErrors.name" class="invalid-feedback d-block">
                 {{ fieldErrors.name[0] }}

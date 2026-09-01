@@ -265,7 +265,9 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::delete('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy'])->name('document-types.destroy');
 
             Route::get('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'index'])->name('goods-types.index');
+            Route::get('/goods-types/bulk/template', [\App\Http\Controllers\Api\GoodsTypeController::class,'downloadBulkTemplate',])->name('goods-types.bulk.template');
             Route::post('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'store'])->name('goods-types.store');
+            Route::post('/goods-types/bulk',[\App\Http\Controllers\Api\GoodsTypeController::class,'bulkUpload',])->name('goods-types.bulk');
             Route::get('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'show'])->name('goods-types.show');
             Route::put('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'update'])->name('goods-types.update');
             Route::delete('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'destroy'])->name('goods-types.destroy');

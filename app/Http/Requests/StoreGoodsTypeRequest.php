@@ -17,15 +17,6 @@ class StoreGoodsTypeRequest extends FormRequest
                 'name' => trim((string) $this->input('name')),
             ]);
         }
-
-        if (! $this->filled('code') && $this->filled('name')) {
-            $this->merge([
-                'code' => GoodsTypeDefaults::generateCode(
-                    (string) $this->input('name'),
-                    CurrentTenant::requireId(),
-                ),
-            ]);
-        }
     }
 
     public function authorize(): bool
@@ -39,12 +30,8 @@ class StoreGoodsTypeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:100'],
-            'code' => [
-                'required',
-                'string',
-                'max:64',
-                Rule::unique('goods_types', 'code')->where(
+            'name' => ['required', 'string', 'max:100',
+                Rule::unique('goods_types', 'names')->where(
                     fn ($query) => $query->where('tenant_id', CurrentTenant::id()),
                 ),
             ],
@@ -58,7 +45,7 @@ class StoreGoodsTypeRequest extends FormRequest
     {
         return [
             'name.required' => 'Goods type name is required.',
-            'code.unique' => 'This goods type already exists.',
+            'name.unique' => 'This goods type already exists.',
         ];
     }
 }

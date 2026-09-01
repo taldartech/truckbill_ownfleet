@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\GoodsType;
+use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateGoodsTypeRequest extends FormRequest
 {
@@ -29,8 +31,30 @@ class UpdateGoodsTypeRequest extends FormRequest
      */
     public function rules(): array
     {
+        $goodsType = $this->route('goods_type');
         return [
-            'name' => ['required', 'string', 'max:100'],
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+
+                Rule::unique('goods_types', 'name')
+                    ->where(
+                        fn($query) => $query->where(
+                            'tenant_id',
+                            CurrentTenant::id(),
+                        ),
+                    )
+                    ->ignore($goodsType?->id),
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Goods type name is required.',
+            'name.unique' => 'This goods type already exists.',
         ];
     }
 }
