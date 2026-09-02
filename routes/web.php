@@ -382,6 +382,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.tyre-positions');
             Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])
                 ->name('vehicles.tyre-history');
+            Route::get('/vehicles/bulk/template',[\App\Http\Controllers\Api\VehicleController::class, 'downloadBulkTemplate'])->name('vehicles.bulk.template');
+            Route::post('/vehicles/bulk',[\App\Http\Controllers\Api\VehicleController::class, 'bulkUpload'])->name('vehicles.bulk.upload');
 
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
                 ->name('reports.tyres.life');

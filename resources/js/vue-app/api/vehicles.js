@@ -141,3 +141,27 @@ export async function fetchVehiclePrimaryAssignment(vehicleId) {
 
     return data;
 }
+
+export async function downloadVehiclesTemplate() {
+    const response = await api.get(`${vehiclesBase}/bulk/template`, {
+        responseType: 'blob',
+    });
+
+    return response.data;
+}
+
+export async function bulkUploadVehicles(file, onUploadProgress) {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    const { data } = await api.post(
+        `${vehiclesBase}/bulk`,
+        formData,
+        {
+            onUploadProgress,
+        },
+    );
+
+    return data;
+}

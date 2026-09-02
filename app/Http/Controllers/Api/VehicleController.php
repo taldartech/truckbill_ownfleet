@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\DriverAssignment;
+use App\Exports\VehiclesTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteVehicleRequest;
 use App\Http\Requests\StoreVehicleRequest;
@@ -10,6 +11,7 @@ use App\Http\Requests\ToggleVehicleStatusRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
 use App\Http\Resources\VehicleTripSelectionResource;
+use App\Imports\VehiclesBulkImport;
 use App\Modules\DriverManagement\Services\DriverAssignmentService;
 use App\Modules\TripManagement\Services\VehicleTripEligibilityService;
 use App\Services\SubscriptionGuard;
@@ -21,6 +23,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class VehicleController extends Controller
 {
@@ -251,5 +254,38 @@ class VehicleController extends Controller
         $vehicle->delete();
     
         return response()->noContent();
+    }
+
+    public function downloadBulkTemplate()
+    {
+        $this->authorize('create', Vehicle::class);
+    
+        return Excel::download(
+            new VehiclesTemplateExport(),
+            'vehicles_template.xlsx'
+        );
+    }
+
+    public function bulkUpload(Request $request): JsonResponse
+    {
+        $this->authorize('create', Vehicle::class);
+    
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv',
+                'max:10240',
+            ],
+        ]);
+    
+        $import = new VehiclesBulkImport();
+    
+        Excel::import($import, $request->file('file'));
+    
+        return response()->json([
+            'message' => 'Bulk upload completed.',
+            ...$import->result(),
+        ]);
     }
 }

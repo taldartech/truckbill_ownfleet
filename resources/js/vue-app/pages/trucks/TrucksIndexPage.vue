@@ -16,6 +16,14 @@
                 >
                     Add Truck
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="import"
+                    aria-label="Bulk Upload Trucks"
+                    @click="openBulkUpload"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -263,6 +271,18 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <AppBulkUploadModal
+          :show="showBulkUpload"
+          title="Bulk Upload Trucks"
+          template-name="vehicles_template.xlsx"
+          template-description="Upload multiple trucks using the provided Excel template."
+          error-label="Truck"
+          :download-template="downloadVehiclesTemplate"
+          :upload-file="bulkUploadVehicles"
+          @close="closeBulkUpload"
+          @uploaded="handleBulkUploaded"
+        />
     </div>
 </template>
 
@@ -270,6 +290,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
+    bulkUploadVehicles,
+    downloadVehiclesTemplate,
     createVehicle,
     defaultVehicleListFilters,
     deleteVehicle,
@@ -299,6 +321,7 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildTruckFields } from '../../utils/masterCrudSaveConfirm';
 import TruckDeleteConfirmModal from '../../pages/trucks/TruckDeleteConfirmModal.vue';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
 
 const route = useRoute();
 const toast = useAppToast();
@@ -351,6 +374,7 @@ const truckTypes = ref([]);
 const showDeleteConfirm = ref(false);
 const deleting = ref(false);
 const deletingVehicle = ref(null);
+const showBulkUpload = ref(false);
 
 const vehicleTypes = computed(() =>
     truckTypes.value.map((type) => ({
@@ -654,6 +678,27 @@ async function resolveVehicleSearchFromRoute() {
     }
 }
 
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
+
+function closeBulkUpload() {
+    showBulkUpload.value = false;
+}
+
+async function handleBulkUploaded(result) {
+    await loadVehicles(1);
+
+    if (result?.failed > 0) {
+        toast.warning(
+            `${result.successful ?? 0} truck(s) imported successfully. ${result.failed} truck(s) failed.`,
+        );
+    } else {
+        toast.success(
+            `${result?.successful ?? 0} truck(s) imported successfully.`,
+        );
+    }
+}
 onMounted(async () => {
     applyRouteFilters();
 
