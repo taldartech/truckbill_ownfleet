@@ -18,6 +18,14 @@
                 >
                     Create
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="import"
+                    aria-label="Bulk Upload Drivers"
+                    @click="openBulkUpload"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <div v-if="licenseAlertsMode" class="alert alert-warning py-2 mb-3">
@@ -200,6 +208,18 @@
             @cancel="cancelDelete"
             @confirm="confirmDelete"
         />
+
+        <AppBulkUploadModal
+            :show="showBulkUpload"
+            title="Bulk Upload Drivers"
+            template-name="drivers_template.xlsx"
+            template-description="Upload multiple drivers using the provided Excel template."
+            error-label="Driver"
+            :download-template="downloadDriversTemplate"
+            :upload-file="bulkUploadDrivers"
+            @close="closeBulkUpload"
+            @uploaded="handleBulkUploaded"
+        />
     </div>
 </template>
 
@@ -208,6 +228,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createDriverAdvanceEntry } from '../../api/driverAdvances';
 import {
+    downloadDriversTemplate,
+    bulkUploadDrivers,
     createDriver,
     deleteDriver,
     listDrivers,
@@ -233,6 +255,7 @@ import { COMPLIANCE_ALERT_WINDOW_DAYS } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import { buildDriverAdvanceFields, buildDriverFields } from '../../utils/masterCrudSaveConfirm';
 import DriverDeleteConfirmModal from '../drivers/DriverDeleteConfirmModal.vue';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
@@ -316,6 +339,7 @@ const editingDriver = ref(null);
 const showDeleteConfirm = ref(false);
 const deletingDriver = ref(null);
 const deleting = ref(false);
+const showBulkUpload = ref(false);
 const showAdvance = ref(false);
 const advanceDriver = ref(null);
 const advanceSaving = ref(false);
@@ -699,6 +723,28 @@ async function confirmDelete(payload) {
         );
     } finally {
         deleting.value = false;
+    }
+}
+
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
+
+function closeBulkUpload() {
+    showBulkUpload.value = false;
+}
+
+async function handleBulkUploaded(result) {
+    await loadDrivers(1);
+
+    if (result?.failed > 0) {
+        toast.warning(
+            `${result.successful ?? 0} driver(s) imported successfully. ${result.failed} driver(s) failed.`,
+        );
+    } else {
+        toast.success(
+            `${result?.successful ?? 0} driver(s) imported successfully.`,
+        );
     }
 }
 

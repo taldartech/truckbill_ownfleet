@@ -203,6 +203,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
             Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
             Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
+            Route::get('/drivers/bulk/template',[DriverController::class, 'downloadBulkTemplate'])->name('drivers.bulk.template');
+            Route::post('/drivers/bulk',[DriverController::class, 'bulkUpload'])->name('drivers.bulk.upload');
 
             Route::apiResource('challans', \App\Http\Controllers\Api\ChallanController::class);
             Route::apiResource('monthly-expenses', \App\Http\Controllers\Api\MonthlyExpenseController::class);
@@ -554,6 +556,8 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
             'message' => 'Preview mode only.',
         ]);
     })->name('drivers.store');
+
+
 
     Route::get('/freight_bookings', function () {
         if (request()->expectsJson() || request()->ajax()) {

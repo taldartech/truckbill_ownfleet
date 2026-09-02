@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Driver;
+use App\Exports\DriversTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDriverRequest;
 use App\Http\Requests\UpdateDriverRequest;
 use App\Http\Resources\DriverResource;
+use App\Imports\DriversBulkImport;
 use App\Modules\DriverManagement\Services\DriverService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DriverController extends Controller
 {
@@ -93,4 +97,40 @@ class DriverController extends Controller
 
         return DriverResource::collection($this->driverService->licenseExpiringWithinDays($days));
     }
+
+public function downloadBulkTemplate()
+{
+    $this->authorize('create', Driver::class);
+
+    return Excel::download(
+        new DriversTemplateExport(),
+        'drivers_template.xlsx',
+    );
+}
+
+public function bulkUpload(Request $request): JsonResponse
+{
+    $this->authorize('create', Driver::class);
+
+    $request->validate([
+        'file' => [
+            'required',
+            'file',
+            'mimes:xlsx,xls,csv',
+            'max:10240',
+        ],
+    ]);
+
+    $import = new DriversBulkImport();
+
+    Excel::import(
+        $import,
+        $request->file('file')
+    );
+
+    return response()->json([
+        'message' => 'Bulk upload completed.',
+        ...$import->result(),
+    ]);
+}
 }

@@ -68,3 +68,30 @@ export async function deleteDriver(id, payload) {
         },
     });
 }
+
+export async function downloadDriversTemplate() {
+    const response = await api.get(
+        `${driversBase}/bulk/template`,
+        {
+            responseType: 'blob',
+        },
+    );
+
+    return response.data;
+}
+
+export async function bulkUploadDrivers(file, onUploadProgress) {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    const { data } = await api.post(
+        `${driversBase}/bulk`,
+        formData,
+        {
+            onUploadProgress,
+        },
+    );
+
+    return data;
+}
