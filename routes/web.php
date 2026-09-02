@@ -365,6 +365,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
 
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
+            Route::get('/tyres/bulk/template', [\App\Http\Controllers\Api\TyreController::class, 'downloadBulkTemplate'])->name('tyres.bulk.template');
+            Route::post('/tyres/bulk', [\App\Http\Controllers\Api\TyreController::class, 'bulkUpload'])->name('tyres.bulk.upload');
             Route::get('/tyres/alerts', [\App\Http\Controllers\Api\TyreController::class, 'alerts'])->name('tyres.alerts');
             Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
             Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);
@@ -380,6 +382,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::get('/tyre-installations/{tyre_installation}/removal-preview', [\App\Http\Controllers\Api\TyreController::class, 'removalPreview'])
                 ->name('tyre-installations.removal-preview');
             Route::post('/tyres/{tyre}/scrap', [\App\Http\Controllers\Api\TyreController::class, 'scrap'])->name('tyres.scrap');
+
             Route::get('/vehicles/{vehicle}/tyre-positions', [\App\Http\Controllers\Api\TyreController::class, 'vehiclePositions'])
                 ->name('vehicles.tyre-positions');
             Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])

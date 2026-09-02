@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\TyresTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\InstallTyreRequest;
 use App\Http\Requests\RemoveTyreInstallationRequest;
@@ -20,6 +21,7 @@ use App\Http\Resources\TyreInspectionResource;
 use App\Http\Resources\TyreInstallationResource;
 use App\Http\Resources\TyreResource;
 use App\Http\Resources\TyreRotationResource;
+use App\Imports\TyresBulkImport;
 use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Modules\TyreManagement\Services\TyreService;
 use App\Tyre;
@@ -28,6 +30,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TyreController extends Controller
 {
@@ -191,4 +194,37 @@ class TyreController extends Controller
 
         return response()->json($this->tyreService->vehicleTyreHistory($vehicle));
     }
+
+  public function downloadBulkTemplate()
+{
+    $this->authorize('create', Tyre::class);
+
+    return Excel::download(
+        new TyresTemplateExport(),
+        'tyres_template.xlsx'
+    );
+}
+
+public function bulkUpload(Request $request): JsonResponse
+{
+    $this->authorize('create', Tyre::class);
+
+    $request->validate([
+        'file' => [
+            'required',
+            'file',
+            'mimes:xlsx,xls,csv',
+            'max:10240',
+        ],
+    ]);
+
+    $import = app(TyresBulkImport::class);
+
+    Excel::import($import, $request->file('file'));
+
+    return response()->json([
+        'message' => 'Bulk upload completed.',
+        ...$import->result(),
+    ]);
+}
 }

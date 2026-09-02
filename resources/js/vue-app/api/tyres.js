@@ -127,3 +127,29 @@ export async function getVehicleTyreHistory(vehicleId) {
         history: data.history ?? [],
     };
 }
+
+export async function downloadTyresTemplate() {
+    const response = await api.get(
+        `${base}/bulk/template`,
+        {
+            responseType: 'blob',
+        },
+    );
+
+    return response.data;
+}
+
+export async function bulkUploadTyres(file, onUploadProgress) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await api.post(
+        `${base}/bulk`,
+        formData,
+        {
+            onUploadProgress,
+        },
+    );
+
+    return data;
+}

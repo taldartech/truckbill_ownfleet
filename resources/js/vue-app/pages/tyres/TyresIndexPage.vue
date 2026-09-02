@@ -31,6 +31,14 @@
                 >
                     Add Tyre
                 </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
+                    icon="import"
+                    aria-label="Bulk upload tyres"
+                    @click="openBulkUpload"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -381,13 +389,32 @@
             @confirm="confirmSaveTyre"
         />
     </div>
+        <AppBulkUploadModal
+            :show="showBulkUpload"
+            title="Bulk Upload Tyres"
+            template-name="tyres_template.xlsx"
+            template-description="Download the template, fill in the tyre details, and upload the completed Excel file."
+            accept=".xlsx,.xls,.csv"
+            error-label="Tyre upload errors"
+            :download-template="handleDownloadTemplate"
+            :upload-file="handleBulkUpload"
+            @close="closeBulkUpload"
+            @uploaded="handleBulkUploaded"
+        />
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
-import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
+import {
+    bulkUploadTyres,
+    createTyre,
+    downloadTyresTemplate,
+    getTyre,
+    listTyres,
+    updateTyre,
+} from '../../api/tyres';
 import AppModal from '../../components/ui/AppModal.vue';
 import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
@@ -421,6 +448,7 @@ import {
 } from '../../utils/tyreDisplay';
 import { buildTyreSaveConfirmSummary } from '../../utils/tyre-save-confirm-info';
 import { toDateInputValue } from '../../utils/datetime';
+import AppBulkUploadModal from '../../components/ui/AppBulkUploadModal.vue';
 
 const maxTyreActionDate = toDateInputValue();
 
@@ -523,6 +551,7 @@ let tyresRequestId = 0;
 const vehicles = ref([]);
 const showModal = ref(false);
 const showSaveConfirm = ref(false);
+const showBulkUpload = ref(false);
 const pendingSaveMode = ref('save');
 const editing = ref(null);
 const serialNumberInputRef = ref(null);
@@ -996,7 +1025,27 @@ function applyRouteFilters() {
         syncingFilters = false;
     }
 }
+function openBulkUpload() {
+    showBulkUpload.value = true;
+}
 
+function closeBulkUpload() {
+    showBulkUpload.value = false;
+}
+
+async function handleDownloadTemplate() {
+    return await downloadTyresTemplate();
+}
+
+async function handleBulkUpload(file, onUploadProgress) {
+    return await bulkUploadTyres(file, onUploadProgress);
+}
+
+async function handleBulkUploaded() {
+    if (filtersApplied.value) {
+        await loadTyres(pagination.currentPage);
+    }
+}
 function openCreateFromRouteQuery() {
     if (route.query.create !== '1' || !canManage.value) {
         return;
