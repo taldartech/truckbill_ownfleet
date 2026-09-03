@@ -28,6 +28,13 @@ return [
 
   'env' => env('APP_ENV', 'production'),
 
+
+  /*
+  | Asset Versioning
+  */
+
+    'asset_version' => env('ASSET_VERSION', '1'),
+
   /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
