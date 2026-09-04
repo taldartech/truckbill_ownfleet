@@ -12,9 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            $table->uuid('deleted_by')
+            $table->foreignUuid('deleted_by')
                 ->nullable()
-                ->change();
+                ->after('deleted_at')
+                ->constrained('users')
+                ->nullOnDelete();
 
             $table->text('deleted_reason')
                 ->nullable()
@@ -28,11 +30,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customers', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('deleted_by');
             $table->dropColumn('deleted_reason');
-
-            $table->unsignedBigInteger('deleted_by')
-                ->nullable()
-                ->change();
         });
     }
 };
