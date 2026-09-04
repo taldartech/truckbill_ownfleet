@@ -19,4 +19,8 @@ return [
         'mysqldump'
     ),
 
+     'failure_email' => env(
+        'DB_BACKUP_FAILURE_EMAIL',
+        env('MAIL_FROM_ADDRESS')
+    ),
 ];

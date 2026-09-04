@@ -5,8 +5,10 @@ namespace App\Console\Commands;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
+use App\Mail\DatabaseBackupFailed;
 
 class BackupDatabase extends Command
 {
@@ -34,7 +36,8 @@ class BackupDatabase extends Command
         );
 
         try {
-            if (! File::exists($localDirectory)) {
+
+            if (!File::exists($localDirectory)) {
                 File::makeDirectory(
                     $localDirectory,
                     0755,
@@ -48,7 +51,7 @@ class BackupDatabase extends Command
             $this->createMySqlBackup($localPath);
 
             if (
-                ! File::exists($localPath)
+                !File::exists($localPath)
                 || File::size($localPath) === 0
             ) {
                 throw new \RuntimeException(
@@ -80,9 +83,8 @@ class BackupDatabase extends Command
                 fclose($stream);
             }
 
-            fclose($stream);
 
-            if (! $uploaded) {
+            if (!$uploaded) {
                 throw new \RuntimeException(
                     'Failed to store database backup.'
                 );
@@ -108,7 +110,6 @@ class BackupDatabase extends Command
             return self::SUCCESS;
 
         } catch (\Throwable $exception) {
-
             if (File::exists($localPath)) {
                 File::delete($localPath);
             }
@@ -116,8 +117,34 @@ class BackupDatabase extends Command
             report($exception);
 
             $this->error(
-                'Database backup failed: '.$exception->getMessage()
+                'Database backup failed: ' . $exception->getMessage()
             );
+
+            $failureEmail = config('backup.failure_email');
+
+            if ($failureEmail) {
+                try {
+                    Mail::to($failureEmail)->send(
+                        new DatabaseBackupFailed(
+                            errorMessage: $exception->getMessage(),
+                            attachmentName: $filename,
+                            generatedAt: now()->format('Y-m-d H:i:s'),
+                            appName: config('app.name', 'Truckbill'),
+                        )
+                    );
+
+                    $this->line(
+                        "Database backup failure notification sent to {$failureEmail}."
+                    );
+                } catch (\Throwable $mailException) {
+                    report($mailException);
+
+                    $this->error(
+                        'Failed to send database backup failure notification: '
+                        . $mailException->getMessage()
+                    );
+                }
+            }
 
             return self::FAILURE;
         }
@@ -154,16 +181,16 @@ class BackupDatabase extends Command
 
         $command = [
             $mysqldump,
-            '--host='.$database['host'],
-            '--port='.($database['port'] ?? 3306),
-            '--user='.$database['username'],
+            '--host=' . $database['host'],
+            '--port=' . ($database['port'] ?? 3306),
+            '--user=' . $database['username'],
             '--single-transaction',
             '--quick',
             '--routines',
             '--events',
             '--databases',
             $database['database'],
-            '--result-file='.$sqlPath,
+            '--result-file=' . $sqlPath,
         ];
 
         $process = new Process($command);
@@ -176,7 +203,7 @@ class BackupDatabase extends Command
 
         $process->run();
 
-        if (! $process->isSuccessful()) {
+        if (!$process->isSuccessful()) {
             throw new \RuntimeException(
                 trim(
                     $process->getErrorOutput()
@@ -186,7 +213,7 @@ class BackupDatabase extends Command
         }
 
         if (
-            ! File::exists($sqlPath)
+            !File::exists($sqlPath)
             || File::size($sqlPath) === 0
         ) {
             throw new \RuntimeException(
@@ -213,7 +240,7 @@ class BackupDatabase extends Command
             );
         }
 
-        while (! feof($source)) {
+        while (!feof($source)) {
             $chunk = fread(
                 $source,
                 1024 * 1024
@@ -257,7 +284,7 @@ class BackupDatabase extends Command
         foreach ($disk->files($directory) as $file) {
 
             if (
-                ! str_starts_with(
+                !str_starts_with(
                     basename($file),
                     'database-backup-'
                 )
