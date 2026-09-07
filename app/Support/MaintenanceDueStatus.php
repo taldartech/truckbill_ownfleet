@@ -44,24 +44,31 @@ class MaintenanceDueStatus
     /**
      * @return 'km'|'date'|'both'|null
      */
-    public static function overdueReason(
-        ?float $odometerKm,
-        ?float $nextDueKm,
-        ?string $nextDueDate,
-        ?string $today = null,
-    ): ?string {
-        $today ??= now()->toDateString();
+public static function overdueReason(
+    ?float $odometerKm,
+    ?float $nextDueKm,
+    ?string $nextDueDate,
+    ?string $today = null
+): ?string {
+    $today ??= now()->toDateString();
 
-        $kmDue = $nextDueKm !== null && $odometerKm !== null && $odometerKm >= $nextDueKm;
-        $dateDue = $nextDueDate !== null && $nextDueDate < $today;
+    $kmDue = $nextDueKm !== null
+        && $odometerKm !== null
+        && $odometerKm >= $nextDueKm;
 
-        return match (true) {
-            $kmDue && $dateDue => 'both',
-            $kmDue => 'km',
-            $dateDue => 'date',
-            default => null,
-        };
-    }
+    $dateDue = $nextDueDate !== null
+        && $nextDueDate < $today;
+
+    $hasKmSchedule = $nextDueKm !== null;
+    $hasDateSchedule = $nextDueDate !== null;
+
+    return match (true) {
+        $hasKmSchedule && $hasDateSchedule && ($kmDue || $dateDue) => 'both',
+        $hasKmSchedule && $kmDue => 'km',
+        $hasDateSchedule && $dateDue => 'date',
+        default => null,
+    };
+}
 
     public static function overdueReasonLabel(?string $reason): string
     {
@@ -72,4 +79,29 @@ class MaintenanceDueStatus
             default => '—',
         };
     }
+
+public static function scheduleFactor(
+    ?float $nextDueKm,
+    ?string $nextDueDate,
+): ?string {
+    $hasKm = $nextDueKm !== null;
+    $hasDate = $nextDueDate !== null;
+
+    return match (true) {
+        $hasKm && $hasDate => 'both',
+        $hasKm => 'km',
+        $hasDate => 'date',
+        default => null,
+    };
+}
+
+public static function scheduleFactorLabel(?string $factor): string
+{
+    return match ($factor) {
+        'both' => 'KM & Date',
+        'km' => 'KM',
+        'date' => 'Date',
+        default => '—',
+    };
+}
 }

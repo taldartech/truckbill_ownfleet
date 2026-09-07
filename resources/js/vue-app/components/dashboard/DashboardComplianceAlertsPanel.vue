@@ -8,26 +8,15 @@
                 </h6>
                 <p v-if="periodLabel" class="dashboard-panel__date-hint">Date: {{ periodLabel }}</p>
             </div>
-            <AppButton
-                v-if="showViewAll"
-                size="sm"
-                outline
-                variant="primary"
-                label="View All"
-                icon="fas fa-list-ul"
-                @click="$emit('view-all')"
-            />
+            <AppButton v-if="showViewAll" size="sm" outline variant="primary" label="View All" icon="fas fa-list-ul"
+                @click="$emit('view-all')" />
         </div>
 
         <div v-if="loading" class="dashboard-panel__empty text-muted">Loading alerts…</div>
         <template v-else>
             <div class="compliance-summary-grid">
-                <div
-                    v-for="item in summaryItems"
-                    :key="item.key"
-                    class="compliance-summary-card"
-                    :class="`compliance-summary-card--${item.tone}`"
-                >
+                <div v-for="item in summaryItems" :key="item.key" class="compliance-summary-card"
+                    :class="`compliance-summary-card--${item.tone}`">
                     <span class="compliance-summary-card__value">{{ item.value }}</span>
                     <span class="compliance-summary-card__label">{{ item.label }}</span>
                 </div>
@@ -62,27 +51,16 @@
                                         </td>
                                         <td v-if="canEditDocuments" class="text-end">
                                             <div class="compliance-actions">
-                                                <AppButton
-                                                    v-if="canRenewDocument(document)"
-                                                    size="sm"
-                                                    variant="warning"
-                                                    icon="fas fa-rotate-right"
-                                                    title="Renew Now"
-                                                    @click.stop="startRenew(document)"
-                                                />
+                                                <AppButton v-if="canRenewDocument(document)" size="sm" variant="warning"
+                                                    icon="fas fa-rotate-right" title="Renew Now"
+                                                    @click.stop="startRenew(document)" />
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr
-                                        v-if="renewingDocumentId === document.id"
-                                        class="dashboard-panel__renew-row"
-                                    >
+                                    <tr v-if="renewingDocumentId === document.id" class="dashboard-panel__renew-row">
                                         <td :colspan="documentTableColspan">
-                                            <DocumentRenewInlineForm
-                                                :document="document"
-                                                @saved="handleRenewSaved"
-                                                @cancel="cancelRenew"
-                                            />
+                                            <DocumentRenewInlineForm :document="document" @saved="handleRenewSaved"
+                                                @cancel="cancelRenew" />
                                         </td>
                                     </tr>
                                 </template>
@@ -94,14 +72,9 @@
                 <div v-if="licenses.length" class="compliance-section">
                     <div class="dashboard-panel__section-head">
                         <div class="dashboard-panel__subtitle mb-0">Driver Licenses</div>
-                        <AppButton
-                            size="sm"
-                            outline
-                            variant="primary"
-                            label="Open Drivers"
+                        <AppButton size="sm" outline variant="primary" label="Open Drivers"
                             icon="fas fa-arrow-up-right-from-square"
-                            :to="{ name: 'drivers.index', query: { license_alerts: '1' } }"
-                        />
+                            :to="{ name: 'drivers.index', query: { license_alerts: '1' } }" />
                     </div>
                     <div class="table-responsive compliance-table">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -116,12 +89,10 @@
                             </thead>
                             <tbody>
                                 <template v-for="license in licenses" :key="`lic-${license.driver_id}`">
-                                    <tr
-                                        :class="[
-                                            'dashboard-panel__row',
-                                            rowBorderClass(license),
-                                        ]"
-                                    >
+                                    <tr :class="[
+                                        'dashboard-panel__row',
+                                        rowBorderClass(license),
+                                    ]">
                                         <td class="fw-medium">{{ license.driver_name }}</td>
                                         <td>{{ license.license_number ?? '—' }}</td>
                                         <td class="text-muted">{{ formatDate(license.license_expiry_date) }}</td>
@@ -130,28 +101,17 @@
                                         </td>
                                         <td v-if="canManageLicenses" class="text-end">
                                             <div class="compliance-actions">
-                                                <AppButton
-                                                    v-if="canUpdateLicense(license)"
-                                                    size="sm"
-                                                    variant="primary"
-                                                    outline
-                                                    icon="fas fa-calendar-days"
-                                                    title="Update Expiry"
-                                                    @click.stop="startExpiryUpdate(license)"
-                                                />
+                                                <AppButton v-if="canUpdateLicense(license)" size="sm" variant="primary"
+                                                    outline icon="fas fa-calendar-days" title="Update Expiry"
+                                                    @click.stop="startExpiryUpdate(license)" />
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr
-                                        v-if="updatingLicenseDriverId === license.driver_id"
-                                        class="dashboard-panel__renew-row"
-                                    >
+                                    <tr v-if="updatingLicenseDriverId === license.driver_id"
+                                        class="dashboard-panel__renew-row">
                                         <td :colspan="licenseTableColspan">
-                                            <LicenseExpiryInlineForm
-                                                :license="license"
-                                                @saved="handleExpirySaved"
-                                                @cancel="cancelExpiryUpdate"
-                                            />
+                                            <LicenseExpiryInlineForm :license="license" @saved="handleExpirySaved"
+                                                @cancel="cancelExpiryUpdate" />
                                         </td>
                                     </tr>
                                 </template>
@@ -165,14 +125,8 @@
                         <div class="dashboard-panel__subtitle mb-0">
                             E-Way Bill Alerts
                         </div>
-                        <AppButton
-                            size="sm"
-                            outline
-                            variant="primary"
-                            label="Open Trips"
-                            icon="fas fa-arrow-up-right-from-square"
-                            :to="{ name: 'trips.index' }"
-                        />
+                        <AppButton size="sm" outline variant="primary" label="Open Trips"
+                            icon="fas fa-arrow-up-right-from-square" :to="{ name: 'trips.index' }" />
                     </div>
                     <div class="table-responsive compliance-table">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -188,56 +142,40 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr
-                                    v-for="ewayBill in ewayBills"
-                                    :key="`eway-${ewayBill.id}`"
-                                    class="dashboard-panel__row"
-                                    :class="ewayBill.status === 'expired'
+                                <tr v-for="ewayBill in ewayBills" :key="`eway-${ewayBill.id}`"
+                                    class="dashboard-panel__row" :class="ewayBill.status === 'expired'
                                         ? 'dashboard-panel__row--danger'
-                                        : 'dashboard-panel__row--warning'"
-                                >
+                                        : 'dashboard-panel__row--warning'">
                                     <td>
                                         <div class="fw-medium">
                                             {{ ewayBill.vehicle_registration ?? '—' }}
                                         </div>
                                     </td>
-                                
+
                                     <td class="fw-medium">
                                         {{ ewayBill.ewaybill_no }}
                                     </td>
-                                
+
                                     <td class="text-muted">
                                         {{ formatDate(ewayBill.expiry_date) }}
                                     </td>
-                                
+
                                     <td>
-                                        <span
-                                            v-if="ewayBill.status === 'expired'"
-                                            class="badge bg-danger"
-                                        >
+                                        <span v-if="ewayBill.status === 'expired'" class="badge bg-danger">
                                             Expired
                                         </span>
-                                    
-                                        <span
-                                            v-else
-                                            class="badge bg-warning text-dark"
-                                        >
+
+                                        <span v-else class="badge bg-warning text-dark">
                                             Expiring
                                         </span>
                                     </td>
-                                
+
                                     <td class="text-end">
-                                        <AppButton
-                                            size="sm"
-                                            variant="primary"
-                                            outline
-                                            icon="fas fa-arrow-up-right-from-square"
-                                            title="Open Trip"
-                                            :to="{
+                                        <AppButton size="sm" variant="primary" outline
+                                            icon="fas fa-arrow-up-right-from-square" title="Open Trip" :to="{
                                                 name: 'trips.index',
-                                                query: {trip_id: ewayBill.trip_id},
-                                                }"
-                                            />
+                                                query: { trip_id: ewayBill.trip_id },
+                                            }" />
                                     </td>
                                 </tr>
                             </tbody>
@@ -248,14 +186,8 @@
                 <div v-if="dueServices.length" class="compliance-section">
                     <div class="dashboard-panel__section-head">
                         <div class="dashboard-panel__subtitle mb-0">Due Services</div>
-                        <AppButton
-                            size="sm"
-                            outline
-                            variant="primary"
-                            label="Open Due Services"
-                            icon="fas fa-arrow-up-right-from-square"
-                            :to="{ name: 'maintenance.due' }"
-                        />
+                        <AppButton size="sm" outline variant="primary" label="Open Due Services"
+                            icon="fas fa-arrow-up-right-from-square" :to="{ name: 'maintenance.due' }" />
                     </div>
                     <div class="table-responsive compliance-table">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -269,36 +201,35 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr
-                                    v-for="service in dueServices"
-                                    :key="`due-${service.id}`"
-                                    class="dashboard-panel__row"
-                                >
+                                <tr v-for="service in dueServices" :key="`due-${service.id}`"
+                                    class="dashboard-panel__row">
                                     <td class="fw-medium">{{ service.vehicle_registration ?? '—' }}</td>
                                     <td>{{ service.service_type_label ?? service.service_type ?? '—' }}</td>
                                     <td>
-                                        <span
-                                            v-if="service.next_service_due_date"
-                                            class="badge"
-                                            :class="isDateOverdue(service) ? 'bg-danger' : 'bg-light text-dark border'"
-                                        >
+                                        <span v-if="service.next_service_due_date" class="badge"
+                                            :class="isDateOverdue(service) ? 'bg-danger' : 'bg-light text-dark border'">
                                             {{ formatDate(service.next_service_due_date) }}
                                         </span>
                                         <span v-else class="text-muted">—</span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-danger">{{ service.overdue_reason_label ?? '—' }}</span>
+                                        <span v-if="service.status === 'due'" class="badge bg-danger">
+                                            {{ service.overdue_reason_label ?? 'Overdue' }}
+                                        </span>
+
+                                        <span v-else-if="service.status === 'upcoming'"
+                                            class="badge bg-warning text-dark">
+                                            {{ service.schedule_factor_label ?? '—' }}
+                                        </span>
+
+                                        <span v-else class="text-muted">
+                                            —
+                                        </span>
                                     </td>
                                     <td class="text-end">
                                         <div class="compliance-actions">
-                                            <AppButton
-                                                size="sm"
-                                                variant="primary"
-                                                outline
-                                                icon="fas fa-wrench"
-                                                title="Open Due Services"
-                                                :to="{ name: 'maintenance.due' }"
-                                            />
+                                            <AppButton size="sm" variant="primary" outline icon="fas fa-wrench"
+                                                title="Open Due Services" :to="{ name: 'maintenance.due' }" />
                                         </div>
                                     </td>
                                 </tr>
@@ -328,8 +259,8 @@ const props = defineProps({
         default: () => [],
     },
     ewayBills: {
-    type: Array,
-    default: () => [],
+        type: Array,
+        default: () => [],
     },
     licenses: {
         type: Array,
@@ -599,7 +530,7 @@ function handleExpirySaved(payload) {
     background: transparent;
 }
 
-.dashboard-panel__renew-row > td {
+.dashboard-panel__renew-row>td {
     background: rgba(248, 250, 252, 0.9);
     border-top: none;
 }

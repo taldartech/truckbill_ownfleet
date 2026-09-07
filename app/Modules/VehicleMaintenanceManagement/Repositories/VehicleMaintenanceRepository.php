@@ -68,10 +68,59 @@ class VehicleMaintenanceRepository
      */
     public function dueServicesForAlerts(): Collection
     {
-        return $this->dueServicesQuery([], [
-            'vehicle:id,registration_number,is_active,odometer_km',
-            'maintenanceServiceType:id,name,code',
-        ])->orderBy('service_date')->get();
+        $today = now()->startOfDay();
+        $windowEnd = $today->copy()->addDays(30);
+
+        return VehicleMaintenance::query()
+            ->with([
+                'vehicle:id,registration_number,is_active,odometer_km',
+                'maintenanceServiceType:id,name,code',
+            ])
+            ->whereIn('id', $this->latestRecordIdsSubquery())
+            ->where(function (Builder $query) use ($today, $windowEnd): void {
+                $query
+                    // Date overdue
+                    ->where(function (Builder $dateQuery) use ($today): void {
+                        $dateQuery
+                            ->whereNotNull('next_service_due_date')
+                            ->whereDate(
+                                'next_service_due_date',
+                                '<',
+                                $today->toDateString()
+                            );
+                    })
+
+                    // Date due today or within next 30 days
+                    ->orWhere(function (Builder $dateQuery) use ($today, $windowEnd): void {
+                        $dateQuery
+                            ->whereNotNull('next_service_due_date')
+                            ->whereDate(
+                                'next_service_due_date',
+                                '>=',
+                                $today->toDateString()
+                            )
+                            ->whereDate(
+                                'next_service_due_date',
+                                '<=',
+                                $windowEnd->toDateString()
+                            );
+                    })
+
+                    // KM overdue
+                    ->orWhere(function (Builder $kmQuery): void {
+                        $kmQuery
+                            ->whereNotNull('next_service_due_km')
+                            ->whereHas('vehicle', function (Builder $vehicleQuery): void {
+                                $vehicleQuery->whereColumn(
+                                    'vehicles.odometer_km',
+                                    '>=',
+                                    'vehicle_maintenances.next_service_due_km'
+                                );
+                            });
+                    });
+            })
+            ->orderBy('service_date')
+            ->get();
     }
 
     /**
@@ -109,39 +158,39 @@ class VehicleMaintenanceRepository
                     });
             });
 
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $search = (string) $filters['search'];
 
             $query->where(function (Builder $builder) use ($search): void {
                 $builder
                     ->where('service_provider', 'like', "%{$search}%")
-                    ->orWhereHas('vehicle', fn (Builder $vehicleQuery) => $vehicleQuery
+                    ->orWhereHas('vehicle', fn(Builder $vehicleQuery) => $vehicleQuery
                         ->where('registration_number', 'like', "%{$search}%"))
-                    ->orWhereHas('maintenanceServiceType', fn (Builder $typeQuery) => $typeQuery
+                    ->orWhereHas('maintenanceServiceType', fn(Builder $typeQuery) => $typeQuery
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('code', 'like', "%{$search}%"));
             });
         }
 
-        if (! empty($filters['vehicle_id'])) {
+        if (!empty($filters['vehicle_id'])) {
             $query->where('vehicle_id', $filters['vehicle_id']);
         }
 
-        if (! empty($filters['maintenance_service_type_id'])) {
+        if (!empty($filters['maintenance_service_type_id'])) {
             $query->where('maintenance_service_type_id', $filters['maintenance_service_type_id']);
         }
 
-        if (! empty($filters['overdue_reason'])) {
+        if (!empty($filters['overdue_reason'])) {
             $this->applyOverdueReasonFilter($query, (string) $filters['overdue_reason'], $today);
         }
 
-        if (! empty($filters['from'])) {
+        if (!empty($filters['from'])) {
             $query
                 ->whereNotNull('next_service_due_date')
                 ->whereDate('next_service_due_date', '>=', $filters['from']);
         }
 
-        if (! empty($filters['to'])) {
+        if (!empty($filters['to'])) {
             $query
                 ->whereNotNull('next_service_due_date')
                 ->whereDate('next_service_due_date', '<=', $filters['to']);
@@ -159,8 +208,8 @@ class VehicleMaintenanceRepository
             'km' => $query
                 ->whereNotNull('next_service_due_km')
                 ->whereHas('vehicle', function (Builder $vehicleQuery): void {
-                    $vehicleQuery->whereColumn('vehicles.odometer_km', '>=', 'vehicle_maintenances.next_service_due_km');
-                }),
+                        $vehicleQuery->whereColumn('vehicles.odometer_km', '>=', 'vehicle_maintenances.next_service_due_km');
+                    }),
             'date' => $query
                 ->whereNotNull('next_service_due_date')
                 ->whereDate('next_service_due_date', '<', $today),
@@ -169,8 +218,8 @@ class VehicleMaintenanceRepository
                 ->whereNotNull('next_service_due_date')
                 ->whereDate('next_service_due_date', '<', $today)
                 ->whereHas('vehicle', function (Builder $vehicleQuery): void {
-                    $vehicleQuery->whereColumn('vehicles.odometer_km', '>=', 'vehicle_maintenances.next_service_due_km');
-                }),
+                        $vehicleQuery->whereColumn('vehicles.odometer_km', '>=', 'vehicle_maintenances.next_service_due_km');
+                    }),
             default => null,
         };
     }
@@ -222,42 +271,42 @@ class VehicleMaintenanceRepository
             'updatedBy:id,name',
         ]);
 
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $search = (string) $filters['search'];
 
             $query->where(function (Builder $builder) use ($search): void {
                 $builder
                     ->where('service_provider', 'like', "%{$search}%")
                     ->orWhere('remarks', 'like', "%{$search}%")
-                    ->orWhereHas('vehicle', fn (Builder $vehicleQuery) => $vehicleQuery
+                    ->orWhereHas('vehicle', fn(Builder $vehicleQuery) => $vehicleQuery
                         ->where('registration_number', 'like', "%{$search}%"))
-                    ->orWhereHas('maintenanceServiceType', fn (Builder $typeQuery) => $typeQuery
+                    ->orWhereHas('maintenanceServiceType', fn(Builder $typeQuery) => $typeQuery
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('code', 'like', "%{$search}%"));
             });
         }
 
-        if (! empty($filters['vehicle_id'])) {
+        if (!empty($filters['vehicle_id'])) {
             $query->where('vehicle_id', $filters['vehicle_id']);
         }
 
-        if (! empty($filters['maintenance_service_type_id'])) {
+        if (!empty($filters['maintenance_service_type_id'])) {
             $query->where('maintenance_service_type_id', $filters['maintenance_service_type_id']);
         }
 
-        if (! empty($filters['from'])) {
+        if (!empty($filters['from'])) {
             $query->whereDate('service_date', '>=', $filters['from']);
         }
 
-        if (! empty($filters['to'])) {
+        if (!empty($filters['to'])) {
             $query->whereDate('service_date', '<=', $filters['to']);
         }
 
-        if (! empty($filters['due_status'])) {
+        if (!empty($filters['due_status'])) {
             $this->applyDueStatusFilter($query, (string) $filters['due_status']);
         }
 
-        if (! empty($filters['due_services'])) {
+        if (!empty($filters['due_services'])) {
             $this->applyDueServicesFilter($query, (string) $filters['due_services']);
         }
 
@@ -287,10 +336,10 @@ class VehicleMaintenanceRepository
         match ($filter) {
             'due' => $this->applyDueOnlyConstraint($query),
             'scheduled' => $query->where(function (Builder $builder): void {
-                $builder
+                    $builder
                     ->whereNotNull('next_service_due_km')
                     ->orWhereNotNull('next_service_due_date');
-            }),
+                }),
             'unscheduled' => $query
                 ->whereNull('next_service_due_km')
                 ->whereNull('next_service_due_date'),
