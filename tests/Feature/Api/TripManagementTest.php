@@ -3863,6 +3863,7 @@ class TripManagementTest extends TestCase
     {
         $trip->forceFill([
             'status' => TripStatus::Completed->value,
+            'start_at' => $reportDate.' 09:00:00',
             'end_at' => $reportDate.' 20:00:00',
             'actual_arrival_at' => $reportDate.' 18:00:00',
         ])->save();

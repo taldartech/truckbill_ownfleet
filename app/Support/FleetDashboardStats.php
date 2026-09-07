@@ -10,7 +10,6 @@ use App\Enums\TyreStatus;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
 use App\Modules\TripManagement\Support\TripReportScope;
 use App\Modules\TyreManagement\Services\TyreAlertService;
-use App\MonthlyExpense;
 use App\Trip;
 use App\Tyre;
 use App\TyreExpense;
@@ -154,25 +153,24 @@ class FleetDashboardStats
         $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
         $totalCustom = (float) (clone $financialQuery)->sum('total_custom_amount');
         $totalTripExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
-        $monthlyExpenses = MonthlyExpense::sumForMonthRange($fromDate, $toDate);
-        $totalExpenses = $totalTripExpenses + $monthlyExpenses;
         $totalFreightWithCustom = $totalFreight + $totalCustom;
 
         $completedCount = (clone $financialQuery)->where('status', TripStatus::Completed->value)->count();
         $invoicedCount = (clone $financialQuery)->where('status', TripStatus::Invoiced->value)->count();
+        $pendingCount = (clone $financialQuery)->where('status', TripStatus::Pending->value)->count();
+        $inProgressCount = (clone $financialQuery)->where('status', TripStatus::InProgress->value)->count();
 
         return [
-            'total_count' => $completedCount + $invoicedCount,
-            'pending_count' => 0,
-            'in_progress_count' => 0,
+            'total_count' => $pendingCount + $inProgressCount + $completedCount + $invoicedCount,
+            'pending_count' => $pendingCount,
+            'in_progress_count' => $inProgressCount,
             'completed_count' => $completedCount,
             'cancelled_count' => 0,
             'invoiced_count' => $invoicedCount,
             'total_freight_amount' => round($totalFreightWithCustom, 2),
             'total_custom_amount' => round($totalCustom, 2),
-            'total_expense_amount' => round($totalExpenses, 2),
-            'monthly_expenses' => round($monthlyExpenses, 2),
-            'profit_amount' => round($totalFreightWithCustom - $totalExpenses, 2),
+            'total_expense_amount' => round($totalTripExpenses, 2),
+            'profit_amount' => round($totalFreightWithCustom - $totalTripExpenses, 2),
             'running_trips' => self::buildRunningTripsList(),
         ];
     }

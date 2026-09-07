@@ -9,8 +9,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * Shared trip attribution rules for dashboard and reports:
- * - only Completed / Invoiced trips
- * - period membership uses the earlier of end_at and actual_arrival_at
+ * - excludes Cancelled trips
+ * - period membership uses the trip start date (start_at)
  */
 final class TripReportScope
 {
@@ -20,28 +20,13 @@ final class TripReportScope
     public static function reportableStatuses(): array
     {
         return [
+            TripStatus::Pending->value,
+            TripStatus::InProgress->value,
             TripStatus::Completed->value,
             TripStatus::Invoiced->value,
         ];
     }
 
-    public static function reportDateExpression(string $alias = 'trips'): string
-    {
-        $arrival = "{$alias}.actual_arrival_at";
-        $end = "{$alias}.end_at";
-
-        return "CASE
-            WHEN {$arrival} IS NULL THEN {$end}
-            WHEN {$end} IS NULL THEN {$arrival}
-            WHEN {$arrival} <= {$end} THEN {$arrival}
-            ELSE {$end}
-        END";
-    }
-
-    /**
-     * @param  Builder<\App\Trip>|QueryBuilder|Builder<\App\TripExpense>  $query
-     * @return Builder<\App\Trip>|QueryBuilder|Builder<\App\TripExpense>
-     */
     public static function whereReportableStatuses($query, string $statusColumn = 'status')
     {
         return $query->whereIn($statusColumn, self::reportableStatuses());
@@ -59,12 +44,12 @@ final class TripReportScope
     ) {
         $from = Carbon::parse($fromDate)->toDateString();
         $to = Carbon::parse($toDate)->toDateString();
-        $expression = self::reportDateExpression($alias);
+        $column = "{$alias}.start_at";
 
         return $query
-            ->whereRaw("({$expression}) IS NOT NULL")
-            ->whereRaw("DATE({$expression}) >= ?", [$from])
-            ->whereRaw("DATE({$expression}) <= ?", [$to]);
+            ->whereNotNull($column)
+            ->whereRaw("DATE({$column}) >= ?", [$from])
+            ->whereRaw("DATE({$column}) <= ?", [$to]);
     }
 
     /**

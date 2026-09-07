@@ -100,7 +100,7 @@
                 </div>
 
                 <p class="trip-profit-card__hint">
-                    Completed & invoiced trips only. Period uses the earlier of end date and actual arrival. Freight includes custom amount. Profit = freight − trip expenses − monthly expenses.
+                    Period uses the trip start date. Includes non-cancelled trips. Freight includes custom amount. Profit = freight − trip expenses.
                 </p>
             </div>
 
@@ -342,7 +342,6 @@ function formatCurrency(value) {
 // Tab 1: Financials Computed
 const totalFreight = computed(() => Number(props.tripStats?.total_freight_amount ?? 0));
 const totalExpenses = computed(() => Number(props.tripStats?.total_expense_amount ?? 0));
-const monthlyExpenses = computed(() => Number(props.tripStats?.monthly_expenses ?? 0));
 const profitAmount = computed(() => Number(props.tripStats?.profit_amount ?? 0));
 
 const profitMargin = computed(() => {

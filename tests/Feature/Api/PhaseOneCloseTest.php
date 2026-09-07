@@ -309,9 +309,9 @@ class PhaseOneCloseTest extends TestCase
 
         $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
-            ->assertJsonPath('trips.total_count', 1)
-            ->assertJsonPath('trips.pending_count', 0)
-            ->assertJsonPath('trips.in_progress_count', 0)
+            ->assertJsonPath('trips.total_count', 3)
+            ->assertJsonPath('trips.pending_count', 1)
+            ->assertJsonPath('trips.in_progress_count', 1)
             ->assertJsonPath('trips.completed_count', 1)
             ->assertJsonPath('trips.cancelled_count', 0)
             ->assertJsonPath('period.from_date', $today)
@@ -433,11 +433,11 @@ class PhaseOneCloseTest extends TestCase
 
         $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
-            ->assertJsonPath('trips.total_count', 1)
-            ->assertJsonPath('trips.total_freight_amount', 53500)
+            ->assertJsonPath('trips.total_count', 2)
+            ->assertJsonPath('trips.total_freight_amount', 63500)
             ->assertJsonPath('trips.total_custom_amount', 3500)
-            ->assertJsonPath('trips.total_expense_amount', 20000)
-            ->assertJsonPath('trips.profit_amount', 33500);
+            ->assertJsonPath('trips.total_expense_amount', 25000)
+            ->assertJsonPath('trips.profit_amount', 38500);
     }
 
     public function test_dashboard_stats_return_tyre_period_totals_for_selected_period(): void

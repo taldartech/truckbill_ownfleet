@@ -156,7 +156,7 @@ class TripRepository
     }
 
     /**
-     * Report/dashboard query: Completed + Invoiced only, attributed by earlier of end_at / actual_arrival_at.
+     * Report/dashboard query: non-cancelled trips attributed by trip start_at.
      *
      * @param  array<string, mixed>  $filters
      * @return Builder<Trip>
@@ -192,8 +192,7 @@ class TripRepository
                 $toDate ?? now()->toDateString(),
             );
         } else {
-            $expression = TripReportScope::reportDateExpression();
-            $query->whereRaw("({$expression}) IS NOT NULL");
+            $query->whereNotNull('trips.start_at');
         }
 
         return $query;

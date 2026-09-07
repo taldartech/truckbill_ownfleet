@@ -136,7 +136,7 @@ class FleetMonthlyReportTest extends TestCase
             ->assertJsonValidationErrors(['month']);
     }
 
-    public function test_monthly_fleet_report_excludes_pending_and_in_progress_trips(): void
+    public function test_monthly_fleet_report_includes_pending_and_invoiced_trips(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -180,15 +180,32 @@ class FleetMonthlyReportTest extends TestCase
             'total_custom_amount' => 0,
         ]);
 
+        Trip::query()->create([
+            ...$ops,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRIP-CANCELLED',
+            'start_station_id' => $stations['home']->id,
+            'trip_type' => 'ONE_WAY',
+            'status' => TripStatus::Cancelled->value,
+            'start_at' => '2026-06-11 09:00:00',
+            'end_at' => '2026-06-12 20:00:00',
+            'start_meter_reading_km' => 10200,
+            'total_distance_km' => 50,
+            'total_freight_amount' => 2000,
+            'total_expense_amount' => 0,
+            'total_custom_amount' => 0,
+        ]);
+
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-06')
             ->assertOk()
-            ->assertJsonPath('data.0.trip_count', 1)
-            ->assertJsonPath('data.0.total_freight', 4000)
-            ->assertJsonPath('summary.total_bill', 4000);
+            ->assertJsonPath('data.0.trip_count', 2)
+            ->assertJsonPath('data.0.total_freight', 13000)
+            ->assertJsonPath('summary.total_bill', 13000);
     }
 
-    public function test_report_attributes_trip_to_earlier_of_actual_arrival_and_end_date(): void
+    public function test_report_attributes_trip_to_start_date(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -200,7 +217,7 @@ class FleetMonthlyReportTest extends TestCase
             ...$ops,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'trip_number' => 'TRIP-MAY-ARRIVAL',
+            'trip_number' => 'TRIP-MAY-START',
             'start_station_id' => $stations['home']->id,
             'trip_type' => 'ONE_WAY',
             'status' => TripStatus::Completed->value,
@@ -218,7 +235,7 @@ class FleetMonthlyReportTest extends TestCase
             ...$ops,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'trip_number' => 'TRIP-JUNE-END',
+            'trip_number' => 'TRIP-MAY-START-JUNE-END',
             'start_station_id' => $stations['home']->id,
             'trip_type' => 'ONE_WAY',
             'status' => TripStatus::Completed->value,
@@ -236,7 +253,7 @@ class FleetMonthlyReportTest extends TestCase
             ...$ops,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'trip_number' => 'TRIP-JULY-ARRIVAL',
+            'trip_number' => 'TRIP-JUNE-START-JULY-END',
             'start_station_id' => $stations['home']->id,
             'trip_type' => 'ONE_WAY',
             'status' => TripStatus::Completed->value,
@@ -250,26 +267,26 @@ class FleetMonthlyReportTest extends TestCase
             'total_custom_amount' => 0,
         ]);
 
+        $may = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson('/api/reports/fleet-monthly?month=2026-05')
+            ->assertOk();
+
+        $may->assertJsonPath('data.0.trip_count', 2);
+        $may->assertJsonPath('summary.total_bill', 8000);
+
         $june = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-06')
             ->assertOk();
 
         $june->assertJsonPath('data.0.trip_count', 1);
-        $june->assertJsonPath('summary.total_bill', 5000);
-
-        $may = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->getJson('/api/reports/fleet-monthly?month=2026-05')
-            ->assertOk();
-
-        $may->assertJsonPath('data.0.trip_count', 1);
-        $may->assertJsonPath('summary.total_bill', 3000);
+        $june->assertJsonPath('summary.total_bill', 7000);
 
         $july = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/fleet-monthly?month=2026-07')
             ->assertOk();
 
-        $july->assertJsonPath('data.0.trip_count', 1);
-        $july->assertJsonPath('summary.total_bill', 7000);
+        $july->assertJsonPath('data.0.trip_count', 0);
+        $july->assertJsonPath('summary.total_bill', 0);
     }
 
     /**

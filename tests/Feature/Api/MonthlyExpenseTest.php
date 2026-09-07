@@ -141,7 +141,7 @@ class MonthlyExpenseTest extends TestCase
         $this->assertSame($branchB->id, (int) MonthlyExpense::query()->withoutGlobalScopes()->where('particulars', 'Branch B rent')->value('branch_id'));
     }
 
-    public function test_monthly_expenses_reduce_fleet_report_net_saving_and_dashboard_profit(): void
+    public function test_monthly_expenses_reduce_fleet_report_net_saving_but_not_dashboard_profit(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -181,9 +181,8 @@ class MonthlyExpenseTest extends TestCase
 
         $this->getJson('/app/dashboard/stats?from_date=2026-06-01&to_date=2026-06-30')
             ->assertOk()
-            ->assertJsonPath('trips.monthly_expenses', 800)
-            ->assertJsonPath('trips.total_expense_amount', 9000)
-            ->assertJsonPath('trips.profit_amount', 14000);
+            ->assertJsonPath('trips.total_expense_amount', 8200)
+            ->assertJsonPath('trips.profit_amount', 14800);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability?from_date=2026-06-01&to_date=2026-06-30')
