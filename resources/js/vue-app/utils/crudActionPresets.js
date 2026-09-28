@@ -103,6 +103,16 @@ export const CRUD_ACTION_PRESETS = {
         icon: 'fas fa-money-bill-wave',
         title: 'Mark Paid',
     },
+    pdf: {
+        btnClass: 'btn-action-download',
+        icon: 'fas fa-file-pdf',
+        title: 'View PDF',
+    },
+    payment: {
+        btnClass: 'btn-action-mark-paid',
+        icon: 'fas fa-money-bill-wave',
+        title: 'Record Payment',
+    },
 };
 
 export function crudActionButtonClasses(action) {
