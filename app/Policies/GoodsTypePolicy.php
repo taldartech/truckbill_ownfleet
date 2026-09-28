@@ -12,6 +12,7 @@ class GoodsTypePolicy
     {
         return ($user->hasPermission('goods_types.view')
             || $user->hasPermission('trips.view')
+            || $user->hasPermission('trips.create')
             || $user->hasPermission('trips.manage'))
             && $user->canAccessCompanyPanel();
     }

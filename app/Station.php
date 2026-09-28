@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Station extends Model
 {
-    use BranchScoped;
     use SoftDeletes;
     use TenantScoped;
 

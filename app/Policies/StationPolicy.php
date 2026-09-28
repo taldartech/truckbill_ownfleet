@@ -10,7 +10,10 @@ class StationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('stations.view')
+        return ($user->hasPermission('stations.view')
+            || $user->hasPermission('trips.manage')
+            || $user->hasPermission('trips.create')
+            || $user->hasPermission('trips.view'))
             && $user->canAccessCompanyPanel();
     }
 

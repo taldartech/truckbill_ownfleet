@@ -371,7 +371,13 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList, goodsTypeList, driverList] = await Promise.all([
+    const [
+        stationsRes,
+        brokersRes,
+        customersRes,
+        goodsTypesRes,
+        driversRes,
+    ] = await Promise.allSettled([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
@@ -379,11 +385,21 @@ async function loadLookups() {
         listAllDrivers({ activeOnly: true }),
     ]);
 
-    stations.value = stationList;
-    brokers.value = brokerList;
-    customers.value = customerList;
-    goodsTypes.value = goodsTypeList;
-    drivers.value = driverList;
+    if (stationsRes.status === 'fulfilled') {
+        stations.value = stationsRes.value ?? [];
+    }
+    if (brokersRes.status === 'fulfilled') {
+        brokers.value = brokersRes.value ?? [];
+    }
+    if (customersRes.status === 'fulfilled') {
+        customers.value = customersRes.value ?? [];
+    }
+    if (goodsTypesRes.status === 'fulfilled') {
+        goodsTypes.value = goodsTypesRes.value ?? [];
+    }
+    if (driversRes.status === 'fulfilled') {
+        drivers.value = driversRes.value ?? [];
+    }
 }
 
 function substituteDriverLabel() {
