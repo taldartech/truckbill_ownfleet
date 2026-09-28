@@ -95,7 +95,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'storePayment']);
     Route::delete('invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'destroyPayment']);
     Route::post('invoices/{invoice}/delete', [InvoiceController::class, 'softDelete']);
-    Route::apiResource('invoices', InvoiceController::class)->only(['index', 'show', 'destroy']);
+    Route::apiResource('invoices', InvoiceController::class)->only(['index', 'show', 'update', 'destroy']);
 
     Route::apiResource('states', StateController::class)->except(['destroy']);
     Route::apiResource('cities', CityController::class)->except(['destroy']);

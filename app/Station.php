@@ -2,7 +2,6 @@
 
 namespace App;
 
-use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +15,6 @@ class Station extends Model
 
     protected $fillable = [
         'tenant_id',
-        'branch_id',
         'country_id',
         'state_id',
         'city_id',

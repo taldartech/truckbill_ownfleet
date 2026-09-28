@@ -5,7 +5,7 @@ namespace App\Modules\TripManagement\Services;
 use App\Challan;
 use App\DriverAssignment;
 use App\Enums\TripExpenseType;
-use App\Enums\TripStatus;
+use App\Modules\TripManagement\Support\TripReportScope;
 use App\MonthlyExpense;
 use App\Support\CurrentTenant;
 use App\Tenant;
@@ -205,38 +205,6 @@ class FleetMonthlyReportService
     }
 
     /**
-     * Trip month attribution uses the earlier of actual arrival and end date.
-     */
-    private function tripReportDateExpression(string $alias = 'trips'): string
-    {
-        $arrival = "{$alias}.actual_arrival_at";
-        $end = "{$alias}.end_at";
-
-        return "CASE
-            WHEN {$arrival} IS NULL THEN {$end}
-            WHEN {$end} IS NULL THEN {$arrival}
-            WHEN {$arrival} <= {$end} THEN {$arrival}
-            ELSE {$end}
-        END";
-    }
-
-    /**
-     * @template TQuery of \Illuminate\Database\Eloquent\Builder<\App\Trip>|\Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder<\App\TripExpense>
-     *
-     * @param  TQuery  $query
-     * @return TQuery
-     */
-    private function whereTripReportDateInMonth($query, Carbon $monthStart, Carbon $monthEnd, string $alias = 'trips')
-    {
-        $expression = $this->tripReportDateExpression($alias);
-
-        return $query
-            ->whereRaw("({$expression}) IS NOT NULL")
-            ->whereRaw("DATE({$expression}) >= ?", [$monthStart->toDateString()])
-            ->whereRaw("DATE({$expression}) <= ?", [$monthEnd->toDateString()]);
-    }
-
-    /**
      * @return \Illuminate\Support\Collection<string, object{
      *     vehicle_id: string,
      *     trip_count: int|string,
@@ -247,10 +215,9 @@ class FleetMonthlyReportService
      */
     private function tripStatsByVehicle(Carbon $monthStart, Carbon $monthEnd): \Illuminate\Support\Collection
     {
-        $query = Trip::query()
-            ->where('status', '!=', TripStatus::Cancelled->value);
-
-        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+        $query = Trip::query();
+        TripReportScope::whereReportableStatuses($query);
+        TripReportScope::whereReportDateInRange($query, $monthStart, $monthEnd);
 
         return $query
             ->groupBy('vehicle_id')
@@ -273,10 +240,10 @@ class FleetMonthlyReportService
     {
         $query = TripExpense::query()
             ->join('trips', 'trips.id', '=', 'trip_expenses.trip_id')
-            ->where('trip_expenses.expense_type', TripExpenseType::Diesel->value)
-            ->where('trips.status', '!=', TripStatus::Cancelled->value);
+            ->where('trip_expenses.expense_type', TripExpenseType::Diesel->value);
 
-        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+        TripReportScope::whereReportableStatuses($query, 'trips.status');
+        TripReportScope::whereReportDateInRange($query, $monthStart, $monthEnd);
 
         return $query
             ->groupBy('trips.vehicle_id')
@@ -383,10 +350,10 @@ class FleetMonthlyReportService
     {
         $query = TripExpense::query()
             ->join('trips', 'trips.id', '=', 'trip_expenses.trip_id')
-            ->where('trip_expenses.expense_type', TripExpenseType::RtoExpense->value)
-            ->where('trips.status', '!=', TripStatus::Cancelled->value);
+            ->where('trip_expenses.expense_type', TripExpenseType::RtoExpense->value);
 
-        $this->whereTripReportDateInMonth($query, $monthStart, $monthEnd);
+        TripReportScope::whereReportableStatuses($query, 'trips.status');
+        TripReportScope::whereReportDateInRange($query, $monthStart, $monthEnd);
 
         return (float) $query->sum('trip_expenses.amount');
     }

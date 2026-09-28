@@ -267,6 +267,7 @@ class PhaseOneCloseTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Trip Driver', 900);
         $today = now()->toDateString();
+        $this->actingAs($user);
 
         Trip::query()->create([
             'tenant_id' => $tenant->id,
@@ -293,6 +294,8 @@ class PhaseOneCloseTest extends TestCase
             'trip_number' => 'TRP-003',
             'status' => TripStatus::Completed,
             'start_at' => $today.' 10:00:00',
+            'end_at' => $today.' 18:00:00',
+            'actual_arrival_at' => $today.' 17:00:00',
         ]);
 
         Trip::query()->create([
@@ -304,8 +307,7 @@ class PhaseOneCloseTest extends TestCase
             'start_at' => now()->subDays(10)->toDateString().' 11:00:00',
         ]);
 
-        $this->actingAs($user)
-            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+        $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
             ->assertJsonPath('trips.total_count', 3)
             ->assertJsonPath('trips.pending_count', 1)
@@ -391,6 +393,7 @@ class PhaseOneCloseTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Finance Driver', 900);
         $today = now()->toDateString();
+        $this->actingAs($user);
 
         Trip::query()->create([
             'tenant_id' => $tenant->id,
@@ -399,7 +402,10 @@ class PhaseOneCloseTest extends TestCase
             'trip_number' => 'TRP-FIN-1',
             'status' => TripStatus::Completed,
             'start_at' => $today.' 08:00:00',
+            'end_at' => $today.' 18:00:00',
+            'actual_arrival_at' => $today.' 17:00:00',
             'total_freight_amount' => 50000,
+            'total_custom_amount' => 3500,
             'total_expense_amount' => 20000,
         ]);
 
@@ -425,13 +431,13 @@ class PhaseOneCloseTest extends TestCase
             'total_expense_amount' => 3000,
         ]);
 
-        $this->actingAs($user)
-            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+        $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
-            ->assertJsonPath('trips.total_count', 3)
-            ->assertJsonPath('trips.total_freight_amount', 50000)
-            ->assertJsonPath('trips.total_expense_amount', 20000)
-            ->assertJsonPath('trips.profit_amount', 30000);
+            ->assertJsonPath('trips.total_count', 2)
+            ->assertJsonPath('trips.total_freight_amount', 63500)
+            ->assertJsonPath('trips.total_custom_amount', 3500)
+            ->assertJsonPath('trips.total_expense_amount', 25000)
+            ->assertJsonPath('trips.profit_amount', 38500);
     }
 
     public function test_dashboard_stats_return_tyre_period_totals_for_selected_period(): void

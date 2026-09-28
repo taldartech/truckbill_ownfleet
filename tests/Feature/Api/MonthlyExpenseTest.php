@@ -141,7 +141,7 @@ class MonthlyExpenseTest extends TestCase
         $this->assertSame($branchB->id, (int) MonthlyExpense::query()->withoutGlobalScopes()->where('particulars', 'Branch B rent')->value('branch_id'));
     }
 
-    public function test_monthly_expenses_reduce_fleet_report_net_saving_and_dashboard_profit(): void
+    public function test_monthly_expenses_reduce_fleet_report_net_saving_but_not_dashboard_profit(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -172,6 +172,8 @@ class MonthlyExpenseTest extends TestCase
             'trip_number' => 'TRP-DASH-1',
             'status' => TripStatus::Completed,
             'start_at' => '2026-06-12 08:00:00',
+            'end_at' => '2026-06-12 18:00:00',
+            'actual_arrival_at' => '2026-06-12 18:00:00',
             'total_freight_amount' => 5000,
             'total_custom_amount' => 0,
             'total_expense_amount' => 1000,
@@ -179,9 +181,8 @@ class MonthlyExpenseTest extends TestCase
 
         $this->getJson('/app/dashboard/stats?from_date=2026-06-01&to_date=2026-06-30')
             ->assertOk()
-            ->assertJsonPath('trips.monthly_expenses', 800)
-            ->assertJsonPath('trips.total_expense_amount', 1800)
-            ->assertJsonPath('trips.profit_amount', 3200);
+            ->assertJsonPath('trips.total_expense_amount', 8200)
+            ->assertJsonPath('trips.profit_amount', 14800);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability?from_date=2026-06-01&to_date=2026-06-30')
@@ -191,13 +192,51 @@ class MonthlyExpenseTest extends TestCase
             ->assertJsonPath('summary.profit_amount', 14000);
     }
 
-    public function test_moderator_without_permission_cannot_access_monthly_expenses(): void
+    public function test_moderator_can_view_and_create_monthly_expenses(): void
     {
-        [, $user] = $this->createFixtures('moderator');
+        [$tenant, $user] = $this->createFixtures('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/monthly-expenses')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $create = $this->actingAs($user)
+            ->postJson('/app/api/monthly-expenses', [
+                'month' => '2026-08',
+                'particulars' => 'Yard rent',
+                'amount' => 800,
+            ])
+            ->assertCreated();
+
+        $expenseId = $create->json('data.id');
+
+        $this->assertDatabaseHas('monthly_expenses', [
+            'tenant_id' => $tenant->id,
+            'id' => $expenseId,
+            'month' => '2026-08',
+            'particulars' => 'Yard rent',
+            'amount' => 800.00,
+        ]);
+
+        $this->actingAs($user)
+            ->putJson("/app/api/monthly-expenses/{$expenseId}", [
+                'month' => '2026-08',
+                'particulars' => 'Yard rent updated',
+                'amount' => 900,
+            ])
             ->assertForbidden();
+
+        $this->actingAs($user)
+            ->deleteJson("/app/api/monthly-expenses/{$expenseId}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_expenses', [
+            'tenant_id' => $tenant->id,
+            'id' => $expenseId,
+            'particulars' => 'Yard rent',
+            'amount' => 800.00,
+        ]);
     }
 
     /**
@@ -356,6 +395,7 @@ class MonthlyExpenseTest extends TestCase
         ]);
 
         $trip->forceFill([
+            'status' => TripStatus::Completed->value,
             'end_at' => '2026-06-15 20:00:00',
             'actual_arrival_at' => '2026-06-15 18:00:00',
             'total_distance_km' => 560,

@@ -69,3 +69,9 @@ export async function deleteInvoice(id, { deletion_reason } = {}) {
         deletion_reason,
     });
 }
+
+export async function updateInvoice(id, payload) {
+    const { data } = await api.put(`${invoicesBase}/${id}`, payload);
+
+    return unwrapResource(data);
+}

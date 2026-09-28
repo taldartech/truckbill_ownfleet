@@ -469,7 +469,12 @@
         $vehicleNo = optional($trip?->vehicle)->registration_number ?? '—';
         $driverName = optional($trip?->driver)->name ?? '—';
 
-        $goodsNames = $items->pluck('goods_name')->filter()->unique()->values();
+        $goodsNames = $items
+            ->filter(fn ($item) => $item->trip_route_leg_id !== null)
+            ->pluck('goods_name')
+            ->filter()
+            ->unique()
+            ->values();
         $freightDescription = $goodsNames->implode(', ') ?: 'Freight';
 
         $loadType = '—';

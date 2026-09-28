@@ -13,6 +13,26 @@ class InvoiceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $routeFreightAmount = $this->when(
+            $this->relationLoaded('items'),
+            fn (): float => round(
+                (float) $this->items
+                    ->filter(fn ($item) => $item->trip_route_leg_id !== null)
+                    ->sum(fn ($item) => (float) $item->freight_amount),
+                2,
+            ),
+        );
+
+        $customAmount = $this->when(
+            $this->relationLoaded('items'),
+            fn (): float => round(
+                (float) $this->items
+                    ->filter(fn ($item) => $item->trip_route_leg_id === null)
+                    ->sum(fn ($item) => (float) $item->freight_amount),
+                2,
+            ),
+        );
+
         return [
             'id' => $this->id,
             'tenant_id' => $this->tenant_id,
@@ -35,6 +55,11 @@ class InvoiceResource extends JsonResource
                 ?? $this->whenLoaded('customer', fn () => $this->customer?->state?->code)
                 ?? $this->whenLoaded('supplierState', fn () => $this->supplierState?->code),
             'freight_amount' => (float) $this->freight_amount,
+            'route_freight_amount' => $routeFreightAmount,
+            'custom_amount' => $customAmount,
+            'displays_gst' => $this->document_type?->displaysGst() ?? false,
+            'collects_gst' => $this->document_type?->collectsGst() ?? false,
+            'can_edit_charges' => $this->canEditCharges(),
             'cgst_rate' => (float) $this->cgst_rate,
             'cgst_amount' => (float) $this->cgst_amount,
             'sgst_rate' => (float) $this->sgst_rate,
@@ -79,12 +104,24 @@ class InvoiceResource extends JsonResource
                 'id' => $item->id,
                 'invoice_id' => $item->invoice_id,
                 'trip_route_leg_id' => $item->trip_route_leg_id,
+                'is_route_freight' => $item->trip_route_leg_id !== null,
+                'is_additional_charge' => $item->trip_route_leg_id === null,
                 'sequence_no' => (int) $item->sequence_no,
                 'from_location' => $item->from_location,
                 'to_location' => $item->to_location,
                 'goods_name' => $item->goods_name,
                 'weight_ton' => (float) $item->weight_ton,
                 'freight_amount' => (float) $item->freight_amount,
+            ])->values()->all()),
+            'audit_logs' => $this->whenLoaded('auditLogs', fn () => $this->auditLogs->map(fn ($log) => [
+                'id' => $log->id,
+                'event_type' => $log->event_type,
+                'payload' => $log->payload,
+                'performed_at' => ApiDateTime::toIso($log->performed_at),
+                'performed_by' => $log->relationLoaded('performer') && $log->performer ? [
+                    'id' => $log->performer->id,
+                    'name' => $log->performer->name,
+                ] : null,
             ])->values()->all()),
             'payments' => InvoicePaymentResource::collection($this->whenLoaded('payments')),
             'created_at' => ApiDateTime::toIso($this->created_at),
