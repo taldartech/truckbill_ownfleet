@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Invoice extends Model
 {
@@ -143,6 +144,51 @@ class Invoice extends Model
         return max(0, (float) $this->total_amount - (float) $this->paid_amount);
     }
 
+    public function totalTdsDeducted(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->tds_amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('tds_amount'),
+            2
+        );
+    }
+
+    public function totalClaimsDeducted(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->deduction_amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('deduction_amount'),
+            2
+        );
+    }
+
+    public function totalAmountReceived(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('amount'),
+            2
+        );
+    }
+
     public function isCancelled(): bool
     {
         return $this->payment_status === InvoicePaymentStatus::Cancelled;
@@ -223,7 +269,13 @@ class Invoice extends Model
             return;
         }
 
-        $paid = round((float) $this->payments()->sum('amount'), 2);
+        $paid = round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum(DB::raw('amount + COALESCE(tds_amount, 0) + COALESCE(deduction_amount, 0)')),
+            2
+        );
         $total = round((float) $this->total_amount, 2);
 
         $status = match (true) {

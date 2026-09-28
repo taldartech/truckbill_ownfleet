@@ -129,6 +129,82 @@
                         </div>
                     </div>
 
+                    <!-- Customer Deductions Section (when deductions exist on invoice) -->
+                    <div v-if="hasCustomerDeductions" class="card mt-3 border-start border-3 border-primary">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-receipt-cutoff text-primary"></i>
+                                <strong>Customer Deductions</strong>
+                                <span class="badge bg-white text-muted border">TDS & Claims</span>
+                            </div>
+                            <span class="small text-muted">
+                                Total: <strong class="text-danger">₹{{ formatMoney(totalCustomerDeductions) }}</strong>
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- TDS 194C Block -->
+                                <div v-if="hasPriorTds" :class="priorClaimsDeducted > 0 ? 'col-md-6' : 'col-12'">
+                                    <div class="p-3 rounded bg-light border h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="d-flex align-items-center gap-1.5 text-primary fw-semibold small">
+                                                    <i class="bi bi-shield-check"></i>
+                                                    <span>TDS 194C: ₹{{ formatMoney(priorTdsDeducted) }} Deducted</span>
+                                                </div>
+                                                <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size: 0.7rem;">u/s 194C</span>
+                                            </div>
+                                            <p class="text-muted small mb-0" style="font-size: 0.8rem; line-height: 1.4;">
+                                                TDS was recorded in payment settlement. Standard TDS base freight: ₹{{ formatMoney(tdsBaseAmount) }}.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Shortage / Claims / Discount Block -->
+                                <div v-if="priorClaimsDeducted > 0" :class="hasPriorTds ? 'col-md-6' : 'col-12'">
+                                    <div class="p-3 rounded bg-light border h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="d-flex align-items-center gap-1.5 text-danger fw-semibold small">
+                                                    <i class="bi bi-tag-fill"></i>
+                                                    <span>Shortage / Claims / Discount: ₹{{ formatMoney(priorClaimsDeducted) }}</span>
+                                                </div>
+                                                <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size: 0.7rem;">Deductions</span>
+                                            </div>
+                                            <div v-if="deductionRecordsList.length > 0" class="mt-1.5">
+                                                <div class="text-muted mb-1" style="font-size: 0.75rem;">Recorded reasons:</div>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <span
+                                                        v-for="p in deductionRecordsList"
+                                                        :key="p.id"
+                                                        class="badge bg-white text-dark border fw-normal"
+                                                        style="font-size: 0.75rem;"
+                                                    >
+                                                        ₹{{ formatMoney(p.deduction_amount) }}
+                                                        <span v-if="p.deduction_reason" class="text-muted ms-1">({{ p.deduction_reason }})</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Settlement summary bar -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 border-top small text-muted">
+                                <div>
+                                    <span>Total Customer Deductions Cleared: </span>
+                                    <strong class="text-danger">₹{{ formatMoney(totalCustomerDeductions) }}</strong>
+                                </div>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <span>Received (Bank/Cash): <strong class="text-dark">₹{{ formatMoney(totalAmountReceived) }}</strong></span>
+                                    <span>Total Cleared on Invoice: <strong class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Payment History</strong>
@@ -140,19 +216,58 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Method</th>
-                                        <th class="text-end">Amount</th>
+                                        <th class="text-end">Received</th>
+                                        <th class="text-end">TDS 194C</th>
+                                        <th class="text-end">Claims / Discount</th>
+                                        <th class="text-end">Total Settled</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="payments.length === 0">
-                                        <td colspan="3" class="text-center text-muted py-4">No payments recorded.</td>
+                                        <td colspan="7" class="text-center text-muted py-4">No payments recorded.</td>
                                     </tr>
                                     <tr v-for="payment in payments" :key="payment.id">
                                         <td>{{ formatDate(payment.paid_at) }}</td>
-                                        <td>{{ payment.payment_method || '—' }}</td>
-                                        <td class="text-end">₹{{ formatMoney(payment.amount) }}</td>
+                                        <td>
+                                            <span v-if="payment.payment_method" class="badge bg-light text-dark border">
+                                                {{ paymentMethodOptions.find((o) => o.value === payment.payment_method)?.label ?? payment.payment_method }}
+                                            </span>
+                                            <span v-else>—</span>
+                                        </td>
+                                        <td class="text-end fw-semibold">₹{{ formatMoney(payment.amount) }}</td>
+                                        <td class="text-end fw-semibold" :class="Number(payment.tds_amount) > 0 ? 'text-primary' : 'text-muted'">
+                                            {{ Number(payment.tds_amount) > 0 ? `₹${formatMoney(payment.tds_amount)}` : '—' }}
+                                        </td>
+                                        <td class="text-end fw-semibold" :class="Number(payment.deduction_amount) > 0 ? 'text-danger' : 'text-muted'">
+                                            <div v-if="Number(payment.deduction_amount) > 0">
+                                                <span>₹{{ formatMoney(payment.deduction_amount) }}</span>
+                                                <small v-if="payment.deduction_reason" class="text-muted d-block" style="font-size: 0.75rem;">
+                                                    ({{ payment.deduction_reason }})
+                                                </small>
+                                            </div>
+                                            <span v-else>—</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            ₹{{ formatMoney(payment.total_settled_amount ?? (Number(payment.amount) + Number(payment.tds_amount || 0) + Number(payment.deduction_amount || 0))) }}
+                                        </td>
+                                        <td class="small text-muted">{{ payment.notes || '—' }}</td>
                                     </tr>
                                 </tbody>
+                                <tfoot v-if="payments.length > 0" class="table-light border-top">
+                                    <tr class="fw-semibold">
+                                        <td colspan="2" class="text-muted">Total:</td>
+                                        <td class="text-end text-dark">₹{{ formatMoney(totalAmountReceived) }}</td>
+                                        <td class="text-end" :class="priorTdsDeducted > 0 ? 'text-primary' : 'text-muted'">
+                                            {{ priorTdsDeducted > 0 ? `₹${formatMoney(priorTdsDeducted)}` : '—' }}
+                                        </td>
+                                        <td class="text-end" :class="priorClaimsDeducted > 0 ? 'text-danger' : 'text-muted'">
+                                            {{ priorClaimsDeducted > 0 ? `₹${formatMoney(priorClaimsDeducted)}` : '—' }}
+                                        </td>
+                                        <td class="text-end text-success fw-bold">₹{{ formatMoney(invoice.paid_amount) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -195,10 +310,30 @@
                                 <span class="text-muted">Total</span>
                                 <strong>₹{{ formatMoney(invoice.total_amount) }}</strong>
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Paid</span>
-                                <span class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
-                            </div>
+                            <template v-if="hasCustomerDeductions">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Amount Received</span>
+                                    <span class="text-dark fw-semibold">₹{{ formatMoney(totalAmountReceived) }}</span>
+                                </div>
+                                <div v-if="priorTdsDeducted > 0" class="d-flex justify-content-between mb-1 ps-2">
+                                    <span class="text-muted">TDS u/s 194C</span>
+                                    <span class="text-primary fw-semibold">- ₹{{ formatMoney(priorTdsDeducted) }}</span>
+                                </div>
+                                <div v-if="priorClaimsDeducted > 0" class="d-flex justify-content-between mb-1 ps-2">
+                                    <span class="text-muted">Claims / Discount</span>
+                                    <span class="text-danger fw-semibold">- ₹{{ formatMoney(priorClaimsDeducted) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Total Cleared</span>
+                                    <span class="text-success fw-bold">₹{{ formatMoney(invoice.paid_amount) }}</span>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Paid</span>
+                                    <span class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
+                                </div>
+                            </template>
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted">Balance</span>
                                 <strong :class="remainingAmount > 0 ? 'text-danger' : 'text-success'">
@@ -263,25 +398,250 @@
             <template #title>Record Payment</template>
 
             <div class="row g-3">
+                <!-- Step 1: Total Amount & Balance Due Context -->
+                <div v-if="invoice" class="col-12">
+                    <div class="p-3 rounded bg-light border">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Invoice Total:</span>
+                            <span class="fw-semibold">₹{{ formatMoney(invoice.total_amount) }}</span>
+                        </div>
+                        <div v-if="Number(invoice.paid_amount) > 0" class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Already Settled:</span>
+                            <span class="fw-semibold text-success">
+                                ₹{{ formatMoney(invoice.paid_amount) }}
+                                <small v-if="priorTdsDeducted > 0" class="text-muted fw-normal ms-1">
+                                    (incl. ₹{{ formatMoney(priorTdsDeducted) }} TDS)
+                                </small>
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-1 border-top">
+                            <span class="small fw-bold text-dark">Current Balance to Settle:</span>
+                            <span class="fw-bold text-danger fs-6">₹{{ formatMoney(remainingAmount) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Customer Deductions Section (TDS & Transit Claims) -->
+                <div class="col-12">
+                    <div class="p-3 rounded border" style="background-color: #f8fafc;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold text-dark">
+                                <i class="bi bi-scissors me-1 text-danger"></i>1. Customer Deductions (if any)
+                            </span>
+                            <span class="badge bg-white text-muted border">TDS, Claims & Discount</span>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <!-- TDS Column: Either Already Deducted Card OR Active TDS Input -->
+                            <div class="col-md-6">
+                                <div v-if="hasPriorTds && !showTdsOverride" class="p-2.5 rounded bg-white border h-100 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-1.5 text-success fw-semibold small mb-1">
+                                            <i class="bi bi-shield-check text-success fs-6"></i>
+                                            <span>TDS 194C: ₹{{ formatMoney(priorTdsDeducted) }} Deducted</span>
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.74rem; line-height: 1.3;">
+                                            TDS was already recorded in previous payment. No further TDS deduction is needed for this invoice.
+                                        </div>
+                                    </div>
+                                    <div class="pt-2 mt-2 border-top text-end">
+                                        <button
+                                            type="button"
+                                            class="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                                            style="font-size: 0.74rem;"
+                                            @click="enableTdsOverride"
+                                        >
+                                            <i class="bi bi-pencil me-1"></i>Add Additional TDS
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-else>
+                                    <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                        <label class="form-label small fw-semibold text-muted mb-0">
+                                            TDS u/s 194C (₹)
+                                            <span v-if="hasPriorTds" class="badge bg-warning-subtle text-warning-emphasis ms-1" style="font-size: 0.65rem;">
+                                                Additional
+                                            </span>
+                                        </label>
+                                        <span v-if="tdsBaseAmount > 0" class="text-muted" style="font-size: 0.72rem;">
+                                            Base: ₹{{ formatMoney(tdsBaseAmount) }}
+                                        </span>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₹</span>
+                                        <input
+                                            v-model="paymentForm.tds_amount"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            class="form-control"
+                                            :class="{ 'is-invalid': paymentFieldErrors.tds_amount }"
+                                            placeholder="0.00"
+                                            @input="handleDeductionsChanged"
+                                        />
+                                        <button
+                                            v-if="hasPriorTds && showTdsOverride"
+                                            type="button"
+                                            class="btn btn-outline-secondary"
+                                            title="Cancel additional TDS"
+                                            @click="cancelTdsOverride"
+                                        >
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <div v-if="hasPriorTds" class="text-muted mt-1" style="font-size: 0.72rem;">
+                                        Already deducted: <strong>₹{{ formatMoney(priorTdsDeducted) }}</strong>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        <template v-if="!hasPriorTds">
+                                            <button
+                                                type="button"
+                                                class="btn btn-xs btn-outline-secondary py-0 px-2"
+                                                style="font-size: 0.75rem;"
+                                                @click="setTdsRate(0.01)"
+                                            >
+                                                1% <span v-if="tdsBaseAmount > 0">({{ formatMoney(standardTds1Pct) }})</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-xs btn-outline-secondary py-0 px-2"
+                                                style="font-size: 0.75rem;"
+                                                @click="setTdsRate(0.02)"
+                                            >
+                                                2% <span v-if="tdsBaseAmount > 0">({{ formatMoney(standardTds2Pct) }})</span>
+                                            </button>
+                                        </template>
+                                        <template v-else>
+                                            <button
+                                                v-if="remainingTds1Pct > 0"
+                                                type="button"
+                                                class="btn btn-xs btn-outline-secondary py-0 px-2"
+                                                style="font-size: 0.75rem;"
+                                                @click="setTdsAmount(remainingTds1Pct)"
+                                            >
+                                                Rem. 1% (₹{{ formatMoney(remainingTds1Pct) }})
+                                            </button>
+                                            <button
+                                                v-if="remainingTds2Pct > 0"
+                                                type="button"
+                                                class="btn btn-xs btn-outline-secondary py-0 px-2"
+                                                style="font-size: 0.75rem;"
+                                                @click="setTdsAmount(remainingTds2Pct)"
+                                            >
+                                                Rem. 2% (₹{{ formatMoney(remainingTds2Pct) }})
+                                            </button>
+                                        </template>
+                                        <button
+                                            v-if="Number(paymentForm.tds_amount) > 0"
+                                            type="button"
+                                            class="btn btn-xs btn-outline-danger py-0 px-2"
+                                            style="font-size: 0.75rem;"
+                                            @click="clearTds"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    <div v-if="paymentFieldErrors.tds_amount" class="invalid-feedback d-block">
+                                        {{ paymentFieldErrors.tds_amount[0] }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                    <label class="form-label small fw-semibold text-muted mb-0">Shortage / Claims / Discount (₹)</label>
+                                    <span v-if="priorClaimsDeducted > 0" class="text-muted" style="font-size: 0.72rem;">
+                                        Prev. Deductions: ₹{{ formatMoney(priorClaimsDeducted) }}
+                                    </span>
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">₹</span>
+                                    <input
+                                        v-model="paymentForm.deduction_amount"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="form-control"
+                                        :class="{ 'is-invalid': paymentFieldErrors.deduction_amount }"
+                                        placeholder="0.00"
+                                        @input="handleDeductionsChanged"
+                                    />
+                                </div>
+                                <div v-if="paymentFieldErrors.deduction_amount" class="invalid-feedback d-block">
+                                    {{ paymentFieldErrors.deduction_amount[0] }}
+                                </div>
+                                <div class="mt-1.5">
+                                    <div class="d-flex justify-content-between align-items-center mb-0.5">
+                                        <label class="form-label small fw-semibold text-muted mb-0" style="font-size: 0.75rem;">
+                                            Reason <span v-if="Number(paymentForm.deduction_amount) > 0" class="text-danger">*</span>
+                                        </label>
+                                        <span v-if="Number(paymentForm.deduction_amount) > 0" class="text-danger" style="font-size: 0.7rem; font-weight: 500;">
+                                            Required
+                                        </span>
+                                    </div>
+                                    <input
+                                        v-model="paymentForm.deduction_reason"
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        :class="{ 'is-invalid': paymentFieldErrors.deduction_reason }"
+                                        placeholder="Reason (e.g. Shortage, Discount, Damage, Penalty)"
+                                    />
+                                    <div v-if="paymentFieldErrors.deduction_reason" class="invalid-feedback d-block">
+                                        {{ paymentFieldErrors.deduction_reason[0] }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Net After Deductions Box -->
+                        <div class="p-2 rounded bg-white border small mt-2">
+                            <div class="d-flex justify-content-between text-muted mb-1">
+                                <span>Total Deductions:</span>
+                                <span class="fw-semibold text-danger">₹{{ formatMoney(totalDeductions) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span class="fw-semibold text-dark">Amount After Deductions (Net Expected):</span>
+                                <span class="fw-bold text-primary fs-6">₹{{ formatMoney(netExpectedAmount) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Actual Amount Received -->
                 <div class="col-md-6">
-                    <label class="form-label">Amount *</label>
-                    <input
-                        v-model="paymentForm.amount"
-                        type="number"
-                        min="0.01"
-                        :max="remainingAmount"
-                        step="0.01"
-                        class="form-control"
-                        :class="{ 'is-invalid': paymentFieldErrors.amount }"
-                        required
-                    />
+                    <label class="form-label fw-semibold text-dark mb-1">2. Actual Amount Received (₹) *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">₹</span>
+                        <input
+                            v-model="paymentForm.amount"
+                            type="number"
+                            min="0"
+                            :max="remainingAmount"
+                            step="0.01"
+                            class="form-control"
+                            :class="{ 'is-invalid': paymentFieldErrors.amount }"
+                            placeholder="0.00"
+                            required
+                            @input="userModifiedAmount = true"
+                        />
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            title="Fill exact net amount after deductions"
+                            @click="fillNetExpected"
+                        >
+                            Fill Net
+                        </button>
+                    </div>
                     <div v-if="paymentFieldErrors.amount" class="invalid-feedback d-block">
                         {{ paymentFieldErrors.amount[0] }}
                     </div>
-                    <div class="form-text">Remaining balance: ₹{{ formatMoney(remainingAmount) }}</div>
+                    <div class="form-text">
+                        Net expected: ₹{{ formatMoney(netExpectedAmount) }} (Balance: ₹{{ formatMoney(remainingAmount) }})
+                    </div>
                 </div>
+
                 <div class="col-md-6">
-                    <label class="form-label">Payment Date *</label>
+                    <label class="form-label fw-semibold text-dark mb-1">Payment Date *</label>
                     <AppDateInput
                         v-model="paymentForm.paid_at"
                         :invalid="Boolean(paymentFieldErrors.paid_at)"
@@ -290,6 +650,7 @@
                         {{ paymentFieldErrors.paid_at[0] }}
                     </div>
                 </div>
+
                 <div class="col-md-6">
                     <label class="form-label">Payment Method</label>
                     <AppSelect
@@ -299,9 +660,58 @@
                         search-placeholder="Search…"
                     />
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">Notes / Remark</label>
+                    <input
+                        v-model="paymentForm.notes"
+                        type="text"
+                        class="form-control"
+                        placeholder="e.g. UTR number, cheque ref, remarks"
+                    />
+                </div>
+
+                <!-- Step 4: Live Settlement & Status Preview -->
                 <div class="col-12">
-                    <label class="form-label">Notes</label>
-                    <textarea v-model="paymentForm.notes" class="form-control" rows="2" />
+                    <div class="p-3 rounded border small" :class="projectedStatusBgClass">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="fw-bold text-dark">
+                                <i class="bi bi-calculator me-1"></i>Settlement & Status Preview
+                            </span>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="text-muted">Updated Status:</span>
+                                <span class="badge" :class="paymentStatusBadge(projectedStatus)">
+                                    {{ paymentStatusLabel(projectedStatus) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <span class="text-muted d-block">Total Cleared:</span>
+                                <strong class="text-dark">₹{{ formatMoney(totalSettledThisPayment) }}</strong>
+                            </div>
+                            <div class="col-4">
+                                <span class="text-muted d-block">Balance After:</span>
+                                <strong :class="balanceAfterPayment > 0 ? 'text-danger' : 'text-success'">
+                                    ₹{{ formatMoney(balanceAfterPayment) }}
+                                </strong>
+                            </div>
+                            <div class="col-4 text-end">
+                                <span class="text-muted d-block">Projected Total Paid:</span>
+                                <strong class="text-success">₹{{ formatMoney(projectedTotalPaid) }}</strong>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-top text-muted" style="font-size: 0.78rem;">
+                            <span v-if="projectedStatus === 'paid'" class="text-success fw-medium">
+                                <i class="bi bi-check-circle-fill me-1"></i>Invoice will be completely cleared and marked as Paid.
+                            </span>
+                            <span v-else-if="projectedStatus === 'partial'" class="text-primary fw-medium">
+                                <i class="bi bi-info-circle-fill me-1"></i>Invoice will be marked as Partially Paid. Remaining ₹{{ formatMoney(balanceAfterPayment) }} will remain due.
+                            </span>
+                            <span v-else class="text-muted">
+                                Enter payment details above to settle this invoice.
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -328,7 +738,7 @@
         >
             <div v-if="invoice" class="text-start">
                 <div class="app-confirm-card">
-                    <div class="app-confirm-card__section-title">Invoice</div>
+                    <div class="app-confirm-card__section-title">Invoice & Customer</div>
                     <div class="app-confirm-card__body small">
                         <div class="d-flex flex-wrap gap-x-3 gap-y-1 mb-2">
                             <span><strong>{{ invoice.invoice_number || '—' }}</strong></span>
@@ -339,32 +749,68 @@
                         </div>
                         <div class="d-flex flex-wrap justify-content-between gap-2">
                             <span>
-                                <span class="text-muted">Total</span>
+                                <span class="text-muted">Invoice Total:</span>
                                 <strong class="ms-1">₹{{ formatMoney(invoice.total_amount) }}</strong>
                             </span>
                             <span>
-                                <span class="text-muted">Paid</span>
+                                <span class="text-muted">Already Paid:</span>
                                 <span class="ms-1 text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
                             </span>
                             <span>
-                                <span class="text-muted">Balance</span>
-                                <strong class="ms-1">₹{{ formatMoney(remainingAmount) }}</strong>
+                                <span class="text-muted">Balance:</span>
+                                <strong class="ms-1 text-danger">₹{{ formatMoney(remainingAmount) }}</strong>
                             </span>
                         </div>
                         <hr class="my-2" />
-                        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-baseline">
+                        <div v-if="totalDeductions > 0 || priorTdsDeducted > 0" class="mb-2 p-2 rounded bg-light border">
+                            <div class="fw-semibold text-dark mb-1">Deductions Applied:</div>
+                            <div v-if="Number(paymentForm.tds_amount) > 0" class="d-flex justify-content-between text-muted mb-0.5">
+                                <span>• {{ hasPriorTds ? 'Additional TDS u/s 194C' : 'TDS u/s 194C Deducted' }}:</span>
+                                <span class="fw-semibold text-primary">₹{{ formatMoney(paymentForm.tds_amount) }}</span>
+                            </div>
+                            <div v-else-if="priorTdsDeducted > 0" class="d-flex justify-content-between text-muted mb-0.5">
+                                <span>• TDS u/s 194C (Already Deducted):</span>
+                                <span class="fw-semibold text-success">₹{{ formatMoney(priorTdsDeducted) }}</span>
+                            </div>
+                            <div v-if="Number(paymentForm.deduction_amount) > 0" class="d-flex justify-content-between text-muted mb-0.5">
+                                <span>
+                                    • Shortage / Claims / Discount:
+                                    <small v-if="paymentForm.deduction_reason" class="text-muted">({{ paymentForm.deduction_reason }})</small>
+                                </span>
+                                <span class="fw-semibold text-danger">₹{{ formatMoney(paymentForm.deduction_amount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between pt-1 border-top fw-bold text-dark mt-1">
+                                <span>Total Deductions This Payment:</span>
+                                <span>₹{{ formatMoney(totalDeductions) }}</span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-baseline mb-2">
                             <span>
-                                <span class="text-muted">Paying</span>
-                                <strong class="ms-1 text-success">₹{{ formatMoney(paymentForm.amount) }}</strong>
+                                <span class="text-muted">Amount Received:</span>
+                                <strong class="ms-1 text-success fs-6">₹{{ formatMoney(paymentForm.amount) }}</strong>
                                 <span class="text-muted ms-1">
                                     on {{ paymentForm.paid_at ? formatDate(paymentForm.paid_at) : '—' }}
                                     <template v-if="paymentMethodLabel"> · {{ paymentMethodLabel }}</template>
                                 </span>
                             </span>
-                            <span>
-                                <span class="text-muted">After</span>
-                                <strong class="ms-1">₹{{ formatMoney(balanceAfterPayment) }}</strong>
-                            </span>
+                        </div>
+                        <div class="p-2 rounded border bg-light">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Total Invoice Cleared:</span>
+                                <strong class="text-dark">₹{{ formatMoney(totalSettledThisPayment) }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Balance After Payment:</span>
+                                <strong :class="balanceAfterPayment > 0 ? 'text-danger' : 'text-success'">
+                                    ₹{{ formatMoney(balanceAfterPayment) }}
+                                </strong>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center pt-1 border-top">
+                                <span class="text-muted">Updated Status:</span>
+                                <span class="badge" :class="paymentStatusBadge(projectedStatus)">
+                                    {{ paymentStatusLabel(projectedStatus) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -474,6 +920,8 @@ const deletionReason = ref('');
 const deletionReasonError = ref('');
 const paymentFormError = ref('');
 const paymentFieldErrors = ref({});
+const userModifiedAmount = ref(false);
+const showTdsOverride = ref(false);
 
 const paymentMethodOptions = [
     { value: 'cash', label: 'Cash' },
@@ -485,6 +933,9 @@ const paymentMethodOptions = [
 
 const paymentForm = reactive({
     amount: '',
+    tds_amount: '',
+    deduction_amount: '',
+    deduction_reason: '',
     paid_at: '',
     payment_method: '',
     notes: '',
@@ -559,15 +1010,117 @@ const paymentMethodLabel = computed(() =>
     paymentMethodOptions.find((option) => option.value === paymentForm.payment_method)?.label ?? '',
 );
 
+const totalDeductions = computed(() => {
+    const tds = Number(paymentForm.tds_amount || 0);
+    const ded = Number(paymentForm.deduction_amount || 0);
+
+    return Math.round((tds + ded) * 100) / 100;
+});
+
+const tdsBaseAmount = computed(() => {
+    return Number(invoice.value?.freight_amount || invoice.value?.total_amount || 0);
+});
+
+const priorTdsDeducted = computed(() => {
+    if (invoice.value?.total_tds_deducted !== undefined && invoice.value?.total_tds_deducted !== null) {
+        return Number(invoice.value.total_tds_deducted || 0);
+    }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.tds_amount || 0), 0) * 100) / 100;
+});
+
+const priorClaimsDeducted = computed(() => {
+    if (invoice.value?.total_claims_deducted !== undefined && invoice.value?.total_claims_deducted !== null) {
+        return Number(invoice.value.total_claims_deducted || 0);
+    }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.deduction_amount || 0), 0) * 100) / 100;
+});
+
+const hasPriorTds = computed(() => priorTdsDeducted.value > 0);
+
+const totalCustomerDeductions = computed(() => {
+    return Math.round((priorTdsDeducted.value + priorClaimsDeducted.value) * 100) / 100;
+});
+
+const hasCustomerDeductions = computed(() => totalCustomerDeductions.value > 0);
+
+const totalAmountReceived = computed(() => {
+    if (invoice.value?.total_amount_received !== undefined && invoice.value?.total_amount_received !== null) {
+        return Number(invoice.value.total_amount_received || 0);
+    }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100) / 100;
+});
+
+const deductionRecordsList = computed(() => {
+    const list = invoice.value?.payments ?? [];
+    return list.filter((p) => Number(p.deduction_amount || 0) > 0);
+});
+
+const standardTds1Pct = computed(() => Math.round(tdsBaseAmount.value * 0.01 * 100) / 100);
+const standardTds2Pct = computed(() => Math.round(tdsBaseAmount.value * 0.02 * 100) / 100);
+
+const remainingTds1Pct = computed(() => {
+    return Math.max(0, Math.round((standardTds1Pct.value - priorTdsDeducted.value) * 100) / 100);
+});
+
+const remainingTds2Pct = computed(() => {
+    return Math.max(0, Math.round((standardTds2Pct.value - priorTdsDeducted.value) * 100) / 100);
+});
+
+const netExpectedAmount = computed(() => {
+    const remaining = remainingAmount.value;
+    const deductions = totalDeductions.value;
+
+    return Math.max(0, Math.round((remaining - deductions) * 100) / 100);
+});
+
+const totalSettledThisPayment = computed(() => {
+    const amount = Number(paymentForm.amount || 0);
+    const deductions = totalDeductions.value;
+
+    return Math.round((amount + deductions) * 100) / 100;
+});
+
 const balanceAfterPayment = computed(() => {
     const remaining = remainingAmount.value;
-    const amount = Number(paymentForm.amount);
+    const settled = totalSettledThisPayment.value;
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-        return remaining;
+    return Math.max(0, Math.round((remaining - settled) * 100) / 100);
+});
+
+const projectedTotalPaid = computed(() => {
+    const currentPaid = Number(invoice.value?.paid_amount || 0);
+
+    return Math.round((currentPaid + totalSettledThisPayment.value) * 100) / 100;
+});
+
+const projectedStatus = computed(() => {
+    const total = Number(invoice.value?.total_amount || 0);
+    const paid = projectedTotalPaid.value;
+
+    if (paid <= 0) {
+        return 'pending';
     }
 
-    return Math.max(0, remaining - amount);
+    if (paid + 0.009 >= total) {
+        return 'paid';
+    }
+
+    return 'partial';
+});
+
+const projectedStatusBgClass = computed(() => {
+    if (projectedStatus.value === 'paid') {
+        return 'bg-success-subtle border-success-subtle';
+    }
+
+    if (projectedStatus.value === 'partial') {
+        return 'bg-info-subtle border-info-subtle';
+    }
+
+    return 'bg-light border';
 });
 
 function formatMoney(value) {
@@ -688,7 +1241,64 @@ async function requestEditChargesSave() {
     }
 }
 
+function handleDeductionsChanged() {
+    if (!userModifiedAmount.value) {
+        paymentForm.amount = netExpectedAmount.value > 0 ? String(netExpectedAmount.value) : '0';
+    }
+}
+
+function enableTdsOverride() {
+    showTdsOverride.value = true;
+    if (remainingTds1Pct.value > 0) {
+        paymentForm.tds_amount = String(remainingTds1Pct.value);
+    } else if (remainingTds2Pct.value > 0) {
+        paymentForm.tds_amount = String(remainingTds2Pct.value);
+    }
+    handleDeductionsChanged();
+}
+
+function cancelTdsOverride() {
+    showTdsOverride.value = false;
+    paymentForm.tds_amount = '';
+    handleDeductionsChanged();
+}
+
+function setTdsAmount(amount) {
+    if (amount > 0) {
+        paymentForm.tds_amount = String(Math.round(amount * 100) / 100);
+    } else {
+        paymentForm.tds_amount = '';
+    }
+    handleDeductionsChanged();
+}
+
+function setTdsRate(pct) {
+    const base = tdsBaseAmount.value;
+    if (pct > 0 && base > 0) {
+        const tds = Math.round((base * pct) * 100) / 100;
+        paymentForm.tds_amount = String(tds);
+    } else {
+        paymentForm.tds_amount = '';
+    }
+    handleDeductionsChanged();
+}
+
+function clearTds() {
+    paymentForm.tds_amount = '';
+    handleDeductionsChanged();
+}
+
+function fillNetExpected() {
+    paymentForm.amount = netExpectedAmount.value > 0 ? String(netExpectedAmount.value) : '0';
+    userModifiedAmount.value = false;
+}
+
 function resetPaymentForm() {
+    userModifiedAmount.value = false;
+    showTdsOverride.value = false;
+    paymentForm.tds_amount = '';
+    paymentForm.deduction_amount = '';
+    paymentForm.deduction_reason = '';
     paymentForm.amount = remainingAmount.value > 0 ? String(remainingAmount.value) : '';
     paymentForm.paid_at = new Date().toISOString().slice(0, 10);
     paymentForm.payment_method = '';
@@ -723,13 +1333,33 @@ function requestPaymentConfirm() {
     paymentFormError.value = '';
     paymentFieldErrors.value = {};
 
-    const amount = Number(paymentForm.amount);
+    const amount = Number(paymentForm.amount || 0);
+    const tds = Number(paymentForm.tds_amount || 0);
+    const ded = Number(paymentForm.deduction_amount || 0);
+    const totalSettled = Math.round((amount + tds + ded) * 100) / 100;
     const errors = {};
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount < 0) {
         errors.amount = ['Enter a valid payment amount.'];
-    } else if (amount - remainingAmount.value > 0.01) {
-        errors.amount = [`Payment amount cannot exceed the remaining balance of ${remainingAmount.value}.`];
+    }
+    if (!Number.isFinite(tds) || tds < 0) {
+        errors.tds_amount = ['TDS amount cannot be negative.'];
+    } else if (tds > 0) {
+        const maxTds = Math.max(Number(invoice.value?.freight_amount || 0), Number(invoice.value?.total_amount || 0));
+        if ((priorTdsDeducted.value + tds) > (maxTds + 0.01)) {
+            errors.tds_amount = [`Total TDS (₹${formatMoney(priorTdsDeducted.value + tds)}) cannot exceed invoice freight amount of ₹${formatMoney(maxTds)}.`];
+        }
+    }
+    if (!Number.isFinite(ded) || ded < 0) {
+        errors.deduction_amount = ['Deduction amount cannot be negative.'];
+    } else if (ded > 0 && !paymentForm.deduction_reason?.trim()) {
+        errors.deduction_reason = ['Please provide a reason for the deduction / discount (e.g. Shortage, Discount, Damage).'];
+    }
+
+    if (totalSettled <= 0) {
+        errors.amount = ['Total payment settlement (Amount + TDS + Deductions) must be greater than zero.'];
+    } else if (totalSettled - remainingAmount.value > 0.01) {
+        errors.amount = [`Total cleared amount (₹${formatMoney(totalSettled)}) cannot exceed the remaining balance of ₹${formatMoney(remainingAmount.value)}.`];
     }
 
     if (!paymentForm.paid_at) {
@@ -757,7 +1387,10 @@ async function confirmPayment() {
 
     try {
         await recordPayment(invoice.value.id, {
-            amount: Number(paymentForm.amount),
+            amount: Number(paymentForm.amount || 0),
+            tds_amount: Number(paymentForm.tds_amount || 0),
+            deduction_amount: Number(paymentForm.deduction_amount || 0),
+            deduction_reason: paymentForm.deduction_reason?.trim() || null,
             paid_at: paymentForm.paid_at,
             payment_method: paymentForm.payment_method || null,
             notes: paymentForm.notes?.trim() || null,

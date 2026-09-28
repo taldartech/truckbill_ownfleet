@@ -96,6 +96,7 @@ class InvoiceManagementTest extends TestCase
             'contact_person' => 'Owner',
             'contact_number' => '9876543200',
         ]);
+        $this->provisionActiveSubscription($company);
 
         $this->actingAs($superAdmin)
             ->postJson('/app/api/branches', [
@@ -1543,5 +1544,209 @@ class InvoiceManagementTest extends TestCase
             ],
             'expenses' => [],
         ];
+    }
+
+    public function test_record_payment_with_tds_and_claims_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $total = (float) $generate->json('data.0.total_amount');
+        $this->assertEquals(10500.00, $total);
+
+        // Remit 10,000 + TDS 200 (2% on freight) + Shortage Claim 300 = Total Settled 10,500 (Full settlement)
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 10000.00,
+                'tds_amount' => 200.00,
+                'deduction_amount' => 300.00,
+                'deduction_reason' => 'Transit shortage 2 bags',
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+                'notes' => 'Settled with TDS and shortage',
+            ])
+            ->assertCreated();
+
+        $response->assertJsonPath('data.amount', 10000)
+            ->assertJsonPath('data.tds_amount', 200)
+            ->assertJsonPath('data.deduction_amount', 300)
+            ->assertJsonPath('data.deduction_reason', 'Transit shortage 2 bags')
+            ->assertJsonPath('data.total_settled_amount', 10500);
+
+        $this->assertDatabaseHas('invoice_payments', [
+            'invoice_id' => $invoiceId,
+            'amount' => 10000.00,
+            'tds_amount' => 200.00,
+            'deduction_amount' => 300.00,
+            'deduction_reason' => 'Transit shortage 2 bags',
+        ]);
+
+        $invoice = Invoice::query()->findOrFail($invoiceId);
+        $this->assertSame(InvoicePaymentStatus::Paid, $invoice->payment_status);
+        $this->assertEquals(10500.00, (float) $invoice->paid_amount);
+        $this->assertEquals(0.00, (float) $invoice->remainingAmount());
+
+        // Also verify InvoiceResource returns payments with TDS and deductions
+        $showResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $showResponse->assertJsonPath('data.paid_amount', 10500)
+            ->assertJsonPath('data.remaining_amount', 0)
+            ->assertJsonPath('data.payment_status', 'paid')
+            ->assertJsonPath('data.payments.0.amount', 10000)
+            ->assertJsonPath('data.payments.0.tds_amount', 200)
+            ->assertJsonPath('data.payments.0.deduction_amount', 300)
+            ->assertJsonPath('data.payments.0.deduction_reason', 'Transit shortage 2 bags')
+            ->assertJsonPath('data.payments.0.total_settled_amount', 10500);
+    }
+
+    public function test_record_payment_validation_for_tds_and_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Negative TDS amount rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'tds_amount' => -100,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tds_amount']);
+
+        // Negative deduction amount rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'deduction_amount' => -50,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['deduction_amount']);
+
+        // Deduction amount without deduction_reason rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'deduction_amount' => 200,
+                'deduction_reason' => '',
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['deduction_reason']);
+
+        // Total settlement exceeds balance rejected (total is 10500, attempting 10000 + 1000 = 11000)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 10000,
+                'tds_amount' => 1000,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+
+        // Zero total settlement rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 0,
+                'tds_amount' => 0,
+                'deduction_amount' => 0,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+    }
+
+    public function test_smart_cumulative_tds_tracking_across_multi_part_payments(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Payment 1: Partial payment with 2% TDS (₹200) + ₹5,000 received = ₹5,200 cleared
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'tds_amount' => 200,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $invoiceAfterP1 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $invoiceAfterP1->assertJsonPath('data.payment_status', 'partial')
+            ->assertJsonPath('data.paid_amount', 5200)
+            ->assertJsonPath('data.remaining_amount', 5300)
+            ->assertJsonPath('data.total_tds_deducted', 200);
+
+        // Payment 2: Customer pays remaining ₹5,300 with 0 TDS (since TDS was already deducted in payment 1)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5300,
+                'tds_amount' => 0,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $invoiceAfterP2 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $invoiceAfterP2->assertJsonPath('data.payment_status', 'paid')
+            ->assertJsonPath('data.paid_amount', 10500)
+            ->assertJsonPath('data.remaining_amount', 0)
+            ->assertJsonPath('data.total_tds_deducted', 200);
+
+        // Verify excessive TDS exceeding freight base is rejected
+        $secondTrip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'b'],
+        ]);
+        $secondInvoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$secondTrip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$secondInvoiceId}/payments", [
+                'amount' => 0,
+                'tds_amount' => 6000,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tds_amount']);
     }
 }

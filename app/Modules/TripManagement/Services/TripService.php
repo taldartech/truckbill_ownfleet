@@ -233,39 +233,6 @@ class TripService
         return DB::transaction(function () use ($trip, $data, $user): Trip {
             $userId = $user?->id;
             $editScope = $this->tripValidation->resolveTripEditScope($trip, $user);
-
-            if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
-                throw ValidationException::withMessages([
-                    'trip' => [
-                        $trip->hasInvoices()
-                            ? 'This trip has invoices and cannot be edited.'
-                            : 'Completed or cancelled trips cannot be edited.',
-                    ],
-                ]);
-            }
-
-            if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
-                $expensesOnlyMessage = $trip->hasInvoices()
-                    ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
-                    : 'Only trip expenses can be updated with your current permissions.';
-
-                if (! array_key_exists('expenses', $data)) {
-                    throw ValidationException::withMessages([
-                        'trip' => [$expensesOnlyMessage],
-                    ]);
-                }
-
-                $nonExpenseKeys = array_diff(array_keys($data), ['expenses']);
-
-                if ($nonExpenseKeys !== []) {
-                    throw ValidationException::withMessages([
-                        'trip' => [$expensesOnlyMessage],
-                    ]);
-                }
-
-                $data = ['expenses' => $data['expenses']];
-            }
-
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
             $pickups = array_key_exists('pickups', $data) ? $data['pickups'] : null;
@@ -274,8 +241,55 @@ class TripService
             $statusChangeRequested = $this->isStatusChangeRequested($trip, $data);
             unset($data['route_legs'], $data['pickups'], $data['expenses'], $data['trip_number']);
 
-            if ($statusChangeRequested && ! ($user?->hasPermission('trips.change_status') ?? false)) {
+            if ($statusChangeRequested && ! ($user?->hasAnyPermission(['trips.change_status', 'trips.edit', 'trips.manage']) ?? false)) {
                 throw new AuthorizationException('You are not allowed to change trip status.');
+            }
+
+            $canEditTrips = $user?->hasPermission('trips.edit') ?? false;
+
+            if ($statusChangeRequested && ! $canEditTrips) {
+                $allowedStatusKeys = ['status', 'start_at', 'start_meter_reading_km', 'end_at', 'end_meter_reading_km'];
+                if ($user?->hasPermission('trips.expenses') && $shouldSyncExpenses) {
+                    // expenses are handled via $expenses
+                }
+                $nonStatusKeys = array_diff(array_keys($data), $allowedStatusKeys);
+
+                if ($nonStatusKeys !== []) {
+                    throw ValidationException::withMessages([
+                        'trip' => ['Only trip status and expenses can be updated with your current permissions.'],
+                    ]);
+                }
+            } elseif (! $statusChangeRequested) {
+
+                if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
+                    throw ValidationException::withMessages([
+                        'trip' => [
+                            $trip->hasInvoices()
+                                ? 'This trip has invoices and cannot be edited.'
+                                : 'Completed or cancelled trips cannot be edited.',
+                        ],
+                    ]);
+                }
+
+                if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
+                    $expensesOnlyMessage = $trip->hasInvoices()
+                        ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
+                        : 'Only trip expenses can be updated with your current permissions.';
+
+                    if (! $shouldSyncExpenses) {
+                        throw ValidationException::withMessages([
+                            'trip' => [$expensesOnlyMessage],
+                        ]);
+                    }
+
+                    $nonExpenseKeys = array_keys($data);
+
+                    if ($nonExpenseKeys !== []) {
+                        throw ValidationException::withMessages([
+                            'trip' => [$expensesOnlyMessage],
+                        ]);
+                    }
+                }
             }
 
             if (isset($data['status'])) {

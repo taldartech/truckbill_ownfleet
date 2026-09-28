@@ -526,18 +526,41 @@ class InvoiceService
                 ]);
             }
 
-            $amount = round((float) $data['amount'], 2);
+            $amount = round((float) ($data['amount'] ?? 0), 2);
+            $tdsAmount = round((float) ($data['tds_amount'] ?? 0), 2);
+            $deductionAmount = round((float) ($data['deduction_amount'] ?? 0), 2);
+            $totalSettled = round($amount + $tdsAmount + $deductionAmount, 2);
 
-            if ($amount <= 0) {
+            if ($amount < 0 || $tdsAmount < 0 || $deductionAmount < 0) {
                 throw ValidationException::withMessages([
-                    'amount' => ['Payment amount must be greater than zero.'],
+                    'amount' => ['Payment and deduction amounts cannot be negative.'],
+                ]);
+            }
+
+            if ($totalSettled <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Total payment settlement (Amount + TDS + Deductions) must be greater than zero.'],
+                ]);
+            }
+
+            if ($deductionAmount > 0 && empty(trim((string) ($data['deduction_reason'] ?? '')))) {
+                throw ValidationException::withMessages([
+                    'deduction_reason' => ['Please provide a reason for the deduction / discount (e.g. Shortage, Discount, Damage).'],
+                ]);
+            }
+
+            $priorTds = $invoice->totalTdsDeducted();
+            $maxAllowableTds = (float) ($invoice->freight_amount > 0 ? $invoice->freight_amount : $invoice->total_amount);
+            if ($tdsAmount > 0 && ($priorTds + $tdsAmount) > ($maxAllowableTds + 0.01)) {
+                throw ValidationException::withMessages([
+                    'tds_amount' => ["Total TDS across payments (₹".number_format($priorTds + $tdsAmount, 2).") cannot exceed the invoice freight amount of ₹".number_format($maxAllowableTds, 2).'.'],
                 ]);
             }
 
             $remaining = $invoice->remainingAmount();
-            if ($amount - $remaining > 0.01) {
+            if ($totalSettled - $remaining > 0.01) {
                 throw ValidationException::withMessages([
-                    'amount' => ["Payment amount cannot exceed the remaining balance of {$remaining}."],
+                    'amount' => ["Total settlement amount (₹".number_format($totalSettled, 2).") cannot exceed the remaining balance of ₹".number_format($remaining, 2).'.'],
                 ]);
             }
 
@@ -546,6 +569,9 @@ class InvoiceService
                 'branch_id' => $invoice->branch_id,
                 'invoice_id' => $invoice->id,
                 'amount' => $amount,
+                'tds_amount' => $tdsAmount,
+                'deduction_amount' => $deductionAmount,
+                'deduction_reason' => $data['deduction_reason'] ?? null,
                 'paid_at' => $data['paid_at'] ?? now()->toDateString(),
                 'payment_method' => $data['payment_method'] ?? null,
                 'notes' => $data['notes'] ?? null,

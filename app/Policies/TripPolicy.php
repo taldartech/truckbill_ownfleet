@@ -42,6 +42,7 @@ class TripPolicy
             && (
                 $user->hasPermission('trips.edit')
                 || $user->hasPermission('trips.expenses')
+                || $user->hasPermission('trips.change_status')
             )
             && $user->canAccessCompanyPanel();
     }
