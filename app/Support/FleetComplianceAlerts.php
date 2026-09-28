@@ -98,7 +98,7 @@ class FleetComplianceAlerts
         }
 
         if ($user->hasPermission('trips.view')) {
-    
+
             $ewayBillEnd = $today->copy()->addDay()->toDateString();
 
             $ewayBillQuery = TripRouteLeg::query()
@@ -132,40 +132,38 @@ class FleetComplianceAlerts
             }, $ewayBills);
         }
 
-
-
         $alerts = collect([
-    ...array_map(
-        fn (array $alert) => self::normalizeDocumentAlert($alert),
-        $documents
-    ),
+            ...array_map(
+                fn (array $alert) => self::normalizeDocumentAlert($alert),
+                $documents
+            ),
 
-    ...array_map(
-        fn (array $alert) => self::normalizeDriverAlert($alert),
-        $licenses
-    ),
+            ...array_map(
+                fn (array $alert) => self::normalizeDriverAlert($alert),
+                $licenses
+            ),
 
-    ...array_map(
-        fn (array $alert) => self::normalizeMaintenanceAlert($alert),
-        $dueServices
-    ),
+            ...array_map(
+                fn (array $alert) => self::normalizeMaintenanceAlert($alert),
+                $dueServices
+            ),
 
-    ...array_map(
-        fn (array $alert) => self::normalizeEwayBillAlert($alert),
-        $ewayBills
-    ),
-])
-    ->sortBy([
-        ['severity_priority', 'asc'],
-        ['due_date', 'asc'],
-    ])
-    ->values()
-    ->map(function (array $alert) {
-        unset($alert['severity_priority']);
+            ...array_map(
+                fn (array $alert) => self::normalizeEwayBillAlert($alert),
+                $ewayBills
+            ),
+        ])
+            ->sortBy([
+                ['severity_priority', 'asc'],
+                ['due_date', 'asc'],
+            ])
+            ->values()
+            ->map(function (array $alert) {
+                unset($alert['severity_priority']);
 
-        return $alert;
-    })
-    ->all();
+                return $alert;
+            })
+            ->all();
 
         return [
             'documents' => $documents,
@@ -173,7 +171,7 @@ class FleetComplianceAlerts
             'due_services' => $dueServices,
             'eway_bills' => $ewayBills,
 
-    'alerts' => $alerts,
+            'alerts' => $alerts,
         ];
     }
 
@@ -278,158 +276,156 @@ class FleetComplianceAlerts
         ];
     }
 
-            private static function normalizeDocumentAlert(array $alert): array
-{
-    $isExpired =
-        ($alert['status'] ?? null) === 'expired'
-        || ($alert['status_tier'] ?? null) === 'expired';
+    private static function normalizeDocumentAlert(array $alert): array
+    {
+        $isExpired =
+            ($alert['status'] ?? null) === 'expired'
+            || ($alert['status_tier'] ?? null) === 'expired';
 
-    return [
-        'id' => 'document-' . $alert['id'],
+        return [
+            'id' => 'document-'.$alert['id'],
 
-        'category' => 'vehicle_documents',
-        'category_label' => 'Vehicle Documents',
+            'category' => 'vehicle_documents',
+            'category_label' => 'Vehicle Documents',
 
-        'type' => 'document_expiry',
+            'type' => 'document_expiry',
 
-        'title' => $alert['document_type_label'] ?? 'Vehicle Document',
+            'title' => $alert['document_type_label'] ?? 'Vehicle Document',
 
-        'reference' => $alert['vehicle_registration'] ?? '—',
+            'reference' => $alert['vehicle_registration'] ?? '—',
 
-        'reference_type' => 'vehicle',
+            'reference_type' => 'vehicle',
 
-        'vehicle_id' => $alert['vehicle_id'] ?? null,
+            'vehicle_id' => $alert['vehicle_id'] ?? null,
 
-        'due_date' => $alert['expiry_date'] ?? null,
+            'due_date' => $alert['expiry_date'] ?? null,
 
-        'severity' => $isExpired ? 'critical' : 'warning',
+            'severity' => $isExpired ? 'critical' : 'warning',
 
-        'severity_priority' => $isExpired ? 0 : 1,
+            'severity_priority' => $isExpired ? 0 : 1,
 
-        'status' => $alert['status'] ?? null,
+            'status' => $alert['status'] ?? null,
 
-        'days_remaining' => $alert['days_remaining'] ?? null,
+            'days_remaining' => $alert['days_remaining'] ?? null,
 
-        'source' => $alert,
-    ];
-}
+            'source' => $alert,
+        ];
+    }
 
-private static function normalizeDriverAlert(array $alert): array
-{
-    $isExpired =
-        ($alert['status'] ?? null) === 'expired'
-        || ($alert['status_tier'] ?? null) === 'expired';
+    private static function normalizeDriverAlert(array $alert): array
+    {
+        $isExpired =
+            ($alert['status'] ?? null) === 'expired'
+            || ($alert['status_tier'] ?? null) === 'expired';
 
-    return [
-        'id' => 'driver-license-' . $alert['driver_id'],
+        return [
+            'id' => 'driver-license-'.$alert['driver_id'],
 
-        'category' => 'drivers',
-        'category_label' => 'Drivers',
+            'category' => 'drivers',
+            'category_label' => 'Drivers',
 
-        'type' => 'license_expiry',
+            'type' => 'license_expiry',
 
-        'title' => 'Driver License Expiry',
+            'title' => 'Driver License Expiry',
 
-        'reference' => $alert['driver_name'] ?? '—',
+            'reference' => $alert['driver_name'] ?? '—',
 
-        'reference_type' => 'driver',
+            'reference_type' => 'driver',
 
-        'driver_id' => $alert['driver_id'] ?? null,
+            'driver_id' => $alert['driver_id'] ?? null,
 
-        'license_number' => $alert['license_number'] ?? null,
+            'license_number' => $alert['license_number'] ?? null,
 
-        'due_date' => $alert['license_expiry_date'] ?? null,
+            'due_date' => $alert['license_expiry_date'] ?? null,
 
-        'severity' => $isExpired ? 'critical' : 'warning',
+            'severity' => $isExpired ? 'critical' : 'warning',
 
-        'severity_priority' => $isExpired ? 0 : 1,
+            'severity_priority' => $isExpired ? 0 : 1,
 
-        'status' => $alert['status'] ?? null,
+            'status' => $alert['status'] ?? null,
 
-        'days_remaining' => $alert['days_remaining'] ?? null,
+            'days_remaining' => $alert['days_remaining'] ?? null,
 
-        'source' => $alert,
-    ];
-}
+            'source' => $alert,
+        ];
+    }
 
-private static function normalizeMaintenanceAlert(array $alert): array
-{
-    $isOverdue =
-        ($alert['next_service_due_date'] ?? null) !== null
-        && Carbon::parse($alert['next_service_due_date'])->lt(Carbon::today());
+    private static function normalizeMaintenanceAlert(array $alert): array
+    {
+        $isOverdue =
+            ($alert['next_service_due_date'] ?? null) !== null
+            && Carbon::parse($alert['next_service_due_date'])->lt(Carbon::today());
 
-    return [
-        'id' => 'maintenance-' . $alert['id'],
+        return [
+            'id' => 'maintenance-'.$alert['id'],
 
-        'category' => 'maintenance',
-        'category_label' => 'Maintenance',
+            'category' => 'maintenance',
+            'category_label' => 'Maintenance',
 
-        'type' => 'service_due',
+            'type' => 'service_due',
 
-        'title' =>
-            $alert['service_type_label']
-            ?? $alert['service_type']
-            ?? 'Vehicle Service',
+            'title' => $alert['service_type_label']
+                ?? $alert['service_type']
+                ?? 'Vehicle Service',
 
-        'reference' => $alert['vehicle_registration'] ?? '—',
+            'reference' => $alert['vehicle_registration'] ?? '—',
 
-        'reference_type' => 'vehicle',
+            'reference_type' => 'vehicle',
 
-        'vehicle_id' => $alert['vehicle_id'] ?? null,
+            'vehicle_id' => $alert['vehicle_id'] ?? null,
 
-        'due_date' => $alert['next_service_due_date'] ?? null,
+            'due_date' => $alert['next_service_due_date'] ?? null,
 
-        'severity' => $isOverdue ? 'critical' : 'warning',
+            'severity' => $isOverdue ? 'critical' : 'warning',
 
-        'severity_priority' => $isOverdue ? 0 : 1,
+            'severity_priority' => $isOverdue ? 0 : 1,
 
-        'status' => $alert['status'] ?? 'due',
+            'status' => $alert['status'] ?? 'due',
 
-        'overdue_reason' => $alert['overdue_reason'] ?? null,
+            'overdue_reason' => $alert['overdue_reason'] ?? null,
 
-        'overdue_reason_label' => $alert['overdue_reason_label'] ?? null,
+            'overdue_reason_label' => $alert['overdue_reason_label'] ?? null,
 
-        'source' => $alert,
-    ];
-}
+            'source' => $alert,
+        ];
+    }
 
-private static function normalizeEwayBillAlert(array $alert): array
-{
-    $isExpired = ($alert['status'] ?? null) === 'expired';
+    private static function normalizeEwayBillAlert(array $alert): array
+    {
+        $isExpired = ($alert['status'] ?? null) === 'expired';
 
-    return [
-        'id' => 'ewaybill-' . $alert['id'],
+        return [
+            'id' => 'ewaybill-'.$alert['id'],
 
-        'category' => 'ewaybill',
-        'category_label' => 'E-Way Bills',
+            'category' => 'ewaybill',
+            'category_label' => 'E-Way Bills',
 
-        'type' => 'ewaybill_expiry',
+            'type' => 'ewaybill_expiry',
 
-        'title' => 'E-Way Bill Expiry',
+            'title' => 'E-Way Bill Expiry',
 
-        'reference' =>
-            $alert['vehicle_registration']
-            ?? ('Trip #' . ($alert['trip_id'] ?? '—')),
+            'reference' => $alert['vehicle_registration']
+                ?? ('Trip #'.($alert['trip_id'] ?? '—')),
 
-        'reference_type' => 'trip',
+            'reference_type' => 'trip',
 
-        'trip_id' => $alert['trip_id'] ?? null,
+            'trip_id' => $alert['trip_id'] ?? null,
 
-        'vehicle_id' => $alert['vehicle_id'] ?? null,
+            'vehicle_id' => $alert['vehicle_id'] ?? null,
 
-        'ewaybill_no' => $alert['ewaybill_no'] ?? null,
+            'ewaybill_no' => $alert['ewaybill_no'] ?? null,
 
-        'due_date' => $alert['expiry_date'] ?? null,
+            'due_date' => $alert['expiry_date'] ?? null,
 
-        'severity' => $isExpired ? 'critical' : 'warning',
+            'severity' => $isExpired ? 'critical' : 'warning',
 
-        'severity_priority' => $isExpired ? 0 : 1,
+            'severity_priority' => $isExpired ? 0 : 1,
 
-        'status' => $alert['status'] ?? null,
+            'status' => $alert['status'] ?? null,
 
-        'days_remaining' => $alert['days_remaining'] ?? null,
+            'days_remaining' => $alert['days_remaining'] ?? null,
 
-        'source' => $alert,
-    ];
-}
+            'source' => $alert,
+        ];
+    }
 }

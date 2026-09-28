@@ -55,7 +55,6 @@ class UpdateBrokerRequest extends FormRequest
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
-            'agency_id' => ['nullable', 'integer', 'min:1'],
             'gst_number' => $this->partyGstNumberRules('brokers', $broker->id, $broker->tenant_id),
             'pan_number' => $this->partyPanNumberRules('brokers', $broker->id, $broker->tenant_id),
             'address' => ['nullable', 'string', 'max:2000'],

@@ -1074,7 +1074,6 @@ class TripService
         $trip->update([
             'total_distance_km' => $totalDistanceKm,
             'loaded_distance_km' => 0,
-            'half_loaded_distance_km' => 0,
             'empty_distance_km' => 0,
             'total_freight_amount' => $freightTotal,
             'total_expense_amount' => $expenseTotal,

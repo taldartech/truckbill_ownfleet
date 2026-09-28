@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 class StoreTripRequest extends FormRequest
 {
     use ValidatesTripRoutePickupSequence;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Trip::class) ?? false;

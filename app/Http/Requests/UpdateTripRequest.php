@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 class UpdateTripRequest extends FormRequest
 {
     use ValidatesTripRoutePickupSequence;
+
     public function authorize(): bool
     {
         $trip = $this->route('trip');

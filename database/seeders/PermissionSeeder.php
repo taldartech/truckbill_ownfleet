@@ -68,6 +68,8 @@ class PermissionSeeder extends Seeder
         'tyres.view',
         'tyres.manage',
         'tyre_layouts.view',
+        'tyre_layouts.create',
+        'tyre_layouts.edit',
         'tyre_layouts.manage',
         'tyre_reports.view',
         'tyre_reports.export',

@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::apiResource('stations', StationController::class);
     Route::apiResource('brokers', BrokerController::class);
     Route::apiResource('customers', CustomerController::class);
+    Route::post('tyre-layouts/seed-defaults', [TyreLayoutController::class, 'seedDefaults']);
     Route::apiResource('tyre-layouts', TyreLayoutController::class);
     Route::get('tyres/alerts', [TyreController::class, 'alerts']);
     Route::post('tyres/replace', [TyreController::class, 'replace']);

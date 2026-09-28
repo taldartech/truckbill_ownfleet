@@ -129,7 +129,6 @@ class DriverAssignmentService
         });
     }
 
-
     /**
      * @param  array<string, mixed>  $data
      */

@@ -71,11 +71,12 @@ class DriverResource extends JsonResource
     private function resolveAssignmentSummary(): string
     {
         $assignment = $this->currentPrimaryAssignment;
-        if (!$assignment || !$assignment->vehicle) {
+        if (! $assignment || ! $assignment->vehicle) {
             return '—';
         }
 
         $dateStr = $assignment->assigned_from?->format('d-M-Y');
+
         return "Primary Driver of {$assignment->vehicle->registration_number} (Assigned {$dateStr})";
     }
 

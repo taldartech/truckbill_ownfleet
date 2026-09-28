@@ -33,6 +33,11 @@ export async function listAllTyreLayouts({ activeOnly = true } = {}) {
     return data.data ?? [];
 }
 
+export async function seedDefaultTyreLayouts() {
+    const { data } = await api.post(`${base}/seed-defaults`);
+    return data.data ?? [];
+}
+
 export async function createTyreLayout(payload) {
     const { data } = await api.post(base, payload);
     return unwrapResource(data);

@@ -31,7 +31,6 @@ class BackfillBranchDataCommand extends Command
         'trips',
         'trip_route_legs',
         'trip_expenses',
-        'trip_freights',
         'trip_status_histories',
         'challans',
         'tyres',
@@ -63,7 +62,7 @@ class BackfillBranchDataCommand extends Command
 
         $branchByTenant = [];
 
-        Tenant::query()->orderBy('created_at')->each(function (Tenant $tenant) use (&$branchByTenant, $dryRun): void {
+        Tenant::query()->orderBy('created_at')->each(function (Tenant $tenant) use (&$branchByTenant): void {
             $branch = BranchProvisioner::ensureDefaultBranch($tenant);
             $branchByTenant[$tenant->id] = $branch->id;
 

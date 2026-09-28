@@ -107,6 +107,11 @@ class Tenant extends Model
         return $this->subscription?->ends_on;
     }
 
+    public function getPlanEndDateAttribute(): ?\Illuminate\Support\Carbon
+    {
+        return $this->planEndsOn();
+    }
+
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');

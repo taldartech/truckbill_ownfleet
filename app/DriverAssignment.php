@@ -12,8 +12,8 @@ use Illuminate\Support\Carbon;
 
 class DriverAssignment extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [

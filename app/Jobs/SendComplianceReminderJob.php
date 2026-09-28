@@ -16,8 +16,7 @@ class SendComplianceReminderJob implements ShouldQueue
         private readonly string $recipient,
         private readonly string $subject,
         private readonly string $payload
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {

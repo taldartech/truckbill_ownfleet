@@ -96,18 +96,31 @@ class TyreLayoutDefaults
         ];
     }
 
-    public static function seedForTenant(string $tenantId): void
+    public static function seedForTenant(string $tenantId, bool $onlyIfEmpty = true): int
     {
-        if (TyreLayout::query()->withoutGlobalScopes()->where('tenant_id', $tenantId)->exists()) {
-            return;
+        if ($onlyIfEmpty && TyreLayout::query()->withoutGlobalScopes()->where('tenant_id', $tenantId)->exists()) {
+            return 0;
         }
 
+        $created = 0;
+
         foreach (self::presets() as $preset) {
-            TyreLayout::query()->create([
-                'tenant_id' => $tenantId,
-                ...$preset,
-            ]);
+            $exists = TyreLayout::query()
+                ->withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('code', $preset['code'])
+                ->exists();
+
+            if (! $exists) {
+                TyreLayout::query()->create([
+                    'tenant_id' => $tenantId,
+                    ...$preset,
+                ]);
+                $created++;
+            }
         }
+
+        return $created;
     }
 
     public static function defaultCode(): string

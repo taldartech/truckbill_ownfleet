@@ -628,17 +628,18 @@ class PhaseOneCloseTest extends TestCase
             'owner_user_id' => $superAdmin->id,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+        $branch = $this->createBranchForTenant($tenant);
+        $this->enterBranchForSuperAdmin($superAdmin, $branch);
+
         $companyUser = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'name' => 'Ops User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'user_role_id' => UserRole::MODERATOR,
         ]);
-
-        $this->actingAs($superAdmin)
-            ->postJson('/app/api/companies/'.$tenant->id.'/enter')
-            ->assertOk();
 
         $this->actingAs($superAdmin)
             ->putJson('/app/api/document-alert-settings', [
@@ -697,6 +698,12 @@ class PhaseOneCloseTest extends TestCase
             'password' => 'password',
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
+
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        if ($user->branch_id !== null) {
+            \App\Support\BranchContext::setBranchId((int) $user->branch_id);
+            \App\Support\TenantContext::setTenantId((string) $tenant->id);
+        }
 
         return [$tenant, $user];
     }

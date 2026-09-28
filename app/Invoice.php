@@ -20,6 +20,7 @@ class Invoice extends Model
 {
     /** @use HasFactory<\Database\Factories\InvoiceFactory> */
     use BranchScoped;
+
     use HasFactory;
     use SoftDeletes;
     use TenantScoped;

@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Station extends Model
 {
+    use BranchScoped;
     use SoftDeletes;
     use TenantScoped;
-    use BranchScoped;
 
     protected $fillable = [
         'tenant_id',
@@ -20,7 +20,6 @@ class Station extends Model
         'country_id',
         'state_id',
         'city_id',
-        'agency_id',
         'name',
     ];
 
@@ -30,7 +29,6 @@ class Station extends Model
             'country_id' => 'integer',
             'state_id' => 'integer',
             'city_id' => 'integer',
-            'agency_id' => 'integer',
         ];
     }
 

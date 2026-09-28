@@ -972,7 +972,6 @@ class InvoiceService
     }
 
     /**
-     * @param  mixed  $items
      * @return list<array{description: string, amount: float}>
      */
     private function normalizeCustomItems(mixed $items): array

@@ -26,7 +26,7 @@ class CompanyController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
 
         $query = Tenant::query()
-            ->with('state')
+            ->with(['state', 'subscription'])
             ->when($request->filled('search'), function ($builder) use ($request): void {
                 $search = '%'.$request->string('search').'%';
                 $builder->where(function ($inner) use ($search): void {
@@ -65,14 +65,14 @@ class CompanyController extends Controller
             $tenant->save();
         }
 
-        return new CompanyResource($tenant->loadMissing('state'));
+        return new CompanyResource($tenant->loadMissing(['state', 'subscription']));
     }
 
     public function show(Tenant $company): CompanyResource
     {
         $this->authorize('view', $company);
 
-        return new CompanyResource($company->loadMissing('state'));
+        return new CompanyResource($company->loadMissing(['state', 'subscription']));
     }
 
     public function update(UpdateCompanyRequest $request, Tenant $company): CompanyResource
@@ -98,7 +98,7 @@ class CompanyController extends Controller
 
         $company->save();
 
-        return new CompanyResource($company->fresh()->load('state'));
+        return new CompanyResource($company->fresh()->load(['state', 'subscription']));
     }
 
     public function enter(Request $request, Tenant $company): JsonResponse

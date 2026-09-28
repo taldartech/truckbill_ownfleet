@@ -536,6 +536,33 @@ class CompanyManagementTest extends TestCase
         Storage::disk('public')->assertExists($storedLogo);
     }
 
+    public function test_company_creation_provisions_trial_subscription_even_when_admin_api_is_unreachable(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superAdmin)
+            ->postJson('/app/api/companies', [
+                'name' => 'Resilient Fleet Co',
+                'pan_number' => 'ABCDE9999F',
+                'contact_person' => 'Fleet Owner',
+                'contact_number' => '9876543299',
+            ])
+            ->assertCreated();
+
+        $tenantId = $response->json('data.id');
+        $this->assertNotNull($tenantId);
+
+        $this->assertDatabaseHas('tenant_subscriptions', [
+            'tenant_id' => $tenantId,
+            'status' => 'trial',
+            'included_branches' => 2,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+        ]);
+
+        $this->assertNotNull($response->json('data.plan_end_date'));
+    }
+
     private function createSuperAdmin(): User
     {
         return User::query()->create([

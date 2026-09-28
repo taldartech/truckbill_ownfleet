@@ -61,7 +61,7 @@ class UpdateVehicleRequest extends FormRequest
                     $query->where('tenant_id', CurrentTenant::id())
                         ->where(function ($q) use ($vehicle) {
                             $q->where('is_active', true)
-                              ->orWhere('code', $vehicle->tyre_layout);
+                                ->orWhere('code', $vehicle->tyre_layout);
                         });
                 }),
             ],

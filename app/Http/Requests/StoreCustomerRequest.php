@@ -48,7 +48,6 @@ class StoreCustomerRequest extends FormRequest
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
-            'agency_id' => ['nullable', 'integer', 'min:1'],
             'gst_number' => $this->partyGstNumberRules('customers'),
             'pan_number' => $this->partyPanNumberRules('customers'),
             'address' => ['nullable', 'string', 'max:2000'],

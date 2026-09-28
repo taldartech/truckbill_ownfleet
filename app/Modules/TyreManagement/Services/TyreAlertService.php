@@ -6,10 +6,8 @@ use App\Enums\TyreStatus;
 use App\Support\TyreLifeCalculator;
 use App\Support\TyrePositionCatalog;
 use App\Tyre;
-use App\TyreInspection;
 use App\TyreInstallation;
 use App\Vehicle;
-use Illuminate\Support\Carbon;
 
 class TyreAlertService
 {
@@ -74,7 +72,7 @@ class TyreAlertService
 
         $inspectionOverdue = Tyre::query()
             ->whereIn('status', [TyreStatus::InStock->value, TyreStatus::Installed->value])
-            ->where(function ($query) use ($today): void {
+            ->where(function ($query): void {
                 $query->whereNull('last_inspection_at')
                     ->orWhereDate('last_inspection_at', '<', now()->subMonths(3)->toDateString());
             })

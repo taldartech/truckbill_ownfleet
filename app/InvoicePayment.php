@@ -13,6 +13,7 @@ class InvoicePayment extends Model
 {
     /** @use HasFactory<\Database\Factories\InvoicePaymentFactory> */
     use BranchScoped;
+
     use HasFactory;
     use TenantScoped;
     use UsesUuid;

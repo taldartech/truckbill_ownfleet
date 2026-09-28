@@ -43,13 +43,15 @@ class FleetDashboardController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user !== null && $user->hasPermission('dashboard.view'), 403);
+        abort_unless($user !== null && ($user->hasPermission('dashboard.view') || $user->hasPermission('alerts.view')), 403);
 
         if (! $user->canAccessCompanyPanel() || $user->effectiveTenantId() === null) {
             return response()->json([
                 'documents' => [],
                 'licenses' => [],
                 'due_services' => [],
+                'eway_bills' => [],
+                'alerts' => [],
                 'requires_company' => true,
             ]);
         }

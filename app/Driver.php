@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Driver extends Model
 {
+    use BranchScoped;
     use SoftDeletes;
     use TenantScoped;
-    use BranchScoped;
     use UsesUuid;
 
     protected $fillable = [

@@ -25,9 +25,9 @@ use App\Modules\TyreManagement\Services\TyreService;
 use App\Tyre;
 use App\TyreInstallation;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 class TyreController extends Controller
 {

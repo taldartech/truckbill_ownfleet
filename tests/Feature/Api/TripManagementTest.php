@@ -2334,7 +2334,7 @@ class TripManagementTest extends TestCase
         $response->assertJsonValidationErrors(['route_legs']);
     }
 
-    public function test_create_trip_requires_distance_km_on_each_route_leg(): void
+    public function test_create_trip_rejects_negative_distance_km_on_route_legs(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -2351,6 +2351,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => -5,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -2359,7 +2360,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
-                        'distance_km' => 0,
+                        'distance_km' => -10,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],

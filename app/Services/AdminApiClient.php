@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\SubscriptionCatalogUnavailableException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 class AdminApiClient
 {

@@ -173,5 +173,4 @@ class TripBiltyService
             'trip' => $trip,
         ])->setPaper('a4');
     }
-
 }

@@ -355,6 +355,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
             Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
 
+            Route::post('tyre-layouts/seed-defaults', [\App\Http\Controllers\Api\TyreLayoutController::class, 'seedDefaults']);
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
             Route::get('/tyres/alerts', [\App\Http\Controllers\Api\TyreController::class, 'alerts'])->name('tyres.alerts');

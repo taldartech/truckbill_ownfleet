@@ -263,8 +263,16 @@ class ChallanManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+        $branch = \App\Support\BranchProvisioner::ensureDefaultBranch($tenant);
+        \App\Support\SelectedCompanySession::set((string) $tenant->id);
+        \App\Support\SelectedBranchSession::set((int) $branch->id);
+        \App\Support\TenantContext::setTenantId((string) $tenant->id);
+        \App\Support\BranchContext::setBranchId((int) $branch->id);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'name' => 'Challan User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -273,6 +281,7 @@ class ChallanManagementTest extends TestCase
 
         $vehicle = Vehicle::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'registration_number' => 'MH12AB1234',
             'vehicle_type' => 'TRUCK',
             'make' => 'Tata',

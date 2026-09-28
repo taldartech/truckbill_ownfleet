@@ -279,14 +279,14 @@ class VehicleManagementTest extends TestCase
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
         $this->seedTenantLookups($tenant);
-        
+
         $vehicle = $this->createVehicle($tenant, 'MH12AB1001');
         $vehicle->delete(); // Soft delete it
-        
+
         $this->assertSoftDeleted('vehicles', [
             'id' => $vehicle->id,
         ]);
-        
+
         $this->actingAs($admin)
             ->postJson('/app/api/vehicles', [
                 'registration_number' => 'mh12ab1001',
@@ -301,7 +301,7 @@ class VehicleManagementTest extends TestCase
             ->assertJsonPath('data.vehicle_type', 'TANKER')
             ->assertJsonPath('data.make', 'Tata Restore')
             ->assertJsonPath('data.model', 'LPT Restore');
-            
+
         $this->assertDatabaseHas('vehicles', [
             'id' => $vehicle->id,
             'deleted_at' => null,

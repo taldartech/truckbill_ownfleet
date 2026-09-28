@@ -44,7 +44,6 @@ class TripResource extends JsonResource
             'diesel_rate_per_liter' => $this->diesel_rate_per_liter,
             'total_distance_km' => $this->total_distance_km,
             'loaded_distance_km' => $this->loaded_distance_km,
-            'half_loaded_distance_km' => $this->half_loaded_distance_km,
             'empty_distance_km' => $this->empty_distance_km,
             'total_expense_amount' => $this->total_expense_amount,
             'total_freight_amount' => $this->total_freight_amount,

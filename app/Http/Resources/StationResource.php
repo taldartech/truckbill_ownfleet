@@ -27,7 +27,6 @@ class StationResource extends JsonResource
             'country_id' => $this->country_id,
             'state_id' => $this->state_id,
             'city_id' => $this->city_id,
-            'agency_id' => $this->agency_id,
             'country' => $this->whenLoaded('country', fn () => [
                 'id' => $this->country?->id,
                 'name' => $this->country?->name,

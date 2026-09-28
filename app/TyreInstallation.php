@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TyreInstallation extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [

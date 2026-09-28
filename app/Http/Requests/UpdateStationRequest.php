@@ -43,7 +43,6 @@ class UpdateStationRequest extends FormRequest
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
-            'agency_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
