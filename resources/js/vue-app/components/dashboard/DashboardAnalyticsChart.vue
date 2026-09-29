@@ -265,6 +265,15 @@
             </div>
         </div>
 
+        <!-- Fleet Status Tab -->
+        <DashboardFleetStatusTab
+            v-if="activeTab === 'fleet'"
+            :fleet-status="fleetStatusStats"
+            :period-from-date="periodFromDate"
+            :period-to-date="periodToDate"
+            :period-label="periodLabel"
+        />
+
         <!-- Custom Tooltip -->
         <div
             v-if="tooltip.show"
@@ -281,6 +290,7 @@
 import { computed, ref } from 'vue';
 import { formatMoney } from '../../utils/formatMoney';
 import { formatDateRangeLabel } from '../../utils/dateRangePresets';
+import DashboardFleetStatusTab from './DashboardFleetStatusTab.vue';
 
 const props = defineProps({
     tripStats: {
@@ -288,6 +298,10 @@ const props = defineProps({
         default: () => ({}),
     },
     tyreStats: {
+        type: Object,
+        default: () => ({}),
+    },
+    fleetStatusStats: {
         type: Object,
         default: () => ({}),
     },
@@ -307,6 +321,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    canViewFleet: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const periodLabel = computed(() =>
@@ -321,10 +339,17 @@ const analyticsTabs = computed(() => {
     if (props.canViewTyres) {
         tabs.push({ id: 'tyres', label: 'Tyres & Financials' });
     }
+    if (props.canViewFleet) {
+        tabs.push({ id: 'fleet', label: 'Fleet Status' });
+    }
     return tabs;
 });
 
-const activeTab = ref(props.canViewTrips ? 'financials' : 'tyres');
+const activeTab = ref(
+    props.canViewTrips
+        ? 'financials'
+        : (props.canViewTyres ? 'tyres' : 'fleet'),
+);
 
 // Tooltip State
 const tooltip = ref({
@@ -563,6 +588,16 @@ function showTooltip(type, event) {
 function hideTooltip() {
     tooltip.value.show = false;
 }
+
+function setActiveTab(tab) {
+    if (analyticsTabs.value.some((t) => t.id === tab)) {
+        activeTab.value = tab;
+    }
+}
+
+defineExpose({
+    setActiveTab,
+});
 </script>
 
 <style scoped>

@@ -481,6 +481,82 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('tyres.period_scrapped_recovery_amount', 2500);
     }
 
+    public function test_fleet_status_and_utilization_dashboard_stats_return_expected_metrics(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $driver = $this->createDriver($tenant, 'Test Driver', 800);
+
+        // Vehicle 1: On Trip (IN_PROGRESS)
+        $v1 = $this->createVehicle($tenant, 'RJ27ON0001');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v1->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-1',
+            'status' => TripStatus::InProgress,
+            'start_at' => now()->subDay()->toDateTimeString(),
+        ]);
+
+        // Vehicle 2: Available (last trip ended yesterday, idle 1 day)
+        $v2 = $this->createVehicle($tenant, 'RJ27AV0002');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v2->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-2',
+            'status' => TripStatus::Completed,
+            'start_at' => now()->subDays(3)->toDateTimeString(),
+            'end_at' => now()->subDay()->toDateTimeString(),
+        ]);
+
+        // Vehicle 3: Idle (last trip ended 8 days ago, idle 8 days)
+        $v3 = $this->createVehicle($tenant, 'RJ27ID0003');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v3->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-3',
+            'status' => TripStatus::Completed,
+            'start_at' => now()->subDays(12)->toDateTimeString(),
+            'end_at' => now()->subDays(8)->toDateTimeString(),
+        ]);
+
+        // Vehicle 4: Unavailable (inactive)
+        $v4 = $this->createVehicle($tenant, 'RJ27UN0004');
+        $v4->update(['is_active' => false]);
+
+        $fromDate = now()->subDays(29)->toDateString();
+        $toDate = now()->toDateString();
+
+        $response = $this->actingAs($user)
+            ->getJson("/app/dashboard/stats?from_date={$fromDate}&to_date={$toDate}")
+            ->assertOk();
+
+        $response
+            ->assertJsonPath('fleet_status.overview.total_trucks', 4)
+            ->assertJsonPath('fleet_status.overview.on_trip', 1)
+            ->assertJsonPath('fleet_status.overview.available', 1)
+            ->assertJsonPath('fleet_status.overview.idle', 1)
+            ->assertJsonPath('fleet_status.overview.maintenance', 0)
+            ->assertJsonPath('fleet_status.overview.unavailable', 1)
+            ->assertJsonPath('fleet_status.utilization.total_fleet', 4)
+            ->assertJsonPath('fleet_status.utilization.unavailable_days', 30)
+            ->assertJsonPath('kpis.total_fleet', 4)
+            ->assertJsonPath('kpis.on_trip', 1)
+            ->assertJsonPath('kpis.available', 1)
+            ->assertJsonPath('kpis.idle', 1)
+            ->assertJsonPath('kpis.maintenance', 0);
+
+        $idleTrucks = $response->json('fleet_status.idle_trucks');
+        $this->assertCount(2, $idleTrucks);
+
+        $idleTruck3 = collect($idleTrucks)->firstWhere('registration_number', 'RJ27ID0003');
+        $this->assertNotNull($idleTruck3);
+        $this->assertSame(8, $idleTruck3['idle_days']);
+        $this->assertSame('TRP-FS-3', $idleTruck3['last_trip_number']);
+    }
+
     public function test_compliance_alerts_list_expired_and_expiring_documents(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');

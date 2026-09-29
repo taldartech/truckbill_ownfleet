@@ -4,12 +4,15 @@ namespace App\Support;
 
 use App\Driver;
 use App\Enums\AttendanceStatus;
+use App\Enums\InvoicePaymentStatus;
 use App\Enums\TripStatus;
 use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
+use App\Invoice;
 use App\Modules\DriverManagement\Services\AttendanceCalendarService;
 use App\Modules\TripManagement\Support\TripReportScope;
 use App\Modules\TyreManagement\Services\TyreAlertService;
+use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceService;
 use App\Trip;
 use App\Tyre;
 use App\TyreExpense;
@@ -82,8 +85,10 @@ class FleetDashboardStats
             'generated_at' => ApiDateTime::toIso(now()),
         ];
 
+        $tripFinancials = self::buildTripStats($fromDate, $toDate);
+
         if ($user->hasPermission('trips.view')) {
-            $payload['trips'] = self::buildTripStats($fromDate, $toDate);
+            $payload['trips'] = $tripFinancials;
         }
 
         if ($user->hasPermission('tyres.view')) {
@@ -93,6 +98,36 @@ class FleetDashboardStats
                 self::buildTyreAlertStats(),
             );
         }
+
+        $fleetStatus = self::buildFleetStatusStats($fromDate, $toDate);
+        $payload['fleet_status'] = $fleetStatus;
+        $payload['fleet']['fleet_status'] = $fleetStatus;
+
+        $outstandingAmount = 0.0;
+        try {
+            $outstandingAmount = (float) Invoice::query()
+                ->whereNotIn('payment_status', [
+                    InvoicePaymentStatus::Paid->value,
+                    InvoicePaymentStatus::Cancelled->value,
+                ])
+                ->selectRaw('COALESCE(SUM(total_amount - paid_amount), 0) as outstanding')
+                ->value('outstanding');
+        } catch (\Throwable) {
+            $outstandingAmount = 0.0;
+        }
+
+        $payload['kpis'] = [
+            'total_fleet' => $fleetStatus['overview']['total_trucks'] ?? $fleet['vehicles_count'],
+            'on_trip' => $fleetStatus['overview']['on_trip'] ?? 0,
+            'available' => $fleetStatus['overview']['available'] ?? 0,
+            'idle' => $fleetStatus['overview']['idle'] ?? 0,
+            'maintenance' => $fleetStatus['overview']['maintenance'] ?? 0,
+            'fleet_utilization' => $fleetStatus['utilization']['utilization_rate'] ?? 0,
+            'revenue' => $tripFinancials['total_freight_amount'] ?? 0,
+            'cost' => $tripFinancials['total_expense_amount'] ?? 0,
+            'profit' => $tripFinancials['profit_amount'] ?? 0,
+            'outstanding' => round((float) $outstandingAmount, 2),
+        ];
 
         return $payload;
     }
@@ -244,5 +279,200 @@ class FleetDashboardStats
     private static function buildTyreAlertStats(): array
     {
         return app(TyreAlertService::class)->dashboardCounts();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function buildFleetStatusStats(string $fromDate, string $toDate): array
+    {
+        $vehicles = Vehicle::query()
+            ->with(['trips' => function ($query) {
+                $query->whereIn('status', [
+                    TripStatus::InProgress->value,
+                    TripStatus::Completed->value,
+                    TripStatus::Invoiced->value,
+                ])->orderByDesc('start_at');
+            }])
+            ->get();
+
+        $totalTrucks = $vehicles->count();
+        $unavailableCount = 0;
+        $onTripCount = 0;
+        $idleTrucksList = [];
+
+        $now = Carbon::now();
+
+        foreach ($vehicles as $vehicle) {
+            if (! $vehicle->is_active) {
+                $unavailableCount++;
+                continue;
+            }
+
+            // Check if truck is currently on trip
+            $inProgressTrip = $vehicle->trips->first(fn ($t) => ($t->status?->value ?? (string) $t->status) === TripStatus::InProgress->value);
+
+            if ($inProgressTrip !== null) {
+                $onTripCount++;
+                continue;
+            }
+
+            // Vehicle is active and not on trip -> Find last completed/invoiced trip
+            $lastCompletedTrip = $vehicle->trips->first(fn ($t) => in_array($t->status?->value ?? (string) $t->status, [
+                TripStatus::Completed->value,
+                TripStatus::Invoiced->value,
+            ], true));
+
+            if ($lastCompletedTrip !== null) {
+                $lastTripEnd = $lastCompletedTrip->end_at ?? $lastCompletedTrip->actual_arrival_at ?? $lastCompletedTrip->start_at;
+                $idleSince = $lastTripEnd ? Carbon::parse($lastTripEnd) : Carbon::parse($vehicle->created_at);
+                $lastTripNumber = $lastCompletedTrip->trip_number;
+                $lastTripId = $lastCompletedTrip->id;
+            } else {
+                $idleSince = Carbon::parse($vehicle->created_at);
+                $lastTripNumber = null;
+                $lastTripId = null;
+            }
+
+            $idleDays = max(0, (int) $idleSince->copy()->startOfDay()->diffInDays($now->copy()->startOfDay()));
+
+            $idleTrucksList[] = [
+                'id' => $vehicle->id,
+                'registration_number' => $vehicle->registration_number,
+                'last_trip_id' => $lastTripId,
+                'last_trip_number' => $lastTripNumber,
+                'last_trip_end' => $lastCompletedTrip ? Carbon::parse($lastCompletedTrip->end_at ?? $lastCompletedTrip->start_at)->format('d M') : null,
+                'last_trip_end_date' => $lastCompletedTrip ? Carbon::parse($lastCompletedTrip->end_at ?? $lastCompletedTrip->start_at)->format('Y-m-d') : null,
+                'idle_since' => $idleSince->format('d M'),
+                'idle_since_date' => $idleSince->format('Y-m-d'),
+                'idle_days' => $idleDays,
+                'is_active' => (bool) $vehicle->is_active,
+            ];
+        }
+
+        // Retrieve due services to identify vehicles requiring or undergoing maintenance
+        $maintenanceVehicleIds = [];
+        try {
+            $dueServices = app(VehicleMaintenanceService::class)->dueServicesForAlerts();
+            $maintenanceVehicleIds = $dueServices->pluck('vehicle_id')->unique()->filter()->values()->all();
+        } catch (\Throwable) {
+            $maintenanceVehicleIds = [];
+        }
+        $maintenanceCount = count($maintenanceVehicleIds);
+
+        // Sort idle trucks descending by idle_days (highest idle first)
+        usort($idleTrucksList, fn ($a, $b) => $b['idle_days'] <=> $a['idle_days']);
+
+        // Default: 1-3 days = normal turnaround (Available), 4+ days = attention/idle (Idle)
+        $normalThresholdMax = 3;
+        // Trucks due for maintenance are tracked under maintenance
+        $idleCount = count(array_filter($idleTrucksList, fn ($t) => ! in_array($t['id'], $maintenanceVehicleIds, true) && $t['idle_days'] > $normalThresholdMax));
+        $availableCount = count(array_filter($idleTrucksList, fn ($t) => ! in_array($t['id'], $maintenanceVehicleIds, true) && $t['idle_days'] <= $normalThresholdMax));
+
+        $utilization = self::buildFleetUtilizationStats($vehicles, $fromDate, $toDate);
+
+        return [
+            'overview' => [
+                'total_trucks' => $totalTrucks,
+                'on_trip' => $onTripCount,
+                'available' => $availableCount,
+                'idle' => $idleCount,
+                'maintenance' => $maintenanceCount,
+                'unavailable' => $unavailableCount,
+            ],
+            'idle_trucks' => array_map(function ($item) use ($maintenanceVehicleIds) {
+                $item['is_due_maintenance'] = in_array($item['id'], $maintenanceVehicleIds, true);
+
+                return $item;
+            }, $idleTrucksList),
+            'utilization' => $utilization,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Vehicle>  $vehicles
+     * @return array<string, mixed>
+     */
+    private static function buildFleetUtilizationStats($vehicles, string $fromDate, string $toDate): array
+    {
+        $start = Carbon::parse($fromDate)->startOfDay();
+        $end = Carbon::parse($toDate)->endOfDay();
+        $periodDays = max(1, (int) Carbon::parse($fromDate)->diffInDays(Carbon::parse($toDate)) + 1);
+
+        $totalFleet = $vehicles->count();
+        $totalFleetDays = $totalFleet * $periodDays;
+
+        $inactiveVehiclesCount = $vehicles->where('is_active', false)->count();
+        $unavailableDays = $inactiveVehiclesCount * $periodDays;
+        $availableDays = max(0, $totalFleetDays - $unavailableDays);
+
+        $vehicleIds = $vehicles->where('is_active', true)->pluck('id');
+
+        $trips = Trip::query()
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->whereIn('status', [
+                TripStatus::InProgress->value,
+                TripStatus::Completed->value,
+                TripStatus::Invoiced->value,
+            ])
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('start_at', [$start, $end])
+                    ->orWhereBetween('end_at', [$start, $end])
+                    ->orWhere(function ($q) use ($start, $end) {
+                        $q->where('start_at', '<=', $start)
+                            ->where(function ($sub) use ($end) {
+                                $sub->where('end_at', '>=', $end)
+                                    ->orWhereNull('end_at');
+                            });
+                    });
+            })
+            ->get(['id', 'vehicle_id', 'start_at', 'end_at', 'status']);
+
+        $tripsByVehicle = $trips->groupBy('vehicle_id');
+        $now = Carbon::now();
+        $runningDays = 0;
+
+        foreach ($vehicles as $vehicle) {
+            if (! $vehicle->is_active) {
+                continue;
+            }
+
+            $vTrips = $tripsByVehicle->get($vehicle->id);
+            if (! $vTrips || $vTrips->isEmpty()) {
+                continue;
+            }
+
+            $currentDay = $start->copy();
+            while ($currentDay->lte($end)) {
+                $dayStart = $currentDay->copy()->startOfDay();
+                $dayEnd = $currentDay->copy()->endOfDay();
+
+                $isRunning = $vTrips->contains(function ($trip) use ($dayStart, $dayEnd, $now) {
+                    $tStart = Carbon::parse($trip->start_at);
+                    $tEnd = $trip->end_at ? Carbon::parse($trip->end_at) : $now;
+
+                    return $tStart->lte($dayEnd) && $tEnd->gte($dayStart);
+                });
+
+                if ($isRunning) {
+                    $runningDays++;
+                }
+
+                $currentDay->addDay();
+            }
+        }
+
+        $idleDays = max(0, $availableDays - $runningDays);
+        $utilizationRate = $availableDays > 0 ? round(($runningDays / $availableDays) * 100, 1) : 0.0;
+
+        return [
+            'total_fleet' => $totalFleet,
+            'period_days' => $periodDays,
+            'available_days' => $availableDays,
+            'running_days' => $runningDays,
+            'idle_days' => $idleDays,
+            'unavailable_days' => $unavailableDays,
+            'utilization_rate' => $utilizationRate,
+        ];
     }
 }

@@ -416,6 +416,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.fleet-monthly');
             Route::get('/reports/fleet-monthly/export', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'export'])
                 ->name('reports.fleet-monthly.export');
+            Route::get('/reports/vehicle-utilization', [\App\Http\Controllers\Api\VehicleUtilizationReportController::class, 'show'])
+                ->name('reports.vehicle-utilization');
+            Route::get('/reports/vehicle-utilization/export', [\App\Http\Controllers\Api\VehicleUtilizationReportController::class, 'export'])
+                ->name('reports.vehicle-utilization.export');
         });
     });
 

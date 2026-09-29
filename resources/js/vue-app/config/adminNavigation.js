@@ -195,6 +195,14 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Utilization & Idle',
+                icon: 'bi bi-speedometer2 nav-icon',
+                to: '/reports/vehicle-utilization',
+                activeNames: ['reports.vehicle-utilization'],
+                permission: 'trip_reports.view',
+                requiresTenant: true,
+            },
+            {
                 label: 'Maintenance',
                 icon: 'bi bi-bar-chart nav-icon',
                 to: '/maintenance/reports',

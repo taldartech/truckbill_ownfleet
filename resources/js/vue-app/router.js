@@ -319,6 +319,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'fleet_monthly_report.view' },
                 },
                 {
+                    path: 'reports/vehicle-utilization',
+                    name: 'reports.vehicle-utilization',
+                    component: () => import('./pages/reports/VehicleUtilizationReportPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trip_reports.view' },
+                },
+                {
                     path: '/alerts',
                     name: 'alerts.index',
                     component: () => import('././pages/alerts/AlertsPage.vue'),

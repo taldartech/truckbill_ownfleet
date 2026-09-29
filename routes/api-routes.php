@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\VehicleDocumentController;
 use App\Http\Controllers\Api\VehicleMaintenanceController;
 use App\Http\Controllers\Api\VehicleMaintenanceReportController;
+use App\Http\Controllers\Api\VehicleUtilizationReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('onboarding')
@@ -145,6 +146,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
     Route::get('/reports/fleet-monthly', [FleetMonthlyReportController::class, 'show']);
     Route::get('/reports/fleet-monthly/export', [FleetMonthlyReportController::class, 'export']);
+    Route::get('/reports/vehicle-utilization', [VehicleUtilizationReportController::class, 'show']);
+    Route::get('/reports/vehicle-utilization/export', [VehicleUtilizationReportController::class, 'export']);
     Route::get('/reports/maintenance/cost-summary', [VehicleMaintenanceReportController::class, 'costSummary']);
     Route::get('/reports/maintenance/truck-wise', [VehicleMaintenanceReportController::class, 'truckWise']);
     Route::get('/reports/maintenance/due-services', [VehicleMaintenanceReportController::class, 'dueServices']);

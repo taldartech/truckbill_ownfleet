@@ -65,15 +65,29 @@
 
             <template v-else>
                 <div class="dashboard-page__body">
-                    <div v-if="canViewTrips || canViewTyres" class="dashboard-page__analytics">
+                    <!-- Top KPI Cards: Total Fleet, On Trip, Available, Idle, Maintenance & Utilization, Revenue, Cost, Profit, Outstanding -->
+                    <DashboardTopKpis
+                        :kpi-stats="kpiStats"
+                        :fleet-status-stats="fleetStatusStats"
+                        :trip-stats="tripStats"
+                        :fleet-stats="fleetStats"
+                        :can-view-trips="canViewTrips"
+                        :can-view-fleet="canViewFleet"
+                        @select-tab="onSelectAnalyticsTab"
+                    />
+
+                    <div v-if="canViewTrips || canViewTyres || canViewFleet" class="dashboard-page__analytics">
                         <DashboardAnalyticsChart
-                            v-if="(canViewTrips && tripStats) || (canViewTyres && tyreStats)"
+                            ref="analyticsChartRef"
+                            v-if="(canViewTrips && tripStats) || (canViewTyres && tyreStats) || fleetStatusStats"
                             :trip-stats="tripStats"
                             :tyre-stats="tyreStats"
+                            :fleet-status-stats="fleetStatusStats"
                             :period-from-date="periodFromDate"
                             :period-to-date="periodToDate"
                             :can-view-trips="canViewTrips"
                             :can-view-tyres="canViewTyres"
+                            :can-view-fleet="canViewFleet"
                         />
                     </div>
 
@@ -130,6 +144,7 @@ import DashboardAnalyticsChart from '../components/dashboard/DashboardAnalyticsC
 import DashboardComplianceAlertsPanel from '../components/dashboard/DashboardComplianceAlertsPanel.vue';
 import DashboardComplianceModal from '../components/dashboard/DashboardComplianceModal.vue';
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
+import DashboardTopKpis from '../components/dashboard/DashboardTopKpis.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
 import { useOperationalDataInvalidation } from '../composables/useOperationalDataInvalidation';
@@ -139,6 +154,8 @@ import { sortDocumentsByUrgency } from '../utils/documentStatus';
 import { formatDate } from '../utils/datetime';
 
 const complianceModalRef = ref(null);
+const analyticsChartRef = ref(null);
+const kpiStats = ref(null);
 
 const { user, canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 
@@ -153,6 +170,7 @@ const greetingMessage = computed(() => {
 const loading = ref(true);
 const loadError = ref('');
 const fleetStats = ref(null);
+const fleetStatusStats = ref(null);
 const tripStats = ref(null);
 const tyreStats = ref(null);
 const requiresCompany = ref(false);
@@ -175,7 +193,12 @@ const currentRole = computed(() => user.value?.role ?? 'user');
 const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
-const showPeriodFilter = computed(() => canViewTrips.value || canViewTyres.value);
+const canViewFleet = computed(
+    () => canInCompany('vehicles.view') || canInCompany('trips.view') || canInCompany('dashboard.view'),
+);
+const showPeriodFilter = computed(
+    () => canViewTrips.value || canViewTyres.value || canViewFleet.value,
+);
 const canCreateDocuments = computed(() => canCreateInCompany('vehicle_documents'));
 const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
 const canDeleteDocuments = computed(
@@ -294,6 +317,13 @@ function closeDocumentsModal() {
     initialDocumentAction.value = null;
 }
 
+function onSelectAnalyticsTab(tabId) {
+    if (analyticsChartRef.value?.setActiveTab) {
+        analyticsChartRef.value.setActiveTab(tabId);
+        analyticsChartRef.value.$el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
 async function onComplianceItemSaved() {
     await refreshComplianceData();
 }
@@ -320,6 +350,11 @@ async function refreshComplianceData() {
 
         if (!alerts.requiresCompany) {
             fleetStats.value = statsResponse.data.fleet ?? fleetStats.value;
+            fleetStatusStats.value =
+                statsResponse.data.fleet_status ??
+                statsResponse.data.fleet?.fleet_status ??
+                fleetStatusStats.value;
+            kpiStats.value = statsResponse.data.kpis ?? kpiStats.value;
             applyComplianceAlerts(alerts);
         }
 
@@ -369,8 +404,11 @@ async function loadDashboard() {
         requiresCompany.value =
             Boolean(data.requires_company) && !userHasCompanyContext.value;
         fleetStats.value = data.fleet ?? null;
+        fleetStatusStats.value =
+            data.fleet_status ?? data.fleet?.fleet_status ?? null;
         tripStats.value = data.trips ?? null;
         tyreStats.value = data.tyres ?? null;
+        kpiStats.value = data.kpis ?? null;
 
         if (!shouldLoadCompliance) {
             compliancePreview.value = emptyCompliancePreview();
