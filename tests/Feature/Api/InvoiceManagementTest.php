@@ -1749,4 +1749,59 @@ class InvoiceManagementTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['tds_amount']);
     }
+
+    public function test_invoice_pdf_displays_shortage_discount_and_tds_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Record payment with Shortage / Discount and TDS
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 9800,
+                'deduction_amount' => 500,
+                'deduction_reason' => 'Discount',
+                'tds_amount' => 200,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf");
+
+        $response->assertOk();
+
+        $invoice = Invoice::query()->findOrFail($invoiceId);
+        $html = view('invoices.pdf.party-bill-pdf-modern', [
+            'invoice' => $invoice,
+            'company' => $invoice->branch?->company ?? $invoice->tenant,
+            'document_color' => $tenant->documentColor(),
+            'document_text_color' => $tenant->documentTextColor() ?? '#000000',
+            'document_color_soft' => $tenant->documentColorWithOpacity(0.2),
+        ])->render();
+
+        $this->assertStringContainsString('Total Amount', $html);
+        $this->assertStringContainsString('Less: Shortage / Discount (Discount)', $html);
+        $this->assertStringContainsString('- 500/-', $html);
+        $this->assertStringContainsString('Less: TDS u/s 194C', $html);
+        $this->assertStringContainsString('- 200/-', $html);
+        $this->assertStringContainsString('Net Amount Receivable', $html);
+        $this->assertStringContainsString('9,800/-', $html);
+        $this->assertStringContainsString('Amount Received', $html);
+        $this->assertStringContainsString('Balance Due', $html);
+        $this->assertStringContainsString('Invoice Total in words:', $html);
+        $this->assertStringContainsString('Net Amount in words:', $html);
+    }
 }
+

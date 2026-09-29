@@ -863,6 +863,7 @@ class InvoiceService
     public function pdf(Invoice $invoice)
     {
         $invoice->loadMissing([
+            'payments',
             'customer.state',
             'customer.city',
             'customerState',
@@ -880,6 +881,13 @@ class InvoiceService
             'branch.company.state',
             'tenant.state',
         ]);
+
+        if (! $invoice->relationLoaded('payments') || ($invoice->payments->isEmpty() && (float) $invoice->paid_amount > 0)) {
+            $invoice->setRelation(
+                'payments',
+                $invoice->payments()->withoutGlobalScopes()->where('invoice_id', $invoice->id)->orderByDesc('paid_at')->get()
+            );
+        }
 
         $company = $invoice->branch?->company ?? $invoice->tenant;
 
