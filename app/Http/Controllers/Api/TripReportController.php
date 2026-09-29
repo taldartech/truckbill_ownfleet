@@ -39,8 +39,15 @@ class TripReportController extends Controller
     public function expenseSummary(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
+        $filters = $this->filters($request);
+        $rows = $this->tripReportService->expenseSummary($filters);
 
-        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->expenseSummary($filters));
+        return ReportPaginator::paginate($request, $rows, [
+            'summary' => array_merge($this->tripReportService->financialSummary($filters), [
+                'trip_count' => count(array_unique(array_filter(array_column($rows, 'trip_id')))),
+                'total_expense_amount' => round((float) array_sum(array_column($rows, 'amount')), 2),
+            ]),
+        ]);
     }
 
     public function routeProfitability(Request $request): JsonResponse
@@ -94,6 +101,7 @@ class TripReportController extends Controller
             'from_date',
             'to_date',
             'customer_name',
+            'expense_type',
         ]);
     }
 }
