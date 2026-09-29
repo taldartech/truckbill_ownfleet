@@ -184,21 +184,71 @@ class TripReportService
      */
     public function expenseSummary(array $filters = []): array
     {
-        $tripIds = $this->tripRepository->reportFilteredQuery($filters)
-            ->pluck('id');
+        $tripFilters = $filters;
+        $driverId = $tripFilters['driver_id'] ?? null;
+        unset($tripFilters['from_date'], $tripFilters['to_date'], $tripFilters['driver_id']);
 
-        $rows = TripExpense::query()
+        $tripQuery = $this->tripRepository->reportFilteredQuery($tripFilters);
+
+        if (! empty($driverId)) {
+            $tripQuery->where(function ($query) use ($driverId): void {
+                $query->where('substitute_driver_id', $driverId)
+                    ->orWhere(function ($sub) use ($driverId): void {
+                        $sub->whereNull('substitute_driver_id')
+                            ->where('driver_id', $driverId);
+                    });
+            });
+        }
+
+        $tripIds = $tripQuery->pluck('id');
+
+        $query = TripExpense::query()
             ->whereIn('trip_id', $tripIds)
-            ->get()
-            ->groupBy(fn (TripExpense $expense) => $expense->expense_type->value ?? (string) $expense->expense_type)
-            ->map(fn (Collection $items, string $type): array => [
-                'expense_type' => TripExpenseType::tryFrom($type)?->label() ?? str_replace('_', ' ', $type),
-                'trip_count' => $items->pluck('trip_id')->unique()->count(),
-                'entry_count' => $items->count(),
-                'total_amount' => (float) $items->sum('amount'),
-            ])
-            ->values()
-            ->all();
+            ->with(['trip.vehicle', 'trip.driver', 'trip.substituteDriver']);
+
+        if (! empty($filters['expense_type'])) {
+            $query->where('expense_type', strtoupper((string) $filters['expense_type']));
+        }
+
+        if (! empty($filters['from_date'])) {
+            $query->where('expense_date', '>=', (string) $filters['from_date']);
+        }
+
+        if (! empty($filters['to_date'])) {
+            $query->where('expense_date', '<=', (string) $filters['to_date']);
+        }
+
+        $expenses = $query->latest('expense_date')->get();
+
+        $rows = $expenses->map(function (TripExpense $expense): array {
+            $trip = $expense->trip;
+
+            return [
+                'expense_id' => $expense->id,
+                'trip_id' => $trip?->id,
+                'trip_number' => $trip?->trip_number,
+                'vehicle' => $trip?->vehicle?->registration_number,
+                'driver' => $trip?->substituteDriver?->name ?? $trip?->driver?->name,
+                'expense_type' => $expense->expense_type instanceof TripExpenseType ? $expense->expense_type->value : (string) $expense->expense_type,
+                'expense_type_label' => $expense->expense_type instanceof TripExpenseType ? $expense->expense_type->label() : ($expense->expense_type ?? 'Expense'),
+                'other_type' => $expense->other_type,
+                'expense_date' => $expense->expense_date?->toDateString(),
+                'amount' => (float) $expense->amount,
+                'fuel_liters' => $expense->fuel_liters !== null ? (float) $expense->fuel_liters : null,
+                'fuel_rate' => $expense->fuel_rate !== null ? (float) $expense->fuel_rate : null,
+                'fuel_odometer_km' => $expense->fuel_odometer_km !== null ? (float) $expense->fuel_odometer_km : null,
+                'notes' => $expense->notes,
+            ];
+        })->values()->all();
+
+        usort($rows, function (array $a, array $b): int {
+            $cmp = strnatcasecmp((string) ($a['trip_number'] ?? ''), (string) ($b['trip_number'] ?? ''));
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+
+            return strcmp((string) ($b['expense_date'] ?? ''), (string) ($a['expense_date'] ?? ''));
+        });
 
         return $this->withSerialNumbers($rows);
     }

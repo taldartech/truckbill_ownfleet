@@ -8,6 +8,8 @@ use App\DriverAssignment;
 use App\Enums\AttendanceMarkedVia;
 use App\Enums\AttendanceStatus;
 use App\Enums\WagePaymentStatus;
+use App\Support\BranchContext;
+use App\Support\BranchProvisioner;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Vehicle;
@@ -86,17 +88,20 @@ class DemoFleetDataSeeder extends Seeder
             return;
         }
 
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
+
         TenantContext::setTenantId($tenant->id);
+        BranchContext::setBranchId($branch->id);
 
         try {
             $from = $attendanceFrom ?? self::ATTENDANCE_FROM;
             $to = $attendanceTo ?? self::ATTENDANCE_TO;
 
-            $drivers = $this->seedDrivers($tenant->id);
-            $vehicles = $this->seedVehicles($tenant->id);
-            $this->seedAssignments($tenant->id, $drivers, $vehicles, $from);
+            $drivers = $this->seedDrivers($tenant->id, $branch->id);
+            $vehicles = $this->seedVehicles($tenant->id, $branch->id);
+            $this->seedAssignments($tenant->id, $branch->id, $drivers, $vehicles, $from);
 
-            $attendanceCount = $this->seedAttendances($tenant->id, $drivers, $vehicles, $from, $to);
+            $attendanceCount = $this->seedAttendances($tenant->id, $branch->id, $drivers, $vehicles, $from, $to);
 
             $fromLabel = Carbon::parse($from)->format('M Y');
             $toLabel = Carbon::parse($to)->format('M Y');
@@ -111,6 +116,7 @@ class DemoFleetDataSeeder extends Seeder
                 ],
             );
         } finally {
+            BranchContext::setBranchId(null);
             TenantContext::setTenantId(null);
         }
     }
@@ -118,18 +124,19 @@ class DemoFleetDataSeeder extends Seeder
     /**
      * @return Collection<int, Driver>
      */
-    private function seedDrivers(string $tenantId): Collection
+    private function seedDrivers(string $tenantId, int $branchId): Collection
     {
         $drivers = collect();
 
         foreach (self::DRIVERS as $index => $definition) {
             $drivers->push(
-                Driver::query()->updateOrCreate(
+                Driver::withoutGlobalScope('branch')->updateOrCreate(
                     [
                         'tenant_id' => $tenantId,
                         'phone' => $definition['phone'],
                     ],
                     [
+                        'branch_id' => $branchId,
                         'name' => $definition['name'],
                         'employee_code' => $definition['employee_code'],
                         'father_name' => $definition['father_name'],
@@ -151,18 +158,19 @@ class DemoFleetDataSeeder extends Seeder
     /**
      * @return Collection<int, Vehicle>
      */
-    private function seedVehicles(string $tenantId): Collection
+    private function seedVehicles(string $tenantId, int $branchId): Collection
     {
         $vehicles = collect();
 
         foreach (self::VEHICLES as $index => $definition) {
             $vehicles->push(
-                Vehicle::query()->updateOrCreate(
+                Vehicle::withoutGlobalScope('branch')->updateOrCreate(
                     [
                         'tenant_id' => $tenantId,
                         'registration_number' => $definition['registration_number'],
                     ],
                     [
+                        'branch_id' => $branchId,
                         'vehicle_type' => 'TRUCK',
                         'make' => $definition['make'],
                         'model' => $definition['model'],
@@ -180,7 +188,7 @@ class DemoFleetDataSeeder extends Seeder
      * @param  Collection<int, Driver>  $drivers
      * @param  Collection<int, Vehicle>  $vehicles
      */
-    private function seedAssignments(string $tenantId, Collection $drivers, Collection $vehicles, string $attendanceFrom): void
+    private function seedAssignments(string $tenantId, int $branchId, Collection $drivers, Collection $vehicles, string $attendanceFrom): void
     {
         $assignedFrom = Carbon::parse($attendanceFrom)->subMonth()->startOfMonth();
 
@@ -191,7 +199,7 @@ class DemoFleetDataSeeder extends Seeder
                 continue;
             }
 
-            DriverAssignment::query()->updateOrCreate(
+            DriverAssignment::withoutGlobalScope('branch')->updateOrCreate(
                 [
                     'tenant_id' => $tenantId,
                     'vehicle_id' => $vehicle->id,
@@ -200,6 +208,7 @@ class DemoFleetDataSeeder extends Seeder
                     'assigned_to' => null,
                 ],
                 [
+                    'branch_id' => $branchId,
                     'assigned_from' => $assignedFrom,
                 ],
             );
@@ -212,6 +221,7 @@ class DemoFleetDataSeeder extends Seeder
      */
     private function seedAttendances(
         string $tenantId,
+        int $branchId,
         Collection $drivers,
         Collection $vehicles,
         string $attendanceFrom,
@@ -239,13 +249,14 @@ class DemoFleetDataSeeder extends Seeder
 
                 $payment = $this->resolveWagePayment($date, $wageAmount, $vehicle->id);
 
-                Attendance::query()->updateOrCreate(
+                Attendance::withoutGlobalScope('branch')->updateOrCreate(
                     [
                         'tenant_id' => $tenantId,
                         'vehicle_id' => $vehicle->id,
                         'attendance_date' => $date->toDateString(),
                     ],
                     [
+                        'branch_id' => $branchId,
                         'primary_driver_id' => $driver->id,
                         'wage_owner_driver_id' => $driver->id,
                         'temporary_driver_id' => null,

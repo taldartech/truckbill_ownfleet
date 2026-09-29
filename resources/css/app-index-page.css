@@ -348,7 +348,7 @@
 .app-report-filters-panel__inner {
     display: flex !important;
     flex-wrap: wrap !important;
-    gap: 12px !important;
+    gap: 11px !important;
 }
 
 .app-index-filters-fields {
