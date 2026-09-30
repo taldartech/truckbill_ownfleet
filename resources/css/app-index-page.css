@@ -366,8 +366,8 @@
 .app-index-collapsible-filters__inner > div:not(.app-index-collapsible-filters__actions),
 .app-report-filters-panel__inner > div:not(.app-report-filters-panel__actions),
 .app-index-filters-fields > div {
-    flex: 0 0 180px !important;
-    width: 180px !important;
+    flex: 0 0 178px !important;
+    width: 178px !important;
 }
 
 
