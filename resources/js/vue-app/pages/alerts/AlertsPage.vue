@@ -79,6 +79,7 @@
                     </option>
                     <option value="drivers">Drivers</option>
                     <option value="maintenance">Maintenance</option>
+                    <option value="fuel">Fuel & Mileage</option>
                 </select>
             </div>
 
@@ -166,6 +167,10 @@
                                         <div v-if="alert.license_number" class="text-muted small">
                                             License: {{ alert.license_number }}
                                         </div>
+
+                                        <div v-if="alert.description" class="text-muted small">
+                                            {{ alert.description }}
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -189,6 +194,16 @@
 
                                 <div v-if="alert.reference_type" class="text-muted small">
                                     {{ referenceLabel(alert.reference_type) }}
+                                </div>
+
+                                <div v-if="alert.trip_id" class="mt-1">
+                                    <RouterLink
+                                        :to="{ name: 'trips.index', query: { trip_id: alert.trip_id } }"
+                                        class="btn btn-sm btn-link p-0 text-primary"
+                                        style="font-size: 0.75rem;"
+                                    >
+                                        <i class="fas fa-arrow-up-right-from-square me-1"></i>Trip Details
+                                    </RouterLink>
                                 </div>
                             </td>
 
@@ -217,6 +232,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 
 import { fetchComplianceAlerts } from '../../api/dashboard';
 
@@ -265,6 +281,7 @@ const filteredAlerts = computed(() => {
             alert.category_label,
             alert.ewaybill_no,
             alert.license_number,
+            alert.description,
         ]
             .filter(Boolean)
             .join(' ')
@@ -332,6 +349,7 @@ function categoryIcon(category) {
         vehicle_documents: 'fas fa-id-card',
         drivers: 'fas fa-user-tie',
         maintenance: 'fas fa-wrench',
+        fuel: 'fas fa-gas-pump',
     };
 
     return icons[category] ?? 'fas fa-bell';
@@ -358,6 +376,10 @@ function referenceLabel(type) {
 }
 
 function dateDescription(alert) {
+    if (alert.category === 'fuel') {
+        return 'Incident date';
+    }
+
     if (alert.days_remaining === null || alert.days_remaining === undefined) {
         return alert.overdue_reason_label ?? '';
     }
@@ -574,6 +596,11 @@ onMounted(loadAlerts);
 
 .alert-category-icon--maintenance {
     background: #fff7ed;
+}
+
+.alert-category-icon--fuel {
+    background: #fef3c7;
+    color: #b45309;
 }
 
 .severity-badge,

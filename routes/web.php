@@ -234,6 +234,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.toggle-status');
             Route::get('/vehicles/{vehicle}/primary-assignment', [\App\Http\Controllers\Api\VehicleController::class, 'primaryAssignment'])
                 ->name('vehicles.primary-assignment');
+            Route::get('/vehicles/{vehicle}/fuel-history', [\App\Http\Controllers\Api\VehicleController::class, 'fuelHistory'])
+                ->name('vehicles.fuel-history');
             Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
                 ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
@@ -413,6 +415,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.expense-summary');
             Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])
                 ->name('reports.trips.route-profitability');
+            Route::get('/reports/trips/fuel-performance', [\App\Http\Controllers\Api\TripReportController::class, 'fuelPerformance'])
+                ->name('reports.trips.fuel-performance');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])

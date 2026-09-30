@@ -113,6 +113,55 @@
                         </div>
                     </div>
 
+                    <!-- Fuel Performance Summary -->
+                    <div class="card mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>Fuel Summary</strong>
+                            <span v-if="vehicle?.default_mileage_km_per_liter" class="badge bg-light text-dark border">
+                                Target: {{ formatMileage(vehicle.default_mileage_km_per_liter) }}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div v-if="fuelLoading && !fuelSummary" class="text-center py-3 text-muted">
+                                Loading fuel summary…
+                            </div>
+                            <div v-else class="row g-3 text-center">
+                                <div class="col-6 col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Total Fuel</div>
+                                        <div class="fs-5 fw-bold text-primary mt-1">
+                                            {{ fuelSummary?.total_fuel_liters ? formatFuelLiters(fuelSummary.total_fuel_liters) : '0 L' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Fuel Cost</div>
+                                        <div class="fs-5 fw-bold text-dark mt-1">
+                                            {{ fuelSummary?.total_fuel_cost ? formatFuelCostSummary(fuelSummary.total_fuel_cost) : '₹0' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Average Mileage</div>
+                                        <div class="fs-5 fw-bold mt-1" :class="mileageColorClass">
+                                            {{ fuelSummary?.average_mileage ? formatMileage(fuelSummary.average_mileage) : '—' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Cost / KM</div>
+                                        <div class="fs-5 fw-bold text-dark mt-1">
+                                            {{ fuelSummary?.cost_per_km ? formatCostPerKm(fuelSummary.cost_per_km) : '—' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div v-if="canViewDocuments" class="card mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>Documents</strong>
@@ -245,6 +294,86 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Fuel Refill History -->
+                    <div class="card mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>Fuel Refill History</strong>
+                            <span v-if="fuelPagination.total > 0" class="badge bg-secondary">
+                                {{ fuelPagination.total }} {{ fuelPagination.total === 1 ? 'refill' : 'refills' }}
+                            </span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div v-if="fuelLoading" class="text-muted text-center py-4">
+                                Loading fuel refill history…
+                            </div>
+                            <div v-else-if="fuelRecords.length === 0" class="text-muted text-center py-4">
+                                No fuel refill records logged for this truck.
+                            </div>
+                            <div v-else class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Trip #</th>
+                                            <th>Driver</th>
+                                            <th class="text-end">Meter Reading</th>
+                                            <th class="text-end">Quantity (L)</th>
+                                            <th class="text-end">Rate / L</th>
+                                            <th class="text-end">Cost</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="record in fuelRecords" :key="record.id">
+                                            <td>{{ formatDate(record.expense_date) }}</td>
+                                            <td>
+                                                <RouterLink
+                                                    v-if="record.trip_id"
+                                                    :to="{ name: 'trips.show', params: { id: record.trip_id } }"
+                                                    class="text-decoration-none fw-semibold"
+                                                >
+                                                    {{ record.trip_number || '—' }}
+                                                </RouterLink>
+                                                <span v-else>{{ record.trip_number || '—' }}</span>
+                                            </td>
+                                            <td>{{ record.driver_name || '—' }}</td>
+                                            <td class="text-end fw-semibold">
+                                                {{ record.fuel_odometer_km ? formatOdometer(record.fuel_odometer_km) + ' km' : '—' }}
+                                            </td>
+                                            <td class="text-end">{{ record.fuel_liters ? Number(record.fuel_liters).toFixed(2) + ' L' : '—' }}</td>
+                                            <td class="text-end">{{ record.fuel_rate ? '₹' + Number(record.fuel_rate).toFixed(2) : '—' }}</td>
+                                            <td class="text-end fw-semibold">{{ formatMaintenanceCost(record.amount) }}</td>
+                                            <td class="text-muted small">{{ record.notes || '—' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div v-if="fuelPagination.last_page > 1" class="card-footer bg-white d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">
+                                Page {{ fuelPagination.current_page }} of {{ fuelPagination.last_page }}
+                            </span>
+                            <div class="btn-group btn-group-sm">
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    :disabled="fuelPagination.current_page <= 1 || fuelLoading"
+                                    @click="loadFuelHistory(fuelPagination.current_page - 1)"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    :disabled="fuelPagination.current_page >= fuelPagination.last_page || fuelLoading"
+                                    @click="loadFuelHistory(fuelPagination.current_page + 1)"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-lg-4">
@@ -345,7 +474,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { listDriverAssignments } from '../../api/driverAssignments';
 import { listVehicleMaintenanceHistory } from '../../api/vehicleMaintenances';
-import { fetchVehicle, updateVehicle, deleteVehicle } from '../../api/vehicles';
+import { fetchVehicle, updateVehicle, deleteVehicle, fetchVehicleFuelHistory } from '../../api/vehicles';
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
@@ -439,6 +568,96 @@ function formatMaintenanceCost(amount) {
     }).format(Number(amount ?? 0));
 }
 
+function formatFuelLiters(liters) {
+    if (liters === null || liters === undefined) {
+        return '0 L';
+    }
+
+    return `${Number(liters).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L`;
+}
+
+function formatFuelCostSummary(amount) {
+    const val = Number(amount ?? 0);
+    if (val >= 100000) {
+        const inLakhs = (val / 100000).toFixed(2);
+
+        return `₹${inLakhs} L`;
+    }
+
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2,
+    }).format(val);
+}
+
+function formatMileage(val) {
+    if (!val || Number(val) <= 0) {
+        return '—';
+    }
+
+    return `${Number(val).toFixed(2)} KM/L`;
+}
+
+function formatCostPerKm(val) {
+    if (!val || Number(val) <= 0) {
+        return '—';
+    }
+
+    return `₹${Number(val).toFixed(2)}`;
+}
+
+const fuelSummary = ref(null);
+const fuelRecords = ref([]);
+const fuelPagination = ref({ current_page: 1, last_page: 1, total: 0 });
+const fuelLoading = ref(false);
+
+const mileageColorClass = computed(() => {
+    if (!fuelSummary.value?.average_mileage) {
+        return 'text-dark';
+    }
+
+    const actual = Number(fuelSummary.value.average_mileage);
+    const target = Number(fuelSummary.value.target_mileage ?? vehicle.value?.default_mileage_km_per_liter ?? 0);
+
+    if (target <= 0) {
+        return 'text-success';
+    }
+
+    if (actual >= target) {
+        return 'text-success';
+    }
+
+    if (actual >= target * 0.9) {
+        return 'text-warning';
+    }
+
+    return 'text-danger';
+});
+
+async function loadFuelHistory(page = 1) {
+    if (!vehicle.value?.id) {
+        fuelSummary.value = null;
+        fuelRecords.value = [];
+
+        return;
+    }
+
+    fuelLoading.value = true;
+
+    try {
+        const response = await fetchVehicleFuelHistory(vehicle.value.id, { page, perPage: 10 });
+        fuelSummary.value = response.summary ?? null;
+        fuelRecords.value = response.data ?? [];
+        fuelPagination.value = response.meta ?? { current_page: 1, last_page: 1, total: 0 };
+    } catch {
+        fuelSummary.value = null;
+        fuelRecords.value = [];
+    } finally {
+        fuelLoading.value = false;
+    }
+}
+
 async function loadAssignments() {
     if (!vehicle.value?.id || !canViewAssignments.value) {
         assignments.value = [];
@@ -491,11 +710,13 @@ async function loadVehicle() {
 
     try {
         vehicle.value = await fetchVehicle(vehicleId);
-        await Promise.all([loadAssignments(), loadMaintenanceHistory()]);
+        await Promise.all([loadAssignments(), loadMaintenanceHistory(), loadFuelHistory()]);
     } catch (error) {
         vehicle.value = null;
         assignments.value = [];
         maintenanceRecords.value = [];
+        fuelSummary.value = null;
+        fuelRecords.value = [];
 
         if (!handleCompanyContextError(error, 'Could not load truck details.')) {
             toast.error('Could not load truck details.');

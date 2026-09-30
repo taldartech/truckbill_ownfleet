@@ -306,6 +306,79 @@
                         </table>
                     </div>
                 </div>
+
+                <div v-if="fuelAlerts.length" class="compliance-section">
+                    <div class="dashboard-panel__section-head">
+                        <div class="dashboard-panel__subtitle mb-0">
+                            <i class="fas fa-gas-pump me-1 text-warning"></i>
+                            Fuel & Mileage Alerts
+                        </div>
+                        <AppButton
+                            size="sm"
+                            outline
+                            variant="primary"
+                            label="Fuel Reports"
+                            icon="fas fa-arrow-up-right-from-square"
+                            :to="{ name: 'reports.trips', query: { type: 'fuel-performance' } }"
+                        />
+                    </div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Truck</th>
+                                    <th>Alert</th>
+                                    <th>Details</th>
+                                    <th>Severity</th>
+                                    <th class="text-end" style="width: 3.5rem">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="fuelAlert in fuelAlerts"
+                                    :key="`fuel-${fuelAlert.id}`"
+                                    class="dashboard-panel__row"
+                                    :class="fuelAlert.severity === 'critical'
+                                        ? 'dashboard-panel__row--danger'
+                                        : 'dashboard-panel__row--warning'"
+                                >
+                                    <td class="fw-medium">
+                                        <div>{{ fuelAlert.vehicle_registration ?? '—' }}</div>
+                                        <div class="text-muted small">Trip #{{ fuelAlert.trip_number ?? fuelAlert.trip_id }}</div>
+                                    </td>
+                                    <td class="fw-medium">
+                                        {{ fuelAlert.title }}
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ fuelAlert.description }}
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge"
+                                            :class="fuelAlert.severity === 'critical' ? 'bg-danger' : 'bg-warning text-dark'"
+                                        >
+                                            {{ fuelAlert.severity === 'critical' ? 'Critical' : 'Warning' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <AppButton
+                                            v-if="fuelAlert.trip_id"
+                                            size="sm"
+                                            variant="primary"
+                                            outline
+                                            icon="fas fa-arrow-up-right-from-square"
+                                            title="Open Trip"
+                                            :to="{
+                                                name: 'trips.index',
+                                                query: { trip_id: fuelAlert.trip_id },
+                                            }"
+                                        />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </template>
     </div>
@@ -339,6 +412,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    fuelAlerts: {
+        type: Array,
+        default: () => [],
+    },
     summary: {
         type: Object,
         default: () => ({
@@ -347,6 +424,7 @@ const props = defineProps({
             expiring: 0,
             licenses: 0,
             dueServices: 0,
+            fuelAlerts: 0,
         }),
     },
     loading: {
@@ -375,7 +453,8 @@ const isEmpty = computed(
         props.documents.length === 0
         && props.licenses.length === 0
         && props.dueServices.length === 0
-        && props.ewayBills.length === 0,
+        && props.ewayBills.length === 0
+        && props.fuelAlerts.length === 0,
 );
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 const licenseTableColspan = computed(() => (props.canManageLicenses ? 5 : 4));
@@ -385,7 +464,7 @@ const showViewAll = computed(() => {
         return false;
     }
 
-    return props.documents.length > 0 || props.licenses.length > 0;
+    return props.documents.length > 0 || props.licenses.length > 0 || props.fuelAlerts.length > 0;
 });
 
 const summaryItems = computed(() => [
@@ -423,6 +502,12 @@ const summaryItems = computed(() => [
         key: 'dueServices',
         label: 'Due Services',
         value: Number(props.summary?.dueServices ?? 0),
+        tone: 'warning',
+    },
+    {
+        key: 'fuelAlerts',
+        label: 'Fuel Alerts',
+        value: Number(props.summary?.fuelAlerts ?? 0),
         tone: 'warning',
     },
 ]);

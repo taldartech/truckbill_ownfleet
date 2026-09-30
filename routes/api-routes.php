@@ -57,6 +57,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::apiResource('vehicles', VehicleController::class);
     Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'toggleStatus']);
     Route::get('vehicles/{vehicle}/primary-assignment', [VehicleController::class, 'primaryAssignment']);
+    Route::get('vehicles/{vehicle}/fuel-history', [VehicleController::class, 'fuelHistory']);
     Route::post('vehicles/{vehicle}/remove-primary-driver', [VehicleController::class, 'removePrimaryDriver']);
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
     Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
@@ -143,6 +144,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('/reports/trips/driver-wise', [TripReportController::class, 'driverWise']);
     Route::get('/reports/trips/expense-summary', [TripReportController::class, 'expenseSummary']);
     Route::get('/reports/trips/route-profitability', [TripReportController::class, 'routeProfitability']);
+    Route::get('/reports/trips/fuel-performance', [TripReportController::class, 'fuelPerformance']);
     Route::get('/reports/trips/export', [TripReportController::class, 'export']);
     Route::get('/reports/fleet-monthly', [FleetMonthlyReportController::class, 'show']);
     Route::get('/reports/fleet-monthly/export', [FleetMonthlyReportController::class, 'export']);

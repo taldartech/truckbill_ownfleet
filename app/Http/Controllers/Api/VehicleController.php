@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\DriverAssignment;
+use App\Enums\TripExpenseType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\ToggleVehicleStatusRequest;
@@ -15,6 +16,8 @@ use App\Services\SubscriptionGuard;
 use App\Support\CurrentTenant;
 use App\Support\TyreLayoutDefaults;
 use App\Tenant;
+use App\Trip;
+use App\TripExpense;
 use App\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -232,6 +235,105 @@ class VehicleController extends Controller
         ]);
 
         return new VehicleResource($vehicle->fresh());
+    }
+
+    public function fuelHistory(Request $request, Vehicle $vehicle): JsonResponse
+    {
+        $this->authorize('view', $vehicle);
+
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
+
+        $expensesQuery = TripExpense::query()
+            ->where('trip_expenses.expense_type', TripExpenseType::Diesel->value)
+            ->whereHas('trip', function ($query) use ($vehicle): void {
+                $query->where('vehicle_id', $vehicle->id);
+            });
+
+        $totalFuelLiters = (float) (clone $expensesQuery)->sum('fuel_liters');
+        $totalFuelCost = (float) (clone $expensesQuery)->sum('amount');
+
+        $tripIds = (clone $expensesQuery)->pluck('trip_id')->unique();
+        $totalDistanceKm = (float) Trip::query()
+            ->whereIn('id', $tripIds)
+            ->sum('total_distance_km');
+
+        if ($totalDistanceKm <= 0) {
+            $totalDistanceKm = (float) Trip::query()
+                ->where('vehicle_id', $vehicle->id)
+                ->sum('total_distance_km');
+        }
+
+        $averageMileage = $totalFuelLiters > 0
+            ? round($totalDistanceKm / $totalFuelLiters, 2)
+            : 0.0;
+
+        $costPerKm = $totalDistanceKm > 0
+            ? round($totalFuelCost / $totalDistanceKm, 2)
+            : 0.0;
+
+        $targetMileage = (float) ($vehicle->default_mileage_km_per_liter ?? 0);
+        $expectedFuelLiters = ($targetMileage > 0 && $totalDistanceKm > 0)
+            ? round($totalDistanceKm / $targetMileage, 2)
+            : 0.0;
+
+        $fuelVarianceLiters = $expectedFuelLiters > 0
+            ? round($totalFuelLiters - $expectedFuelLiters, 2)
+            : 0.0;
+
+        $fuelVariancePercentage = $expectedFuelLiters > 0
+            ? round(($fuelVarianceLiters / $expectedFuelLiters) * 100, 2)
+            : 0.0;
+
+        $paginator = (clone $expensesQuery)
+            ->with([
+                'trip:id,trip_number,vehicle_id,driver_id,substitute_driver_id,total_distance_km,planned_mileage_km_per_liter',
+                'trip.driver:id,name,phone',
+                'trip.substituteDriver:id,name,phone',
+            ])
+            ->orderByDesc('expense_date')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $items = collect($paginator->items())->map(function (TripExpense $expense): array {
+            $trip = $expense->trip;
+            $driverName = $trip?->substituteDriver?->name ?? $trip?->driver?->name ?? '—';
+
+            return [
+                'id' => $expense->id,
+                'expense_date' => $expense->expense_date?->toDateString(),
+                'trip_id' => $expense->trip_id,
+                'trip_number' => $trip?->trip_number,
+                'driver_name' => $driverName,
+                'fuel_odometer_km' => $expense->fuel_odometer_km !== null ? (float) $expense->fuel_odometer_km : null,
+                'fuel_liters' => $expense->fuel_liters !== null ? (float) $expense->fuel_liters : null,
+                'fuel_rate' => $expense->fuel_rate !== null ? (float) $expense->fuel_rate : null,
+                'amount' => (float) $expense->amount,
+                'notes' => $expense->notes,
+                'trip_total_distance_km' => $trip?->total_distance_km !== null ? (float) $trip->total_distance_km : null,
+                'trip_planned_mileage' => $trip?->planned_mileage_km_per_liter !== null ? (float) $trip->planned_mileage_km_per_liter : null,
+            ];
+        });
+
+        return response()->json([
+            'summary' => [
+                'total_fuel_liters' => round($totalFuelLiters, 2),
+                'total_fuel_cost' => round($totalFuelCost, 2),
+                'total_distance_km' => round($totalDistanceKm, 2),
+                'average_mileage' => $averageMileage,
+                'cost_per_km' => $costPerKm,
+                'target_mileage' => $targetMileage > 0 ? round($targetMileage, 2) : null,
+                'expected_fuel_liters' => $expectedFuelLiters > 0 ? $expectedFuelLiters : null,
+                'fuel_variance_liters' => $fuelVarianceLiters,
+                'fuel_variance_percentage' => $fuelVariancePercentage,
+            ],
+            'data' => $items,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
     }
 
     public function destroy(Vehicle $vehicle): Response

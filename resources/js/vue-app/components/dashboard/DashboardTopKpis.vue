@@ -1,71 +1,10 @@
 <template>
     <div class="dashboard-kpis">
-        <div class="dashboard-kpis__grid">
+        <div class="dashboard-kpis__grid" :class="{ 'dashboard-kpis__grid--6-items': canViewTrips }">
             <!-- 1. Profit -->
             <div
                 class="dashboard-kpi-card dashboard-kpi-card--clickable"
-                :class="profit >= 0 ? 'dashboard-kpi-card--emerald' : 'dashboard-kpi-card--danger'"
-                role="button"
-                tabindex="0"
-                title="Click to view Profit Margin chart"
-                @click="$emit('select-tab', 'financials')"
-                @keydown.enter="$emit('select-tab', 'financials')"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div
-                        class="dashboard-kpi-card__icon"
-                        :class="profit >= 0 ? 'icon-emerald' : 'icon-danger'"
-                    >
-                        <i class="fas fa-wallet"></i>
-                    </div>
-                    <span
-                        class="dashboard-kpi-card__tag"
-                        :class="profit >= 0 ? 'text-success bg-success-subtle' : 'text-danger bg-danger-subtle'"
-                    >
-                        {{ profit >= 0 ? 'Net Profit' : 'Net Loss' }}
-                    </span>
-                </div>
-                <div class="dashboard-kpi-card__body">
-                    <div
-                        class="dashboard-kpi-card__value"
-                        :class="profit >= 0 ? 'text-emerald' : 'text-danger'"
-                    >
-                        {{ formattedProfit }}
-                    </div>
-                    <div class="dashboard-kpi-card__label">Profit</div>
-                    <div class="dashboard-kpi-card__hint">Revenue − expenses</div>
-                </div>
-                <div
-                    class="dashboard-kpi-card__bar"
-                    :class="profit >= 0 ? 'bar-emerald' : 'bar-danger'"
-                ></div>
-            </div>
-
-            <!-- 2. Outstanding -->
-            <component
-                :is="invoicesRoute ? 'RouterLink' : 'div'"
-                :to="invoicesRoute"
-                class="dashboard-kpi-card dashboard-kpi-card--warning"
-                :class="{ 'dashboard-kpi-card--clickable': Boolean(invoicesRoute) }"
-                title="View open invoices"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__icon icon-warning">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                    </div>
-                    <span class="dashboard-kpi-card__tag text-warning bg-warning-subtle">Receivables</span>
-                </div>
-                <div class="dashboard-kpi-card__body">
-                    <div class="dashboard-kpi-card__value text-warning">{{ formattedOutstanding }}</div>
-                    <div class="dashboard-kpi-card__label">Outstanding</div>
-                    <div class="dashboard-kpi-card__hint">Unpaid invoice balance</div>
-                </div>
-                <div class="dashboard-kpi-card__bar bar-warning"></div>
-            </component>
-
-            <!-- 3. Revenue -->
-            <div
-                class="dashboard-kpi-card dashboard-kpi-card--success dashboard-kpi-card--clickable"
+                :class="profit >= 0 ? 'dashboard-kpi-card--profit' : 'dashboard-kpi-card--loss'"
                 role="button"
                 tabindex="0"
                 title="Click to view Financials chart"
@@ -73,77 +12,168 @@
                 @keydown.enter="$emit('select-tab', 'financials')"
             >
                 <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__icon icon-success">
-                        <i class="fas fa-arrow-trend-up"></i>
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-sack-dollar"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Profit</span>
                     </div>
-                    <span class="dashboard-kpi-card__tag text-success bg-success-subtle">Revenue</span>
+                    <span
+                        class="dashboard-kpi-card__tag"
+                        :class="profit >= 0 ? 'dashboard-kpi-card__tag--emerald' : 'dashboard-kpi-card__tag--rose'"
+                    >
+                        {{ profit >= 0 ? 'Net Profit' : 'Net Loss' }}
+                    </span>
                 </div>
-                <div class="dashboard-kpi-card__body">
-                    <div class="dashboard-kpi-card__value text-success">{{ formattedRevenue }}</div>
-                    <div class="dashboard-kpi-card__label">Revenue</div>
-                    <div class="dashboard-kpi-card__hint">Freight &amp; custom in period</div>
+                <div
+                    class="dashboard-kpi-card__value"
+                    :class="{ 'text-danger': profit < 0 }"
+                    :title="formattedProfit"
+                >
+                    {{ formattedProfit }}
                 </div>
-                <div class="dashboard-kpi-card__bar bar-success"></div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">Revenue − expenses</span>
+                </div>
+            </div>
+
+            <!-- 2. Outstanding -->
+            <component
+                :is="invoicesRoute ? 'RouterLink' : 'div'"
+                :to="invoicesRoute"
+                class="dashboard-kpi-card dashboard-kpi-card--outstanding"
+                :class="{ 'dashboard-kpi-card--clickable': Boolean(invoicesRoute) }"
+                title="View open invoices"
+            >
+                <div class="dashboard-kpi-card__head">
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Outstanding</span>
+                    </div>
+                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--amber">Receivables</span>
+                </div>
+                <div class="dashboard-kpi-card__value" :title="formattedOutstanding">
+                    {{ formattedOutstanding }}
+                </div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">Unpaid invoice balance</span>
+                </div>
+            </component>
+
+            <!-- 3. Revenue -->
+            <div
+                class="dashboard-kpi-card dashboard-kpi-card--revenue dashboard-kpi-card--clickable"
+                role="button"
+                tabindex="0"
+                title="Click to view Financials chart"
+                @click="$emit('select-tab', 'financials')"
+                @keydown.enter="$emit('select-tab', 'financials')"
+            >
+                <div class="dashboard-kpi-card__head">
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-indian-rupee-sign"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Revenue</span>
+                    </div>
+                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--green">Revenue</span>
+                </div>
+                <div class="dashboard-kpi-card__value" :title="formattedRevenue">
+                    {{ formattedRevenue }}
+                </div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">Freight &amp; custom in period</span>
+                </div>
             </div>
 
             <!-- 4. Fleet Utilization -->
             <div
-                class="dashboard-kpi-card dashboard-kpi-card--info dashboard-kpi-card--clickable"
+                class="dashboard-kpi-card dashboard-kpi-card--clickable"
+                :class="utilizationAccentClass"
                 role="button"
                 tabindex="0"
-                title="Click to view Fleet Utilization Report"
+                title="Click to view Fleet Status chart"
                 @click="$emit('select-tab', 'fleet')"
                 @keydown.enter="$emit('select-tab', 'fleet')"
             >
                 <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__icon icon-info">
-                        <i class="fas fa-gauge-high"></i>
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-gauge-high"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Fleet Utilization</span>
                     </div>
                     <span
                         class="dashboard-kpi-card__tag"
-                        :class="utilizationBadgeClass"
+                        :class="utilizationTagClass"
                     >
                         {{ utilizationRate >= 70 ? 'Optimal' : (utilizationRate >= 40 ? 'Moderate' : 'Low') }}
                     </span>
                 </div>
-                <div class="dashboard-kpi-card__body">
-                    <div class="dashboard-kpi-card__value" :class="utilizationTextClass">
-                        {{ utilizationRate.toFixed(0) }}%
-                    </div>
-                    <div class="dashboard-kpi-card__label">Fleet Utilization</div>
-                    <div class="dashboard-kpi-card__hint">Running vs available days</div>
+                <div class="dashboard-kpi-card__value">
+                    {{ utilizationRate.toFixed(0) }}%
                 </div>
-                <div class="dashboard-kpi-card__bar-wrap">
-                    <div
-                        class="dashboard-kpi-card__bar"
-                        :class="utilizationBarClass"
-                        :style="{ width: `${Math.min(Math.max(utilizationRate, 0), 100)}%` }"
-                    ></div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">Running vs available days</span>
                 </div>
             </div>
 
             <!-- 5. Idle -->
             <div
-                class="dashboard-kpi-card dashboard-kpi-card--warning dashboard-kpi-card--clickable"
+                class="dashboard-kpi-card dashboard-kpi-card--idle dashboard-kpi-card--clickable"
                 role="button"
                 tabindex="0"
-                title="Click to view idle trucks breakdown"
+                title="Click to view Fleet Status chart"
                 @click="$emit('select-tab', 'fleet')"
                 @keydown.enter="$emit('select-tab', 'fleet')"
             >
                 <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__icon icon-warning">
-                        <i class="fas fa-clock"></i>
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-clock"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Idle Trucks</span>
                     </div>
-                    <span class="dashboard-kpi-card__tag text-warning bg-warning-subtle">Idle</span>
+                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--orange">7+ Days</span>
                 </div>
-                <div class="dashboard-kpi-card__body">
-                    <div class="dashboard-kpi-card__value text-warning">{{ idle }}</div>
-                    <div class="dashboard-kpi-card__label">Idle</div>
-                    <div class="dashboard-kpi-card__hint">Not used for 7+ days</div>
+                <div class="dashboard-kpi-card__value">
+                    {{ idle }}
                 </div>
-                <div class="dashboard-kpi-card__bar bar-warning"></div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">Not used for 7+ days</span>
+                </div>
             </div>
+
+            <!-- 6. Fuel & Mileage -->
+            <RouterLink
+                v-if="canViewTrips"
+                :to="{ name: 'reports.trips', query: { type: 'fuel-performance' } }"
+                class="dashboard-kpi-card dashboard-kpi-card--fuel dashboard-kpi-card--clickable text-decoration-none"
+                title="Click to view Fuel Performance Report"
+            >
+                <div class="dashboard-kpi-card__head">
+                    <div class="dashboard-kpi-card__lead">
+                        <span class="dashboard-kpi-card__icon">
+                            <i class="fas fa-gas-pump"></i>
+                        </span>
+                        <span class="dashboard-kpi-card__label">Avg Mileage</span>
+                    </div>
+                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--sky">
+                        {{ fuelLiters > 0 ? formatLiters(fuelLiters) : 'Fuel' }}
+                    </span>
+                </div>
+                <div class="dashboard-kpi-card__value">
+                    {{ avgMileage > 0 ? `${avgMileage.toFixed(2)} KM/L` : '—' }}
+                </div>
+                <div class="dashboard-kpi-card__foot">
+                    <span class="dashboard-kpi-card__hint">
+                        {{ fuelCost > 0 ? formatMoney(fuelCost) : 'Trip diesel logs' }}
+                        <template v-if="costPerKm > 0"> (₹{{ costPerKm.toFixed(2) }}/km)</template>
+                    </span>
+                </div>
+            </RouterLink>
         </div>
     </div>
 </template>
@@ -232,28 +262,32 @@ const idle = computed(() => {
     );
 });
 
+// 5. Fuel & Mileage
+const avgMileage = computed(() => Number(props.kpiStats?.avg_mileage ?? 0));
+const fuelCost = computed(() => Number(props.kpiStats?.fuel_cost ?? 0));
+const fuelLiters = computed(() => Number(props.kpiStats?.fuel_liters ?? 0));
+const costPerKm = computed(() => Number(props.kpiStats?.fuel_cost_per_km ?? 0));
+
+function formatLiters(val) {
+    return `${Number(val || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })} L`;
+}
+
 // Formatted strings
 const formattedRevenue = computed(() => formatMoney(revenue.value));
 const formattedProfit = computed(() => formatMoney(profit.value));
 const formattedOutstanding = computed(() => formatMoney(outstanding.value));
 
 // Utilization styling helpers
-const utilizationTextClass = computed(() => {
-    if (utilizationRate.value >= 70) return 'text-success';
-    if (utilizationRate.value >= 40) return 'text-primary';
-    return 'text-warning';
+const utilizationAccentClass = computed(() => {
+    if (utilizationRate.value >= 70) return 'dashboard-kpi-card--emerald';
+    if (utilizationRate.value >= 40) return 'dashboard-kpi-card--sky';
+    return 'dashboard-kpi-card--amber';
 });
 
-const utilizationBarClass = computed(() => {
-    if (utilizationRate.value >= 70) return 'bg-success';
-    if (utilizationRate.value >= 40) return 'bg-primary';
-    return 'bg-warning';
-});
-
-const utilizationBadgeClass = computed(() => {
-    if (utilizationRate.value >= 70) return 'text-success bg-success-subtle';
-    if (utilizationRate.value >= 40) return 'text-primary bg-primary-subtle';
-    return 'text-warning bg-warning-subtle';
+const utilizationTagClass = computed(() => {
+    if (utilizationRate.value >= 70) return 'dashboard-kpi-card__tag--emerald';
+    if (utilizationRate.value >= 40) return 'dashboard-kpi-card__tag--sky';
+    return 'dashboard-kpi-card__tag--amber';
 });
 </script>
 
@@ -266,24 +300,65 @@ const utilizationBadgeClass = computed(() => {
 .dashboard-kpis__grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.85rem;
+    gap: 0.75rem;
+}
+
+.dashboard-kpis__grid--6-items {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .dashboard-kpi-card {
-    position: relative;
+    --kpi-accent: #2fb36f;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 0.45rem;
-    padding: 0.95rem 1.1rem;
-    border-radius: 0.95rem;
+    gap: 0.35rem;
+    padding: 0.8rem 0.95rem;
+    border-radius: 1rem;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    border: 1px solid var(--brand-border, #e2e8f0);
+    border-top: 3px solid var(--kpi-accent);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
     text-decoration: none;
     color: inherit;
-    overflow: hidden;
+    min-width: 0;
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.dashboard-kpi-card--profit {
+    --kpi-accent: #059669;
+}
+
+.dashboard-kpi-card--loss {
+    --kpi-accent: #dc2626;
+}
+
+.dashboard-kpi-card--outstanding {
+    --kpi-accent: #d97706;
+}
+
+.dashboard-kpi-card--revenue {
+    --kpi-accent: #2fb36f;
+}
+
+.dashboard-kpi-card--emerald {
+    --kpi-accent: #059669;
+}
+
+.dashboard-kpi-card--sky {
+    --kpi-accent: #0284c7;
+}
+
+.dashboard-kpi-card--amber {
+    --kpi-accent: #d97706;
+}
+
+.dashboard-kpi-card--idle {
+    --kpi-accent: #f97316;
+}
+
+.dashboard-kpi-card--fuel {
+    --kpi-accent: #0284c7;
 }
 
 .dashboard-kpi-card--clickable {
@@ -292,7 +367,7 @@ const utilizationBadgeClass = computed(() => {
 
 .dashboard-kpi-card--clickable:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     border-color: #cbd5e1;
     color: inherit;
 }
@@ -301,125 +376,110 @@ const utilizationBadgeClass = computed(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.45rem;
+}
+
+.dashboard-kpi-card__lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
 }
 
 .dashboard-kpi-card__icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--kpi-accent) 12%, transparent);
+    color: var(--kpi-accent);
+    font-size: 0.72rem;
     flex-shrink: 0;
 }
 
-.icon-success {
-    background: #ecfdf5;
-    color: #10b981;
-}
-
-.icon-warning {
-    background: #fffbeb;
-    color: #f59e0b;
-}
-
-.icon-danger {
-    background: #fef2f2;
-    color: #ef4444;
-}
-
-.icon-emerald {
-    background: #ecfdf5;
-    color: #059669;
-}
-
-.icon-info {
-    background: #f0f9ff;
-    color: #0284c7;
-}
-
-.text-emerald {
-    color: #059669 !important;
+.dashboard-kpi-card__label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #475569;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-kpi-card__tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
     font-size: 0.68rem;
     font-weight: 700;
-    padding: 0.2rem 0.45rem;
-    border-radius: 6px;
-    background: #f8fafc;
-    color: #64748b;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.dashboard-kpi-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+.dashboard-kpi-card__tag--emerald {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.dashboard-kpi-card__tag--rose {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.dashboard-kpi-card__tag--amber {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.dashboard-kpi-card__tag--green {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.dashboard-kpi-card__tag--sky {
+    background: #f0f9ff;
+    color: #0369a1;
+}
+
+.dashboard-kpi-card__tag--orange {
+    background: #fff7ed;
+    color: #c2410c;
 }
 
 .dashboard-kpi-card__value {
-    font-size: 1.55rem;
+    font-size: 1.38rem;
     font-weight: 800;
-    line-height: 1.15;
     color: #0f172a;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.dashboard-kpi-card__label {
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+.dashboard-kpi-card__foot {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
 }
 
 .dashboard-kpi-card__hint {
-    font-size: 0.7rem;
+    font-size: 0.71rem;
     color: #94a3b8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.dashboard-kpi-card__bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    opacity: 0.85;
-}
-
-.dashboard-kpi-card__bar-wrap {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #e2e8f0;
-}
-
-.bar-success {
-    background: #10b981;
-}
-
-.bar-warning {
-    background: #f59e0b;
-}
-
-.bar-danger {
-    background: #ef4444;
-}
-
-.bar-emerald {
-    background: #059669;
+@media (max-width: 1399.98px) {
+    .dashboard-kpis__grid--6-items {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 1199.98px) {
@@ -429,17 +489,19 @@ const utilizationBadgeClass = computed(() => {
 }
 
 @media (max-width: 767.98px) {
-    .dashboard-kpis__grid {
+    .dashboard-kpis__grid,
+    .dashboard-kpis__grid--6-items {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .dashboard-kpi-card__value {
-        font-size: 1.35rem;
+        font-size: 1.25rem;
     }
 }
 
 @media (max-width: 479.98px) {
-    .dashboard-kpis__grid {
+    .dashboard-kpis__grid,
+    .dashboard-kpis__grid--6-items {
         grid-template-columns: 1fr;
     }
 }

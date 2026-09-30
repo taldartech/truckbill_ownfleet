@@ -376,6 +376,372 @@ class TripReportService
     }
 
     /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function fuelPerformance(array $filters = []): array
+    {
+        $dimension = (string) ($filters['dimension'] ?? 'vehicle');
+
+        return match ($dimension) {
+            'trip' => $this->fuelPerformanceTripWise($filters),
+            'driver' => $this->fuelPerformanceDriverWise($filters),
+            'route' => $this->fuelPerformanceRouteWise($filters),
+            default => $this->fuelPerformanceVehicleWise($filters),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function fuelPerformanceTripWise(array $filters = []): array
+    {
+        $trips = $this->tripRepository->reportFilteredQuery($filters)
+            ->with([
+                'vehicle:id,registration_number,default_mileage_km_per_liter',
+                'driver:id,name',
+                'substituteDriver:id,name',
+                'expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+            ])
+            ->latest('start_at')
+            ->get();
+
+        $rows = $trips->map(function (Trip $trip): array {
+            $distance = (float) ($trip->total_distance_km ?? 0);
+            $fuelExpenses = $trip->expenses;
+            $actualFuel = (float) $fuelExpenses->sum('fuel_liters');
+            $fuelCost = (float) $fuelExpenses->sum('amount');
+
+            $expectedMileage = (float) ($trip->planned_mileage_km_per_liter ?? 0);
+            if ($expectedMileage <= 0) {
+                $expectedMileage = (float) ($trip->vehicle?->default_mileage_km_per_liter ?? 0);
+            }
+
+            $plannedDiesel = (float) ($trip->planned_diesel_liters ?? 0);
+            if ($plannedDiesel > 0) {
+                $expectedFuel = $plannedDiesel;
+            } elseif ($expectedMileage > 0 && $distance > 0) {
+                $expectedFuel = round($distance / $expectedMileage, 2);
+            } else {
+                $expectedFuel = 0.0;
+            }
+
+            $actualMileage = ($actualFuel > 0 && $distance > 0) ? round($distance / $actualFuel, 2) : 0.0;
+            $varianceLiters = $expectedFuel > 0 ? round($actualFuel - $expectedFuel, 2) : 0.0;
+            $variancePct = $expectedFuel > 0 ? round(($varianceLiters / $expectedFuel) * 100, 2) : 0.0;
+            $costPerKm = $distance > 0 ? round($fuelCost / $distance, 2) : 0.0;
+            $driverName = $trip->substituteDriver?->name ?? $trip->driver?->name ?? '—';
+
+            return [
+                'trip_id' => $trip->id,
+                'trip_number' => $trip->trip_number,
+                'date' => $trip->start_at?->toDateString(),
+                'vehicle' => $trip->vehicle?->registration_number ?? '—',
+                'driver' => $driverName,
+                'distance_km' => round($distance, 2),
+                'actual_fuel_liters' => round($actualFuel, 2),
+                'expected_fuel_liters' => round($expectedFuel, 2),
+                'fuel_variance_liters' => $varianceLiters,
+                'fuel_variance_pct' => $variancePct,
+                'actual_mileage' => $actualMileage,
+                'expected_mileage' => $expectedMileage > 0 ? round($expectedMileage, 2) : null,
+                'fuel_cost' => round($fuelCost, 2),
+                'cost_per_km' => $costPerKm,
+                'status' => $varianceLiters > 0 ? 'Over' : ($varianceLiters < 0 ? 'Saved' : 'On Target'),
+            ];
+        })->all();
+
+        return $this->withSerialNumbers($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function fuelPerformanceVehicleWise(array $filters = []): array
+    {
+        $trips = $this->tripRepository->reportFilteredQuery($filters)
+            ->with([
+                'vehicle:id,registration_number,default_mileage_km_per_liter',
+                'expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+            ])
+            ->get();
+
+        $rows = $trips->groupBy('vehicle_id')
+            ->map(function (Collection $vehicleTrips): array {
+                $vehicle = $vehicleTrips->first()?->vehicle;
+                $distance = (float) $vehicleTrips->sum('total_distance_km');
+                $actualFuel = 0.0;
+                $fuelCost = 0.0;
+                $expectedFuel = 0.0;
+                $defaultMileage = (float) ($vehicle?->default_mileage_km_per_liter ?? 0);
+
+                foreach ($vehicleTrips as $trip) {
+                    $fuelExpenses = $trip->expenses;
+                    $actualFuel += (float) $fuelExpenses->sum('fuel_liters');
+                    $fuelCost += (float) $fuelExpenses->sum('amount');
+
+                    $plannedMileage = (float) ($trip->planned_mileage_km_per_liter ?? 0);
+                    if ($plannedMileage <= 0) {
+                        $plannedMileage = $defaultMileage;
+                    }
+
+                    $tripDistance = (float) ($trip->total_distance_km ?? 0);
+                    if ((float) ($trip->planned_diesel_liters ?? 0) > 0) {
+                        $expectedFuel += (float) $trip->planned_diesel_liters;
+                    } elseif ($plannedMileage > 0 && $tripDistance > 0) {
+                        $expectedFuel += round($tripDistance / $plannedMileage, 2);
+                    }
+                }
+
+                $actualMileage = ($actualFuel > 0 && $distance > 0) ? round($distance / $actualFuel, 2) : 0.0;
+                $varianceLiters = $expectedFuel > 0 ? round($actualFuel - $expectedFuel, 2) : 0.0;
+                $variancePct = $expectedFuel > 0 ? round(($varianceLiters / $expectedFuel) * 100, 2) : 0.0;
+                $costPerKm = $distance > 0 ? round($fuelCost / $distance, 2) : 0.0;
+
+                return [
+                    'vehicle_id' => $vehicle?->id,
+                    'vehicle' => $vehicle?->registration_number ?? '—',
+                    'trip_count' => $vehicleTrips->count(),
+                    'total_distance_km' => round($distance, 2),
+                    'actual_fuel_liters' => round($actualFuel, 2),
+                    'expected_fuel_liters' => round($expectedFuel, 2),
+                    'fuel_variance_liters' => $varianceLiters,
+                    'fuel_variance_pct' => $variancePct,
+                    'average_mileage' => $actualMileage,
+                    'target_mileage' => $defaultMileage > 0 ? round($defaultMileage, 2) : null,
+                    'total_fuel_cost' => round($fuelCost, 2),
+                    'cost_per_km' => $costPerKm,
+                    'status' => $varianceLiters > 0 ? 'Over' : ($varianceLiters < 0 ? 'Saved' : 'On Target'),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return $this->withSerialNumbers($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function fuelPerformanceDriverWise(array $filters = []): array
+    {
+        $trips = $this->tripRepository->reportFilteredQuery($filters)
+            ->with([
+                'driver:id,name',
+                'substituteDriver:id,name',
+                'vehicle:id,default_mileage_km_per_liter',
+                'expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+            ])
+            ->get();
+
+        $rows = $trips->groupBy(function (Trip $trip): string {
+            return (string) ($trip->substitute_driver_id ?? $trip->driver_id ?? 'unknown');
+        })
+            ->map(function (Collection $driverTrips): array {
+                $first = $driverTrips->first();
+                $driverName = $first?->substituteDriver?->name ?? $first?->driver?->name ?? 'Unassigned';
+                $distance = (float) $driverTrips->sum('total_distance_km');
+                $actualFuel = 0.0;
+                $fuelCost = 0.0;
+                $expectedFuel = 0.0;
+
+                foreach ($driverTrips as $trip) {
+                    $fuelExpenses = $trip->expenses;
+                    $actualFuel += (float) $fuelExpenses->sum('fuel_liters');
+                    $fuelCost += (float) $fuelExpenses->sum('amount');
+
+                    $plannedMileage = (float) ($trip->planned_mileage_km_per_liter ?? 0);
+                    if ($plannedMileage <= 0) {
+                        $plannedMileage = (float) ($trip->vehicle?->default_mileage_km_per_liter ?? 0);
+                    }
+
+                    $tripDistance = (float) ($trip->total_distance_km ?? 0);
+                    if ((float) ($trip->planned_diesel_liters ?? 0) > 0) {
+                        $expectedFuel += (float) $trip->planned_diesel_liters;
+                    } elseif ($plannedMileage > 0 && $tripDistance > 0) {
+                        $expectedFuel += round($tripDistance / $plannedMileage, 2);
+                    }
+                }
+
+                $actualMileage = ($actualFuel > 0 && $distance > 0) ? round($distance / $actualFuel, 2) : 0.0;
+                $expectedMileage = ($expectedFuel > 0 && $distance > 0) ? round($distance / $expectedFuel, 2) : 0.0;
+                $varianceLiters = $expectedFuel > 0 ? round($actualFuel - $expectedFuel, 2) : 0.0;
+                $variancePct = $expectedFuel > 0 ? round(($varianceLiters / $expectedFuel) * 100, 2) : 0.0;
+                $costPerKm = $distance > 0 ? round($fuelCost / $distance, 2) : 0.0;
+
+                return [
+                    'driver' => $driverName,
+                    'trip_count' => $driverTrips->count(),
+                    'total_distance_km' => round($distance, 2),
+                    'actual_fuel_liters' => round($actualFuel, 2),
+                    'expected_fuel_liters' => round($expectedFuel, 2),
+                    'fuel_variance_liters' => $varianceLiters,
+                    'fuel_variance_pct' => $variancePct,
+                    'average_mileage' => $actualMileage,
+                    'expected_mileage' => $expectedMileage > 0 ? $expectedMileage : null,
+                    'total_fuel_cost' => round($fuelCost, 2),
+                    'cost_per_km' => $costPerKm,
+                    'status' => $varianceLiters > 0 ? 'Over' : ($varianceLiters < 0 ? 'Saved' : 'On Target'),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return $this->withSerialNumbers($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function fuelPerformanceRouteWise(array $filters = []): array
+    {
+        $tripIds = $this->tripRepository->reportFilteredQuery($filters)->pluck('id');
+
+        $legs = TripRouteLeg::query()
+            ->whereIn('trip_id', $tripIds)
+            ->with([
+                'expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+                'trip.expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+                'trip:id,total_distance_km,planned_mileage_km_per_liter,planned_diesel_liters',
+            ])
+            ->get();
+
+        $legsByTrip = $legs->groupBy('trip_id');
+
+        $rows = $legs
+            ->map(function (TripRouteLeg $leg) use ($legsByTrip): array {
+                $tripLegs = $legsByTrip->get($leg->trip_id, collect());
+                $legDistance = $this->resolveLegDistanceKm($leg, $tripLegs);
+                $trip = $leg->trip;
+                $tripDistance = (float) ($trip?->total_distance_km ?? 0);
+
+                $directFuel = (float) $leg->expenses->sum('fuel_liters');
+                $directCost = (float) $leg->expenses->sum('amount');
+
+                if ($directFuel > 0) {
+                    $fuelLiters = $directFuel;
+                    $fuelCost = $directCost;
+                } elseif ($tripDistance > 0 && $legDistance > 0) {
+                    $tripFuel = (float) $trip?->expenses->sum('fuel_liters');
+                    $tripCost = (float) $trip?->expenses->sum('amount');
+                    $ratio = $legDistance / $tripDistance;
+                    $fuelLiters = round($tripFuel * $ratio, 2);
+                    $fuelCost = round($tripCost * $ratio, 2);
+                } else {
+                    $fuelLiters = 0.0;
+                    $fuelCost = 0.0;
+                }
+
+                $expectedMileage = (float) ($leg->expected_mileage_km_per_liter ?? 0);
+                if ($expectedMileage <= 0) {
+                    $expectedMileage = (float) ($trip?->planned_mileage_km_per_liter ?? 0);
+                }
+
+                $expectedFuel = ($expectedMileage > 0 && $legDistance > 0)
+                    ? round($legDistance / $expectedMileage, 2)
+                    : 0.0;
+
+                return [
+                    'route' => ($leg->from_city ?? '—').' → '.($leg->to_city ?? '—'),
+                    'trip_id' => $leg->trip_id,
+                    'distance_km' => $legDistance,
+                    'fuel_liters' => $fuelLiters,
+                    'expected_fuel' => $expectedFuel,
+                    'fuel_cost' => $fuelCost,
+                ];
+            })
+            ->groupBy('route')
+            ->map(function (Collection $items, string $route): array {
+                $distance = (float) $items->sum('distance_km');
+                $actualFuel = (float) $items->sum('fuel_liters');
+                $expectedFuel = (float) $items->sum('expected_fuel');
+                $cost = (float) $items->sum('fuel_cost');
+                $actualMileage = ($actualFuel > 0 && $distance > 0) ? round($distance / $actualFuel, 2) : 0.0;
+                $expectedMileage = ($expectedFuel > 0 && $distance > 0) ? round($distance / $expectedFuel, 2) : 0.0;
+                $varianceLiters = $expectedFuel > 0 ? round($actualFuel - $expectedFuel, 2) : 0.0;
+                $variancePct = $expectedFuel > 0 ? round(($varianceLiters / $expectedFuel) * 100, 2) : 0.0;
+                $costPerKm = $distance > 0 ? round($cost / $distance, 2) : 0.0;
+
+                return [
+                    'route' => $route,
+                    'trip_count' => $items->pluck('trip_id')->unique()->count(),
+                    'total_distance_km' => round($distance, 2),
+                    'actual_fuel_liters' => round($actualFuel, 2),
+                    'expected_fuel_liters' => round($expectedFuel, 2),
+                    'fuel_variance_liters' => $varianceLiters,
+                    'fuel_variance_pct' => $variancePct,
+                    'average_mileage' => $actualMileage,
+                    'expected_mileage' => $expectedMileage > 0 ? $expectedMileage : null,
+                    'total_fuel_cost' => round($cost, 2),
+                    'cost_per_km' => $costPerKm,
+                    'status' => $varianceLiters > 0 ? 'Over' : ($varianceLiters < 0 ? 'Saved' : 'On Target'),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return $this->withSerialNumbers($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, float|int>
+     */
+    public function fuelPerformanceSummary(array $filters = []): array
+    {
+        $trips = $this->tripRepository->reportFilteredQuery($filters)
+            ->with([
+                'vehicle:id,default_mileage_km_per_liter',
+                'expenses' => fn ($q) => $q->where('expense_type', TripExpenseType::Diesel->value),
+            ])
+            ->get();
+
+        $totalDistance = (float) $trips->sum('total_distance_km');
+        $totalFuelLiters = 0.0;
+        $totalFuelCost = 0.0;
+        $totalExpectedFuel = 0.0;
+
+        foreach ($trips as $trip) {
+            $fuelExpenses = $trip->expenses;
+            $totalFuelLiters += (float) $fuelExpenses->sum('fuel_liters');
+            $totalFuelCost += (float) $fuelExpenses->sum('amount');
+
+            $plannedMileage = (float) ($trip->planned_mileage_km_per_liter ?? 0);
+            if ($plannedMileage <= 0) {
+                $plannedMileage = (float) ($trip->vehicle?->default_mileage_km_per_liter ?? 0);
+            }
+
+            $tripDistance = (float) ($trip->total_distance_km ?? 0);
+            if ((float) ($trip->planned_diesel_liters ?? 0) > 0) {
+                $totalExpectedFuel += (float) $trip->planned_diesel_liters;
+            } elseif ($plannedMileage > 0 && $tripDistance > 0) {
+                $totalExpectedFuel += round($tripDistance / $plannedMileage, 2);
+            }
+        }
+
+        $avgMileage = $totalFuelLiters > 0 ? round($totalDistance / $totalFuelLiters, 2) : 0.0;
+        $costPerKm = $totalDistance > 0 ? round($totalFuelCost / $totalDistance, 2) : 0.0;
+        $varianceLiters = $totalExpectedFuel > 0 ? round($totalFuelLiters - $totalExpectedFuel, 2) : 0.0;
+        $variancePct = $totalExpectedFuel > 0 ? round(($varianceLiters / $totalExpectedFuel) * 100, 2) : 0.0;
+
+        return [
+            'trip_count' => $trips->count(),
+            'total_distance_km' => round($totalDistance, 2),
+            'total_fuel_liters' => round($totalFuelLiters, 2),
+            'total_fuel_cost' => round($totalFuelCost, 2),
+            'average_mileage' => $avgMileage,
+            'cost_per_km' => $costPerKm,
+            'total_expected_fuel_liters' => round($totalExpectedFuel, 2),
+            'fuel_variance_liters' => $varianceLiters,
+            'fuel_variance_pct' => $variancePct,
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
      */

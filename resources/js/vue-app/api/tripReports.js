@@ -6,6 +6,7 @@ const reportsBase = '/app/api/reports/trips';
 export async function fetchTripReport(type, filters = {}) {
     const endpoints = {
         profitability: `${reportsBase}/profitability`,
+        'fuel-performance': `${reportsBase}/fuel-performance`,
         'vehicle-wise': `${reportsBase}/vehicle-wise`,
         'driver-wise': `${reportsBase}/driver-wise`,
         'expense-summary': `${reportsBase}/expense-summary`,
@@ -30,6 +31,7 @@ export function exportTripReport(type, filters = {}) {
 
 export const TRIP_REPORT_TYPES = [
     { value: 'profitability', label: 'Trip Profitability' },
+    { value: 'fuel-performance', label: 'Fuel Performance' },
     { value: 'vehicle-wise', label: 'Truck-wise Trips' },
     { value: 'driver-wise', label: 'Driver-wise Trips' },
     { value: 'expense-summary', label: 'Expense Summary' },
