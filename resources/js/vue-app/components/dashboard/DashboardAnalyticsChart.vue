@@ -333,22 +333,22 @@ const periodLabel = computed(() =>
 
 const analyticsTabs = computed(() => {
     const tabs = [];
+    if (props.canViewFleet) {
+        tabs.push({ id: 'fleet', label: 'Fleet Status' });
+    }
     if (props.canViewTrips) {
         tabs.push({ id: 'financials', label: 'Trips & Financials' });
     }
     if (props.canViewTyres) {
         tabs.push({ id: 'tyres', label: 'Tyres & Financials' });
     }
-    if (props.canViewFleet) {
-        tabs.push({ id: 'fleet', label: 'Fleet Status' });
-    }
     return tabs;
 });
 
 const activeTab = ref(
-    props.canViewTrips
-        ? 'financials'
-        : (props.canViewTyres ? 'tyres' : 'fleet'),
+    props.canViewFleet
+        ? 'fleet'
+        : (props.canViewTrips ? 'financials' : 'tyres'),
 );
 
 // Tooltip State

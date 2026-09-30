@@ -395,14 +395,84 @@
                                 </div>
                             </template>
                             <div v-else class="text-muted">No primary driver assigned.</div>
-                           <!-- <button
-                                v-if="canManageAssignments"
+                        </div>
+                    </div>
+
+                    <!-- Batteries Card -->
+                    <div class="card mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong><i class="fas fa-car-battery text-warning me-1"></i> Batteries</strong>
+                            <button
+                                v-if="canManageBatteries"
                                 type="button"
-                                class="btn btn-sm btn-outline-primary mt-3"
-                                @click="openAssignment"
+                                class="btn btn-sm btn-outline-success py-0 px-2"
+                                style="font-size: 0.75rem;"
+                                @click="openTruckBatteryInstall"
                             >
-                                {{ vehicle.current_primary_assignment?.driver ? 'Change Driver' : 'Assign Driver' }}
-                            </button> -->
+                                <i class="fas fa-plus me-1"></i> Install Battery
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div v-if="batteriesLoading" class="text-center py-2 text-muted small">
+                                <span class="spinner-border spinner-border-sm me-1"></span> Loading batteries…
+                            </div>
+                            <div v-else-if="vehicleBatteries.length === 0" class="text-center py-3 text-muted">
+                                <i class="fas fa-car-battery fs-4 mb-2 text-secondary opacity-50 d-block"></i>
+                                <span class="small">No battery assigned to this truck.</span>
+                                <div v-if="canManageBatteries" class="mt-2">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        @click="openTruckBatteryInstall"
+                                    >
+                                        <i class="fas fa-plus me-1"></i> Install Battery
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-else class="d-flex flex-column gap-3">
+                                <div
+                                    v-for="inst in vehicleBatteries"
+                                    :key="inst.id"
+                                    class="p-2 border rounded bg-light"
+                                >
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="fw-bold text-dark fs-6 d-flex align-items-center gap-1">
+                                            <RouterLink
+                                                v-if="inst.battery?.id"
+                                                :to="{ name: 'batteries.show', params: { id: inst.battery.id } }"
+                                                class="text-decoration-none text-dark"
+                                            >
+                                                {{ inst.battery?.serial_number || 'BAT-' + inst.battery_id }}
+                                            </RouterLink>
+                                            <span v-else>{{ 'BAT-' + inst.battery_id }}</span>
+                                        </div>
+                                        <span class="badge bg-light text-dark border">
+                                            {{ inst.slot_name || 'Main' }}
+                                        </span>
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        {{ inst.battery?.brand || 'Battery' }}
+                                        <template v-if="inst.battery?.capacity_ah"> | {{ inst.battery.capacity_ah }} Ah</template>
+                                        <template v-if="inst.battery?.voltage"> | {{ inst.battery.voltage }}</template>
+                                    </div>
+                                    <div class="text-muted small mt-1 d-flex justify-content-between">
+                                        <span>Installed: {{ formatDate(inst.installed_at) }}</span>
+                                        <span v-if="inst.running_km !== null || vehicle.odometer_km">
+                                            Stint: {{ Number(calculateStintKm(inst)).toLocaleString() }} KM
+                                        </span>
+                                    </div>
+                                    <div v-if="canManageBatteries" class="mt-2 pt-2 border-top">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-primary w-100 py-1"
+                                            style="font-size: 0.8rem;"
+                                            @click="openTruckBatteryReplace(inst)"
+                                        >
+                                            <i class="fas fa-arrows-rotate me-1"></i> Replace Battery
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -466,6 +536,22 @@
             @close="closeAssignment"
             @assigned="onAssignmentSaved"
         />
+
+        <BatteryInstallModal
+            :show="showBatteryInstallModal"
+            :preselected-vehicle="vehicle"
+            @close="showBatteryInstallModal = false"
+            @installed="onBatteryChanged"
+        />
+
+        <BatteryReplaceModal
+            :show="showBatteryReplaceModal"
+            :battery="replacingBatteryObj"
+            :vehicle="vehicle"
+            :current-installation="replacingInstallation"
+            @close="showBatteryReplaceModal = false"
+            @replaced="onBatteryChanged"
+        />
     </div>
 </template>
 
@@ -478,6 +564,9 @@ import { fetchVehicle, updateVehicle, deleteVehicle, fetchVehicleFuelHistory } f
 import VehicleDocumentsModal from '../../components/trucks/VehicleDocumentsModal.vue';
 import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverAssignmentModal.vue';
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
+import BatteryInstallModal from '../../components/batteries/BatteryInstallModal.vue';
+import BatteryReplaceModal from '../../components/batteries/BatteryReplaceModal.vue';
+import { getVehicleBatteries } from '../../api/batteries';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -511,6 +600,55 @@ const canDeleteDocuments = computed(
 const canViewMaintenance = computed(() => canInCompany('maintenance.view'));
 const canCreateMaintenance = computed(() => canInCompany('maintenance.create'));
 const canDelete = computed(() => canInCompany('vehicles.delete'));
+const canManageBatteries = computed(() => canCreateInCompany('batteries'));
+
+const vehicleBatteries = ref([]);
+const batteriesLoading = ref(false);
+const showBatteryInstallModal = ref(false);
+const showBatteryReplaceModal = ref(false);
+const replacingInstallation = ref(null);
+const replacingBatteryObj = ref(null);
+
+function calculateStintKm(inst) {
+    if (inst.running_km !== null && inst.running_km !== undefined) {
+        return inst.running_km;
+    }
+    const currentOdo = Number(vehicle.value?.odometer_km || 0);
+    const installOdo = Number(inst.km_at_installation || 0);
+    return Math.max(0, currentOdo - installOdo);
+}
+
+async function loadVehicleBatteries() {
+    if (!vehicle.value?.id) {
+        vehicleBatteries.value = [];
+        return;
+    }
+    batteriesLoading.value = true;
+    try {
+        const res = await getVehicleBatteries(vehicle.value.id);
+        vehicleBatteries.value = res.active_batteries ?? [];
+    } catch {
+        vehicleBatteries.value = [];
+    } finally {
+        batteriesLoading.value = false;
+    }
+}
+
+function openTruckBatteryInstall() {
+    showBatteryInstallModal.value = true;
+}
+
+function openTruckBatteryReplace(inst) {
+    replacingInstallation.value = inst;
+    replacingBatteryObj.value = inst.battery
+        ? { ...inst.battery, active_installation: inst }
+        : { id: inst.battery_id, active_installation: inst };
+    showBatteryReplaceModal.value = true;
+}
+
+async function onBatteryChanged() {
+    await Promise.all([loadVehicleBatteries(), loadVehicle()]);
+}
 
 async function handleDelete() {
     if (!vehicle.value?.id) {
@@ -710,7 +848,12 @@ async function loadVehicle() {
 
     try {
         vehicle.value = await fetchVehicle(vehicleId);
-        await Promise.all([loadAssignments(), loadMaintenanceHistory(), loadFuelHistory()]);
+        await Promise.all([
+            loadAssignments(),
+            loadMaintenanceHistory(),
+            loadFuelHistory(),
+            loadVehicleBatteries(),
+        ]);
     } catch (error) {
         vehicle.value = null;
         assignments.value = [];

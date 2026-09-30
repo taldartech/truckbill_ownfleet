@@ -14,19 +14,19 @@
             <div class="group-cash__figure">
                 <span class="group-stat__label">Outstanding</span>
                 <span class="group-cash__value" :title="formatMoney(receivables.outstanding)">
-                    {{ formatMoneyCompact(receivables.outstanding) }}
+                    {{ formatDynamicMoney(receivables.outstanding) }}
                 </span>
             </div>
             <div class="group-cash__figure">
                 <span class="group-stat__label">Due today</span>
                 <span class="group-cash__value" :title="formatMoney(receivables.due_today)">
-                    {{ formatMoneyCompact(receivables.due_today) }}
+                    {{ formatDynamicMoney(receivables.due_today) }}
                 </span>
             </div>
             <div class="group-cash__figure">
                 <span class="group-stat__label">Overdue</span>
                 <span class="group-cash__value text-danger" :title="formatMoney(receivables.overdue)">
-                    {{ formatMoneyCompact(receivables.overdue) }}
+                    {{ formatDynamicMoney(receivables.overdue) }}
                 </span>
             </div>
         </div>
@@ -50,10 +50,10 @@
                 </span>
                 <span class="text-end">
                     <span class="group-list__value" :title="formatMoney(customer.outstanding)">
-                        {{ formatMoneyCompact(customer.outstanding) }}
+                        {{ formatDynamicMoney(customer.outstanding) }}
                     </span>
                     <span v-if="customer.overdue > 0" class="group-list__secondary text-danger">
-                        {{ formatMoneyCompact(customer.overdue) }} overdue
+                        {{ formatDynamicMoney(customer.overdue) }} overdue
                     </span>
                 </span>
             </li>
@@ -63,7 +63,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { formatMoney, formatMoneyCompact } from '../../utils/formatMoney';
+import { formatDynamicMoney, formatMoney } from '../../utils/formatMoney';
 import './groupDashboard.css';
 
 const props = defineProps({
@@ -96,10 +96,13 @@ const customers = computed(() => props.cash.top_outstanding_customers ?? []);
 }
 
 .group-cash__value {
-    font-size: 1.1rem;
+    font-size: clamp(0.92rem, 1.15vw, 1.1rem);
     font-weight: 700;
     color: #0f172a;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .group-cash__value.text-danger {

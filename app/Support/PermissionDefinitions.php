@@ -147,6 +147,12 @@ final class PermissionDefinitions
             'tyre_reports.view' => self::entry('View tyre reports', 'tyres', 'View tyre operational reports.', 820),
             'tyre_reports.export' => self::entry('Export tyre reports', 'tyres', 'Export tyre operational reports.', 821),
 
+            'batteries.view' => self::entry('View batteries', 'batteries', 'View battery inventory and assignments.', 830),
+            'batteries.create' => self::entry('Create batteries', 'batteries', 'Create battery master records.', 831),
+            'batteries.edit' => self::entry('Edit batteries', 'batteries', 'Edit battery master records.', 832),
+            'batteries.manage' => self::entry('Manage batteries', 'batteries', 'Manage battery assignments and replacements.', 833),
+            'batteries.delete' => self::entry('Delete batteries', 'batteries', 'Delete battery master records.', 834),
+
             'maintenance.view' => self::entry('View truck maintenance', 'maintenance', 'View maintenance records and due services.', 900),
             'maintenance.create' => self::entry('Create maintenance records', 'maintenance', 'Create maintenance service records.', 901),
             'maintenance.edit' => self::entry('Edit maintenance records', 'maintenance', 'Edit maintenance service records.', 902),

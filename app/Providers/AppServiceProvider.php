@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Attendance;
+use App\Battery;
 use App\Branch;
 use App\Broker;
 use App\Challan;
@@ -17,6 +18,7 @@ use App\Invoice;
 use App\MaintenanceServiceType;
 use App\Permission;
 use App\Policies\AttendancePolicy;
+use App\Policies\BatteryPolicy;
 use App\Policies\BranchPolicy;
 use App\Policies\BrokerPolicy;
 use App\Policies\ChallanPolicy;
@@ -110,6 +112,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(State::class, StatePolicy::class);
         Gate::policy(City::class, CityPolicy::class);
         Gate::policy(Tyre::class, TyrePolicy::class);
+        Gate::policy(Battery::class, BatteryPolicy::class);
         Gate::policy(TyreLayout::class, TyreLayoutPolicy::class);
         Gate::policy(UserRole::class, UserRolePolicy::class);
         Gate::policy(Permission::class, PermissionPolicy::class);

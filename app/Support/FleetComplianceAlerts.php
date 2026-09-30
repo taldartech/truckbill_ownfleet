@@ -43,7 +43,9 @@ class FleetComplianceAlerts
             $documentQuery = VehicleDocument::query()
                 ->with('vehicle:id,registration_number')
                 ->whereNotNull('expiry_date')
-                ->where('expiry_date', '<=', $windowEnd);
+                ->where('expiry_date', '<=', $windowEnd)
+                ->orderBy('expiry_date')
+                ->limit(200);
 
             $documentRows = $documentQuery->get();
             $tenantIds = $documentRows->pluck('tenant_id')->unique()->filter()->values();
@@ -63,7 +65,9 @@ class FleetComplianceAlerts
             $driverQuery = Driver::query()
                 ->where('is_active', true)
                 ->whereNotNull('license_expiry_date')
-                ->where('license_expiry_date', '<=', $windowEnd);
+                ->where('license_expiry_date', '<=', $windowEnd)
+                ->orderBy('license_expiry_date')
+                ->limit(200);
 
             foreach ($driverQuery->get(['id', 'name', 'license_number', 'license_expiry_date']) as $driver) {
                 $expiryDate = Carbon::parse($driver->license_expiry_date)->startOfDay();

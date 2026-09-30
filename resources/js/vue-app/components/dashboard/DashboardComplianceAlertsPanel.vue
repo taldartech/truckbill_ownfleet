@@ -549,7 +549,7 @@ function handleExpirySaved(payload) {
 .dashboard-panel {
     display: flex;
     flex-direction: column;
-    padding: 1.25rem;
+    padding: 1rem 1.15rem;
     border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.25rem;
     background: linear-gradient(185deg, #ffffff 0%, #f8fafc 100%);
@@ -561,7 +561,7 @@ function handleExpirySaved(payload) {
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     flex-shrink: 0;
 }
 
@@ -577,42 +577,55 @@ function handleExpirySaved(payload) {
 }
 
 .dashboard-panel__date-hint {
-    margin: 0.2rem 0 0;
+    margin: 0.15rem 0 0;
     font-size: 0.72rem;
     color: #94a3b8;
 }
 
 .compliance-summary-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.1rem;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
 }
 
 .compliance-summary-card {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.85rem 1rem;
-    border-radius: 0.85rem;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.15rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.65rem;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     min-width: 0;
+    transition: all 0.15s ease;
+}
+
+.compliance-summary-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .compliance-summary-card__value {
-    font-size: 1.45rem;
-    line-height: 1.1;
+    font-size: 1.25rem;
+    line-height: 1.15;
     font-weight: 800;
     color: #0f172a;
 }
 
 .compliance-summary-card__label {
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.68rem;
+    font-weight: 600;
     text-transform: none;
     letter-spacing: normal;
     color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 
 .compliance-summary-card--danger {
@@ -689,15 +702,35 @@ function handleExpirySaved(payload) {
     border-top: none;
 }
 
+@media (max-width: 991.98px) {
+    .compliance-summary-grid {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.35rem;
+    }
+
+    .compliance-summary-card {
+        padding: 0.4rem 0.25rem;
+    }
+
+    .compliance-summary-card__value {
+        font-size: 1.1rem;
+    }
+
+    .compliance-summary-card__label {
+        font-size: 0.62rem;
+    }
+}
+
 @media (max-width: 767.98px) {
     .compliance-summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.45rem;
     }
 }
 
 @media (max-width: 479.98px) {
     .compliance-summary-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

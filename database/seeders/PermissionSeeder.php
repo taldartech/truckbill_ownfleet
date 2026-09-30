@@ -74,6 +74,11 @@ class PermissionSeeder extends Seeder
         'tyre_layouts.manage',
         'tyre_reports.view',
         'tyre_reports.export',
+        'batteries.view',
+        'batteries.manage',
+        'batteries.create',
+        'batteries.edit',
+        'batteries.delete',
         'maintenance.view',
         'maintenance.create',
         'maintenance.edit',
@@ -138,6 +143,8 @@ class PermissionSeeder extends Seeder
         'tyres.view',
         'tyre_layouts.view',
         'tyre_layouts.create',
+        'batteries.view',
+        'batteries.create',
     ];
 
     /**
@@ -190,6 +197,7 @@ class PermissionSeeder extends Seeder
         'tyres.view',
         'tyre_layouts.view',
         'tyre_reports.view',
+        'batteries.view',
         'maintenance.view',
         'maintenance_reports.view',
         'alerts.view',

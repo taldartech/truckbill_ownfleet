@@ -27,8 +27,8 @@
                 </div>
                 <div
                     class="dashboard-kpi-card__value"
-                    :class="{ 'text-danger': profit < 0 }"
-                    :title="formattedProfit"
+                    :class="[{ 'text-danger': profit < 0 }, dynamicValueClass(formattedProfit)]"
+                    :title="formatMoney(profit)"
                 >
                     {{ formattedProfit }}
                 </div>
@@ -54,7 +54,11 @@
                     </div>
                     <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--amber">Receivables</span>
                 </div>
-                <div class="dashboard-kpi-card__value" :title="formattedOutstanding">
+                <div
+                    class="dashboard-kpi-card__value"
+                    :class="dynamicValueClass(formattedOutstanding)"
+                    :title="formatMoney(outstanding)"
+                >
                     {{ formattedOutstanding }}
                 </div>
                 <div class="dashboard-kpi-card__foot">
@@ -80,7 +84,11 @@
                     </div>
                     <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--green">Revenue</span>
                 </div>
-                <div class="dashboard-kpi-card__value" :title="formattedRevenue">
+                <div
+                    class="dashboard-kpi-card__value"
+                    :class="dynamicValueClass(formattedRevenue)"
+                    :title="formatMoney(revenue)"
+                >
                     {{ formattedRevenue }}
                 </div>
                 <div class="dashboard-kpi-card__foot">
@@ -168,8 +176,8 @@
                     {{ avgMileage > 0 ? `${avgMileage.toFixed(2)} KM/L` : '—' }}
                 </div>
                 <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">
-                        {{ fuelCost > 0 ? formatMoney(fuelCost) : 'Trip diesel logs' }}
+                    <span class="dashboard-kpi-card__hint" :title="fuelCost > 0 ? formatMoney(fuelCost) : ''">
+                        {{ fuelCost > 0 ? formatDynamicMoney(fuelCost) : 'Trip diesel logs' }}
                         <template v-if="costPerKm > 0"> (₹{{ costPerKm.toFixed(2) }}/km)</template>
                     </span>
                 </div>
@@ -181,7 +189,7 @@
 <script setup>
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
-import { formatMoney } from '../../utils/formatMoney';
+import { formatDynamicMoney, formatMoney } from '../../utils/formatMoney';
 
 const props = defineProps({
     kpiStats: {
@@ -213,6 +221,13 @@ const props = defineProps({
 defineEmits(['select-tab']);
 
 const invoicesRoute = computed(() => ({ name: 'invoices.index' }));
+
+function dynamicValueClass(formattedStr) {
+    const len = String(formattedStr ?? '').length;
+    if (len >= 13) return 'dashboard-kpi-card__value--compact';
+    if (len >= 10) return 'dashboard-kpi-card__value--medium';
+    return '';
+}
 
 // 1. Profit
 const revenue = computed(() => {
@@ -272,10 +287,10 @@ function formatLiters(val) {
     return `${Number(val || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })} L`;
 }
 
-// Formatted strings
-const formattedRevenue = computed(() => formatMoney(revenue.value));
-const formattedProfit = computed(() => formatMoney(profit.value));
-const formattedOutstanding = computed(() => formatMoney(outstanding.value));
+// Formatted strings with dynamic scaling for values reaching 100 Cr+
+const formattedRevenue = computed(() => formatDynamicMoney(revenue.value));
+const formattedProfit = computed(() => formatDynamicMoney(profit.value));
+const formattedOutstanding = computed(() => formatDynamicMoney(outstanding.value));
 
 // Utilization styling helpers
 const utilizationAccentClass = computed(() => {
@@ -451,7 +466,7 @@ const utilizationTagClass = computed(() => {
 }
 
 .dashboard-kpi-card__value {
-    font-size: 1.38rem;
+    font-size: clamp(1.15rem, 1.35vw, 1.38rem);
     font-weight: 800;
     color: #0f172a;
     letter-spacing: -0.02em;
@@ -459,6 +474,17 @@ const utilizationTagClass = computed(() => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.dashboard-kpi-card__value--medium {
+    font-size: clamp(1.05rem, 1.2vw, 1.22rem);
+    letter-spacing: -0.025em;
+}
+
+.dashboard-kpi-card__value--compact {
+    font-size: clamp(0.95rem, 1.05vw, 1.08rem);
+    letter-spacing: -0.03em;
 }
 
 .dashboard-kpi-card__foot {
@@ -495,7 +521,15 @@ const utilizationTagClass = computed(() => {
     }
 
     .dashboard-kpi-card__value {
-        font-size: 1.25rem;
+        font-size: clamp(1.05rem, 3.8vw, 1.25rem);
+    }
+
+    .dashboard-kpi-card__value--medium {
+        font-size: clamp(0.95rem, 3.4vw, 1.15rem);
+    }
+
+    .dashboard-kpi-card__value--compact {
+        font-size: clamp(0.85rem, 3vw, 1.02rem);
     }
 }
 

@@ -119,6 +119,22 @@ export const adminNavigation = [
                 requiresTenant: true,
             },
             {
+                label: 'Batteries',
+                icon: 'fas fa-car-battery nav-icon',
+                to: '/batteries',
+                activeNames: ['batteries.index', 'batteries.show'],
+                permission: 'batteries.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Add Battery',
+                icon: 'bi bi-plus-circle nav-icon',
+                to: { name: 'batteries.index', query: { create: '1' } },
+                activeNames: [],
+                permission: 'batteries.create',
+                requiresTenant: true,
+            },
+            {
                 label: 'Challans',
                 icon: 'bi bi-exclamation-triangle nav-icon',
                 to: '/challans',

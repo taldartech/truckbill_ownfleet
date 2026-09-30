@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BatteryController;
 use App\Http\Controllers\Api\BrokerController;
 use App\Http\Controllers\Api\ChallanController;
 use App\Http\Controllers\Api\CityController;
@@ -126,6 +127,16 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('/reports/tyres/vehicle-wise', [TyreReportController::class, 'vehicleWiseUsage']);
     Route::get('/reports/tyres/expense-summary', [TyreReportController::class, 'expenseSummary']);
     Route::get('/reports/tyres/export', [TyreReportController::class, 'export']);
+
+    Route::get('batteries/counts', [BatteryController::class, 'counts']);
+    Route::get('batteries/in-stock', [BatteryController::class, 'inStock']);
+    Route::post('batteries/replace', [BatteryController::class, 'replace']);
+    Route::post('batteries/{battery}/install', [BatteryController::class, 'install']);
+    Route::post('battery-installations/{battery_installation}/remove', [BatteryController::class, 'removeInstallation']);
+    Route::get('vehicles/{vehicle}/batteries', [BatteryController::class, 'vehicleBatteries']);
+    Route::post('batteries/{battery}/scrap', [BatteryController::class, 'scrap']);
+    Route::apiResource('batteries', BatteryController::class);
+
     Route::get('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index']);
     Route::post('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'store']);
     Route::get('document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'show']);

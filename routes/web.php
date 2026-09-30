@@ -383,6 +383,17 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])
                 ->name('vehicles.tyre-history');
 
+            Route::get('/batteries/counts', [\App\Http\Controllers\Api\BatteryController::class, 'counts'])->name('batteries.counts');
+            Route::get('/batteries/in-stock', [\App\Http\Controllers\Api\BatteryController::class, 'inStock'])->name('batteries.in-stock');
+            Route::post('/batteries/replace', [\App\Http\Controllers\Api\BatteryController::class, 'replace'])->name('batteries.replace');
+            Route::post('/batteries/{battery}/install', [\App\Http\Controllers\Api\BatteryController::class, 'install'])->name('batteries.install');
+            Route::post('/battery-installations/{battery_installation}/remove', [\App\Http\Controllers\Api\BatteryController::class, 'removeInstallation'])
+                ->name('battery-installations.remove');
+            Route::get('/vehicles/{vehicle}/batteries', [\App\Http\Controllers\Api\BatteryController::class, 'vehicleBatteries'])
+                ->name('vehicles.batteries');
+            Route::post('/batteries/{battery}/scrap', [\App\Http\Controllers\Api\BatteryController::class, 'scrap'])->name('batteries.scrap');
+            Route::apiResource('batteries', \App\Http\Controllers\Api\BatteryController::class);
+
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
                 ->name('reports.tyres.life');
             Route::get('/reports/tyres/cost-per-km', [\App\Http\Controllers\Api\TyreReportController::class, 'costPerKm'])

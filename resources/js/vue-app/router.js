@@ -369,6 +369,18 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'tyres.view' },
                 },
                 {
+                    path: 'batteries',
+                    name: 'batteries.index',
+                    component: () => import('./pages/batteries/BatteriesIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'batteries.view' },
+                },
+                {
+                    path: 'batteries/:id',
+                    name: 'batteries.show',
+                    component: () => import('./pages/batteries/BatteryDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'batteries.view' },
+                },
+                {
                     path: 'reports/tyres',
                     name: 'reports.tyres',
                     component: () => import('./pages/reports/TyreReportsPage.vue'),

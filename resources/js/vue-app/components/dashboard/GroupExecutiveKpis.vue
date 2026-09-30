@@ -5,7 +5,7 @@
                 <span class="group-kpis__icon"><i :class="card.icon"></i></span>
                 <span class="group-kpis__label">{{ card.label }}</span>
             </div>
-            <div class="group-kpis__value" :title="card.title">{{ card.value }}</div>
+            <div class="group-kpis__value" :class="dynamicValueClass(card.value)" :title="card.title">{{ card.value }}</div>
             <div class="group-kpis__foot">
                 <GroupDeltaBadge
                     v-if="card.metric"
@@ -25,7 +25,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { formatMoney, formatMoneyCompact } from '../../utils/formatMoney';
+import { formatDynamicMoney, formatMoney, formatMoneyCompact } from '../../utils/formatMoney';
 import GroupDeltaBadge from './GroupDeltaBadge.vue';
 
 const props = defineProps({
@@ -38,6 +38,13 @@ const props = defineProps({
         default: 'vs previous period',
     },
 });
+
+function dynamicValueClass(formattedStr) {
+    const len = String(formattedStr ?? '').length;
+    if (len >= 13) return 'group-kpis__value--compact';
+    if (len >= 10) return 'group-kpis__value--medium';
+    return '';
+}
 
 const hasCurrentRevenue = computed(() => Number(props.executive.revenue?.current ?? 0) !== 0);
 const hasPreviousRevenue = computed(() => Number(props.executive.revenue?.previous ?? 0) !== 0);
@@ -75,7 +82,7 @@ const cards = computed(() => {
             key: 'revenue',
             label: 'Revenue',
             icon: 'fas fa-indian-rupee-sign',
-            value: formatMoneyCompact(revenue.current),
+            value: formatDynamicMoney(revenue.current),
             title: formatMoney(revenue.current),
             metric: revenue,
             hint: 'vs previous',
@@ -84,7 +91,7 @@ const cards = computed(() => {
             key: 'expenses',
             label: 'Expenses',
             icon: 'fas fa-receipt',
-            value: formatMoneyCompact(expenses.current),
+            value: formatDynamicMoney(expenses.current),
             title: formatMoney(expenses.current),
             metric: expenses,
             inverse: true,
@@ -94,7 +101,7 @@ const cards = computed(() => {
             key: 'profit',
             label: 'Profit',
             icon: 'fas fa-sack-dollar',
-            value: formatMoneyCompact(profit.current),
+            value: formatDynamicMoney(profit.current),
             title: formatMoney(profit.current),
             metric: profit,
             hint: 'vs previous',
@@ -176,13 +183,25 @@ const cards = computed(() => {
 }
 
 .group-kpis__value {
-    font-size: 1.3rem;
+    font-size: clamp(1.15rem, 1.35vw, 1.35rem);
     font-weight: 800;
     color: #0f172a;
     letter-spacing: -0.02em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.2;
+    max-width: 100%;
+}
+
+.group-kpis__value--medium {
+    font-size: clamp(1.05rem, 1.2vw, 1.2rem);
+    letter-spacing: -0.025em;
+}
+
+.group-kpis__value--compact {
+    font-size: clamp(0.95rem, 1.05vw, 1.08rem);
+    letter-spacing: -0.03em;
 }
 
 .group-kpis__foot {
