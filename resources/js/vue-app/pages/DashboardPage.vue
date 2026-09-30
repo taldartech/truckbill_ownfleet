@@ -4,8 +4,10 @@
     <div v-else-if="loadError" class="alert alert-danger">{{ loadError }}</div>
 
     <template v-else>
+        <GroupDashboard v-if="showGroupDashboard" :user="user" />
+
         <RoleDashboardPlaceholder
-            v-if="showRolePlaceholder"
+            v-else-if="showRolePlaceholder"
             :role="currentRole"
             :user="user"
         />
@@ -146,6 +148,7 @@ import DashboardComplianceModal from '../components/dashboard/DashboardComplianc
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
 import DashboardTopKpis from '../components/dashboard/DashboardTopKpis.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
+import GroupDashboard from '../components/dashboard/GroupDashboard.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
 import { useOperationalDataInvalidation } from '../composables/useOperationalDataInvalidation';
 import { usePermissions } from '../composables/usePermissions';
@@ -191,6 +194,9 @@ const dashboardDatePresetKeys = DASHBOARD_DATE_PRESET_KEYS;
 
 const currentRole = computed(() => user.value?.role ?? 'user');
 const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
+const showGroupDashboard = computed(
+    () => user.value?.role === 'super_admin' && user.value?.requires_company_selection === true,
+);
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
 const canViewFleet = computed(
@@ -369,7 +375,7 @@ async function refreshComplianceData() {
 }
 
 async function loadDashboard() {
-    if (showRolePlaceholder.value) {
+    if (showRolePlaceholder.value || showGroupDashboard.value) {
         loading.value = false;
 
         return;

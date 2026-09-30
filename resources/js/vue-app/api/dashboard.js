@@ -17,3 +17,9 @@ export async function fetchComplianceAlerts(params = {}) {
         requiresCompany: Boolean(data.requires_company),
     };
 }
+
+export async function fetchGroupDashboard(params = {}) {
+    const { data } = await api.get('/app/dashboard/group', { params });
+
+    return data;
+}

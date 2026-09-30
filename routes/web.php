@@ -110,6 +110,9 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
         ->name('dashboard.stats');
     Route::get('/dashboard/compliance-alerts', [\App\Http\Controllers\Api\FleetDashboardController::class, 'complianceAlerts'])
         ->name('dashboard.compliance-alerts');
+    Route::get('/dashboard/group', [\App\Http\Controllers\Api\SuperAdminDashboardController::class, 'stats'])
+        ->middleware('super_admin')
+        ->name('dashboard.group');
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/companies', [ApiCompanyController::class, 'index'])->name('companies.index');

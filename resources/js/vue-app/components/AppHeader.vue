@@ -12,13 +12,71 @@
                     class="nav-item d-none d-md-flex align-items-center app-header-company-nav"
                 >
                     <div class="app-header-company-context">
-                        <RouterLink
+                        <div
                             v-if="needsBranchSelection"
-                            class="app-header-company-context__select"
-                            :to="{ name: 'branches.index' }"
+                            ref="branchPickerRef"
+                            class="app-header-branch-picker"
                         >
-                            <i class="fas fa-code-branch"></i>Select branch
-                        </RouterLink>
+                            <button
+                                type="button"
+                                class="app-header-company-context__select app-header-branch-picker__toggle"
+                                :aria-expanded="branchPickerOpen"
+                                @click="toggleBranchPicker"
+                            >
+                                <i class="fas fa-code-branch"></i>Select branch
+                                <i class="fas fa-chevron-down app-header-branch-picker__chevron"></i>
+                            </button>
+                            <div
+                                v-if="branchPickerOpen"
+                                class="shadow app-header-branch-picker__menu"
+                                :style="branchPickerMenuStyle"
+                                @click.stop
+                                @keydown.esc="branchPickerOpen = false"
+                            >
+                                <div class="app-header-branch-picker__search">
+                                    <input
+                                        ref="branchSearchRef"
+                                        v-model.trim="branchSearch"
+                                        type="search"
+                                        class="form-control form-control-sm"
+                                        placeholder="Search branch or company…"
+                                    />
+                                </div>
+                                <div v-if="branchPickerLoading" class="app-header-branch-picker__empty">Loading branches…</div>
+                                <div v-else-if="!groupedPickerBranches.length" class="app-header-branch-picker__empty">
+                                    No branches found.
+                                </div>
+                                <div v-else class="app-header-branch-picker__list">
+                                    <div v-for="group in groupedPickerBranches" :key="group.companyId">
+                                        <div class="app-header-branch-picker__company">{{ group.companyName }}</div>
+                                        <button
+                                            v-for="branch in group.branches"
+                                            :key="branch.id"
+                                            type="button"
+                                            class="app-header-branch-picker__item"
+                                            :disabled="enteringBranchId !== null"
+                                            @click="handleEnterBranch(branch)"
+                                        >
+                                            <span class="text-truncate">
+                                                {{ branch.branch_name }}
+                                                <span v-if="branch.head_office" class="app-header-branch-picker__tag">Head office</span>
+                                            </span>
+                                            <i
+                                                class="fas"
+                                                :class="enteringBranchId === branch.id ? 'fa-spinner fa-spin' : 'fa-arrow-right-to-bracket'"
+                                            ></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <RouterLink
+                                    :to="{ name: 'branches.index' }"
+                                    class="app-header-branch-picker__footer"
+                                    @click="branchPickerOpen = false"
+                                >
+                                    Manage branches
+                                </RouterLink>
+                            </div>
+                        </div>
                         <template v-else>
                             <span v-if="companyName" class="app-header-company-context__name">
                                 <i class="fas fa-building"></i>{{ companyName }}
@@ -168,11 +226,12 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../api';
 import { exitCompany } from '../api/companies';
-import { listAllBranches, switchBranch } from '../api/branches';
+import { enterBranch, listAllBranches, switchBranch } from '../api/branches';
+import { useAppToast } from '../composables/useAppToast';
 import {
     fetchNotifications,
     fetchUnreadNotificationCount,
@@ -204,7 +263,50 @@ const switchableBranches = ref([]);
 const selectedBranchId = ref('');
 const showExitConfirm = ref(false);
 const exitingCompany = ref(false);
+const branchPickerRef = ref(null);
+const branchSearchRef = ref(null);
+const branchPickerOpen = ref(false);
+const branchPickerLoading = ref(false);
+const branchPickerBranches = ref(null);
+const branchSearch = ref('');
+const branchPickerMenuStyle = ref({});
+const enteringBranchId = ref(null);
+const toast = useAppToast();
 let pollTimer = null;
+
+const groupedPickerBranches = computed(() => {
+    const term = branchSearch.value.toLowerCase();
+    const groups = new Map();
+
+    (branchPickerBranches.value ?? [])
+        .filter((branch) => {
+            const companyLabel = branch.company?.name ?? '';
+
+            return (
+                !term
+                || branch.branch_name.toLowerCase().includes(term)
+                || companyLabel.toLowerCase().includes(term)
+            );
+        })
+        .forEach((branch) => {
+            const companyId = branch.company_id;
+
+            if (!groups.has(companyId)) {
+                groups.set(companyId, { companyId, companyName: branch.company?.name ?? 'Company', branches: [] });
+            }
+
+            groups.get(companyId).branches.push(branch);
+        });
+
+    return [...groups.values()]
+        .sort((a, b) => a.companyName.localeCompare(b.companyName))
+        .map((group) => ({
+            ...group,
+            branches: [...group.branches].sort(
+                (a, b) => Number(b.head_office) - Number(a.head_office) || a.branch_name.localeCompare(b.branch_name),
+            ),
+        }));
+});
 
 const needsBranchSelection = computed(
     () =>
@@ -298,6 +400,66 @@ function onDocumentClick(event) {
             notificationMenuOpen.value = false;
         }
     }
+
+    if (branchPickerOpen.value) {
+        const picker = branchPickerRef.value;
+
+        if (picker && !picker.contains(event.target)) {
+            branchPickerOpen.value = false;
+        }
+    }
+}
+
+async function toggleBranchPicker() {
+    branchPickerOpen.value = !branchPickerOpen.value;
+    userMenuOpen.value = false;
+    notificationMenuOpen.value = false;
+
+    if (!branchPickerOpen.value) {
+        return;
+    }
+
+    const toggleRect = branchPickerRef.value?.getBoundingClientRect();
+
+    branchPickerMenuStyle.value = toggleRect
+        ? { top: `${toggleRect.bottom + 12}px`, left: `${Math.max(toggleRect.left - 12, 8)}px` }
+        : {};
+    branchSearch.value = '';
+    await nextTick();
+    branchSearchRef.value?.focus();
+
+    if (branchPickerBranches.value !== null) {
+        return;
+    }
+
+    branchPickerLoading.value = true;
+
+    try {
+        branchPickerBranches.value = await listAllBranches();
+    } catch {
+        branchPickerBranches.value = null;
+        toast.error('Could not load branches.');
+    } finally {
+        branchPickerLoading.value = false;
+    }
+}
+
+async function handleEnterBranch(branch) {
+    enteringBranchId.value = branch.id;
+
+    try {
+        const data = await enterBranch(branch.id);
+        const user = data?.user ?? (await fetchCurrentUser());
+        window.__AUTH_USER__ = user;
+        emit('user-updated', user);
+        branchPickerOpen.value = false;
+        toast.success(`Entered ${branch.branch_name}.`);
+        await router.push({ name: 'dashboard' });
+    } catch (error) {
+        toast.error(error.response?.data?.message ?? 'Could not enter branch.');
+    } finally {
+        enteringBranchId.value = null;
+    }
 }
 
 function startPolling() {
@@ -341,6 +503,7 @@ async function loadNotifications() {
 async function toggleNotificationMenu() {
     notificationMenuOpen.value = !notificationMenuOpen.value;
     userMenuOpen.value = false;
+    branchPickerOpen.value = false;
 
     if (notificationMenuOpen.value) {
         await loadNotifications();
@@ -350,6 +513,7 @@ async function toggleNotificationMenu() {
 function openUserMenu() {
     userMenuOpen.value = !userMenuOpen.value;
     notificationMenuOpen.value = false;
+    branchPickerOpen.value = false;
 }
 
 async function handleNotificationClick(notification) {
@@ -418,7 +582,7 @@ async function handleExitCompany() {
         window.__AUTH_USER__ = user;
         emit('user-updated', user);
         showExitConfirm.value = false;
-        await router.push({ name: 'branches.index' });
+        await router.push({ name: 'dashboard' });
     } catch {
         window.location.href = '/company/exit';
     } finally {
@@ -431,3 +595,115 @@ function signOut() {
     window.location.href = '/logout';
 }
 </script>
+
+<style scoped>
+.app-header-branch-picker {
+    position: relative;
+}
+
+.app-header-branch-picker__toggle {
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.app-header-company-context__select .app-header-branch-picker__chevron {
+    font-size: 0.65rem;
+    color: var(--brand-text-muted);
+}
+
+.app-header-branch-picker__menu {
+    position: fixed;
+    z-index: 1060;
+    width: min(20rem, calc(100vw - 1rem));
+    padding: 0;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.75rem;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.app-header-branch-picker__search {
+    padding: 0.6rem;
+    border-bottom: 1px solid var(--brand-border);
+    background: #f8fafc;
+}
+
+.app-header-branch-picker__list {
+    max-height: 20rem;
+    overflow-y: auto;
+    padding: 0.25rem 0;
+}
+
+.app-header-branch-picker__company {
+    padding: 0.5rem 0.9rem 0.25rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--brand-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.app-header-branch-picker__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.45rem 0.9rem;
+    border: none;
+    background: transparent;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--brand-text-primary);
+    text-align: left;
+}
+
+.app-header-branch-picker__item:hover:not(:disabled),
+.app-header-branch-picker__item:focus-visible {
+    background: var(--brand-active-bg);
+    color: var(--brand-text-accent);
+    outline: none;
+}
+
+.app-header-branch-picker__item:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.app-header-branch-picker__item i {
+    flex-shrink: 0;
+    color: var(--brand-primary);
+    font-size: 0.75rem;
+}
+
+.app-header-branch-picker__tag {
+    margin-left: 0.3rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--brand-text-muted);
+}
+
+.app-header-branch-picker__empty {
+    padding: 1rem;
+    font-size: 0.8rem;
+    color: var(--brand-text-muted);
+    text-align: center;
+}
+
+.app-header-branch-picker__footer {
+    display: block;
+    padding: 0.55rem 0.9rem;
+    border-top: 1px solid var(--brand-border);
+    background: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--brand-text-accent);
+    text-align: center;
+    text-decoration: none;
+}
+</style>

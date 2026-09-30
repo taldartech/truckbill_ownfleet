@@ -27,7 +27,7 @@ const router = createRouter({
                     path: 'dashboard',
                     name: 'dashboard',
                     component: DashboardPage,
-                    meta: { requiresTenant: true, permission: 'dashboard.view' },
+                    meta: { requiresTenant: true, allowWithoutTenant: true, permission: 'dashboard.view' },
                 },
                 {
                     path: 'companies',
@@ -475,7 +475,7 @@ router.beforeEach(async (to) => {
         if (window.__AUTH_USER__) {
             const user = window.__AUTH_USER__;
 
-            if (user.requires_company_selection) {
+            if (user.requires_company_selection && user.role !== 'super_admin') {
                 return { name: 'companies.index' };
             }
 
@@ -549,7 +549,7 @@ router.beforeEach(async (to) => {
             !user.requires_company_selection &&
             (user.effective_tenant_id ?? user.company_id) != null;
 
-        if (!hasPermission || (to.meta.requiresTenant && !inCompany)) {
+        if (!hasPermission || (to.meta.requiresTenant && !to.meta.allowWithoutTenant && !inCompany)) {
             return {
                 name: 'dashboard',
                 query: {

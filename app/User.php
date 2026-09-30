@@ -157,10 +157,6 @@ class User extends Authenticatable
 
     public function dashboardUrl(): string
     {
-        if ($this->hasRole('super_admin') && $this->effectiveBranchId() === null) {
-            return '/app/branches';
-        }
-
         return '/app/dashboard';
     }
 
