@@ -84,8 +84,11 @@ class SubscriptionController extends Controller
     {
         $tenant = Tenant::with('subscription')->findOrFail($id);
 
+        $validated = $request->validate($this->purchaseRules());
+        $validated['promo_validated'] = filled($validated['promo_code'] ?? null);
+
         return response()->json(
-            $this->pricingService->quote($tenant, $request->validate($this->purchaseRules())),
+            $this->pricingService->quote($tenant, $validated),
         );
     }
 
@@ -202,6 +205,7 @@ class SubscriptionController extends Controller
             'addon_users' => ['nullable', 'integer', 'min:0'],
             'addon_trucks' => ['nullable', 'integer', 'min:0'],
             'addon_lr_credits' => ['nullable', 'integer', 'min:0'],
+            'promo_code' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

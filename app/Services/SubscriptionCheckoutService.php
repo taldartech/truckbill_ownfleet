@@ -276,17 +276,23 @@ class SubscriptionCheckoutService
      */
     public function recordOfflinePurchase(Tenant $tenant, array $input, ?string $actorUserId = null): SubscriptionPayment
     {
+        $promoCode = filled($input['promo_code'] ?? null) ? trim((string) $input['promo_code']) : null;
+
         $quoteInput = [
             'purchase_type' => $input['purchase_type'],
             'addon_branches' => (int) ($input['addon_branches'] ?? 0),
             'addon_users' => (int) ($input['addon_users'] ?? 0),
             'addon_trucks' => (int) ($input['addon_trucks'] ?? 0),
             'addon_lr_credits' => 0,
-            'promo_code' => null,
-            'promo_validated' => false,
+            'promo_code' => $promoCode,
+            'promo_validated' => $promoCode !== null,
         ];
 
         $quote = $this->pricingService->quote($tenant, $quoteInput);
+
+        if ($promoCode !== null && $quote['promo_snapshot'] === null) {
+            throw new \InvalidArgumentException('Promo code is invalid or no longer applicable.');
+        }
 
         if (! ($input['force'] ?? false) && ! $quote['can_checkout']) {
             throw new \InvalidArgumentException(implode(' ', $quote['blocking_errors'] ?: ['Checkout is not available.']));
@@ -297,7 +303,7 @@ class SubscriptionCheckoutService
                 'tenant_id' => $tenant->id,
                 'type' => $input['purchase_type'],
                 'status' => 'completed',
-                'promo_code' => null,
+                'promo_code' => $this->promoCodeFromQuote($quote),
                 'quantities' => $quote['quantities'],
                 'subtotal' => $quote['subtotal'],
                 'promo_discount' => $quote['promo_discount'],
