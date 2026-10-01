@@ -239,6 +239,9 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
                 ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
+            Route::post('/vehicles/{vehicle}/restore', [\App\Http\Controllers\Api\VehicleController::class, 'restore'])
+                ->withTrashed()
+                ->name('vehicles.restore');
 
             Route::get('/notifications', [\App\Http\Controllers\Api\AppNotificationController::class, 'index'])
                 ->name('notifications.index');

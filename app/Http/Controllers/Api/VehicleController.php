@@ -23,6 +23,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Validation\ValidationException;
 
 class VehicleController extends Controller
 {
@@ -81,14 +82,15 @@ class VehicleController extends Controller
     {
         $this->authorize('viewAny', Vehicle::class);
 
+        $isArchived = in_array($request->query('archived'), ['archived', '1', 'true'], true);
+
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
-        $query = Vehicle::query()
+        $query = ($isArchived ? Vehicle::onlyTrashed()->latest('deleted_at') : Vehicle::query()->latest())
             ->with([
                 'currentPrimaryAssignment.driver',
                 'createdBy:id,name',
                 'updatedBy:id,name',
-            ])
-            ->latest();
+            ]);
 
         if ($request->filled('status')) {
             $status = $request->string('status')->toString();
@@ -129,33 +131,14 @@ class VehicleController extends Controller
 
         $tenant = Tenant::query()->with('subscription')->findOrFail(CurrentTenant::requireId());
 
-        $vehicle = Vehicle::withTrashed()
-            ->where('tenant_id', CurrentTenant::id())
-            ->where('registration_number', $validated['registration_number'])
-            ->first();
+        $this->subscriptionGuard->assertCanCreateVehicle($tenant);
 
-        if ($vehicle) {
-            if ($vehicle->trashed()) {
-                $this->subscriptionGuard->assertCanCreateVehicle($tenant);
-            }
-
-            $vehicle->restore();
-            $vehicle->update([
-                ...$validated,
-                'is_active' => true,
-                'updated_by' => $request->user()?->id,
-            ]);
-            $vehicle->wasRecentlyCreated = true;
-        } else {
-            $this->subscriptionGuard->assertCanCreateVehicle($tenant);
-
-            $vehicle = Vehicle::query()->create([
-                ...$validated,
-                'is_active' => true,
-                'created_by' => $request->user()?->id,
-                'updated_by' => $request->user()?->id,
-            ]);
-        }
+        $vehicle = Vehicle::query()->create([
+            ...$validated,
+            'is_active' => true,
+            'created_by' => $request->user()?->id,
+            'updated_by' => $request->user()?->id,
+        ]);
 
         return new VehicleResource($vehicle->load([
             'createdBy:id,name',
@@ -342,5 +325,30 @@ class VehicleController extends Controller
         $vehicle->delete();
 
         return response()->noContent();
+    }
+
+    public function restore(Request $request, Vehicle $vehicle): VehicleResource
+    {
+        $this->authorize('delete', $vehicle);
+
+        if ($vehicle->trashed()) {
+            if (Vehicle::withoutTrashed()->where('tenant_id', $vehicle->tenant_id)->where('registration_number', $vehicle->registration_number)->exists()) {
+                throw ValidationException::withMessages([
+                    'vehicle' => "An active truck with registration number {$vehicle->registration_number} already exists. Cannot restore.",
+                ]);
+            }
+
+            $this->subscriptionGuard->assertCanCreateVehicle(
+                Tenant::query()->with('subscription')->findOrFail(CurrentTenant::requireId())
+            );
+
+            $vehicle->restore();
+            $vehicle->update(['updated_by' => $request->user()?->id]);
+        }
+
+        return new VehicleResource($vehicle->load([
+            'createdBy:id,name',
+            'updatedBy:id,name',
+        ]));
     }
 }
