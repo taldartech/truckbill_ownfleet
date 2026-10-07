@@ -231,7 +231,7 @@
                                         <td>{{ formatDate(payment.paid_at) }}</td>
                                         <td>
                                             <span v-if="payment.payment_method" class="badge bg-light text-dark border">
-                                                {{ paymentMethodOptions.find((o) => o.value === payment.payment_method)?.label ?? payment.payment_method }}
+                                                {{ invoicePaymentMethodLabel(payment.payment_method) }}
                                             </span>
                                             <span v-else>—</span>
                                         </td>
@@ -469,6 +469,7 @@ import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { invoicePaymentMethodLabel } from '../../constants/invoicePaymentMethod';
 import { formatDate } from '../../utils/datetime';
 
 const route = useRoute();

@@ -428,6 +428,7 @@ import AppDateInput from '../ui/AppDateInput.vue';
 import AppModal from '../ui/AppModal.vue';
 import AppSelect from '../ui/AppSelect.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { INVOICE_PAYMENT_METHOD_OPTIONS } from '../../constants/invoicePaymentMethod';
 
 const props = defineProps({
     show: {
@@ -444,13 +445,7 @@ const emit = defineEmits(['close', 'saved']);
 
 const toast = useAppToast();
 
-const paymentMethodOptions = [
-    { value: 'bank_transfer', label: 'Bank Transfer / NEFT / RTGS' },
-    { value: 'cheque', label: 'Cheque' },
-    { value: 'cash', label: 'Cash' },
-    { value: 'upi', label: 'UPI' },
-    { value: 'other', label: 'Other' },
-];
+const paymentMethodOptions = INVOICE_PAYMENT_METHOD_OPTIONS;
 
 const paymentStatusOptions = [
     { value: 'pending', label: 'Pending' },
