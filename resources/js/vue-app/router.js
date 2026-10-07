@@ -283,6 +283,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'goods_types.view' },
                 },
                 {
+                    path: 'trip-expense-types',
+                    name: 'trip-expense-types.index',
+                    component: () => import('./pages/trip-expense-types/TripExpenseTypesIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'trip_expense_types.view' },
+                },
+                {
                     path: 'locations',
                     name: 'locations.index',
                     component: () => import('./pages/locations/LocationsIndexPage.vue'),

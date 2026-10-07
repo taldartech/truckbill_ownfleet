@@ -12,12 +12,16 @@ class TripExpenseResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $typeCode = $this->expense_type instanceof \BackedEnum ? $this->expense_type->value : (string) $this->expense_type;
+        $tenantId = (string) ($this->tenant_id ?? \App\Support\CurrentTenant::id());
+
         return [
             'id' => $this->id,
             'trip_id' => $this->trip_id,
             'trip_route_leg_id' => $this->trip_route_leg_id,
             'route_leg_sequence' => $this->routeLeg?->sequence_no,
-            'expense_type' => $this->expense_type?->value ?? $this->expense_type,
+            'expense_type' => $typeCode,
+            'expense_type_label' => \App\Support\TripExpenseTypeDefaults::labelFor($tenantId, $typeCode),
             'other_type' => $this->other_type,
             'expense_date' => $this->expense_date?->toDateString(),
             'amount' => $this->amount,

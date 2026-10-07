@@ -16,6 +16,10 @@ const SYNONYMS = {
     'driver_advances.manage': ['drivers.manage'],
     'drivers.archive': ['drivers.manage'],
     'trips.expenses': ['trips.edit', 'trips.manage'],
+    'trip_expense_types.view': ['trips.expenses', 'trips.view', 'trips.manage'],
+    'trip_expense_types.manage': ['trips.expenses', 'trips.manage'],
+    'trip_expense_types.create': ['trips.expenses', 'trips.create', 'trips.manage'],
+    'trip_expense_types.edit': ['trips.expenses', 'trips.edit', 'trips.manage'],
 };
 
 function matchesLegacyManage(requestedSlug, ownedSlugs) {

@@ -47,6 +47,7 @@ class CompanyProvisioner
             TyreLayoutDefaults::seedForTenant($tenant->id);
             TruckTypeDefaults::seedForTenant($tenant->id);
             DocumentTypeDefaults::seedForTenant($tenant->id);
+            TripExpenseTypeDefaults::seedForTenant($tenant->id);
 
             app(SubscriptionPricingService::class)->createTrialSubscription($tenant);
 

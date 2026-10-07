@@ -794,6 +794,12 @@
                                     </li>
                                 </ul>
                             </li>
+                            <li class="nav-item">
+                                <a href="/app/trip-expense-types" class="nav-link{{ Request::is('app/trip-expense-types*') || Request::is('master/expense-types*') ? ' active' : '' }}">
+                                    <i class="fas fa-receipt"></i>
+                                    <p>Expense Types</p>
+                                </a>
+                            </li>
                             {{-- end master --}}
                         @endif
 

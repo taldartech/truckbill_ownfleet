@@ -22,7 +22,7 @@
                 <AppSelect
                     v-if="!isOther"
                     v-model="expense.expense_type"
-                    :options="expenseTypes"
+                    :options="availableExpenseTypes"
                     placeholder="Type"
                     search-placeholder="Search type…"
                     :disabled="disabled"
@@ -158,6 +158,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    expenseTypes: {
+        type: Array,
+        default: () => EXPENSE_FORM_TYPES,
+    },
     expenseIndex: {
         type: Number,
         required: true,
@@ -221,15 +225,30 @@ const emit = defineEmits(['remove', 'fuel-field-input', 'field-input']);
 const maxFuelLiters = MAX_FUEL_LITERS;
 const maxFuelRate = MAX_FUEL_RATE;
 
-const expenseTypes = EXPENSE_FORM_TYPES;
+const availableExpenseTypes = computed(() => {
+    const list = props.expenseTypes && props.expenseTypes.length > 0 ? props.expenseTypes : EXPENSE_FORM_TYPES;
+    const currentVal = props.expense.expense_type;
+
+    if (currentVal && !list.some((type) => type.value === currentVal)) {
+        return [
+            ...list,
+            {
+                value: currentVal,
+                label: props.expense.expense_type_label || (currentVal === 'OTHER' ? 'Other' : currentVal),
+            },
+        ];
+    }
+
+    return list;
+});
 
 const isDiesel = computed(() => props.expense.expense_type === 'DIESEL');
 const isOther = computed(() => props.expense.expense_type === 'OTHER');
 
 const selectedTypeLabel = computed(() => {
-    const match = expenseTypes.find((type) => type.value === props.expense.expense_type);
+    const match = availableExpenseTypes.value.find((type) => type.value === props.expense.expense_type);
 
-    return match?.label ?? '';
+    return match?.label ?? props.expense.expense_type_label ?? '';
 });
 
 const limitHints = computed(() =>

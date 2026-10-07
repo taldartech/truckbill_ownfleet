@@ -194,6 +194,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             ->middleware('permission:users.manage,super_admins.manage')
             ->name('managed-users.destroy');
 
+        Route::get('/trip-expense-types', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'index'])->name('trip-expense-types.index');
+        Route::post('/trip-expense-types', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'store'])->name('trip-expense-types.store');
+        Route::get('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'show'])->name('trip-expense-types.show');
+        Route::put('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'update'])->name('trip-expense-types.update');
+        Route::delete('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'destroy'])->name('trip-expense-types.destroy');
+
         Route::middleware(['tenant.context', 'subscription.active'])->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
@@ -466,6 +472,9 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
     })->name('password.change.submit');
 
     (require __DIR__.'/legacy-stubs.php')();
+
+    Route::get('/master/expense-types', static fn () => redirect('/app/trip-expense-types'))->name('master.expense-types.index');
+    Route::get('/master/trip-expense-types', static fn () => redirect('/app/trip-expense-types'))->name('master.trip-expense-types.index');
 
     Route::get('/ui/company', [CompanyController::class, 'index'])->name('company.index');
     Route::get('/company', static fn () => redirect('/ui/company'));

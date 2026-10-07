@@ -2,10 +2,11 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\TripExpenseType;
 use App\Enums\TripType;
 use App\Http\Requests\Concerns\ValidatesTripRoutePickupSequence;
+use App\Support\TripExpenseTypeDefaults;
 use App\Trip;
+use App\TripExpenseTypeMaster;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -41,6 +42,11 @@ class StoreTripRequest extends FormRequest
      */
     public function rules(): array
     {
+        $activeExpenseTypes = TripExpenseTypeMaster::query()
+            ->where('is_active', true)
+            ->pluck('code')
+            ->toArray();
+
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             'driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
@@ -151,7 +157,7 @@ class StoreTripRequest extends FormRequest
             'pickups.*.drops.*.remarks' => ['nullable', 'string', 'max:1000'],
             'pickups.*.drops.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:50'],
             'expenses' => ['nullable', 'array'],
-            'expenses.*.expense_type' => ['required_with:expenses', Rule::enum(TripExpenseType::class)],
+            'expenses.*.expense_type' => ['required_with:expenses', 'string', Rule::in($activeExpenseTypes)],
             'expenses.*.expense_date' => ['required_with:expenses', 'date'],
             'expenses.*.amount' => ['required_with:expenses', 'numeric', 'gt:0'],
             'expenses.*.fuel_odometer_km' => ['nullable', 'integer', 'min:0'],

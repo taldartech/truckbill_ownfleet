@@ -38,13 +38,26 @@ class TripExpense extends Model
     protected function casts(): array
     {
         return [
-            'expense_type' => TripExpenseType::class,
             'amount' => 'decimal:2',
             'fuel_liters' => 'decimal:2',
             'fuel_rate' => 'decimal:2',
             'fuel_odometer_km' => 'decimal:2',
             'expense_date' => 'date',
         ];
+    }
+
+    public function getExpenseTypeAttribute($value): TripExpenseType|string|null
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return TripExpenseType::tryFrom($value) ?? $value;
+    }
+
+    public function setExpenseTypeAttribute($value): void
+    {
+        $this->attributes['expense_type'] = $value instanceof TripExpenseType ? $value->value : $value;
     }
 
     public function trip(): BelongsTo

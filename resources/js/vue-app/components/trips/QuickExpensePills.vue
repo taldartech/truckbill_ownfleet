@@ -26,11 +26,22 @@ const props = defineProps({
         default: 'stop',
         validator: (value) => ['stop', 'whole-trip'].includes(value),
     },
+    activeTypes: {
+        type: Array,
+        default: null,
+    },
 });
 
 defineEmits(['add']);
 
-const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS));
+const pills = computed(() => {
+    const list = props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS;
+    if (!props.activeTypes || props.activeTypes.length === 0) {
+        return list;
+    }
+    const activeValues = new Set(props.activeTypes.map((t) => t.value));
+    return list.filter((pill) => activeValues.has(pill.value));
+});
 </script>
 
 <style scoped>
