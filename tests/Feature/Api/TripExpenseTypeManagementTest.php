@@ -114,9 +114,11 @@ class TripExpenseTypeManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Deactivate via DELETE endpoint
+        // Deactivate via PUT endpoint
         $this->actingAs($admin)
-            ->deleteJson("/app/api/trip-expense-types/{$type->id}")
+            ->putJson("/app/api/trip-expense-types/{$type->id}", [
+                'is_active' => false,
+            ])
             ->assertOk();
 
         $this->assertDatabaseHas('trip_expense_types', [
@@ -141,6 +143,28 @@ class TripExpenseTypeManagementTest extends TestCase
         $this->assertDatabaseHas('trip_expense_types', [
             'id' => $type->id,
             'is_active' => true,
+        ]);
+    }
+
+    public function test_admin_can_soft_delete_trip_expense_type(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        SelectedCompanySession::set($tenant->id);
+        TenantContext::setTenantId($tenant->id);
+
+        $type = TripExpenseTypeMaster::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'To Be Deleted',
+            'code' => 'TO_BE_DELETED',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson("/app/api/trip-expense-types/{$type->id}")
+            ->assertOk();
+
+        $this->assertSoftDeleted('trip_expense_types', [
+            'id' => $type->id,
         ]);
     }
 
@@ -263,9 +287,8 @@ class TripExpenseTypeManagementTest extends TestCase
             ->deleteJson("/app/api/trip-expense-types/{$id}")
             ->assertOk();
 
-        $this->assertDatabaseHas('trip_expense_types', [
+        $this->assertSoftDeleted('trip_expense_types', [
             'id' => $id,
-            'is_active' => false,
         ]);
     }
 

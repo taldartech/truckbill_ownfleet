@@ -39,12 +39,12 @@
                         <th>Name</th>
                         <th>Code</th>
                         <th style="width: 120px">Status</th>
-                        <th v-if="canEdit" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
+                        <th v-if="canEdit || canDelete" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="expenseTypes.length === 0" class="app-index-empty-row">
-                        <td :colspan="canEdit ? 5 : 4" class="text-center text-muted py-4">No trip expense types found.</td>
+                        <td :colspan="(canEdit || canDelete) ? 5 : 4" class="text-center text-muted py-4">No trip expense types found.</td>
                     </tr>
                     <tr v-for="(type, index) in expenseTypes" :key="type.id">
                         <td>{{ (pagination.currentPage - 1) * pagination.perPage + index + 1 }}</td>
@@ -55,18 +55,36 @@
                             <code>{{ type.code }}</code>
                         </td>
                         <td>
-                            <span v-if="type.is_active" class="badge bg-success-subtle text-success border border-success-subtle">
-                                Active
-                            </span>
-                            <span v-else class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                Inactive
-                            </span>
+                            <div class="form-check form-switch" v-if="canEdit">
+                                <input
+                                    class="form-check-input form-check-input-success"
+                                    type="checkbox"
+                                    role="switch"
+                                    :checked="type.is_active"
+                                    @change="toggleStatus(type)"
+                                    style="cursor: pointer"
+                                />
+                            </div>
+                            <template v-else>
+                                <span v-if="type.is_active" class="badge bg-success-subtle text-success border border-success-subtle">
+                                    Active
+                                </span>
+                                <span v-else class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                    Inactive
+                                </span>
+                            </template>
                         </td>
-                        <td v-if="canEdit" class="app-index-actions-cell text-end">
+                        <td v-if="canEdit || canDelete" class="app-index-actions-cell text-end">
                             <AppTableActions>
                                 <AppCrudActionButton
                                     action="edit"
+                                    v-if="canEdit"
                                     @click="openEdit(type)"
+                                />
+                                <AppCrudActionButton
+                                    action="delete"
+                                    v-if="canDelete"
+                                    @click="handleDelete(type)"
                                 />
                             </AppTableActions>
                         </td>
@@ -104,6 +122,7 @@ import {
     createTripExpenseType,
     listTripExpenseTypes,
     updateTripExpenseType,
+    deleteTripExpenseType,
 } from '../../api/tripExpenseTypes';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
@@ -121,9 +140,10 @@ import { usePermissions } from '../../composables/usePermissions';
 const toast = useAppToast();
 const { can, user } = usePermissions();
 
-const isSuperOrMasterAdmin = computed(() => ['super_admin', 'master_admin', 'admin'].includes(user.value?.role));
-const canCreate = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.create') || can('trip_expense_types.manage') || can('trips.expenses'));
-const canEdit = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.edit') || can('trip_expense_types.manage') || can('trips.expenses'));
+const isSuperOrMasterAdmin = computed(() => ['super_admin', 'master_admin'].includes(user.value?.role));
+const canCreate = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.create') || can('trips.expenses'));
+const canEdit = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.edit') || can('trips.expenses'));
+const canDelete = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.delete') || can('trips.expenses'));
 
 const expenseTypes = ref([]);
 const loading = ref(true);
@@ -214,4 +234,31 @@ async function handleSubmit({ payload }) {
 onMounted(() => {
     loadExpenseTypes();
 });
+async function toggleStatus(type) {
+    try {
+        await updateTripExpenseType(type.id, {
+            name: type.name,
+            code: type.code,
+            is_active: !type.is_active,
+        });
+        type.is_active = !type.is_active;
+        toast.success(`Expense type ${type.name} is now ${type.is_active ? 'active' : 'inactive'}`);
+    } catch (error) {
+        toast.error('Failed to update status');
+    }
+}
+
+async function handleDelete(type) {
+    if (!confirm(`Are you sure you want to delete the expense type '${type.name}'?`)) {
+        return;
+    }
+
+    try {
+        await deleteTripExpenseType(type.id);
+        toast.success(`Expense type ${type.name} has been deleted.`);
+        await loadExpenseTypes();
+    } catch (error) {
+        toast.error('Failed to delete expense type.');
+    }
+}
 </script>

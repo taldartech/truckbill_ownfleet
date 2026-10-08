@@ -277,7 +277,6 @@ export const adminNavigation = [
                 icon: 'bi bi-receipt nav-icon',
                 to: '/trip-expense-types',
                 permission: 'trip_expense_types.view',
-                roles: ['super_admin', 'master_admin', 'admin'],
             },
             {
                 label: 'References',

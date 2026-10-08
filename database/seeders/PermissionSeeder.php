@@ -58,7 +58,7 @@ class PermissionSeeder extends Seeder
         'goods_types.view',
         'goods_types.manage',
         'trip_expense_types.view',
-        'trip_expense_types.manage',
+        'trip_expense_types.delete',
         'trip_expense_types.create',
         'trip_expense_types.edit',
         'invoices.view',

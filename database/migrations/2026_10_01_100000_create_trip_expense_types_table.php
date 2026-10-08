@@ -18,8 +18,8 @@ return new class extends Migration
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-
             $table->index('is_active');
+            $table->softDeletes();
         });
     }
 

@@ -91,13 +91,10 @@ class TripExpenseTypeController extends Controller
     {
         $this->authorize('delete', $tripExpenseType);
 
-        $tripExpenseType->update([
-            'is_active' => false,
-            'updated_by' => request()->user()?->id,
-        ]);
+        $tripExpenseType->delete();
 
         return response()->json([
-            'message' => 'Trip expense type deactivated.',
+            'message' => 'Trip expense type deleted successfully.',
         ]);
     }
 }

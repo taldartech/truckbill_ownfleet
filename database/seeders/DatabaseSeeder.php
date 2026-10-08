@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             IndiaLocationSeeder::class,
             MasterAdminSeeder::class,
+            TripExpenseTypeSeeder::class,
         ]);
     }
 }
