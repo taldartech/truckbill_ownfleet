@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
 use App\Http\Requests\Concerns\ValidatesTripRoutePickupSequence;
-use App\Support\TripExpenseTypeDefaults;
+
 use App\Trip;
 use App\TripExpenseTypeMaster;
 use Illuminate\Foundation\Http\FormRequest;
@@ -49,20 +49,6 @@ class UpdateTripRequest extends FormRequest
     public function rules(): array
     {
         $trip = $this->route('trip');
-
-        $activeExpenseTypes = TripExpenseTypeMaster::query()
-            ->where('is_active', true)
-            ->pluck('code')
-            ->toArray();
-
-        $existingExpenseTypes = [];
-        if ($trip instanceof Trip) {
-            $existingExpenseTypes = $trip->expenses()->pluck('expense_type')->map(
-                fn ($type) => $type instanceof \BackedEnum ? $type->value : (string) $type
-            )->toArray();
-        }
-
-        $allowedExpenseTypes = array_values(array_unique([...$activeExpenseTypes, ...$existingExpenseTypes]));
 
         $effectiveStatus = strtoupper((string) (
             $this->input('status')
@@ -176,7 +162,7 @@ class UpdateTripRequest extends FormRequest
             'pickups.*.drops.*.remarks' => ['nullable', 'string', 'max:1000'],
             'pickups.*.drops.*.expected_mileage_km_per_liter' => ['nullable', 'numeric', 'min:0', 'max:50'],
             'expenses' => ['nullable', 'array'],
-            'expenses.*.expense_type' => ['required_with:expenses', 'string', Rule::in($allowedExpenseTypes)],
+            'expenses.*.expense_type' => ['required_with:expenses', 'string'],
             'expenses.*.expense_date' => ['required_with:expenses', 'date'],
             'expenses.*.amount' => ['required_with:expenses', 'numeric', 'gt:0'],
             'expenses.*.fuel_odometer_km' => ['nullable', 'integer', 'min:0'],

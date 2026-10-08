@@ -21,7 +21,7 @@ class TripExpenseResource extends JsonResource
             'trip_route_leg_id' => $this->trip_route_leg_id,
             'route_leg_sequence' => $this->routeLeg?->sequence_no,
             'expense_type' => $typeCode,
-            'expense_type_label' => \App\Support\TripExpenseTypeDefaults::labelFor($tenantId, $typeCode),
+            'expense_type_label' => \App\TripExpenseTypeMaster::query()->where('code', $typeCode)->value('name') ?? ($typeCode === 'OTHER' ? 'Other' : $typeCode),
             'other_type' => $this->other_type,
             'expense_date' => $this->expense_date?->toDateString(),
             'amount' => $this->amount,

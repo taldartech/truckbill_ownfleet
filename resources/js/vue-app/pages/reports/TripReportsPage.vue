@@ -237,8 +237,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { listAllVehicles } from '../../api/vehicles';
 import { listAllDrivers } from '../../api/drivers';
-import { EXPENSE_TYPES, expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
+import { expenseTypeLabel, thisMonthDateRange } from '../../api/trips';
 import { TRIP_REPORT_TYPES, exportTripReport, fetchTripReport } from '../../api/tripReports';
+import { fetchAllTripExpenseTypes } from '../../api/tripExpenseTypes';
 import { withReportPagination } from '../../api/reportPagination';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppReportFiltersPanel from '../../components/ui/AppReportFiltersPanel.vue';
@@ -272,6 +273,7 @@ const rows = ref([]);
 const tripCount = ref(null);
 const financialSummary = ref(null);
 const reportSummary = ref(null);
+const activeExpenseTypes = ref([]);
 const loading = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
@@ -301,7 +303,10 @@ const driverOptions = computed(() => [
 
 const expenseTypeOptions = computed(() => [
     { value: '', label: 'All expense types' },
-    ...EXPENSE_TYPES.map((t) => ({ value: t.value, label: t.label })),
+    ...activeExpenseTypes.value.map((t) => ({
+        value: t.value,
+        label: t.is_active ? t.label : `${t.label} (Inactive)`
+    })),
 ]);
 
 const currentReportLabel = computed(
@@ -541,12 +546,14 @@ watch(
 );
 
 onMounted(async () => {
-    const [fetchedVehicles, fetchedDrivers] = await Promise.all([
+    const [fetchedVehicles, fetchedDrivers, expRes] = await Promise.all([
         listAllVehicles(),
         listAllDrivers(),
+        fetchAllTripExpenseTypes(),
     ]);
     vehicles.value = fetchedVehicles;
     drivers.value = fetchedDrivers;
+    activeExpenseTypes.value = expRes ?? [];
     await loadReport(1);
 });
 

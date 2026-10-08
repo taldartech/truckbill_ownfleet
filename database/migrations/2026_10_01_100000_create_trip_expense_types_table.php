@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\TripExpenseTypeDefaults;
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,8 +21,6 @@ return new class extends Migration
 
             $table->index('is_active');
         });
-
-        TripExpenseTypeDefaults::seedGlobal();
     }
 
     public function down(): void

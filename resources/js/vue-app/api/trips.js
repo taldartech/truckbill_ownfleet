@@ -241,19 +241,6 @@ export const EXPENSE_TYPES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export const EXPENSE_FORM_TYPES = [
-    { value: 'DIESEL', label: 'Fuel (LTR × Rate)' },
-    { value: 'TOLL', label: 'Highway Toll' },
-    { value: 'LOADING_CHARGES', label: 'Load Charges' },
-    { value: 'UNLOADING_CHARGES', label: 'Unload Charges' },
-    { value: 'FOOD_EXPENSE', label: 'Driver Food' },
-    { value: 'DRIVER_EXPENSE', label: 'Driver Cash / Misc' },
-    { value: 'REPAIR', label: 'Breakdown' },
-    { value: 'PARKING', label: 'Parking Fee' },
-    { value: 'RTO_EXPENSE', label: 'RTO' },
-    { value: 'PERMIT_BORDER_TAX', label: 'Permit / Border Tax' },
-    { value: 'OTHER', label: 'Other' },
-];
 
 export const QUICK_EXPENSE_PILLS = [
     { value: 'DIESEL', label: 'Diesel', icon: 'bi-fuel-pump', className: 'pill-diesel' },

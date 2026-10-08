@@ -29,22 +29,6 @@ class TripExpenseTypeManagementTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_admin_sees_seeded_default_trip_expense_types(): void
-    {
-        [$tenant, $admin] = $this->createTenantUser('admin');
-
-        $response = $this->actingAs($admin)
-            ->getJson('/app/api/trip-expense-types?all=1');
-
-        $response->assertOk();
-        $this->assertGreaterThanOrEqual(11, count($response->json('data')));
-
-        $this->assertDatabaseHas('trip_expense_types', [
-            'code' => 'DIESEL',
-            'is_active' => true,
-        ]);
-    }
-
     public function test_admin_can_create_new_trip_expense_type(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
@@ -160,59 +144,19 @@ class TripExpenseTypeManagementTest extends TestCase
         ]);
     }
 
-    public function test_only_active_types_are_available_during_trip_expense_creation(): void
-    {
-        [$tenant, $admin, $vehicle, , $stations] = $this->createFixtures('admin');
-        SelectedCompanySession::set($tenant->id);
-        TenantContext::setTenantId($tenant->id);
 
-        // Deactivate TOLL
-        $toll = TripExpenseTypeMaster::query()
-            ->where('code', 'TOLL')
-            ->first();
-
-        if (! $toll) {
-            $toll = TripExpenseTypeMaster::query()->create([
-                'name' => 'Toll',
-                'code' => 'TOLL',
-                'is_active' => false,
-            ]);
-        } else {
-            $toll->update(['is_active' => false]);
-        }
-
-        // Creating a trip with deactivated expense type should fail validation
-        $response = $this->actingAs($admin)
-            ->postJson('/app/api/trips', [
-                'vehicle_id' => $vehicle->id,
-                'trip_type' => TripType::OneWay->value,
-                'start_station_id' => $stations['home']->id,
-                'start_at' => now()->toDateString(),
-                'route_legs' => [
-                    [
-                        'from_station_id' => $stations['home']->id,
-                        'to_station_id' => $stations['b']->id,
-                        'freight_amount' => 5000,
-                    ],
-                ],
-                'expenses' => [
-                    [
-                        'expense_type' => 'TOLL',
-                        'expense_date' => now()->toDateString(),
-                        'amount' => 300,
-                    ],
-                ],
-            ]);
-
-        $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['expenses.0.expense_type']);
-    }
 
     public function test_existing_trip_expense_records_remain_unaffected_when_type_deactivated(): void
     {
         [$tenant, $admin, $vehicle, , $stations] = $this->createFixtures('admin');
         SelectedCompanySession::set($tenant->id);
         TenantContext::setTenantId($tenant->id);
+
+        TripExpenseTypeMaster::query()->create([
+            'name' => 'Toll',
+            'code' => 'TOLL',
+            'is_active' => true,
+        ]);
 
         // Create a trip with TOLL when TOLL is active
         $createRes = $this->actingAs($admin)

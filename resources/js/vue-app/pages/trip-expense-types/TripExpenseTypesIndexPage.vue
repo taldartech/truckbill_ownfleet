@@ -121,7 +121,7 @@ import { usePermissions } from '../../composables/usePermissions';
 const toast = useAppToast();
 const { can, user } = usePermissions();
 
-const isSuperOrMasterAdmin = computed(() => ['super_admin', 'master_admin'].includes(user.value?.role));
+const isSuperOrMasterAdmin = computed(() => ['super_admin', 'master_admin', 'admin'].includes(user.value?.role));
 const canCreate = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.create') || can('trip_expense_types.manage') || can('trips.expenses'));
 const canEdit = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.edit') || can('trip_expense_types.manage') || can('trips.expenses'));
 

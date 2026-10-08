@@ -150,7 +150,7 @@
 <script setup>
 import { computed } from 'vue';
 import AppSelect from '../ui/AppSelect.vue';
-import { EXPENSE_FORM_TYPES, MAX_FUEL_LITERS, MAX_FUEL_RATE } from '../../api/trips';
+import { MAX_FUEL_LITERS, MAX_FUEL_RATE } from '../../api/trips';
 import { buildMeterLimitHints, expenseFieldFocusId } from '../../utils/expenseValidation';
 
 const props = defineProps({
@@ -160,7 +160,7 @@ const props = defineProps({
     },
     expenseTypes: {
         type: Array,
-        default: () => EXPENSE_FORM_TYPES,
+        default: () => [],
     },
     expenseIndex: {
         type: Number,
@@ -226,7 +226,7 @@ const maxFuelLiters = MAX_FUEL_LITERS;
 const maxFuelRate = MAX_FUEL_RATE;
 
 const availableExpenseTypes = computed(() => {
-    const list = props.expenseTypes && props.expenseTypes.length > 0 ? props.expenseTypes : EXPENSE_FORM_TYPES;
+    const list = props.expenseTypes && props.expenseTypes.length > 0 ? props.expenseTypes : [];
     const currentVal = props.expense.expense_type;
 
     if (currentVal && !list.some((type) => type.value === currentVal)) {

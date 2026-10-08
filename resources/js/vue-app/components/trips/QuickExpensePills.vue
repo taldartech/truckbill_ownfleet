@@ -36,11 +36,37 @@ defineEmits(['add']);
 
 const pills = computed(() => {
     const list = props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS;
+    const knownValues = new Set(list.map(p => p.value));
+
     if (!props.activeTypes || props.activeTypes.length === 0) {
         return list;
     }
+
     const activeValues = new Set(props.activeTypes.map((t) => t.value));
-    return list.filter((pill) => activeValues.has(pill.value));
+    
+    // Get known pills that are active
+    const activeKnownPills = list.filter((pill) => activeValues.has(pill.value));
+
+    // Get custom pills that are active but not known
+    const customPills = props.activeTypes
+        .filter((t) => !knownValues.has(t.value))
+        .map((t, index) => ({
+            value: t.value,
+            label: t.label,
+            icon: 'bi-tag', 
+            className: 'pill-custom-' + ((index % 5) + 1), 
+        }));
+
+    // Separate OTHER to push it to the very end
+    const finalPills = [...activeKnownPills, ...customPills];
+    const otherIndex = finalPills.findIndex(p => p.value === 'OTHER');
+    
+    if (otherIndex !== -1) {
+        const otherPill = finalPills.splice(otherIndex, 1)[0];
+        finalPills.push(otherPill);
+    }
+
+    return finalPills;
 });
 </script>
 
@@ -78,7 +104,7 @@ const pills = computed(() => {
 .quick-pill {
     display: inline-flex;
     align-items: center;
-    flex: 1 1 0;
+    flex: 0 0 auto;
     justify-content: center;
     gap: 0.28rem;
     min-width: max-content;
@@ -99,7 +125,7 @@ const pills = computed(() => {
 @media (min-width: 1200px) {
     .quick-pill {
         flex: 1 1 0;
-        min-width: 0;
+        min-width: 80px;
         padding: 5px 8px;
         font-size: 11.5px;
     }
@@ -197,5 +223,45 @@ const pills = computed(() => {
 .pill-other:hover {
     background: #f3f4f6;
     border-color: #d1d5db;
+}
+.pill-custom-1 {
+    background: #fdf4ff;
+    color: #86198f;
+}
+.pill-custom-1:hover {
+    background: #fae8ff;
+    border-color: #f0abfc;
+}
+.pill-custom-2 {
+    background: #f0fdfa;
+    color: #0f766e;
+}
+.pill-custom-2:hover {
+    background: #ccfbf1;
+    border-color: #5eead4;
+}
+.pill-custom-3 {
+    background: #fff1f2;
+    color: #be123c;
+}
+.pill-custom-3:hover {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+.pill-custom-4 {
+    background: #f5f3ff;
+    color: #6d28d9;
+}
+.pill-custom-4:hover {
+    background: #ede9fe;
+    border-color: #c4b5fd;
+}
+.pill-custom-5 {
+    background: #f0f9ff;
+    color: #0369a1;
+}
+.pill-custom-5:hover {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
 }
 </style>

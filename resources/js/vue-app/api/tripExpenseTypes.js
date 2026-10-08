@@ -34,6 +34,18 @@ export async function fetchActiveTripExpenseTypes() {
     }));
 }
 
+export async function fetchAllTripExpenseTypes() {
+    const { data } = await api.get(base, {
+        params: { all: 1 },
+    });
+
+    return (data.data ?? []).map((t) => ({
+        value: t.code,
+        label: t.name,
+        is_active: t.is_active,
+    }));
+}
+
 export async function createTripExpenseType(payload) {
     const { data } = await api.post(base, payload);
 
