@@ -502,7 +502,6 @@ async function confirmSave(mode = 'index') {
         showSaveConfirm.value = false;
 
         pendingPayload.value = null;
-        localStorage.removeItem('truckbill_trip_create_draft');
         tripFormRef.value?.clearProgressDraft?.();
 
         if (saveMode.value === 'expenses' && trip?.id) {
