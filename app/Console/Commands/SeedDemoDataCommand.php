@@ -10,7 +10,7 @@ class SeedDemoDataCommand extends Command
 {
     protected $signature = 'demo:seed {--force : Allow demo seeding in production}';
 
-    protected $description = 'Seed test users, demo fleet data, and demo trips for local development';
+    protected $description = 'Seed test users and demo fleet data for local development';
 
     public function handle(): int
     {
@@ -20,7 +20,7 @@ class SeedDemoDataCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('Seeding demo data (test users, fleet, trips)...');
+        $this->components->info('Seeding demo data (test users, fleet)...');
 
         $this->call('db:seed', [
             '--class' => DemoDataSeeder::class,
