@@ -430,6 +430,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.fuel-performance');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
+            Route::get('/quick-search', [\App\Http\Controllers\Api\QuickSearchController::class, 'index'])
+                ->name('quick-search.index');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])
                 ->name('reports.fleet-monthly');
             Route::get('/reports/fleet-monthly/export', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'export'])

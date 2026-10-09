@@ -11,6 +11,14 @@ export const adminNavigation = [
         permission: 'dashboard.view',
     },
     {
+        label: 'Quick Search',
+        icon: 'bi bi-search nav-icon',
+        to: '/quick-search',
+        activeNames: ['quick-search'],
+        permission: 'trips.view',
+        requiresTenant: true,
+    },
+    {
         label: 'Subscription',
         icon: 'bi bi-credit-card nav-icon',
         to: '/subscription',

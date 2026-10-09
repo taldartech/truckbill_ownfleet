@@ -448,6 +448,12 @@ const router = createRouter({
                     component: () => import('./pages/subscription/SubscriptionHistoryPage.vue'),
                     meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
                 },
+                {
+                    path: 'quick-search',
+                    name: 'quick-search',
+                    component: () => import('./pages/QuickSearchPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.view' },
+                },
             ],
         },
         {
