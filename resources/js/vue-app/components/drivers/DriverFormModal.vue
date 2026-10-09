@@ -46,7 +46,7 @@
                 </div>
             </div>
             <div>
-                <label :for="`${modalId}_license_number`" class="form-label">License Number</label>
+                <label :for="`${modalId}_license_number`" class="form-label">License Number *</label>
                 <input
                     :id="`${modalId}_license_number`"
                     v-model="form.license_number"
@@ -54,6 +54,7 @@
                     class="form-control form-control-sm"
                     :class="{ 'is-invalid': fieldErrors.license_number }"
                     placeholder="e.g. DL-1420110012345"
+                    required
                     @input="onLicenseInput"
                 />
                 <div v-if="fieldErrors.license_number" class="invalid-feedback d-block">
