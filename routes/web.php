@@ -389,6 +389,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::post('tyre-layouts/seed-defaults', [\App\Http\Controllers\Api\TyreLayoutController::class, 'seedDefaults']);
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
+            Route::get('/tyres/bulk-upload/template', [\App\Http\Controllers\Api\TyreController::class, 'bulkUploadTemplate'])
+                ->name('tyres.bulk-upload.template');
+            Route::post('/tyres/bulk-upload', [\App\Http\Controllers\Api\TyreController::class, 'bulkUpload'])
+                ->name('tyres.bulk-upload');
             Route::get('/tyres/alerts', [\App\Http\Controllers\Api\TyreController::class, 'alerts'])->name('tyres.alerts');
             Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
             Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);

@@ -8,6 +8,7 @@ use App\Customer;
 use App\Models\TenantSubscription;
 use App\Station;
 use App\Tenant;
+use App\Tyre;
 use App\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -405,6 +406,122 @@ class BulkUploadTest extends TestCase
             'tenant_id' => $tenant->id,
             'name' => 'Gamma Traders',
             'contact_number' => '9800000004',
+        ]);
+    }
+
+    public function test_tyres_template_download_streams_csv_headers(): void
+    {
+        [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($branchId));
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->get('/api/tyres/bulk-upload/template');
+
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('Tyre Serial Number', $content);
+        $this->assertStringContainsString('Brand', $content);
+        $this->assertStringContainsString('Size', $content);
+        $this->assertStringContainsString('Purchase Date', $content);
+    }
+
+    public function test_tyres_bulk_upload_creates_records_successfully(): void
+    {
+        [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
+
+        $csvContent = "Tyre Serial Number,Brand,Size,Purchase Date,Purchase Cost,Expected Life KM,Tyre Type\n"
+            . "TYR-1001,Apollo,295/80R22.5,2026-01-15,18500,45000,RADIAL\n"
+            . "TYR-1002,MRF,295/80R22.5,2026-02-10,19200,40000,TUBELESS\n";
+
+        $file = UploadedFile::fake()->createWithContent('tyres.csv', $csvContent);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($branchId));
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->post('/api/tyres/bulk-upload', [
+                'file' => $file,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('summary.total', 2)
+            ->assertJsonPath('summary.successful', 2)
+            ->assertJsonPath('summary.failed', 0);
+
+        $this->assertDatabaseHas('tyres', [
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYR-1001',
+            'brand' => 'Apollo',
+            'size' => '295/80R22.5',
+            'status' => 'IN_STOCK',
+        ]);
+        $this->assertDatabaseHas('tyres', [
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYR-1002',
+            'brand' => 'MRF',
+            'size' => '295/80R22.5',
+            'status' => 'IN_STOCK',
+        ]);
+    }
+
+    public function test_tyres_bulk_upload_validates_uniqueness_and_rules(): void
+    {
+        [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($branchId));
+
+        // Create an existing tyre in DB
+        Tyre::query()->create([
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYR-EXISTING',
+            'brand' => 'Bridgestone',
+            'size' => '295/80R22.5',
+            'purchase_date' => '2026-01-01',
+            'purchase_cost' => 20000,
+            'expected_life_km' => 40000,
+            'status' => 'IN_STOCK',
+        ]);
+
+        $csvContent = "Tyre Serial Number,Brand,Size,Purchase Date,Purchase Cost,Expected Life KM,Tyre Type\n"
+            // Existing in DB
+            . "TYR-EXISTING,Apollo,295/80R22.5,2026-01-15,18500,45000,RADIAL\n"
+            // In-file duplicate 1
+            . "TYR-DUP-01,Apollo,295/80R22.5,2026-01-15,18500,45000,RADIAL\n"
+            // In-file duplicate 2
+            . "TYR-DUP-01,Apollo,295/80R22.5,2026-01-15,18500,45000,RADIAL\n"
+            // Invalid tyre type
+            . "TYR-INVALID-TYPE,MRF,295/80R22.5,2026-01-15,18500,45000,INVALID_TYPE\n"
+            // Valid row
+            . "TYR-VALID,CEAT,295/80R22.5,2026-01-15,17500,40000,RADIAL\n";
+
+        $file = UploadedFile::fake()->createWithContent('tyres.csv', $csvContent);
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->post('/api/tyres/bulk-upload', [
+                'file' => $file,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('summary.total', 5)
+            ->assertJsonPath('summary.successful', 2)
+            ->assertJsonPath('summary.failed', 3);
+
+        $errors = $response->json('errors');
+        $this->assertNotEmpty($errors);
+
+        $this->assertDatabaseHas('tyres', [
+            'tenant_id' => $tenant->id,
+            'serial_number' => 'TYR-VALID',
+            'brand' => 'CEAT',
         ]);
     }
 

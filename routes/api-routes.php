@@ -121,6 +121,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::apiResource('goods-types', GoodsTypeController::class);
     Route::post('tyre-layouts/seed-defaults', [TyreLayoutController::class, 'seedDefaults']);
     Route::apiResource('tyre-layouts', TyreLayoutController::class);
+    Route::get('tyres/bulk-upload/template', [TyreController::class, 'bulkUploadTemplate']);
+    Route::post('tyres/bulk-upload', [TyreController::class, 'bulkUpload']);
     Route::get('tyres/alerts', [TyreController::class, 'alerts']);
     Route::post('tyres/replace', [TyreController::class, 'replace']);
     Route::apiResource('tyres', TyreController::class);
