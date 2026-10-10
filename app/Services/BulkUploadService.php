@@ -132,10 +132,10 @@ class BulkUploadService
                         'row' => 1,
                         'field' => 'Header',
                         'value' => implode(', ', $rawHeaders),
-                        'message' => 'Missing required column(s): '.implode(', ', $missingRequired).'. Please use the downloaded template.',
+                        'message' => 'Missing required column(s): ' . implode(', ', $missingRequired) . '. Please use the downloaded template.',
                     ],
                 ],
-                'message' => 'Missing required column(s): '.implode(', ', $missingRequired).'.',
+                'message' => 'Missing required column(s): ' . implode(', ', $missingRequired) . '.',
             ];
         }
 
@@ -295,7 +295,7 @@ class BulkUploadService
 
         // Sort errors by row number for consistent presentation
         if (! empty($errors)) {
-            usort($errors, fn (array $a, array $b): int => ($a['row'] ?? 0) <=> ($b['row'] ?? 0));
+            usort($errors, fn(array $a, array $b): int => ($a['row'] ?? 0) <=> ($b['row'] ?? 0));
         }
 
         $message = sprintf(
@@ -478,7 +478,7 @@ class BulkUploadService
                             'row' => $item['row'],
                             'field' => 'Database',
                             'value' => json_encode($item['data']),
-                            'message' => 'Database save error: '.$e->getMessage(),
+                            'message' => 'Database save error: ' . $e->getMessage(),
                         ]);
                     }
                 }
@@ -491,7 +491,7 @@ class BulkUploadService
                 'row' => $toSave[0]['row'] ?? 0,
                 'field' => 'Transaction',
                 'value' => '',
-                'message' => 'Database transaction error: '.$e->getMessage(),
+                'message' => 'Database transaction error: ' . $e->getMessage(),
             ]);
         }
     }
@@ -515,7 +515,7 @@ class BulkUploadService
     {
         $responseHeaders = [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
             'Pragma' => 'no-cache',
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
             'Expires' => '0',
@@ -525,7 +525,7 @@ class BulkUploadService
             $handle = fopen('php://output', 'w');
 
             // UTF-8 BOM for Microsoft Excel compatibility
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
             fputcsv($handle, $headers);
 
@@ -657,7 +657,7 @@ class BulkUploadService
                     return null;
                 }
 
-                $headers = array_map(fn ($h) => trim((string) $h), $rawHeaders);
+                $headers = array_map(fn($h) => trim((string) $h), $rawHeaders);
 
                 $dataGenerator = function () use ($rowGenerator, $spreadsheet) {
                     try {
@@ -687,7 +687,7 @@ class BulkUploadService
             return null;
         }
 
-        $rawHeaders = fgetcsv($handle, 0, $delimiter);
+        $rawHeaders = fgetcsv($handle, 0, $delimiter, '"', '\\');
         if ($rawHeaders === false || empty($rawHeaders)) {
             fclose($handle);
 
@@ -709,11 +709,11 @@ class BulkUploadService
             return null;
         }
 
-        $headers = array_map(fn ($h) => trim((string) $h), $rawHeaders);
+        $headers = array_map(fn($h) => trim((string) $h), $rawHeaders);
 
         $rowGenerator = function () use ($handle, $delimiter) {
             try {
-                while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                while (($row = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
                     yield $row;
                 }
             } finally {

@@ -21,7 +21,7 @@ class BrokerNameUniquenessTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_cannot_create_reference_with_duplicate_name_in_same_city(): void
+    public function test_can_create_reference_with_duplicate_name_in_same_city(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
 
@@ -44,8 +44,7 @@ class BrokerNameUniquenessTest extends TestCase
                 ...$payload,
                 'contact_number' => '9876543211',
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
+            ->assertCreated();
     }
 
     public function test_same_reference_name_allowed_in_different_cities_within_tenant(): void

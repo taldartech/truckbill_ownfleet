@@ -344,6 +344,70 @@ class BulkUploadTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_customer_duplicate_name_in_same_city_allowed_while_mobile_uniqueness_enforced(): void
+    {
+        [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($branchId));
+
+        // 1. Initial valid upload
+        $csvContent1 = "Customer Name,Mobile,State,City,Address\n"
+            . "Alpha Traders,9800000001,Maharashtra,Mumbai,Nariman Point\n";
+
+        $file1 = UploadedFile::fake()->createWithContent('customers1.csv', $csvContent1);
+
+        $res1 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->post('/api/customers/bulk-upload', ['file' => $file1]);
+
+        $res1->assertOk()->assertJsonPath('summary.successful', 1);
+
+        // 2. Upload with:
+        // - Row A: Different name, same mobile (should fail for mobile uniqueness)
+        // - Row B: Same name (Alpha Traders), different mobile (9800000002), same city (Mumbai) -> SHOULD SUCCEED
+        // - Row C & D: Duplicate name in same city within the file (Gamma Traders, Mumbai, 9800000003 & 9800000004) -> BOTH SUCCEED
+        $csvContent2 = "Customer Name,Mobile,State,City,Address\n"
+            . "Beta Traders,9800000001,Maharashtra,Mumbai,Bandra\n"
+            . "Alpha Traders,9800000002,Maharashtra,Mumbai,Nariman Point\n"
+            . "Gamma Traders,9800000003,Maharashtra,Mumbai,Dadar\n"
+            . "Gamma Traders,9800000004,Maharashtra,Mumbai,Dadar\n";
+
+        $file2 = UploadedFile::fake()->createWithContent('customers2.csv', $csvContent2);
+
+        $res2 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->post('/api/customers/bulk-upload', ['file' => $file2]);
+
+        $res2->assertOk()
+            ->assertJsonPath('summary.successful', 3)
+            ->assertJsonPath('summary.failed', 1);
+
+        $errors = collect($res2->json('errors'));
+
+        // Check Row 2: Mobile conflict
+        $mobileErr = $errors->firstWhere('row', 2);
+        $this->assertNotNull($mobileErr);
+        $this->assertStringContainsString('already registered', $mobileErr['message']);
+
+        // Assert customers created with same name in same city
+        $this->assertDatabaseHas('customers', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Alpha Traders',
+            'contact_number' => '9800000002',
+        ]);
+        $this->assertDatabaseHas('customers', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Gamma Traders',
+            'contact_number' => '9800000003',
+        ]);
+        $this->assertDatabaseHas('customers', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Gamma Traders',
+            'contact_number' => '9800000004',
+        ]);
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: int}
      */

@@ -135,7 +135,27 @@ class BrokerController extends Controller
 
             $rowData['city_id'] = $existingCity->id;
 
-            // 3. Normalize GST and PAN
+            // 3. Normalize & validate Mobile uniqueness
+            $contactRaw = trim((string) ($rowData['contact_number'] ?? ''));
+            $contactDigits = preg_replace('/\D+/', '', $contactRaw);
+            if ($contactDigits !== '') {
+                $rowData['contact_number'] = $contactDigits;
+                $existsContact = Broker::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('contact_number', $contactDigits)
+                    ->exists();
+
+                if ($existsContact) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'field' => 'Mobile',
+                        'value' => $contactRaw,
+                        'message' => 'This mobile number is already registered for another broker in your company.',
+                    ];
+                }
+            }
+
+            // 4. Normalize GST and PAN
             $gstRaw = trim((string) ($rowData['gst_number'] ?? ''));
             $rowData['gst_number'] = $gstRaw !== '' ? strtoupper($gstRaw) : null;
 
