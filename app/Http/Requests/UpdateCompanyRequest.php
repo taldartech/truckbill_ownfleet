@@ -46,6 +46,8 @@ class UpdateCompanyRequest extends FormRequest
             'is_blocked' => ['sometimes', 'boolean'],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
             'remove_logo' => ['sometimes', 'boolean'],
+            'digital_signature' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:200'],
+            'remove_signature' => ['sometimes', 'boolean'],
             'document_color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
@@ -61,6 +63,9 @@ class UpdateCompanyRequest extends FormRequest
             'company_logo.image' => 'The logo must be an image file.',
             'company_logo.mimes' => 'The logo must be a JPG, PNG, or WEBP image.',
             'company_logo.max' => 'The logo may not be greater than 100 KB.',
+            'digital_signature.image' => 'The digital signature must be an image file.',
+            'digital_signature.mimes' => 'The digital signature must be a PNG or JPG image.',
+            'digital_signature.max' => 'The digital signature may not be greater than 200 KB.',
             'document_color.regex' => 'Document color must be a valid hex color (e.g. #0B2A55).',
         ];
     }

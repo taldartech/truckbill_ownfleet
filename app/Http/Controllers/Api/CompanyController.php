@@ -54,7 +54,7 @@ class CompanyController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $validated = collect($request->validated())->except(['company_logo'])->all();
+        $validated = collect($request->validated())->except(['company_logo', 'digital_signature'])->all();
         $tenant = CompanyProvisioner::create($validated, $user);
 
         /** @var UploadedFile|null $logo */
@@ -62,6 +62,16 @@ class CompanyController extends Controller
 
         if ($logo instanceof UploadedFile) {
             $tenant->company_logo = $tenant->storeLogo($logo);
+        }
+
+        /** @var UploadedFile|null $signature */
+        $signature = $request->file('digital_signature');
+
+        if ($signature instanceof UploadedFile) {
+            $tenant->digital_signature = $tenant->storeSignature($signature);
+        }
+
+        if ($tenant->isDirty()) {
             $tenant->save();
         }
 
@@ -83,7 +93,9 @@ class CompanyController extends Controller
             $this->authorize('block', $company);
         }
 
-        $validated = collect($request->validated())->except(['company_logo', 'remove_logo'])->all();
+        $validated = collect($request->validated())
+            ->except(['company_logo', 'remove_logo', 'digital_signature', 'remove_signature'])
+            ->all();
         $company->fill($validated);
 
         /** @var UploadedFile|null $logo */
@@ -94,6 +106,16 @@ class CompanyController extends Controller
         } elseif ($logo instanceof UploadedFile) {
             $company->deleteLogo();
             $company->company_logo = $company->storeLogo($logo);
+        }
+
+        /** @var UploadedFile|null $signature */
+        $signature = $request->file('digital_signature');
+
+        if ($request->boolean('remove_signature')) {
+            $company->deleteSignature();
+        } elseif ($signature instanceof UploadedFile) {
+            $company->deleteSignature();
+            $company->digital_signature = $company->storeSignature($signature);
         }
 
         $company->save();

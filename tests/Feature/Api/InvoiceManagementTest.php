@@ -27,7 +27,10 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 
 class InvoiceManagementTest extends TestCase
@@ -940,6 +943,49 @@ class InvoiceManagementTest extends TestCase
             ->assertOk();
     }
 
+    public function test_invoice_pdf_prints_company_digital_signature_when_uploaded(): void
+    {
+        Storage::fake('public');
+
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $invoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $capturedData = [];
+        View::creator('invoices.pdf.party-bill-pdf-modern', function ($view) use (&$capturedData): void {
+            $capturedData = $view->getData();
+        });
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf")
+            ->assertOk();
+
+        $this->assertNull($capturedData['signature_src']);
+
+        $tenant->forceFill([
+            'digital_signature' => $tenant->storeSignature(UploadedFile::fake()->image('signature.png', 300, 100)),
+        ])->save();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf")
+            ->assertOk();
+
+        $this->assertStringStartsWith('data:image/png;base64,', $capturedData['signature_src']);
+
+        $html = view('invoices.pdf.party-bill-pdf-modern', $capturedData)->render();
+
+        $this->assertStringContainsString('src="'.$capturedData['signature_src'].'"', $html);
+        $this->assertStringContainsString('Authorized Signature', $html);
+    }
+
     public function test_cancelled_invoice_remains_visible_and_read_only(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
@@ -1804,4 +1850,3 @@ class InvoiceManagementTest extends TestCase
         $this->assertStringContainsString('Net Amount in words:', $html);
     }
 }
-

@@ -553,14 +553,14 @@ class InvoiceService
             $maxAllowableTds = (float) ($invoice->freight_amount > 0 ? $invoice->freight_amount : $invoice->total_amount);
             if ($tdsAmount > 0 && ($priorTds + $tdsAmount) > ($maxAllowableTds + 0.01)) {
                 throw ValidationException::withMessages([
-                    'tds_amount' => ["Total TDS across payments (₹".number_format($priorTds + $tdsAmount, 2).") cannot exceed the invoice freight amount of ₹".number_format($maxAllowableTds, 2).'.'],
+                    'tds_amount' => ['Total TDS across payments (₹'.number_format($priorTds + $tdsAmount, 2).') cannot exceed the invoice freight amount of ₹'.number_format($maxAllowableTds, 2).'.'],
                 ]);
             }
 
             $remaining = $invoice->remainingAmount();
             if ($totalSettled - $remaining > 0.01) {
                 throw ValidationException::withMessages([
-                    'amount' => ["Total settlement amount (₹".number_format($totalSettled, 2).") cannot exceed the remaining balance of ₹".number_format($remaining, 2).'.'],
+                    'amount' => ['Total settlement amount (₹'.number_format($totalSettled, 2).') cannot exceed the remaining balance of ₹'.number_format($remaining, 2).'.'],
                 ]);
             }
 
@@ -897,6 +897,7 @@ class InvoiceService
             'document_color' => $company?->documentColor(),
             'document_text_color' => $company?->documentTextColor() ?? '#000000',
             'document_color_soft' => $company?->documentColorWithOpacity(0.2),
+            'signature_src' => $company?->signatureDataUriForPdf(),
         ])->setPaper('a4');
     }
 

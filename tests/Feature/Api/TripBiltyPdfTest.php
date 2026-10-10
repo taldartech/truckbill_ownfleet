@@ -22,6 +22,9 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 
 class TripBiltyPdfTest extends TestCase
@@ -79,6 +82,41 @@ class TripBiltyPdfTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get("/app/api/trips/{$trip->id}/bilty.pdf?show_freight=1")
             ->assertOk();
+    }
+
+    public function test_bilty_pdf_prints_company_digital_signature_when_uploaded(): void
+    {
+        Storage::fake('public');
+
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ], complete: false);
+
+        $capturedData = [];
+        View::creator('trips.pdf.bilty-copy', function ($view) use (&$capturedData): void {
+            $capturedData = $view->getData();
+        });
+
+        $service = app(\App\Modules\TripManagement\Services\TripBiltyService::class);
+        $service->pdf($trip, false);
+
+        $this->assertNull($capturedData['signature_src']);
+        $this->assertStringNotContainsString('Authorized signature', view('trips.pdf.bilty-copy', $capturedData)->render());
+
+        $tenant->forceFill([
+            'digital_signature' => $tenant->storeSignature(UploadedFile::fake()->image('signature.png', 300, 100)),
+        ])->save();
+
+        $service->pdf($trip->fresh(['routeLegs.customer', 'vehicle', 'driver']), false);
+
+        $this->assertStringStartsWith('data:image/png;base64,', $capturedData['signature_src']);
+        $this->assertStringContainsString(
+            'src="'.$capturedData['signature_src'].'"',
+            view('trips.pdf.bilty-copy', $capturedData)->render(),
+        );
     }
 
     public function test_one_bilty_copy_per_revenue_leg_in_single_pdf(): void

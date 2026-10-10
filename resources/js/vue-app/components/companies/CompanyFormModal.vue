@@ -178,6 +178,39 @@
             </div>
         </div>
 
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label" for="digital_signature">Digital Signature</label>
+                <div v-if="signaturePreviewUrl" class="d-flex align-items-center gap-3 mb-2">
+                    <img :src="signaturePreviewUrl" alt="Signature preview" class="company-signature-preview" />
+                    <button
+                        v-if="isEdit && existingSignatureUrl && !removeSignature && !signatureFile"
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        @click="onRemoveSignature"
+                    >
+                        Remove signature
+                    </button>
+                </div>
+                <input
+                    id="digital_signature"
+                    ref="signatureInputRef"
+                    type="file"
+                    class="form-control"
+                    accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+                    :class="{ 'is-invalid': fieldErrors.digital_signature }"
+                    @change="onSignatureFileChange"
+                />
+                <div v-if="fieldErrors.digital_signature" class="invalid-feedback d-block">
+                    {{ fieldErrors.digital_signature[0] }}
+                </div>
+                <div v-else class="form-text">
+                    Optional. Printed as the authorized signature on bilty and invoice PDFs.
+                    PNG with a transparent background works best (JPG also accepted), up to 200 KB.
+                </div>
+            </div>
+        </div>
+
         <template #footer>
             <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
             <button type="submit" class="btn" :class="isEdit ? 'btn-warning' : 'btn-success'" :disabled="saving">
@@ -221,6 +254,10 @@ const logoInputRef = ref(null);
 const logoFile = ref(null);
 const logoObjectUrl = ref('');
 const removeLogo = ref(false);
+const signatureInputRef = ref(null);
+const signatureFile = ref(null);
+const signatureObjectUrl = ref('');
+const removeSignature = ref(false);
 const localFieldErrors = reactive({});
 const { states, initialize: initializeLocations } = useLocationLookups();
 
@@ -233,6 +270,16 @@ const existingLogoUrl = computed(() => {
 });
 
 const logoPreviewUrl = computed(() => logoObjectUrl.value || existingLogoUrl.value || '');
+
+const existingSignatureUrl = computed(() => {
+    if (removeSignature.value) {
+        return '';
+    }
+
+    return props.company?.signature_url ?? '';
+});
+
+const signaturePreviewUrl = computed(() => signatureObjectUrl.value || existingSignatureUrl.value || '');
 
 const stateSelectOptions = computed(() =>
     states.value.map((state) => ({
@@ -363,6 +410,45 @@ function onRemoveLogo() {
     }
 }
 
+function revokeSignatureObjectUrl() {
+    if (signatureObjectUrl.value) {
+        URL.revokeObjectURL(signatureObjectUrl.value);
+        signatureObjectUrl.value = '';
+    }
+}
+
+function resetSignatureState() {
+    signatureFile.value = null;
+    removeSignature.value = false;
+    revokeSignatureObjectUrl();
+
+    if (signatureInputRef.value) {
+        signatureInputRef.value.value = '';
+    }
+}
+
+function onSignatureFileChange(event) {
+    const file = event.target.files?.[0] ?? null;
+
+    revokeSignatureObjectUrl();
+    signatureFile.value = file;
+    removeSignature.value = false;
+
+    if (file) {
+        signatureObjectUrl.value = URL.createObjectURL(file);
+    }
+}
+
+function onRemoveSignature() {
+    signatureFile.value = null;
+    removeSignature.value = true;
+    revokeSignatureObjectUrl();
+
+    if (signatureInputRef.value) {
+        signatureInputRef.value.value = '';
+    }
+}
+
 function resetForm() {
     form.name = '';
     form.pan_number = '';
@@ -373,6 +459,7 @@ function resetForm() {
     form.document_color = '';
     gstForm.value = createGstFormState();
     resetLogoState();
+    resetSignatureState();
 }
 
 function fillForm(company) {
@@ -385,6 +472,7 @@ function fillForm(company) {
     form.document_color = normalizeDocumentColor(company?.document_color) ?? '';
     gstForm.value = createGstFormState(company);
     resetLogoState();
+    resetSignatureState();
 }
 
 function submit() {
@@ -421,6 +509,14 @@ function submit() {
         payload.remove_logo = true;
     }
 
+    if (signatureFile.value instanceof File) {
+        payload.digital_signature = signatureFile.value;
+    }
+
+    if (isEdit.value && removeSignature.value && !(signatureFile.value instanceof File)) {
+        payload.remove_signature = true;
+    }
+
     emit('submit', payload);
 }
 
@@ -430,6 +526,7 @@ watch(
         if (!visible) {
             clearLocalFieldErrors();
             resetLogoState();
+            resetSignatureState();
 
             return;
         }
@@ -451,6 +548,7 @@ watch(
 
 onBeforeUnmount(() => {
     revokeLogoObjectUrl();
+    revokeSignatureObjectUrl();
 });
 </script>
 
@@ -458,6 +556,16 @@ onBeforeUnmount(() => {
 .company-logo-preview {
     width: 88px;
     height: 88px;
+    object-fit: contain;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.25rem;
+}
+
+.company-signature-preview {
+    width: 160px;
+    height: 64px;
     object-fit: contain;
     border: 1px solid #dee2e6;
     border-radius: 0.5rem;
