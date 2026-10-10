@@ -206,7 +206,7 @@
                 </div>
                 <div v-else class="form-text">
                     Optional. Printed as the authorized signature on bilty and invoice PDFs.
-                    PNG with a transparent background works best (JPG also accepted), up to 200 KB.
+                    PNG with a transparent background works best (JPG also accepted), up to 75 KB.
                 </div>
             </div>
         </div>

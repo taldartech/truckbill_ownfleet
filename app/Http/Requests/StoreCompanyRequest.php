@@ -39,7 +39,7 @@ class StoreCompanyRequest extends FormRequest
             'timezone' => ['nullable', 'string', 'max:64'],
             'payroll_pay_days_mode' => ['nullable', Rule::enum(PayrollPayDaysMode::class)],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:100'],
-            'digital_signature' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:200'],
+            'digital_signature' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:75'],
             'document_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
@@ -57,7 +57,7 @@ class StoreCompanyRequest extends FormRequest
             'company_logo.max' => 'The logo may not be greater than 100 KB.',
             'digital_signature.image' => 'The digital signature must be an image file.',
             'digital_signature.mimes' => 'The digital signature must be a PNG or JPG image.',
-            'digital_signature.max' => 'The digital signature may not be greater than 200 KB.',
+            'digital_signature.max' => 'The digital signature may not be greater than 75 KB.',
             'document_color.regex' => 'Document color must be a valid hex color (e.g. #0B2A55).',
         ];
     }

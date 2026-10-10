@@ -552,7 +552,7 @@ class CompanyManagementTest extends TestCase
                 'pan_number' => 'SSSSS1234U',
                 'contact_person' => 'Large Contact',
                 'contact_number' => '9876543283',
-                'digital_signature' => UploadedFile::fake()->image('signature.png')->size(300),
+                'digital_signature' => UploadedFile::fake()->image('signature.png')->size(76),
             ], [
                 'Accept' => 'application/json',
             ])
