@@ -92,7 +92,44 @@ class DriverController extends Controller
                 $rowData['license_expiry_date'] = null;
             }
 
-            // 2. Normalize and check uniqueness for Aadhaar / PAN
+            // 2. Normalize and check uniqueness for Phone & License Number
+            $phoneRaw = trim((string) ($rowData['phone'] ?? ''));
+            $phoneDigits = preg_replace('/\D+/', '', $phoneRaw);
+            if ($phoneDigits !== '') {
+                $rowData['phone'] = $phoneDigits;
+                $existsPhone = Driver::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('phone', $phoneDigits)
+                    ->exists();
+
+                if ($existsPhone) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'field' => 'Phone',
+                        'value' => $phoneRaw,
+                        'message' => 'This phone number is already registered for another driver in your company.',
+                    ];
+                }
+            }
+
+            $licenseRaw = trim((string) ($rowData['license_number'] ?? ''));
+            if ($licenseRaw !== '') {
+                $existsLicense = Driver::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('license_number', $licenseRaw)
+                    ->exists();
+
+                if ($existsLicense) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'field' => 'License Number',
+                        'value' => $licenseRaw,
+                        'message' => 'This license number is already registered for another driver in your company.',
+                    ];
+                }
+            }
+
+            // 3. Normalize and check uniqueness for Aadhaar / PAN
             $aadhaarRaw = trim((string) ($rowData['aadhaar_number'] ?? ''));
             $rowData['aadhaar_number'] = $aadhaarRaw !== '' ? preg_replace('/\D/', '', $aadhaarRaw) : null;
             if ($rowData['aadhaar_number']) {
@@ -207,12 +244,14 @@ class DriverController extends Controller
                     'required' => false,
                     'aliases' => ['aadhaar_number', 'aadhaar', 'aadhaar_no', 'aadhar'],
                     'rules' => ['nullable', 'string', 'digits:12'],
+                    'unique' => true,
                 ],
                 'pan_number' => [
                     'label' => 'PAN Number',
                     'required' => false,
                     'aliases' => ['pan_number', 'pan', 'pan_no'],
                     'rules' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/i'],
+                    'unique' => true,
                 ],
                 'license_expiry_date' => [
                     'label' => 'License Expiry Date',
