@@ -38,6 +38,8 @@ class CompanyResource extends JsonResource
             'contact_number' => $this->contact_number,
             'company_logo' => $this->company_logo,
             'logo_url' => $this->logoPublicUrl(),
+            'digital_signature' => $this->digital_signature,
+            'signature_url' => $this->signaturePublicUrl(),
             'document_color' => $this->documentColor(),
             'plan_end_date' => $this->plan_end_date?->toDateString(),
             'plan_end_date_formatted' => $this->plan_end_date

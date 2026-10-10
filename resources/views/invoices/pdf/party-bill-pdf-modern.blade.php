@@ -271,6 +271,12 @@
             margin-top: 18px;
         }
 
+        .signature-image {
+            height: 48px;
+            max-width: 160px;
+            margin: 4px 0;
+        }
+
         .brand-footer {
             font-size: 7px;
             text-align: right;
@@ -817,7 +823,12 @@
             @endif
 
             <div class="signature">
-                For {{ $companyName }}<br><br><br>
+                For {{ $companyName }}<br>
+                @if (! empty($signature_src ?? null))
+                    <img class="signature-image" src="{{ $signature_src }}" alt="Authorized signature"><br>
+                @else
+                    <br><br>
+                @endif
                 Authorized Signature
             </div>
 

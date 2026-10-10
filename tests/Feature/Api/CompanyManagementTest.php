@@ -456,6 +456,110 @@ class CompanyManagementTest extends TestCase
         Storage::disk('public')->assertMissing($newLogo);
     }
 
+    public function test_company_digital_signature_can_be_uploaded_replaced_and_removed(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+        $companyFields = [
+            'name' => 'Signature Transport',
+            'pan_number' => 'SSSSS1234S',
+            'contact_person' => 'Signature Contact',
+            'contact_number' => '9876543281',
+        ];
+
+        $createResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                ...$companyFields,
+                'digital_signature' => UploadedFile::fake()->image('signature.png', 300, 100),
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertCreated();
+
+        $companyId = $createResponse->json('data.id');
+        $storedSignature = $createResponse->json('data.digital_signature');
+
+        $this->assertStringStartsWith("signatures/companies/{$companyId}/", $storedSignature);
+        $this->assertNotNull($createResponse->json('data.signature_url'));
+        Storage::disk('public')->assertExists($storedSignature);
+        $this->assertStringStartsWith(
+            'data:image/png;base64,',
+            Tenant::query()->findOrFail($companyId)->signatureDataUriForPdf(),
+        );
+
+        $this->actingAs($superAdmin)
+            ->putJson('/app/api/companies/'.$companyId, [
+                ...$companyFields,
+                'name' => 'Signature Transport Renamed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.digital_signature', $storedSignature);
+
+        $updateResponse = $this->actingAs($superAdmin)
+            ->post('/app/api/companies/'.$companyId, [
+                ...$companyFields,
+                '_method' => 'PUT',
+                'digital_signature' => UploadedFile::fake()->image('signature-2.jpg', 300, 100),
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk();
+
+        $newSignature = $updateResponse->json('data.digital_signature');
+        $this->assertNotSame($storedSignature, $newSignature);
+        Storage::disk('public')->assertMissing($storedSignature);
+        Storage::disk('public')->assertExists($newSignature);
+
+        $this->actingAs($superAdmin)
+            ->post('/app/api/companies/'.$companyId, [
+                ...$companyFields,
+                '_method' => 'PUT',
+                'remove_signature' => '1',
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.digital_signature', null)
+            ->assertJsonPath('data.signature_url', null);
+
+        Storage::disk('public')->assertMissing($newSignature);
+        $this->assertNull(Tenant::query()->findOrFail($companyId)->signatureDataUriForPdf());
+    }
+
+    public function test_company_digital_signature_rejects_unsupported_files(): void
+    {
+        Storage::fake('public');
+
+        $superAdmin = $this->createSuperAdmin();
+
+        $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                'name' => 'Bad Signature Co',
+                'pan_number' => 'SSSSS1234T',
+                'contact_person' => 'Bad Contact',
+                'contact_number' => '9876543282',
+                'digital_signature' => UploadedFile::fake()->create('signature.pdf', 50, 'application/pdf'),
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['digital_signature']);
+
+        $this->actingAs($superAdmin)
+            ->post('/app/api/companies', [
+                'name' => 'Large Signature Co',
+                'pan_number' => 'SSSSS1234U',
+                'contact_person' => 'Large Contact',
+                'contact_number' => '9876543283',
+                'digital_signature' => UploadedFile::fake()->image('signature.png')->size(76),
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['digital_signature']);
+    }
+
     public function test_company_document_color_can_be_set_and_updated(): void
     {
         $superAdmin = $this->createSuperAdmin();

@@ -23,8 +23,10 @@ export async function listAllCompanies() {
     return data.data ?? [];
 }
 
+const COMPANY_FILE_FIELDS = ['company_logo', 'digital_signature'];
+
 export async function createCompany(payload) {
-    if (payloadNeedsMultipart(payload, ['company_logo'])) {
+    if (payloadNeedsMultipart(payload, COMPANY_FILE_FIELDS)) {
         const { data } = await api.post(companiesBase, toFormData(payload));
 
         return unwrapResource(data);
@@ -36,7 +38,7 @@ export async function createCompany(payload) {
 }
 
 export async function updateCompany(id, payload) {
-    if (payloadNeedsMultipart(payload, ['company_logo'])) {
+    if (payloadNeedsMultipart(payload, COMPANY_FILE_FIELDS)) {
         const formData = toFormData(payload);
         formData.append('_method', 'PUT');
         const { data } = await api.post(`${companiesBase}/${id}`, formData);

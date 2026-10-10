@@ -129,6 +129,14 @@
             font-size: 9.5px;
             line-height: 1.9;
         }
+        .sign-space {
+            height: 56px;
+            text-align: center;
+        }
+        .sign-image {
+            height: 52px;
+            max-width: 150px;
+        }
         .footer-note {
             margin: 0px 10px 10px 0px;
             text-align: right;
@@ -137,6 +145,9 @@
     </style>
 </head>
 <body>
+@php
+    $hasSignature = ! empty($signature_src ?? null);
+@endphp
 @foreach ($bilties as $index => $bilty)
     @if ($index > 0)
         <div class="page-break"></div>
@@ -292,9 +303,12 @@
             </tr>
         </table>
 
-        <table class="lr sign-table" style="margin-top: 100px;">
+        <table class="lr sign-table" style="margin-top: {{ $hasSignature ? 44 : 100 }}px;">
             <tr>
                 <td>
+                    @if ($hasSignature)
+                        <div class="sign-space"></div>
+                    @endif
                     <div class="sign-head">Consignor Signature</div>
                     <div class="sign-body">
                         Company<br>
@@ -302,12 +316,20 @@
                     </div>
                 </td>
                 <td>
+                    @if ($hasSignature)
+                        <div class="sign-space">
+                            <img class="sign-image" src="{{ $signature_src }}" alt="Authorized signature">
+                        </div>
+                    @endif
                     <div class="sign-head">{{ $company?->name }}</div>
                     <div class="sign-body">
                         Date
                     </div>
                 </td>
                 <td>
+                    @if ($hasSignature)
+                        <div class="sign-space"></div>
+                    @endif
                     <div class="sign-head">Consignee Signature</div>
                     <div class="sign-body">
                         Company<br>
