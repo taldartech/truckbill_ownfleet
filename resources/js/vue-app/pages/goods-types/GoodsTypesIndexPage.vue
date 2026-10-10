@@ -4,6 +4,14 @@
             <template #toolbar>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload Goods Types"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Add Goods Type"
                     @click="openCreate"
@@ -98,6 +106,16 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Goods Types"
+            upload-url="/app/api/goods-types/bulk-upload"
+            template-download-url="/app/api/goods-types/bulk-upload/template"
+            template-file-name="goods_types_template.csv"
+            :columns="bulkUploadColumns"
+            @success="loadGoodsTypes(1)"
+        />
     </div>
 </template>
 
@@ -113,6 +131,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import GoodsTypeFormModal from '../../components/goods-types/GoodsTypeFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -140,6 +159,12 @@ const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'name', label: 'Goods Type Name', required: true, description: 'Unique goods type / commodity name' },
+    { name: 'code', label: 'Code', required: false, description: 'Optional commodity or classification code' },
+];
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 

@@ -197,6 +197,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
         Route::middleware(['tenant.context', 'subscription.active'])->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
+            Route::get('/drivers/bulk-upload/template', [DriverController::class, 'bulkUploadTemplate'])
+                ->name('drivers.bulk-upload.template');
+            Route::post('/drivers/bulk-upload', [DriverController::class, 'bulkUpload'])
+                ->name('drivers.bulk-upload');
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
             Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
             Route::get('/drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger'])
@@ -224,6 +228,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::put('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'update'])->name('truck-types.update');
             Route::delete('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'destroy'])->name('truck-types.destroy');
 
+            Route::get('/vehicles/bulk-upload/template', [\App\Http\Controllers\Api\VehicleController::class, 'bulkUploadTemplate'])
+                ->name('vehicles.bulk-upload.template');
+            Route::post('/vehicles/bulk-upload', [\App\Http\Controllers\Api\VehicleController::class, 'bulkUpload'])
+                ->name('vehicles.bulk-upload');
             Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
             Route::get('/vehicles/for-trip-selection', [\App\Http\Controllers\Api\VehicleController::class, 'forTripSelection'])
                 ->name('vehicles.for-trip-selection');
@@ -269,6 +277,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::put('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'update'])->name('document-types.update');
             Route::delete('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy'])->name('document-types.destroy');
 
+            Route::get('/goods-types/bulk-upload/template', [\App\Http\Controllers\Api\GoodsTypeController::class, 'bulkUploadTemplate'])
+                ->name('goods-types.bulk-upload.template');
+            Route::post('/goods-types/bulk-upload', [\App\Http\Controllers\Api\GoodsTypeController::class, 'bulkUpload'])
+                ->name('goods-types.bulk-upload');
             Route::get('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'index'])->name('goods-types.index');
             Route::post('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'store'])->name('goods-types.store');
             Route::get('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'show'])->name('goods-types.show');
@@ -356,8 +368,22 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
 
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
+            Route::get('stations/bulk-upload/template', [\App\Http\Controllers\Api\StationController::class, 'bulkUploadTemplate'])
+                ->name('stations.bulk-upload.template');
+            Route::post('stations/bulk-upload', [\App\Http\Controllers\Api\StationController::class, 'bulkUpload'])
+                ->name('stations.bulk-upload');
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+
+            Route::get('brokers/bulk-upload/template', [\App\Http\Controllers\Api\BrokerController::class, 'bulkUploadTemplate'])
+                ->name('brokers.bulk-upload.template');
+            Route::post('brokers/bulk-upload', [\App\Http\Controllers\Api\BrokerController::class, 'bulkUpload'])
+                ->name('brokers.bulk-upload');
             Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
+
+            Route::get('customers/bulk-upload/template', [\App\Http\Controllers\Api\CustomerController::class, 'bulkUploadTemplate'])
+                ->name('customers.bulk-upload.template');
+            Route::post('customers/bulk-upload', [\App\Http\Controllers\Api\CustomerController::class, 'bulkUpload'])
+                ->name('customers.bulk-upload');
             Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
 
             Route::post('tyre-layouts/seed-defaults', [\App\Http\Controllers\Api\TyreLayoutController::class, 'seedDefaults']);

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DriverAdvanceController;
 use App\Http\Controllers\Api\DriverAssignmentController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FleetMonthlyReportController;
+use App\Http\Controllers\Api\GoodsTypeController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MaintenanceServiceTypeController;
@@ -54,12 +55,16 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
+    Route::get('vehicles/bulk-upload/template', [VehicleController::class, 'bulkUploadTemplate']);
+    Route::post('vehicles/bulk-upload', [VehicleController::class, 'bulkUpload']);
     Route::get('vehicles/for-trip-selection', [VehicleController::class, 'forTripSelection']);
     Route::apiResource('vehicles', VehicleController::class);
     Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'toggleStatus']);
     Route::get('vehicles/{vehicle}/primary-assignment', [VehicleController::class, 'primaryAssignment']);
     Route::get('vehicles/{vehicle}/fuel-history', [VehicleController::class, 'fuelHistory']);
     Route::post('vehicles/{vehicle}/remove-primary-driver', [VehicleController::class, 'removePrimaryDriver']);
+    Route::get('drivers/bulk-upload/template', [DriverController::class, 'bulkUploadTemplate']);
+    Route::post('drivers/bulk-upload', [DriverController::class, 'bulkUpload']);
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
     Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
     Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
@@ -102,9 +107,18 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
 
     Route::apiResource('states', StateController::class)->except(['destroy']);
     Route::apiResource('cities', CityController::class)->except(['destroy']);
+    Route::get('stations/bulk-upload/template', [StationController::class, 'bulkUploadTemplate']);
+    Route::post('stations/bulk-upload', [StationController::class, 'bulkUpload']);
     Route::apiResource('stations', StationController::class);
+    Route::get('brokers/bulk-upload/template', [BrokerController::class, 'bulkUploadTemplate']);
+    Route::post('brokers/bulk-upload', [BrokerController::class, 'bulkUpload']);
     Route::apiResource('brokers', BrokerController::class);
+    Route::get('customers/bulk-upload/template', [CustomerController::class, 'bulkUploadTemplate']);
+    Route::post('customers/bulk-upload', [CustomerController::class, 'bulkUpload']);
     Route::apiResource('customers', CustomerController::class);
+    Route::get('goods-types/bulk-upload/template', [GoodsTypeController::class, 'bulkUploadTemplate']);
+    Route::post('goods-types/bulk-upload', [GoodsTypeController::class, 'bulkUpload']);
+    Route::apiResource('goods-types', GoodsTypeController::class);
     Route::post('tyre-layouts/seed-defaults', [TyreLayoutController::class, 'seedDefaults']);
     Route::apiResource('tyre-layouts', TyreLayoutController::class);
     Route::get('tyres/alerts', [TyreController::class, 'alerts']);
