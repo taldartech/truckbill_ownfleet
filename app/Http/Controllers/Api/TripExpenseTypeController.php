@@ -44,6 +44,7 @@ class TripExpenseTypeController extends Controller
 
     public function store(StoreTripExpenseTypeRequest $request): TripExpenseTypeResource
     {
+        TripExpenseTypeMaster::onlyTrashed()->where(fn ($q) => $q->where('code', $request->code)->orWhere('name', $request->name))->forceDelete();
 
         $tripExpenseType = TripExpenseTypeMaster::query()->create([
             ...$request->validated(),

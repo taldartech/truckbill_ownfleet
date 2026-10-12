@@ -36,13 +36,13 @@ class StoreTripExpenseTypeRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('trip_expense_types', 'name'),
+                Rule::unique('trip_expense_types', 'name')->whereNull('deleted_at'),
             ],
             'code' => [
                 'required',
                 'string',
                 'max:64',
-                Rule::unique('trip_expense_types', 'code'),
+                Rule::unique('trip_expense_types', 'code')->whereNull('deleted_at'),
             ],
         ];
     }
