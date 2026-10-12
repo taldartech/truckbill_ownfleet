@@ -171,7 +171,9 @@ async function loadExpenseTypes(page = pagination.currentPage) {
             search: search.value.trim(),
         });
 
-        expenseTypes.value = response.data;
+        expenseTypes.value = (response.data || []).filter(
+            (item) => !['DIESEL', 'OTHER'].includes(item.code?.toUpperCase()),
+        );
         syncFromMeta(response.meta, expenseTypes.value.length);
     } catch {
         toast.error('Could not load trip expense types.');

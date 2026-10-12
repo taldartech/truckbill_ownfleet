@@ -12,6 +12,8 @@ class TripExpenseTypeMaster extends Model
 
     protected $table = 'trip_expense_types';
 
+    public const SYSTEM_CODES = ['DIESEL', 'OTHER'];
+
     protected $fillable = [
         'tenant_id',
         'name',
@@ -20,6 +22,11 @@ class TripExpenseTypeMaster extends Model
         'created_by',
         'updated_by',
     ];
+
+    public function isSystem(): bool
+    {
+        return in_array(strtoupper((string) $this->code), self::SYSTEM_CODES, true);
+    }
 
     protected function casts(): array
     {

@@ -24,6 +24,10 @@ class TripExpenseTypeController extends Controller
         $query = TripExpenseTypeMaster::query()
             ->orderBy('name');
 
+        if (! $request->boolean('include_system') && ! $request->has('all')) {
+            $query->whereNotIn('code', TripExpenseTypeMaster::SYSTEM_CODES);
+        }
+
         if ($activeOnly) {
             $query->where('is_active', true);
         }
@@ -70,6 +74,10 @@ class TripExpenseTypeController extends Controller
 
     public function update(UpdateTripExpenseTypeRequest $request, TripExpenseTypeMaster $tripExpenseType): TripExpenseTypeResource
     {
+        if ($tripExpenseType->isSystem()) {
+            abort(422, 'Default system expense types cannot be modified.');
+        }
+
         $data = [
             'updated_by' => $request->user()?->id,
         ];
@@ -91,6 +99,10 @@ class TripExpenseTypeController extends Controller
     public function destroy(TripExpenseTypeMaster $tripExpenseType): JsonResponse
     {
         $this->authorize('delete', $tripExpenseType);
+
+        if ($tripExpenseType->isSystem()) {
+            abort(422, 'Default system expense types cannot be deleted.');
+        }
 
         $tripExpenseType->delete();
 

@@ -36,8 +36,10 @@ class UpdateTripExpenseTypeRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
+                Rule::notIn(['Diesel', 'Other', 'DIESEL', 'OTHER', 'diesel', 'other']),
                 Rule::unique('trip_expense_types', 'name')
-                    ->ignore($id),
+                    ->ignore($id)
+                    ->whereNull('deleted_at'),
             ],
             'is_active' => ['sometimes', 'boolean'],
         ];
@@ -47,6 +49,7 @@ class UpdateTripExpenseTypeRequest extends FormRequest
     {
         return [
             'name.required' => 'Trip expense type name is required.',
+            'name.not_in' => 'Diesel and Other are default system expense types.',
             'name.unique' => 'A trip expense type with this name already exists.',
         ];
     }

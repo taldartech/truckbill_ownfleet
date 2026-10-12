@@ -168,6 +168,44 @@ class TripExpenseTypeManagementTest extends TestCase
         ]);
     }
 
+    public function test_can_recreate_soft_deleted_trip_expense_type(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        SelectedCompanySession::set($tenant->id);
+        TenantContext::setTenantId($tenant->id);
+
+        $type = TripExpenseTypeMaster::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Driver Bata',
+            'code' => 'DRIVER_BATA',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson("/app/api/trip-expense-types/{$type->id}")
+            ->assertOk();
+
+        $this->assertSoftDeleted('trip_expense_types', [
+            'id' => $type->id,
+        ]);
+
+        $res = $this->actingAs($admin)
+            ->postJson('/app/api/trip-expense-types', [
+                'name' => 'Driver Bata',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Driver Bata');
+
+        $newId = $res->json('data.id');
+        $this->assertNotEquals($type->id, $newId);
+        $this->assertDatabaseHas('trip_expense_types', [
+            'id' => $newId,
+            'name' => 'Driver Bata',
+            'deleted_at' => null,
+            'is_active' => true,
+        ]);
+    }
+
 
 
     public function test_existing_trip_expense_records_remain_unaffected_when_type_deactivated(): void
@@ -322,6 +360,77 @@ class TripExpenseTypeManagementTest extends TestCase
             ->getJson('/app/api/trip-expense-types?active_only=1')
             ->assertOk()
             ->assertJsonFragment(['name' => 'Global Washing']);
+    }
+
+    public function test_diesel_and_other_system_types_are_hidden_from_master_and_immutable(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        SelectedCompanySession::set($tenant->id);
+        TenantContext::setTenantId($tenant->id);
+
+        $diesel = TripExpenseTypeMaster::query()->create([
+            'name' => 'Diesel',
+            'code' => 'DIESEL',
+            'is_active' => true,
+        ]);
+
+        $other = TripExpenseTypeMaster::query()->create([
+            'name' => 'Other',
+            'code' => 'OTHER',
+            'is_active' => true,
+        ]);
+
+        $toll = TripExpenseTypeMaster::query()->create([
+            'name' => 'Toll',
+            'code' => 'TOLL',
+            'is_active' => true,
+        ]);
+
+        // Default master listing excludes DIESEL and OTHER
+        $indexRes = $this->actingAs($admin)
+            ->getJson('/app/api/trip-expense-types')
+            ->assertOk();
+
+        $indexCodes = collect($indexRes->json('data'))->pluck('code')->all();
+        $this->assertNotContains('DIESEL', $indexCodes);
+        $this->assertNotContains('OTHER', $indexCodes);
+        $this->assertContains('TOLL', $indexCodes);
+
+        // Fetching all (e.g. for trip expense selection) includes them
+        $allRes = $this->actingAs($admin)
+            ->getJson('/app/api/trip-expense-types?all=1')
+            ->assertOk();
+
+        $allCodes = collect($allRes->json('data'))->pluck('code')->all();
+        $this->assertContains('DIESEL', $allCodes);
+        $this->assertContains('OTHER', $allCodes);
+
+        // Cannot edit DIESEL or OTHER
+        $this->actingAs($admin)
+            ->putJson("/app/api/trip-expense-types/{$diesel->id}", [
+                'name' => 'Diesel Modified',
+            ])
+            ->assertForbidden();
+
+        // Cannot deactivate DIESEL or OTHER
+        $this->actingAs($admin)
+            ->putJson("/app/api/trip-expense-types/{$other->id}", [
+                'is_active' => false,
+            ])
+            ->assertForbidden();
+
+        // Cannot delete DIESEL or OTHER
+        $this->actingAs($admin)
+            ->deleteJson("/app/api/trip-expense-types/{$diesel->id}")
+            ->assertForbidden();
+
+        // Cannot create duplicate Diesel or Other
+        $this->actingAs($admin)
+            ->postJson('/app/api/trip-expense-types', [
+                'name' => 'Diesel',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['name']);
     }
 
     /**

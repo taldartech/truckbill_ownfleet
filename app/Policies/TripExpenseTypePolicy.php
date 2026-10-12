@@ -31,6 +31,10 @@ class TripExpenseTypePolicy
 
     public function update(User $user, TripExpenseTypeMaster $tripExpenseType): bool
     {
+        if ($tripExpenseType->isSystem()) {
+            return false;
+        }
+
         return $user->hasAnyRole(['super_admin', 'master_admin'])
 
             || $user->hasPermission('trip_expense_types.edit');
@@ -38,6 +42,10 @@ class TripExpenseTypePolicy
 
     public function delete(User $user, TripExpenseTypeMaster $tripExpenseType): bool
     {
+        if ($tripExpenseType->isSystem()) {
+            return false;
+        }
+
         return $user->hasAnyRole(['super_admin', 'master_admin'])
             || $user->hasPermission('trip_expense_types.delete');
     }
