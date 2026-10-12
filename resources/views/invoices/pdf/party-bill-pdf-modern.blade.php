@@ -831,10 +831,9 @@
                 @endif
                 Authorized Signature
             </div>
-
-            <div class="brand-footer">Digitally Managed by TruckBill (www.truckbill.in)</div>
         </div>
     </div>
+    <div class="brand-footer" style="font-size: 7px; text-align: right; margin-top: 3px; font-weight: bold; color: #475569;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 
     <script type="text/php">
         if (isset($pdf)) {

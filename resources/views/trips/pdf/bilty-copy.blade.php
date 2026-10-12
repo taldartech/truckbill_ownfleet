@@ -338,8 +338,8 @@
                 </td>
             </tr>
         </table>
-        <div class="footer-note">Digitally Managed by TruckBill (www.truckbill.in)</div>
     </div>
+    <div class="brand-footer" style="font-size: 7px; text-align: right; margin-top: 3px; font-weight: bold; color: #475569;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 @endforeach
 </body>
 </html>
