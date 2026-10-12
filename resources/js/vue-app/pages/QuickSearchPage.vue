@@ -1160,10 +1160,10 @@
                             <tr v-for="t in trips" :key="t.id" class="cursor-pointer" title="Click to view details"
                                 @click="selectTrip(t)">
                                 <td class="fw-semibold">
-                                    <RouterLink :to="{ name: 'trips.show', params: { id: t.id } }"
-                                        class="text-primary text-decoration-none" title="Open Trip View" @click.stop>
+                                    <span class="text-primary cursor-pointer" title="Search Trip"
+                                        @click.stop="selectTrip(t)">
                                         {{ t.trip_number || 'N/A' }}
-                                    </RouterLink>
+                                    </span>
                                 </td>
                                 <td class="text-nowrap d-none d-sm-table-cell">{{ formatDate(t.start_at) }}</td>
                                 <td class="text-nowrap d-none d-md-table-cell text-uppercase">{{
