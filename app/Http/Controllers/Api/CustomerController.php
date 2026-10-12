@@ -36,7 +36,13 @@ class CustomerController extends Controller
                 'GST Number',
                 'PAN Number',
             ],
-            fileName: 'customers_bulk_upload_template.csv'
+            fileName: 'customers_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Customer Name',
+                'Mobile',
+                'State',
+                'City',
+            ],
         );
     }
 

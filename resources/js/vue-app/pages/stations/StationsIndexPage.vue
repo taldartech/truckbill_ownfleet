@@ -116,7 +116,7 @@
             title="Bulk Upload Stations"
             upload-url="/app/api/stations/bulk-upload"
             template-download-url="/app/api/stations/bulk-upload/template"
-            template-file-name="stations_template.csv"
+            template-file-name="stations_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadStations(1)"
         />

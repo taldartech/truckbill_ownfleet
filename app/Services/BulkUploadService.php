@@ -5,8 +5,13 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Reader\Xls;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BulkUploadService
@@ -511,25 +516,112 @@ class BulkUploadService
         }
     }
 
-    public function downloadTemplate(array $headers, string $fileName): StreamedResponse
+    public function downloadTemplate(array $headers, string $fileName, array $requiredHeaders = []): StreamedResponse
     {
+        if (! empty($requiredHeaders)) {
+            $requiredSet = [];
+            $optionalSet = [];
+            $normalizedRequired = array_map(fn ($h) => strtolower(trim((string) $h)), $requiredHeaders);
+
+            foreach ($headers as $header) {
+                if (in_array(strtolower(trim((string) $header)), $normalizedRequired, true)) {
+                    $requiredSet[] = $header;
+                } else {
+                    $optionalSet[] = $header;
+                }
+            }
+            $headers = array_merge($requiredSet, $optionalSet);
+        }
+
+        $format = request()->query('format');
+        $isCsv = $format === 'csv';
+
+        if ($isCsv) {
+            $csvFileName = preg_replace('/\.(xlsx|xls)$/i', '.csv', $fileName);
+            if (! str_ends_with(strtolower($csvFileName), '.csv')) {
+                $csvFileName .= '.csv';
+            }
+
+            $responseHeaders = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $csvFileName . '"',
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0',
+            ];
+
+            return response()->stream(function () use ($headers) {
+                $handle = fopen('php://output', 'w');
+
+                // UTF-8 BOM for Microsoft Excel compatibility
+                fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+                fputcsv($handle, $headers);
+
+                fclose($handle);
+            }, 200, $responseHeaders);
+        }
+
+        $xlsxFileName = preg_replace('/\.csv$/i', '.xlsx', $fileName);
+        if (! str_ends_with(strtolower($xlsxFileName), '.xlsx')) {
+            $xlsxFileName .= '.xlsx';
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Template');
+
+        $colIndex = 1;
+        $normalizedRequired = array_map(fn ($h) => strtolower(trim((string) $h)), $requiredHeaders);
+
+        foreach ($headers as $header) {
+            $coordinate = Coordinate::stringFromColumnIndex($colIndex) . '1';
+            $sheet->setCellValue($coordinate, $header);
+
+            $isRequired = empty($requiredHeaders)
+                || in_array(strtolower(trim((string) $header)), $normalizedRequired, true);
+
+            $style = $sheet->getStyle($coordinate);
+            $style->getFont()->setBold(true);
+
+            if ($isRequired) {
+                // Green background for required fields (#28A745)
+                $style->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setARGB('FF28A745');
+                $style->getFont()->getColor()->setARGB('FFFFFFFF');
+            } else {
+                // Light neutral gray for optional fields (#E2E8F0)
+                $style->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setARGB('FFE2E8F0');
+                $style->getFont()->getColor()->setARGB('FF1E293B');
+            }
+
+            $style->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $style->getBorders()->getAllBorders()->getColor()->setARGB('FFCBD5E1');
+
+            $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+
+            $colIndex++;
+        }
+
         $responseHeaders = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $xlsxFileName . '"',
             'Pragma' => 'no-cache',
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
             'Expires' => '0',
         ];
 
-        return response()->stream(function () use ($headers) {
-            $handle = fopen('php://output', 'w');
-
-            // UTF-8 BOM for Microsoft Excel compatibility
-            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-            fputcsv($handle, $headers);
-
-            fclose($handle);
+        return response()->stream(function () use ($spreadsheet) {
+            $writer = new XlsxWriter($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
         }, 200, $responseHeaders);
     }
 

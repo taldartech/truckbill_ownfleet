@@ -30,7 +30,7 @@ class DriverController extends Controller
                 'Phone',
                 'License Number',
                 'Joining Date',
-                'Daily Wage',
+                'Monthly Salary',
                 'Address',
                 'Aadhaar Number',
                 'PAN Number',
@@ -40,7 +40,14 @@ class DriverController extends Controller
                 'Emergency Contact Name',
                 'Emergency Contact Phone',
             ],
-            fileName: 'drivers_bulk_upload_template.csv'
+            fileName: 'drivers_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Driver Name',
+                'Phone',
+                'License Number',
+                'Joining Date',
+                'Monthly Salary',
+            ],
         );
     }
 
@@ -228,9 +235,9 @@ class DriverController extends Controller
                     'rules' => ['required', 'date'],
                 ],
                 'daily_wage' => [
-                    'label' => 'Daily Wage',
+                    'label' => 'Monthly Salary',
                     'required' => true,
-                    'aliases' => ['daily_wage', 'wage', 'salary'],
+                    'aliases' => ['monthly_salary', 'salary', 'monthly_wages', 'daily_wage', 'daily_wages', 'wage'],
                     'rules' => ['required', 'numeric', 'gt:0'],
                 ],
                 'address' => [

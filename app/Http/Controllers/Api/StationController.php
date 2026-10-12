@@ -32,7 +32,12 @@ class StationController extends Controller
                 'State',
                 'City',
             ],
-            fileName: 'stations_bulk_upload_template.csv'
+            fileName: 'stations_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Station Name',
+                'State',
+                'City',
+            ],
         );
     }
 

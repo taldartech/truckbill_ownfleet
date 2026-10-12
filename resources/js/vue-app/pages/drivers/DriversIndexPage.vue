@@ -206,7 +206,7 @@
             title="Bulk Upload Drivers"
             upload-url="/app/api/drivers/bulk-upload"
             template-download-url="/app/api/drivers/bulk-upload/template"
-            template-file-name="drivers_bulk_upload_template.csv"
+            template-file-name="drivers_bulk_upload_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadDrivers(1)"
         />
@@ -274,7 +274,7 @@ const bulkUploadColumns = [
     { name: 'phone', label: 'Phone', required: true, description: 'Unique 10-digit mobile number' },
     { name: 'license_number', label: 'License Number', required: true, description: 'Driving license number (unique)' },
     { name: 'joining_date', label: 'Joining Date', required: true, description: 'Date of joining (YYYY-MM-DD)' },
-    { name: 'daily_wage', label: 'Daily Wage', required: true, description: 'Daily wage rate' },
+    { name: 'daily_wage', label: 'Monthly Salary', required: true, description: 'Monthly salary amount' },
     { name: 'address', label: 'Address', required: false, description: 'Residential address' },
     { name: 'aadhaar_number', label: 'Aadhaar Number', required: false, description: '12-digit Aadhaar number' },
     { name: 'pan_number', label: 'PAN Number', required: false, description: '10-character PAN' },

@@ -36,7 +36,13 @@ class BrokerController extends Controller
                 'GST Number',
                 'PAN Number',
             ],
-            fileName: 'brokers_bulk_upload_template.csv'
+            fileName: 'brokers_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Broker Name',
+                'Mobile',
+                'State',
+                'City',
+            ],
         );
     }
 

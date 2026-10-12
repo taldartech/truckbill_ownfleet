@@ -26,7 +26,7 @@ class BulkUploadTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_template_download_streams_csv_headers(): void
+    public function test_template_download_streams_template(): void
     {
         [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
 
@@ -38,8 +38,16 @@ class BulkUploadTest extends TestCase
             ->get('/api/stations/bulk-upload/template');
 
         $response->assertOk();
-        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
-        $content = $response->streamedContent();
+        $this->assertStringContainsString('spreadsheetml.sheet', (string) $response->headers->get('content-type'));
+
+        // Also test CSV fallback when format=csv is passed
+        $csvResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->get('/api/stations/bulk-upload/template?format=csv');
+
+        $csvResponse->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $csvResponse->headers->get('content-type'));
+        $content = $csvResponse->streamedContent();
         $this->assertStringContainsString('Station Name', $content);
         $this->assertStringContainsString('State', $content);
         $this->assertStringContainsString('City', $content);
@@ -201,9 +209,9 @@ class BulkUploadTest extends TestCase
     {
         [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
 
-        $csvContent = "Goods Type Name,Code\n"
-            . "Steel Coils,STL-01\n"
-            . "Cement Bags,CMT-02\n";
+        $csvContent = "Goods Type Name\n"
+            . "Steel Coils\n"
+            . "Cement Bags\n";
 
         $file = UploadedFile::fake()->createWithContent('goods_types.csv', $csvContent);
 
@@ -224,7 +232,7 @@ class BulkUploadTest extends TestCase
         $this->assertDatabaseHas('goods_types', [
             'tenant_id' => $tenant->id,
             'name' => 'Steel Coils',
-            'code' => 'STL-01',
+            'code' => 'steel_coils',
         ]);
     }
 
@@ -267,7 +275,7 @@ class BulkUploadTest extends TestCase
     {
         [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
 
-        $csvContent = "Driver Name,Mobile,License Number,Joining Date,Daily Wage\n"
+        $csvContent = "Driver Name,Mobile,License Number,Joining Date,Monthly Salary\n"
             . "Ramesh Kumar,9811122233,DL1420110012345,2025-01-01,800\n";
 
         $file = UploadedFile::fake()->createWithContent('drivers.csv', $csvContent);
@@ -421,12 +429,7 @@ class BulkUploadTest extends TestCase
             ->get('/api/tyres/bulk-upload/template');
 
         $response->assertOk();
-        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
-        $content = $response->streamedContent();
-        $this->assertStringContainsString('Tyre Serial Number', $content);
-        $this->assertStringContainsString('Brand', $content);
-        $this->assertStringContainsString('Size', $content);
-        $this->assertStringContainsString('Purchase Date', $content);
+        $this->assertStringContainsString('spreadsheetml.sheet', (string) $response->headers->get('content-type'));
     }
 
     public function test_tyres_bulk_upload_creates_records_successfully(): void

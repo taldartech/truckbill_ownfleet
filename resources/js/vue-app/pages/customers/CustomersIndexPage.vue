@@ -122,7 +122,7 @@
             title="Bulk Upload Customers"
             upload-url="/app/api/customers/bulk-upload"
             template-download-url="/app/api/customers/bulk-upload/template"
-            template-file-name="customers_bulk_upload_template.csv"
+            template-file-name="customers_bulk_upload_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadCustomers(1)"
         />

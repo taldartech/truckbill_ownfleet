@@ -269,7 +269,7 @@
             title="Bulk Upload Trucks"
             upload-url="/app/api/vehicles/bulk-upload"
             template-download-url="/app/api/vehicles/bulk-upload/template"
-            template-file-name="vehicles_bulk_upload_template.csv"
+            template-file-name="vehicles_bulk_upload_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadVehicles(1)"
         />

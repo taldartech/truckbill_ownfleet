@@ -112,7 +112,7 @@
             title="Bulk Upload Goods Types"
             upload-url="/app/api/goods-types/bulk-upload"
             template-download-url="/app/api/goods-types/bulk-upload/template"
-            template-file-name="goods_types_template.csv"
+            template-file-name="goods_types_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadGoodsTypes(1)"
         />
@@ -163,7 +163,6 @@ const showBulkUpload = ref(false);
 
 const bulkUploadColumns = [
     { name: 'name', label: 'Goods Type Name', required: true, description: 'Unique goods type / commodity name' },
-    { name: 'code', label: 'Code', required: false, description: 'Optional commodity or classification code' },
 ];
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();

@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateGoodsTypeRequest;
 use App\Http\Resources\GoodsTypeResource;
 use App\Services\BulkUploadService;
 use App\Support\CurrentTenant;
+use App\Support\GoodsTypeDefaults;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -23,9 +24,11 @@ class GoodsTypeController extends Controller
         return $bulkUploadService->downloadTemplate(
             headers: [
                 'Goods Type Name',
-                'Code',
             ],
-            fileName: 'goods_types_bulk_upload_template.csv'
+            fileName: 'goods_types_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Goods Type Name',
+            ],
         );
     }
 
@@ -47,7 +50,7 @@ class GoodsTypeController extends Controller
             return GoodsType::create([
                 'tenant_id' => $tenantId,
                 'name' => $data['name'],
-                'code' => ! empty($data['code']) ? $data['code'] : null,
+                'code' => ! empty($data['code']) ? $data['code'] : GoodsTypeDefaults::generateCode($data['name'], $tenantId),
                 'is_active' => true,
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -64,12 +67,6 @@ class GoodsTypeController extends Controller
                     'aliases' => ['goods_type_name', 'name', 'goods_type', 'goods', 'item_name'],
                     'rules' => ['required', 'string', 'max:255'],
                     'unique' => true,
-                ],
-                'code' => [
-                    'label' => 'Code',
-                    'required' => false,
-                    'aliases' => ['code', 'goods_code', 'type_code'],
-                    'rules' => ['nullable', 'string', 'max:50'],
                 ],
             ],
             saveHandler: $saveHandler,

@@ -61,7 +61,13 @@ class TyreController extends Controller
                 'Current KM',
                 'Notes',
             ],
-            fileName: 'tyres_bulk_upload_template.csv'
+            fileName: 'tyres_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Tyre Serial Number',
+                'Brand',
+                'Size',
+                'Purchase Date',
+            ],
         );
     }
 

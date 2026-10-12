@@ -394,7 +394,7 @@
             title="Bulk Upload Tyres"
             upload-url="/app/api/tyres/bulk-upload"
             template-download-url="/app/api/tyres/bulk-upload/template"
-            template-file-name="tyres_bulk_upload_template.csv"
+            template-file-name="tyres_bulk_upload_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadTyres(1)"
         />

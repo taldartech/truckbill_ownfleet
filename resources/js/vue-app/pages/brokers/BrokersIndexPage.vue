@@ -122,7 +122,7 @@
             title="Bulk Upload References"
             upload-url="/app/api/brokers/bulk-upload"
             template-download-url="/app/api/brokers/bulk-upload/template"
-            template-file-name="brokers_template.csv"
+            template-file-name="brokers_template.xlsx"
             :columns="bulkUploadColumns"
             @success="loadBrokers(1)"
         />

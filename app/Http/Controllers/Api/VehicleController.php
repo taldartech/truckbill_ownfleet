@@ -54,7 +54,11 @@ class VehicleController extends Controller
                 'Fuel Tank Capacity Ltr',
                 'Tyre Layout',
             ],
-            fileName: 'vehicles_bulk_upload_template.csv'
+            fileName: 'vehicles_bulk_upload_template.xlsx',
+            requiredHeaders: [
+                'Vehicle Number',
+                'Vehicle Type',
+            ],
         );
     }
 

@@ -21,7 +21,7 @@
                     <div>
                         <div class="fw-bold text-dark">Step 1: Download Sample Template</div>
                         <div class="text-muted small">
-                            Download the standardized CSV file with the required column headers (compatible with Excel).
+                            Download the template file with required column headers highlighted in green.
                         </div>
                     </div>
                     <button
@@ -51,7 +51,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(col, idx) in columns" :key="idx">
+                            <tr v-for="(col, idx) in sortedColumns" :key="idx">
                                 <td>
                                     <code class="fw-bold text-dark">{{ col.label || col.name }}</code>
                                 </td>
@@ -289,7 +289,7 @@ const props = defineProps({
     },
     templateFileName: {
         type: String,
-        default: 'bulk_upload_template.csv',
+        default: 'bulk_upload_template.xlsx',
     },
     columns: {
         type: Array,
@@ -312,6 +312,15 @@ const emit = defineEmits(['update:show', 'close', 'success']);
 
 const hasDescription = computed(() => {
     return props.columns.some((c) => c.description || c.syntax);
+});
+
+const sortedColumns = computed(() => {
+    if (!props.columns || props.columns.length === 0) return [];
+    return [...props.columns].sort((a, b) => {
+        if (a.required && !b.required) return -1;
+        if (!a.required && b.required) return 1;
+        return 0;
+    });
 });
 
 const fileInputRef = ref(null);
@@ -415,7 +424,7 @@ const downloadTemplate = async () => {
     }
 
     // Client-side fallback
-    const headers = props.columns.map((c) => c.label || c.name);
+    const headers = sortedColumns.value.map((c) => c.label || c.name);
     let csvContent = '\uFEFF' + headers.join(',') + '\n';
     if (props.sampleData && props.sampleData.length > 0) {
         props.sampleData.forEach((row) => {
