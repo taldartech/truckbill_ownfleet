@@ -4,11 +4,11 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Invoice - INV-{{ str_pad($payment->id, 6, '0', STR_PAD_LEFT) }}</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192"  href="{{ asset('favicon/android-icon-192x192.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon/favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}">
+    <link rel="icon" type="image/png" sizes="192x192"  href="{{ versioned_asset('favicon/android-icon-192x192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ versioned_asset('favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ versioned_asset('favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ versioned_asset('favicon/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ versioned_asset('favicon/site.webmanifest') }}">
     <!-- End Favicon -->
     <style>
         @page { margin: 20px 15px; }

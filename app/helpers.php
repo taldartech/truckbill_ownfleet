@@ -96,3 +96,12 @@ if (! function_exists('getIndianCurrency')) {
         return ucwords(($rupees ? $rupees.'Rupees ' : '').$paise);
     }
 }
+
+if (! function_exists('versioned_asset')) {
+    function versioned_asset(string $path): string
+    {
+        $path = ltrim($path, '/');
+
+        return asset($path) . '?v=' . config('app.asset_version');
+    }
+}
