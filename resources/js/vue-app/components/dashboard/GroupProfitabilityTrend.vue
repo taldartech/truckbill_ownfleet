@@ -93,7 +93,7 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { formatMoney, formatMoneyCompact } from '../../utils/formatMoney';
+import { formatDynamicMoney, formatMoney, formatMoneyCompact } from '../../utils/formatMoney';
 import './groupDashboard.css';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -159,9 +159,9 @@ const summaryItems = computed(() => {
     const period = `last ${props.trendMonths} months`;
 
     return [
-        { key: 'revenue', label: 'Revenue', color: '#2fb36f', value: formatMoneyCompact(totals.revenue), title: `${formatMoney(totals.revenue)} · ${period}` },
-        { key: 'cost', label: 'Direct cost', color: '#fb923c', value: formatMoneyCompact(totals.cost), title: `${formatMoney(totals.cost)} · ${period}` },
-        { key: 'profit', label: 'Profit', color: '#0f766e', value: formatMoneyCompact(totals.profit), title: `${formatMoney(totals.profit)} · ${period}` },
+        { key: 'revenue', label: 'Revenue', color: '#2fb36f', value: formatDynamicMoney(totals.revenue), title: `${formatMoney(totals.revenue)} · ${period}` },
+        { key: 'cost', label: 'Direct cost', color: '#fb923c', value: formatDynamicMoney(totals.cost), title: `${formatMoney(totals.cost)} · ${period}` },
+        { key: 'profit', label: 'Profit', color: '#0f766e', value: formatDynamicMoney(totals.profit), title: `${formatMoney(totals.profit)} · ${period}` },
         {
             key: 'margin',
             label: 'Margin',

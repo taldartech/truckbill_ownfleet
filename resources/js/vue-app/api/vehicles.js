@@ -139,3 +139,11 @@ export async function fetchVehiclePrimaryAssignment(vehicleId) {
 
     return data;
 }
+
+export async function fetchVehicleFuelHistory(vehicleId, { page = 1, perPage = 10 } = {}) {
+    const { data } = await api.get(`${vehiclesBase}/${vehicleId}/fuel-history`, {
+        params: { page, per_page: perPage },
+    });
+
+    return data;
+}

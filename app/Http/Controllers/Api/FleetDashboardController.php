@@ -51,6 +51,7 @@ class FleetDashboardController extends Controller
                 'licenses' => [],
                 'due_services' => [],
                 'eway_bills' => [],
+                'fuel_alerts' => [],
                 'alerts' => [],
                 'requires_company' => true,
             ]);

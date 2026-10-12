@@ -57,6 +57,19 @@ class TripReportController extends Controller
         return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->routeProfitability($filters));
     }
 
+    public function fuelPerformance(Request $request): JsonResponse
+    {
+        $this->authorize('trip_reports.view');
+        $filters = $this->filters($request);
+
+        $rows = $this->tripReportService->fuelPerformance($filters);
+        $summary = $this->tripReportService->fuelPerformanceSummary($filters);
+
+        return ReportPaginator::paginate($request, $rows, [
+            'summary' => $summary,
+        ]);
+    }
+
     public function export(Request $request): BinaryFileResponse
     {
         $this->authorize('trip_reports.export');
@@ -65,6 +78,7 @@ class TripReportController extends Controller
         $filters = $this->filters($request);
 
         $rows = match ($type) {
+            'fuel-performance' => $this->tripReportService->fuelPerformance($filters),
             'vehicle-wise' => $this->tripReportService->vehicleWise($filters),
             'driver-wise' => $this->tripReportService->driverWise($filters),
             'expense-summary' => $this->tripReportService->expenseSummary($filters),
@@ -102,6 +116,7 @@ class TripReportController extends Controller
             'to_date',
             'customer_name',
             'expense_type',
+            'dimension',
         ]);
     }
 }

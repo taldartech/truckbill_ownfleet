@@ -527,4 +527,53 @@ class VehicleManagementTest extends TestCase
             'is_active' => $isActive,
         ]);
     }
+
+    public function test_user_can_view_vehicle_fuel_history_and_summary(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant, 'RJ27AB1234');
+        $vehicle->update(['default_mileage_km_per_liter' => 4.0]);
+
+        $driver = Driver::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'name' => 'Ramesh Kumar',
+            'phone' => '9876543210',
+            'license_number' => 'RJ2720200001234',
+            'is_active' => true,
+        ]);
+
+        $trip = \App\Trip::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRIP-1001',
+            'status' => \App\Enums\TripStatus::Completed->value,
+            'total_distance_km' => 400.0,
+            'planned_mileage_km_per_liter' => 4.0,
+        ]);
+
+        \App\TripExpense::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'trip_id' => $trip->id,
+            'expense_type' => \App\Enums\TripExpenseType::Diesel->value,
+            'expense_date' => now()->toDateString(),
+            'fuel_liters' => 100.0,
+            'fuel_rate' => 95.0,
+            'amount' => 9500.0,
+            'fuel_odometer_km' => 1400.0,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->getJson("/app/api/vehicles/{$vehicle->id}/fuel-history")
+            ->assertOk();
+
+        $response->assertJsonPath('summary.total_fuel_liters', 100)
+            ->assertJsonPath('summary.total_fuel_cost', 9500)
+            ->assertJsonPath('summary.total_distance_km', 400)
+            ->assertJsonPath('summary.average_mileage', 4)
+            ->assertJsonPath('summary.cost_per_km', 23.75)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.trip_number', 'TRIP-1001')
+            ->assertJsonPath('data.0.fuel_liters', 100);
+    }
 }

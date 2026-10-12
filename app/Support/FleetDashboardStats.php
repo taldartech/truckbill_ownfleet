@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Driver;
 use App\Enums\AttendanceStatus;
 use App\Enums\InvoicePaymentStatus;
+use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Enums\TyreExpenseType;
 use App\Enums\TyreStatus;
@@ -14,6 +15,7 @@ use App\Modules\TripManagement\Support\TripReportScope;
 use App\Modules\TyreManagement\Services\TyreAlertService;
 use App\Modules\VehicleMaintenanceManagement\Services\VehicleMaintenanceService;
 use App\Trip;
+use App\TripExpense;
 use App\Tyre;
 use App\TyreExpense;
 use App\User;
@@ -34,12 +36,27 @@ class FleetDashboardStats
         $fromDate = $fromDate ?? $today;
         $toDate = $toDate ?? $fromDate;
 
+        $vehicleCounts = Vehicle::query()
+            ->selectRaw('
+                COUNT(*) as total_count,
+                COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_count,
+                COUNT(CASE WHEN is_active = 0 THEN 1 END) as inactive_count
+            ')
+            ->first();
+
+        $driverCounts = Driver::query()
+            ->selectRaw('
+                COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_count,
+                COUNT(CASE WHEN is_active = 0 THEN 1 END) as inactive_count
+            ')
+            ->first();
+
         $fleet = [
-            'vehicles_count' => Vehicle::query()->count(),
-            'active_vehicles_count' => Vehicle::query()->where('is_active', true)->count(),
-            'inactive_vehicles_count' => Vehicle::query()->where('is_active', false)->count(),
-            'drivers_count' => Driver::query()->where('is_active', true)->count(),
-            'inactive_drivers_count' => Driver::query()->where('is_active', false)->count(),
+            'vehicles_count' => (int) ($vehicleCounts->total_count ?? 0),
+            'active_vehicles_count' => (int) ($vehicleCounts->active_count ?? 0),
+            'inactive_vehicles_count' => (int) ($vehicleCounts->inactive_count ?? 0),
+            'drivers_count' => (int) ($driverCounts->active_count ?? 0),
+            'inactive_drivers_count' => (int) ($driverCounts->inactive_count ?? 0),
         ];
 
         if ($user->hasPermission('attendances.view')) {
@@ -47,20 +64,17 @@ class FleetDashboardStats
         }
 
         if ($user->hasPermission('vehicle_documents.view')) {
-            $fleet['expired_documents_count'] = VehicleDocument::query()
+            $windowEnd = Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString();
+            $docCounts = VehicleDocument::query()
                 ->whereNotNull('expiry_date')
-                ->where('expiry_date', '<', $today)
-                ->count();
+                ->selectRaw('
+                    COUNT(CASE WHEN expiry_date < ? THEN 1 END) as expired_count,
+                    COUNT(CASE WHEN expiry_date >= ? AND expiry_date <= ? THEN 1 END) as expiring_count
+                ', [$today, $today, $windowEnd])
+                ->first();
 
-            $fleet['expiring_documents_count'] = VehicleDocument::query()
-                ->whereNotNull('expiry_date')
-                ->where('expiry_date', '>=', $today)
-                ->where(
-                    'expiry_date',
-                    '<=',
-                    Carbon::today()->addDays(self::DOCUMENT_EXPIRY_WINDOW_DAYS)->toDateString(),
-                )
-                ->count();
+            $fleet['expired_documents_count'] = (int) ($docCounts->expired_count ?? 0);
+            $fleet['expiring_documents_count'] = (int) ($docCounts->expiring_count ?? 0);
         }
 
         if ($user->hasPermission('drivers.view')) {
@@ -86,9 +100,11 @@ class FleetDashboardStats
         ];
 
         $tripFinancials = self::buildTripStats($fromDate, $toDate);
+        $fuelStats = self::buildFuelStats($fromDate, $toDate);
 
         if ($user->hasPermission('trips.view')) {
             $payload['trips'] = $tripFinancials;
+            $payload['fuel'] = $fuelStats;
         }
 
         if ($user->hasPermission('tyres.view')) {
@@ -127,6 +143,11 @@ class FleetDashboardStats
             'cost' => $tripFinancials['total_expense_amount'] ?? 0,
             'profit' => $tripFinancials['profit_amount'] ?? 0,
             'outstanding' => round((float) $outstandingAmount, 2),
+            'avg_mileage' => $fuelStats['average_mileage'],
+            'fuel_cost' => $fuelStats['total_fuel_cost'],
+            'fuel_liters' => $fuelStats['total_fuel_liters'],
+            'fuel_cost_per_km' => $fuelStats['cost_per_km'],
+            'fuel_variance_percentage' => $fuelStats['fuel_variance_percentage'],
         ];
 
         return $payload;
@@ -185,15 +206,32 @@ class FleetDashboardStats
         TripReportScope::whereReportableStatuses($financialQuery);
         TripReportScope::whereReportDateInRange($financialQuery, $fromDate, $toDate);
 
-        $totalFreight = (float) (clone $financialQuery)->sum('total_freight_amount');
-        $totalCustom = (float) (clone $financialQuery)->sum('total_custom_amount');
-        $totalTripExpenses = (float) (clone $financialQuery)->sum('total_expense_amount');
+        $row = (clone $financialQuery)
+            ->selectRaw('
+                COALESCE(SUM(total_freight_amount), 0) as total_freight,
+                COALESCE(SUM(total_custom_amount), 0) as total_custom,
+                COALESCE(SUM(total_expense_amount), 0) as total_expenses,
+                COUNT(CASE WHEN status = ? THEN 1 END) as completed_count,
+                COUNT(CASE WHEN status = ? THEN 1 END) as invoiced_count,
+                COUNT(CASE WHEN status = ? THEN 1 END) as pending_count,
+                COUNT(CASE WHEN status = ? THEN 1 END) as in_progress_count
+            ', [
+                TripStatus::Completed->value,
+                TripStatus::Invoiced->value,
+                TripStatus::Pending->value,
+                TripStatus::InProgress->value,
+            ])
+            ->first();
+
+        $totalFreight = (float) ($row->total_freight ?? 0);
+        $totalCustom = (float) ($row->total_custom ?? 0);
+        $totalTripExpenses = (float) ($row->total_expenses ?? 0);
         $totalFreightWithCustom = $totalFreight + $totalCustom;
 
-        $completedCount = (clone $financialQuery)->where('status', TripStatus::Completed->value)->count();
-        $invoicedCount = (clone $financialQuery)->where('status', TripStatus::Invoiced->value)->count();
-        $pendingCount = (clone $financialQuery)->where('status', TripStatus::Pending->value)->count();
-        $inProgressCount = (clone $financialQuery)->where('status', TripStatus::InProgress->value)->count();
+        $completedCount = (int) ($row->completed_count ?? 0);
+        $invoicedCount = (int) ($row->invoiced_count ?? 0);
+        $pendingCount = (int) ($row->pending_count ?? 0);
+        $inProgressCount = (int) ($row->in_progress_count ?? 0);
 
         return [
             'total_count' => $pendingCount + $inProgressCount + $completedCount + $invoicedCount,
@@ -229,6 +267,72 @@ class FleetDashboardStats
                 'start_at' => ApiDateTime::toIso($trip->start_at),
             ])
             ->all();
+    }
+
+    /**
+     * @return array<string, float|int>
+     */
+    private static function buildFuelStats(string $fromDate, string $toDate): array
+    {
+        $query = Trip::query();
+        TripReportScope::whereReportableStatuses($query);
+        TripReportScope::whereReportDateInRange($query, $fromDate, $toDate);
+
+        $trips = $query
+            ->select([
+                'id',
+                'tenant_id',
+                'vehicle_id',
+                'total_distance_km',
+                'planned_mileage_km_per_liter',
+                'planned_diesel_liters',
+            ])
+            ->with([
+                'expenses' => fn ($q) => $q
+                    ->select(['id', 'trip_id', 'expense_type', 'fuel_liters', 'amount'])
+                    ->where('expense_type', TripExpenseType::Diesel->value),
+                'vehicle:id,default_mileage_km_per_liter',
+            ])
+            ->get();
+
+        $totalDistance = (float) $trips->sum('total_distance_km');
+        $totalFuelLiters = 0.0;
+        $totalFuelCost = 0.0;
+        $totalExpectedFuel = 0.0;
+
+        foreach ($trips as $trip) {
+            $fuelExpenses = $trip->expenses;
+            $totalFuelLiters += (float) $fuelExpenses->sum('fuel_liters');
+            $totalFuelCost += (float) $fuelExpenses->sum('amount');
+
+            $plannedMileage = (float) ($trip->planned_mileage_km_per_liter ?? 0);
+            if ($plannedMileage <= 0) {
+                $plannedMileage = (float) ($trip->vehicle?->default_mileage_km_per_liter ?? 0);
+            }
+
+            $distance = (float) ($trip->total_distance_km ?? 0);
+            if ((float) ($trip->planned_diesel_liters ?? 0) > 0) {
+                $totalExpectedFuel += (float) $trip->planned_diesel_liters;
+            } elseif ($plannedMileage > 0 && $distance > 0) {
+                $totalExpectedFuel += round($distance / $plannedMileage, 2);
+            }
+        }
+
+        $avgMileage = $totalFuelLiters > 0 ? round($totalDistance / $totalFuelLiters, 2) : 0.0;
+        $costPerKm = $totalDistance > 0 ? round($totalFuelCost / $totalDistance, 2) : 0.0;
+        $varianceLiters = $totalExpectedFuel > 0 ? round($totalFuelLiters - $totalExpectedFuel, 2) : 0.0;
+        $variancePct = $totalExpectedFuel > 0 ? round(($varianceLiters / $totalExpectedFuel) * 100, 2) : 0.0;
+
+        return [
+            'total_fuel_liters' => round($totalFuelLiters, 2),
+            'total_fuel_cost' => round($totalFuelCost, 2),
+            'total_distance_km' => round($totalDistance, 2),
+            'average_mileage' => $avgMileage,
+            'cost_per_km' => $costPerKm,
+            'expected_fuel_liters' => round($totalExpectedFuel, 2),
+            'fuel_variance_liters' => $varianceLiters,
+            'fuel_variance_percentage' => $variancePct,
+        ];
     }
 
     /**

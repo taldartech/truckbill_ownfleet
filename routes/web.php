@@ -234,6 +234,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.toggle-status');
             Route::get('/vehicles/{vehicle}/primary-assignment', [\App\Http\Controllers\Api\VehicleController::class, 'primaryAssignment'])
                 ->name('vehicles.primary-assignment');
+            Route::get('/vehicles/{vehicle}/fuel-history', [\App\Http\Controllers\Api\VehicleController::class, 'fuelHistory'])
+                ->name('vehicles.fuel-history');
             Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
                 ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
@@ -381,6 +383,17 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])
                 ->name('vehicles.tyre-history');
 
+            Route::get('/batteries/counts', [\App\Http\Controllers\Api\BatteryController::class, 'counts'])->name('batteries.counts');
+            Route::get('/batteries/in-stock', [\App\Http\Controllers\Api\BatteryController::class, 'inStock'])->name('batteries.in-stock');
+            Route::post('/batteries/replace', [\App\Http\Controllers\Api\BatteryController::class, 'replace'])->name('batteries.replace');
+            Route::post('/batteries/{battery}/install', [\App\Http\Controllers\Api\BatteryController::class, 'install'])->name('batteries.install');
+            Route::post('/battery-installations/{battery_installation}/remove', [\App\Http\Controllers\Api\BatteryController::class, 'removeInstallation'])
+                ->name('battery-installations.remove');
+            Route::get('/vehicles/{vehicle}/batteries', [\App\Http\Controllers\Api\BatteryController::class, 'vehicleBatteries'])
+                ->name('vehicles.batteries');
+            Route::post('/batteries/{battery}/scrap', [\App\Http\Controllers\Api\BatteryController::class, 'scrap'])->name('batteries.scrap');
+            Route::apiResource('batteries', \App\Http\Controllers\Api\BatteryController::class);
+
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
                 ->name('reports.tyres.life');
             Route::get('/reports/tyres/cost-per-km', [\App\Http\Controllers\Api\TyreReportController::class, 'costPerKm'])
@@ -413,6 +426,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.expense-summary');
             Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])
                 ->name('reports.trips.route-profitability');
+            Route::get('/reports/trips/fuel-performance', [\App\Http\Controllers\Api\TripReportController::class, 'fuelPerformance'])
+                ->name('reports.trips.fuel-performance');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])
