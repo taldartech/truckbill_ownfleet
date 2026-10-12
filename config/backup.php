@@ -2,11 +2,11 @@
 
 return [
 
-    'disk' => env('DB_BACKUP_DISK', 'local'),
+    'disk' => env('BACKUP_DISK', env('DB_BACKUP_DISK', 's3')),
 
     'path' => env(
-        'DB_BACKUP_PATH',
-        'database-backups'
+        'BACKUP_PATH',
+        env('DB_BACKUP_PATH', env('DB_BACKUP_PATH_PREFIX', 'database-backups'))
     ),
 
     'retention_hours' => (int) env(
@@ -19,8 +19,13 @@ return [
         'mysqldump'
     ),
 
-     'failure_email' => env(
+    'failure_email' => env(
         'DB_BACKUP_FAILURE_EMAIL',
-        env('MAIL_FROM_ADDRESS')
+        env('DB_BACKUP_EMAIL_RECIPIENTS', env('MAIL_FROM_ADDRESS'))
+    ),
+
+    'schedule_timezone' => env(
+        'DB_BACKUP_SCHEDULE_TIMEZONE',
+        'Asia/Kolkata'
     ),
 ];

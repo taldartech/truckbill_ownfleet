@@ -2,308 +2,160 @@
 
 namespace App\Console\Commands;
 
-use Carbon\Carbon;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\Process\Process;
 use App\Mail\DatabaseBackupFailed;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class BackupDatabase extends Command
 {
     private const RETENTION_HOURS = 24;
 
-    protected $signature = 'backup:database';
+    protected $signature = 'app:dbbackup {--disk= : Destination storage disk} {--retention-minutes= : Retention period in minutes}';
 
-    protected $description = 'Backup MySQL database and remove backups older than the retention period';
+    protected $aliases = ['backup:database'];
+
+    protected $description = 'Create database backup, upload to S3 and remove backups older than 24 hours';
 
     public function handle(): int
     {
-        $timestamp = now()->format('Y-m-d_H-i-s');
-
-        $filename = "database-backup-{$timestamp}.sql.gz";
-
-        $localDirectory = storage_path('app/backups');
-
-        $localPath = "{$localDirectory}/{$filename}";
-
-        $diskName = config('backup.disk', 'local');
-
-        $backupDirectory = config(
-            'backup.path',
-            'database-backups'
-        );
+        $localPath = null;
+        $sqlPath = null;
+        $filename = null;
 
         try {
+            $filename = now()->format('d-m-Y-H-i-s');
+            $localDirectory = storage_path('app/backup');
 
-            if (!File::exists($localDirectory)) {
-                File::makeDirectory(
-                    $localDirectory,
-                    0755,
-                    true
-                );
+            if (! is_dir($localDirectory)) {
+                mkdir($localDirectory, 0755, true);
             }
 
-            /*
-             * Step 1: Create MySQL backup locally.
-             */
-            $this->createMySqlBackup($localPath);
+            $sqlPath = $localDirectory.'/'.$filename.'.sql';
+            $localPath = $localDirectory.'/'.$filename.'.sql.gz';
 
-            if (
-                !File::exists($localPath)
-                || File::size($localPath) === 0
-            ) {
-                throw new \RuntimeException(
-                    'Database backup file was not created or is empty.'
-                );
+            $connection = config('database.default', 'mysql');
+            $dbConfig = config("database.connections.{$connection}", []);
+
+            if (($dbConfig['driver'] ?? '') !== 'mysql') {
+                throw new \RuntimeException('The configured database connection is not MySQL.');
             }
 
-            /*
-             * Step 2: Store backup on configured disk.
-             */
-            $disk = Storage::disk($diskName);
+            $port = $dbConfig['port'] ?? 3306;
+            $portArg = $port ? ' --port='.escapeshellarg($port) : '';
 
-            $backupPath = "{$backupDirectory}/{$filename}";
+            $password = $dbConfig['password'] ?? '';
+            $passwordArg = ($password !== null && $password !== '')
+                ? ' --password='.escapeshellarg($password)
+                : " --password=''";
 
-            $stream = fopen($localPath, 'rb');
+            $mysqldump = config('backup.mysqldump_path', 'mysqldump');
 
+            $command = escapeshellcmd($mysqldump)
+                .' --user='.escapeshellarg($dbConfig['username'] ?? 'root')
+                .$passwordArg
+                .' --host='.escapeshellarg($dbConfig['host'] ?? '127.0.0.1')
+                .$portArg
+                .' --single-transaction --quick --column-statistics=0 '
+                .escapeshellarg($dbConfig['database'] ?? '')
+                .' > '.escapeshellarg($sqlPath)
+                .' && gzip '.escapeshellarg($sqlPath);
+
+            $process = Process::timeout(3600)->run($command);
+
+            if (! $process->successful()) {
+                throw new \RuntimeException('Database dump failed: '.trim($process->errorOutput() ?: $process->output()));
+            }
+
+            if (! file_exists($localPath) || filesize($localPath) === 0) {
+                throw new \RuntimeException('Database backup file was not created or is empty.');
+            }
+
+            $this->info('Database backup created: '.basename($localPath));
+
+            $disk = $this->option('disk') ?: config('filesystems.backup.disk', config('backup.disk', 's3'));
+            $backupPath = config('filesystems.backup.path', config('backup.path', 'database-backups'));
+            $destinationPath = $backupPath.'/'.basename($localPath);
+
+            $stream = fopen($localPath, 'r');
             if ($stream === false) {
-                throw new \RuntimeException(
-                    'Unable to open database backup for storage.'
-                );
+                throw new \RuntimeException('Unable to open local backup file.');
             }
 
             try {
-                $uploaded = $disk->put(
-                    $backupPath,
-                    $stream
-                );
+                $uploaded = Storage::disk($disk)->put($destinationPath, $stream);
             } finally {
                 fclose($stream);
             }
 
-
-            if (!$uploaded) {
-                throw new \RuntimeException(
-                    'Failed to store database backup.'
-                );
+            if (! $uploaded) {
+                throw new \RuntimeException("Failed to upload database backup to disk [{$disk}].");
             }
 
-            /*
-             * Step 3: Remove backups older than 24 hours.
-             */
-            $this->deleteExpiredBackups(
-                $diskName,
-                $backupDirectory
-            );
+            $this->info("Database backup uploaded to {$disk}: {$destinationPath}");
 
-            /*
-             * Step 4: Remove temporary local file.
-             */
-            File::delete($localPath);
+            // Clean up local gzipped file on success
+            if (file_exists($localPath)) {
+                unlink($localPath);
+                $localPath = null;
+            }
 
-            $this->info(
-                "Database backup completed successfully: {$filename}"
-            );
+            // Retention cleanup (supports minutes or hours)
+            $retentionMinutes = $this->option('retention-minutes') !== null
+                ? (int) $this->option('retention-minutes')
+                : (int) config('backup.retention_minutes', 0);
+
+            if ($retentionMinutes > 0) {
+                $cutoff = now()->subMinutes($retentionMinutes)->timestamp;
+            } else {
+                $retentionHours = (int) config('backup.retention_hours', self::RETENTION_HOURS);
+                $cutoff = now()->subHours($retentionHours)->timestamp;
+            }
+
+            $files = Storage::disk($disk)->files($backupPath);
+
+            foreach ($files as $file) {
+                try {
+                    if (Storage::disk($disk)->lastModified($file) < $cutoff) {
+                        Storage::disk($disk)->delete($file);
+                        $this->info('Deleted old backup: '.basename($file));
+                    }
+                } catch (\Throwable $retentionEx) {
+                    report($retentionEx);
+                }
+            }
 
             return self::SUCCESS;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->error('Database backup failed: '.$e->getMessage());
 
-        } catch (\Throwable $exception) {
-            if (File::exists($localPath)) {
-                File::delete($localPath);
+            // Preserve local file for disaster recovery
+            if ($localPath && file_exists($localPath)) {
+                $this->error('Local backup preserved at: '.$localPath);
+            } elseif ($sqlPath && file_exists($sqlPath)) {
+                $this->error('Local uncompressed backup preserved at: '.$sqlPath);
             }
 
-            report($exception);
-
-            $this->error(
-                'Database backup failed: ' . $exception->getMessage()
-            );
-
+            // Send failure notification email if configured
             $failureEmail = config('backup.failure_email');
-
             if ($failureEmail) {
                 try {
-                    Mail::to($failureEmail)->send(
-                        new DatabaseBackupFailed(
-                            errorMessage: $exception->getMessage(),
-                            attachmentName: $filename,
-                            generatedAt: now()->format('Y-m-d H:i:s'),
-                            appName: config('app.name', 'Truckbill'),
-                        )
-                    );
-
-                    $this->line(
-                        "Database backup failure notification sent to {$failureEmail}."
-                    );
+                    Mail::to($failureEmail)->send(new DatabaseBackupFailed(
+                        errorMessage: $e->getMessage(),
+                        attachmentName: basename($localPath ?? $sqlPath ?? ($filename ? "{$filename}.sql.gz" : 'backup.sql.gz')),
+                        generatedAt: now()->format('Y-m-d H:i:s'),
+                        appName: config('app.name', 'Truckbill'),
+                    ));
+                    $this->line("Database backup failure notification sent to {$failureEmail}.");
                 } catch (\Throwable $mailException) {
                     report($mailException);
-
-                    $this->error(
-                        'Failed to send database backup failure notification: '
-                        . $mailException->getMessage()
-                    );
+                    $this->error('Failed to send database backup failure notification: '.$mailException->getMessage());
                 }
             }
 
             return self::FAILURE;
-        }
-    }
-
-    private function createMySqlBackup(
-        string $backupPath
-    ): void {
-        $connection = config('database.default');
-
-        $database = config(
-            "database.connections.{$connection}"
-        );
-
-        if ($database['driver'] !== 'mysql') {
-            throw new \RuntimeException(
-                'The configured database connection is not MySQL.'
-            );
-        }
-
-        $mysqldump = config(
-            'backup.mysqldump_path',
-            'mysqldump'
-        );
-
-        /*
-         * Temporary SQL file.
-         */
-        $sqlPath = preg_replace(
-            '/\.gz$/',
-            '',
-            $backupPath
-        );
-
-        $command = [
-            $mysqldump,
-            '--host=' . $database['host'],
-            '--port=' . ($database['port'] ?? 3306),
-            '--user=' . $database['username'],
-            '--single-transaction',
-            '--quick',
-            '--routines',
-            '--events',
-            '--databases',
-            $database['database'],
-            '--result-file=' . $sqlPath,
-        ];
-
-        $process = new Process($command);
-
-        $process->setEnv([
-            'MYSQL_PWD' => $database['password'],
-        ]);
-
-        $process->setTimeout(3600);
-
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException(
-                trim(
-                    $process->getErrorOutput()
-                    ?: $process->getOutput()
-                )
-            );
-        }
-
-        if (
-            !File::exists($sqlPath)
-            || File::size($sqlPath) === 0
-        ) {
-            throw new \RuntimeException(
-                'MySQL dump was not created or is empty.'
-            );
-        }
-
-        /*
-         * Compress the SQL file in chunks.
-         */
-        $source = fopen($sqlPath, 'rb');
-
-        $destination = gzopen(
-            $backupPath,
-            'wb9'
-        );
-
-        if (
-            $source === false
-            || $destination === false
-        ) {
-            throw new \RuntimeException(
-                'Unable to compress the database backup.'
-            );
-        }
-
-        while (!feof($source)) {
-            $chunk = fread(
-                $source,
-                1024 * 1024
-            );
-
-            if ($chunk === false) {
-                break;
-            }
-
-            gzwrite(
-                $destination,
-                $chunk
-            );
-        }
-
-        fclose($source);
-
-        gzclose($destination);
-
-        /*
-         * Delete temporary SQL file.
-         */
-        File::delete($sqlPath);
-    }
-
-    private function deleteExpiredBackups(
-        string $diskName,
-        string $directory
-    ): void {
-        $disk = Storage::disk($diskName);
-
-        $retentionHours = (int) config(
-            'backup.retention_hours',
-            self::RETENTION_HOURS
-        );
-
-        $cutoff = now()->subHours(
-            $retentionHours
-        );
-
-        foreach ($disk->files($directory) as $file) {
-
-            if (
-                !str_starts_with(
-                    basename($file),
-                    'database-backup-'
-                )
-            ) {
-                continue;
-            }
-
-            $lastModified = Carbon::createFromTimestamp(
-                $disk->lastModified($file)
-            );
-
-            if ($lastModified->lt($cutoff)) {
-
-                $disk->delete($file);
-
-                $this->line(
-                    "Deleted expired backup: {$file}"
-                );
-            }
         }
     }
 }
