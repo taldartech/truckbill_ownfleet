@@ -91,6 +91,11 @@ return [
 
     ],
 
+    'backup' => [
+        'disk' => env('BACKUP_DISK', env('DB_BACKUP_DISK', 's3')),
+        'path' => env('BACKUP_PATH', env('DB_BACKUP_PATH', 'database-backups')),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Symbolic Links

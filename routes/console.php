@@ -30,3 +30,9 @@ Schedule::command('subscription:apply-upcoming')
     ->withoutOverlapping()
     ->onOneServer()
     ->description('Apply pending upcoming subscriptions after term end');
+
+Schedule::command('app:dbbackup')
+    ->everyThreeHours()
+    ->timezone(config('backup.schedule_timezone', 'Asia/Kolkata'))
+    ->withoutOverlapping()
+    ->description('Create MySQL backup, upload to S3 and remove backups older than 24 hours');
