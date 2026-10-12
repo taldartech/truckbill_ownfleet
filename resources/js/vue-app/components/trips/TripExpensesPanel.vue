@@ -425,7 +425,7 @@ const resolvedExpenseTypes = computed(() => {
     if (loadedExpenseTypes.value.length > 0) {
         return loadedExpenseTypes.value;
     }
-    return null;
+    return [];
 });
 
 function fieldErrorFor(index, field) {

@@ -227,45 +227,6 @@ export const TRIP_STATUSES = [
     { value: 'INVOICED', label: 'Invoiced' },
 ];
 
-export const EXPENSE_TYPES = [
-    { value: 'DIESEL', label: 'Diesel' },
-    { value: 'TOLL', label: 'Toll' },
-    { value: 'DRIVER_EXPENSE', label: 'Driver Expense' },
-    { value: 'LOADING_CHARGES', label: 'Loading Charges' },
-    { value: 'UNLOADING_CHARGES', label: 'Unloading Charges' },
-    { value: 'REPAIR', label: 'Repair' },
-    { value: 'FOOD_EXPENSE', label: 'Food Expense' },
-    { value: 'PARKING', label: 'Parking' },
-    { value: 'RTO_EXPENSE', label: 'RTO' },
-    { value: 'PERMIT_BORDER_TAX', label: 'Permit / Border Tax' },
-    { value: 'OTHER', label: 'Other' },
-];
-
-
-export const QUICK_EXPENSE_PILLS = [
-    { value: 'DIESEL', label: 'Diesel', icon: 'bi-fuel-pump', className: 'pill-diesel' },
-    { value: 'TOLL', label: 'Toll', icon: 'bi-sign-turn-right', className: 'pill-toll' },
-    { value: 'LOADING_CHARGES', label: 'Loading', icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
-    { value: 'UNLOADING_CHARGES', label: 'Unloading', icon: 'bi-box-arrow-up', className: 'pill-unloading' },
-    { value: 'FOOD_EXPENSE', label: 'Food', icon: 'bi-cup-hot', className: 'pill-food' },
-    { value: 'DRIVER_EXPENSE', label: 'Driver', icon: 'bi-person', className: 'pill-driver' },
-    { value: 'REPAIR', label: 'Repair', icon: 'bi-wrench', className: 'pill-repair' },
-    { value: 'PARKING', label: 'Parking', icon: 'bi-p-circle', className: 'pill-parking' },
-    { value: 'RTO_EXPENSE', label: 'RTO', icon: 'bi-shield-check', className: 'pill-rto' },
-    {
-        value: 'PERMIT_BORDER_TAX',
-        label: 'Permit',
-        icon: 'bi-passport',
-        className: 'pill-permit',
-    },
-    { value: 'OTHER', label: 'Other', icon: 'bi-plus-lg', className: 'pill-other' },
-];
-
-/** Trip-wide expenses (tolls/permits that are not tied to a single stop). */
-export const WHOLE_TRIP_QUICK_EXPENSE_PILLS = QUICK_EXPENSE_PILLS.filter(
-    (pill) => !['LOADING_CHARGES', 'UNLOADING_CHARGES'].includes(pill.value),
-);
-
 export function emptyRouteStop(
     sequence = 1,
     fromStationId = '',
@@ -1588,7 +1549,7 @@ export function expenseTypeLabel(type, otherType = '') {
         return otherType || 'Other';
     }
 
-    return EXPENSE_TYPES.find((item) => item.value === type)?.label ?? (String(type ?? '').replace(/_/g, ' ') || 'Expense');
+    return String(type ?? '').replace(/_/g, ' ') || 'Expense';
 }
 
 export function isDieselExpenseType(type) {

@@ -1,5 +1,5 @@
 <template>
-    <div class="quick-pills-wrap">
+    <div v-if="pills.length > 0" class="quick-pills-wrap">
         <div class="quick-pills">
             <button
                 v-for="pill in pills"
@@ -18,7 +18,6 @@
 
 <script setup>
 import { computed } from 'vue';
-import { QUICK_EXPENSE_PILLS, WHOLE_TRIP_QUICK_EXPENSE_PILLS } from '../../api/trips';
 
 const props = defineProps({
     scope: {
@@ -34,39 +33,51 @@ const props = defineProps({
 
 defineEmits(['add']);
 
-const pills = computed(() => {
-    const list = props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS;
-    const knownValues = new Set(list.map(p => p.value));
+const KNOWN_PILL_STYLES = {
+    DIESEL: { icon: 'bi-fuel-pump', className: 'pill-diesel' },
+    TOLL: { icon: 'bi-sign-turn-right', className: 'pill-toll' },
+    LOADING_CHARGES: { icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
+    UNLOADING_CHARGES: { icon: 'bi-box-arrow-up', className: 'pill-unloading' },
+    FOOD_EXPENSE: { icon: 'bi-cup-hot', className: 'pill-food' },
+    DRIVER_EXPENSE: { icon: 'bi-person', className: 'pill-driver' },
+    REPAIR: { icon: 'bi-wrench', className: 'pill-repair' },
+    PARKING: { icon: 'bi-p-circle', className: 'pill-parking' },
+    RTO_EXPENSE: { icon: 'bi-shield-check', className: 'pill-rto' },
+    PERMIT_BORDER_TAX: { icon: 'bi-passport', className: 'pill-permit' },
+    OTHER: { icon: 'bi-plus-lg', className: 'pill-other' },
+};
 
+const pills = computed(() => {
     if (!props.activeTypes || props.activeTypes.length === 0) {
-        return list;
+        return [];
     }
 
-    const activeValues = new Set(props.activeTypes.map((t) => t.value));
-    
-    // Get known pills that are active
-    const activeKnownPills = list.filter((pill) => activeValues.has(pill.value));
+    let types = props.activeTypes;
+    if (props.scope === 'whole-trip') {
+        types = types.filter((t) => !['LOADING_CHARGES', 'UNLOADING_CHARGES'].includes(t.value));
+    }
 
-    // Get custom pills that are active but not known
-    const customPills = props.activeTypes
-        .filter((t) => !knownValues.has(t.value))
-        .map((t, index) => ({
+    const items = types.map((t, index) => {
+        const style = KNOWN_PILL_STYLES[t.value] || {
+            icon: 'bi-tag',
+            className: 'pill-custom-' + ((index % 5) + 1),
+        };
+
+        return {
             value: t.value,
             label: t.label,
-            icon: 'bi-tag', 
-            className: 'pill-custom-' + ((index % 5) + 1), 
-        }));
+            icon: style.icon,
+            className: style.className,
+        };
+    });
 
-    // Separate OTHER to push it to the very end
-    const finalPills = [...activeKnownPills, ...customPills];
-    const otherIndex = finalPills.findIndex(p => p.value === 'OTHER');
-    
+    const otherIndex = items.findIndex((p) => p.value === 'OTHER');
     if (otherIndex !== -1) {
-        const otherPill = finalPills.splice(otherIndex, 1)[0];
-        finalPills.push(otherPill);
+        const otherPill = items.splice(otherIndex, 1)[0];
+        items.push(otherPill);
     }
 
-    return finalPills;
+    return items;
 });
 </script>
 
