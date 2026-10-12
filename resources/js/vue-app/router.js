@@ -60,6 +60,15 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'vehicles.view' },
                 },
                 {
+                    path: 'trucks/archived',
+                    name: 'trucks.archived',
+                    component: () => import('./pages/trucks/TrucksArchivedIndexPage.vue'),
+                    meta: {
+                        requiresTenant: true,
+                        permission: 'vehicles.view',
+                    },
+                },
+                {
                     path: 'drivers',
                     name: 'drivers.index',
                     component: () => import('./pages/drivers/DriversIndexPage.vue'),

@@ -86,11 +86,13 @@ export async function listVehicles({
     vehicleType = '',
     status = '',
     primaryDriver = '',
+    archived = '',
 } = {}) {
     const { data } = await api.get(vehiclesBase, {
         params: {
             page,
             per_page: perPage,
+            ...(archived ? { archived } : {}),
             ...(search ? { search } : {}),
             ...(vehicleType ? { vehicle_type: vehicleType } : {}),
             ...(status ? { status } : {}),
@@ -146,4 +148,14 @@ export async function fetchVehicleFuelHistory(vehicleId, { page = 1, perPage = 1
     });
 
     return data;
+}
+
+export function listArchivedVehicles(params = {}) {
+    return listVehicles({ ...params, archived: 'archived' });
+}
+
+export async function restoreVehicle(id) {
+    const { data } = await api.post(`${vehiclesBase}/${id}/restore`);
+
+    return unwrapResource(data);
 }

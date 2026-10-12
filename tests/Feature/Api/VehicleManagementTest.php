@@ -275,7 +275,7 @@ class VehicleManagementTest extends TestCase
             );
     }
 
-    public function test_admin_can_recreate_soft_deleted_vehicle_by_restoring_it(): void
+    public function test_admin_creating_deleted_vehicle_creates_new_entry_and_leaves_archived(): void
     {
         [$tenant, $admin] = $this->createTenantUser('admin');
         $this->seedTenantLookups($tenant);
@@ -287,7 +287,7 @@ class VehicleManagementTest extends TestCase
             'id' => $vehicle->id,
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->postJson('/app/api/vehicles', [
                 'registration_number' => 'mh12ab1001',
                 'vehicle_type' => 'TANKER',
@@ -302,14 +302,25 @@ class VehicleManagementTest extends TestCase
             ->assertJsonPath('data.make', 'Tata Restore')
             ->assertJsonPath('data.model', 'LPT Restore');
 
-        $this->assertDatabaseHas('vehicles', [
+        $newVehicleId = $response->json('data.id');
+        $this->assertNotEquals($vehicle->id, $newVehicleId);
+
+        // Old vehicle is still soft-deleted in archive
+        $this->assertSoftDeleted('vehicles', [
             'id' => $vehicle->id,
-            'deleted_at' => null,
-            'vehicle_type' => 'TANKER',
-            'make' => 'Tata Restore',
-            'model' => 'LPT Restore',
-            'odometer_km' => 500.00,
         ]);
+
+        // New vehicle is active
+        $this->assertDatabaseHas('vehicles', [
+            'id' => $newVehicleId,
+            'deleted_at' => null,
+            'registration_number' => 'MH12AB1001',
+        ]);
+
+        // Attempting to restore the archived one is blocked because active exists
+        $this->actingAs($admin)
+            ->postJson("/app/api/vehicles/{$vehicle->id}/restore")
+            ->assertStatus(422);
     }
 
     public function test_admin_cannot_update_vehicle_to_duplicate_registration_number(): void
@@ -575,5 +586,49 @@ class VehicleManagementTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.trip_number', 'TRIP-1001')
             ->assertJsonPath('data.0.fuel_liters', 100);
+    }
+
+    public function test_user_can_view_archived_vehicles_for_current_branch(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle1 = $this->createVehicle($tenant, 'RJ27AA1111');
+        $this->createVehicle($tenant, 'RJ27AA2222');
+
+        $vehicle1->delete();
+
+        $response = $this->actingAs($admin)
+            ->getJson('/app/api/vehicles?archived=archived')
+            ->assertOk();
+
+        $response->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.registration_number', 'RJ27AA1111');
+    }
+
+    public function test_user_can_restore_archived_vehicle(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant, 'RJ27AA3333');
+        $vehicle->delete();
+        $this->assertSoftDeleted('vehicles', ['id' => $vehicle->id]);
+
+        $this->actingAs($admin)
+            ->postJson("/app/api/vehicles/{$vehicle->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.registration_number', 'RJ27AA3333');
+
+        $this->assertNotSoftDeleted('vehicles', ['id' => $vehicle->id]);
+    }
+
+    public function test_archived_vehicle_resource_has_can_restore_flag(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant, 'RJ27AA5555');
+        $vehicle->delete();
+
+        $response = $this->actingAs($admin)
+            ->getJson('/app/api/vehicles?archived=archived')
+            ->assertOk();
+
+        $response->assertJsonPath('data.0.can_restore', true);
     }
 }

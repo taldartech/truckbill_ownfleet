@@ -8,6 +8,14 @@
 
         <AppIndexListCard title="Truck Management" :loading="loading" loading-text="Loading trucks…">
             <template #toolbar>
+                <RouterLink
+                    v-if="canInCompany('vehicles.view')"
+                    :to="{ name: 'trucks.archived' }"
+                    class="btn btn-outline-secondary btn-sm"
+                >
+                    <i class="bi bi-archive" style="color: black !important;" aria-hidden="true"></i>
+                    Archived
+                </RouterLink>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"

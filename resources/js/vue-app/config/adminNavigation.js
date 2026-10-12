@@ -92,6 +92,7 @@ export const adminNavigation = [
                 label: 'Trucks',
                 icon: 'fas fa-truck-moving nav-icon',
                 to: '/trucks',
+                activeNames: ['trucks.index', 'trucks.show', 'trucks.archived'],
                 permission: 'vehicles.view',
                 requiresTenant: true,
             },

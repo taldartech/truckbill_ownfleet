@@ -60,6 +60,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('vehicles/{vehicle}/primary-assignment', [VehicleController::class, 'primaryAssignment']);
     Route::get('vehicles/{vehicle}/fuel-history', [VehicleController::class, 'fuelHistory']);
     Route::post('vehicles/{vehicle}/remove-primary-driver', [VehicleController::class, 'removePrimaryDriver']);
+    Route::post('vehicles/{vehicle}/restore', [VehicleController::class, 'restore'])->withTrashed();
     Route::get('drivers/license-expiring', [DriverController::class, 'licenseExpiring']);
     Route::get('drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger']);
     Route::post('drivers/{driver}/advance-entries', [DriverAdvanceController::class, 'store']);
