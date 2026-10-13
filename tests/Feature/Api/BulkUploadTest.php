@@ -96,6 +96,67 @@ class BulkUploadTest extends TestCase
         ]);
     }
 
+    public function test_stations_bulk_upload_with_excel_file_creates_records_successfully(): void
+    {
+        [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');
+
+        $city = City::query()
+            ->whereHas('state', fn ($query) => $query->where('code', 'MH'))
+            ->where('name', 'Mumbai')
+            ->firstOrFail();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'Station Name');
+        $sheet->setCellValue('B1', 'State');
+        $sheet->setCellValue('C1', 'City');
+
+        $sheet->setCellValue('A2', 'Kurla Depot');
+        $sheet->setCellValue('B2', 'Maharashtra');
+        $sheet->setCellValue('C2', 'Mumbai');
+
+        $sheet->setCellValue('A3', 'Thane Depot');
+        $sheet->setCellValue('B3', 'Maharashtra');
+        $sheet->setCellValue('C3', 'Mumbai');
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'test_stations_') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempPath);
+
+        $file = new UploadedFile($tempPath, 'stations.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($branchId));
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->post('/api/stations/bulk-upload', [
+                'file' => $file,
+            ]);
+
+        if (file_exists($tempPath)) {
+            unlink($tempPath);
+        }
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('summary.total', 2)
+            ->assertJsonPath('summary.successful', 2)
+            ->assertJsonPath('summary.failed', 0);
+
+        $this->assertDatabaseHas('stations', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Kurla Depot',
+            'city_id' => $city->id,
+        ]);
+
+        $this->assertDatabaseHas('stations', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Thane Depot',
+            'city_id' => $city->id,
+        ]);
+    }
+
     public function test_bulk_upload_reports_row_validation_errors(): void
     {
         [$tenant, $user, $branchId] = $this->createTenantAndUser('admin');

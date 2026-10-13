@@ -82,7 +82,7 @@ class BulkUploadService
 
         $extension = strtolower($file->getClientOriginalExtension());
 
-        if (! in_array($extension, ['csv', 'xlsx', 'xls'], true)) {
+        if (! in_array($extension, ['csv', 'txt', 'xlsx', 'xls'], true)) {
             return [
                 'success' => false,
                 'summary' => ['total' => 0, 'successful' => 0, 'failed' => 0, 'skipped' => 0],
@@ -711,7 +711,6 @@ class BulkUploadService
                     ? new Xlsx
                     : new Xls;
 
-                $reader->setReadDataOnly(true);
                 $spreadsheet = $reader->load($path);
                 $worksheet = $spreadsheet->getActiveSheet();
 
@@ -726,17 +725,16 @@ class BulkUploadService
                 }
 
                 $range = "A1:{$maxCol}{$maxRow}";
-                $rowGenerator = $worksheet->rangeToArrayYieldRows($range, null, true, false, false);
+                $allRows = $worksheet->rangeToArray($range, null, true, true, false);
 
-                if (! $rowGenerator->valid()) {
+                if (empty($allRows)) {
                     $spreadsheet->disconnectWorksheets();
                     unset($spreadsheet);
 
                     return null;
                 }
 
-                $rawHeaders = $rowGenerator->current();
-                $rowGenerator->next();
+                $rawHeaders = array_shift($allRows);
 
                 while (! empty($rawHeaders) && (end($rawHeaders) === null || trim((string) end($rawHeaders)) === '')) {
                     array_pop($rawHeaders);
@@ -751,11 +749,10 @@ class BulkUploadService
 
                 $headers = array_map(fn($h) => trim((string) $h), $rawHeaders);
 
-                $dataGenerator = function () use ($rowGenerator, $spreadsheet) {
+                $dataGenerator = function () use ($allRows, $spreadsheet) {
                     try {
-                        while ($rowGenerator->valid()) {
-                            yield $rowGenerator->current();
-                            $rowGenerator->next();
+                        foreach ($allRows as $row) {
+                            yield $row;
                         }
                     } finally {
                         $spreadsheet->disconnectWorksheets();
