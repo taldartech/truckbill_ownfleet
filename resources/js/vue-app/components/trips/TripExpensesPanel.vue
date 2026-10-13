@@ -77,6 +77,7 @@
                 <QuickExpensePills
                     v-if="!readonly"
                     scope="stop"
+                    :active-types="resolvedExpenseTypes"
                     @add="(type) => quickAdd(singleStopCard.sequence, type)"
                 />
                 <div v-if="mergedSingleStopItems.length > 0" class="expense-entries-scroll">
@@ -98,6 +99,7 @@
                     <template v-for="item in mergedSingleStopItems" :key="item.globalIndex">
                         <TripExpenseEntry
                             :expense="item.expense"
+                            :expense-types="resolvedExpenseTypes"
                             :expense-index="item.globalIndex"
                             :show-diesel-columns="sectionUsesDieselColumns(mergedSingleStopItems)"
                             :disabled="readonly"
@@ -168,7 +170,7 @@
                 </button>
 
                 <div v-show="!isCollapsed('general')" class="trf-leg__expense-body">
-                    <QuickExpensePills v-if="!readonly" scope="whole-trip" @add="(type) => quickAdd('', type)" />
+                    <QuickExpensePills v-if="!readonly" scope="whole-trip" :active-types="resolvedExpenseTypes" @add="(type) => quickAdd('', type)" />
                     <div v-if="generalItems.length > 0" class="expense-entries-scroll">
                         <div
                             class="expense-entry-columns"
@@ -188,6 +190,7 @@
                         <template v-for="item in generalItems" :key="item.globalIndex">
                             <TripExpenseEntry
                                 :expense="item.expense"
+                                :expense-types="resolvedExpenseTypes"
                                 :expense-index="item.globalIndex"
                                 :show-diesel-columns="sectionUsesDieselColumns(generalItems)"
                                 :disabled="readonly"
@@ -285,7 +288,7 @@
                         </span>
                     </div>
 
-                    <QuickExpensePills v-if="!readonly" scope="stop" @add="(type) => quickAdd(stop.sequence, type)" />
+                    <QuickExpensePills v-if="!readonly" scope="stop" :active-types="resolvedExpenseTypes" @add="(type) => quickAdd(stop.sequence, type)" />
                     <div v-if="stop.items.length > 0" class="expense-entries-scroll">
                         <div
                             class="expense-entry-columns"
@@ -305,6 +308,7 @@
                         <template v-for="item in stop.items" :key="item.globalIndex">
                             <TripExpenseEntry
                                 :expense="item.expense"
+                                :expense-types="resolvedExpenseTypes"
                                 :expense-index="item.globalIndex"
                                 :show-diesel-columns="sectionUsesDieselColumns(stop.items)"
                                 :disabled="readonly"
@@ -371,8 +375,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { getLegacyFuelWarning, isDieselExpenseType, legLoadCategoryMeta } from '../../api/trips';
+import { fetchActiveTripExpenseTypes } from '../../api/tripExpenseTypes';
 import QuickExpensePills from './QuickExpensePills.vue';
 import TripExpenseEntry from './TripExpenseEntry.vue';
 
@@ -380,6 +385,7 @@ const props = defineProps({
     expenses: { type: Array, default: () => [] },
     routeLegs: { type: Array, default: () => [] },
     stations: { type: Array, default: () => [] },
+    expenseTypes: { type: Array, default: null },
     readonly: { type: Boolean, default: false },
     tripStartDate: { type: String, default: '' },
     tripEndDate: { type: String, default: '' },
@@ -395,6 +401,32 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['add-expense', 'remove-expense', 'fuel-field-input', 'field-input']);
+
+const loadedExpenseTypes = ref([]);
+
+onMounted(async () => {
+    if (props.expenseTypes && props.expenseTypes.length > 0) {
+        return;
+    }
+    try {
+        const types = await fetchActiveTripExpenseTypes();
+        if (types && types.length > 0) {
+            loadedExpenseTypes.value = types;
+        }
+    } catch {
+        // Fallback to defaults handled gracefully
+    }
+});
+
+const resolvedExpenseTypes = computed(() => {
+    if (props.expenseTypes && props.expenseTypes.length > 0) {
+        return props.expenseTypes;
+    }
+    if (loadedExpenseTypes.value.length > 0) {
+        return loadedExpenseTypes.value;
+    }
+    return [];
+});
 
 function fieldErrorFor(index, field) {
     const errors = props.fieldErrors[`expenses.${index}.${field}`];
