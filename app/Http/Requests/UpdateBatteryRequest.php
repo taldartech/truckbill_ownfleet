@@ -41,7 +41,7 @@ class UpdateBatteryRequest extends FormRequest
             'voltage' => ['sometimes', 'required', 'string', 'max:20'],
             'capacity_ah' => ['sometimes', 'required', 'numeric', 'min:1', 'max:1000'],
             'purchase_date' => ['sometimes', 'required', 'date', 'before_or_equal:today'],
-            'purchase_cost' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'purchase_cost' => ['sometimes', 'required', 'numeric', 'min:0'],
             'warranty_months' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:120'],
             'warranty_valid_until' => ['sometimes', 'nullable', 'date'],
             'expected_life_months' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:240'],

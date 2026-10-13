@@ -125,7 +125,7 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Purchase Cost (₹)</label>
+                <label class="form-label fw-semibold">Purchase Cost (₹) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <span class="input-group-text">₹</span>
                     <input
@@ -136,6 +136,7 @@
                         class="form-control"
                         placeholder="14500"
                         :class="{ 'is-invalid': fieldErrors.purchase_cost }"
+                        required
                     />
                 </div>
                 <div v-if="fieldErrors.purchase_cost" class="invalid-feedback d-block">
