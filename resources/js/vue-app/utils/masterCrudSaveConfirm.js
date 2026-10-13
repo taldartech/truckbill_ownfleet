@@ -148,11 +148,6 @@ export function buildCityFields(payload, original, { states }) {
 }
 
 export function buildCompanyFields(payload, original, { states = [] } = {}) {
-    const payDaysLabels = {
-        calendar: 'Calendar days',
-        fixed_30: 'Fixed 30 days',
-    };
-
     const registrationLabels = {
         regular: 'Regular',
         composition: 'Composition',
@@ -194,12 +189,6 @@ export function buildCompanyFields(payload, original, { states = [] } = {}) {
             previousValue: original?.state_name ?? resolveLookupLabel(states, original?.state_id),
         },
         { label: 'PAN Number', value: payload.pan_number, previousValue: original?.pan_number },
-        {
-            label: 'Pay Days Mode',
-            value: payDaysLabels[payload.payroll_pay_days_mode] ?? payload.payroll_pay_days_mode,
-            previousValue:
-                payDaysLabels[original?.payroll_pay_days_mode] ?? original?.payroll_pay_days_mode,
-        },
         { label: 'Contact Person', value: payload.contact_person, previousValue: original?.contact_person },
         { label: 'Contact Number', value: payload.contact_number, previousValue: original?.contact_number },
         { label: 'Address', value: payload.address, previousValue: original?.address },
