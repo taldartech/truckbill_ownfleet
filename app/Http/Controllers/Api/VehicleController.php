@@ -102,7 +102,7 @@ class VehicleController extends Controller
             // 1. Normalize registration number
             $regRaw = trim((string) ($rowData['registration_number'] ?? ''));
             $normalizedReg = VehicleRegistrationNumber::normalize($regRaw) ?? '';
-            if ($normalizedReg === '') {
+            if ($normalizedReg === '' || ! VehicleRegistrationNumber::isValid($normalizedReg)) {
                 $errors[] = [
                     'row' => $rowNumber,
                     'field' => 'Vehicle Number',
