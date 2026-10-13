@@ -141,9 +141,9 @@ const toast = useAppToast();
 const { can, user } = usePermissions();
 
 const isSuperAdmin = computed(() => user.value?.role === 'super_admin');
-const canCreate = computed(() => isSuperAdmin.value || can('trip_expense_types.create') || can('trips.expenses'));
-const canEdit = computed(() => isSuperAdmin.value || can('trip_expense_types.edit') || can('trips.expenses'));
-const canDelete = computed(() => isSuperAdmin.value || can('trip_expense_types.delete') || can('trips.expenses'));
+const canCreate = computed(() => isSuperAdmin.value || can('trip_expense_types.create'));
+const canEdit = computed(() => isSuperAdmin.value || can('trip_expense_types.edit'));
+const canDelete = computed(() => isSuperAdmin.value || can('trip_expense_types.delete'));
 
 const expenseTypes = ref([]);
 const loading = ref(true);

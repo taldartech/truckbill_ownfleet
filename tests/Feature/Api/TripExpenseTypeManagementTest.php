@@ -206,7 +206,37 @@ class TripExpenseTypeManagementTest extends TestCase
         ]);
     }
 
+    public function test_user_without_delete_permission_cannot_delete_trip_expense_type(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        SelectedCompanySession::set($tenant->id);
+        TenantContext::setTenantId($tenant->id);
 
+        $deletePermission = \App\Permission::query()->where('slug', 'trip_expense_types.delete')->first();
+        if ($deletePermission) {
+            \Illuminate\Support\Facades\DB::table('permission_user_role')
+                ->where('user_role_id', $admin->user_role_id)
+                ->where('permission_id', $deletePermission->id)
+                ->delete();
+            $admin->clearPermissionCache();
+        }
+
+        $type = TripExpenseTypeMaster::query()->create([
+            'super_admin_id' => $admin->resolvedSuperAdminId(),
+            'name' => 'Should Not Delete',
+            'code' => 'SHOULD_NOT_DELETE',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson("/app/api/trip-expense-types/{$type->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('trip_expense_types', [
+            'id' => $type->id,
+            'deleted_at' => null,
+        ]);
+    }
 
     public function test_existing_trip_expense_records_remain_unaffected_when_type_deactivated(): void
     {
