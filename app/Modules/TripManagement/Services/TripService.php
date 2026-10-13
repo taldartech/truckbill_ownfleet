@@ -298,6 +298,73 @@ class TripService
 
             $vehicleId = (string) $trip->vehicle_id;
             $driverId = (string) $trip->driver_id;
+
+            $oldStatusEnum = $oldStatus instanceof TripStatus ? $oldStatus : TripStatus::tryFrom((string) $oldStatus);
+            $canChangeVehicleAndDriver = $oldStatusEnum === TripStatus::Pending && ! $trip->expenses()->exists();
+
+            if (array_key_exists('vehicle_id', $data) && $data['vehicle_id'] !== null && $data['vehicle_id'] !== '') {
+                if (! $canChangeVehicleAndDriver) {
+                    throw ValidationException::withMessages([
+                        'vehicle_id' => ['Truck cannot be changed after the trip has started or has expenses.'],
+                    ]);
+                }
+
+                $newVehicleId = (string) $data['vehicle_id'];
+                $vehicle = Vehicle::query()
+                    ->with(['currentPrimaryAssignment.driver'])
+                    ->findOrFail($newVehicleId);
+
+                $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
+                $tripStartDate = $tripStartAt !== null
+                    ? \Illuminate\Support\Carbon::parse($tripStartAt)->toDateString()
+                    : null;
+                $tripEndDate = isset($data['end_at']) && $data['end_at'] !== null
+                    ? \Illuminate\Support\Carbon::parse($data['end_at'])->toDateString()
+                    : ($trip->end_at !== null ? $trip->end_at->toDateString() : null);
+
+                if ($newVehicleId !== (string) $trip->vehicle_id) {
+                    $this->vehicleTripEligibility->assertEligibleForTripCreation($vehicle, $tripStartDate, $tripEndDate);
+                }
+
+                $resolvedDriverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($newVehicleId, $tripStartAt);
+
+                if ($resolvedDriverId === null) {
+                    throw ValidationException::withMessages([
+                        'start_at' => ['No primary driver is assigned to this truck on the trip start date.'],
+                        'vehicle_id' => ['Choose a different truck or adjust the trip start date.'],
+                    ]);
+                }
+
+                if (isset($data['driver_id']) && (string) $data['driver_id'] !== $resolvedDriverId) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => ['Driver must match the primary driver assigned to this truck.'],
+                    ]);
+                }
+
+                $driverId = $resolvedDriverId;
+                $vehicleId = $newVehicleId;
+
+                $this->tripValidation->assertDriverIsActive($driverId);
+                $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $tripStartAt);
+
+                $data['vehicle_id'] = $vehicleId;
+                $data['driver_id'] = $driverId;
+            } elseif (array_key_exists('driver_id', $data) && $data['driver_id'] !== null && $data['driver_id'] !== '') {
+                if (! $canChangeVehicleAndDriver) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => ['Driver cannot be changed after the trip has started or has expenses.'],
+                    ]);
+                }
+
+                $newDriverId = (string) $data['driver_id'];
+                $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
+
+                $this->tripValidation->assertDriverIsActive($newDriverId);
+                $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $newDriverId, $tripStartAt);
+
+                $driverId = $newDriverId;
+                $data['driver_id'] = $driverId;
+            }
             $tripType = $trip->trip_type instanceof TripType
                 ? $trip->trip_type->value
                 : (string) ($trip->trip_type ?? TripType::RoundTrip->value);

@@ -99,7 +99,7 @@
                             <span class="trf-pf__lbl-text">Truck<span class="trf-pf__req">*</span></span>
                         </div>
                         <AsyncVehicleTripPickerRedesigned
-                            v-if="mode === 'create' && !isFormLocked"
+                            v-if="(mode === 'create' || canChangeTruck) && !isFormLocked"
                             v-model="form.vehicle_id"
                             placeholder="Select truck"
                             :invalid="Boolean(fieldErrors.vehicle_id)"
@@ -1396,6 +1396,7 @@ const props = defineProps({
     canQuickAddBroker: { type: Boolean, default: false },
     canQuickAddCustomer: { type: Boolean, default: false },
     canQuickAddGoodsType: { type: Boolean, default: false },
+    canChangeTruck: { type: Boolean, default: false },
     vehicleOdometerKm: { type: [Number, String], default: '' },
     vehicleDefaultMileage: { type: [Number, String], default: '' },
     vehicleExpectedMileage: { type: [Number, String], default: '' },
@@ -1500,7 +1501,13 @@ const statusPillClass = computed(() => {
 const vehicleDefaultMileageResolved = computed(() => props.vehicleDefaultMileage || props.vehicleExpectedMileage || '');
 const selectedDriver = computed(() => props.drivers.find((d) => String(d.id) === String(props.form.driver_id)) ?? null);
 const selectedCustomer = computed(() => props.customers.find((c) => String(c.id) === String(props.form.customer_id)) ?? null);
-const driverDisplayName = computed(() => { if (props.mode === 'edit') return props.snapshotDriverName || '—'; return props.primaryDriverName || (props.loadingDriver ? 'Loading…' : '—'); });
+const driverDisplayName = computed(() => {
+    if (props.mode === 'edit' && !props.canChangeTruck) {
+        return props.snapshotDriverName || '—';
+    }
+
+    return props.primaryDriverName || props.snapshotDriverName || (props.loadingDriver ? 'Loading…' : '—');
+});
 const hasDriverDisplay = computed(() => {
     const name = String(driverDisplayName.value ?? '').trim();
 
