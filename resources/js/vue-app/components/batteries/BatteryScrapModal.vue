@@ -4,7 +4,7 @@
         :loading="saving"
         :form-error="formError"
         as-form
-        size="md"
+        size="lg"
         @close="close"
         @submit="submit"
     >
@@ -23,7 +23,7 @@
                 <span class="badge bg-secondary ms-2">{{ battery.brand }}</span>
             </div>
             <div class="text-muted small mt-1">
-                Capacity: {{ battery.capacity_ah }} Ah | Purchased: {{ battery.purchase_date || '—' }}
+                Capacity: {{ Number(battery.capacity_ah) }} Ah | Purchased: {{ battery.purchase_date ? formatDate(battery.purchase_date) : '—' }}
                 <span v-if="battery.purchase_cost"> | Cost: ₹{{ Number(battery.purchase_cost).toLocaleString() }}</span>
             </div>
         </div>
@@ -42,6 +42,7 @@
                     v-model="form.scrapped_at"
                     type="date"
                     class="form-control"
+                    :min="battery?.purchase_date || undefined"
                     :max="todayDate"
                     :class="{ 'is-invalid': fieldErrors.scrapped_at }"
                     required
@@ -111,6 +112,7 @@
 import { computed, ref, watch } from 'vue';
 import AppModal from '../ui/AppModal.vue';
 import { scrapBattery } from '../../api/batteries';
+import { formatDate } from '../../utils/datetime';
 
 const props = defineProps({
     show: {

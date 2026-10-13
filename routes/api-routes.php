@@ -152,6 +152,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::post('battery-installations/{battery_installation}/remove', [BatteryController::class, 'removeInstallation']);
     Route::get('vehicles/{vehicle}/batteries', [BatteryController::class, 'vehicleBatteries']);
     Route::post('batteries/{battery}/scrap', [BatteryController::class, 'scrap']);
+    Route::post('batteries/{battery}/inspections', [BatteryController::class, 'storeInspection']);
     Route::apiResource('batteries', BatteryController::class);
 
     Route::get('document-types', [\App\Http\Controllers\Api\DocumentTypeController::class, 'index']);

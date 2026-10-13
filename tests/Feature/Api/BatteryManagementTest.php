@@ -4,7 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Battery;
 use App\BatteryInstallation;
-use App\BatteryReplacement;
+use App\Enums\BatteryCondition;
 use App\Enums\BatteryRemovalReason;
 use App\Enums\BatteryStatus;
 use App\Enums\BatteryType;
@@ -115,7 +115,7 @@ class BatteryManagementTest extends TestCase
 
         // Filter by status
         $responseStatus = $this->batteryApi($tenant)
-            ->getJson('/api/batteries?status=' . BatteryStatus::Installed->value);
+            ->getJson('/api/batteries?status='.BatteryStatus::Installed->value);
         $responseStatus->assertOk();
         $responseStatus->assertJsonCount(1, 'data');
         $responseStatus->assertJsonPath('data.0.serial_number', 'EXIDE-303');
@@ -239,13 +239,212 @@ class BatteryManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.status', BatteryStatus::Scrapped->value);
+        $response->assertJsonPath('data.status_label', 'Scrapped');
         $response->assertJsonPath('data.scrap_sale_amount', 1200);
+        $response->assertJsonPath('data.scrap_notes', 'Dead cells, non-rechargeable');
 
         $this->assertDatabaseHas('batteries', [
             'id' => $battery->id,
             'status' => BatteryStatus::Scrapped->value,
             'scrap_sale_amount' => 1200,
+            'scrap_notes' => 'Dead cells, non-rechargeable',
         ]);
+    }
+
+    public function test_counts_include_all_statuses_warranty_expiring_and_brands(): void
+    {
+        Carbon::setTestNow('2026-09-30');
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $this->createBattery($tenant, ['brand' => 'Exide', 'status' => BatteryStatus::InStock, 'warranty_valid_until' => '2026-10-15']);
+        $this->createBattery($tenant, ['brand' => 'Amaron', 'status' => BatteryStatus::UnderInspection]);
+        $this->createBattery($tenant, ['brand' => 'Exide', 'status' => BatteryStatus::Returned]);
+        $this->createBattery($tenant, ['brand' => 'Exide', 'status' => BatteryStatus::Scrapped, 'warranty_valid_until' => '2026-10-10']);
+
+        $response = $this->batteryApi($tenant)->getJson('/app/api/batteries/counts');
+
+        $response->assertOk();
+        $response->assertJsonPath('counts.total', 4);
+        $response->assertJsonPath('counts.under_inspection', 1);
+        $response->assertJsonPath('counts.returned', 1);
+        $response->assertJsonPath('counts.warranty_expiring', 1);
+        $response->assertJsonPath('brands', ['Amaron', 'Exide']);
+
+        $this->batteryApi($tenant)
+            ->getJson('/app/api/batteries?warranty=expiring')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.warranty_status', 'expiring');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_available_list_includes_removed_standby_batteries_after_new_stock(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $this->createBattery($tenant, ['serial_number' => 'A-STANDBY', 'status' => BatteryStatus::Removed]);
+        $this->createBattery($tenant, ['serial_number' => 'B-NEW', 'status' => BatteryStatus::InStock]);
+        $this->createBattery($tenant, ['serial_number' => 'C-SCRAP', 'status' => BatteryStatus::Scrapped]);
+
+        $response = $this->batteryApi($tenant)->getJson('/app/api/batteries/in-stock');
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data');
+        $response->assertJsonPath('data.0.serial_number', 'B-NEW');
+        $response->assertJsonPath('data.1.serial_number', 'A-STANDBY');
+        $response->assertJsonPath('data.1.status_label', 'Removed');
+    }
+
+    public function test_update_recomputes_warranty_only_when_its_inputs_change(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant, [
+            'purchase_date' => '2026-01-15',
+            'warranty_months' => 24,
+            'warranty_valid_until' => '2028-06-30',
+        ]);
+
+        $this->batteryApi($tenant)
+            ->putJson("/api/batteries/{$battery->id}", ['notes' => 'Checked'])
+            ->assertOk()
+            ->assertJsonPath('data.warranty_valid_until', '2028-06-30');
+
+        $this->batteryApi($tenant)
+            ->putJson("/api/batteries/{$battery->id}", ['warranty_months' => 0])
+            ->assertOk()
+            ->assertJsonPath('data.warranty_valid_until', null)
+            ->assertJsonPath('data.warranty_status', 'none');
+    }
+
+    public function test_replace_rejects_odometer_below_installation_reading(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $oldBattery = $this->createBattery($tenant);
+        $newBattery = $this->createBattery($tenant);
+
+        $this->batteryApi($tenant)
+            ->postJson("/api/batteries/{$oldBattery->id}/install", [
+                'vehicle_id' => $vehicle->id,
+                'installed_at' => '2026-09-01',
+                'km_at_installation' => 20000,
+            ])
+            ->assertCreated();
+
+        $this->batteryApi($tenant)
+            ->postJson('/api/batteries/replace', [
+                'vehicle_id' => $vehicle->id,
+                'old_battery_id' => $oldBattery->id,
+                'new_battery_id' => $newBattery->id,
+                'replaced_at' => '2026-09-20',
+                'odometer_km' => 19000,
+                'reason' => BatteryRemovalReason::LowVoltage->value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['odometer_km']);
+
+        $this->assertEquals(BatteryStatus::Installed, $oldBattery->fresh()->status);
+        $this->assertEquals(BatteryStatus::InStock, $newBattery->fresh()->status);
+    }
+
+    public function test_remove_rejects_odometer_below_installation_reading(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant);
+
+        $installationId = $this->batteryApi($tenant)
+            ->postJson("/api/batteries/{$battery->id}/install", [
+                'vehicle_id' => $vehicle->id,
+                'installed_at' => '2026-09-01',
+                'km_at_installation' => 20000,
+            ])
+            ->json('data.id');
+
+        $this->batteryApi($tenant)
+            ->postJson("/api/battery-installations/{$installationId}/remove", [
+                'removed_at' => '2026-09-20',
+                'odometer_km' => 15000,
+                'removal_reason' => BatteryRemovalReason::VehicleMaintenance->value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['odometer_km']);
+    }
+
+    public function test_admin_can_log_inspection_and_see_history_on_detail(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant, ['purchase_date' => '2026-01-15']);
+        $replacement = $this->createBattery($tenant, ['purchase_date' => '2026-01-15']);
+
+        $this->batteryApi($tenant)
+            ->postJson("/api/batteries/{$battery->id}/install", [
+                'vehicle_id' => $vehicle->id,
+                'installed_at' => '2026-02-01',
+                'km_at_installation' => 5000,
+            ])
+            ->assertCreated();
+
+        $this->batteryApi($tenant)
+            ->postJson("/app/api/batteries/{$battery->id}/inspections", [
+                'inspected_at' => '2026-06-01',
+                'voltage_reading' => 12.45,
+                'specific_gravity' => 1.235,
+                'condition' => BatteryCondition::Fair->value,
+                'action_taken' => 'Topped up distilled water',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.condition_label', 'Fair / Monitor')
+            ->assertJsonPath('data.vehicle_id', $vehicle->id);
+
+        $this->batteryApi($tenant)
+            ->postJson('/api/batteries/replace', [
+                'vehicle_id' => $vehicle->id,
+                'old_battery_id' => $battery->id,
+                'new_battery_id' => $replacement->id,
+                'replaced_at' => '2026-07-01',
+                'odometer_km' => 9000,
+                'reason' => BatteryRemovalReason::LowVoltage->value,
+            ])
+            ->assertCreated();
+
+        $response = $this->batteryApi($tenant)->getJson("/api/batteries/{$battery->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.status_label', 'Removed');
+        $response->assertJsonCount(1, 'data.inspections');
+        $response->assertJsonPath('data.inspections.0.voltage_reading', 12.45);
+        $response->assertJsonPath('data.installations.0.removal_reason_label', 'Low Voltage / Not Charging');
+        $response->assertJsonPath('data.installations.0.stint_km', 4000);
+        $response->assertJsonPath('life_summary.last_inspection.condition', BatteryCondition::Fair->value);
+        $response->assertJsonCount(1, 'replacements');
+        $response->assertJsonPath('replacements.0.new_battery.id', $replacement->id);
+        $response->assertJsonPath('replacements.0.reason_label', 'Low Voltage / Not Charging');
+    }
+
+    public function test_scrapped_battery_cannot_be_inspected(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant, ['status' => BatteryStatus::Scrapped]);
+
+        $this->batteryApi($tenant)
+            ->postJson("/app/api/batteries/{$battery->id}/inspections", [
+                'inspected_at' => '2026-06-01',
+                'condition' => BatteryCondition::Good->value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['battery']);
     }
 
     public function test_admin_cannot_scrap_installed_battery(): void
@@ -625,7 +824,7 @@ class BatteryManagementTest extends TestCase
     private function validBatteryPayload(array $overrides = []): array
     {
         return array_merge([
-            'serial_number' => 'BAT-' . fake()->unique()->numerify('#####'),
+            'serial_number' => 'BAT-'.fake()->unique()->numerify('#####'),
             'brand' => 'Exide',
             'model' => 'PowerSafe',
             'battery_type' => BatteryType::LeadAcid->value,
@@ -646,7 +845,7 @@ class BatteryManagementTest extends TestCase
         return Battery::query()->create(array_merge([
             'tenant_id' => $tenant->id,
             'branch_id' => $operational['branch_id'],
-            'serial_number' => 'BAT-' . fake()->unique()->numerify('#####'),
+            'serial_number' => 'BAT-'.fake()->unique()->numerify('#####'),
             'brand' => 'Exide',
             'model' => 'Mileage',
             'battery_type' => BatteryType::LeadAcid,
@@ -685,7 +884,7 @@ class BatteryManagementTest extends TestCase
         $operational = $this->operationalAttributesForTenant($tenant);
 
         $vehicle = Vehicle::query()->create(array_merge($operational, [
-            'registration_number' => 'MH12BT' . fake()->unique()->numerify('####'),
+            'registration_number' => 'MH12BT'.fake()->unique()->numerify('####'),
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 5000,
         ]));

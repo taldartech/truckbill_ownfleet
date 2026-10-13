@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\BatteryRemovalReason;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -34,6 +35,7 @@ class BatteryReplacementResource extends JsonResource
             'replaced_at' => $this->replaced_at?->toDateString(),
             'odometer_km' => (float) $this->odometer_km,
             'reason' => $this->reason,
+            'reason_label' => BatteryRemovalReason::tryFrom((string) $this->reason)?->label(),
             'notes' => $this->notes,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

@@ -20,6 +20,8 @@ class Battery extends Model
     use TenantScoped;
     use UsesUuid;
 
+    public const WARRANTY_EXPIRING_DAYS = 30;
+
     protected $fillable = [
         'tenant_id',
         'branch_id',
@@ -38,6 +40,7 @@ class Battery extends Model
         'status',
         'scrapped_at',
         'scrap_sale_amount',
+        'scrap_notes',
         'notes',
         'created_by',
         'updated_by',
@@ -101,7 +104,7 @@ class Battery extends Model
         return $query->where('status', BatteryStatus::UnderInspection->value);
     }
 
-    public function scopeWarrantyExpiring(Builder $query, int $days = 30): Builder
+    public function scopeWarrantyExpiring(Builder $query, int $days = self::WARRANTY_EXPIRING_DAYS): Builder
     {
         $today = now()->toDateString();
         $cutoff = now()->addDays($days)->toDateString();

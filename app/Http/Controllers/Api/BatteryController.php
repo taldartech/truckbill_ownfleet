@@ -9,8 +9,10 @@ use App\Http\Requests\InstallBatteryRequest;
 use App\Http\Requests\RemoveBatteryInstallationRequest;
 use App\Http\Requests\ReplaceBatteryRequest;
 use App\Http\Requests\ScrapBatteryRequest;
+use App\Http\Requests\StoreBatteryInspectionRequest;
 use App\Http\Requests\StoreBatteryRequest;
 use App\Http\Requests\UpdateBatteryRequest;
+use App\Http\Resources\BatteryInspectionResource;
 use App\Http\Resources\BatteryInstallationResource;
 use App\Http\Resources\BatteryReplacementResource;
 use App\Http\Resources\BatteryResource;
@@ -36,8 +38,11 @@ class BatteryController extends Controller
         $status = $request->filled('status') ? (string) $request->input('status') : null;
         $brand = $request->filled('brand') ? (string) $request->input('brand') : null;
         $vehicleId = $request->filled('vehicle_id') ? (string) $request->input('vehicle_id') : null;
+        $warranty = in_array($request->input('warranty'), ['active', 'expiring', 'expired'], true)
+            ? (string) $request->input('warranty')
+            : null;
 
-        $batteries = $this->batteryService->paginate($perPage, $search, $status, $brand, $vehicleId);
+        $batteries = $this->batteryService->paginate($perPage, $search, $status, $brand, $vehicleId, $warranty);
 
         return BatteryResource::collection($batteries);
     }
@@ -48,6 +53,7 @@ class BatteryController extends Controller
 
         return response()->json([
             'counts' => $this->batteryService->getCounts(),
+            'brands' => $this->batteryService->getBrands(),
         ]);
     }
 
@@ -59,7 +65,17 @@ class BatteryController extends Controller
         $batteries = $this->batteryService->getInStockList($brand);
 
         return response()->json([
-            'data' => $batteries,
+            'data' => $batteries->map(fn (Battery $battery): array => [
+                'id' => $battery->id,
+                'serial_number' => $battery->serial_number,
+                'brand' => $battery->brand,
+                'model' => $battery->model,
+                'capacity_ah' => (float) $battery->capacity_ah,
+                'voltage' => $battery->voltage,
+                'status' => $battery->status?->value,
+                'status_label' => $battery->status?->label(),
+                'purchase_date' => $battery->purchase_date?->toDateString(),
+            ])->values(),
         ]);
     }
 
@@ -81,6 +97,7 @@ class BatteryController extends Controller
         return response()->json([
             'data' => (new BatteryResource($payload['battery']))->resolve(),
             'life_summary' => $payload['life_summary'],
+            'replacements' => BatteryReplacementResource::collection($payload['replacements'])->resolve(),
         ]);
     }
 
@@ -127,6 +144,15 @@ class BatteryController extends Controller
         $installation = $this->batteryService->removeInstallation($batteryInstallation, $request->validated());
 
         return new BatteryInstallationResource($installation);
+    }
+
+    public function storeInspection(StoreBatteryInspectionRequest $request, Battery $battery): JsonResponse
+    {
+        $inspection = $this->batteryService->addInspection($battery, $request->validated());
+
+        return (new BatteryInspectionResource($inspection))
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
     }
 
     public function vehicleBatteries(Request $request, Vehicle $vehicle): JsonResponse

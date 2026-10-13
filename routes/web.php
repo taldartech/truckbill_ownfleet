@@ -425,6 +425,7 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::get('/vehicles/{vehicle}/batteries', [\App\Http\Controllers\Api\BatteryController::class, 'vehicleBatteries'])
                 ->name('vehicles.batteries');
             Route::post('/batteries/{battery}/scrap', [\App\Http\Controllers\Api\BatteryController::class, 'scrap'])->name('batteries.scrap');
+            Route::post('/batteries/{battery}/inspections', [\App\Http\Controllers\Api\BatteryController::class, 'storeInspection'])->name('batteries.inspections.store');
             Route::apiResource('batteries', \App\Http\Controllers\Api\BatteryController::class);
 
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])

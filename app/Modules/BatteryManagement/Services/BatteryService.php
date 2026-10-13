@@ -3,6 +3,7 @@
 namespace App\Modules\BatteryManagement\Services;
 
 use App\Battery;
+use App\BatteryInspection;
 use App\BatteryInstallation;
 use App\BatteryReplacement;
 use App\Enums\BatteryStatus;
@@ -26,17 +27,26 @@ class BatteryService
         ?string $search = null,
         ?string $status = null,
         ?string $brand = null,
-        ?string $vehicleId = null
+        ?string $vehicleId = null,
+        ?string $warranty = null
     ): LengthAwarePaginator {
-        return $this->repository->paginate($perPage, $search, $status, $brand, $vehicleId);
+        return $this->repository->paginate($perPage, $search, $status, $brand, $vehicleId, $warranty);
     }
 
     /**
-     * @return array{total: int, in_stock: int, installed: int, removed: int, scrapped: int}
+     * @return array{total: int, in_stock: int, installed: int, removed: int, under_inspection: int, returned: int, scrapped: int, warranty_expiring: int}
      */
     public function getCounts(): array
     {
         return $this->repository->getCounts();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getBrands(): array
+    {
+        return $this->repository->getBrands();
     }
 
     /**
@@ -48,7 +58,7 @@ class BatteryService
     }
 
     /**
-     * @return array{battery: Battery, life_summary: array<string, mixed>}
+     * @return array{battery: Battery, life_summary: array<string, mixed>, replacements: Collection<int, BatteryReplacement>}
      */
     public function showWithLifecycle(string $id): array
     {
@@ -76,11 +86,14 @@ class BatteryService
         }
 
         $active = $battery->activeInstallation;
+        $expectedLifeMonths = (int) ($battery->expected_life_months ?? 0);
+        $lastInspection = $battery->inspections->first();
 
         $lifeSummary = [
             'total_running_km' => round($totalKm, 2),
             'installations_count' => $battery->installations->count(),
             'age_months' => $ageMonths,
+            'life_used_percent' => $expectedLifeMonths > 0 ? (int) round(min(100, $ageMonths / $expectedLifeMonths * 100)) : null,
             'warranty_remaining_days' => $warrantyRemainingDays,
             'is_in_warranty' => $warrantyRemainingDays !== null && $warrantyRemainingDays >= 0,
             'current_vehicle' => $active ? [
@@ -89,11 +102,17 @@ class BatteryService
                 'slot_name' => $active->slot_name,
                 'installed_at' => $active->installed_at?->toDateString(),
             ] : null,
+            'last_inspection' => $lastInspection ? [
+                'inspected_at' => $lastInspection->inspected_at?->toDateString(),
+                'condition' => $lastInspection->condition,
+                'voltage_reading' => $lastInspection->voltage_reading !== null ? (float) $lastInspection->voltage_reading : null,
+            ] : null,
         ];
 
         return [
             'battery' => $battery,
             'life_summary' => $lifeSummary,
+            'replacements' => $this->repository->getReplacementHistory($battery->id),
         ];
     }
 
@@ -119,13 +138,17 @@ class BatteryService
     {
         $data['updated_by'] = Auth::id();
 
-        $purchaseDate = $data['purchase_date'] ?? $battery->purchase_date?->toDateString();
-        $warrantyMonths = $data['warranty_months'] ?? $battery->warranty_months;
+        $warrantyInputsChanged = array_key_exists('purchase_date', $data) || array_key_exists('warranty_months', $data);
 
-        if (empty($data['warranty_valid_until']) && $purchaseDate && $warrantyMonths) {
-            $data['warranty_valid_until'] = Carbon::parse($purchaseDate)
-                ->addMonths((int) $warrantyMonths)
-                ->toDateString();
+        if (empty($data['warranty_valid_until']) && $warrantyInputsChanged) {
+            $purchaseDate = $data['purchase_date'] ?? $battery->purchase_date?->toDateString();
+            $warrantyMonths = array_key_exists('warranty_months', $data)
+                ? (int) $data['warranty_months']
+                : (int) $battery->warranty_months;
+
+            $data['warranty_valid_until'] = $purchaseDate && $warrantyMonths > 0
+                ? Carbon::parse($purchaseDate)->addMonths($warrantyMonths)->toDateString()
+                : null;
         }
 
         return $this->repository->update($battery, $data);
@@ -183,7 +206,7 @@ class BatteryService
             $installedAt = $data['installed_at'];
             if ($battery->purchase_date && Carbon::parse($installedAt)->lt(Carbon::parse($battery->purchase_date))) {
                 throw ValidationException::withMessages([
-                    'installed_at' => ['Installation date cannot be earlier than battery purchase date (' . $battery->purchase_date->toDateString() . ').'],
+                    'installed_at' => ['Installation date cannot be earlier than battery purchase date ('.$battery->purchase_date->toDateString().').'],
                 ]);
             }
 
@@ -243,7 +266,7 @@ class BatteryService
 
             if ($activeInstallation->installed_at && Carbon::parse($replacedAt)->lt(Carbon::parse($activeInstallation->installed_at))) {
                 throw ValidationException::withMessages([
-                    'replaced_at' => ['Replacement date cannot be before installation date (' . $activeInstallation->installed_at->toDateString() . ').'],
+                    'replaced_at' => ['Replacement date cannot be before installation date ('.$activeInstallation->installed_at->toDateString().').'],
                 ]);
             }
 
@@ -265,13 +288,14 @@ class BatteryService
 
                 if ($newBattery->purchase_date && Carbon::parse($replacedAt)->lt(Carbon::parse($newBattery->purchase_date))) {
                     throw ValidationException::withMessages([
-                        'replaced_at' => ['Replacement date cannot be earlier than new battery purchase date (' . $newBattery->purchase_date->toDateString() . ').'],
+                        'replaced_at' => ['Replacement date cannot be earlier than new battery purchase date ('.$newBattery->purchase_date->toDateString().').'],
                     ]);
                 }
             }
 
             $kmAtInstall = (float) ($activeInstallation->km_at_installation ?? 0);
-            $runningKm = max(0, $odometer - $kmAtInstall);
+            $this->ensureOdometerNotBelowInstallation($odometer, $kmAtInstall);
+            $runningKm = $odometer - $kmAtInstall;
 
             // 1. Close active stint on old battery
             $activeInstallation->update([
@@ -344,7 +368,7 @@ class BatteryService
 
             if ($installation->installed_at && Carbon::parse($removedAt)->lt(Carbon::parse($installation->installed_at))) {
                 throw ValidationException::withMessages([
-                    'removed_at' => ['Removal date cannot be before installation date (' . $installation->installed_at->toDateString() . ').'],
+                    'removed_at' => ['Removal date cannot be before installation date ('.$installation->installed_at->toDateString().').'],
                 ]);
             }
 
@@ -353,6 +377,7 @@ class BatteryService
                 : (float) ($vehicle->odometer_km ?? 0);
 
             $kmAtInstall = (float) ($installation->km_at_installation ?? 0);
+            $this->ensureOdometerNotBelowInstallation($odometer, $kmAtInstall);
             $runningKm = isset($data['running_km']) && $data['running_km'] !== ''
                 ? (float) $data['running_km']
                 : max(0, $odometer - $kmAtInstall);
@@ -400,5 +425,43 @@ class BatteryService
     public function vehicleBatteries(Vehicle $vehicle): array
     {
         return $this->repository->getVehicleBatteries($vehicle->id);
+    }
+
+    public function addInspection(Battery $battery, array $data): BatteryInspection
+    {
+        if ($battery->status === BatteryStatus::Scrapped) {
+            throw ValidationException::withMessages(['battery' => ['Scrapped batteries cannot be inspected.']]);
+        }
+
+        if ($battery->purchase_date && Carbon::parse($data['inspected_at'])->lt($battery->purchase_date)) {
+            throw ValidationException::withMessages([
+                'inspected_at' => ['Inspection date cannot be earlier than battery purchase date ('.$battery->purchase_date->toDateString().').'],
+            ]);
+        }
+
+        $inspection = $this->repository->createInspection([
+            'tenant_id' => $battery->tenant_id,
+            'branch_id' => $battery->branch_id,
+            'battery_id' => $battery->id,
+            'vehicle_id' => $battery->activeInstallation?->vehicle_id,
+            'inspected_at' => $data['inspected_at'],
+            'voltage_reading' => $data['voltage_reading'] ?? null,
+            'specific_gravity' => $data['specific_gravity'] ?? null,
+            'condition' => $data['condition'],
+            'action_taken' => $data['action_taken'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'created_by' => Auth::id(),
+        ]);
+
+        return $inspection->load('vehicle');
+    }
+
+    private function ensureOdometerNotBelowInstallation(float $odometer, float $kmAtInstall): void
+    {
+        if ($odometer < $kmAtInstall) {
+            throw ValidationException::withMessages([
+                'odometer_km' => ['Odometer reading cannot be lower than the reading at installation ('.number_format($kmAtInstall).' KM).'],
+            ]);
+        }
     }
 }

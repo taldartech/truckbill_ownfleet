@@ -6,7 +6,7 @@ function unwrapResource(payload) {
     return payload?.data ?? payload;
 }
 
-export async function listBatteries({ page = 1, perPage = 15, search, status, brand, vehicleId } = {}) {
+export async function listBatteries({ page = 1, perPage = 15, search, status, brand, vehicleId, warranty } = {}) {
     const { data } = await api.get(base, {
         params: {
             page,
@@ -15,6 +15,7 @@ export async function listBatteries({ page = 1, perPage = 15, search, status, br
             ...(status ? { status } : {}),
             ...(brand ? { brand } : {}),
             ...(vehicleId ? { vehicle_id: vehicleId } : {}),
+            ...(warranty ? { warranty } : {}),
         },
     });
 
@@ -26,7 +27,10 @@ export async function listBatteries({ page = 1, perPage = 15, search, status, br
 
 export async function getBatteryCounts() {
     const { data } = await api.get(`${base}/counts`);
-    return data.counts ?? { total: 0, in_stock: 0, installed: 0, removed: 0, scrapped: 0 };
+    return {
+        counts: data.counts ?? {},
+        brands: data.brands ?? [],
+    };
 }
 
 export async function getInStockBatteries(brand = null) {
@@ -41,7 +45,13 @@ export async function getBattery(id) {
     return {
         battery: data.data ?? unwrapResource(data),
         life_summary: data.life_summary ?? null,
+        replacements: data.replacements ?? [],
     };
+}
+
+export async function createBatteryInspection(id, payload) {
+    const { data } = await api.post(`${base}/${id}/inspections`, payload);
+    return unwrapResource(data);
 }
 
 export async function createBattery(payload) {

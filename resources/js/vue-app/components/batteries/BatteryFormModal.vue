@@ -41,13 +41,7 @@
                     required
                 />
                 <datalist id="battery-brand-list">
-                    <option value="Exide" />
-                    <option value="Amaron" />
-                    <option value="Tata Green" />
-                    <option value="Luminous" />
-                    <option value="SF Sonic" />
-                    <option value="Livguard" />
-                    <option value="PowerZone" />
+                    <option v-for="brandName in brandSuggestions" :key="brandName" :value="brandName" />
                 </datalist>
                 <div v-if="fieldErrors.brand" class="invalid-feedback d-block">
                     {{ fieldErrors.brand[0] }}
@@ -75,11 +69,9 @@
                     class="form-select"
                     :class="{ 'is-invalid': fieldErrors.battery_type }"
                 >
-                    <option value="LEAD_ACID">Lead Acid</option>
-                    <option value="MAINTENANCE_FREE">Maintenance Free (MF)</option>
-                    <option value="TUBULAR">Tubular</option>
-                    <option value="LITHIUM_ION">Lithium-Ion</option>
-                    <option value="GEL">Gel</option>
+                    <option v-for="opt in BATTERY_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                    </option>
                 </select>
                 <div v-if="fieldErrors.battery_type" class="invalid-feedback d-block">
                     {{ fieldErrors.battery_type[0] }}
@@ -123,6 +115,7 @@
                     v-model="form.purchase_date"
                     type="date"
                     class="form-control"
+                    :max="todayDate"
                     :class="{ 'is-invalid': fieldErrors.purchase_date }"
                     required
                 />
@@ -166,6 +159,9 @@
                 </div>
                 <div v-if="fieldErrors.warranty_months" class="invalid-feedback d-block">
                     {{ fieldErrors.warranty_months[0] }}
+                </div>
+                <div v-else-if="warrantyEndPreview" class="form-text">
+                    Valid until {{ formatDate(warrantyEndPreview) }}
                 </div>
             </div>
 
@@ -233,7 +229,10 @@
 import { computed, ref, watch } from 'vue';
 import AppModal from '../ui/AppModal.vue';
 import { createBattery, updateBattery } from '../../api/batteries';
-import { toDateInputValue } from '../../utils/datetime';
+import { formatDate, toDateInputValue } from '../../utils/datetime';
+import { BATTERY_TYPE_OPTIONS } from '../../constants/battery';
+
+const BRAND_PRESETS = ['Exide', 'Amaron', 'Tata Green', 'Luminous', 'SF Sonic', 'Livguard', 'PowerZone'];
 
 const props = defineProps({
     show: {
@@ -244,11 +243,40 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    brands: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const emit = defineEmits(['close', 'saved']);
 
 const isEdit = computed(() => Boolean(props.battery?.id));
+const todayDate = computed(() => toDateInputValue());
+
+const brandSuggestions = computed(() => {
+    const seen = new Set();
+    return [...props.brands, ...BRAND_PRESETS].filter((name) => {
+        const key = String(name).toLowerCase();
+        if (!name || seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+});
+
+const warrantyEndPreview = computed(() => {
+    const months = Number(form.value.warranty_months);
+    if (!form.value.purchase_date || !months) {
+        return '';
+    }
+    const [year, month, day] = form.value.purchase_date.split('-').map(Number);
+    const end = new Date(Date.UTC(year, month - 1 + months, 1));
+    const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+    end.setUTCDate(Math.min(day, lastDay));
+    return end.toISOString().slice(0, 10);
+});
 const saving = ref(false);
 const formError = ref('');
 const fieldErrors = ref({});
@@ -315,7 +343,12 @@ async function submit() {
     fieldErrors.value = {};
 
     try {
-        const payload = { ...form.value };
+        const payload = {
+            ...form.value,
+            serial_number: String(form.value.serial_number || '').trim().toUpperCase(),
+            brand: String(form.value.brand || '').trim(),
+            warranty_months: form.value.warranty_months === '' ? null : form.value.warranty_months,
+        };
         let result;
         if (isEdit.value) {
             result = await updateBattery(props.battery.id, payload);

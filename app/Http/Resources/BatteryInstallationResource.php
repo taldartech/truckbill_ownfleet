@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\BatteryRemovalReason;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,6 +13,11 @@ class BatteryInstallationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $stintKm = $this->running_km !== null ? (float) $this->running_km : null;
+        if ($stintKm === null && $this->removed_at === null && $this->vehicle !== null) {
+            $stintKm = max(0, (float) $this->vehicle->odometer_km - (float) $this->km_at_installation);
+        }
+
         return [
             'id' => $this->id,
             'battery_id' => $this->battery_id,
@@ -23,7 +29,9 @@ class BatteryInstallationResource extends JsonResource
             'km_at_installation' => (float) $this->km_at_installation,
             'km_at_removal' => $this->km_at_removal !== null ? (float) $this->km_at_removal : null,
             'running_km' => $this->running_km !== null ? (float) $this->running_km : null,
+            'stint_km' => $stintKm,
             'removal_reason' => $this->removal_reason,
+            'removal_reason_label' => BatteryRemovalReason::tryFrom((string) $this->removal_reason)?->label(),
             'notes' => $this->notes,
             'battery' => $this->whenLoaded('battery', function () {
                 return [

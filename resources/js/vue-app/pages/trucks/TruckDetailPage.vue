@@ -405,7 +405,7 @@
                             <button
                                 v-if="canManageBatteries"
                                 type="button"
-                                class="btn btn-sm btn-outline-success py-0 px-2"
+                                class="btn btn-sm btn-outline-success py-0 px-2 ms-auto"
                                 style="font-size: 0.75rem;"
                                 @click="openTruckBatteryInstall"
                             >
@@ -457,18 +457,26 @@
                                     </div>
                                     <div class="text-muted small mt-1 d-flex justify-content-between">
                                         <span>Installed: {{ formatDate(inst.installed_at) }}</span>
-                                        <span v-if="inst.running_km !== null || vehicle.odometer_km">
-                                            Stint: {{ Number(calculateStintKm(inst)).toLocaleString() }} KM
+                                        <span>
+                                            Stint: {{ Math.round(calculateStintKm(inst)).toLocaleString('en-IN') }} KM
                                         </span>
                                     </div>
-                                    <div v-if="canManageBatteries" class="mt-2 pt-2 border-top">
+                                    <div v-if="canManageBatteries" class="mt-2 pt-2 border-top d-flex gap-2">
                                         <button
                                             type="button"
-                                            class="btn btn-sm btn-primary w-100 py-1"
+                                            class="btn btn-sm btn-primary flex-grow-1 py-1"
                                             style="font-size: 0.8rem;"
                                             @click="openTruckBatteryReplace(inst)"
                                         >
-                                            <i class="fas fa-arrows-rotate me-1"></i> Replace Battery
+                                            <i class="fas fa-arrows-rotate me-1"></i> Replace
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-warning flex-grow-1 py-1"
+                                            style="font-size: 0.8rem;"
+                                            @click="openTruckBatteryRemove(inst)"
+                                        >
+                                            <i class="fas fa-plug-circle-minus me-1"></i> Remove
                                         </button>
                                     </div>
                                 </div>
@@ -539,9 +547,9 @@
 
         <BatteryInstallModal
             :show="showBatteryInstallModal"
-            :preselected-vehicle="vehicle"
+            :vehicle="vehicle"
             @close="showBatteryInstallModal = false"
-            @installed="onBatteryChanged"
+            @installed="onBatteryChanged('Battery installed.')"
         />
 
         <BatteryReplaceModal
@@ -550,7 +558,16 @@
             :vehicle="vehicle"
             :current-installation="replacingInstallation"
             @close="showBatteryReplaceModal = false"
-            @replaced="onBatteryChanged"
+            @replaced="onBatteryChanged('Battery replaced.')"
+        />
+
+        <BatteryRemoveModal
+            :show="showBatteryRemoveModal"
+            :installation="replacingInstallation"
+            :battery-serial="replacingInstallation?.battery?.serial_number"
+            :vehicle="vehicle"
+            @close="showBatteryRemoveModal = false"
+            @removed="onBatteryChanged('Battery removed and moved to standby.')"
         />
     </div>
 </template>
@@ -566,6 +583,7 @@ import VehicleDriverAssignmentModal from '../../components/trucks/VehicleDriverA
 import VehicleFormModal from '../../components/trucks/VehicleFormModal.vue';
 import BatteryInstallModal from '../../components/batteries/BatteryInstallModal.vue';
 import BatteryReplaceModal from '../../components/batteries/BatteryReplaceModal.vue';
+import BatteryRemoveModal from '../../components/batteries/BatteryRemoveModal.vue';
 import { getVehicleBatteries } from '../../api/batteries';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -606,12 +624,13 @@ const vehicleBatteries = ref([]);
 const batteriesLoading = ref(false);
 const showBatteryInstallModal = ref(false);
 const showBatteryReplaceModal = ref(false);
+const showBatteryRemoveModal = ref(false);
 const replacingInstallation = ref(null);
 const replacingBatteryObj = ref(null);
 
 function calculateStintKm(inst) {
-    if (inst.running_km !== null && inst.running_km !== undefined) {
-        return inst.running_km;
+    if (inst.stint_km !== null && inst.stint_km !== undefined) {
+        return inst.stint_km;
     }
     const currentOdo = Number(vehicle.value?.odometer_km || 0);
     const installOdo = Number(inst.km_at_installation || 0);
@@ -646,7 +665,13 @@ function openTruckBatteryReplace(inst) {
     showBatteryReplaceModal.value = true;
 }
 
-async function onBatteryChanged() {
+function openTruckBatteryRemove(inst) {
+    replacingInstallation.value = inst;
+    showBatteryRemoveModal.value = true;
+}
+
+async function onBatteryChanged(message) {
+    toast.success(message);
     await Promise.all([loadVehicleBatteries(), loadVehicle()]);
 }
 
