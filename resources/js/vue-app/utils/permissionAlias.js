@@ -16,6 +16,7 @@ const SYNONYMS = {
     'driver_advances.manage': ['drivers.manage'],
     'drivers.archive': ['drivers.manage'],
     'trips.expenses': ['trips.edit', 'trips.manage'],
+    'trip_expense_types.view': ['trips.expenses', 'trips.view'],
 };
 
 function matchesLegacyManage(requestedSlug, ownedSlugs) {

@@ -50,6 +50,7 @@ export const adminNavigation = [
                 permission: 'trips.create',
                 requiresTenant: true,
             },
+
             {
                 label: 'Archived',
                 icon: 'bi bi-archive nav-icon',
@@ -271,6 +272,12 @@ export const adminNavigation = [
                 to: '/goods-types',
                 permission: 'goods_types.view',
                 requiresTenant: true,
+            },
+            {
+                label: 'Expense Types',
+                icon: 'bi bi-receipt nav-icon',
+                to: '/trip-expense-types',
+                permission: 'trip_expense_types.view',
             },
             {
                 label: 'References',

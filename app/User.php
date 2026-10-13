@@ -93,6 +93,31 @@ class User extends Authenticatable
         return $this->hasMany(Tenant::class, 'owner_user_id');
     }
 
+    public function resolvedSuperAdminId(): ?string
+    {
+        if ($this->user_role_id === UserRole::SUPER_ADMIN) {
+            return (string) $this->id;
+        }
+
+        $tenant = $this->resolvedCompany();
+        if ($tenant?->owner_user_id) {
+            return (string) $tenant->owner_user_id;
+        }
+
+        if ($this->tenant_id) {
+            $ownerId = Tenant::query()->where('id', $this->tenant_id)->value('owner_user_id');
+            if ($ownerId) {
+                return (string) $ownerId;
+            }
+        }
+
+        if ($this->hasRole('super_admin')) {
+            return (string) $this->id;
+        }
+
+        return null;
+    }
+
     public function userRole(): BelongsTo
     {
         return $this->belongsTo(UserRole::class);
