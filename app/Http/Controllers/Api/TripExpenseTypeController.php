@@ -21,7 +21,10 @@ class TripExpenseTypeController extends Controller
         $search = $request->filled('search') ? trim((string) $request->input('search')) : null;
         $activeOnly = $request->boolean('active_only') || $request->boolean('is_active');
 
+        $superAdminId = $request->user()?->resolvedSuperAdminId();
+
         $query = TripExpenseTypeMaster::query()
+            ->forSuperAdmin($superAdminId)
             ->orderBy('name');
 
         if (! $request->boolean('include_system') && ! $request->has('all')) {
@@ -48,11 +51,16 @@ class TripExpenseTypeController extends Controller
 
     public function store(StoreTripExpenseTypeRequest $request): TripExpenseTypeResource
     {
-        TripExpenseTypeMaster::onlyTrashed()->where(fn ($q) => $q->where('code', $request->code)->orWhere('name', $request->name))->forceDelete();
+        $superAdminId = $request->user()?->resolvedSuperAdminId();
+
+        TripExpenseTypeMaster::onlyTrashed()
+            ->where(fn ($q) => $q->where('super_admin_id', $superAdminId)->orWhereNull('super_admin_id'))
+            ->where(fn ($q) => $q->where('code', $request->code)->orWhere('name', $request->name))
+            ->forceDelete();
 
         $tripExpenseType = TripExpenseTypeMaster::query()->create([
             ...$request->validated(),
-            'tenant_id' => null,
+            'super_admin_id' => $superAdminId,
             'is_active' => true,
             'created_by' => $request->user()?->id,
             'updated_by' => $request->user()?->id,

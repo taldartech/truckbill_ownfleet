@@ -9,9 +9,8 @@ class TripExpenseTypePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'master_admin'])
+        return $user->hasRole('super_admin')
             || $user->hasPermission('trip_expense_types.view')
-
             || $user->hasPermission('trips.expenses')
             || $user->hasPermission('trips.view')
             || $user->hasPermission('trips.edit');
@@ -19,13 +18,13 @@ class TripExpenseTypePolicy
 
     public function view(User $user, TripExpenseTypeMaster $tripExpenseType): bool
     {
-        return $this->viewAny($user);
+        return $this->viewAny($user)
+            && ($tripExpenseType->isSystem() || $tripExpenseType->super_admin_id === $user->resolvedSuperAdminId());
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['super_admin', 'master_admin'])
-
+        return $user->hasRole('super_admin')
             || $user->hasPermission('trip_expense_types.create');
     }
 
@@ -35,9 +34,10 @@ class TripExpenseTypePolicy
             return false;
         }
 
-        return $user->hasAnyRole(['super_admin', 'master_admin'])
-
+        $canEdit = $user->hasRole('super_admin')
             || $user->hasPermission('trip_expense_types.edit');
+
+        return $canEdit && $tripExpenseType->super_admin_id === $user->resolvedSuperAdminId();
     }
 
     public function delete(User $user, TripExpenseTypeMaster $tripExpenseType): bool
@@ -46,7 +46,9 @@ class TripExpenseTypePolicy
             return false;
         }
 
-        return $user->hasAnyRole(['super_admin', 'master_admin'])
+        $canDelete = $user->hasRole('super_admin')
             || $user->hasPermission('trip_expense_types.delete');
+
+        return $canDelete && $tripExpenseType->super_admin_id === $user->resolvedSuperAdminId();
     }
 }

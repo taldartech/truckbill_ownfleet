@@ -140,10 +140,10 @@ import { usePermissions } from '../../composables/usePermissions';
 const toast = useAppToast();
 const { can, user } = usePermissions();
 
-const isSuperOrMasterAdmin = computed(() => ['super_admin', 'master_admin'].includes(user.value?.role));
-const canCreate = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.create') || can('trips.expenses'));
-const canEdit = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.edit') || can('trips.expenses'));
-const canDelete = computed(() => isSuperOrMasterAdmin.value || can('trip_expense_types.delete') || can('trips.expenses'));
+const isSuperAdmin = computed(() => user.value?.role === 'super_admin');
+const canCreate = computed(() => isSuperAdmin.value || can('trip_expense_types.create') || can('trips.expenses'));
+const canEdit = computed(() => isSuperAdmin.value || can('trip_expense_types.edit') || can('trips.expenses'));
+const canDelete = computed(() => isSuperAdmin.value || can('trip_expense_types.delete') || can('trips.expenses'));
 
 const expenseTypes = ref([]);
 const loading = ref(true);

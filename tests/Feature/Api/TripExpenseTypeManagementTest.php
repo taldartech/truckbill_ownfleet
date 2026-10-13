@@ -80,7 +80,7 @@ class TripExpenseTypeManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         $type = TripExpenseTypeMaster::query()->create([
-            'tenant_id' => $tenant->id,
+            'super_admin_id' => $admin->resolvedSuperAdminId(),
             'name' => 'Driver Incentive',
             'code' => 'DRIVER_INCENTIVE',
             'is_active' => true,
@@ -108,7 +108,7 @@ class TripExpenseTypeManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         $type = TripExpenseTypeMaster::query()->create([
-            'tenant_id' => $tenant->id,
+            'super_admin_id' => $admin->resolvedSuperAdminId(),
             'name' => 'Loading Charges Extra',
             'code' => 'LOADING_CHARGES_EXTRA',
             'is_active' => true,
@@ -153,7 +153,7 @@ class TripExpenseTypeManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         $type = TripExpenseTypeMaster::query()->create([
-            'tenant_id' => $tenant->id,
+            'super_admin_id' => $admin->resolvedSuperAdminId(),
             'name' => 'To Be Deleted',
             'code' => 'TO_BE_DELETED',
             'is_active' => true,
@@ -175,7 +175,7 @@ class TripExpenseTypeManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         $type = TripExpenseTypeMaster::query()->create([
-            'tenant_id' => $tenant->id,
+            'super_admin_id' => $admin->resolvedSuperAdminId(),
             'name' => 'Driver Bata',
             'code' => 'DRIVER_BATA',
             'is_active' => true,
@@ -347,19 +347,132 @@ class TripExpenseTypeManagementTest extends TestCase
             ])
             ->assertCreated();
 
-        // Tenant A user sees Global Washing
-        [$tenantA, $userA] = $this->createTenantUser('admin');
+        // Tenant A user under superAdmin sees Global Washing
+        [$tenantA, $userA] = $this->createTenantUser('admin', $superAdmin);
         $this->actingAs($userA)
             ->getJson('/app/api/trip-expense-types?active_only=1')
             ->assertOk()
             ->assertJsonFragment(['name' => 'Global Washing']);
 
-        // Tenant B user also sees Global Washing
-        [$tenantB, $userB] = $this->createTenantUser('admin');
+        // Tenant B user under superAdmin also sees Global Washing
+        [$tenantB, $userB] = $this->createTenantUser('admin', $superAdmin);
         $this->actingAs($userB)
             ->getJson('/app/api/trip-expense-types?active_only=1')
             ->assertOk()
             ->assertJsonFragment(['name' => 'Global Washing']);
+    }
+
+    public function test_expense_types_isolated_between_different_super_admins(): void
+    {
+        $superAdminA = User::query()->create([
+            'name' => 'Super Admin A',
+            'email' => 'superadminA@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $superAdminB = User::query()->create([
+            'name' => 'Super Admin B',
+            'email' => 'superadminB@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        $this->actingAs($superAdminA)
+            ->postJson('/app/api/trip-expense-types', [
+                'name' => 'Custom Surcharge A',
+            ])
+            ->assertCreated();
+
+        // Super Admin B cannot see Super Admin A's custom type
+        $resB = $this->actingAs($superAdminB)
+            ->getJson('/app/api/trip-expense-types?all=1')
+            ->assertOk();
+        $namesB = collect($resB->json('data'))->pluck('name')->all();
+        $this->assertNotContains('Custom Surcharge A', $namesB);
+
+        // Super Admin B can create their own expense type with the same name without conflict
+        $this->actingAs($superAdminB)
+            ->postJson('/app/api/trip-expense-types', [
+                'name' => 'Custom Surcharge A',
+            ])
+            ->assertCreated();
+    }
+
+    public function test_distinct_trip_expenses_from_super_admins_companies_populate_expense_types(): void
+    {
+        $superAdmin = User::query()->create([
+            'name' => 'Super Admin C',
+            'email' => 'superadminC@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
+        [$tenant1, $admin1] = $this->createTenantUser('admin', $superAdmin);
+        [$tenant2, $admin2] = $this->createTenantUser('admin', $superAdmin);
+
+        $attrs1 = $this->operationalAttributesForTenant($tenant1);
+        $vehicle = Vehicle::query()->create([
+            ...$attrs1,
+            'registration_number' => 'MH12TR9999',
+            'vehicle_type' => 'TRUCK',
+        ]);
+        $driver = \App\Driver::query()->create([
+            ...$attrs1,
+            'name' => 'Test Driver C',
+            'phone' => '9876543210',
+            'daily_wage' => 800,
+            'is_active' => true,
+        ]);
+
+        $dummyTripId = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('trips')->insert([
+            'id' => $dummyTripId,
+            'tenant_id' => $tenant1->id,
+            'branch_id' => $attrs1['branch_id'],
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'trip_type' => 'ONE_WAY',
+            'status' => 'PENDING',
+            'start_at' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('trip_expenses')->insert([
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'tenant_id' => $tenant1->id,
+                'trip_id' => $dummyTripId,
+                'expense_type' => 'CRANE_CHARGES',
+                'amount' => 500,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'tenant_id' => $tenant2->id,
+                'trip_id' => $dummyTripId,
+                'expense_type' => 'WEIGHBRIDGE_FEE',
+                'amount' => 150,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        // Run migration logic again or test backfill
+        $migration = require database_path('migrations/2026_10_13_160000_update_trip_expense_types_table_to_use_super_admin_id.php');
+        $migration->up();
+
+        // Both distinct types should now exist under $superAdmin->id
+        $this->assertDatabaseHas('trip_expense_types', [
+            'super_admin_id' => $superAdmin->id,
+            'code' => 'CRANE_CHARGES',
+        ]);
+        $this->assertDatabaseHas('trip_expense_types', [
+            'super_admin_id' => $superAdmin->id,
+            'code' => 'WEIGHBRIDGE_FEE',
+        ]);
     }
 
     public function test_diesel_and_other_system_types_are_hidden_from_master_and_immutable(): void
@@ -436,9 +549,17 @@ class TripExpenseTypeManagementTest extends TestCase
     /**
      * @return array{0: Tenant, 1: User}
      */
-    private function createTenantUser(string $role): array
+    private function createTenantUser(string $role, ?User $superAdmin = null): array
     {
+        $superAdmin = $superAdmin ?? User::query()->create([
+            'name' => 'Super Admin '.fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+
         $tenant = Tenant::query()->create([
+            'owner_user_id' => $superAdmin->id,
             'name' => 'Tenant '.fake()->company(),
             'slug' => fake()->unique()->slug(),
             'timezone' => 'Asia/Kolkata',

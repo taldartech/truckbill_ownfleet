@@ -15,7 +15,7 @@ class TripExpenseTypeMaster extends Model
     public const SYSTEM_CODES = ['DIESEL', 'OTHER'];
 
     protected $fillable = [
-        'tenant_id',
+        'super_admin_id',
         'name',
         'code',
         'is_active',
@@ -23,9 +23,24 @@ class TripExpenseTypeMaster extends Model
         'updated_by',
     ];
 
+    public function superAdmin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'super_admin_id');
+    }
+
     public function isSystem(): bool
     {
-        return in_array(strtoupper((string) $this->code), self::SYSTEM_CODES, true);
+        return $this->super_admin_id === null || in_array(strtoupper((string) $this->code), self::SYSTEM_CODES, true);
+    }
+
+    public function scopeForSuperAdmin($query, ?string $superAdminId)
+    {
+        return $query->where(function ($q) use ($superAdminId) {
+            $q->whereNull('super_admin_id');
+            if ($superAdminId !== null && $superAdminId !== '') {
+                $q->orWhere('super_admin_id', $superAdminId);
+            }
+        });
     }
 
     protected function casts(): array

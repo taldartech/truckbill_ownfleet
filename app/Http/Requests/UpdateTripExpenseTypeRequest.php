@@ -29,6 +29,7 @@ class UpdateTripExpenseTypeRequest extends FormRequest
     {
         $tripExpenseType = $this->route('trip_expense_type');
         $id = $tripExpenseType instanceof TripExpenseTypeMaster ? $tripExpenseType->id : $tripExpenseType;
+        $superAdminId = $this->user()?->resolvedSuperAdminId();
 
         return [
             'name' => [
@@ -39,6 +40,7 @@ class UpdateTripExpenseTypeRequest extends FormRequest
                 Rule::notIn(['Diesel', 'Other', 'DIESEL', 'OTHER', 'diesel', 'other']),
                 Rule::unique('trip_expense_types', 'name')
                     ->ignore($id)
+                    ->where(fn ($query) => $query->where('super_admin_id', $superAdminId)->orWhereNull('super_admin_id'))
                     ->whereNull('deleted_at'),
             ],
             'is_active' => ['sometimes', 'boolean'],

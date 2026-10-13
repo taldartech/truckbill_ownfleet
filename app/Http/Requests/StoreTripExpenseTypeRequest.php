@@ -31,20 +31,26 @@ class StoreTripExpenseTypeRequest extends FormRequest
 
     public function rules(): array
     {
+        $superAdminId = $this->user()?->resolvedSuperAdminId();
+
         return [
             'name' => [
                 'required',
                 'string',
                 'max:100',
                 Rule::notIn(['Diesel', 'Other', 'DIESEL', 'OTHER', 'diesel', 'other']),
-                Rule::unique('trip_expense_types', 'name')->whereNull('deleted_at'),
+                Rule::unique('trip_expense_types', 'name')
+                    ->where(fn ($query) => $query->where('super_admin_id', $superAdminId)->orWhereNull('super_admin_id'))
+                    ->whereNull('deleted_at'),
             ],
             'code' => [
                 'required',
                 'string',
                 'max:64',
                 Rule::notIn(TripExpenseTypeMaster::SYSTEM_CODES),
-                Rule::unique('trip_expense_types', 'code')->whereNull('deleted_at'),
+                Rule::unique('trip_expense_types', 'code')
+                    ->where(fn ($query) => $query->where('super_admin_id', $superAdminId)->orWhereNull('super_admin_id'))
+                    ->whereNull('deleted_at'),
             ],
         ];
     }
