@@ -136,6 +136,12 @@ class BatteryService
 
     public function update(Battery $battery, array $data): Battery
     {
+        if ($battery->status === BatteryStatus::Scrapped) {
+            throw ValidationException::withMessages([
+                'battery' => ['Cannot update a scrapped battery.'],
+            ]);
+        }
+
         $data['updated_by'] = Auth::id();
 
         $warrantyInputsChanged = array_key_exists('purchase_date', $data) || array_key_exists('warranty_months', $data);
@@ -171,6 +177,12 @@ class BatteryService
 
     public function delete(Battery $battery): bool
     {
+        if ($battery->status === BatteryStatus::Scrapped) {
+            throw ValidationException::withMessages([
+                'battery' => ['Cannot delete a scrapped battery.'],
+            ]);
+        }
+
         if ($battery->status === BatteryStatus::Installed || $battery->activeInstallation !== null) {
             throw ValidationException::withMessages([
                 'battery' => ['Cannot delete a battery that is currently installed on a vehicle.'],

@@ -68,7 +68,7 @@
                             <i class="fas fa-stethoscope me-1"></i> Health Check
                         </button>
                         <button
-                            v-if="canEdit"
+                            v-if="canEdit && !isScrapped"
                             type="button"
                             class="btn btn-outline-primary btn-sm"
                             @click="showEditModal = true"

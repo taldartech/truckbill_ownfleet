@@ -218,7 +218,7 @@
                             <td class="app-index-actions-cell">
                                 <AppTableActions>
                                     <AppCrudActionButton action="view" @click="goToDetail(b.id)" />
-                                    <AppCrudActionButton v-if="canEdit" action="edit" @click="openEdit(b)" />
+                                    <AppCrudActionButton v-if="canEdit && b.status !== 'SCRAPPED'" action="edit" @click="openEdit(b)" />
                                     <button
                                         v-if="canCreate && (b.status === 'IN_STOCK' || b.status === 'REMOVED')"
                                         type="button"
@@ -270,7 +270,7 @@
                                         <i class="fas fa-recycle" aria-hidden="true"></i>
                                     </button>
                                     <AppCrudActionButton
-                                        v-if="canDelete && !b.active_installation"
+                                        v-if="canDelete && !b.active_installation && b.status !== 'SCRAPPED'"
                                         action="delete"
                                         @click="promptDelete(b)"
                                     />
@@ -580,6 +580,9 @@ function openCreate() {
 }
 
 function openEdit(b) {
+    if (b.status === 'SCRAPPED') {
+        return;
+    }
     selectedBattery.value = b;
     showFormModal.value = true;
 }
@@ -610,6 +613,9 @@ function openScrap(b) {
 }
 
 function promptDelete(b) {
+    if (b.status === 'SCRAPPED') {
+        return;
+    }
     batteryToDelete.value = b;
     showDeleteConfirm.value = true;
 }

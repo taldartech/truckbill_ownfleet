@@ -495,6 +495,32 @@ class BatteryManagementTest extends TestCase
         ]);
     }
 
+    public function test_scrapped_battery_cannot_be_updated(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant, ['status' => BatteryStatus::Scrapped]);
+
+        $this->batteryApi($tenant)
+            ->putJson("/api/batteries/{$battery->id}", ['notes' => 'Attempt edit'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['battery']);
+    }
+
+    public function test_scrapped_battery_cannot_be_deleted(): void
+    {
+        [$tenant, $user] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $battery = $this->createBattery($tenant, ['status' => BatteryStatus::Scrapped]);
+
+        $this->batteryApi($tenant)
+            ->deleteJson("/api/batteries/{$battery->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['battery']);
+    }
+
     public function test_tenant_isolation_prevents_access(): void
     {
         [$tenantA, $userA] = $this->createFixtures('admin');
