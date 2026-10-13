@@ -4,6 +4,14 @@
             <template #toolbar>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload Customers"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Add Customer"
                     @click="openCreate"
@@ -108,6 +116,16 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Customers"
+            upload-url="/app/api/customers/bulk-upload"
+            template-download-url="/app/api/customers/bulk-upload/template"
+            template-file-name="customers_bulk_upload_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadCustomers(1)"
+        />
     </div>
 </template>
 
@@ -123,6 +141,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import CustomerFormModal from '../../components/customers/CustomerFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -150,6 +169,17 @@ const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'name', label: 'Customer Name', required: true, description: 'Customer / company name' },
+    { name: 'contact_number', label: 'Mobile', required: true, description: 'Unique 10-digit mobile number' },
+    { name: 'state', label: 'State', required: true, description: 'Registered State name or code' },
+    { name: 'city', label: 'City', required: true, description: 'City belonging to the selected State' },
+    { name: 'address', label: 'Address', required: false, description: 'Full address' },
+    { name: 'gst_number', label: 'GST Number', required: false, description: '15-character GSTIN' },
+    { name: 'pan_number', label: 'PAN Number', required: false, description: '10-character PAN' },
+];
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 

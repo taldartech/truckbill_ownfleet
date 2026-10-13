@@ -4,6 +4,14 @@
             <template #toolbar>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload References"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Add Reference"
                     @click="openCreate"
@@ -108,6 +116,16 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload References"
+            upload-url="/app/api/brokers/bulk-upload"
+            template-download-url="/app/api/brokers/bulk-upload/template"
+            template-file-name="brokers_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadBrokers(1)"
+        />
     </div>
 </template>
 
@@ -123,6 +141,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import BrokerFormModal from '../../components/brokers/BrokerFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -150,6 +169,17 @@ const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'name', label: 'Reference / Broker Name', required: true, description: 'Broker or Reference name' },
+    { name: 'contact_number', label: 'Mobile Number', required: true, description: 'Unique 10-digit mobile number' },
+    { name: 'state', label: 'State', required: true, description: 'State name or state code' },
+    { name: 'city', label: 'City', required: true, description: 'City belonging to the State' },
+    { name: 'address', label: 'Address', required: false, description: 'Complete office/contact address' },
+    { name: 'gst_number', label: 'GST Number', required: false, description: '15-character GSTIN' },
+    { name: 'pan_number', label: 'PAN Number', required: false, description: '10-character PAN' },
+];
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 

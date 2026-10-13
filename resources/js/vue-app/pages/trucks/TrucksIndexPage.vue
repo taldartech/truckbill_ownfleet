@@ -18,6 +18,14 @@
                 </RouterLink>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload Trucks"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Add Truck"
                     @click="openCreate"
@@ -263,6 +271,16 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Trucks"
+            upload-url="/app/api/vehicles/bulk-upload"
+            template-download-url="/app/api/vehicles/bulk-upload/template"
+            template-file-name="vehicles_bulk_upload_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadVehicles(1)"
+        />
     </div>
 </template>
 
@@ -291,6 +309,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
@@ -345,6 +364,20 @@ const showDocuments = ref(false);
 const documentsVehicle = ref(null);
 const showAssignment = ref(false);
 const assignmentVehicle = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'registration_number', label: 'Vehicle Number', required: true, description: 'Vehicle registration number (e.g. RJ27GB1234)' },
+    { name: 'vehicle_type', label: 'Vehicle Type', required: true, description: 'Active truck type name or code' },
+    { name: 'make', label: 'Make', required: false, description: 'Manufacturer (e.g. Tata, BharatBenz)' },
+    { name: 'model', label: 'Model', required: false, description: 'Vehicle model' },
+    { name: 'manufacture_year', label: 'Manufacture Year', required: false, description: 'Year between 1980 and current year' },
+    { name: 'odometer_km', label: 'Odometer KM', required: false, description: 'Current odometer reading' },
+    { name: 'default_mileage_km_per_liter', label: 'Mileage KM/L', required: false, description: 'Standard fuel mileage' },
+    { name: 'max_load_ton', label: 'Max Load Ton', required: false, description: 'Maximum payload capacity in tons' },
+    { name: 'fuel_tank_capacity_ltr', label: 'Fuel Tank Capacity Ltr', required: false, description: 'Fuel tank capacity in liters' },
+    { name: 'tyre_layout', label: 'Tyre Layout', required: false, description: 'Active tyre layout code (defaults to 10 Wheeler)' },
+];
 const togglingId = ref(null);
 const truckTypes = ref([]);
 

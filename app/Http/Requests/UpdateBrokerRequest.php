@@ -38,20 +38,7 @@ class UpdateBrokerRequest extends FormRequest
         $broker = $this->route('broker');
 
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('brokers', 'name')
-                    ->where(function ($query) use ($broker) {
-                        return $query
-                            ->where('tenant_id', $broker->tenant_id)
-                            ->where('state_id', $this->input('state_id'))
-                            ->where('city_id', $this->input('city_id'))
-                            ->whereNull('deleted_at');
-                    })
-                    ->ignore($broker->id),
-            ],
+            'name' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
@@ -68,7 +55,6 @@ class UpdateBrokerRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'This name is already used for another reference in the selected city.',
             ...$this->contactNumberMessages(),
             ...$this->partyIdentityMessages('reference'),
         ];

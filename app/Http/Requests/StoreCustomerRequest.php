@@ -33,18 +33,7 @@ class StoreCustomerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('customers', 'name')->where(function ($query) {
-                    return $query
-                        ->where('tenant_id', CurrentTenant::id())
-                        ->where('state_id', $this->input('state_id'))
-                        ->where('city_id', $this->input('city_id'))
-                        ->whereNull('deleted_at');
-                }),
-            ],
+            'name' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
@@ -62,7 +51,6 @@ class StoreCustomerRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'This name is already used for another customer in the selected city.',
             ...$this->contactNumberMessages(),
             ...$this->partyIdentityMessages(),
         ];
@@ -77,6 +65,7 @@ class StoreCustomerRequest extends FormRequest
             if ($stateId <= 0 || $cityId <= 0) {
                 return;
             }
+            
 
             $cityBelongsToState = City::query()
                 ->whereKey($cityId)
