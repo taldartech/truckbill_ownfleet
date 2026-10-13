@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, provide, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, provide, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchCurrentUser } from '../api';
 import AppFooter from '../components/AppFooter.vue';
@@ -61,6 +61,8 @@ function onUserUpdated(updatedUser) {
 
 onMounted(async () => {
     initBootstrapModalCleanup();
+    
+    window.addEventListener('keydown', handleGlobalKeydown);
 
     if (user.value) {
         return;
@@ -76,5 +78,21 @@ onMounted(async () => {
         await router.replace({ name: 'login' });
     }
 });
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleGlobalKeydown);
+});
+
+function handleGlobalKeydown(e) {
+    // F2 or Ctrl+K
+    if (e.key === 'F2' || ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K'))) {
+        e.preventDefault();
+        if (router.currentRoute.value.name !== 'quick-search') {
+            router.push({ name: 'quick-search' });
+        } else {
+            window.dispatchEvent(new CustomEvent('focus-quick-search'));
+        }
+    }
+}
 </script>
 
