@@ -1352,19 +1352,14 @@ watch(localQuery, (val) => {
 });
 
 watch(() => route.query.q, (val) => {
-    if (val !== localQuery.value) {
+    if (val !== localQuery.value && (val || '') !== (localQuery.value || '').trim()) {
         localQuery.value = val || '';
     }
-});
-
-watch(() => route.fullPath, () => {
-    focusSearchInput();
 });
 
 const focusSearchInput = () => {
     nextTick(() => {
         searchInputRef.value?.focus();
-        searchInputRef.value?.select?.();
     });
     setTimeout(() => {
         searchInputRef.value?.focus();
