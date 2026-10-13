@@ -13,7 +13,6 @@ class DemoDataSeeder extends Seeder
             IndiaLocationSeeder::class,
             TestUserSeeder::class,
             DemoFleetDataSeeder::class,
-            DemoTripDataSeeder::class,
         ]);
     }
 }
