@@ -145,7 +145,7 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Warranty Period (Months)</label>
+                <label class="form-label fw-semibold">Warranty Period (Months) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <input
                         v-model.number="form.warranty_months"
@@ -155,6 +155,7 @@
                         class="form-control"
                         placeholder="24"
                         :class="{ 'is-invalid': fieldErrors.warranty_months }"
+                        required
                     />
                     <span class="input-group-text">Months</span>
                 </div>
@@ -178,7 +179,7 @@
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Expected Life (Months)</label>
+                <label class="form-label fw-semibold">Expected Life (Months) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <input
                         v-model.number="form.expected_life_months"
@@ -188,8 +189,12 @@
                         class="form-control"
                         placeholder="36"
                         :class="{ 'is-invalid': fieldErrors.expected_life_months }"
+                        required
                     />
                     <span class="input-group-text">Months</span>
+                </div>
+                <div v-if="fieldErrors.expected_life_months" class="invalid-feedback d-block">
+                    {{ fieldErrors.expected_life_months[0] }}
                 </div>
             </div>
 
