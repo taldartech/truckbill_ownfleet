@@ -12,6 +12,7 @@
                     v-if="canInCompany('vehicles.view')"
                     :to="{ name: 'trucks.archived' }"
                     class="btn btn-outline-secondary btn-sm"
+                    style="min-height: 33px;"
                 >
                     <i class="bi bi-archive" style="color: black !important;" aria-hidden="true"></i>
                     Archived
