@@ -132,21 +132,6 @@ const pills = computed(() => {
 .quick-pill__icon {
     font-size: 0.85rem;
 }
-
-@media (min-width: 1200px) {
-    .quick-pill {
-        flex: 1 1 0;
-        min-width: 80px;
-        padding: 5px 8px;
-        font-size: 11.5px;
-    }
-
-    .quick-pill span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-}
-
 .pill-diesel {
     background: #eff6ff;
     color: #1d4ed8;
