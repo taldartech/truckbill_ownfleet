@@ -109,13 +109,7 @@
             @confirm="confirmSave"
         />
 
-        <CustomerDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :customer="deletingCustomer"
-            :deleting="deleting"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -137,9 +131,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
-import CustomerDeleteConfirmModal from './CustomerDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -155,9 +150,6 @@ const canEdit = computed(() => canEditInCompany('customers'));
 const customers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deletingCustomer = ref(null);
-const deleting = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -259,51 +251,27 @@ async function confirmSave() {
 }
 
 function handleDelete(customer) {
-    deletingCustomer.value = customer;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Customer?',
+        itemName: customer.name,
+        details: [
+            { label: 'Name', value: customer.name },
+            { label: 'Contact', value: customer.contact_number },
+            { label: 'GST Number', value: customer.gst_number },
+            { label: 'City', value: customer.city },
+        ],
+        onConfirm: async (remark) => {
+            await deleteCustomer(customer.id, { deleted_reason: remark, remark });
+            toast.success('Customer deleted successfully.');
 
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
-    }
-    showDeleteConfirm.value = false;
-    deletingCustomer.value = null;
-}
+            const page =
+                customers.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-async function confirmDelete(payload) {
-    if (!deletingCustomer.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        const customerId = deletingCustomer.value.id;
-
-        await deleteCustomer(customerId, payload);
-
-        toast.success('Customer deleted successfully.');
-
-        const page =
-            customers.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        showDeleteConfirm.value = false;
-        deletingCustomer.value = null;
-
-        await loadCustomers(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Could not delete customer.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadCustomers(page);
+        },
+    });
 }
 onMounted(async () => {
     await loadCustomers();

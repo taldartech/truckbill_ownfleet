@@ -122,12 +122,14 @@ import BrokerFormModal from '../../components/brokers/BrokerFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany, canEditInCompany } = usePermissions();
 
 const {
@@ -217,22 +219,26 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete() {
+function handleDelete() {
     if (!broker.value?.id) {
         return;
     }
 
-    if (!window.confirm(`Delete reference "${broker.value.name}"?`)) {
-        return;
-    }
-
-    try {
-        await deleteBroker(broker.value.id);
-        toast.success('Reference deleted successfully.');
-        router.push({ name: 'references.index' });
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete reference.');
-    }
+    promptDelete({
+        title: 'Delete Reference / Broker?',
+        itemName: broker.value.name,
+        details: [
+            { label: 'Name', value: broker.value.name },
+            { label: 'Phone', value: broker.value.phone },
+            { label: 'PAN Number', value: broker.value.pan_number },
+            { label: 'City', value: broker.value.city },
+        ],
+        onConfirm: async (remark) => {
+            await deleteBroker(broker.value.id, { deleted_reason: remark, remark });
+            toast.success('Reference deleted successfully.');
+            router.push({ name: 'references.index' });
+        },
+    });
 }
 
 onMounted(async () => {

@@ -122,12 +122,14 @@ import CustomerFormModal from '../../components/customers/CustomerFormModal.vue'
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany, canEditInCompany } = usePermissions();
 
 const {
@@ -217,22 +219,26 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete() {
+function handleDelete() {
     if (!customer.value?.id) {
         return;
     }
 
-    if (!window.confirm(`Delete customer "${customer.value.name}"?`)) {
-        return;
-    }
-
-    try {
-        await deleteCustomer(customer.value.id);
-        toast.success('Customer deleted successfully.');
-        router.push({ name: 'customers.index' });
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete customer.');
-    }
+    promptDelete({
+        title: 'Delete Customer?',
+        itemName: customer.value.name,
+        details: [
+            { label: 'Name', value: customer.value.name },
+            { label: 'Contact', value: customer.value.contact_number },
+            { label: 'GST Number', value: customer.value.gst_number },
+            { label: 'City', value: customer.value.city },
+        ],
+        onConfirm: async (remark) => {
+            await deleteCustomer(customer.value.id, { deleted_reason: remark, remark });
+            toast.success('Customer deleted successfully.');
+            router.push({ name: 'customers.index' });
+        },
+    });
 }
 
 onMounted(async () => {

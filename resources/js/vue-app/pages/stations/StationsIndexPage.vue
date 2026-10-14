@@ -103,13 +103,7 @@
             @confirm="confirmSave"
         />
 
-        <StationDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :station="deletingStation"
-            :deleting="deleting"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -131,9 +125,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
-import StationDeleteConfirmModal from './StationDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -149,9 +144,6 @@ const canEdit = computed(() => canEditInCompany('stations'));
 const stations = ref([]);
 const loading = ref(true);
 const saving = ref(false);          
-const showDeleteConfirm = ref(false);
-const deletingStation = ref(null);
-const deleting = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -253,52 +245,26 @@ async function confirmSave() {
 }
 
 function handleDelete(station) {
-    deletingStation.value = station;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Station?',
+        itemName: station.name,
+        details: [
+            { label: 'Name', value: station.name },
+            { label: 'City', value: station.city },
+            { label: 'State', value: station.state },
+        ],
+        onConfirm: async (remark) => {
+            await deleteStation(station.id, { deleted_reason: remark, remark });
+            toast.success('Station deleted successfully.');
 
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
-    }
+            const page =
+                stations.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-    showDeleteConfirm.value = false;
-    deletingStation.value = null;
-}
-
-async function confirmDelete(payload) {
-    if (!deletingStation.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        const stationId = deletingStation.value.id;
-
-        await deleteStation(stationId, payload);
-
-        toast.success('Station deleted successfully.');
-
-        const page =
-            stations.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        showDeleteConfirm.value = false;
-        deletingStation.value = null;
-
-        await loadStations(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Could not delete station.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadStations(page);
+        },
+    });
 }
 
 onMounted(async () => {

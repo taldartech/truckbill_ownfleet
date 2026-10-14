@@ -193,13 +193,7 @@
             @confirm="confirmAdvanceSave"
         />
 
-        <DriverDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :driver="deletingDriver"
-            :deleting="deleting"
-            @cancel="cancelDelete"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -232,10 +226,11 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { COMPLIANCE_ALERT_WINDOW_DAYS } from '../../utils/documentStatus';
 import { formatDate } from '../../utils/datetime';
 import { buildDriverAdvanceFields, buildDriverFields } from '../../utils/masterCrudSaveConfirm';
-import DriverDeleteConfirmModal from '../drivers/DriverDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const licenseAlertDays = COMPLIANCE_ALERT_WINDOW_DAYS;
 const licenseAlertDrivers = ref([]);
 const {
@@ -313,9 +308,7 @@ const saving = ref(false);
 const showCreate = ref(false);
 const showEdit = ref(false);
 const editingDriver = ref(null);
-const showDeleteConfirm = ref(false);
-const deletingDriver = ref(null);
-const deleting = ref(false);
+
 const showAdvance = ref(false);
 const advanceDriver = ref(null);
 const advanceSaving = ref(false);
@@ -652,54 +645,29 @@ async function confirmSave() {
 }
 
 function handleDelete(driver) {
-    deletingDriver.value = driver;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Driver?',
+        itemName: driver.name,
+        details: [
+            { label: 'Name', value: driver.name },
+            { label: 'Mobile', value: driver.phone },
+            { label: 'License Number', value: driver.license_number },
+            { label: 'Associated Truck', value: driver.current_primary_assignment?.vehicle?.registration_number ?? 'Not assigned' },
+            { label: 'Status', value: driver.is_active ? 'Active' : 'Inactive' },
+        ],
+        onConfirm: async (remark) => {
+            await deleteDriver(driver.id, { deleted_reason: remark, remark });
+            toast.success('Driver deleted successfully.');
 
-function cancelDelete() {
-    if (deleting.value) {
-        return;
-    }
+            const page =
+                drivers.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-    showDeleteConfirm.value = false;
-    deletingDriver.value = null;
-}
-
-async function confirmDelete(payload) {
-    if (!deletingDriver.value?.id) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        await deleteDriver(
-            deletingDriver.value.id,
-            {
-                deleted_reason: payload.deleted_reason,
-            },
-        );
-
-        toast.success('Driver deleted successfully.');
-
-        showDeleteConfirm.value = false;
-        deletingDriver.value = null;
-
-        const page =
-            drivers.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        licenseAlertDrivers.value = [];
-        await loadDrivers(page);
-    } catch (error) {
-        toast.error(
-            error?.response?.data?.message
-            ?? 'Unable to delete driver. Please try again.'
-        );
-    } finally {
-        deleting.value = false;
-    }
+            licenseAlertDrivers.value = [];
+            await loadDrivers(page);
+        },
+    });
 }
 
 onMounted(() => {

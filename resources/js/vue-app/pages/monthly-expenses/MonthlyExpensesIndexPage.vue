@@ -164,13 +164,7 @@
             </template>
         </AppModal>
 
-        <MonthlyExpenseDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :expense="deletingExpense"
-            :deleting="deleting"
-            @cancel="cancelDelete"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -195,9 +189,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { friendlyApiErrorMessage } from '../../utils/formErrors';
-import MonthlyExpenseDeleteConfirmModal from './MonthlyExpenseDeleteConfirmmodal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 const { canInCompany } = usePermissions();
 const canView = computed(() => canInCompany('monthly_expenses.view'));
@@ -206,9 +201,6 @@ const canManage = computed(() => canInCompany('monthly_expenses.manage'));
 const expenses = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deleting = ref(false);
-const deletingExpense = ref(null);
 const showModal = ref(false);
 const editingId = ref(null);
 const searchQuery = ref('');
@@ -363,56 +355,28 @@ async function handleSubmit() {
 }
 
 function handleDelete(expense) {
-    deletingExpense.value = expense;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Monthly Expense?',
+        itemName: expense.expense_title || expense.description || 'this expense',
+        details: [
+            { label: 'Title / Description', value: expense.expense_title || expense.description },
+            { label: 'Month', value: formatMonth(expense.month) },
+            { label: 'Amount', value: formatAmount(expense.amount) },
+            { label: 'Category', value: expense.category },
+        ],
+        onConfirm: async (remark) => {
+            await deleteMonthlyExpense(expense.id, { deleted_reason: remark, remark });
+            toast.success('Monthly expense deleted successfully.');
 
-function cancelDelete() {
-    if (deleting.value) {
-        return;
-    }
+            const page =
+                expenses.value.length === 1 &&
+                pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-    showDeleteConfirm.value = false;
-    deletingExpense.value = null;
-}
-
-async function confirmDelete(payload) {
-    if (!deletingExpense.value?.id) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        await deleteMonthlyExpense(
-            deletingExpense.value.id,
-            {
-                deleted_reason: payload.deleted_reason,
-            },
-        );
-
-        toast.success('Monthly expense deleted successfully.');
-
-        showDeleteConfirm.value = false;
-        deletingExpense.value = null;
-
-        const page =
-            expenses.value.length === 1 &&
-            pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        await loadExpenses(page);
-    } catch (error) {
-        toast.error(
-            friendlyApiErrorMessage(
-                error,
-                'Unable to delete monthly expense. Please try again.',
-            ),
-        );
-    } finally {
-        deleting.value = false;
-    }
+            await loadExpenses(page);
+        },
+    });
 }
 
 onMounted(() => {

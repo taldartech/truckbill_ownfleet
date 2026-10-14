@@ -238,13 +238,7 @@
             @confirm="confirmSave"
         />
 
-        <TyreLayoutDeleteConfirmModal
-        :show="showDeleteConfirm"
-        :tyre-layout="deletingTyreLayout"
-        :deleting="deleting"
-        @cancel="closeDeleteConfirm"
-        @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -286,10 +280,11 @@ import {
     layoutTypeLabel,
     payloadFromAxleConfig,
 } from '../../utils/tyreLayoutForm';
-import TyreLayoutDeleteConfirmModal from './TyreLayoutDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -306,9 +301,6 @@ const canEdit = computed(() => canEditInCompany('tyre_layouts'));
 const layouts = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deletingTyreLayout = ref(null);
-const deleting = ref(false);
 const search = ref('');
 const showModal = ref(false);
 const showAdvanced = ref(false);
@@ -552,52 +544,27 @@ async function confirmSave() {
 }
 
 function handleDelete(tyreLayout) {
-    deletingTyreLayout.value = tyreLayout;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Tyre Layout?',
+        itemName: tyreLayout.name,
+        details: [
+            { label: 'Name', value: tyreLayout.name },
+            { label: 'Axle Configuration', value: tyreLayout.axle_configuration },
+            { label: 'Total Tyres', value: tyreLayout.total_tyres },
+        ],
+        onConfirm: async (remark) => {
+            await deleteTyreLayout(tyreLayout.id, { deleted_reason: remark, remark });
+            toast.success('Tyre layout deleted successfully.');
 
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
-    }
-    showDeleteConfirm.value = false;
-    deletingTyreLayout.value = null;
-}
+            const page =
+                layouts.value.length === 1 &&
+                pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-async function confirmDelete(payload) {
-    if (!deletingTyreLayout.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        const tyreLayoutId = deletingTyreLayout.value.id;
-
-        await deleteTyreLayout(tyreLayoutId, payload);
-
-        toast.success('Tyre layout deleted successfully.');
-
-        const page =
-            layouts.value.length === 1 &&
-            pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        showDeleteConfirm.value = false;
-        deletingTyreLayout.value = null;
-
-        await loadLayouts(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Could not delete tyre layout.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadLayouts(page);
+        },
+    });
 }
 onMounted(async () => {
     await loadLayouts();

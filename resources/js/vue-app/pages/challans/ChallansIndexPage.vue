@@ -156,6 +156,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useListPagination } from '../../composables/useListPagination';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
@@ -168,6 +169,7 @@ const challanStatusOptions = [
 ];
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { fieldErrors, formError: challanFormError, clearErrors, applyApiError } = useApiFormErrors();
 const { canInCompany } = usePermissions();
 const canView = computed(() => canInCompany('challans.view'));
@@ -326,24 +328,29 @@ async function handleUpdate(payload) {
     }
 }
 
-async function handleDelete(challan) {
-    if (!window.confirm(`Delete challan "${challan.challan_number}"?`)) {
-        return;
-    }
+function handleDelete(challan) {
+    promptDelete({
+        title: 'Delete Challan?',
+        itemName: challan.challan_number,
+        details: [
+            { label: 'Challan Number', value: challan.challan_number },
+            { label: 'Vehicle', value: challan.vehicle?.registration_number },
+            { label: 'Driver', value: challan.driver?.name },
+            { label: 'Violation Type', value: challan.violation_type },
+            { label: 'Amount', value: challan.amount ? `₹${challan.amount}` : null },
+        ],
+        onConfirm: async (remark) => {
+            await deleteChallan(challan.id, { deleted_reason: remark, remark });
+            toast.success('Challan deleted successfully.');
 
-    try {
-        await deleteChallan(challan.id);
-        toast.success('Challan deleted successfully.');
+            const page =
+                challans.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-        const page =
-            challans.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        await loadChallans(page);
-    } catch (error) {
-        toast.error(friendlyApiErrorMessage(error, 'Unable to delete challan. Please try again.'));
-    }
+            await loadChallans(page);
+        },
+    });
 }
 
 onMounted(() => {

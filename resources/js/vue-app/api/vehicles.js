@@ -130,9 +130,13 @@ export async function toggleVehicleStatus(id, isActive) {
     return unwrapResource(data);
 }
 
-export async function deleteVehicle(id, data) {
+export async function deleteVehicle(id, data = {}) {
+    const payload = typeof data === 'string'
+        ? { deleted_reason: data, remark: data }
+        : { deleted_reason: data?.deleted_reason ?? data?.remark, remark: data?.remark ?? data?.deleted_reason };
+
     await api.delete(`/api/vehicles/${id}`, {
-        data,
+        data: payload,
     });
 }
 

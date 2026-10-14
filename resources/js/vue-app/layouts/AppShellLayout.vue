@@ -14,6 +14,7 @@
             <AppFooter />
         </div>
         <AppToastHost />
+        <AppDeleteConfirmModal />
     </div>
 </template>
 
@@ -25,6 +26,7 @@ import AppFooter from '../components/AppFooter.vue';
 import AppHeader from '../components/AppHeader.vue';
 import AppSidebar from '../components/AppSidebar.vue';
 import AppToastHost from '../components/ui/AppToastHost.vue';
+import AppDeleteConfirmModal from '../components/ui/AppDeleteConfirmModal.vue';
 import SubscriptionAccessBanner from '../components/subscription/SubscriptionAccessBanner.vue';
 import { adminNavigation } from '../config/adminNavigation';
 import { useAdminLtePushMenu } from '../composables/useAdminLtePushMenu';

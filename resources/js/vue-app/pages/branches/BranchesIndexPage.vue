@@ -145,14 +145,7 @@
             @confirm="confirmSave"
         />
 
-        <BranchDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :branch="deletingBranch"
-            :impact="deleteImpact"
-            :loading="deleting"
-            @close="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -180,11 +173,12 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';
 import { buildBranchFields } from '../../utils/masterCrudSaveConfirm';
-import BranchDeleteConfirmModal from './BranchDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -218,10 +212,7 @@ const companySelectOptions = computed(() =>
 const branches = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deletingBranch = ref(null);
-const deleteImpact = ref(null);
-const deleting = ref(false);
+
 const showForm = ref(false);
 const formMode = ref('create');
 const editingBranch = ref(null);
@@ -375,76 +366,56 @@ async function handleEnter(branch) {
 }
 
 async function handleDelete(branch) {
+    let impact = null;
     try {
-        deleteImpact.value = await fetchBranchDeletionImpact(branch.id);
-        deletingBranch.value = branch;
-        showDeleteConfirm.value = true;
-    } catch (error) {
-        toast.error(
-            error.response?.data?.message ??
-            'Could not load branch delete details.'
-        );
-    }
-}
-
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
+        impact = await fetchBranchDeletionImpact(branch.id);
+    } catch {
+        // proceed even if impact summary fails to load
     }
 
-    showDeleteConfirm.value = false;
-    deletingBranch.value = null;
-    deleteImpact.value = null;
-}
+    const details = [
+        { label: 'Branch Name', value: branch.branch_name },
+        { label: 'Company', value: branch.company_name },
+        { label: 'Trucks', value: impact ? impact.trucks_count : null },
+        { label: 'Drivers', value: impact ? impact.drivers_count : null },
+        { label: 'Assigned Users', value: impact ? impact.users_count : null },
+    ];
 
-async function confirmDelete(reason) {
-    if (!deletingBranch.value) {
-        return;
-    }
+    const warningNotice = impact?.users_count > 0
+        ? `${impact.users_count} assigned user(s) will be unassigned and cannot log in until reassigned.`
+        : null;
 
-    deleting.value = true;
+    promptDelete({
+        title: 'Delete Branch?',
+        itemName: `${branch.branch_name} (${branch.company_name})`,
+        details,
+        warningNotice,
+        onConfirm: async (remark) => {
+            const data = await deleteBranch(branch.id, {
+                deleted_reason: remark,
+                remark,
+            });
 
-    try {
-        const branchId = deletingBranch.value.id;
+            if (data?.user) {
+                currentUser.value = data.user;
+                window.__AUTH_USER__ = data.user;
+            } else if (isActiveBranch(branch.id)) {
+                const user = await fetchCurrentUser();
+                currentUser.value = user;
+                window.__AUTH_USER__ = user;
+                await router.push({ name: 'branches.index' });
+            }
 
-        const data = await deleteBranch(branchId, {
-            deleted_reason: reason.trim(),
-        });
+            toast.success('Branch deleted successfully.');
 
-        if (data?.user) {
-            currentUser.value = data.user;
-            window.__AUTH_USER__ = data.user;
-        } else if (isActiveBranch(branchId)) {
-            const user = await fetchCurrentUser();
+            const page =
+                branches.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-            currentUser.value = user;
-            window.__AUTH_USER__ = user;
-
-            await router.push({ name: 'branches.index' });
-        }
-
-        toast.success('Branch deleted successfully.');
-
-        const page =
-            branches.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        deleting.value = false;
-
-        closeDeleteConfirm();
-
-        await loadBranches(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Could not delete branch.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadBranches(page);
+        },
+    });
 }
 
 

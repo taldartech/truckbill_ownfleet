@@ -34,8 +34,12 @@ export async function updateMonthlyExpense(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteMonthlyExpense(id, payload) {
+export async function deleteMonthlyExpense(id, payload = {}) {
+    const dataPayload = typeof payload === 'string'
+        ? { deleted_reason: payload, remark: payload }
+        : { deleted_reason: payload?.deleted_reason ?? payload?.remark, remark: payload?.remark ?? payload?.deleted_reason };
+
     await api.delete(`${base}/${id}`, {
-        data: payload,
+        data: dataPayload,
     });
 }

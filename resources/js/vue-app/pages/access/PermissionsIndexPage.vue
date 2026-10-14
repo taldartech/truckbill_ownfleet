@@ -121,6 +121,7 @@ import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
@@ -129,6 +130,7 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 
 const { can } = usePermissions();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -256,18 +258,22 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(permission) {
-    if (!window.confirm(`Delete permission "${permission.slug}"?`)) {
-        return;
-    }
-
-    try {
-        await deletePermission(permission.id);
-        toast.success('Permission deleted.');
-        await loadPermissions();
-    } catch {
-        toast.error('Unable to delete permission.');
-    }
+function handleDelete(permission) {
+    promptDelete({
+        title: 'Delete Permission?',
+        itemName: permission.name || permission.slug,
+        details: [
+            { label: 'Slug', value: permission.slug },
+            { label: 'Name', value: permission.name },
+            { label: 'Group', value: permission.group },
+            { label: 'Description', value: permission.description },
+        ],
+        onConfirm: async (remark) => {
+            await deletePermission(permission.id, { deleted_reason: remark, remark });
+            toast.success('Permission deleted.');
+            await loadPermissions();
+        },
+    });
 }
 
 onMounted(() => loadPermissions());

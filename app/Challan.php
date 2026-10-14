@@ -27,7 +27,14 @@ class Challan extends Model
         'violation_type',
         'amount',
         'status',
+        'deleted_by',
+        'deleted_reason',
     ];
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
+    }
 
     /**
      * @return array<string, string>

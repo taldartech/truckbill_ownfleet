@@ -98,12 +98,14 @@ import GoodsTypeFormModal from '../../components/goods-types/GoodsTypeFormModal.
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canEditInCompany } = usePermissions();
 
 const {
@@ -193,22 +195,24 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete() {
+function handleDelete() {
     if (!goodsType.value?.id) {
         return;
     }
 
-    if (!window.confirm(`Remove goods type "${goodsType.value.name}"?`)) {
-        return;
-    }
-
-    try {
-        await deleteGoodsType(goodsType.value.id);
-        toast.success('Goods type removed successfully.');
-        router.push({ name: 'goods-types.index' });
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not remove goods type.');
-    }
+    promptDelete({
+        title: 'Delete Goods Type?',
+        itemName: goodsType.value.name,
+        details: [
+            { label: 'Name', value: goodsType.value.name },
+            { label: 'Description', value: goodsType.value.description },
+        ],
+        onConfirm: async (remark) => {
+            await deleteGoodsType(goodsType.value.id, { deleted_reason: remark, remark });
+            toast.success('Goods type removed successfully.');
+            router.push({ name: 'goods-types.index' });
+        },
+    });
 }
 
 onMounted(async () => {

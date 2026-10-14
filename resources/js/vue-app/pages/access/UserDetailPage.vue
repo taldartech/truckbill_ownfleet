@@ -116,11 +116,13 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { can } = usePermissions();
 
 const canManage = computed(() => can('super_admins.manage') || can('users.manage'));
@@ -197,23 +199,27 @@ async function handleSubmit(payload) {
     }
 }
 
-async function handleDelete(userVal) {
+function handleDelete(userVal) {
     const targetUser = userVal || userItem.value;
     if (!targetUser?.id) {
         return;
     }
 
-    if (!window.confirm(`Delete user ${targetUser.name}?`)) {
-        return;
-    }
-
-    try {
-        await deleteManagedUser(targetUser.id);
-        toast.success('User deleted.');
-        router.push({ name: 'access.users' });
-    } catch {
-        toast.error('Unable to delete user.');
-    }
+    promptDelete({
+        title: 'Delete User?',
+        itemName: targetUser.name,
+        details: [
+            { label: 'Name', value: targetUser.name },
+            { label: 'Email', value: targetUser.email },
+            { label: 'Role', value: targetUser.role_label ?? targetUser.role },
+            { label: 'Status', value: targetUser.is_active ? 'Active' : 'Inactive' },
+        ],
+        onConfirm: async (remark) => {
+            await deleteManagedUser(targetUser.id, { deleted_reason: remark, remark });
+            toast.success('User deleted.');
+            router.push({ name: 'access.users' });
+        },
+    });
 }
 
 onMounted(async () => {

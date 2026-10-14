@@ -344,39 +344,6 @@
             @cancel="closeCancelConfirm"
             @confirm="confirmCancel"
         />
-
-        <AppConfirmModal
-            :show="showDeleteConfirm"
-            title="Delete Invoice"
-            :message="deleteConfirmMessage"
-            confirm-label="Yes, Delete Invoice"
-            confirm-variant="danger"
-            confirm-icon="bi bi-trash"
-            icon="bi bi-trash"
-            icon-tone="danger"
-            :loading="deleting"
-            :confirm-disabled="!canConfirmDelete"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        >
-            <div class="text-start">
-                <label class="form-label mb-1">
-                    Reason For Delete <span class="text-danger">*</span>
-                </label>
-                <textarea
-                    v-model="deletionReason"
-                    class="form-control form-control-sm"
-                    rows="2"
-                    placeholder="Why is this invoice being deleted?"
-                    :class="{ 'is-invalid': Boolean(deletionReasonError) }"
-                    :disabled="deleting"
-                ></textarea>
-                <div v-if="deletionReasonError" class="invalid-feedback d-block">
-                    {{ deletionReasonError }}
-                </div>
-                <div v-else class="form-text">Minimum 10 characters.</div>
-            </div>
-        </AppConfirmModal>
     </div>
 </template>
 
@@ -396,6 +363,7 @@ import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppModal from '../../components/ui/AppModal.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { formatDate } from '../../utils/datetime';
@@ -403,6 +371,7 @@ import { formatDate } from '../../utils/datetime';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext } = useRequireCompanyContext();
 
@@ -414,9 +383,6 @@ const deleting = ref(false);
 const showPaymentModal = ref(false);
 const showPaymentConfirm = ref(false);
 const showCancelConfirm = ref(false);
-const showDeleteConfirm = ref(false);
-const deletionReason = ref('');
-const deletionReasonError = ref('');
 const paymentFormError = ref('');
 const paymentFieldErrors = ref({});
 
@@ -685,48 +651,29 @@ async function confirmCancel() {
 }
 
 function openDeleteConfirm() {
-    deletionReason.value = '';
-    deletionReasonError.value = '';
-    showDeleteConfirm.value = true;
-}
-
-function closeDeleteConfirm() {
-    showDeleteConfirm.value = false;
-    deletionReason.value = '';
-    deletionReasonError.value = '';
-}
-
-async function confirmDelete() {
-    if (!invoice.value?.id || !canConfirmDelete.value) {
+    if (!invoice.value?.id) {
         return;
     }
 
-    deleting.value = true;
-    deletionReasonError.value = '';
-
-    try {
-        await deleteInvoice(invoice.value.id, {
-            deletion_reason: deletionReason.value.trim(),
-        });
-        toast.success('Invoice deleted.');
-        closeDeleteConfirm();
-        await router.push({ name: 'invoices.index' });
-    } catch (error) {
-        const reasonError = error.response?.data?.errors?.deletion_reason?.[0];
-
-        if (reasonError) {
-            deletionReasonError.value = reasonError;
-
-            return;
-        }
-
-        const message = error.response?.data?.errors?.invoice?.[0]
-            ?? error.response?.data?.message
-            ?? 'Could not delete invoice.';
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+    promptDelete({
+        title: 'Delete Invoice?',
+        itemName: invoice.value.invoice_number,
+        details: [
+            { label: 'Invoice #', value: invoice.value.invoice_number },
+            { label: 'Customer', value: invoice.value.customer?.name },
+            { label: 'Invoice Date', value: formatDate(invoice.value.invoice_date) },
+            { label: 'Total Amount', value: formatMoney(invoice.value.total_amount) },
+        ],
+        onConfirm: async (remark) => {
+            await deleteInvoice(invoice.value.id, {
+                deletion_reason: remark,
+                deleted_reason: remark,
+                remark,
+            });
+            toast.success('Invoice deleted.');
+            await router.push({ name: 'invoices.index' });
+        },
+    });
 }
 
 async function loadInvoice() {

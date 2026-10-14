@@ -99,13 +99,7 @@
             @confirm="confirmSave"
         />
 
-        <GoodsTypeDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :goods-type="deletingGoodsType"
-            :deleting="deleting"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -127,9 +121,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
-import GoodsTypeDeleteConfirmModal from './GoodsTypeDeleteConfirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -145,9 +140,6 @@ const canEdit = computed(() => canEditInCompany('goods_types'));
 const goodsTypes = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deletingGoodsType = ref(null);
-const deleting = ref(false);
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -249,52 +241,25 @@ async function confirmSave() {
 }
 
 function handleDelete(goodsType) {
-    deletingGoodsType.value = goodsType;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: 'Delete Goods Type?',
+        itemName: goodsType.name,
+        details: [
+            { label: 'Name', value: goodsType.name },
+            { label: 'Description', value: goodsType.description },
+        ],
+        onConfirm: async (remark) => {
+            await deleteGoodsType(goodsType.id, { deleted_reason: remark, remark });
+            toast.success('Goods type deleted successfully.');
 
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
-    }
+            const page =
+                goodsTypes.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-    showDeleteConfirm.value = false;
-    deletingGoodsType.value = null;
-}
-
-async function confirmDelete(payload) {
-    if (!deletingGoodsType.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        const goodsTypeId = deletingGoodsType.value.id;
-
-        await deleteGoodsType(goodsTypeId, payload);
-
-        toast.success('Goods type deleted successfully.');
-
-        const page =
-            goodsTypes.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        showDeleteConfirm.value = false;
-        deletingGoodsType.value = null;
-
-        await loadGoodsTypes(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Could not delete goods type.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadGoodsTypes(page);
+        },
+    });
 }
 
 onMounted(async () => {

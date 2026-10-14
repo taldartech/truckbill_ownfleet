@@ -203,14 +203,7 @@
             @confirm="confirmSave"
         />
 
-        <UserDeleteConfirmModal
-            :show="showDeleteConfirm"
-            :user="deletingUser"
-            :deleting="deleting"
-            :user-type-label="managesSuperAdmins ? 'Super Admin' : 'User'"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
-        />
+
     </div>
 </template>
 
@@ -243,11 +236,12 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildUserFields } from '../../utils/masterCrudSaveConfirm';
-import UserDeleteConfirmModal from './UserDeleteCofirmModal.vue';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const { can, user } = usePermissions();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -314,9 +308,6 @@ const assignableRoles = ref([]);
 const companies = ref([]);
 const loading = ref(true);
 const saving = ref(false);
-const showDeleteConfirm = ref(false);
-const deletingUser = ref(null);
-const deleting = ref(false);
 const showForm = ref(false);
 const formMode = ref('create');
 const editingUser = ref(null);
@@ -505,57 +496,32 @@ async function confirmSave() {
     }
 }
 
-function handleDelete(user) {
-    if (user.is_protected) {
+function handleDelete(userItem) {
+    if (userItem.is_protected) {
         return;
     }
 
-    deletingUser.value = user;
-    showDeleteConfirm.value = true;
-}
+    promptDelete({
+        title: `Delete ${managesSuperAdmins.value ? 'Super Admin' : 'User'}?`,
+        itemName: userItem.name,
+        details: [
+            { label: 'Name', value: userItem.name },
+            { label: 'Email', value: userItem.email },
+            { label: 'Role', value: userItem.role_label ?? userItem.role },
+            { label: 'Status', value: userItem.is_active ? 'Active' : 'Inactive' },
+        ],
+        onConfirm: async (remark) => {
+            await deleteManagedUser(userItem.id, { deleted_reason: remark, remark });
+            toast.success('User deleted.');
 
-function closeDeleteConfirm() {
-    if (deleting.value) {
-        return;
-    }
+            const page =
+                users.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
 
-    showDeleteConfirm.value = false;
-    deletingUser.value = null;
-}
-
-async function confirmDelete(payload) {
-    if (!deletingUser.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        const userId = deletingUser.value.id;
-
-        await deleteManagedUser(userId, payload);
-
-        toast.success('User deleted.');
-
-        const page =
-            users.value.length === 1 && pagination.currentPage > 1
-                ? pagination.currentPage - 1
-                : pagination.currentPage;
-
-        showDeleteConfirm.value = false;
-        deletingUser.value = null;
-
-        await loadUsers(page);
-    } catch (error) {
-        const message =
-            error.response?.data?.errors?.deleted_reason?.[0] ??
-            error.response?.data?.message ??
-            'Unable to delete user.';
-
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+            await loadUsers(page);
+        },
+    });
 }
 
 onMounted(async () => {
