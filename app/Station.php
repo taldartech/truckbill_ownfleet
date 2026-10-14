@@ -2,7 +2,6 @@
 
 namespace App;
 
-use App\Concerns\BranchScoped;
 use App\Concerns\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,15 +11,12 @@ class Station extends Model
 {
     use SoftDeletes;
     use TenantScoped;
-    use BranchScoped;
 
     protected $fillable = [
         'tenant_id',
-        'branch_id',
         'country_id',
         'state_id',
         'city_id',
-        'agency_id',
         'name',
         'deleted_by',
         'deleted_reason'
@@ -32,7 +28,6 @@ class Station extends Model
             'country_id' => 'integer',
             'state_id' => 'integer',
             'city_id' => 'integer',
-            'agency_id' => 'integer',
         ];
     }
 

@@ -12,6 +12,14 @@
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload Drivers"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Create driver"
                     @click="openCreate"
@@ -193,7 +201,15 @@
             @confirm="confirmAdvanceSave"
         />
 
-
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Drivers"
+            upload-url="/app/api/drivers/bulk-upload"
+            template-download-url="/app/api/drivers/bulk-upload/template"
+            template-file-name="drivers_bulk_upload_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadDrivers(1)"
+        />
     </div>
 </template>
 
@@ -218,6 +234,7 @@ import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import { useListPagination } from '../../composables/useListPagination';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
@@ -251,6 +268,23 @@ const {
 } = useMasterCrudSaveConfirm();
 const pendingDriverMode = ref('create');
 const advanceWalletBalance = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'name', label: 'Driver Name', required: true, description: 'Full name of driver' },
+    { name: 'phone', label: 'Phone', required: true, description: 'Unique 10-digit mobile number' },
+    { name: 'license_number', label: 'License Number', required: true, description: 'Driving license number (unique)' },
+    { name: 'joining_date', label: 'Joining Date', required: true, description: 'Date of joining (YYYY-MM-DD)' },
+    { name: 'daily_wage', label: 'Monthly Salary', required: true, description: 'Monthly salary amount' },
+    { name: 'address', label: 'Address', required: false, description: 'Residential address' },
+    { name: 'aadhaar_number', label: 'Aadhaar Number', required: false, description: '12-digit Aadhaar number' },
+    { name: 'pan_number', label: 'PAN Number', required: false, description: '10-character PAN' },
+    { name: 'license_expiry_date', label: 'License Expiry Date', required: false, description: 'Expiry date of license' },
+    { name: 'bank_account_number', label: 'Bank Account Number', required: false, description: 'Bank account number' },
+    { name: 'bank_ifsc', label: 'Bank IFSC', required: false, description: 'Bank IFSC code' },
+    { name: 'emergency_contact_name', label: 'Emergency Contact Name', required: false, description: 'Emergency contact person' },
+    { name: 'emergency_contact_phone', label: 'Emergency Contact Phone', required: false, description: '10-digit emergency contact phone' },
+];
 
 const { fieldErrors, formError: driverFormError, clearErrors, applyApiError } = useApiFormErrors();
 const {

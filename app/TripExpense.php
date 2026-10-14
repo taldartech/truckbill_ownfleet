@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TripExpense extends Model
 {
-    use TenantScoped;
     use BranchScoped;
     use SoftDeletes;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [

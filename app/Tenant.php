@@ -35,6 +35,7 @@ class Tenant extends Model
         'contact_person',
         'contact_number',
         'company_logo',
+        'digital_signature',
         'document_color',
         'payroll_pay_days_mode',
     ];
@@ -105,6 +106,11 @@ class Tenant extends Model
     public function planEndsOn(): ?\Illuminate\Support\Carbon
     {
         return $this->subscription?->ends_on;
+    }
+
+    public function getPlanEndDateAttribute(): ?\Illuminate\Support\Carbon
+    {
+        return $this->planEndsOn();
     }
 
     public function owner(): BelongsTo
@@ -187,6 +193,47 @@ class Tenant extends Model
         }
 
         return Storage::disk('public')->path($this->company_logo);
+    }
+
+    public function storeSignature(UploadedFile $file): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'png');
+        $path = sprintf('signatures/companies/%s/%s.%s', $this->id, (string) Str::uuid(), $extension);
+
+        Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+
+        return $path;
+    }
+
+    public function deleteSignature(): void
+    {
+        if ($this->digital_signature) {
+            Storage::disk('public')->delete($this->digital_signature);
+            $this->digital_signature = null;
+        }
+    }
+
+    public function signaturePublicUrl(): ?string
+    {
+        return $this->digital_signature
+            ? Storage::disk('public')->url($this->digital_signature)
+            : null;
+    }
+
+    /**
+     * Inline data URI so DomPDF can render the signature regardless of its filesystem chroot.
+     */
+    public function signatureDataUriForPdf(): ?string
+    {
+        $disk = Storage::disk('public');
+
+        if (! $this->digital_signature || ! $disk->exists($this->digital_signature)) {
+            return null;
+        }
+
+        $mimeType = $disk->mimeType($this->digital_signature) ?: 'image/png';
+
+        return 'data:'.$mimeType.';base64,'.base64_encode((string) $disk->get($this->digital_signature));
     }
 
     public function documentColor(): ?string

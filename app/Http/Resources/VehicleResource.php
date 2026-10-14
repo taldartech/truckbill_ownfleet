@@ -7,6 +7,7 @@ use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
 use App\TruckType;
 use App\TyreLayout;
+use App\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -49,6 +50,11 @@ class VehicleResource extends JsonResource
             'updated_by_name' => $this->whenLoaded('updatedBy', fn () => $this->updatedBy?->name),
             'created_at' => ApiDateTime::toIso($this->created_at),
             'updated_at' => ApiDateTime::toIso($this->updated_at),
+            'deleted_at' => ApiDateTime::toIso($this->deleted_at),
+            'can_restore' => $this->when($this->trashed(), fn (): bool => ! Vehicle::withoutTrashed()
+                ->where('tenant_id', $this->tenant_id)
+                ->where('registration_number', $this->registration_number)
+                ->exists()),
             'primary_driver_id' => $this->when(
                 $this->relationLoaded('currentPrimaryAssignment') && $this->currentPrimaryAssignment !== null,
                 fn () => $this->currentPrimaryAssignment->driver_id,

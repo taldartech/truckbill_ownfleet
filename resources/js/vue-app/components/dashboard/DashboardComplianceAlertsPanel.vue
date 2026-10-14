@@ -306,6 +306,79 @@
                         </table>
                     </div>
                 </div>
+
+                <div v-if="fuelAlerts.length" class="compliance-section">
+                    <div class="dashboard-panel__section-head">
+                        <div class="dashboard-panel__subtitle mb-0">
+                            <i class="fas fa-gas-pump me-1 text-warning"></i>
+                            Fuel & Mileage Alerts
+                        </div>
+                        <AppButton
+                            size="sm"
+                            outline
+                            variant="primary"
+                            label="Fuel Reports"
+                            icon="fas fa-arrow-up-right-from-square"
+                            :to="{ name: 'reports.trips', query: { type: 'fuel-performance' } }"
+                        />
+                    </div>
+                    <div class="table-responsive compliance-table">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Truck</th>
+                                    <th>Alert</th>
+                                    <th>Details</th>
+                                    <th>Severity</th>
+                                    <th class="text-end" style="width: 3.5rem">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="fuelAlert in fuelAlerts"
+                                    :key="`fuel-${fuelAlert.id}`"
+                                    class="dashboard-panel__row"
+                                    :class="fuelAlert.severity === 'critical'
+                                        ? 'dashboard-panel__row--danger'
+                                        : 'dashboard-panel__row--warning'"
+                                >
+                                    <td class="fw-medium">
+                                        <div>{{ fuelAlert.vehicle_registration ?? '—' }}</div>
+                                        <div class="text-muted small">Trip #{{ fuelAlert.trip_number ?? fuelAlert.trip_id }}</div>
+                                    </td>
+                                    <td class="fw-medium">
+                                        {{ fuelAlert.title }}
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ fuelAlert.description }}
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge"
+                                            :class="fuelAlert.severity === 'critical' ? 'bg-danger' : 'bg-warning text-dark'"
+                                        >
+                                            {{ fuelAlert.severity === 'critical' ? 'Critical' : 'Warning' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <AppButton
+                                            v-if="fuelAlert.trip_id"
+                                            size="sm"
+                                            variant="primary"
+                                            outline
+                                            icon="fas fa-arrow-up-right-from-square"
+                                            title="Open Trip"
+                                            :to="{
+                                                name: 'trips.index',
+                                                query: { trip_id: fuelAlert.trip_id },
+                                            }"
+                                        />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </template>
     </div>
@@ -339,6 +412,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    fuelAlerts: {
+        type: Array,
+        default: () => [],
+    },
     summary: {
         type: Object,
         default: () => ({
@@ -347,6 +424,7 @@ const props = defineProps({
             expiring: 0,
             licenses: 0,
             dueServices: 0,
+            fuelAlerts: 0,
         }),
     },
     loading: {
@@ -375,7 +453,8 @@ const isEmpty = computed(
         props.documents.length === 0
         && props.licenses.length === 0
         && props.dueServices.length === 0
-        && props.ewayBills.length === 0,
+        && props.ewayBills.length === 0
+        && props.fuelAlerts.length === 0,
 );
 const documentTableColspan = computed(() => (props.canEditDocuments ? 5 : 4));
 const licenseTableColspan = computed(() => (props.canManageLicenses ? 5 : 4));
@@ -385,7 +464,7 @@ const showViewAll = computed(() => {
         return false;
     }
 
-    return props.documents.length > 0 || props.licenses.length > 0;
+    return props.documents.length > 0 || props.licenses.length > 0 || props.fuelAlerts.length > 0;
 });
 
 const summaryItems = computed(() => [
@@ -423,6 +502,12 @@ const summaryItems = computed(() => [
         key: 'dueServices',
         label: 'Due Services',
         value: Number(props.summary?.dueServices ?? 0),
+        tone: 'warning',
+    },
+    {
+        key: 'fuelAlerts',
+        label: 'Fuel Alerts',
+        value: Number(props.summary?.fuelAlerts ?? 0),
         tone: 'warning',
     },
 ]);
@@ -464,7 +549,7 @@ function handleExpirySaved(payload) {
 .dashboard-panel {
     display: flex;
     flex-direction: column;
-    padding: 1.25rem;
+    padding: 1rem 1.15rem;
     border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.25rem;
     background: linear-gradient(185deg, #ffffff 0%, #f8fafc 100%);
@@ -476,7 +561,7 @@ function handleExpirySaved(payload) {
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     flex-shrink: 0;
 }
 
@@ -492,42 +577,55 @@ function handleExpirySaved(payload) {
 }
 
 .dashboard-panel__date-hint {
-    margin: 0.2rem 0 0;
+    margin: 0.15rem 0 0;
     font-size: 0.72rem;
     color: #94a3b8;
 }
 
 .compliance-summary-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.1rem;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
 }
 
 .compliance-summary-card {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.85rem 1rem;
-    border-radius: 0.85rem;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.15rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.65rem;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     min-width: 0;
+    transition: all 0.15s ease;
+}
+
+.compliance-summary-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .compliance-summary-card__value {
-    font-size: 1.45rem;
-    line-height: 1.1;
+    font-size: 1.25rem;
+    line-height: 1.15;
     font-weight: 800;
     color: #0f172a;
 }
 
 .compliance-summary-card__label {
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.68rem;
+    font-weight: 600;
     text-transform: none;
     letter-spacing: normal;
     color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 
 .compliance-summary-card--danger {
@@ -604,15 +702,35 @@ function handleExpirySaved(payload) {
     border-top: none;
 }
 
+@media (max-width: 991.98px) {
+    .compliance-summary-grid {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.35rem;
+    }
+
+    .compliance-summary-card {
+        padding: 0.4rem 0.25rem;
+    }
+
+    .compliance-summary-card__value {
+        font-size: 1.1rem;
+    }
+
+    .compliance-summary-card__label {
+        font-size: 0.62rem;
+    }
+}
+
 @media (max-width: 767.98px) {
     .compliance-summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.45rem;
     }
 }
 
 @media (max-width: 479.98px) {
     .compliance-summary-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

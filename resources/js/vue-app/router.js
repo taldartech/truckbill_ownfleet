@@ -27,7 +27,7 @@ const router = createRouter({
                     path: 'dashboard',
                     name: 'dashboard',
                     component: DashboardPage,
-                    meta: { requiresTenant: true, permission: 'dashboard.view' },
+                    meta: { requiresTenant: true, allowWithoutTenant: true, permission: 'dashboard.view' },
                 },
                 {
                     path: 'companies',
@@ -58,6 +58,15 @@ const router = createRouter({
                     name: 'trucks.index',
                     component: () => import('./pages/trucks/TrucksIndexPage.vue'),
                     meta: { requiresTenant: true, permission: 'vehicles.view' },
+                },
+                {
+                    path: 'trucks/archived',
+                    name: 'trucks.archived',
+                    component: () => import('./pages/trucks/TrucksArchivedIndexPage.vue'),
+                    meta: {
+                        requiresTenant: true,
+                        permission: 'vehicles.view',
+                    },
                 },
                 {
                     path: 'drivers',
@@ -319,6 +328,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'fleet_monthly_report.view' },
                 },
                 {
+                    path: 'reports/vehicle-utilization',
+                    name: 'reports.vehicle-utilization',
+                    component: () => import('./pages/reports/VehicleUtilizationReportPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trip_reports.view' },
+                },
+                {
                     path: '/alerts',
                     name: 'alerts.index',
                     component: () => import('././pages/alerts/AlertsPage.vue'),
@@ -361,6 +376,18 @@ const router = createRouter({
                     name: 'tyres.show',
                     component: () => import('./pages/tyres/TyreDetailPage.vue'),
                     meta: { requiresTenant: true, permission: 'tyres.view' },
+                },
+                {
+                    path: 'batteries',
+                    name: 'batteries.index',
+                    component: () => import('./pages/batteries/BatteriesIndexPage.vue'),
+                    meta: { requiresTenant: true, permission: 'batteries.view' },
+                },
+                {
+                    path: 'batteries/:id',
+                    name: 'batteries.show',
+                    component: () => import('./pages/batteries/BatteryDetailPage.vue'),
+                    meta: { requiresTenant: true, permission: 'batteries.view' },
                 },
                 {
                     path: 'reports/tyres',
@@ -469,7 +496,7 @@ router.beforeEach(async (to) => {
         if (window.__AUTH_USER__) {
             const user = window.__AUTH_USER__;
 
-            if (user.requires_company_selection) {
+            if (user.requires_company_selection && user.role !== 'super_admin') {
                 return { name: 'companies.index' };
             }
 
@@ -543,7 +570,7 @@ router.beforeEach(async (to) => {
             !user.requires_company_selection &&
             (user.effective_tenant_id ?? user.company_id) != null;
 
-        if (!hasPermission || (to.meta.requiresTenant && !inCompany)) {
+        if (!hasPermission || (to.meta.requiresTenant && !to.meta.allowWithoutTenant && !inCompany)) {
             return {
                 name: 'dashboard',
                 query: {

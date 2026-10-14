@@ -941,6 +941,7 @@ onBeforeUnmount(() => {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
+    min-height: 38px !important;
 }
 
 .filter-picker-col :deep(.picker-actions) {

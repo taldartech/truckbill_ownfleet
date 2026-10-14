@@ -85,7 +85,11 @@ a.btn.btn-icon.btn-action-add,
 .btn.btn-icon.btn-action-advance,
 a.btn.btn-icon.btn-action-advance,
 .btn.btn-icon.btn-action-mark-paid,
-a.btn.btn-icon.btn-action-mark-paid {
+a.btn.btn-icon.btn-action-mark-paid,
+.btn.btn-icon.btn-action-pdf,
+a.btn.btn-icon.btn-action-pdf,
+.btn.btn-icon.btn-action-payment,
+a.btn.btn-icon.btn-action-payment {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -323,13 +327,17 @@ a.btn.btn-icon.btn-action-archive:hover {
 }
 
 .btn.btn-icon.btn-action-download,
-a.btn.btn-icon.btn-action-download {
+a.btn.btn-icon.btn-action-download,
+.btn.btn-icon.btn-action-pdf,
+a.btn.btn-icon.btn-action-pdf {
     background-color: var(--action-download) !important;
     border: 1px solid var(--action-download) !important;
 }
 
 .btn.btn-icon.btn-action-download:hover,
-a.btn.btn-icon.btn-action-download:hover {
+a.btn.btn-icon.btn-action-download:hover,
+.btn.btn-icon.btn-action-pdf:hover,
+a.btn.btn-icon.btn-action-pdf:hover {
     background-color: var(--action-download-hover) !important;
     border-color: var(--action-download-hover) !important;
     color: #fff !important;
@@ -388,13 +396,17 @@ a.btn.btn-icon.btn-action-advance:hover {
 }
 
 .btn.btn-icon.btn-action-mark-paid,
-a.btn.btn-icon.btn-action-mark-paid {
+a.btn.btn-icon.btn-action-mark-paid,
+.btn.btn-icon.btn-action-payment,
+a.btn.btn-icon.btn-action-payment {
     background-color: var(--action-mark-paid) !important;
     border: 1px solid var(--action-mark-paid) !important;
 }
 
 .btn.btn-icon.btn-action-mark-paid:hover,
-a.btn.btn-icon.btn-action-mark-paid:hover {
+a.btn.btn-icon.btn-action-mark-paid:hover,
+.btn.btn-icon.btn-action-payment:hover,
+a.btn.btn-icon.btn-action-payment:hover {
     background-color: var(--action-mark-paid-hover) !important;
     border-color: var(--action-mark-paid-hover) !important;
     color: #fff !important;
@@ -415,11 +427,13 @@ a.btn.btn-icon.btn-action-mark-paid:hover {
 .btn.btn-icon.btn-action-cancel:disabled,
 .btn.btn-icon.btn-action-archive:disabled,
 .btn.btn-icon.btn-action-download:disabled,
+.btn.btn-icon.btn-action-pdf:disabled,
 .btn.btn-icon.btn-action-history:disabled,
 .btn.btn-icon.btn-action-restore:disabled,
 .btn.btn-icon.btn-action-add:disabled,
 .btn.btn-icon.btn-action-advance:disabled,
-.btn.btn-icon.btn-action-mark-paid:disabled {
+.btn.btn-icon.btn-action-mark-paid:disabled,
+.btn.btn-icon.btn-action-payment:disabled {
     opacity: 0.55;
     cursor: not-allowed;
     transform: none;

@@ -26,7 +26,7 @@ class CompanyController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 500);
 
         $query = Tenant::query()
-            ->with('state')
+            ->with(['state', 'subscription'])
             ->when($request->filled('search'), function ($builder) use ($request): void {
                 $search = '%'.$request->string('search').'%';
                 $builder->where(function ($inner) use ($search): void {
@@ -54,7 +54,7 @@ class CompanyController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $validated = collect($request->validated())->except(['company_logo'])->all();
+        $validated = collect($request->validated())->except(['company_logo', 'digital_signature'])->all();
         $tenant = CompanyProvisioner::create($validated, $user);
 
         /** @var UploadedFile|null $logo */
@@ -62,17 +62,27 @@ class CompanyController extends Controller
 
         if ($logo instanceof UploadedFile) {
             $tenant->company_logo = $tenant->storeLogo($logo);
+        }
+
+        /** @var UploadedFile|null $signature */
+        $signature = $request->file('digital_signature');
+
+        if ($signature instanceof UploadedFile) {
+            $tenant->digital_signature = $tenant->storeSignature($signature);
+        }
+
+        if ($tenant->isDirty()) {
             $tenant->save();
         }
 
-        return new CompanyResource($tenant->loadMissing('state'));
+        return new CompanyResource($tenant->loadMissing(['state', 'subscription']));
     }
 
     public function show(Tenant $company): CompanyResource
     {
         $this->authorize('view', $company);
 
-        return new CompanyResource($company->loadMissing('state'));
+        return new CompanyResource($company->loadMissing(['state', 'subscription']));
     }
 
     public function update(UpdateCompanyRequest $request, Tenant $company): CompanyResource
@@ -83,7 +93,9 @@ class CompanyController extends Controller
             $this->authorize('block', $company);
         }
 
-        $validated = collect($request->validated())->except(['company_logo', 'remove_logo'])->all();
+        $validated = collect($request->validated())
+            ->except(['company_logo', 'remove_logo', 'digital_signature', 'remove_signature'])
+            ->all();
         $company->fill($validated);
 
         /** @var UploadedFile|null $logo */
@@ -96,9 +108,19 @@ class CompanyController extends Controller
             $company->company_logo = $company->storeLogo($logo);
         }
 
+        /** @var UploadedFile|null $signature */
+        $signature = $request->file('digital_signature');
+
+        if ($request->boolean('remove_signature')) {
+            $company->deleteSignature();
+        } elseif ($signature instanceof UploadedFile) {
+            $company->deleteSignature();
+            $company->digital_signature = $company->storeSignature($signature);
+        }
+
         $company->save();
 
-        return new CompanyResource($company->fresh()->load('state'));
+        return new CompanyResource($company->fresh()->load(['state', 'subscription']));
     }
 
     public function enter(Request $request, Tenant $company): JsonResponse

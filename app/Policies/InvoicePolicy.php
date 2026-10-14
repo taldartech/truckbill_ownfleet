@@ -49,6 +49,12 @@ class InvoicePolicy
             && $user->canAccessCompanyPanel();
     }
 
+    public function updateCharges(User $user, Invoice $invoice): bool
+    {
+        return $this->update($user, $invoice)
+            && $invoice->canEditCharges();
+    }
+
     public function delete(User $user, Invoice $invoice): bool
     {
         return ! $invoice->trashed()

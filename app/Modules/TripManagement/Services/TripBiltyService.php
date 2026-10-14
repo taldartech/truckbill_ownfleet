@@ -165,6 +165,7 @@ class TripBiltyService
             'gst_number' => $gstSettings['gst_number'] ?? $company?->gst_number,
             'pan_number' => $company?->pan_number,
             'logo_path' => ($branch ?? $company)?->logoFilesystemPathForPdf(),
+            'signature_src' => $company?->signatureDataUriForPdf(),
             'document_color' => $company?->documentColor(),
             'document_text_color' => $company?->documentTextColor(),
             'document_color_soft' => $company?->documentColorWithOpacity(0.2),
@@ -173,5 +174,4 @@ class TripBiltyService
             'trip' => $trip,
         ])->setPaper('a4');
     }
-
 }

@@ -48,6 +48,8 @@ ad.js
 # /storage/*
 /storage/framework/views/*
 /storage/debugbar/*.json
+/storage/app/backup/
+/storage/app/backups/
 
 .env
 

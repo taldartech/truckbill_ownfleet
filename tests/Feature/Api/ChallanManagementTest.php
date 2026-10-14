@@ -85,6 +85,7 @@ class ChallanManagementTest extends TestCase
 
         $challan = Challan::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $user->branch_id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'challan_number' => 'CH-DEL-1',
@@ -108,6 +109,7 @@ class ChallanManagementTest extends TestCase
 
         $challan = Challan::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $user->branch_id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'challan_number' => 'CH-DEL-2',
@@ -116,6 +118,10 @@ class ChallanManagementTest extends TestCase
             'amount' => 500,
             'status' => 'UNPAID',
         ]);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, \App\Branch::query()->findOrFail($vehicle->branch_id));
+        $this->withHeader('X-Tenant-Id', $tenant->id);
 
         $this->actingAs($user)
             ->deleteJson("/app/api/challans/{$challan->id}")
@@ -133,6 +139,7 @@ class ChallanManagementTest extends TestCase
 
         $challan = Challan::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $user->branch_id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'challan_number' => 'CH-REUSE-1',
@@ -141,6 +148,10 @@ class ChallanManagementTest extends TestCase
             'amount' => 500,
             'status' => 'UNPAID',
         ]);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, \App\Branch::query()->findOrFail($vehicle->branch_id));
+        $this->withHeader('X-Tenant-Id', $tenant->id);
 
         $this->actingAs($user)
             ->deleteJson("/app/api/challans/{$challan->id}")
@@ -167,6 +178,7 @@ class ChallanManagementTest extends TestCase
 
         $challan = Challan::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $user->branch_id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'challan_number' => 'CH-SOFT-DRIVER',
@@ -200,13 +212,14 @@ class ChallanManagementTest extends TestCase
             ->assertJsonPath('data.driver.name', $driver->name);
     }
 
-    public function test_moderator_cannot_access_challans(): void
+    public function test_moderator_can_view_and_create_challans(): void
     {
         [$tenant, $user, $vehicle, $driver] = $this->createFixtures('moderator');
 
         $this->actingAs($user)
             ->getJson('/app/api/challans')
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
 
         $this->actingAs($user)
             ->postJson('/app/api/challans', [
@@ -218,7 +231,13 @@ class ChallanManagementTest extends TestCase
                 'amount' => 1500,
                 'status' => 'UNPAID',
             ])
-            ->assertForbidden();
+            ->assertCreated()
+            ->assertJsonPath('data.challan_number', 'CH-MOD-1');
+
+        $this->assertDatabaseHas('challans', [
+            'tenant_id' => $tenant->id,
+            'challan_number' => 'CH-MOD-1',
+        ]);
     }
 
     public function test_admin_can_update_challan_payment_status_when_permissions_are_granted(): void
@@ -228,6 +247,7 @@ class ChallanManagementTest extends TestCase
 
         $challan = Challan::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $user->branch_id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'challan_number' => 'CH-2002',
@@ -263,8 +283,16 @@ class ChallanManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+        $operationalAttributes = $this->operationalAttributesForTenant($tenant);
+        $branchId = (int) $operationalAttributes['branch_id'];
+        \App\Support\SelectedCompanySession::set((string) $tenant->id);
+        \App\Support\SelectedBranchSession::set($branchId);
+        \App\Support\TenantContext::setTenantId((string) $tenant->id);
+        \App\Support\BranchContext::setBranchId($branchId);
+
         $user = User::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'name' => 'Challan User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -272,7 +300,7 @@ class ChallanManagementTest extends TestCase
         ]);
 
         $vehicle = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'registration_number' => 'MH12AB1234',
             'vehicle_type' => 'TRUCK',
             'make' => 'Tata',
@@ -281,7 +309,7 @@ class ChallanManagementTest extends TestCase
         ]);
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$operationalAttributes,
             'name' => 'Test Driver',
             'phone' => '9876543210',
             'license_number' => 'DL-TEST',

@@ -63,6 +63,43 @@ class VueAppTest extends TestCase
             ->assertSee('id="app"', false);
     }
 
+    public function test_authenticated_user_can_view_vue_alerts_page(): void
+    {
+        $user = $this->createUser('admin');
+
+        $this->actingAs($user)
+            ->get('/app/alerts')
+            ->assertOk()
+            ->assertSee('id="app"', false);
+    }
+
+    public function test_authenticated_user_can_view_vue_monthly_expenses_page(): void
+    {
+        $user = $this->createUser('admin');
+
+        $this->actingAs($user)
+            ->get('/app/monthly-expenses')
+            ->assertOk()
+            ->assertSee('id="app"', false);
+    }
+
+    public function test_authenticated_user_can_load_compliance_alerts_with_eway_bills_and_alerts(): void
+    {
+        $user = $this->createUser('admin');
+
+        $this->actingAs($user)
+            ->getJson('/app/dashboard/compliance-alerts')
+            ->assertOk()
+            ->assertJsonStructure([
+                'documents',
+                'licenses',
+                'due_services',
+                'eway_bills',
+                'alerts',
+                'requires_company',
+            ]);
+    }
+
     public function test_api_me_returns_user_with_tenant_and_role(): void
     {
         $user = $this->createUser('admin');
@@ -186,6 +223,8 @@ class VueAppTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        $this->provisionActiveSubscription($tenant);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,

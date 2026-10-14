@@ -126,4 +126,16 @@ class Vehicle extends Model
     {
         return $this->hasMany(VehicleMaintenance::class);
     }
+
+    public function batteryInstallations(): HasMany
+    {
+        return $this->hasMany(BatteryInstallation::class);
+    }
+
+    public function activeBatteries(): HasMany
+    {
+        return $this->hasMany(BatteryInstallation::class)
+            ->whereNull('removed_at')
+            ->with('battery');
+    }
 }

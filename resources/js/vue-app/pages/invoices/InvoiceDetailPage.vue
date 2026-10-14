@@ -43,6 +43,15 @@
                     @click="openPdf"
                 />
                 <AppButton
+                    v-if="canEditCharges"
+                    variant="primary"
+                    outline
+                    size="sm"
+                    icon="bi bi-pencil"
+                    label="Edit Charges"
+                    @click="openEditChargesModal"
+                />
+                <AppButton
                     v-if="canRecordPayment"
                     variant="success"
                     outline
@@ -109,6 +118,7 @@
                                     <tr v-for="item in items" :key="item.id">
                                         <td>{{ item.sequence_no }}</td>
                                         <td v-if="item.from_location || item.to_location">{{ item.from_location || '—' }} → {{ item.to_location || '—' }}</td>
+                                        <td v-else-if="item.is_additional_charge">Additional charge</td>
                                         <td v-else>—</td>
                                         <td>{{ item.goods_name || '—' }}</td>
                                         <td class="text-end">{{ item.weight_ton ? formatWeight(item.weight_ton) : '—' }}</td>
@@ -116,6 +126,82 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Customer Deductions Section (when deductions exist on invoice) -->
+                    <div v-if="hasCustomerDeductions" class="card mt-3 border-start border-3 border-primary">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-receipt-cutoff text-primary"></i>
+                                <strong>Customer Deductions</strong>
+                                <span class="badge bg-white text-muted border">TDS & Claims</span>
+                            </div>
+                            <span class="small text-muted">
+                                Total: <strong class="text-danger">₹{{ formatMoney(totalCustomerDeductions) }}</strong>
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- TDS 194C Block -->
+                                <div v-if="hasPriorTds" :class="priorClaimsDeducted > 0 ? 'col-md-6' : 'col-12'">
+                                    <div class="p-3 rounded bg-light border h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="d-flex align-items-center gap-1.5 text-primary fw-semibold small">
+                                                    <i class="bi bi-shield-check"></i>
+                                                    <span>TDS 194C: ₹{{ formatMoney(priorTdsDeducted) }} Deducted</span>
+                                                </div>
+                                                <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size: 0.7rem;">u/s 194C</span>
+                                            </div>
+                                            <p class="text-muted small mb-0" style="font-size: 0.8rem; line-height: 1.4;">
+                                                TDS was recorded in payment settlement. Standard TDS base freight: ₹{{ formatMoney(tdsBaseAmount) }}.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Shortage / Claims / Discount Block -->
+                                <div v-if="priorClaimsDeducted > 0" :class="hasPriorTds ? 'col-md-6' : 'col-12'">
+                                    <div class="p-3 rounded bg-light border h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="d-flex align-items-center gap-1.5 text-danger fw-semibold small">
+                                                    <i class="bi bi-tag-fill"></i>
+                                                    <span>Shortage / Claims / Discount: ₹{{ formatMoney(priorClaimsDeducted) }}</span>
+                                                </div>
+                                                <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size: 0.7rem;">Deductions</span>
+                                            </div>
+                                            <div v-if="deductionRecordsList.length > 0" class="mt-1.5">
+                                                <div class="text-muted mb-1" style="font-size: 0.75rem;">Recorded reasons:</div>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <span
+                                                        v-for="p in deductionRecordsList"
+                                                        :key="p.id"
+                                                        class="badge bg-white text-dark border fw-normal"
+                                                        style="font-size: 0.75rem;"
+                                                    >
+                                                        ₹{{ formatMoney(p.deduction_amount) }}
+                                                        <span v-if="p.deduction_reason" class="text-muted ms-1">({{ p.deduction_reason }})</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Settlement summary bar -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 border-top small text-muted">
+                                <div>
+                                    <span>Total Customer Deductions Cleared: </span>
+                                    <strong class="text-danger">₹{{ formatMoney(totalCustomerDeductions) }}</strong>
+                                </div>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <span>Received (Bank/Cash): <strong class="text-dark">₹{{ formatMoney(totalAmountReceived) }}</strong></span>
+                                    <span>Total Cleared on Invoice: <strong class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</strong></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -130,19 +216,58 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Method</th>
-                                        <th class="text-end">Amount</th>
+                                        <th class="text-end">Received</th>
+                                        <th class="text-end">TDS 194C</th>
+                                        <th class="text-end">Claims / Discount</th>
+                                        <th class="text-end">Total Settled</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-if="payments.length === 0">
-                                        <td colspan="3" class="text-center text-muted py-4">No payments recorded.</td>
+                                        <td colspan="7" class="text-center text-muted py-4">No payments recorded.</td>
                                     </tr>
                                     <tr v-for="payment in payments" :key="payment.id">
                                         <td>{{ formatDate(payment.paid_at) }}</td>
-                                        <td>{{ payment.payment_method || '—' }}</td>
-                                        <td class="text-end">₹{{ formatMoney(payment.amount) }}</td>
+                                        <td>
+                                            <span v-if="payment.payment_method" class="badge bg-light text-dark border">
+                                                {{ invoicePaymentMethodLabel(payment.payment_method) }}
+                                            </span>
+                                            <span v-else>—</span>
+                                        </td>
+                                        <td class="text-end fw-semibold">₹{{ formatMoney(payment.amount) }}</td>
+                                        <td class="text-end fw-semibold" :class="Number(payment.tds_amount) > 0 ? 'text-primary' : 'text-muted'">
+                                            {{ Number(payment.tds_amount) > 0 ? `₹${formatMoney(payment.tds_amount)}` : '—' }}
+                                        </td>
+                                        <td class="text-end fw-semibold" :class="Number(payment.deduction_amount) > 0 ? 'text-danger' : 'text-muted'">
+                                            <div v-if="Number(payment.deduction_amount) > 0">
+                                                <span>₹{{ formatMoney(payment.deduction_amount) }}</span>
+                                                <small v-if="payment.deduction_reason" class="text-muted d-block" style="font-size: 0.75rem;">
+                                                    ({{ payment.deduction_reason }})
+                                                </small>
+                                            </div>
+                                            <span v-else>—</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            ₹{{ formatMoney(payment.total_settled_amount ?? (Number(payment.amount) + Number(payment.tds_amount || 0) + Number(payment.deduction_amount || 0))) }}
+                                        </td>
+                                        <td class="small text-muted">{{ payment.notes || '—' }}</td>
                                     </tr>
                                 </tbody>
+                                <tfoot v-if="payments.length > 0" class="table-light border-top">
+                                    <tr class="fw-semibold">
+                                        <td colspan="2" class="text-muted">Total:</td>
+                                        <td class="text-end text-dark">₹{{ formatMoney(totalAmountReceived) }}</td>
+                                        <td class="text-end" :class="priorTdsDeducted > 0 ? 'text-primary' : 'text-muted'">
+                                            {{ priorTdsDeducted > 0 ? `₹${formatMoney(priorTdsDeducted)}` : '—' }}
+                                        </td>
+                                        <td class="text-end" :class="priorClaimsDeducted > 0 ? 'text-danger' : 'text-muted'">
+                                            {{ priorClaimsDeducted > 0 ? `₹${formatMoney(priorClaimsDeducted)}` : '—' }}
+                                        </td>
+                                        <td class="text-end text-success fw-bold">₹{{ formatMoney(invoice.paid_amount) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -153,7 +278,15 @@
                         <div class="card-header"><strong>Amounts</strong></div>
                         <div class="card-body small">
                             <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Freight</span>
+                                <span class="text-muted">Route freight (Bilty)</span>
+                                <span>₹{{ formatMoney(routeFreightAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Additional charges</span>
+                                <span>₹{{ formatMoney(customAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Taxable amount</span>
                                 <span>₹{{ formatMoney(invoice.freight_amount) }}</span>
                             </div>
                             <div v-if="invoice.displays_gst !== false" class="d-flex justify-content-between mb-2">
@@ -177,10 +310,30 @@
                                 <span class="text-muted">Total</span>
                                 <strong>₹{{ formatMoney(invoice.total_amount) }}</strong>
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Paid</span>
-                                <span class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
-                            </div>
+                            <template v-if="hasCustomerDeductions">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Amount Received</span>
+                                    <span class="text-dark fw-semibold">₹{{ formatMoney(totalAmountReceived) }}</span>
+                                </div>
+                                <div v-if="priorTdsDeducted > 0" class="d-flex justify-content-between mb-1 ps-2">
+                                    <span class="text-muted">TDS u/s 194C</span>
+                                    <span class="text-primary fw-semibold">- ₹{{ formatMoney(priorTdsDeducted) }}</span>
+                                </div>
+                                <div v-if="priorClaimsDeducted > 0" class="d-flex justify-content-between mb-1 ps-2">
+                                    <span class="text-muted">Claims / Discount</span>
+                                    <span class="text-danger fw-semibold">- ₹{{ formatMoney(priorClaimsDeducted) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Total Cleared</span>
+                                    <span class="text-success fw-bold">₹{{ formatMoney(invoice.paid_amount) }}</span>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Paid</span>
+                                    <span class="text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
+                                </div>
+                            </template>
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted">Balance</span>
                                 <strong :class="remainingAmount > 0 ? 'text-danger' : 'text-success'">
@@ -207,6 +360,25 @@
                             </div>
                         </div>
                     </div>
+
+                    <div v-if="auditLogs.length > 0" class="card mt-3">
+                        <div class="card-header"><strong>Change History</strong></div>
+                        <ul class="list-group list-group-flush small">
+                            <li
+                                v-for="log in auditLogs"
+                                :key="log.id"
+                                class="list-group-item"
+                            >
+                                <div class="d-flex justify-content-between gap-2">
+                                    <span>{{ formatAuditEvent(log) }}</span>
+                                    <span class="text-muted text-nowrap">{{ formatDate(log.performed_at) }}</span>
+                                </div>
+                                <div v-if="log.performed_by?.name" class="text-muted">
+                                    by {{ log.performed_by.name }}
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </template>
@@ -215,124 +387,12 @@
             Invoice not found or you do not have access.
         </div>
 
-        <AppModal
+        <InvoiceRecordPaymentModal
             :show="showPaymentModal"
-            :loading="savingPayment"
-            :form-error="paymentFormError"
-            as-form
+            :invoice="invoice"
             @close="closePaymentModal"
-            @submit="requestPaymentConfirm"
-        >
-            <template #title>Record Payment</template>
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Amount *</label>
-                    <input
-                        v-model="paymentForm.amount"
-                        type="number"
-                        min="0.01"
-                        :max="remainingAmount"
-                        step="0.01"
-                        class="form-control"
-                        :class="{ 'is-invalid': paymentFieldErrors.amount }"
-                        required
-                    />
-                    <div v-if="paymentFieldErrors.amount" class="invalid-feedback d-block">
-                        {{ paymentFieldErrors.amount[0] }}
-                    </div>
-                    <div class="form-text">Remaining balance: ₹{{ formatMoney(remainingAmount) }}</div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Payment Date *</label>
-                    <AppDateInput
-                        v-model="paymentForm.paid_at"
-                        :invalid="Boolean(paymentFieldErrors.paid_at)"
-                    />
-                    <div v-if="paymentFieldErrors.paid_at" class="invalid-feedback d-block">
-                        {{ paymentFieldErrors.paid_at[0] }}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Payment Method</label>
-                    <AppSelect
-                        v-model="paymentForm.payment_method"
-                        :options="paymentMethodOptions"
-                        placeholder="Select method"
-                        search-placeholder="Search…"
-                    />
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Notes</label>
-                    <textarea v-model="paymentForm.notes" class="form-control" rows="2" />
-                </div>
-            </div>
-
-            <template #footer>
-                <button type="button" class="btn btn-secondary" @click="closePaymentModal">Cancel</button>
-                <AppButton type="submit" label="Save Payment" :loading="savingPayment" />
-            </template>
-        </AppModal>
-
-        <AppConfirmModal
-            :show="showPaymentConfirm"
-            title="Confirm Payment"
-            message="Payments cannot be deleted after they are recorded."
-            confirm-label="Yes, Record Payment"
-            confirm-variant="success"
-            confirm-icon="bi bi-cash-coin"
-            icon-tone="success"
-            icon="bi bi-cash-coin"
-            :loading="savingPayment"
-            content-class="app-confirm-modal__content app-confirm-modal__content--compact border-0 shadow-lg"
-            body-class="app-confirm-modal__body--compact"
-            @cancel="closePaymentConfirm"
-            @confirm="confirmPayment"
-        >
-            <div v-if="invoice" class="text-start">
-                <div class="app-confirm-card">
-                    <div class="app-confirm-card__section-title">Invoice</div>
-                    <div class="app-confirm-card__body small">
-                        <div class="d-flex flex-wrap gap-x-3 gap-y-1 mb-2">
-                            <span><strong>{{ invoice.invoice_number || '—' }}</strong></span>
-                            <span class="text-muted">{{ invoice.customer?.name || '—' }}</span>
-                            <span v-if="invoice.trip?.trip_number" class="text-muted">
-                                Trip {{ invoice.trip.trip_number }}
-                            </span>
-                        </div>
-                        <div class="d-flex flex-wrap justify-content-between gap-2">
-                            <span>
-                                <span class="text-muted">Total</span>
-                                <strong class="ms-1">₹{{ formatMoney(invoice.total_amount) }}</strong>
-                            </span>
-                            <span>
-                                <span class="text-muted">Paid</span>
-                                <span class="ms-1 text-success">₹{{ formatMoney(invoice.paid_amount) }}</span>
-                            </span>
-                            <span>
-                                <span class="text-muted">Balance</span>
-                                <strong class="ms-1">₹{{ formatMoney(remainingAmount) }}</strong>
-                            </span>
-                        </div>
-                        <hr class="my-2" />
-                        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-baseline">
-                            <span>
-                                <span class="text-muted">Paying</span>
-                                <strong class="ms-1 text-success">₹{{ formatMoney(paymentForm.amount) }}</strong>
-                                <span class="text-muted ms-1">
-                                    on {{ paymentForm.paid_at ? formatDate(paymentForm.paid_at) : '—' }}
-                                    <template v-if="paymentMethodLabel"> · {{ paymentMethodLabel }}</template>
-                                </span>
-                            </span>
-                            <span>
-                                <span class="text-muted">After</span>
-                                <strong class="ms-1">₹{{ formatMoney(balanceAfterPayment) }}</strong>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </AppConfirmModal>
+            @saved="handlePaymentSaved"
+        />
 
         <AppConfirmModal
             :show="showCancelConfirm"
@@ -343,6 +403,16 @@
             :loading="cancelling"
             @cancel="closeCancelConfirm"
             @confirm="confirmCancel"
+        />
+        <InvoiceEditChargesModal
+            ref="editChargesModalRef"
+            :show="showEditChargesModal"
+            :invoice="invoice"
+            :saving="savingCharges"
+            :form-error="editChargesFormError"
+            :field-errors="editChargesFieldErrors"
+            @close="closeEditChargesModal"
+            @submit="requestEditChargesSave"
         />
     </div>
 </template>
@@ -356,16 +426,17 @@ import {
     showInvoice,
     cancelInvoice,
     deleteInvoice,
+    updateInvoice,
 } from '../../api/invoices';
+import InvoiceEditChargesModal from '../../components/invoices/InvoiceEditChargesModal.vue';
+import InvoiceRecordPaymentModal from '../../components/invoices/InvoiceRecordPaymentModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
-import AppDateInput from '../../components/ui/AppDateInput.vue';
-import AppModal from '../../components/ui/AppModal.vue';
-import AppSelect from '../../components/ui/AppSelect.vue';
 import { useAppToast } from '../../composables/useAppToast';
 import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
+import { invoicePaymentMethodLabel } from '../../constants/invoicePaymentMethod';
 import { formatDate } from '../../utils/datetime';
 
 const route = useRoute();
@@ -377,29 +448,19 @@ const { needsCompanySelection, guardCompanyContext } = useRequireCompanyContext(
 
 const invoice = ref(null);
 const loading = ref(true);
-const savingPayment = ref(false);
 const cancelling = ref(false);
 const deleting = ref(false);
 const showPaymentModal = ref(false);
-const showPaymentConfirm = ref(false);
 const showCancelConfirm = ref(false);
-const paymentFormError = ref('');
-const paymentFieldErrors = ref({});
+const showEditChargesModal = ref(false);
+const savingCharges = ref(false);
+const editChargesFormError = ref('');
+const editChargesFieldErrors = ref({});
+const editChargesModalRef = ref(null);
 
-const paymentMethodOptions = [
-    { value: 'cash', label: 'Cash' },
-    { value: 'bank_transfer', label: 'Bank Transfer' },
-    { value: 'cheque', label: 'Cheque' },
-    { value: 'upi', label: 'UPI' },
-    { value: 'other', label: 'Other' },
-];
-
-const paymentForm = reactive({
-    amount: '',
-    paid_at: '',
-    payment_method: '',
-    notes: '',
-});
+const canEditCharges = computed(
+    () => Boolean(invoice.value?.can_edit_charges) && canInCompany('invoices.edit'),
+);
 
 const canRecordPayment = computed(
     () =>
@@ -430,6 +491,10 @@ const canConfirmDelete = computed(() => {
 
 const items = computed(() => invoice.value?.items ?? []);
 const payments = computed(() => invoice.value?.payments ?? []);
+const auditLogs = computed(() => invoice.value?.audit_logs ?? []);
+
+const routeFreightAmount = computed(() => Number(invoice.value?.route_freight_amount ?? 0));
+const customAmount = computed(() => Number(invoice.value?.custom_amount ?? 0));
 
 const remainingAmount = computed(() => {
     const total = Number(invoice.value?.total_amount ?? 0);
@@ -458,19 +523,45 @@ const deleteConfirmMessage = computed(() => {
     return `Delete invoice ${number}? This removes it from the invoice list. Linked trip routes will become unbilled again, and the invoice number can be reused.`;
 });
 
-const paymentMethodLabel = computed(() =>
-    paymentMethodOptions.find((option) => option.value === paymentForm.payment_method)?.label ?? '',
-);
+const tdsBaseAmount = computed(() => {
+    return Number(invoice.value?.freight_amount || invoice.value?.total_amount || 0);
+});
 
-const balanceAfterPayment = computed(() => {
-    const remaining = remainingAmount.value;
-    const amount = Number(paymentForm.amount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-        return remaining;
+const priorTdsDeducted = computed(() => {
+    if (invoice.value?.total_tds_deducted !== undefined && invoice.value?.total_tds_deducted !== null) {
+        return Number(invoice.value.total_tds_deducted || 0);
     }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.tds_amount || 0), 0) * 100) / 100;
+});
 
-    return Math.max(0, remaining - amount);
+const priorClaimsDeducted = computed(() => {
+    if (invoice.value?.total_claims_deducted !== undefined && invoice.value?.total_claims_deducted !== null) {
+        return Number(invoice.value.total_claims_deducted || 0);
+    }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.deduction_amount || 0), 0) * 100) / 100;
+});
+
+const hasPriorTds = computed(() => priorTdsDeducted.value > 0);
+
+const totalCustomerDeductions = computed(() => {
+    return Math.round((priorTdsDeducted.value + priorClaimsDeducted.value) * 100) / 100;
+});
+
+const hasCustomerDeductions = computed(() => totalCustomerDeductions.value > 0);
+
+const totalAmountReceived = computed(() => {
+    if (invoice.value?.total_amount_received !== undefined && invoice.value?.total_amount_received !== null) {
+        return Number(invoice.value.total_amount_received || 0);
+    }
+    const list = invoice.value?.payments ?? [];
+    return Math.round(list.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100) / 100;
+});
+
+const deductionRecordsList = computed(() => {
+    const list = invoice.value?.payments ?? [];
+    return list.filter((p) => Number(p.deduction_amount || 0) > 0);
 });
 
 function formatMoney(value) {
@@ -528,99 +619,80 @@ function openPdf() {
     window.open(pdfUrl(invoice.value.id), '_blank', 'noopener');
 }
 
-function resetPaymentForm() {
-    paymentForm.amount = remainingAmount.value > 0 ? String(remainingAmount.value) : '';
-    paymentForm.paid_at = new Date().toISOString().slice(0, 10);
-    paymentForm.payment_method = '';
-    paymentForm.notes = '';
-    paymentFormError.value = '';
-    paymentFieldErrors.value = {};
+function formatAuditEvent(log) {
+    if (log.event_type === 'charges_updated') {
+        const previousTotal = Number(log.payload?.previous?.total_amount ?? 0);
+        const currentTotal = Number(log.payload?.current?.total_amount ?? 0);
+
+        return `Additional charges updated (₹${formatMoney(previousTotal)} → ₹${formatMoney(currentTotal)})`;
+    }
+
+    return 'Invoice updated';
 }
 
-function openPaymentModal() {
-    resetPaymentForm();
-    showPaymentModal.value = true;
+function openEditChargesModal() {
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
+    showEditChargesModal.value = true;
 }
 
-function closePaymentModal() {
-    if (savingPayment.value) {
+function closeEditChargesModal() {
+    if (savingCharges.value) {
         return;
     }
 
-    showPaymentModal.value = false;
-    showPaymentConfirm.value = false;
+    showEditChargesModal.value = false;
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
 }
 
-function closePaymentConfirm() {
-    if (savingPayment.value) {
+async function requestEditChargesSave() {
+    if (!invoice.value?.id || !editChargesModalRef.value) {
         return;
     }
 
-    showPaymentConfirm.value = false;
-}
-
-function requestPaymentConfirm() {
-    paymentFormError.value = '';
-    paymentFieldErrors.value = {};
-
-    const amount = Number(paymentForm.amount);
-    const errors = {};
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-        errors.amount = ['Enter a valid payment amount.'];
-    } else if (amount - remainingAmount.value > 0.01) {
-        errors.amount = [`Payment amount cannot exceed the remaining balance of ${remainingAmount.value}.`];
-    }
-
-    if (!paymentForm.paid_at) {
-        errors.paid_at = ['Payment date is required.'];
-    }
-
-    if (Object.keys(errors).length > 0) {
-        paymentFieldErrors.value = errors;
-        paymentFormError.value = 'Please check the highlighted fields.';
-
-        return;
-    }
-
-    showPaymentConfirm.value = true;
-}
-
-async function confirmPayment() {
-    if (!invoice.value?.id) {
-        return;
-    }
-
-    savingPayment.value = true;
-    paymentFormError.value = '';
-    paymentFieldErrors.value = {};
+    savingCharges.value = true;
+    editChargesFormError.value = '';
+    editChargesFieldErrors.value = {};
 
     try {
-        await recordPayment(invoice.value.id, {
-            amount: Number(paymentForm.amount),
-            paid_at: paymentForm.paid_at,
-            payment_method: paymentForm.payment_method || null,
-            notes: paymentForm.notes?.trim() || null,
-        });
-
-        toast.success('Payment recorded.');
-        showPaymentConfirm.value = false;
-        showPaymentModal.value = false;
-        await loadInvoice();
+        const payload = editChargesModalRef.value.buildPayload();
+        invoice.value = await updateInvoice(invoice.value.id, payload);
+        toast.success('Invoice charges updated.');
+        showEditChargesModal.value = false;
+        editChargesFormError.value = '';
+        editChargesFieldErrors.value = {};
     } catch (error) {
-        showPaymentConfirm.value = false;
-
         if (error.response?.status === 422) {
-            paymentFieldErrors.value = error.response.data.errors ?? {};
-            paymentFormError.value = error.response.data.message ?? 'Please check the highlighted fields.';
+            editChargesFieldErrors.value = error.response.data.errors ?? {};
+            editChargesFormError.value = error.response.data.message ?? 'Please check the highlighted fields.';
 
             return;
         }
 
-        paymentFormError.value = error.response?.data?.message ?? 'Could not record payment.';
+        if (error.response?.status === 403) {
+            editChargesFormError.value = 'This invoice cannot be updated.';
+
+            return;
+        }
+
+        editChargesFormError.value = error.response?.data?.message ?? 'Could not update invoice charges.';
     } finally {
-        savingPayment.value = false;
+        savingCharges.value = false;
     }
+}
+
+function openPaymentModal() {
+    showPaymentModal.value = true;
+}
+
+function closePaymentModal() {
+    showPaymentModal.value = false;
+}
+
+async function handlePaymentSaved() {
+    closePaymentModal();
+    await loadInvoice();
 }
 
 function openCancelConfirm() {

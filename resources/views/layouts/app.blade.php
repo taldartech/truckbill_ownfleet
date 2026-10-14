@@ -21,10 +21,10 @@
         <link rel="canonical" href="{{ $canonicalUrl }}">
     @endif
     <!-- Favicon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon/favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ versioned_asset('favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ versioned_asset('favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ versioned_asset('favicon/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ versioned_asset('favicon/site.webmanifest') }}">
     <!-- End Favicon -->
 
     <!-- FontAwesome for AdminLTE Icons -->
@@ -119,9 +119,9 @@
         integrity="sha256-tZHrRjVqNSRyWg2wbppGnT833E/Ys0DHWGwT04GiqQg=" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
         integrity="sha256-9kPW/n5nn53j4WMRYAxe9c1rCY96Oogo/MKSVdKzPmI=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="/theme/dist/css/adminlte.min.css" />
-    <link rel="stylesheet" href="/css/buttons.css">
-    <link rel="stylesheet" href="/css/brand.css">
+    <link rel="stylesheet" href="{{ versioned_asset('theme/dist/css/adminlte.min.css') }}" />
+    <link rel="stylesheet" href="{{ versioned_asset('css/buttons.css') }}">
+    <link rel="stylesheet" href="{{  versioned_asset('css/brand.css') }}">
     @vite(['resources/css/app.css'])
     <!-- apexcharts -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css"
@@ -129,6 +129,7 @@
     <!-- jsvectormap -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css"
         integrity="sha256-+uGLJmmTKOqBr+2E6KDYs/NRsHxSkONXFHUL0fy2O/4=" crossorigin="anonymous" />
+
     <style>
         label {
             font-weight: bold !important;
@@ -1273,7 +1274,7 @@
         });
     </script>
     <!-- AdminLTE JS -->
-    <script src="/theme/dist/js/adminlte.min.js"></script>
+    <script src="{{ versioned_asset('theme/dist/js/adminlte.min.js') }}"></script>
     <script>
         $(document).off('select2:open.autofocus').on('select2:open.autofocus', function() {
             // Delay to let the search input render

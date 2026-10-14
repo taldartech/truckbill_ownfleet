@@ -40,7 +40,7 @@ class TripNumberGenerator
 
         $settings = $this->settingsForBranch($branchId);
         $date = $this->resolveDate($documentDate);
-        $resolvedSequence = $sequence ?? $this->nextSequence(
+        $resolvedSequence = $sequence ?? $this->nextAvailableSequence(
             $documentType,
             $tenantId,
             $branchId,
@@ -79,7 +79,7 @@ class TripNumberGenerator
             }
 
             $date = $this->resolveDate($documentDate);
-            $resolvedSequence = $sequence ?? $this->nextSequence(
+            $resolvedSequence = $sequence ?? $this->nextAvailableSequence(
                 $documentType,
                 $tenantId,
                 $branchId,
@@ -256,13 +256,14 @@ class TripNumberGenerator
         return str_pad((string) $sequence, $width, '0', STR_PAD_LEFT);
     }
 
-    private function nextSequence(
+    private function nextAvailableSequence(
         string $documentType,
         string $tenantId,
         int $branchId,
         BranchSetting $settings,
         CarbonInterface $date,
         bool $lock = false,
+        ?int $startingFrom = null,
     ): int {
         $prefix = $this->numberPrefix($settings, $documentType, $date);
         $column = $documentType === self::DOCUMENT_INVOICE ? 'invoice_number' : 'trip_number';
@@ -271,7 +272,9 @@ class TripNumberGenerator
             ->withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('branch_id', $branchId)
-            ->where($column, 'like', $prefix.'%');
+            ->where($column, 'like', $prefix.'%')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         $this->applyDocumentVisibility($query, $documentType);
 
@@ -279,18 +282,35 @@ class TripNumberGenerator
             $query->lockForUpdate();
         }
 
-        $numbers = $query->pluck($column);
-        $maxSequence = 0;
+        $usedSequences = [];
+        $lastGeneratedSequence = 0;
 
-        foreach ($numbers as $number) {
+        foreach ($query->pluck($column) as $number) {
             $suffix = substr((string) $number, strlen($prefix));
 
-            if ($suffix !== '' && ctype_digit($suffix)) {
-                $maxSequence = max($maxSequence, (int) $suffix);
+            if ($suffix === '' || ! ctype_digit($suffix)) {
+                continue;
+            }
+
+            $sequence = (int) $suffix;
+            $usedSequences[$sequence] = true;
+
+            if ($lastGeneratedSequence === 0) {
+                $lastGeneratedSequence = $sequence;
             }
         }
 
-        return $maxSequence + 1;
+        $candidate = $startingFrom ?? ($lastGeneratedSequence + 1);
+
+        if ($candidate < 1) {
+            $candidate = 1;
+        }
+
+        while (isset($usedSequences[$candidate])) {
+            $candidate++;
+        }
+
+        return $candidate;
     }
 
     private function numberPrefix(

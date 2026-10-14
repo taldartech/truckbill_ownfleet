@@ -72,7 +72,7 @@
                         <th>Due Date</th>
                         <th class="text-end">Total</th>
                         <th>Payment</th>
-                        <th class="app-index-actions-cell text-end" style="width: 90px">Actions</th>
+                        <th class="app-index-actions-cell text-center" style="width: 125px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -117,12 +117,24 @@
                                 {{ paymentStatusLabel(invoice.payment_status) }}
                             </span>
                         </td>
-                        <td class="app-index-actions-cell text-end">
+                        <td class="app-index-actions-cell text-center">
                             <AppTableActions>
                                 <AppCrudActionButton
                                     action="view"
-                                    title="View invoice"
+                                    title="View Details"
                                     :to="{ name: 'invoices.show', params: { id: invoice.id } }"
+                                />
+                                <AppCrudActionButton
+                                    action="pdf"
+                                    title="View PDF"
+                                    @click="openPdf(invoice)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canRecordPayment"
+                                    action="payment"
+                                    :title="paymentActionTitle(invoice)"
+                                    :disabled="!canRecordPaymentFor(invoice)"
+                                    @click="openPaymentModal(invoice)"
                                 />
                             </AppTableActions>
                         </td>
@@ -140,13 +152,21 @@
                 />
             </template>
         </AppIndexListCard>
+
+        <InvoiceRecordPaymentModal
+            :show="showPaymentModal"
+            :invoice="selectedInvoice"
+            @close="closePaymentModal"
+            @saved="handlePaymentSaved"
+        />
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { listInvoices } from '../../api/invoices';
+import { listInvoices, pdfUrl } from '../../api/invoices';
+import InvoiceRecordPaymentModal from '../../components/invoices/InvoiceRecordPaymentModal.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
@@ -183,9 +203,12 @@ const searchQuery = ref('');
 const paymentStatusFilter = ref('');
 const dueFilter = ref('');
 const filtersOpen = ref(false);
+const showPaymentModal = ref(false);
+const selectedInvoice = ref(null);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
 const canViewArchived = computed(() => canInCompany('invoices.view_archived'));
+const canRecordPayment = computed(() => canInCompany('invoices.edit'));
 
 const filtersActive = computed(
     () =>
@@ -193,6 +216,60 @@ const filtersActive = computed(
         || paymentStatusFilter.value !== ''
         || dueFilter.value !== '',
 );
+
+function canRecordPaymentFor(invoice) {
+    if (!invoice || invoice.is_archived || invoice.payment_status === 'cancelled') {
+        return false;
+    }
+
+    if (invoice.payment_status === 'paid') {
+        return false;
+    }
+
+    const total = Number(invoice.total_amount ?? 0);
+    const paid = Number(invoice.paid_amount ?? 0);
+
+    return (total - paid) > 0.009;
+}
+
+function paymentActionTitle(invoice) {
+    if (invoice?.payment_status === 'cancelled') {
+        return 'Invoice Cancelled';
+    }
+
+    if (invoice?.payment_status === 'paid' || !canRecordPaymentFor(invoice)) {
+        return 'Fully Paid';
+    }
+
+    return 'Record Payment';
+}
+
+function openPdf(invoice) {
+    if (!invoice?.id) {
+        return;
+    }
+
+    window.open(pdfUrl(invoice.id), '_blank', 'noopener');
+}
+
+function openPaymentModal(invoice) {
+    if (!canRecordPaymentFor(invoice)) {
+        return;
+    }
+
+    selectedInvoice.value = invoice;
+    showPaymentModal.value = true;
+}
+
+function closePaymentModal() {
+    showPaymentModal.value = false;
+    selectedInvoice.value = null;
+}
+
+async function handlePaymentSaved() {
+    closePaymentModal();
+    await loadInvoices();
+}
 
 function toggleFilters() {
     filtersOpen.value = !filtersOpen.value;

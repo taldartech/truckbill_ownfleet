@@ -61,6 +61,7 @@ final class PermissionDefinitions
             'trips.delete' => self::entry('Delete trips (legacy)', 'trips', 'Legacy hard-delete trips permission.', 208),
             'trips.export' => self::entry('Export trips', 'trips', 'Export trip data.', 209),
             'trips.import' => self::entry('Import trips', 'trips', 'Import trip data.', 210),
+            'trips.change_status' => self::entry('Change trip status', 'trips', 'Update trip status transitions.', 213),
             'trip_reports.view' => self::entry('View trip reports', 'trips', 'View operational trip reports.', 211),
             'trip_reports.export' => self::entry('Export trip reports', 'trips', 'Export operational trip reports.', 212),
 
@@ -128,7 +129,7 @@ final class PermissionDefinitions
             'fleet_monthly_report.view' => self::entry('View monthly fleet report', 'reports', 'View monthly fleet financial report.', 610),
             'fleet_monthly_report.export' => self::entry('Export monthly fleet report', 'reports', 'Export monthly fleet financial report.', 611),
 
-            'alerts.view' => self::entry('View alerts','alerts','View active fleet compliance and operational alerts',650),
+            'alerts.view' => self::entry('View alerts', 'alerts', 'View active fleet compliance and operational alerts', 650),
 
             'locations.view' => self::entry('View states and cities', 'locations', 'View state and city master data.', 700),
             'locations.create' => self::entry('Create states and cities', 'locations', 'Create state and city master data.', 701),
@@ -145,6 +146,12 @@ final class PermissionDefinitions
             'tyre_layouts.manage' => self::entry('Manage tyre layouts', 'tyres', 'Legacy manage tyre layouts permission.', 813),
             'tyre_reports.view' => self::entry('View tyre reports', 'tyres', 'View tyre operational reports.', 820),
             'tyre_reports.export' => self::entry('Export tyre reports', 'tyres', 'Export tyre operational reports.', 821),
+
+            'batteries.view' => self::entry('View batteries', 'batteries', 'View battery inventory and assignments.', 830),
+            'batteries.create' => self::entry('Create batteries', 'batteries', 'Create battery master records.', 831),
+            'batteries.edit' => self::entry('Edit batteries', 'batteries', 'Edit battery master records.', 832),
+            'batteries.manage' => self::entry('Manage batteries', 'batteries', 'Manage battery assignments and replacements.', 833),
+            'batteries.delete' => self::entry('Delete batteries', 'batteries', 'Delete battery master records.', 834),
 
             'maintenance.view' => self::entry('View truck maintenance', 'maintenance', 'View maintenance records and due services.', 900),
             'maintenance.create' => self::entry('Create maintenance records', 'maintenance', 'Create maintenance service records.', 901),
@@ -166,6 +173,8 @@ final class PermissionDefinitions
             'challans.delete' => self::entry('Delete challans', 'compliance', 'Delete challan records.', 1014),
 
             'monthly_expenses.view' => self::entry('View monthly expenses', 'finance', 'View branch monthly expense records.', 1020),
+            'monthly_expenses.create' => self::entry('Create monthly expenses', 'finance', 'Create monthly expense records.', 1022),
+            'monthly_expenses.edit' => self::entry('Edit monthly expenses', 'finance', 'Edit monthly expense records.', 1023),
             'monthly_expenses.manage' => self::entry('Manage monthly expenses', 'finance', 'Create, edit, and delete monthly expense records.', 1021),
 
             'companies.view' => self::entry('View companies', 'companies', 'View company records.', 1100),

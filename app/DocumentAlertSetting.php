@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentAlertSetting extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
 
     protected $primaryKey = 'tenant_id';
 

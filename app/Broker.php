@@ -17,7 +17,6 @@ class Broker extends Model
         'country_id',
         'state_id',
         'city_id',
-        'agency_id',
         'name',
         'gst_number',
         'pan_number',
@@ -35,7 +34,6 @@ class Broker extends Model
             'country_id' => 'integer',
             'state_id' => 'integer',
             'city_id' => 'integer',
-            'agency_id' => 'integer',
         ];
     }
 

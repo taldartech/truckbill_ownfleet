@@ -214,6 +214,45 @@
             white-space: nowrap;
         }
 
+        .deduction-label {
+            font-weight: 600;
+            text-align: right;
+            color: #b91c1c;
+        }
+
+        .deduction-value {
+            font-weight: 600;
+            text-align: right;
+            white-space: nowrap;
+            color: #b91c1c;
+        }
+
+        .tds-label {
+            font-weight: 600;
+            text-align: right;
+            color: #1d4ed8;
+        }
+
+        .tds-value {
+            font-weight: 600;
+            text-align: right;
+            white-space: nowrap;
+            color: #1d4ed8;
+        }
+
+        .net-total-row td {
+            font-weight: 800;
+            background: {{ $document_color_soft }};
+        }
+
+        .balance-paid {
+            color: #15803d;
+        }
+
+        .balance-due {
+            color: #b91c1c;
+        }
+
         .footer-note {
             font-size: 8pt;
             line-height: 1.4;
@@ -230,6 +269,12 @@
             font-size: 8.5pt;
             font-weight: 700;
             margin-top: 18px;
+        }
+
+        .signature-image {
+            height: 48px;
+            max-width: 160px;
+            margin: 4px 0;
         }
 
         .brand-footer {
@@ -469,7 +514,12 @@
         $vehicleNo = optional($trip?->vehicle)->registration_number ?? '—';
         $driverName = optional($trip?->driver)->name ?? '—';
 
-        $goodsNames = $items->pluck('goods_name')->filter()->unique()->values();
+        $goodsNames = $items
+            ->filter(fn ($item) => $item->trip_route_leg_id !== null)
+            ->pluck('goods_name')
+            ->filter()
+            ->unique()
+            ->values();
         $freightDescription = $goodsNames->implode(', ') ?: 'Freight';
 
         $loadType = '—';
@@ -568,6 +618,30 @@
                 'total' => $grandTotal,
             ];
         }
+
+        $payments = ($invoice->relationLoaded('payments') && $invoice->payments->isNotEmpty())
+            ? $invoice->payments
+            : $invoice->payments()->withoutGlobalScopes()->where('invoice_id', $invoice->id)->get();
+
+        $totalClaims = round((float) $payments->sum(fn ($payment) => (float) ($payment->deduction_amount ?? 0)), 2);
+        $totalTds = round((float) $payments->sum(fn ($payment) => (float) ($payment->tds_amount ?? 0)), 2);
+        $totalReceived = round((float) $payments->sum(fn ($payment) => (float) ($payment->amount ?? 0)), 2);
+        $hasDeductions = ($totalClaims > 0 || $totalTds > 0);
+
+        $deductionReasons = $payments->where('deduction_amount', '>', 0)
+            ->pluck('deduction_reason')
+            ->map(fn ($r) => trim((string) $r))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $deductionReasonText = !empty($deductionReasons) ? ' (' . implode(', ', $deductionReasons) . ')' : '';
+
+        $netReceivable = max(0, round($grandTotal - $totalClaims - $totalTds, 2));
+        $balanceDue = max(0, round($grandTotal - (float) ($invoice->paid_amount ?? 0), 2));
+
+        $grandTotalWords = $grandTotal > 0 ? ucfirst(getIndianCurrency($grandTotal)) . ' Only' : 'Zero Rupees Only';
+        $netReceivableWords = $netReceivable > 0 ? ucfirst(getIndianCurrency($netReceivable)) . ' Only' : 'Zero Rupees Only';
     @endphp
 
     <div class="invoice-card">
@@ -699,11 +773,46 @@
                         <td colspan="8" class="page-total-label">Total Amount</td>
                         <td class="page-total-value">{{ $formatMoney($grandTotal, true) }}</td>
                     </tr>
+                    @if ($totalClaims > 0)
+                        <tr>
+                            <td colspan="8" class="deduction-label">Less: Shortage / Discount{{ $deductionReasonText }}</td>
+                            <td class="deduction-value">- {{ $formatMoney($totalClaims, true) }}</td>
+                        </tr>
+                    @endif
+                    @if ($totalTds > 0)
+                        <tr>
+                            <td colspan="8" class="tds-label">Less: TDS u/s 194C</td>
+                            <td class="tds-value">- {{ $formatMoney($totalTds, true) }}</td>
+                        </tr>
+                    @endif
+                    @if ($hasDeductions)
+                        <tr class="net-total-row">
+                            <td colspan="8" class="page-total-label" style="font-weight: 800;">Net Amount Receivable</td>
+                            <td class="page-total-value" style="font-weight: 800;">{{ $formatMoney($netReceivable, true) }}</td>
+                        </tr>
+                    @endif
+                    @if ($totalReceived > 0)
+                        <tr>
+                            <td colspan="8" class="page-total-label" style="font-weight: 600;">Amount Received</td>
+                            <td class="page-total-value" style="font-weight: 600;">{{ $formatMoney($totalReceived, true) }}</td>
+                        </tr>
+                    @endif
+                    @if ($hasDeductions || $totalReceived > 0)
+                        <tr>
+                            <td colspan="8" class="page-total-label">Balance Due</td>
+                            <td class="page-total-value {{ $balanceDue <= 0 ? 'balance-paid' : 'balance-due' }}">{{ $formatMoney($balanceDue, true) }}</td>
+                        </tr>
+                    @endif
                 </tbody>
             </table>
 
             <div class="amount-words">
-                <strong>Amount in words:</strong> {{ ucfirst(getIndianCurrency($grandTotal)) }} Only
+                @if ($hasDeductions && $netReceivable != $grandTotal)
+                    <div><strong>Invoice Total in words:</strong> {{ $grandTotalWords }}</div>
+                    <div style="margin-top: 3px;"><strong>Net Amount in words:</strong> {{ $netReceivableWords }}</div>
+                @else
+                    <strong>Amount in words:</strong> {{ $grandTotalWords }}
+                @endif
             </div>
 
             @if ($isRcm)
@@ -714,13 +823,17 @@
             @endif
 
             <div class="signature">
-                For {{ $companyName }}<br><br><br>
+                For {{ $companyName }}<br>
+                @if (! empty($signature_src ?? null))
+                    <img class="signature-image" src="{{ $signature_src }}" alt="Authorized signature"><br>
+                @else
+                    <br><br>
+                @endif
                 Authorized Signature
             </div>
-
-            <div class="brand-footer">Digitally Managed by TruckBill (www.truckbill.in)</div>
         </div>
     </div>
+    <div class="brand-footer" style="font-size: 7px; text-align: right; margin-top: 3px; font-weight: bold; color: #475569;">Digitally Managed by TruckBill (www.truckbill.in)</div>
 
     <script type="text/php">
         if (isset($pdf)) {

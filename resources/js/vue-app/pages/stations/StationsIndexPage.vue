@@ -4,6 +4,14 @@
             <template #toolbar>
                 <AppIndexHeaderButton
                     v-if="canCreate"
+                    icon="upload"
+                    aria-label="Bulk Upload Stations"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
                     icon="plus"
                     aria-label="Add Station"
                     @click="openCreate"
@@ -103,7 +111,15 @@
             @confirm="confirmSave"
         />
 
-
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Stations"
+            upload-url="/app/api/stations/bulk-upload"
+            template-download-url="/app/api/stations/bulk-upload/template"
+            template-file-name="stations_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadStations(1)"
+        />
     </div>
 </template>
 
@@ -119,6 +135,7 @@ import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagi
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import StationFormModal from '../../components/stations/StationFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useAppToast } from '../../composables/useAppToast';
@@ -148,6 +165,13 @@ const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
+const showBulkUpload = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'name', label: 'Station Name', required: true, description: 'Unique station name' },
+    { name: 'state', label: 'State', required: true, description: 'State name or state code' },
+    { name: 'city', label: 'City', required: true, description: 'City name in the State' },
+];
 
 const { fieldErrors, formError, clearErrors, applyApiError } = useApiFormErrors();
 

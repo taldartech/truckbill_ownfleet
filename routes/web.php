@@ -110,6 +110,9 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
         ->name('dashboard.stats');
     Route::get('/dashboard/compliance-alerts', [\App\Http\Controllers\Api\FleetDashboardController::class, 'complianceAlerts'])
         ->name('dashboard.compliance-alerts');
+    Route::get('/dashboard/group', [\App\Http\Controllers\Api\SuperAdminDashboardController::class, 'stats'])
+        ->middleware('super_admin')
+        ->name('dashboard.group');
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/companies', [ApiCompanyController::class, 'index'])->name('companies.index');
@@ -194,6 +197,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
         Route::middleware(['tenant.context', 'subscription.active'])->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
+            Route::get('/drivers/bulk-upload/template', [DriverController::class, 'bulkUploadTemplate'])
+                ->name('drivers.bulk-upload.template');
+            Route::post('/drivers/bulk-upload', [DriverController::class, 'bulkUpload'])
+                ->name('drivers.bulk-upload');
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
             Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
             Route::get('/drivers/{driver}/advance-ledger', [DriverAdvanceController::class, 'ledger'])
@@ -221,6 +228,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::put('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'update'])->name('truck-types.update');
             Route::delete('/truck-types/{truck_type}', [\App\Http\Controllers\Api\TruckTypeController::class, 'destroy'])->name('truck-types.destroy');
 
+            Route::get('/vehicles/bulk-upload/template', [\App\Http\Controllers\Api\VehicleController::class, 'bulkUploadTemplate'])
+                ->name('vehicles.bulk-upload.template');
+            Route::post('/vehicles/bulk-upload', [\App\Http\Controllers\Api\VehicleController::class, 'bulkUpload'])
+                ->name('vehicles.bulk-upload');
             Route::get('/vehicles', [\App\Http\Controllers\Api\VehicleController::class, 'index'])->name('vehicles.index');
             Route::get('/vehicles/for-trip-selection', [\App\Http\Controllers\Api\VehicleController::class, 'forTripSelection'])
                 ->name('vehicles.for-trip-selection');
@@ -231,9 +242,14 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.toggle-status');
             Route::get('/vehicles/{vehicle}/primary-assignment', [\App\Http\Controllers\Api\VehicleController::class, 'primaryAssignment'])
                 ->name('vehicles.primary-assignment');
+            Route::get('/vehicles/{vehicle}/fuel-history', [\App\Http\Controllers\Api\VehicleController::class, 'fuelHistory'])
+                ->name('vehicles.fuel-history');
             Route::post('/vehicles/{vehicle}/remove-primary-driver', [\App\Http\Controllers\Api\VehicleController::class, 'removePrimaryDriver'])
                 ->name('vehicles.remove-primary-driver');
             Route::delete('/vehicles/{vehicle}', [\App\Http\Controllers\Api\VehicleController::class, 'destroy'])->name('vehicles.destroy');
+            Route::post('/vehicles/{vehicle}/restore', [\App\Http\Controllers\Api\VehicleController::class, 'restore'])
+                ->withTrashed()
+                ->name('vehicles.restore');
 
             Route::get('/notifications', [\App\Http\Controllers\Api\AppNotificationController::class, 'index'])
                 ->name('notifications.index');
@@ -264,6 +280,10 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             Route::put('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'update'])->name('document-types.update');
             Route::delete('/document-types/{document_type}', [\App\Http\Controllers\Api\DocumentTypeController::class, 'destroy'])->name('document-types.destroy');
 
+            Route::get('/goods-types/bulk-upload/template', [\App\Http\Controllers\Api\GoodsTypeController::class, 'bulkUploadTemplate'])
+                ->name('goods-types.bulk-upload.template');
+            Route::post('/goods-types/bulk-upload', [\App\Http\Controllers\Api\GoodsTypeController::class, 'bulkUpload'])
+                ->name('goods-types.bulk-upload');
             Route::get('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'index'])->name('goods-types.index');
             Route::post('/goods-types', [\App\Http\Controllers\Api\GoodsTypeController::class, 'store'])->name('goods-types.store');
             Route::get('/goods-types/{goods_type}', [\App\Http\Controllers\Api\GoodsTypeController::class, 'show'])->name('goods-types.show');
@@ -347,16 +367,35 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('invoices.payments.destroy');
             Route::post('/invoices/{invoice}/delete', [\App\Http\Controllers\Api\InvoiceController::class, 'softDelete'])
                 ->name('invoices.soft-delete');
-            Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class)->only(['index', 'show', 'destroy']);
+            Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class)->only(['index', 'show', 'update', 'destroy']);
 
             Route::apiResource('states', \App\Http\Controllers\Api\StateController::class)->except(['destroy']);
             Route::apiResource('cities', \App\Http\Controllers\Api\CityController::class)->except(['destroy']);
+            Route::get('stations/bulk-upload/template', [\App\Http\Controllers\Api\StationController::class, 'bulkUploadTemplate'])
+                ->name('stations.bulk-upload.template');
+            Route::post('stations/bulk-upload', [\App\Http\Controllers\Api\StationController::class, 'bulkUpload'])
+                ->name('stations.bulk-upload');
             Route::apiResource('stations', \App\Http\Controllers\Api\StationController::class);
+
+            Route::get('brokers/bulk-upload/template', [\App\Http\Controllers\Api\BrokerController::class, 'bulkUploadTemplate'])
+                ->name('brokers.bulk-upload.template');
+            Route::post('brokers/bulk-upload', [\App\Http\Controllers\Api\BrokerController::class, 'bulkUpload'])
+                ->name('brokers.bulk-upload');
             Route::apiResource('brokers', \App\Http\Controllers\Api\BrokerController::class);
+
+            Route::get('customers/bulk-upload/template', [\App\Http\Controllers\Api\CustomerController::class, 'bulkUploadTemplate'])
+                ->name('customers.bulk-upload.template');
+            Route::post('customers/bulk-upload', [\App\Http\Controllers\Api\CustomerController::class, 'bulkUpload'])
+                ->name('customers.bulk-upload');
             Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
 
+            Route::post('tyre-layouts/seed-defaults', [\App\Http\Controllers\Api\TyreLayoutController::class, 'seedDefaults']);
             Route::apiResource('tyre-layouts', \App\Http\Controllers\Api\TyreLayoutController::class);
 
+            Route::get('/tyres/bulk-upload/template', [\App\Http\Controllers\Api\TyreController::class, 'bulkUploadTemplate'])
+                ->name('tyres.bulk-upload.template');
+            Route::post('/tyres/bulk-upload', [\App\Http\Controllers\Api\TyreController::class, 'bulkUpload'])
+                ->name('tyres.bulk-upload');
             Route::get('/tyres/alerts', [\App\Http\Controllers\Api\TyreController::class, 'alerts'])->name('tyres.alerts');
             Route::post('/tyres/replace', [\App\Http\Controllers\Api\TyreController::class, 'replace'])->name('tyres.replace');
             Route::apiResource('tyres', \App\Http\Controllers\Api\TyreController::class);
@@ -376,6 +415,18 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.tyre-positions');
             Route::get('/vehicles/{vehicle}/tyre-history', [\App\Http\Controllers\Api\TyreController::class, 'vehicleTyreHistory'])
                 ->name('vehicles.tyre-history');
+
+            Route::get('/batteries/counts', [\App\Http\Controllers\Api\BatteryController::class, 'counts'])->name('batteries.counts');
+            Route::get('/batteries/in-stock', [\App\Http\Controllers\Api\BatteryController::class, 'inStock'])->name('batteries.in-stock');
+            Route::post('/batteries/replace', [\App\Http\Controllers\Api\BatteryController::class, 'replace'])->name('batteries.replace');
+            Route::post('/batteries/{battery}/install', [\App\Http\Controllers\Api\BatteryController::class, 'install'])->name('batteries.install');
+            Route::post('/battery-installations/{battery_installation}/remove', [\App\Http\Controllers\Api\BatteryController::class, 'removeInstallation'])
+                ->name('battery-installations.remove');
+            Route::get('/vehicles/{vehicle}/batteries', [\App\Http\Controllers\Api\BatteryController::class, 'vehicleBatteries'])
+                ->name('vehicles.batteries');
+            Route::post('/batteries/{battery}/scrap', [\App\Http\Controllers\Api\BatteryController::class, 'scrap'])->name('batteries.scrap');
+            Route::post('/batteries/{battery}/inspections', [\App\Http\Controllers\Api\BatteryController::class, 'storeInspection'])->name('batteries.inspections.store');
+            Route::apiResource('batteries', \App\Http\Controllers\Api\BatteryController::class);
 
             Route::get('/reports/tyres/life', [\App\Http\Controllers\Api\TyreReportController::class, 'tyreLife'])
                 ->name('reports.tyres.life');
@@ -409,12 +460,18 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.expense-summary');
             Route::get('/reports/trips/route-profitability', [\App\Http\Controllers\Api\TripReportController::class, 'routeProfitability'])
                 ->name('reports.trips.route-profitability');
+            Route::get('/reports/trips/fuel-performance', [\App\Http\Controllers\Api\TripReportController::class, 'fuelPerformance'])
+                ->name('reports.trips.fuel-performance');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])
                 ->name('reports.fleet-monthly');
             Route::get('/reports/fleet-monthly/export', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'export'])
                 ->name('reports.fleet-monthly.export');
+            Route::get('/reports/vehicle-utilization', [\App\Http\Controllers\Api\VehicleUtilizationReportController::class, 'show'])
+                ->name('reports.vehicle-utilization');
+            Route::get('/reports/vehicle-utilization/export', [\App\Http\Controllers\Api\VehicleUtilizationReportController::class, 'export'])
+                ->name('reports.vehicle-utilization.export');
         });
     });
 

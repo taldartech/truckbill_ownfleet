@@ -14,7 +14,6 @@ use App\TyreExpense;
 use App\TyreInstallation;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class TyreReportServiceTest extends TestCase
@@ -48,7 +47,7 @@ class TyreReportServiceTest extends TestCase
         TenantContext::setTenantId($this->tenant->id);
         BranchContext::setBranchId((int) $this->branch->id);
 
-        $this->service = new TyreReportService(new TyreLifeCalculator());
+        $this->service = new TyreReportService(new TyreLifeCalculator);
     }
 
     public function test_cost_per_km_can_be_filtered_by_vehicle(): void

@@ -10,6 +10,8 @@ use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
+use App\Support\BranchContext;
+use App\Support\BranchProvisioner;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\Trip;
@@ -300,7 +302,10 @@ class DemoTripDataSeeder extends Seeder
             return;
         }
 
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
+
         TenantContext::setTenantId($tenant->id);
+        BranchContext::setBranchId($branch->id);
 
         try {
             $admin = User::query()->where('email', self::ADMIN_EMAIL)->first();
@@ -309,6 +314,11 @@ class DemoTripDataSeeder extends Seeder
                 $this->command?->error('Admin user not found. Run TestUserSeeder first.');
 
                 return;
+            }
+
+            if (City::query()->count() === 0) {
+                $this->command?->info('Seeding India locations (cities, states)...');
+                $this->call(IndiaLocationSeeder::class);
             }
 
             $vehicles = Vehicle::query()
@@ -364,6 +374,7 @@ class DemoTripDataSeeder extends Seeder
 
                 $payload = [
                     'tenant_id' => $tenant->id,
+                    'branch_id' => $branch->id,
                     'vehicle_id' => $vehicle->id,
                     'driver_id' => $driverId,
                     'customer_name' => $definition['customer_name'],
@@ -392,6 +403,7 @@ class DemoTripDataSeeder extends Seeder
                 ],
             );
         } finally {
+            BranchContext::setBranchId(null);
             TenantContext::setTenantId(null);
         }
     }

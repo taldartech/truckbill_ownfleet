@@ -21,6 +21,11 @@ class TyreLayoutController extends Controller
     {
         $this->authorize('viewAny', TyreLayout::class);
 
+        $tenantId = CurrentTenant::id();
+        if ($tenantId !== null) {
+            TyreLayoutDefaults::seedForTenant($tenantId);
+        }
+
         $query = TyreLayout::query()
             ->orderBy('sort_order')
             ->orderBy('name');
@@ -46,9 +51,23 @@ class TyreLayoutController extends Controller
         return TyreLayoutResource::collection($query->paginate($perPage));
     }
 
+    public function seedDefaults(Request $request): AnonymousResourceCollection
+    {
+        $this->authorize('create', TyreLayout::class);
+
+        $tenantId = CurrentTenant::requireId();
+        TyreLayoutDefaults::seedForTenant($tenantId, false);
+
+        $query = TyreLayout::query()
+            ->orderBy('sort_order')
+            ->orderBy('name');
+
+        return TyreLayoutResource::collection($query->get());
+    }
+
     public function store(StoreTyreLayoutRequest $request): TyreLayoutResource
     {
-        $tenantId = CurrentTenant::id();
+        $tenantId = CurrentTenant::requireId();
         $data = $this->normalizePayload($request->validated(), $tenantId);
 
         $layout = TyreLayout::query()->create([

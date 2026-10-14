@@ -15,6 +15,7 @@
             <form novalidate @submit.prevent="handleSubmit('index')">
                 <TripFormRedesigned
                     mode="edit"
+                    :can-change-truck="canChangeTruck"
                     :show-expenses="false"
                     :form="form"
                     :stations="stations"
@@ -35,6 +36,9 @@
                     :snapshot-vehicle-label="snapshotVehicleLabel"
                     :snapshot-driver-name="snapshotDriverName"
                     :snapshot-substitute-driver-name="snapshotSubstituteDriverName"
+                    :primary-driver-name="primaryDriverName"
+                    :loading-driver="loadingDriver"
+                    :driver-warning="driverWarning"
                     :drivers="drivers"
                     :vehicle-odometer-km="vehicleOdometerKm"
                     :vehicle-expected-mileage="vehicleExpectedMileage"
@@ -42,6 +46,7 @@
                     :display-status="originalStatus"
                     :vehicle-make="vehicleMake"
                     :vehicle-model="vehicleModel"
+                    @vehicle-selected="onVehicleSelected"
                     @add-stop="handleAddStop"
                     @return-to-start="handleReturnToStart"
                     @remove-route-leg="removeRouteLeg"
@@ -118,6 +123,7 @@ import { useRequireCompanyContext } from '../../composables/useRequireCompanyCon
 import { useTripForm } from '../../composables/useTripForm';
 import { useTripListReturn } from '../../composables/useTripListReturn';
 import { useTripWindowValidation } from '../../composables/useTripWindowValidation';
+import { useVehicleDriverSync } from '../../composables/useVehicleDriverSync';
 import { scrollToFirstFormError } from '../../utils/formErrors';
 import { buildTripSaveConfirmViewModel } from '../../utils/tripSaveConfirm';
 
@@ -196,6 +202,12 @@ const canManageExpenses = computed(
 const editAccess = computed(() => resolveTripEditAccess(originalStatus.value, user.value, tripEditOptions.value));
 const canSave = computed(() => editAccess.value.fullEdit);
 const canEditTripFields = computed(() => editAccess.value.fullEdit);
+const canChangeTruck = computed(
+    () => originalStatus.value === 'PENDING' && savedExpenses.value.length === 0 && canEditTripFields.value,
+);
+const { driverWarning, loadingDriver, primaryDriverName, setPrimaryDriverFromSelection } = useVehicleDriverSync(form, {
+    enabled: canChangeTruck,
+});
 const isFormReadonly = computed(() => !editAccess.value.fullEdit);
 const expenseTotalsBySequence = computed(() => computeExpenseTotalsBySequence(savedExpenses.value));
 
@@ -227,6 +239,44 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
     clearFieldError,
     ignoreTripId: computed(() => route.params.id),
 });
+
+function onVehicleSelected(vehicle) {
+    if (!canChangeTruck.value) {
+        return;
+    }
+
+    setPrimaryDriverFromSelection(vehicle);
+    snapshotVehicleLabel.value = vehicle?.registration_number ?? '—';
+    snapshotDriverName.value = vehicle?.primary_driver_name ?? primaryDriverName.value ?? '—';
+
+    vehicleOdometerKm.value =
+        vehicle?.odometer_km !== undefined && vehicle?.odometer_km !== null && vehicle?.odometer_km !== ''
+            ? vehicle.odometer_km
+            : '';
+    vehicleExpectedMileage.value =
+        vehicle?.default_mileage_km_per_liter ?? vehicle?.expected_mileage_km_per_liter ?? '';
+    vehicleFuelTankCapacity.value =
+        vehicle?.fuel_tank_capacity_ltr !== undefined && vehicle?.fuel_tank_capacity_ltr !== null && vehicle?.fuel_tank_capacity_ltr !== ''
+            ? vehicle.fuel_tank_capacity_ltr
+            : '';
+    vehicleMake.value = vehicle?.make ?? '';
+    vehicleModel.value = vehicle?.model ?? '';
+
+    // USER REQUIREMENT:
+    // Only driver auto-fills from the new truck.
+    // Truck-related fuel & meter fields must be BLANKED OUT!
+    // Customer, route legs, consignor, consignee, etc., remain intact.
+    form.start_meter_reading_km = '';
+    form.planned_mileage_km_per_liter = '';
+    form.planned_diesel_liters = '';
+    form.planned_diesel_manually_set = true;
+
+    clearFieldError('vehicle_id');
+    clearFieldError('driver_id');
+    clearFieldError('start_meter_reading_km');
+    clearFieldError('planned_diesel_liters');
+    clearFieldError('planned_mileage_km_per_liter');
+}
 
 function onStationCreated({ station, legIndex }) {
     stations.value = [station, ...stations.value.filter((s) => s.id !== station.id)];
@@ -292,7 +342,13 @@ function handleReturnToStart() {
 }
 
 async function loadLookups() {
-    const [stationList, brokerList, customerList, goodsTypeList, driverList] = await Promise.all([
+    const [
+        stationsRes,
+        brokersRes,
+        customersRes,
+        goodsTypesRes,
+        driversRes,
+    ] = await Promise.allSettled([
         listAllStations(),
         listAllBrokers(),
         listAllCustomers(),
@@ -300,11 +356,21 @@ async function loadLookups() {
         listAllDrivers({ activeOnly: true }),
     ]);
 
-    stations.value = stationList;
-    brokers.value = brokerList;
-    customers.value = customerList;
-    goodsTypes.value = goodsTypeList;
-    drivers.value = driverList;
+    if (stationsRes.status === 'fulfilled') {
+        stations.value = stationsRes.value ?? [];
+    }
+    if (brokersRes.status === 'fulfilled') {
+        brokers.value = brokersRes.value ?? [];
+    }
+    if (customersRes.status === 'fulfilled') {
+        customers.value = customersRes.value ?? [];
+    }
+    if (goodsTypesRes.status === 'fulfilled') {
+        goodsTypes.value = goodsTypesRes.value ?? [];
+    }
+    if (driversRes.status === 'fulfilled') {
+        drivers.value = driversRes.value ?? [];
+    }
 }
 
 async function loadTrip() {
@@ -378,9 +444,12 @@ async function loadTrip() {
 }
 
 function refreshOriginalConfirmPayload() {
-    originalConfirmPayload.value = JSON.parse(
-        JSON.stringify(buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value })),
-    );
+    const payload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value });
+    if (canChangeTruck.value && form.vehicle_id) {
+        payload.vehicle_id = form.vehicle_id;
+        payload.driver_id = form.driver_id || null;
+    }
+    originalConfirmPayload.value = JSON.parse(JSON.stringify(payload));
 }
 
 function substituteDriverLabel() {
@@ -419,6 +488,10 @@ async function prepareSave() {
     clearErrors();
 
     const payload = buildPayload(stations.value, { mode: 'edit', includeExpenses: false, customers: customers.value });
+    if (canChangeTruck.value && form.vehicle_id) {
+        payload.vehicle_id = form.vehicle_id;
+        payload.driver_id = form.driver_id || null;
+    }
     const clientErrors = validateTripPayload(
         {
             ...payload,

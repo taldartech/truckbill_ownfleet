@@ -3,6 +3,7 @@
 namespace App\Modules\TripManagement\Repositories;
 
 use App\Enums\InvoicePaymentStatus;
+use App\Modules\TripManagement\Support\TripReportScope;
 use App\Trip;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -155,7 +156,50 @@ class TripRepository
     }
 
     /**
-     * Include trips whose duration overlaps the selected date range.
+     * Report/dashboard query: non-cancelled trips attributed by trip start_at.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return Builder<Trip>
+     */
+    public function reportFilteredQuery(array $filters = []): Builder
+    {
+        $listFilters = $filters;
+        unset($listFilters['from_date'], $listFilters['to_date'], $listFilters['status']);
+
+        $query = $this->filteredQuery($listFilters);
+
+        $requestedStatus = ! empty($filters['status'])
+            ? strtoupper((string) $filters['status'])
+            : null;
+
+        if ($requestedStatus !== null) {
+            if (! in_array($requestedStatus, TripReportScope::reportableStatuses(), true)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $query->where('status', $requestedStatus);
+            }
+        } else {
+            TripReportScope::whereReportableStatuses($query);
+        }
+
+        $fromDate = ! empty($filters['from_date']) ? (string) $filters['from_date'] : null;
+        $toDate = ! empty($filters['to_date']) ? (string) $filters['to_date'] : null;
+
+        if ($fromDate !== null || $toDate !== null) {
+            TripReportScope::whereReportDateInRange(
+                $query,
+                $fromDate ?? '1970-01-01',
+                $toDate ?? now()->toDateString(),
+            );
+        } else {
+            $query->whereNotNull('trips.start_at');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Include trips whose duration overlaps the selected date range (trip list filters).
      *
      * A trip from 20 Jun–30 Jun matches a filter of 21 Jun–25 Jun.
      * When end_at is null, the trip is treated as still open (ongoing),

@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Support\ApiDateTime;
 use App\Attendance;
 use App\AttendanceMonthLock;
 use App\Exports\SettlementSheetExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AttendanceMonthOverviewRequest;
 use App\Http\Requests\BulkMarkAttendanceRequest;
 use App\Http\Requests\CloseMonthlyWagesRequest;
 use App\Http\Requests\LockAttendanceMonthRequest;
@@ -14,6 +14,7 @@ use App\Http\Requests\MarkAllMonthlyWagesPaidRequest;
 use App\Http\Requests\MarkAttendanceRequest;
 use App\Http\Requests\MarkMonthlyWagePaidRequest;
 use App\Http\Requests\MarkWagePaidRequest;
+use App\Http\Requests\MonthlySettlementQueryRequest;
 use App\Http\Requests\ReopenAttendanceMonthRequest;
 use App\Http\Requests\UnlockAttendanceMonthRequest;
 use App\Http\Requests\UpdateMonthlySettlementLineRequest;
@@ -24,6 +25,7 @@ use App\Http\Resources\MonthlyDriverWageResource;
 use App\Modules\DriverManagement\Services\AttendanceService;
 use App\Modules\DriverManagement\Services\MonthlySettlementService;
 use App\MonthlyDriverWage;
+use App\Support\ApiDateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -48,53 +50,38 @@ class AttendanceController extends Controller
         );
     }
 
-    public function monthOverview(Request $request): AttendanceMonthOverviewResource
+    public function monthOverview(AttendanceMonthOverviewRequest $request): AttendanceMonthOverviewResource
     {
-        $this->authorize('viewAny', Attendance::class);
-
-        $validated = $request->validate([
-            'from_date' => ['required', 'date'],
-            'to_date' => ['required', 'date', 'after_or_equal:from_date'],
-        ]);
+        $validated = $request->validated();
 
         return new AttendanceMonthOverviewResource(
             $this->attendanceService->monthOverview($validated['from_date'], $validated['to_date']),
         );
     }
 
-    public function monthlyWages(Request $request): AnonymousResourceCollection
+    public function monthlyWages(MonthlySettlementQueryRequest $request): AnonymousResourceCollection
     {
-        $this->authorize('viewSettlement', Attendance::class);
-
-        $validated = $request->validate([
-            'month' => ['required', 'date_format:Y-m'],
-        ]);
+        $validated = $request->validated();
 
         return MonthlyDriverWageResource::collection(
             $this->attendanceService->listMonthlyWages($validated['month']),
         );
     }
 
-    public function settlementSheet(Request $request): \Illuminate\Http\JsonResponse
+    public function settlementSheet(MonthlySettlementQueryRequest $request): \Illuminate\Http\JsonResponse
     {
-        $this->authorize('viewSettlement', Attendance::class);
-
-        $validated = $request->validate([
-            'month' => ['required', 'date_format:Y-m'],
-        ]);
+        $validated = $request->validated();
 
         return response()->json([
             'data' => $this->monthlySettlementService->sheet($validated['month']),
         ]);
     }
 
-    public function exportSettlementSheet(Request $request): BinaryFileResponse
+    public function exportSettlementSheet(MonthlySettlementQueryRequest $request): BinaryFileResponse
     {
         $this->authorize('exportSettlement', Attendance::class);
 
-        $validated = $request->validate([
-            'month' => ['required', 'date_format:Y-m'],
-        ]);
+        $validated = $request->validated();
 
         $sheet = $this->monthlySettlementService->sheet($validated['month']);
         $filename = 'monthly-settlement-'.$validated['month'].'.xlsx';

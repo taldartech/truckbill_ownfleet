@@ -267,6 +267,7 @@ class PhaseOneCloseTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Trip Driver', 900);
         $today = now()->toDateString();
+        $this->actingAs($user);
 
         Trip::query()->create([
             'tenant_id' => $tenant->id,
@@ -293,6 +294,8 @@ class PhaseOneCloseTest extends TestCase
             'trip_number' => 'TRP-003',
             'status' => TripStatus::Completed,
             'start_at' => $today.' 10:00:00',
+            'end_at' => $today.' 18:00:00',
+            'actual_arrival_at' => $today.' 17:00:00',
         ]);
 
         Trip::query()->create([
@@ -304,8 +307,7 @@ class PhaseOneCloseTest extends TestCase
             'start_at' => now()->subDays(10)->toDateString().' 11:00:00',
         ]);
 
-        $this->actingAs($user)
-            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+        $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
             ->assertJsonPath('trips.total_count', 3)
             ->assertJsonPath('trips.pending_count', 1)
@@ -391,6 +393,7 @@ class PhaseOneCloseTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
         $driver = $this->createDriver($tenant, 'Finance Driver', 900);
         $today = now()->toDateString();
+        $this->actingAs($user);
 
         Trip::query()->create([
             'tenant_id' => $tenant->id,
@@ -399,7 +402,10 @@ class PhaseOneCloseTest extends TestCase
             'trip_number' => 'TRP-FIN-1',
             'status' => TripStatus::Completed,
             'start_at' => $today.' 08:00:00',
+            'end_at' => $today.' 18:00:00',
+            'actual_arrival_at' => $today.' 17:00:00',
             'total_freight_amount' => 50000,
+            'total_custom_amount' => 3500,
             'total_expense_amount' => 20000,
         ]);
 
@@ -425,13 +431,13 @@ class PhaseOneCloseTest extends TestCase
             'total_expense_amount' => 3000,
         ]);
 
-        $this->actingAs($user)
-            ->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
+        $this->getJson('/app/dashboard/stats?from_date='.$today.'&to_date='.$today)
             ->assertOk()
-            ->assertJsonPath('trips.total_count', 3)
-            ->assertJsonPath('trips.total_freight_amount', 50000)
-            ->assertJsonPath('trips.total_expense_amount', 20000)
-            ->assertJsonPath('trips.profit_amount', 30000);
+            ->assertJsonPath('trips.total_count', 2)
+            ->assertJsonPath('trips.total_freight_amount', 63500)
+            ->assertJsonPath('trips.total_custom_amount', 3500)
+            ->assertJsonPath('trips.total_expense_amount', 25000)
+            ->assertJsonPath('trips.profit_amount', 38500);
     }
 
     public function test_dashboard_stats_return_tyre_period_totals_for_selected_period(): void
@@ -473,6 +479,82 @@ class PhaseOneCloseTest extends TestCase
             ->assertJsonPath('tyres.expenses_total', 1200)
             ->assertJsonPath('tyres.period_scrapped_count', 1)
             ->assertJsonPath('tyres.period_scrapped_recovery_amount', 2500);
+    }
+
+    public function test_fleet_status_and_utilization_dashboard_stats_return_expected_metrics(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $driver = $this->createDriver($tenant, 'Test Driver', 800);
+
+        // Vehicle 1: On Trip (IN_PROGRESS)
+        $v1 = $this->createVehicle($tenant, 'RJ27ON0001');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v1->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-1',
+            'status' => TripStatus::InProgress,
+            'start_at' => now()->subDay()->toDateTimeString(),
+        ]);
+
+        // Vehicle 2: Available (last trip ended yesterday, idle 1 day)
+        $v2 = $this->createVehicle($tenant, 'RJ27AV0002');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v2->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-2',
+            'status' => TripStatus::Completed,
+            'start_at' => now()->subDays(3)->toDateTimeString(),
+            'end_at' => now()->subDay()->toDateTimeString(),
+        ]);
+
+        // Vehicle 3: Idle (last trip ended 8 days ago, idle 8 days)
+        $v3 = $this->createVehicle($tenant, 'RJ27ID0003');
+        Trip::query()->create([
+            ...$operational,
+            'vehicle_id' => $v3->id,
+            'driver_id' => $driver->id,
+            'trip_number' => 'TRP-FS-3',
+            'status' => TripStatus::Completed,
+            'start_at' => now()->subDays(12)->toDateTimeString(),
+            'end_at' => now()->subDays(8)->toDateTimeString(),
+        ]);
+
+        // Vehicle 4: Unavailable (inactive)
+        $v4 = $this->createVehicle($tenant, 'RJ27UN0004');
+        $v4->update(['is_active' => false]);
+
+        $fromDate = now()->subDays(29)->toDateString();
+        $toDate = now()->toDateString();
+
+        $response = $this->actingAs($user)
+            ->getJson("/app/dashboard/stats?from_date={$fromDate}&to_date={$toDate}")
+            ->assertOk();
+
+        $response
+            ->assertJsonPath('fleet_status.overview.total_trucks', 4)
+            ->assertJsonPath('fleet_status.overview.on_trip', 1)
+            ->assertJsonPath('fleet_status.overview.available', 1)
+            ->assertJsonPath('fleet_status.overview.idle', 1)
+            ->assertJsonPath('fleet_status.overview.maintenance', 0)
+            ->assertJsonPath('fleet_status.overview.unavailable', 1)
+            ->assertJsonPath('fleet_status.utilization.total_fleet', 4)
+            ->assertJsonPath('fleet_status.utilization.unavailable_days', 30)
+            ->assertJsonPath('kpis.total_fleet', 4)
+            ->assertJsonPath('kpis.on_trip', 1)
+            ->assertJsonPath('kpis.available', 1)
+            ->assertJsonPath('kpis.idle', 1)
+            ->assertJsonPath('kpis.maintenance', 0);
+
+        $idleTrucks = $response->json('fleet_status.idle_trucks');
+        $this->assertCount(2, $idleTrucks);
+
+        $idleTruck3 = collect($idleTrucks)->firstWhere('registration_number', 'RJ27ID0003');
+        $this->assertNotNull($idleTruck3);
+        $this->assertSame(8, $idleTruck3['idle_days']);
+        $this->assertSame('TRP-FS-3', $idleTruck3['last_trip_number']);
     }
 
     public function test_compliance_alerts_list_expired_and_expiring_documents(): void
@@ -628,17 +710,18 @@ class PhaseOneCloseTest extends TestCase
             'owner_user_id' => $superAdmin->id,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+        $branch = $this->createBranchForTenant($tenant);
+        $this->enterBranchForSuperAdmin($superAdmin, $branch);
+
         $companyUser = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'name' => 'Ops User',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'user_role_id' => UserRole::MODERATOR,
         ]);
-
-        $this->actingAs($superAdmin)
-            ->postJson('/app/api/companies/'.$tenant->id.'/enter')
-            ->assertOk();
 
         $this->actingAs($superAdmin)
             ->putJson('/app/api/document-alert-settings', [
@@ -697,6 +780,12 @@ class PhaseOneCloseTest extends TestCase
             'password' => 'password',
             'user_role_id' => UserRole::idFor($role) ?? UserRole::ADMIN,
         ]);
+
+        $user = $this->assignBranchIfRequired($user, $tenant);
+        if ($user->branch_id !== null) {
+            \App\Support\BranchContext::setBranchId((int) $user->branch_id);
+            \App\Support\TenantContext::setTenantId((string) $tenant->id);
+        }
 
         return [$tenant, $user];
     }

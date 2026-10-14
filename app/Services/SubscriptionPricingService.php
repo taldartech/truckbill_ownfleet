@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Tenant;
 use App\Models\TenantSubscription;
 use App\Support\Money;
 use App\Support\SubscriptionProration;
+use App\Tenant;
 use Carbon\Carbon;
 
 class SubscriptionPricingService
@@ -157,22 +157,47 @@ class SubscriptionPricingService
 
     public function createTrialSubscription(Tenant $tenant): TenantSubscription
     {
-        $catalogPayload = $this->adminApi->getCatalog();
-        $catalog = $catalogPayload['catalog'];
+        $catalog = $this->resolveCatalogForTrial();
         $startsOn = now()->toDateString();
-        $endsOn = Carbon::parse($startsOn)->addDays(15)->toDateString();
+        $trialDays = (int) config('subscription.trial_days', 15);
+        $endsOn = Carbon::parse($startsOn)->addDays($trialDays)->toDateString();
 
-        return TenantSubscription::create([
-            'tenant_id' => $tenant->id,
-            'status' => 'trial',
-            'starts_on' => $startsOn,
-            'ends_on' => $endsOn,
-            'trial_ends_on' => $endsOn,
-            'included_branches' => $catalog['included_branches'],
-            'users_per_branch' => $catalog['users_per_branch'],
+        return TenantSubscription::updateOrCreate(
+            ['tenant_id' => $tenant->id],
+            [
+                'status' => 'trial',
+                'starts_on' => $startsOn,
+                'ends_on' => $endsOn,
+                'trial_ends_on' => $endsOn,
+                'included_branches' => (int) ($catalog['included_branches'] ?? 2),
+                'users_per_branch' => (int) ($catalog['users_per_branch'] ?? 3),
+                'included_lr_credits' => (int) ($catalog['included_lr_credits'] ?? 0),
+                'included_trucks' => (int) ($catalog['included_trucks'] ?? 50),
+                'lr_credits_remaining' => (int) ($catalog['included_lr_credits'] ?? 0),
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function resolveCatalogForTrial(): array
+    {
+        try {
+            $catalogPayload = $this->adminApi->getCatalog();
+
+            if (! empty($catalogPayload['catalog']) && is_array($catalogPayload['catalog'])) {
+                return $catalogPayload['catalog'];
+            }
+        } catch (\Throwable) {
+            // Admin API is offline or unreachable; fall back to defaults.
+        }
+
+        return (array) config('subscription.default_catalog', [
+            'included_branches' => 2,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
             'included_lr_credits' => 0,
-            'included_trucks' => $catalog['included_trucks'],
-            'lr_credits_remaining' => 0,
         ]);
     }
 

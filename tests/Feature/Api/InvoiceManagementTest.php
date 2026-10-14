@@ -14,6 +14,7 @@ use App\Enums\TaxLiability;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
 use App\Invoice;
+use App\InvoiceAuditLog;
 use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\State;
@@ -26,7 +27,10 @@ use App\User;
 use App\UserRole;
 use App\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 
 class InvoiceManagementTest extends TestCase
@@ -95,6 +99,7 @@ class InvoiceManagementTest extends TestCase
             'contact_person' => 'Owner',
             'contact_number' => '9876543200',
         ]);
+        $this->provisionActiveSubscription($company);
 
         $this->actingAs($superAdmin)
             ->postJson('/app/api/branches', [
@@ -663,6 +668,156 @@ class InvoiceManagementTest extends TestCase
             ]);
     }
 
+    public function test_pending_invoice_can_be_updated_with_additional_charges(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $update = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                    ['description' => 'Detention', 'amount' => 500],
+                ],
+            ])
+            ->assertOk();
+
+        $update->assertJsonPath('data.invoice_number', $generate->json('data.0.invoice_number'));
+        $update->assertJsonPath('data.route_freight_amount', 10000);
+        $update->assertJsonPath('data.custom_amount', 2500);
+        $update->assertJsonPath('data.freight_amount', 12500);
+        $update->assertJsonPath('data.gst_amount', 625);
+        $update->assertJsonPath('data.total_amount', 13125);
+        $update->assertJsonPath('data.can_edit_charges', true);
+
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+        $this->assertSame(3, $invoice->items->count());
+        $this->assertSame(10000.0, (float) $invoice->items->whereNotNull('trip_route_leg_id')->sum('freight_amount'));
+        $this->assertSame(2500.0, (float) $invoice->items->whereNull('trip_route_leg_id')->sum('freight_amount'));
+        $this->assertSame(2500.0, (float) $trip->fresh()->total_custom_amount);
+
+        $this->assertDatabaseHas('invoice_audit_logs', [
+            'invoice_id' => $invoiceId,
+            'event_type' => 'charges_updated',
+        ]);
+    }
+
+    public function test_non_pending_invoice_cannot_be_updated_via_api(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate")
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'cash',
+            ])
+            ->assertCreated();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                ],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_cancelled_invoice_cannot_be_updated_via_api(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate")
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->deleteJson("/app/api/invoices/{$invoiceId}")
+            ->assertNoContent();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [
+                    ['description' => 'Loading charges', 'amount' => 2000],
+                ],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_pending_invoice_update_can_remove_all_additional_charges(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [
+                'groups' => [
+                    (string) $customers['a']->id => [
+                        'custom_items' => [
+                            ['description' => 'Loading charges', 'amount' => 1500],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson("/app/api/invoices/{$invoiceId}", [
+                'custom_items' => [],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.custom_amount', 0)
+            ->assertJsonPath('data.freight_amount', 10000)
+            ->assertJsonPath('data.total_amount', 10500);
+
+        $invoice = Invoice::query()->with('items')->findOrFail($invoiceId);
+        $this->assertCount(1, $invoice->items);
+        $this->assertSame(0.0, (float) $trip->fresh()->total_custom_amount);
+        $this->assertSame(1, InvoiceAuditLog::query()->where('invoice_id', $invoiceId)->count());
+    }
+
     public function test_invoiced_trip_cannot_be_fully_edited_even_by_super_admin(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
@@ -786,6 +941,49 @@ class InvoiceManagementTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get("/app/api/invoices/{$invoiceId}/pdf")
             ->assertOk();
+    }
+
+    public function test_invoice_pdf_prints_company_digital_signature_when_uploaded(): void
+    {
+        Storage::fake('public');
+
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $invoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $capturedData = [];
+        View::creator('invoices.pdf.party-bill-pdf-modern', function ($view) use (&$capturedData): void {
+            $capturedData = $view->getData();
+        });
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf")
+            ->assertOk();
+
+        $this->assertNull($capturedData['signature_src']);
+
+        $tenant->forceFill([
+            'digital_signature' => $tenant->storeSignature(UploadedFile::fake()->image('signature.png', 300, 100)),
+        ])->save();
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf")
+            ->assertOk();
+
+        $this->assertStringStartsWith('data:image/png;base64,', $capturedData['signature_src']);
+
+        $html = view('invoices.pdf.party-bill-pdf-modern', $capturedData)->render();
+
+        $this->assertStringContainsString('src="'.$capturedData['signature_src'].'"', $html);
+        $this->assertStringContainsString('Authorized Signature', $html);
     }
 
     public function test_cancelled_invoice_remains_visible_and_read_only(): void
@@ -1392,5 +1590,263 @@ class InvoiceManagementTest extends TestCase
             ],
             'expenses' => [],
         ];
+    }
+
+    public function test_record_payment_with_tds_and_claims_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+        $total = (float) $generate->json('data.0.total_amount');
+        $this->assertEquals(10500.00, $total);
+
+        // Remit 10,000 + TDS 200 (2% on freight) + Shortage Claim 300 = Total Settled 10,500 (Full settlement)
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 10000.00,
+                'tds_amount' => 200.00,
+                'deduction_amount' => 300.00,
+                'deduction_reason' => 'Transit shortage 2 bags',
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+                'notes' => 'Settled with TDS and shortage',
+            ])
+            ->assertCreated();
+
+        $response->assertJsonPath('data.amount', 10000)
+            ->assertJsonPath('data.tds_amount', 200)
+            ->assertJsonPath('data.deduction_amount', 300)
+            ->assertJsonPath('data.deduction_reason', 'Transit shortage 2 bags')
+            ->assertJsonPath('data.total_settled_amount', 10500);
+
+        $this->assertDatabaseHas('invoice_payments', [
+            'invoice_id' => $invoiceId,
+            'amount' => 10000.00,
+            'tds_amount' => 200.00,
+            'deduction_amount' => 300.00,
+            'deduction_reason' => 'Transit shortage 2 bags',
+        ]);
+
+        $invoice = Invoice::query()->findOrFail($invoiceId);
+        $this->assertSame(InvoicePaymentStatus::Paid, $invoice->payment_status);
+        $this->assertEquals(10500.00, (float) $invoice->paid_amount);
+        $this->assertEquals(0.00, (float) $invoice->remainingAmount());
+
+        // Also verify InvoiceResource returns payments with TDS and deductions
+        $showResponse = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $showResponse->assertJsonPath('data.paid_amount', 10500)
+            ->assertJsonPath('data.remaining_amount', 0)
+            ->assertJsonPath('data.payment_status', 'paid')
+            ->assertJsonPath('data.payments.0.amount', 10000)
+            ->assertJsonPath('data.payments.0.tds_amount', 200)
+            ->assertJsonPath('data.payments.0.deduction_amount', 300)
+            ->assertJsonPath('data.payments.0.deduction_reason', 'Transit shortage 2 bags')
+            ->assertJsonPath('data.payments.0.total_settled_amount', 10500);
+    }
+
+    public function test_record_payment_validation_for_tds_and_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Negative TDS amount rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'tds_amount' => -100,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tds_amount']);
+
+        // Negative deduction amount rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'deduction_amount' => -50,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['deduction_amount']);
+
+        // Deduction amount without deduction_reason rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'deduction_amount' => 200,
+                'deduction_reason' => '',
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['deduction_reason']);
+
+        // Total settlement exceeds balance rejected (total is 10500, attempting 10000 + 1000 = 11000)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 10000,
+                'tds_amount' => 1000,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+
+        // Zero total settlement rejected
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 0,
+                'tds_amount' => 0,
+                'deduction_amount' => 0,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+    }
+
+    public function test_smart_cumulative_tds_tracking_across_multi_part_payments(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Payment 1: Partial payment with 2% TDS (₹200) + ₹5,000 received = ₹5,200 cleared
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5000,
+                'tds_amount' => 200,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $invoiceAfterP1 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $invoiceAfterP1->assertJsonPath('data.payment_status', 'partial')
+            ->assertJsonPath('data.paid_amount', 5200)
+            ->assertJsonPath('data.remaining_amount', 5300)
+            ->assertJsonPath('data.total_tds_deducted', 200);
+
+        // Payment 2: Customer pays remaining ₹5,300 with 0 TDS (since TDS was already deducted in payment 1)
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 5300,
+                'tds_amount' => 0,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $invoiceAfterP2 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->getJson("/app/api/invoices/{$invoiceId}")
+            ->assertOk();
+
+        $invoiceAfterP2->assertJsonPath('data.payment_status', 'paid')
+            ->assertJsonPath('data.paid_amount', 10500)
+            ->assertJsonPath('data.remaining_amount', 0)
+            ->assertJsonPath('data.total_tds_deducted', 200);
+
+        // Verify excessive TDS exceeding freight base is rejected
+        $secondTrip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 5000, 'to' => 'b'],
+        ]);
+        $secondInvoiceId = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$secondTrip->id}/invoices/generate", [])
+            ->assertCreated()
+            ->json('data.0.id');
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$secondInvoiceId}/payments", [
+                'amount' => 0,
+                'tds_amount' => 6000,
+                'paid_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tds_amount']);
+    }
+
+    public function test_invoice_pdf_displays_shortage_discount_and_tds_deductions(): void
+    {
+        [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
+        $this->actingAs($user);
+
+        $trip = $this->createCompletedTripWithLegs($tenant, $vehicle, $driver, $stations, [
+            ['customer' => $customers['a'], 'freight' => 10000, 'to' => 'b'],
+        ]);
+
+        $generate = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/trips/{$trip->id}/invoices/generate", [])
+            ->assertCreated();
+
+        $invoiceId = $generate->json('data.0.id');
+
+        // Record payment with Shortage / Discount and TDS
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson("/app/api/invoices/{$invoiceId}/payments", [
+                'amount' => 9800,
+                'deduction_amount' => 500,
+                'deduction_reason' => 'Discount',
+                'tds_amount' => 200,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated();
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->get("/app/api/invoices/{$invoiceId}/pdf");
+
+        $response->assertOk();
+
+        $invoice = Invoice::query()->findOrFail($invoiceId);
+        $html = view('invoices.pdf.party-bill-pdf-modern', [
+            'invoice' => $invoice,
+            'company' => $invoice->branch?->company ?? $invoice->tenant,
+            'document_color' => $tenant->documentColor(),
+            'document_text_color' => $tenant->documentTextColor() ?? '#000000',
+            'document_color_soft' => $tenant->documentColorWithOpacity(0.2),
+        ])->render();
+
+        $this->assertStringContainsString('Total Amount', $html);
+        $this->assertStringContainsString('Less: Shortage / Discount (Discount)', $html);
+        $this->assertStringContainsString('- 500/-', $html);
+        $this->assertStringContainsString('Less: TDS u/s 194C', $html);
+        $this->assertStringContainsString('- 200/-', $html);
+        $this->assertStringContainsString('Net Amount Receivable', $html);
+        $this->assertStringContainsString('9,800/-', $html);
+        $this->assertStringContainsString('Amount Received', $html);
+        $this->assertStringContainsString('Balance Due', $html);
+        $this->assertStringContainsString('Invoice Total in words:', $html);
+        $this->assertStringContainsString('Net Amount in words:', $html);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\BranchProvisioner;
 use App\Tenant;
 use App\User;
 use App\UserRole;
@@ -53,8 +54,10 @@ class TestUserSeeder extends Seeder
             $tenant->update(['owner_user_id' => $superAdmin->id]);
         }
 
+        $branch = BranchProvisioner::ensureDefaultBranch($tenant);
+
         foreach ($tenantRoles as $roleId) {
-            $this->seedUser($roleId, $tenant->id);
+            $this->seedUser($roleId, $tenant->id, $branch->id);
         }
 
         $this->command?->info('Test users ready (password: '.self::PASSWORD.')');
@@ -69,7 +72,7 @@ class TestUserSeeder extends Seeder
         );
     }
 
-    private function seedUser(int $roleId, ?string $tenantId): void
+    private function seedUser(int $roleId, ?string $tenantId, ?int $branchId = null): void
     {
         $roleName = UserRole::NAMES[$roleId];
         $displayName = Str::headline(str_replace('_', ' ', $roleName));
@@ -78,6 +81,7 @@ class TestUserSeeder extends Seeder
             ['email' => $this->emailFor($roleId)],
             [
                 'tenant_id' => $tenantId,
+                'branch_id' => $branchId,
                 'name' => 'Test '.$displayName,
                 'password' => self::PASSWORD,
                 'user_role_id' => $roleId,

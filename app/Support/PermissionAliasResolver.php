@@ -23,6 +23,7 @@ final class PermissionAliasResolver
         'driver_advances.manage' => ['drivers.manage'],
         'drivers.archive' => ['drivers.manage'],
         'trips.expenses' => ['trips.edit', 'trips.manage'],
+        'trips.change_status' => ['trips.edit', 'trips.manage'],
     ];
 
     /**

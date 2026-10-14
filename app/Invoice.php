@@ -15,11 +15,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Invoice extends Model
 {
     /** @use HasFactory<\Database\Factories\InvoiceFactory> */
     use BranchScoped;
+
     use HasFactory;
     use SoftDeletes;
     use TenantScoped;
@@ -123,6 +125,11 @@ class Invoice extends Model
         return $this->hasMany(InvoicePayment::class)->orderByDesc('paid_at');
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(InvoiceAuditLog::class)->orderByDesc('performed_at');
+    }
+
     public function deletedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
@@ -135,6 +142,51 @@ class Invoice extends Model
         }
 
         return max(0, (float) $this->total_amount - (float) $this->paid_amount);
+    }
+
+    public function totalTdsDeducted(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->tds_amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('tds_amount'),
+            2
+        );
+    }
+
+    public function totalClaimsDeducted(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->deduction_amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('deduction_amount'),
+            2
+        );
+    }
+
+    public function totalAmountReceived(): float
+    {
+        if ($this->relationLoaded('payments')) {
+            return round((float) $this->payments->sum(fn ($payment) => (float) ($payment->amount ?? 0)), 2);
+        }
+
+        return round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum('amount'),
+            2
+        );
     }
 
     public function isCancelled(): bool
@@ -178,6 +230,14 @@ class Invoice extends Model
             && $this->isLatestForBranch();
     }
 
+    public function canEditCharges(): bool
+    {
+        return ! $this->trashed()
+            && ! $this->isCancelled()
+            && $this->payment_status === InvoicePaymentStatus::Pending
+            && ! $this->hasRecordedPayments();
+    }
+
     public function displayInvoiceNumber(): string
     {
         $number = (string) $this->invoice_number;
@@ -209,7 +269,13 @@ class Invoice extends Model
             return;
         }
 
-        $paid = round((float) $this->payments()->sum('amount'), 2);
+        $paid = round(
+            (float) $this->payments()
+                ->withoutGlobalScopes()
+                ->where('invoice_id', $this->id)
+                ->sum(DB::raw('amount + COALESCE(tds_amount, 0) + COALESCE(deduction_amount, 0)')),
+            2
+        );
         $total = round((float) $this->total_amount, 2);
 
         $status = match (true) {

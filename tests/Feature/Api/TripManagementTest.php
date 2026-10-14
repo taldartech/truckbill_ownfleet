@@ -10,6 +10,7 @@ use App\DriverAssignment;
 use App\Enums\TripExpenseType;
 use App\Enums\TripStatus;
 use App\Enums\TripType;
+use App\Models\TenantSubscription;
 use App\Modules\TripManagement\Services\TripService;
 use App\Station;
 use App\Support\BranchContext;
@@ -98,28 +99,6 @@ class TripManagementTest extends TestCase
             'is_primary' => true,
         ]);
 
-        $cityA = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Mumbai')->firstOrFail();
-        $cityB = City::query()->whereHas('state', fn ($query) => $query->where('code', 'MH'))->where('name', 'Pune')->firstOrFail();
-
-        $secondBranchStations = [
-            'home' => Station::query()->create([
-                'tenant_id' => $tenant->id,
-                'branch_id' => $secondBranch->id,
-                'country_id' => $cityA->state->country_id,
-                'state_id' => $cityA->state_id,
-                'city_id' => $cityA->id,
-                'name' => 'Second Branch Station A',
-            ]),
-            'b' => Station::query()->create([
-                'tenant_id' => $tenant->id,
-                'branch_id' => $secondBranch->id,
-                'country_id' => $cityB->state->country_id,
-                'state_id' => $cityB->state_id,
-                'city_id' => $cityB->id,
-                'name' => 'Second Branch Station B',
-            ]),
-        ];
-
         $firstTripNumber = $this->formatTripNumber($firstBranchId);
 
         $this->actingAs($superAdmin);
@@ -137,7 +116,7 @@ class TripManagementTest extends TestCase
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->withHeader('X-Branch-Id', (string) $secondBranch->id)
-            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $secondDriver, $secondBranchStations, startAt: '2026-06-11 09:00:00'))
+            ->postJson('/api/trips', $this->sampleTripPayload($secondVehicle, $secondDriver, $stations, startAt: '2026-06-11 09:00:00'))
             ->assertCreated()
             ->assertJsonPath('data.trip_number', $secondTripNumber);
 
@@ -1885,11 +1864,18 @@ class TripManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_moderator_cannot_update_trip_details_or_view_archived_list(): void
+    public function test_moderator_can_change_trip_status_but_cannot_update_trip_details_or_view_archived_list(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('moderator');
         $this->actingAs($user);
         $trip = $this->createPersistedTrip($tenant, $vehicle, $driver, $stations);
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->putJson('/api/trips/'.$trip->id, [
+                'status' => TripStatus::InProgress->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', TripStatus::InProgress->value);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->putJson('/api/trips/'.$trip->id, [
@@ -2054,7 +2040,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability');
@@ -2071,7 +2057,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/vehicle-wise');
@@ -2085,7 +2071,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $trip = $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $trip = $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         TripExpense::query()->create([
             'tenant_id' => $tenant->id,
@@ -2275,7 +2261,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->get('/api/reports/trips/export?type=profitability&from_date=2026-06-01&to_date=2026-06-30');
@@ -2292,7 +2278,7 @@ class TripManagementTest extends TestCase
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
-        $this->createSampleTrip($tenant, $vehicle, $driver, $stations);
+        $this->markTripReportable($this->createSampleTrip($tenant, $vehicle, $driver, $stations));
 
         $response = $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/reports/trips/profitability?from_date=2026-01-01&to_date=2026-01-31');
@@ -2334,7 +2320,7 @@ class TripManagementTest extends TestCase
         $response->assertJsonValidationErrors(['route_legs']);
     }
 
-    public function test_create_trip_requires_distance_km_on_each_route_leg(): void
+    public function test_create_trip_rejects_negative_distance_km_on_route_legs(): void
     {
         [$tenant, $user, $vehicle, $driver, $stations, $customer] = $this->createFixtures('admin');
         $this->actingAs($user);
@@ -2351,6 +2337,7 @@ class TripManagementTest extends TestCase
                         'to_station_id' => $stations['b']->id,
                         'customer_id' => $customer->id,
                         'sequence_no' => 1,
+                        'distance_km' => -5,
                         'weight_ton' => 90,
                         'freight_rate' => 200,
                         'freight_amount' => 18000,
@@ -2359,7 +2346,7 @@ class TripManagementTest extends TestCase
                         'from_station_id' => $stations['b']->id,
                         'to_station_id' => $stations['home']->id,
                         'sequence_no' => 2,
-                        'distance_km' => 0,
+                        'distance_km' => -10,
                         'weight_ton' => 0,
                         'freight_amount' => 0,
                     ],
@@ -3646,6 +3633,22 @@ class TripManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        TenantSubscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->toDateString(),
+            'ends_on' => now()->addYear()->toDateString(),
+            'included_branches' => 10,
+            'users_per_branch' => 3,
+            'included_trucks' => 50,
+            'included_lr_credits' => 0,
+            'addon_branches' => 0,
+            'addon_users' => 0,
+            'addon_trucks' => 0,
+            'addon_lr_credits' => 0,
+            'lr_credits_remaining' => 0,
+        ]);
+
         $operationalAttributes = $this->operationalAttributesForTenant($tenant);
 
         $user = User::query()->create([
@@ -3855,5 +3858,17 @@ class TripManagementTest extends TestCase
         TenantContext::setTenantId($tenant->id);
 
         return app(TripService::class)->create($this->sampleTripPayload($vehicle, $driver, $stations, $startAt));
+    }
+
+    private function markTripReportable(Trip $trip, string $reportDate = '2026-06-15'): Trip
+    {
+        $trip->forceFill([
+            'status' => TripStatus::Completed->value,
+            'start_at' => $reportDate.' 09:00:00',
+            'end_at' => $reportDate.' 20:00:00',
+            'actual_arrival_at' => $reportDate.' 18:00:00',
+        ])->save();
+
+        return $trip->fresh();
     }
 }

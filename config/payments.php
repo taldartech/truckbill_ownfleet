@@ -1,4 +1,5 @@
 <?php
+
 return [
     'tds_submission_day' => (int) env('TDS_SUBMISSION_DAY', 3),
 

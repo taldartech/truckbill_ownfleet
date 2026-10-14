@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class NotificationLog extends Model
 {
-    use TenantScoped;
     use BranchScoped;
+    use TenantScoped;
     use UsesUuid;
 
     protected $fillable = [

@@ -4,8 +4,10 @@
     <div v-else-if="loadError" class="alert alert-danger">{{ loadError }}</div>
 
     <template v-else>
+        <GroupDashboard v-if="showGroupDashboard" :user="user" />
+
         <RoleDashboardPlaceholder
-            v-if="showRolePlaceholder"
+            v-else-if="showRolePlaceholder"
             :role="currentRole"
             :user="user"
         />
@@ -65,15 +67,29 @@
 
             <template v-else>
                 <div class="dashboard-page__body">
-                    <div v-if="canViewTrips || canViewTyres" class="dashboard-page__analytics">
+                    <!-- Top KPI Cards: Total Fleet, On Trip, Available, Idle, Maintenance & Utilization, Revenue, Cost, Profit, Outstanding -->
+                    <DashboardTopKpis
+                        :kpi-stats="kpiStats"
+                        :fleet-status-stats="fleetStatusStats"
+                        :trip-stats="tripStats"
+                        :fleet-stats="fleetStats"
+                        :can-view-trips="canViewTrips"
+                        :can-view-fleet="canViewFleet"
+                        @select-tab="onSelectAnalyticsTab"
+                    />
+
+                    <div v-if="canViewTrips || canViewTyres || canViewFleet" class="dashboard-page__analytics">
                         <DashboardAnalyticsChart
-                            v-if="(canViewTrips && tripStats) || (canViewTyres && tyreStats)"
+                            ref="analyticsChartRef"
+                            v-if="(canViewTrips && tripStats) || (canViewTyres && tyreStats) || fleetStatusStats"
                             :trip-stats="tripStats"
                             :tyre-stats="tyreStats"
+                            :fleet-status-stats="fleetStatusStats"
                             :period-from-date="periodFromDate"
                             :period-to-date="periodToDate"
                             :can-view-trips="canViewTrips"
                             :can-view-tyres="canViewTyres"
+                            :can-view-fleet="canViewFleet"
                         />
                     </div>
 
@@ -83,6 +99,7 @@
                             :licenses="compliancePreview.licenses"
                             :due-services="compliancePreview.dueServices"
                             :eway-bills="compliancePreview.ewayBills"
+                            :fuel-alerts="compliancePreview.fuelAlerts"
                             :summary="complianceSummary"
                             :loading="complianceLoading"
                             :can-manage-licenses="canManageDrivers"
@@ -130,7 +147,9 @@ import DashboardAnalyticsChart from '../components/dashboard/DashboardAnalyticsC
 import DashboardComplianceAlertsPanel from '../components/dashboard/DashboardComplianceAlertsPanel.vue';
 import DashboardComplianceModal from '../components/dashboard/DashboardComplianceModal.vue';
 import DashboardDateRangePicker from '../components/dashboard/DashboardDateRangePicker.vue';
+import DashboardTopKpis from '../components/dashboard/DashboardTopKpis.vue';
 import RoleDashboardPlaceholder from '../components/dashboard/RoleDashboardPlaceholder.vue';
+import GroupDashboard from '../components/dashboard/GroupDashboard.vue';
 import VehicleDocumentsModal from '../components/trucks/VehicleDocumentsModal.vue';
 import { useOperationalDataInvalidation } from '../composables/useOperationalDataInvalidation';
 import { usePermissions } from '../composables/usePermissions';
@@ -139,6 +158,8 @@ import { sortDocumentsByUrgency } from '../utils/documentStatus';
 import { formatDate } from '../utils/datetime';
 
 const complianceModalRef = ref(null);
+const analyticsChartRef = ref(null);
+const kpiStats = ref(null);
 
 const { user, canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 
@@ -153,17 +174,19 @@ const greetingMessage = computed(() => {
 const loading = ref(true);
 const loadError = ref('');
 const fleetStats = ref(null);
+const fleetStatusStats = ref(null);
 const tripStats = ref(null);
 const tyreStats = ref(null);
 const requiresCompany = ref(false);
 const complianceLoading = ref(false);
-const compliancePreview = ref({ documents: [], licenses: [], dueServices: [], ewayBills: [] });
+const compliancePreview = ref({ documents: [], licenses: [], dueServices: [], ewayBills: [], fuelAlerts: [] });
 const complianceSummary = ref({
     total: 0,
     expired: 0,
     expiring: 0,
     licenses: 0,
     dueServices: 0,
+    fuelAlerts: 0,
 });
 
 const defaultPeriodRange = defaultDashboardTripRange();
@@ -173,9 +196,17 @@ const dashboardDatePresetKeys = DASHBOARD_DATE_PRESET_KEYS;
 
 const currentRole = computed(() => user.value?.role ?? 'user');
 const showRolePlaceholder = computed(() => !canInCompany('dashboard.view'));
+const showGroupDashboard = computed(
+    () => user.value?.role === 'super_admin' && user.value?.requires_company_selection === true,
+);
 const canViewTrips = computed(() => canInCompany('trips.view'));
 const canViewTyres = computed(() => canInCompany('tyres.view'));
-const showPeriodFilter = computed(() => canViewTrips.value || canViewTyres.value);
+const canViewFleet = computed(
+    () => canInCompany('vehicles.view') || canInCompany('trips.view') || canInCompany('dashboard.view'),
+);
+const showPeriodFilter = computed(
+    () => canViewTrips.value || canViewTyres.value || canViewFleet.value,
+);
 const canCreateDocuments = computed(() => canCreateInCompany('vehicle_documents'));
 const canEditDocuments = computed(() => canEditInCompany('vehicle_documents'));
 const canDeleteDocuments = computed(
@@ -188,7 +219,8 @@ const canViewComplianceAlerts = computed(
         canInCompany('vehicle_documents.view')
         || canInCompany('drivers.view')
         || canInCompany('maintenance.view')
-        || canInCompany('alerts.view'),
+        || canInCompany('alerts.view')
+        || canInCompany('trips.view'),
 );
 
 const quickActions = computed(() => {
@@ -234,29 +266,34 @@ function emptyComplianceSummary() {
         expiring: 0,
         licenses: 0,
         dueServices: 0,
+        fuelAlerts: 0,
     };
 }
 
 function emptyCompliancePreview() {
-    return { documents: [], licenses: [], dueServices: [], ewayBills: [] };
+    return { documents: [], licenses: [], dueServices: [], ewayBills: [], fuelAlerts: [] };
 }
 
-function buildComplianceSummary(documents, licenses, dueServices, ewayBills) {
+function buildComplianceSummary(documents, licenses, dueServices, ewayBills, fuelAlerts = []) {
     const documentAndLicenseItems = [...documents, ...licenses];
     const expiredEwayBills = ewayBills.filter(
         (item) => item.status === 'expired',
+    ).length;
+    const criticalFuelAlerts = fuelAlerts.filter(
+        (item) => item.severity === 'critical',
     ).length;
     const expired = documentAndLicenseItems.filter(
         (item) => item.status === 'expired' || item.status_tier === 'expired',
     ).length;
 
     return {
-        total: documentAndLicenseItems.length + dueServices.length + ewayBills.length,
-        expired: expired + expiredEwayBills ,
+        total: documentAndLicenseItems.length + dueServices.length + ewayBills.length + fuelAlerts.length,
+        expired: expired + expiredEwayBills + criticalFuelAlerts,
         expiring: documentAndLicenseItems.length - expired + ewayBills.filter(item => item.status === 'expiring').length,
         licenses: licenses.length,
         dueServices: dueServices.length,
         ewayBills: ewayBills.length,
+        fuelAlerts: fuelAlerts.length,
     };
 }
 
@@ -265,13 +302,15 @@ function applyComplianceAlerts(alerts) {
     const licenses = sortDocumentsByUrgency(alerts.licenses ?? []);
     const dueServices = alerts.dueServices ?? [];
     const ewayBills = alerts.ewayBills ?? [];
+    const fuelAlerts = alerts.fuelAlerts ?? alerts.fuel_alerts ?? [];
 
-    complianceSummary.value = buildComplianceSummary(documents, licenses, dueServices, ewayBills);
+    complianceSummary.value = buildComplianceSummary(documents, licenses, dueServices, ewayBills, fuelAlerts);
     compliancePreview.value = {
         documents: documents.slice(0, 5),
         licenses: licenses.slice(0, 5),
         dueServices: dueServices.slice(0, 5),
         ewayBills: ewayBills.slice(0, 5),
+        fuelAlerts: fuelAlerts.slice(0, 5),
     };
 }
 
@@ -292,6 +331,13 @@ function closeDocumentsModal() {
     documentsVehicle.value = null;
     initialDocumentId.value = null;
     initialDocumentAction.value = null;
+}
+
+function onSelectAnalyticsTab(tabId) {
+    if (analyticsChartRef.value?.setActiveTab) {
+        analyticsChartRef.value.setActiveTab(tabId);
+        analyticsChartRef.value.$el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
 
 async function onComplianceItemSaved() {
@@ -320,6 +366,11 @@ async function refreshComplianceData() {
 
         if (!alerts.requiresCompany) {
             fleetStats.value = statsResponse.data.fleet ?? fleetStats.value;
+            fleetStatusStats.value =
+                statsResponse.data.fleet_status ??
+                statsResponse.data.fleet?.fleet_status ??
+                fleetStatusStats.value;
+            kpiStats.value = statsResponse.data.kpis ?? kpiStats.value;
             applyComplianceAlerts(alerts);
         }
 
@@ -334,7 +385,7 @@ async function refreshComplianceData() {
 }
 
 async function loadDashboard() {
-    if (showRolePlaceholder.value) {
+    if (showRolePlaceholder.value || showGroupDashboard.value) {
         loading.value = false;
 
         return;
@@ -369,8 +420,11 @@ async function loadDashboard() {
         requiresCompany.value =
             Boolean(data.requires_company) && !userHasCompanyContext.value;
         fleetStats.value = data.fleet ?? null;
+        fleetStatusStats.value =
+            data.fleet_status ?? data.fleet?.fleet_status ?? null;
         tripStats.value = data.trips ?? null;
         tyreStats.value = data.tyres ?? null;
+        kpiStats.value = data.kpis ?? null;
 
         if (!shouldLoadCompliance) {
             compliancePreview.value = emptyCompliancePreview();

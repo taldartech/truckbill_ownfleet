@@ -48,7 +48,7 @@ class MonthlyExpenseController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.create');
 
         $validated = $this->validatedPayload($request);
         $expense = MonthlyExpense::query()->create($validated);
@@ -65,28 +65,28 @@ class MonthlyExpenseController extends Controller
 
     public function update(Request $request, MonthlyExpense $monthlyExpense): JsonResponse
     {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.edit');
 
         $monthlyExpense->update($this->validatedPayload($request));
 
         return response()->json(['data' => $this->toArray($monthlyExpense->fresh())]);
     }
 
-public function destroy(
-    DeleteMonthlyExpenseRequest $request,
-    MonthlyExpense $monthlyExpense
-): Response {
-    $this->authorize('monthly_expenses.manage');
+    public function destroy(
+        DeleteMonthlyExpenseRequest $request,
+        MonthlyExpense $monthlyExpense
+    ): Response {
+        $this->authorize('monthly_expenses.manage');
 
-    $monthlyExpense->update([
-        'deleted_reason' => $request->validated('deleted_reason'),
-        'deleted_by' => $request->user()?->id,
-    ]);
+        $monthlyExpense->update([
+            'deleted_reason' => $request->validated('deleted_reason'),
+            'deleted_by' => $request->user()?->id,
+        ]);
 
-    $monthlyExpense->delete();
+        $monthlyExpense->delete();
 
-    return response()->noContent();
-}
+        return response()->noContent();
+    }
 
     /**
      * @return array{month: string, particulars: string, amount: float|int|string}

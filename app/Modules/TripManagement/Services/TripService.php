@@ -24,6 +24,7 @@ use App\TripRouteLeg;
 use App\TripStatusHistory;
 use App\User;
 use App\Vehicle;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -232,45 +233,64 @@ class TripService
         return DB::transaction(function () use ($trip, $data, $user): Trip {
             $userId = $user?->id;
             $editScope = $this->tripValidation->resolveTripEditScope($trip, $user);
-
-            if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
-                throw ValidationException::withMessages([
-                    'trip' => [
-                        $trip->hasInvoices()
-                            ? 'This trip has invoices and cannot be edited.'
-                            : 'Completed or cancelled trips cannot be edited.',
-                    ],
-                ]);
-            }
-
-            if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
-                $expensesOnlyMessage = $trip->hasInvoices()
-                    ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
-                    : 'Only trip expenses can be updated with your current permissions.';
-
-                if (! array_key_exists('expenses', $data)) {
-                    throw ValidationException::withMessages([
-                        'trip' => [$expensesOnlyMessage],
-                    ]);
-                }
-
-                $nonExpenseKeys = array_diff(array_keys($data), ['expenses']);
-
-                if ($nonExpenseKeys !== []) {
-                    throw ValidationException::withMessages([
-                        'trip' => [$expensesOnlyMessage],
-                    ]);
-                }
-
-                $data = ['expenses' => $data['expenses']];
-            }
-
             $oldStatus = $trip->status;
             $routeLegs = $data['route_legs'] ?? null;
             $pickups = array_key_exists('pickups', $data) ? $data['pickups'] : null;
             $shouldSyncExpenses = array_key_exists('expenses', $data);
             $expenses = $shouldSyncExpenses ? $data['expenses'] : null;
+            $statusChangeRequested = $this->isStatusChangeRequested($trip, $data);
             unset($data['route_legs'], $data['pickups'], $data['expenses'], $data['trip_number']);
+
+            if ($statusChangeRequested && ! ($user?->hasAnyPermission(['trips.change_status', 'trips.edit', 'trips.manage']) ?? false)) {
+                throw new AuthorizationException('You are not allowed to change trip status.');
+            }
+
+            $canEditTrips = $user?->hasPermission('trips.edit') ?? false;
+
+            if ($statusChangeRequested && ! $canEditTrips) {
+                $allowedStatusKeys = ['status', 'start_at', 'start_meter_reading_km', 'end_at', 'end_meter_reading_km'];
+                if ($user?->hasPermission('trips.expenses') && $shouldSyncExpenses) {
+                    // expenses are handled via $expenses
+                }
+                $nonStatusKeys = array_diff(array_keys($data), $allowedStatusKeys);
+
+                if ($nonStatusKeys !== []) {
+                    throw ValidationException::withMessages([
+                        'trip' => ['Only trip status and expenses can be updated with your current permissions.'],
+                    ]);
+                }
+            } elseif (! $statusChangeRequested) {
+
+                if ($editScope === TripValidationService::EDIT_SCOPE_NONE) {
+                    throw ValidationException::withMessages([
+                        'trip' => [
+                            $trip->hasInvoices()
+                                ? 'This trip has invoices and cannot be edited.'
+                                : 'Completed or cancelled trips cannot be edited.',
+                        ],
+                    ]);
+                }
+
+                if ($editScope === TripValidationService::EDIT_SCOPE_EXPENSES_ONLY) {
+                    $expensesOnlyMessage = $trip->hasInvoices()
+                        ? 'This trip has invoices and cannot be edited. Only expenses can be updated.'
+                        : 'Only trip expenses can be updated with your current permissions.';
+
+                    if (! $shouldSyncExpenses) {
+                        throw ValidationException::withMessages([
+                            'trip' => [$expensesOnlyMessage],
+                        ]);
+                    }
+
+                    $nonExpenseKeys = array_keys($data);
+
+                    if ($nonExpenseKeys !== []) {
+                        throw ValidationException::withMessages([
+                            'trip' => [$expensesOnlyMessage],
+                        ]);
+                    }
+                }
+            }
 
             if (isset($data['status'])) {
                 $this->tripValidation->assertStatusTransition($trip, (string) $data['status'], $data);
@@ -278,6 +298,73 @@ class TripService
 
             $vehicleId = (string) $trip->vehicle_id;
             $driverId = (string) $trip->driver_id;
+
+            $oldStatusEnum = $oldStatus instanceof TripStatus ? $oldStatus : TripStatus::tryFrom((string) $oldStatus);
+            $canChangeVehicleAndDriver = $oldStatusEnum === TripStatus::Pending && ! $trip->expenses()->exists();
+
+            if (array_key_exists('vehicle_id', $data) && $data['vehicle_id'] !== null && $data['vehicle_id'] !== '') {
+                if (! $canChangeVehicleAndDriver) {
+                    throw ValidationException::withMessages([
+                        'vehicle_id' => ['Truck cannot be changed after the trip has started or has expenses.'],
+                    ]);
+                }
+
+                $newVehicleId = (string) $data['vehicle_id'];
+                $vehicle = Vehicle::query()
+                    ->with(['currentPrimaryAssignment.driver'])
+                    ->findOrFail($newVehicleId);
+
+                $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
+                $tripStartDate = $tripStartAt !== null
+                    ? \Illuminate\Support\Carbon::parse($tripStartAt)->toDateString()
+                    : null;
+                $tripEndDate = isset($data['end_at']) && $data['end_at'] !== null
+                    ? \Illuminate\Support\Carbon::parse($data['end_at'])->toDateString()
+                    : ($trip->end_at !== null ? $trip->end_at->toDateString() : null);
+
+                if ($newVehicleId !== (string) $trip->vehicle_id) {
+                    $this->vehicleTripEligibility->assertEligibleForTripCreation($vehicle, $tripStartDate, $tripEndDate);
+                }
+
+                $resolvedDriverId = $this->tripValidation->resolvePrimaryDriverIdForVehicle($newVehicleId, $tripStartAt);
+
+                if ($resolvedDriverId === null) {
+                    throw ValidationException::withMessages([
+                        'start_at' => ['No primary driver is assigned to this truck on the trip start date.'],
+                        'vehicle_id' => ['Choose a different truck or adjust the trip start date.'],
+                    ]);
+                }
+
+                if (isset($data['driver_id']) && (string) $data['driver_id'] !== $resolvedDriverId) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => ['Driver must match the primary driver assigned to this truck.'],
+                    ]);
+                }
+
+                $driverId = $resolvedDriverId;
+                $vehicleId = $newVehicleId;
+
+                $this->tripValidation->assertDriverIsActive($driverId);
+                $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $driverId, $tripStartAt);
+
+                $data['vehicle_id'] = $vehicleId;
+                $data['driver_id'] = $driverId;
+            } elseif (array_key_exists('driver_id', $data) && $data['driver_id'] !== null && $data['driver_id'] !== '') {
+                if (! $canChangeVehicleAndDriver) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => ['Driver cannot be changed after the trip has started or has expenses.'],
+                    ]);
+                }
+
+                $newDriverId = (string) $data['driver_id'];
+                $tripStartAt = $data['start_at'] ?? $trip->start_at?->toDateTimeString();
+
+                $this->tripValidation->assertDriverIsActive($newDriverId);
+                $this->tripValidation->assertDriverAssignedToVehicle($vehicleId, $newDriverId, $tripStartAt);
+
+                $driverId = $newDriverId;
+                $data['driver_id'] = $driverId;
+            }
             $tripType = $trip->trip_type instanceof TripType
                 ? $trip->trip_type->value
                 : (string) ($trip->trip_type ?? TripType::RoundTrip->value);
@@ -1074,7 +1161,6 @@ class TripService
         $trip->update([
             'total_distance_km' => $totalDistanceKm,
             'loaded_distance_km' => 0,
-            'half_loaded_distance_km' => 0,
             'empty_distance_km' => 0,
             'total_freight_amount' => $freightTotal,
             'total_expense_amount' => $expenseTotal,
@@ -1160,5 +1246,21 @@ class TripService
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isStatusChangeRequested(Trip $trip, array $data): bool
+    {
+        if (! isset($data['status'])) {
+            return false;
+        }
+
+        $currentStatus = $trip->status instanceof TripStatus
+            ? $trip->status->value
+            : strtoupper((string) $trip->status);
+
+        return strtoupper((string) $data['status']) !== $currentStatus;
     }
 }

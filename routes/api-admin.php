@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
-use App\Http\Middleware\VerifyOnboardingSignature;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/admin/subscriptions')

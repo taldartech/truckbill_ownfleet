@@ -21,16 +21,16 @@
     @endif
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192"  href="{{ asset('favicon/android-icon-192x192.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon/favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}">
+    <link rel="icon" type="image/png" sizes="192x192"  href="{{ versioned_asset('favicon/android-icon-192x192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ versioned_asset('favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ versioned_asset('favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ versioned_asset('favicon/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ versioned_asset('favicon/site.webmanifest') }}">
     <!-- End Favicon -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="/css/brand.css">
+    <link rel="stylesheet" href="{{ versioned_asset('css/brand.css') }}">
 
     <style>
         label {

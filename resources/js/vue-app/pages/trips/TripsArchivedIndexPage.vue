@@ -9,7 +9,7 @@
         <AppIndexListCard title="Archived Trips" :loading="loading" loading-text="Loading archived trips…">
             <template #toolbar>
                 <RouterLink :to="{ name: 'trips.index' }" class="btn btn-back btn-sm">
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                    <i class="bi bi-arrow-left" style="color: black !important;" aria-hidden="true"></i>
                     Back to Trip List
                 </RouterLink>
             </template>

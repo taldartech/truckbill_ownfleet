@@ -1,0 +1,237 @@
+.group-panel {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    background: #ffffff;
+    border: 1px solid var(--brand-border, #e2e8f0);
+    border-radius: 1rem;
+    padding: 1rem 1.15rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.group-panel__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px dashed var(--brand-border, #e2e8f0);
+}
+
+.group-panel__title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.group-panel__title i {
+    color: var(--brand-primary, #2fb36f);
+}
+
+.group-panel__subtitle {
+    margin: 0.15rem 0 0;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.group-panel__section-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.group-panel__empty {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 1rem 0.5rem;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.group-panel__empty i {
+    font-size: 1.4rem;
+    color: #cbd5e1;
+}
+
+.group-stat-grid {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.group-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 0.85rem;
+    background: #f8fafc;
+    text-align: left;
+}
+
+button.group-stat {
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button.group-stat:hover {
+    border-color: var(--brand-primary, #2fb36f);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.group-stat__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.group-stat__value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.group-stat__hint {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.group-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+}
+
+.group-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.group-list__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.82rem;
+}
+
+.group-list__item:last-child {
+    border-bottom: none;
+}
+
+.group-list__primary {
+    min-width: 0;
+    font-weight: 600;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.group-list__secondary {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.group-list__value {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.group-share-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.group-share-bar__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--brand-primary, #2fb36f);
+}
+
+.group-chip-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #334155;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.group-chip-btn:hover:not(:disabled) {
+    border-color: var(--brand-primary, #2fb36f);
+    color: var(--brand-primary-dark, #23965c);
+}
+
+.group-chip-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.group-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    background: #f1f5f9;
+    padding: 0.25rem;
+    border-radius: 999px;
+}
+
+.group-tabs__tab {
+    border: none;
+    background: transparent;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.group-tabs__tab--active {
+    background: #ffffff;
+    color: var(--brand-primary-dark, #23965c);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}

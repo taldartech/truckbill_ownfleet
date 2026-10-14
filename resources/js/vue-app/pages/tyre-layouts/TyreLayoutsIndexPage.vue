@@ -6,14 +6,27 @@
 
         <AppIndexListCard title="Tyre Layouts" :loading="loading" loading-text="Loading layouts…">
             <template #toolbar>
-                <AppIndexHeaderButton
-                    v-if="canCreate"
-                    icon="plus"
-                    aria-label="Add Tyre Layout"
-                    @click="openCreate"
-                >
-                    Add Tyre Layout
-                </AppIndexHeaderButton>
+                <div class="d-flex align-items-center gap-2">
+                    <button
+                        v-if="canCreate && layouts.length === 0 && !needsCompanySelection"
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        :disabled="loadingDefaults || loading"
+                        title="Load standard truck tyre layout presets"
+                        @click="handleSeedDefaults"
+                    >
+                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': loadingDefaults }"></i>
+                        Load Presets
+                    </button>
+                    <AppIndexHeaderButton
+                        v-if="canCreate"
+                        icon="plus"
+                        aria-label="Add Tyre Layout"
+                        @click="openCreate"
+                    >
+                        Add Tyre Layout
+                    </AppIndexHeaderButton>
+                </div>
             </template>
 
             <AppIndexCollapsibleFilters
@@ -49,7 +62,41 @@
                 </thead>
                 <tbody>
                     <tr v-if="layouts.length === 0" class="app-index-empty-row">
-                        <td colspan="7" class="text-center text-muted py-4">No layouts found.</td>
+                        <td colspan="7" class="text-center py-5">
+                            <div v-if="needsCompanySelection" class="py-2">
+                                <i class="bi bi-building-exclamation fs-1 text-warning mb-2 d-block"></i>
+                                <h6 class="fw-bold">Company Context Required</h6>
+                                <p class="text-muted small mb-3">Please select a company and branch before viewing or adding tyre layouts.</p>
+                                <RouterLink :to="{ name: 'branches.index' }" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-arrow-right-circle me-1"></i> Go to Branches
+                                </RouterLink>
+                            </div>
+                            <div v-else class="py-2">
+                                <i class="bi bi-grid-3x3-gap fs-1 text-muted mb-2 d-block"></i>
+                                <h6 class="fw-bold">No Tyre Layouts Found</h6>
+                                <p class="text-muted small mb-3">Create a custom layout or load the standard truck presets (6 to 22 tyres).</p>
+                                <div class="d-inline-flex gap-2">
+                                    <button
+                                        v-if="canCreate"
+                                        type="button"
+                                        class="btn btn-primary btn-sm"
+                                        @click="openCreate"
+                                    >
+                                        <i class="bi bi-plus-lg me-1"></i> Add Tyre Layout
+                                    </button>
+                                    <button
+                                        v-if="canCreate"
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        :disabled="loadingDefaults"
+                                        @click="handleSeedDefaults"
+                                    >
+                                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': loadingDefaults }"></i>
+                                        Load Standard Presets
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                     <tr v-for="(layout, index) in layouts" :key="layout.id">
                         <td>{{ (pagination.currentPage - 1) * pagination.perPage + index + 1 }}</td>
@@ -250,6 +297,7 @@ import {
     createTyreLayout,
     deleteTyreLayout,
     listTyreLayouts,
+    seedDefaultTyreLayouts,
     updateTyreLayout,
 } from '../../api/tyreLayouts';
 import TyreLayoutAxleFields from '../../components/tyre-layouts/TyreLayoutAxleFields.vue';
@@ -346,6 +394,23 @@ function clearFilters() {
     search.value = '';
     pagination.currentPage = 1;
     loadLayouts(1);
+}
+
+const loadingDefaults = ref(false);
+
+async function handleSeedDefaults() {
+    try {
+        guardCompanyContext();
+        loadingDefaults.value = true;
+        await seedDefaultTyreLayouts();
+        toast.success('Standard tyre layouts loaded successfully.');
+        await loadLayouts(1);
+    } catch (e) {
+        handleCompanyContextError(e);
+        toast.error(e?.response?.data?.message ?? 'Could not load standard tyre layouts.');
+    } finally {
+        loadingDefaults.value = false;
+    }
 }
 
 const togglingId = ref(null);

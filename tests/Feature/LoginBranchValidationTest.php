@@ -130,7 +130,7 @@ class LoginBranchValidationTest extends TestCase
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect('/app/branches');
+        ])->assertRedirect('/app/dashboard');
 
         $this->assertAuthenticatedAs($user);
     }

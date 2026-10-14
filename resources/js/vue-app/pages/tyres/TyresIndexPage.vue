@@ -25,6 +25,14 @@
                 </RouterLink>
                 <AppIndexHeaderButton
                     v-if="canManage"
+                    icon="upload"
+                    aria-label="Bulk Upload Tyres"
+                    @click="showBulkUpload = true"
+                >
+                    Bulk Upload
+                </AppIndexHeaderButton>
+                <AppIndexHeaderButton
+                    v-if="canManage"
                     icon="plus"
                     aria-label="Add tyre"
                     @click="openCreate"
@@ -380,6 +388,16 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSaveTyre"
         />
+
+        <BulkUploadModal
+            v-model:show="showBulkUpload"
+            title="Bulk Upload Tyres"
+            upload-url="/app/api/tyres/bulk-upload"
+            template-download-url="/app/api/tyres/bulk-upload/template"
+            template-file-name="tyres_bulk_upload_template.xlsx"
+            :columns="bulkUploadColumns"
+            @success="loadTyres(1)"
+        />
     </div>
 </template>
 
@@ -390,6 +408,7 @@ import { listAllVehicles } from '../../api/vehicles';
 import { createTyre, getTyre, listTyres, updateTyre } from '../../api/tyres';
 import AppModal from '../../components/ui/AppModal.vue';
 import TyreActionConfirmModal from '../../components/tyres/TyreActionConfirmModal.vue';
+import BulkUploadModal from '../../components/ui/BulkUploadModal.vue';
 import AppButton from '../../components/ui/AppButton.vue';
 import AppDateInput from '../../components/ui/AppDateInput.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -522,7 +541,22 @@ let syncingFilters = false;
 let tyresRequestId = 0;
 const vehicles = ref([]);
 const showModal = ref(false);
+const showBulkUpload = ref(false);
 const showSaveConfirm = ref(false);
+
+const bulkUploadColumns = [
+    { name: 'serial_number', label: 'Tyre Serial Number', required: true, description: 'Unique tyre serial number' },
+    { name: 'brand', label: 'Brand', required: true, description: 'Tyre manufacturer / brand (e.g. MRF, Apollo)' },
+    { name: 'size', label: 'Size', required: true, description: 'Tyre size specification (e.g. 295/80R22.5)' },
+    { name: 'purchase_date', label: 'Purchase Date', required: true, description: 'Date of tyre purchase (YYYY-MM-DD)' },
+    { name: 'purchase_cost', label: 'Purchase Cost', required: false, description: 'Purchase price / cost in ₹' },
+    { name: 'expected_life_km', label: 'Expected Life KM', required: false, description: 'Expected life mileage (default: 40000)' },
+    { name: 'tyre_type', label: 'Tyre Type', required: false, description: 'RADIAL, BIAS, TUBELESS, TUBED, or OTHER' },
+    { name: 'warranty_valid_until', label: 'Warranty Valid Until', required: false, description: 'Warranty expiry date (YYYY-MM-DD)' },
+    { name: 'warranty_km', label: 'Warranty KM', required: false, description: 'Warranty limit in KM' },
+    { name: 'current_km', label: 'Current KM', required: false, description: 'Current odometer / running KM (default: 0)' },
+    { name: 'notes', label: 'Notes', required: false, description: 'Additional remarks or notes' },
+];
 const pendingSaveMode = ref('save');
 const editing = ref(null);
 const serialNumberInputRef = ref(null);

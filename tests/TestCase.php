@@ -70,6 +70,13 @@ abstract class TestCase extends BaseTestCase
             return;
         }
 
+        if ($user->tenant_id !== null) {
+            $tenant = $user->tenant ?? Tenant::query()->find($user->tenant_id);
+            if ($tenant && ! \App\Models\TenantSubscription::query()->where('tenant_id', $tenant->id)->exists()) {
+                $this->provisionActiveSubscription($tenant);
+            }
+        }
+
         if (RoleHierarchy::requiresBranchAssignment((int) $user->user_role_id) && $user->tenant_id !== null) {
             $tenant = $user->tenant ?? Tenant::query()->find($user->tenant_id);
             $branch = BranchProvisioner::ensureDefaultBranch($tenant);
@@ -100,6 +107,12 @@ abstract class TestCase extends BaseTestCase
 
     protected function assignBranchIfRequired(User $user, ?Tenant $tenant = null): User
     {
+        $tenant ??= $user->tenant ?? Tenant::query()->find($user->tenant_id);
+
+        if ($tenant && ! \App\Models\TenantSubscription::query()->where('tenant_id', $tenant->id)->exists()) {
+            $this->provisionActiveSubscription($tenant);
+        }
+
         if (! RoleHierarchy::requiresBranchAssignment((int) $user->user_role_id)) {
             return $user;
         }
@@ -109,8 +122,6 @@ abstract class TestCase extends BaseTestCase
 
             return $user;
         }
-
-        $tenant ??= $user->tenant ?? Tenant::query()->find($user->tenant_id);
 
         $branch = BranchProvisioner::ensureDefaultBranch($tenant);
         $user->update(['branch_id' => $branch->id]);
@@ -125,6 +136,10 @@ abstract class TestCase extends BaseTestCase
     protected function operationalAttributesForTenant(Tenant $tenant): array
     {
         $branch = BranchProvisioner::ensureDefaultBranch($tenant);
+
+        if (! \App\Models\TenantSubscription::query()->where('tenant_id', $tenant->id)->exists()) {
+            $this->provisionActiveSubscription($tenant);
+        }
 
         return [
             'tenant_id' => $tenant->id,
@@ -146,5 +161,18 @@ abstract class TestCase extends BaseTestCase
         $sequencePart = str_pad((string) $sequence, max(4, strlen((string) $sequence)), '0', STR_PAD_LEFT);
 
         return sprintf('TRIP-BR%03d-%d-%s', $branchId, $year, $sequencePart);
+    }
+
+    protected function provisionActiveSubscription(Tenant $tenant, array $attributes = []): \App\Models\TenantSubscription
+    {
+        return \App\Models\TenantSubscription::query()->create(array_merge([
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'starts_on' => now()->subDay()->toDateString(),
+            'ends_on' => now()->addMonth()->toDateString(),
+            'included_branches' => 5,
+            'users_per_branch' => 10,
+            'included_trucks' => 50,
+        ], $attributes));
     }
 }

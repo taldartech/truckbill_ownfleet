@@ -44,6 +44,18 @@
                                     :invalid="Boolean(props.fieldErrors.tyre_layout)"
                                     :error-message="props.fieldErrors.tyre_layout?.[0] ?? ''"
                                 />
+                                <div v-if="tyreLayoutOptions.length === 0" class="mt-1 d-flex align-items-center justify-content-between">
+                                    <span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>No layouts found.</span>
+                                    <button
+                                        type="button"
+                                        class="btn btn-link btn-sm p-0 text-decoration-none"
+                                        :disabled="seedingLayouts"
+                                        @click="loadStandardLayouts"
+                                    >
+                                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': seedingLayouts }"></i>
+                                        Load standard layouts
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -219,7 +231,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import AppModal from '../ui/AppModal.vue';
-import { listAllTyreLayouts } from '../../api/tyreLayouts';
+import { listAllTyreLayouts, seedDefaultTyreLayouts } from '../../api/tyreLayouts';
 import { listAllTruckTypes } from '../../api/truckTypes';
 import {
     VEHICLE_REGISTRATION_ERROR,
@@ -378,11 +390,32 @@ function fillForm(vehicle) {
     };
 }
 
+const seedingLayouts = ref(false);
+
 async function loadTyreLayoutOptions() {
     try {
         tyreLayoutOptions.value = await listAllTyreLayouts({ activeOnly: true });
+
+        if (!form.value.tyre_layout && !isEdit.value && tyreLayoutOptions.value.length > 0) {
+            const defaultOpt = tyreLayoutOptions.value.find((o) => o.code === 'TYRES_10') ?? tyreLayoutOptions.value[0];
+            if (defaultOpt) {
+                form.value.tyre_layout = defaultOpt.code;
+            }
+        }
     } catch {
         tyreLayoutOptions.value = [];
+    }
+}
+
+async function loadStandardLayouts() {
+    seedingLayouts.value = true;
+    try {
+        await seedDefaultTyreLayouts();
+        await loadTyreLayoutOptions();
+    } catch {
+        // Continue gracefully
+    } finally {
+        seedingLayouts.value = false;
     }
 }
 

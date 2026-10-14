@@ -602,6 +602,11 @@ class AttendanceExceptionFlowTest extends TestCase
         ]);
 
         SelectedCompanySession::set($tenant->id);
+        $branch = \App\Branch::query()->where('company_id', $tenant->id)->first();
+        if ($branch !== null) {
+            \App\Support\SelectedBranchSession::set((int) $branch->id);
+            \App\Support\BranchContext::setBranchId((int) $branch->id);
+        }
         Sanctum::actingAs($superAdmin);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
@@ -684,8 +689,13 @@ class AttendanceExceptionFlowTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+        $branch = \App\Support\BranchProvisioner::ensureDefaultBranch($tenant);
+        \App\Support\BranchContext::setBranchId($branch->id);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -694,6 +704,7 @@ class AttendanceExceptionFlowTest extends TestCase
 
         $vehicle = Vehicle::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $branch->id,
             'registration_number' => 'MH12AB9999',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 0,

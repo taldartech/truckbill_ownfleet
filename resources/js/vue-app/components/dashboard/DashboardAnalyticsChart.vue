@@ -100,7 +100,7 @@
                 </div>
 
                 <p class="trip-profit-card__hint">
-                    Completed trips only. Profit = freight − trip expenses − monthly expenses.
+                    Period uses the trip start date. Includes non-cancelled trips. Freight includes custom amount. Profit = freight − trip expenses.
                 </p>
             </div>
 
@@ -265,6 +265,15 @@
             </div>
         </div>
 
+        <!-- Fleet Status Tab -->
+        <DashboardFleetStatusTab
+            v-if="activeTab === 'fleet'"
+            :fleet-status="fleetStatusStats"
+            :period-from-date="periodFromDate"
+            :period-to-date="periodToDate"
+            :period-label="periodLabel"
+        />
+
         <!-- Custom Tooltip -->
         <div
             v-if="tooltip.show"
@@ -281,6 +290,7 @@
 import { computed, ref } from 'vue';
 import { formatMoney } from '../../utils/formatMoney';
 import { formatDateRangeLabel } from '../../utils/dateRangePresets';
+import DashboardFleetStatusTab from './DashboardFleetStatusTab.vue';
 
 const props = defineProps({
     tripStats: {
@@ -288,6 +298,10 @@ const props = defineProps({
         default: () => ({}),
     },
     tyreStats: {
+        type: Object,
+        default: () => ({}),
+    },
+    fleetStatusStats: {
         type: Object,
         default: () => ({}),
     },
@@ -307,6 +321,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    canViewFleet: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const periodLabel = computed(() =>
@@ -315,6 +333,9 @@ const periodLabel = computed(() =>
 
 const analyticsTabs = computed(() => {
     const tabs = [];
+    if (props.canViewFleet) {
+        tabs.push({ id: 'fleet', label: 'Fleet Status' });
+    }
     if (props.canViewTrips) {
         tabs.push({ id: 'financials', label: 'Trips & Financials' });
     }
@@ -324,7 +345,11 @@ const analyticsTabs = computed(() => {
     return tabs;
 });
 
-const activeTab = ref(props.canViewTrips ? 'financials' : 'tyres');
+const activeTab = ref(
+    props.canViewFleet
+        ? 'fleet'
+        : (props.canViewTrips ? 'financials' : 'tyres'),
+);
 
 // Tooltip State
 const tooltip = ref({
@@ -342,7 +367,6 @@ function formatCurrency(value) {
 // Tab 1: Financials Computed
 const totalFreight = computed(() => Number(props.tripStats?.total_freight_amount ?? 0));
 const totalExpenses = computed(() => Number(props.tripStats?.total_expense_amount ?? 0));
-const monthlyExpenses = computed(() => Number(props.tripStats?.monthly_expenses ?? 0));
 const profitAmount = computed(() => Number(props.tripStats?.profit_amount ?? 0));
 
 const profitMargin = computed(() => {
@@ -564,6 +588,16 @@ function showTooltip(type, event) {
 function hideTooltip() {
     tooltip.value.show = false;
 }
+
+function setActiveTab(tab) {
+    if (analyticsTabs.value.some((t) => t.id === tab)) {
+        activeTab.value = tab;
+    }
+}
+
+defineExpose({
+    setActiveTab,
+});
 </script>
 
 <style scoped>

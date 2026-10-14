@@ -19,6 +19,9 @@ class InvoicePaymentFactory extends Factory
     {
         return [
             'amount' => fake()->randomFloat(2, 100, 5000),
+            'tds_amount' => 0,
+            'deduction_amount' => 0,
+            'deduction_reason' => null,
             'paid_at' => now()->toDateString(),
             'payment_method' => 'bank_transfer',
             'notes' => null,

@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 class UpdateTripRequest extends FormRequest
 {
     use ValidatesTripRoutePickupSequence;
+
     public function authorize(): bool
     {
         $trip = $this->route('trip');
@@ -58,9 +59,17 @@ class UpdateTripRequest extends FormRequest
                 : ($trip?->trip_type ?? '')
         )) === TripType::MultiPoint->value;
 
+        $isPending = ($trip?->status instanceof TripStatus ? $trip->status : TripStatus::tryFrom((string) $trip?->status)) === TripStatus::Pending;
+        $hasExpenses = $trip?->expenses()->exists() ?? false;
+        $canChangeVehicleAndDriver = $isPending && ! $hasExpenses;
+
         return [
-            'vehicle_id' => ['prohibited'],
-            'driver_id' => ['prohibited'],
+            'vehicle_id' => $canChangeVehicleAndDriver
+                ? ['sometimes', 'required', 'uuid', 'exists:vehicles,id']
+                : ['prohibited'],
+            'driver_id' => $canChangeVehicleAndDriver
+                ? ['sometimes', 'nullable', 'uuid', 'exists:drivers,id']
+                : ['prohibited'],
             'substitute_driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
             'trip_number' => ['prohibited'],
             'trip_type' => ['prohibited'],

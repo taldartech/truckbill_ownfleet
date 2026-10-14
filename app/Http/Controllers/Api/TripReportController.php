@@ -39,8 +39,15 @@ class TripReportController extends Controller
     public function expenseSummary(Request $request): JsonResponse
     {
         $this->authorize('trip_reports.view');
+        $filters = $this->filters($request);
+        $rows = $this->tripReportService->expenseSummary($filters);
 
-        return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->expenseSummary($filters));
+        return ReportPaginator::paginate($request, $rows, [
+            'summary' => array_merge($this->tripReportService->financialSummary($filters), [
+                'trip_count' => count(array_unique(array_filter(array_column($rows, 'trip_id')))),
+                'total_expense_amount' => round((float) array_sum(array_column($rows, 'amount')), 2),
+            ]),
+        ]);
     }
 
     public function routeProfitability(Request $request): JsonResponse
@@ -48,6 +55,19 @@ class TripReportController extends Controller
         $this->authorize('trip_reports.view');
 
         return $this->reportResponse($request, fn (array $filters): array => $this->tripReportService->routeProfitability($filters));
+    }
+
+    public function fuelPerformance(Request $request): JsonResponse
+    {
+        $this->authorize('trip_reports.view');
+        $filters = $this->filters($request);
+
+        $rows = $this->tripReportService->fuelPerformance($filters);
+        $summary = $this->tripReportService->fuelPerformanceSummary($filters);
+
+        return ReportPaginator::paginate($request, $rows, [
+            'summary' => $summary,
+        ]);
     }
 
     public function export(Request $request): BinaryFileResponse
@@ -58,6 +78,7 @@ class TripReportController extends Controller
         $filters = $this->filters($request);
 
         $rows = match ($type) {
+            'fuel-performance' => $this->tripReportService->fuelPerformance($filters),
             'vehicle-wise' => $this->tripReportService->vehicleWise($filters),
             'driver-wise' => $this->tripReportService->driverWise($filters),
             'expense-summary' => $this->tripReportService->expenseSummary($filters),
@@ -94,6 +115,8 @@ class TripReportController extends Controller
             'from_date',
             'to_date',
             'customer_name',
+            'expense_type',
+            'dimension',
         ]);
     }
 }

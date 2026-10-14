@@ -22,7 +22,7 @@ class CustomerNameUniquenessTest extends TestCase
         $this->seedRolesAndPermissions();
     }
 
-    public function test_cannot_create_customer_with_duplicate_name_in_same_city(): void
+    public function test_can_create_customer_with_duplicate_name_in_same_city(): void
     {
         [$tenant, $user] = $this->createTenantUser('admin');
         Sanctum::actingAs($user);
@@ -46,8 +46,7 @@ class CustomerNameUniquenessTest extends TestCase
                 ...$payload,
                 'contact_number' => '9876543211',
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
+            ->assertCreated();
     }
 
     public function test_same_customer_name_allowed_in_different_cities_within_tenant(): void
