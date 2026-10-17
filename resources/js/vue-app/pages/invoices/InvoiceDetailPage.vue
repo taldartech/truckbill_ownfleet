@@ -31,6 +31,9 @@
                     <span v-if="invoice.is_archived && invoice.deletion_reason" class="d-block mt-1">
                         Reason: {{ invoice.deletion_reason }}
                     </span>
+                    <span v-if="invoice.is_cancelled && invoice.cancellation_reason" class="d-block mt-1 text-danger">
+                        <strong>Cancellation Reason:</strong> {{ invoice.cancellation_reason }}
+                    </span>
                 </p>
             </div>
             <div v-if="invoice && !invoice.is_archived" class="d-flex flex-wrap gap-2">
@@ -346,6 +349,14 @@
                     <div class="card mt-3">
                         <div class="card-header"><strong>Details</strong></div>
                         <div class="card-body small">
+                            <div v-if="invoice.is_cancelled" class="alert alert-danger py-2 px-3 mb-3 small">
+                                <div class="fw-bold"><i class="bi bi-x-circle me-1"></i> Invoice Cancelled</div>
+                                <div v-if="invoice.cancelled_at" class="text-muted mt-1">Date: {{ formatDate(invoice.cancelled_at) }}</div>
+                                <div v-if="invoice.cancelled_by?.name" class="text-muted">By: {{ invoice.cancelled_by.name }}</div>
+                                <div v-if="invoice.cancellation_reason" class="mt-1 text-break">
+                                    <strong>Remark:</strong> {{ invoice.cancellation_reason }}
+                                </div>
+                            </div>
                             <div class="mb-2">
                                 <span class="text-muted">Invoice Date</span>
                                 <div>{{ formatDate(invoice.invoice_date) }}</div>
@@ -400,10 +411,34 @@
             :message="cancelConfirmMessage"
             confirm-label="Yes, Cancel Invoice"
             confirm-variant="danger"
+            confirm-icon="bi bi-x-circle"
+            icon="bi bi-x-circle"
+            icon-tone="danger"
             :loading="cancelling"
+            :confirm-disabled="!canConfirmCancel"
             @cancel="closeCancelConfirm"
             @confirm="confirmCancel"
-        />
+        >
+            <div class="text-start mt-3">
+                <label class="form-label fw-semibold small mb-1">
+                    Cancellation Remark <span class="text-danger">*</span>
+                </label>
+                <textarea
+                    v-model="cancellationReason"
+                    class="form-control"
+                    rows="3"
+                    placeholder="Enter reason for cancelling this invoice..."
+                    :class="{ 'is-invalid': Boolean(cancellationReasonError) }"
+                    :disabled="cancelling"
+                ></textarea>
+                <div v-if="cancellationReasonError" class="invalid-feedback d-block">
+                    {{ cancellationReasonError }}
+                </div>
+                <div v-else class="form-text small">
+                    Please provide a clear remark explaining why this invoice is being cancelled.
+                </div>
+            </div>
+        </AppConfirmModal>
         <InvoiceEditChargesModal
             ref="editChargesModalRef"
             :show="showEditChargesModal"
@@ -452,11 +487,17 @@ const cancelling = ref(false);
 const deleting = ref(false);
 const showPaymentModal = ref(false);
 const showCancelConfirm = ref(false);
+const cancellationReason = ref('');
+const cancellationReasonError = ref('');
 const showEditChargesModal = ref(false);
 const savingCharges = ref(false);
 const editChargesFormError = ref('');
 const editChargesFieldErrors = ref({});
 const editChargesModalRef = ref(null);
+
+const canConfirmCancel = computed(() => {
+    return Boolean(cancellationReason.value?.trim()) && !cancelling.value;
+});
 
 const canEditCharges = computed(
     () => Boolean(invoice.value?.can_edit_charges) && canInCompany('invoices.edit'),
@@ -696,11 +737,18 @@ async function handlePaymentSaved() {
 }
 
 function openCancelConfirm() {
+    cancellationReason.value = '';
+    cancellationReasonError.value = '';
     showCancelConfirm.value = true;
 }
 
 function closeCancelConfirm() {
+    if (cancelling.value) {
+        return;
+    }
     showCancelConfirm.value = false;
+    cancellationReason.value = '';
+    cancellationReasonError.value = '';
 }
 
 async function confirmCancel() {
@@ -708,15 +756,31 @@ async function confirmCancel() {
         return;
     }
 
+    const reason = cancellationReason.value?.trim() ?? '';
+    if (!reason) {
+        cancellationReasonError.value = 'Please provide a reason for cancelling this invoice.';
+        return;
+    }
+
     cancelling.value = true;
+    cancellationReasonError.value = '';
 
     try {
-        await cancelInvoice(invoice.value.id);
+        await cancelInvoice(invoice.value.id, {
+            cancellation_reason: reason,
+            remark: reason,
+        });
         toast.success('Invoice cancelled.');
-        closeCancelConfirm();
+        showCancelConfirm.value = false;
+        cancellationReason.value = '';
         await loadInvoice();
     } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not cancel invoice.');
+        const message = error.response?.data?.errors?.cancellation_reason?.[0]
+            ?? error.response?.data?.errors?.remark?.[0]
+            ?? error.response?.data?.message
+            ?? 'Could not cancel invoice.';
+        cancellationReasonError.value = message;
+        toast.error(message);
     } finally {
         cancelling.value = false;
     }

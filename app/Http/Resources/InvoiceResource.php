@@ -77,6 +77,15 @@ class InvoiceResource extends JsonResource
             'total_tds_deducted' => $this->totalTdsDeducted(),
             'total_claims_deducted' => $this->totalClaimsDeducted(),
             'is_cancelled' => $this->isCancelled(),
+            'cancelled_at' => $this->when($this->isCancelled(), fn () => ApiDateTime::toIso($this->cancelled_at)),
+            'cancellation_reason' => $this->when($this->isCancelled(), $this->cancellation_reason),
+            'cancelled_by' => $this->when(
+                $this->isCancelled() && $this->relationLoaded('cancelledBy'),
+                fn () => $this->cancelledBy ? [
+                    'id' => $this->cancelledBy->id,
+                    'name' => $this->cancelledBy->name,
+                ] : null,
+            ),
             'is_overdue' => $this->isOverdue(),
             'can_delete' => $this->canBeSoftDeleted(),
             'is_archived' => $this->trashed(),

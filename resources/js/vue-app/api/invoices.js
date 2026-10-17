@@ -60,8 +60,10 @@ export async function recordPayment(invoiceId, payload) {
     return unwrapResource(data);
 }
 
-export async function cancelInvoice(id) {
-    await api.delete(`${invoicesBase}/${id}`);
+export async function cancelInvoice(id, payload = {}) {
+    await api.delete(`${invoicesBase}/${id}`, {
+        data: payload,
+    });
 }
 
 export async function deleteInvoice(id, { deletion_reason } = {}) {

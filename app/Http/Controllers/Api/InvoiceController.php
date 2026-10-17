@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CancelInvoiceRequest;
 use App\Http\Requests\DeleteInvoiceRequest;
 use App\Http\Requests\StoreInvoicePaymentRequest;
 use App\Http\Requests\TripInvoicesRequest;
@@ -136,11 +137,15 @@ class InvoiceController extends Controller
         return response()->noContent();
     }
 
-    public function destroy(Invoice $invoice, Request $request): Response
+    public function destroy(CancelInvoiceRequest $request, Invoice $invoice): Response
     {
         $this->authorize('delete', $invoice);
 
-        $this->invoiceService->cancelInvoice($invoice, $request->user());
+        $this->invoiceService->cancelInvoice(
+            $invoice,
+            (string) $request->validated('cancellation_reason'),
+            $request->user(),
+        );
 
         return response()->noContent();
     }

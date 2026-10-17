@@ -71,6 +71,7 @@ class InvoiceService
                 'customerState',
                 'branch:id,branch_name,company_id',
                 'deletedBy:id,name',
+                'cancelledBy:id,name',
             ])
             ->findOrFail($id);
     }
@@ -722,9 +723,11 @@ class InvoiceService
         });
     }
 
-    public function cancelInvoice(Invoice $invoice, ?User $user = null): void
+    public function cancelInvoice(Invoice $invoice, ?string $cancellationReason = null, ?User $user = null): void
     {
-        DB::transaction(function () use ($invoice, $user): void {
+        $reason = trim((string) ($cancellationReason ?: 'Invoice cancelled'));
+
+        DB::transaction(function () use ($invoice, $reason, $user): void {
             if ($invoice->isCancelled()) {
                 throw ValidationException::withMessages([
                     'invoice' => ['This invoice is already cancelled.'],
@@ -741,13 +744,28 @@ class InvoiceService
 
             $invoice->forceFill([
                 'payment_status' => InvoicePaymentStatus::Cancelled,
+                'cancelled_at' => now(),
+                'cancelled_by' => $user?->id,
+                'cancellation_reason' => $reason,
             ])->save();
+
+            InvoiceAuditLog::query()->create([
+                'tenant_id' => $invoice->tenant_id,
+                'branch_id' => $invoice->branch_id,
+                'invoice_id' => $invoice->id,
+                'event_type' => 'cancelled',
+                'payload' => [
+                    'cancellation_reason' => $reason,
+                ],
+                'performed_by' => $user?->id,
+                'performed_at' => now(),
+            ]);
 
             if ($invoice->trip_id !== null) {
                 $trip = Trip::query()->withoutGlobalScopes()->find($invoice->trip_id);
 
                 if ($trip !== null) {
-                    $this->revertTripFromInvoicedIfNeeded($trip, $user, 'Invoice cancelled');
+                    $this->revertTripFromInvoicedIfNeeded($trip, $user, 'Invoice cancelled: '.$reason);
                 }
             }
         });

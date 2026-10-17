@@ -56,6 +56,9 @@ class Invoice extends Model
         'paid_amount',
         'deleted_by',
         'deletion_reason',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
         'trip_snapshot',
     ];
 
@@ -82,6 +85,7 @@ class Invoice extends Model
             'paid_amount' => 'decimal:2',
             'invoice_date' => 'date',
             'due_date' => 'date',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -133,6 +137,11 @@ class Invoice extends Model
     public function deletedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     public function remainingAmount(): float
