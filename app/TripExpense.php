@@ -31,6 +31,7 @@ class TripExpense extends Model
         'fuel_odometer_km',
         'currency',
         'notes',
+        'reference',
         'created_by',
         'updated_by',
     ];

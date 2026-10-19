@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\StationController;
 use App\Http\Controllers\Api\TripController;
+use App\Http\Controllers\Api\TripExpenseImportController;
 use App\Http\Controllers\Api\TripReportController;
 use App\Http\Controllers\Api\TyreController;
 use App\Http\Controllers\Api\TyreLayoutController;
@@ -90,6 +91,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::apiResource('attendances', AttendanceController::class);
     Route::get('trips/next-number', [TripController::class, 'nextTripNumber']);
     Route::get('trips/check-window', [TripController::class, 'checkTripWindow']);
+    Route::post('trips/expense-import/analyze', [TripExpenseImportController::class, 'analyze']);
+    Route::post('trips/expense-import/preview', [TripExpenseImportController::class, 'preview']);
+    Route::post('trips/expense-import', [TripExpenseImportController::class, 'store']);
     Route::get('trips/{trip}/archive-impact', [TripController::class, 'archiveImpact']);
     Route::get('trips/{trip}/deletion-impact', [TripController::class, 'deletionImpact']);
     Route::post('trips/{trip}/archive', [TripController::class, 'archive']);

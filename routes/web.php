@@ -346,6 +346,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.next-number');
             Route::get('/trips/check-window', [\App\Http\Controllers\Api\TripController::class, 'checkTripWindow'])
                 ->name('trips.check-window');
+            Route::post('/trips/expense-import/analyze', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'analyze'])
+                ->name('trips.expense-import.analyze');
+            Route::post('/trips/expense-import/preview', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'preview'])
+                ->name('trips.expense-import.preview');
+            Route::post('/trips/expense-import', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'store'])
+                ->name('trips.expense-import.store');
             Route::get('/trips/{trip}/archive-impact', [\App\Http\Controllers\Api\TripController::class, 'archiveImpact'])
                 ->name('trips.archive-impact');
             Route::get('/trips/{trip}/deletion-impact', [\App\Http\Controllers\Api\TripController::class, 'deletionImpact'])

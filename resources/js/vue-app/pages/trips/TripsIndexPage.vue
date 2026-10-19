@@ -10,6 +10,14 @@
             <template #toolbar>
                 <div class="d-flex flex-wrap gap-2">
                     <AppIndexHeaderButton
+                        v-if="canManageExpenses"
+                        icon="upload"
+                        aria-label="Bulk upload trip expenses"
+                        @click="goToExpenseImport"
+                    >
+                        <span class="d-none d-md-inline">Bulk upload</span>
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
                         v-if="canCreate"
                         icon="plus"
                         aria-label="Create trip"
@@ -575,6 +583,24 @@ function goToCreate() {
     }
 
     router.push({ name: 'trips.create' });
+
+    return true;
+}
+
+function goToExpenseImport() {
+    if (needsCompanySelection.value) {
+        toast.warning('Select and enter a company before importing expenses.');
+
+        return false;
+    }
+
+    if (!canManageExpenses.value) {
+        toast.error('You do not have permission to manage trip expenses.');
+
+        return false;
+    }
+
+    router.push({ name: 'trips.expense-import' });
 
     return true;
 }

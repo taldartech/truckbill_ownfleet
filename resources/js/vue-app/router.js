@@ -154,6 +154,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.view' },
                 },
                 {
+                    path: 'trips/expense-import',
+                    name: 'trips.expense-import',
+                    component: () => import('./pages/trips/TripExpenseImportPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.expenses' },
+                },
+                {
                     path: 'trips/create',
                     name: 'trips.create',
                     component: () => import('./pages/trips/TripCreateRedesignedPage.vue'),

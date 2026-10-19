@@ -36,6 +36,7 @@ class TripExpenseResource extends JsonResource
             'fuel_odometer_km' => $this->fuel_odometer_km,
             'currency' => $this->currency,
             'notes' => $this->notes,
+            'reference' => $this->reference,
         ];
     }
 }
