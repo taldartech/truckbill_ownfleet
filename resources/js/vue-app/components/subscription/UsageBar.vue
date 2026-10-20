@@ -36,3 +36,11 @@ const barClass = computed(() => {
     return 'bg-primary';
 });
 </script>
+
+<style scoped>
+@media (max-width: 767.98px) {
+    .d-flex.small {
+        font-size: 0.72rem !important;
+    }
+}
+</style>

@@ -13,8 +13,8 @@
             {{ isEdit ? 'Edit Battery' : 'Add Battery' }}
         </template>
 
-        <div class="row g-3">
-            <div class="col-md-6">
+        <div class="battery-form-grid">
+            <div>
                 <label class="form-label fw-semibold">Battery No. / Serial No. <span class="text-danger">*</span></label>
                 <input
                     v-model="form.serial_number"
@@ -29,7 +29,7 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div>
                 <label class="form-label fw-semibold">Brand <span class="text-danger">*</span></label>
                 <input
                     v-model="form.brand"
@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div>
                 <label class="form-label">Model</label>
                 <input
                     v-model="form.model"
@@ -62,7 +62,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div>
                 <label class="form-label">Type</label>
                 <select
                     v-model="form.battery_type"
@@ -78,7 +78,7 @@
                 </div>
             </div>
 
-            <div class="col-md-2">
+            <div>
                 <label class="form-label">Voltage</label>
                 <select
                     v-model="form.voltage"
@@ -91,7 +91,7 @@
                 </select>
             </div>
 
-            <div class="col-md-2">
+            <div>
                 <label class="form-label fw-semibold">Capacity (Ah) <span class="text-danger">*</span></label>
                 <input
                     v-model.number="form.capacity_ah"
@@ -109,7 +109,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div>
                 <label class="form-label fw-semibold">Purchase Date <span class="text-danger">*</span></label>
                 <input
                     v-model="form.purchase_date"
@@ -124,7 +124,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div>
                 <label class="form-label fw-semibold">Purchase Cost (₹) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <span class="input-group-text">₹</span>
@@ -144,7 +144,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div>
                 <label class="form-label fw-semibold">Warranty Period (Months) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <input
@@ -157,7 +157,7 @@
                         :class="{ 'is-invalid': fieldErrors.warranty_months }"
                         required
                     />
-                    <span class="input-group-text">Months</span>
+                    <span class="input-group-text">Mo</span>
                 </div>
                 <div v-if="fieldErrors.warranty_months" class="invalid-feedback d-block">
                     {{ fieldErrors.warranty_months[0] }}
@@ -167,18 +167,7 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
-                <label class="form-label">Supplier / Dealer</label>
-                <input
-                    v-model="form.supplier_name"
-                    type="text"
-                    class="form-control"
-                    placeholder="e.g. Authorized Exide Dealer"
-                    :class="{ 'is-invalid': fieldErrors.supplier_name }"
-                />
-            </div>
-
-            <div class="col-md-6">
+            <div>
                 <label class="form-label fw-semibold">Expected Life (Months) <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <input
@@ -191,14 +180,25 @@
                         :class="{ 'is-invalid': fieldErrors.expected_life_months }"
                         required
                     />
-                    <span class="input-group-text">Months</span>
+                    <span class="input-group-text">Mo</span>
                 </div>
                 <div v-if="fieldErrors.expected_life_months" class="invalid-feedback d-block">
                     {{ fieldErrors.expected_life_months[0] }}
                 </div>
             </div>
 
-            <div class="col-12">
+            <div class="battery-form-grid__full">
+                <label class="form-label">Supplier / Dealer</label>
+                <input
+                    v-model="form.supplier_name"
+                    type="text"
+                    class="form-control"
+                    placeholder="e.g. Authorized Exide Dealer"
+                    :class="{ 'is-invalid': fieldErrors.supplier_name }"
+                />
+            </div>
+
+            <div class="battery-form-grid__full">
                 <label class="form-label">Notes / Remarks</label>
                 <textarea
                     v-model="form.notes"
@@ -211,22 +211,24 @@
         </div>
 
         <template #footer>
-            <button
-                type="button"
-                class="btn btn-outline-secondary px-4"
-                :disabled="saving"
-                @click="close"
-            >
-                Cancel
-            </button>
-            <button
-                type="submit"
-                class="btn btn-primary px-4 d-flex align-items-center gap-2"
-                :disabled="saving"
-            >
-                <span v-if="saving" class="spinner-border spinner-border-sm"></span>
-                <span>{{ isEdit ? 'Save Changes' : 'Add Battery' }}</span>
-            </button>
+            <div class="battery-form-modal__footer w-100">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary flex-fill"
+                    :disabled="saving"
+                    @click="close"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="btn btn-success flex-fill d-flex align-items-center justify-content-center gap-2"
+                    :disabled="saving"
+                >
+                    <span v-if="saving" class="spinner-border spinner-border-sm"></span>
+                    <span>{{ isEdit ? 'Save Changes' : 'Add Battery' }}</span>
+                </button>
+            </div>
         </template>
     </AppModal>
 </template>
@@ -375,3 +377,87 @@ async function submit() {
     }
 }
 </script>
+
+<style scoped>
+.battery-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem 0.75rem;
+    align-items: start;
+}
+
+.battery-form-grid__full {
+    grid-column: 1 / -1;
+}
+
+.battery-form-grid .form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.battery-form-grid .form-control,
+.battery-form-grid .form-select,
+.battery-form-grid .input-group-text {
+    font-size: 0.8125rem;
+}
+
+.battery-form-modal__footer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .battery-form-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.45rem 0.5rem !important;
+    }
+
+    .battery-form-grid .form-label {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .battery-form-grid .form-control,
+    .battery-form-grid .form-select,
+    .battery-form-grid :deep(.form-control),
+    .battery-form-grid :deep(.select-trigger) {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.75rem !important;
+        padding: 0.2rem 0.45rem !important;
+    }
+
+    .battery-form-grid .input-group {
+        height: 32px !important;
+    }
+
+    .battery-form-grid .input-group .input-group-text {
+        font-size: 0.72rem !important;
+        padding: 0.2rem 0.4rem !important;
+        height: 32px !important;
+    }
+
+    .battery-form-grid .form-text {
+        font-size: 0.65rem !important;
+        margin-top: 0.1rem !important;
+    }
+
+    .battery-form-grid textarea.form-control {
+        height: auto !important;
+        min-height: 50px !important;
+    }
+
+    .battery-form-modal__footer .btn {
+        height: 34px !important;
+        font-size: 0.78rem !important;
+        padding: 0.25rem 0.5rem !important;
+    }
+}
+</style>

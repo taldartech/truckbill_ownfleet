@@ -1,19 +1,27 @@
 <template>
     <div class="container mt-4 app-index-page app-index-page--standard">
-        <AppIndexListCard title="Monthly Expenses" :loading="loading" loading-text="Loading monthly expenses…">
+        <AppIndexListCard title="Monthly Expenses" header-class="trips-card-header--gradient" :loading="loading" loading-text="Loading monthly expenses…">
             <template #toolbar>
-                <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="monthly-expenses-filters-panel"
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold monthly-header-btn monthly-header-btn--filter"
                     aria-label="Toggle search filters"
                     @click="toggleFilters"
                 >
-                    Search filter
-                </AppIndexHeaderButton>
+                    <svg class="filter-slider-icon me-1" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                    <span class="filter-btn-text">Filters</span>
+                    <span v-if="filtersActive" class="badge bg-success text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                    <svg class="filter-chevron-icon ms-1" width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path v-if="filtersOpen" fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
+                        <path v-else fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
+                    class="monthly-header-btn monthly-header-btn--create"
                     aria-label="Add monthly expense"
                     @click="openCreate"
                 >
@@ -21,44 +29,47 @@
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
-                panel-id="monthly-expenses-filters-panel"
-                :loading="loading"
-                @search="loadExpenses(1)"
-                @reset="clearFilters"
-            >
-                <div>
-                    <label class="form-label" for="monthlyExpenses_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="searchQuery"
-                        input-id="monthlyExpenses_search"
-                        placeholder="Search particulars…"
-                        max-width="100%"
-                        :disabled="loading"
-                        @keydown.enter="loadExpenses(1)"
-                    />
+            <template #filters>
+                <div v-show="filtersOpen" class="monthly-expenses-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="monthly-expenses-filters-panel"
+                        :loading="loading"
+                        @search="loadExpenses(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="monthlyExpenses_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="searchQuery"
+                                input-id="monthlyExpenses_search"
+                                placeholder="Search particulars…"
+                                max-width="100%"
+                                :disabled="loading"
+                                @keydown.enter="loadExpenses(1)"
+                            />
+                        </div>
+                        <div class="filter-month-col">
+                            <label class="form-label" for="monthlyExpenses_month">Month</label>
+                            <input
+                                id="monthlyExpenses_month"
+                                v-model="monthFilter"
+                                type="month"
+                                class="form-control"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div>
-                    <label class="form-label" for="monthlyExpenses_month">Month</label>
-                    <input
-                        id="monthlyExpenses_month"
-                        v-model="monthFilter"
-                        type="month"
-                        class="form-control"
-                        :disabled="loading"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px">#</th>
-                        <th>Month</th>
-                        <th>Particulars</th>
-                        <th class="text-end">Amount</th>
-                        <th v-if="canManage" class="app-index-actions-cell text-end" style="width: 120px">Actions</th>
+                        <th style="width: 70px" class="text-center text-nowrap">#</th>
+                        <th class="text-nowrap">Month</th>
+                        <th class="text-nowrap">Particulars</th>
+                        <th class="text-end text-nowrap">Amount</th>
+                        <th v-if="canManage" class="app-index-actions-cell text-end text-nowrap" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,11 +79,11 @@
                         </td>
                     </tr>
                     <tr v-for="(expense, index) in expenses" :key="expense.id">
-                        <td class="text-center">{{ rowNumber(index) }}</td>
-                        <td>{{ formatMonth(expense.month) }}</td>
-                        <td>{{ expense.particulars }}</td>
-                        <td class="text-end">{{ formatAmount(expense.amount) }}</td>
-                        <td v-if="canManage" class="app-index-actions-cell text-end">
+                        <td class="text-center text-nowrap">{{ rowNumber(index) }}</td>
+                        <td class="text-nowrap">{{ formatMonth(expense.month) }}</td>
+                        <td class="text-nowrap">{{ expense.particulars }}</td>
+                        <td class="text-end text-nowrap">{{ formatAmount(expense.amount) }}</td>
+                        <td v-if="canManage" class="app-index-actions-cell text-end text-nowrap">
                             <AppTableActions>
                                 <AppCrudActionButton action="edit" title="Edit" @click="openEdit(expense)" />
                                 <AppCrudActionButton action="delete" title="Delete" @click="handleDelete(expense)" />
@@ -201,8 +212,10 @@ const showModal = ref(false);
 const editingId = ref(null);
 const searchQuery = ref('');
 const monthFilter = ref('');
-const filtersOpen = ref(false);
+const filtersOpen = ref(true);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+
+const filtersActive = computed(() => searchQuery.value.trim() !== '' || monthFilter.value !== '');
 
 const form = reactive({
     month: '',
@@ -376,5 +389,306 @@ onMounted(() => {
     } else {
         loading.value = false;
     }
+
+    if (filtersActive.value) {
+        filtersOpen.value = true;
+    }
 });
 </script>
+
+<style scoped>
+/* ── Desktop Filter Layout (>= 1200px) ────────────────────────────── */
+@media (min-width: 1200px) {
+    .filter-search-col {
+        flex: 1 1 240px;
+        min-width: 200px;
+    }
+
+    .filter-month-col {
+        flex: 1 1 180px;
+        min-width: 140px;
+    }
+}
+
+/* ── Tablet Filter Layout (768px - 1199.98px) ──────────────────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .filter-search-col {
+        flex: 1 1 200px;
+        min-width: 170px;
+    }
+
+    .filter-month-col {
+        flex: 1 1 150px;
+        min-width: 130px;
+    }
+}
+
+.monthly-header-btn--create,
+:deep(.monthly-header-btn--create),
+.monthly-header-btn--create span,
+:deep(.monthly-header-btn--create span),
+.monthly-header-btn--create i,
+:deep(.monthly-header-btn--create i) {
+    color: var(--brand-primary, #2fb36f) !important;
+    font-weight: 600 !important;
+}
+
+.monthly-header-btn--filter,
+.monthly-header-btn--filter:hover,
+.monthly-header-btn--filter:focus,
+.monthly-header-btn--filter:active {
+    border-radius: 8px !important;
+    border: 1px solid #ffffff !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+    color: var(--brand-primary, #2fb36f) !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    height: 32px !important;
+    padding: 0.25rem 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+}
+
+.monthly-header-btn--filter .filter-btn-text,
+.monthly-header-btn--filter .filter-slider-icon,
+.monthly-header-btn--filter .filter-chevron-icon,
+.monthly-header-btn--filter svg,
+.monthly-header-btn--filter span {
+    color: var(--brand-primary, #2fb36f) !important;
+    fill: currentColor !important;
+}
+
+/* ── Mobile Responsive Layout (< 768px) ───────────────────────────── */
+@media (max-width: 767.98px) {
+    :deep(.app-index-card-toolbar) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 0.35rem !important;
+    }
+
+    .monthly-header-btn,
+    :deep(.monthly-header-btn) {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        font-size: 0.72rem !important;
+        padding: 0.25rem 0.35rem !important;
+        height: 30px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .monthly-header-btn i,
+    :deep(.monthly-header-btn i) {
+        font-size: 0.75rem !important;
+    }
+
+    .monthly-header-btn--create,
+    :deep(.monthly-header-btn--create),
+    .monthly-header-btn--create span,
+    :deep(.monthly-header-btn--create span),
+    .monthly-header-btn--create i,
+    :deep(.monthly-header-btn--create i) {
+        color: var(--brand-primary, #2fb36f) !important;
+        font-weight: 600 !important;
+    }
+
+    .monthly-header-btn--filter,
+    :deep(.monthly-header-btn--filter),
+    .monthly-header-btn--filter:hover,
+    :deep(.monthly-header-btn--filter:hover),
+    .monthly-header-btn--filter:focus,
+    :deep(.monthly-header-btn--filter:focus),
+    .monthly-header-btn--filter:active,
+    :deep(.monthly-header-btn--filter:active) {
+        border-radius: 8px !important;
+        border: 1px solid #ffffff !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        height: 30px !important;
+        padding: 0.25rem 0.35rem !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .monthly-header-btn--filter .filter-btn-text,
+    :deep(.monthly-header-btn--filter .filter-btn-text),
+    .monthly-header-btn--filter .filter-slider-icon,
+    :deep(.monthly-header-btn--filter .filter-slider-icon),
+    .monthly-header-btn--filter .filter-chevron-icon,
+    :deep(.monthly-header-btn--filter .filter-chevron-icon),
+    .monthly-header-btn--filter svg,
+    :deep(.monthly-header-btn--filter svg),
+    .monthly-header-btn--filter span,
+    :deep(.monthly-header-btn--filter span) {
+        color: var(--brand-primary, #2fb36f) !important;
+        fill: currentColor !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 0.5rem 0.65rem !important;
+    }
+
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    /* 2 filters per line on mobile */
+    .filter-search-col,
+    .filter-month-col {
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder) {
+        font-size: 0.75rem !important;
+    }
+
+    /* Search and Reset buttons in 1 single row on mobile */
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+</style>

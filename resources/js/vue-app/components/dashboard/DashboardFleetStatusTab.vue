@@ -1,180 +1,188 @@
 <template>
     <div class="fleet-tab">
         <!-- Top Row: Fleet Status & Fleet Utilization -->
-        <div class="fleet-tab__top-grid">
+        <div class="row g-2 g-md-3">
             <!-- 1. Fleet Status Card -->
-            <div class="analytics-card flex-col-center">
-                <div class="analytics-card__header-row">
-                    <div>
-                        <h6 class="analytics-card__title mb-0">
-                            <i class="fas fa-truck-moving text-brand-primary me-1.5"></i>
-                            Fleet Status
-                        </h6>
-                        <p class="analytics-card__hint mt-1 mb-0">Current deployment of fleet</p>
+            <div class="col-12 col-xl-6">
+                <div class="analytics-card flex-col-center h-100">
+                    <div class="analytics-card__header-row">
+                        <div>
+                            <h6 class="analytics-card__title mb-0">
+                                <i class="fas fa-truck-moving text-brand-primary me-1.5"></i>
+                                Fleet Status
+                            </h6>
+                            <p class="analytics-card__hint mt-1 mb-0">Current deployment of fleet</p>
+                        </div>
+                        <span class="badge bg-light text-dark border fw-medium px-2 py-1">
+                            {{ totalTrucks }} Total Trucks
+                        </span>
                     </div>
-                    <span class="badge bg-light text-dark border fw-medium px-2 py-1">
-                        {{ totalTrucks }} Total Trucks
-                    </span>
-                </div>
 
-                <div class="fleet-status-grid mt-3">
-                    <div
-                        v-for="item in fleetStatusCards"
-                        :key="item.key"
-                        class="fleet-status-item"
-                        :class="item.cardClass"
-                    >
-                        <div class="fleet-status-item__header">
-                            <span class="fleet-status-item__icon" :class="item.iconClass">
-                                <i :class="item.icon"></i>
-                            </span>
-                            <span class="fleet-status-item__value">{{ item.count }}</span>
-                        </div>
-                        <div class="fleet-status-item__label-row">
-                            <span class="fleet-status-item__label">{{ item.label }}</span>
-                            <span v-if="item.sublabel" class="fleet-status-item__sublabel">{{ item.sublabel }}</span>
-                        </div>
-                        <div class="fleet-status-item__bar-wrap">
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-2 mt-2">
+                        <div
+                            v-for="item in fleetStatusCards"
+                            :key="item.key"
+                            class="col"
+                        >
                             <div
-                                class="fleet-status-item__bar"
-                                :class="item.barClass"
-                                :style="{ width: `${item.pct}%` }"
-                            ></div>
+                                class="fleet-status-item h-100"
+                                :class="item.cardClass"
+                            >
+                                <div class="fleet-status-item__header">
+                                    <span class="fleet-status-item__icon" :class="item.iconClass">
+                                        <i :class="item.icon"></i>
+                                    </span>
+                                    <span class="fleet-status-item__value">{{ item.count }}</span>
+                                </div>
+                                <div class="fleet-status-item__label-row">
+                                    <span class="fleet-status-item__label">{{ item.label }}</span>
+                                    <span v-if="item.sublabel" class="fleet-status-item__sublabel">{{ item.sublabel }}</span>
+                                </div>
+                                <div class="fleet-status-item__bar-wrap">
+                                    <div
+                                        class="fleet-status-item__bar"
+                                        :class="item.barClass"
+                                        :style="{ width: `${item.pct}%` }"
+                                    ></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="analytics-card__footer-info mt-3 pt-2 border-top">
-                    <span>
-                        <strong class="text-success">{{ activeTrucksCount }}</strong> active trucks ({{ activeTrucksPct.toFixed(0) }}%)
-                    </span>
-                    <span>
-                        <strong class="text-muted">{{ unavailableCount }}</strong> unavailable
-                    </span>
+                    <div class="analytics-card__footer-info mt-auto pt-2 border-top">
+                        <span>
+                            <strong class="text-success">{{ activeTrucksCount }}</strong> active trucks ({{ activeTrucksPct.toFixed(0) }}%)
+                        </span>
+                        <span>
+                            <strong class="text-muted">{{ unavailableCount }}</strong> unavailable
+                        </span>
+                    </div>
                 </div>
             </div>
 
             <!-- 2. Fleet Utilization Report Card -->
-            <div class="analytics-card flex-col-center">
-                <div class="analytics-card__header-row">
-                    <div>
-                        <h6 class="analytics-card__title mb-0">
-                            <i class="fas fa-gauge-high text-brand-primary me-1.5"></i>
-                            Fleet Utilization Report
-                        </h6>
-                        <p v-if="periodLabel" class="analytics-card__hint mt-1 mb-0">Period: {{ periodLabel }}</p>
+            <div class="col-12 col-xl-6">
+                <div class="analytics-card flex-col-center h-100">
+                    <div class="analytics-card__header-row">
+                        <div>
+                            <h6 class="analytics-card__title mb-0">
+                                <i class="fas fa-gauge-high text-brand-primary me-1.5"></i>
+                                Fleet Utilization Report
+                            </h6>
+                            <p v-if="periodLabel" class="analytics-card__hint mt-1 mb-0">Period: {{ periodLabel }}</p>
+                        </div>
+                        <span
+                            class="badge px-2 py-1"
+                            :class="utilizationBadgeClass"
+                        >
+                            {{ utilizationRate.toFixed(1) }}% Utilization
+                        </span>
                     </div>
-                    <span
-                        class="badge px-2 py-1"
-                        :class="utilizationBadgeClass"
-                    >
-                        {{ utilizationRate.toFixed(1) }}% Utilization
-                    </span>
-                </div>
 
-                <div class="utilization-body mt-2">
-                    <!-- Gauge column -->
-                    <div class="utilization-gauge-col">
-                        <div class="utilization-gauge">
-                            <svg viewBox="0 0 100 60" class="utilization-gauge__svg" aria-hidden="true">
-                                <defs>
-                                    <linearGradient id="utilGradHigh" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.7" />
-                                        <stop offset="100%" stop-color="#10b981" stop-opacity="1" />
-                                    </linearGradient>
-                                    <linearGradient id="utilGradMid" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stop-color="#0284c7" stop-opacity="0.7" />
-                                        <stop offset="100%" stop-color="#0284c7" stop-opacity="1" />
-                                    </linearGradient>
-                                    <linearGradient id="utilGradLow" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.7" />
-                                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="1" />
-                                    </linearGradient>
-                                </defs>
-                                <path
-                                    d="M 8 52 A 42 42 0 0 1 92 52"
-                                    fill="none"
-                                    stroke="#e2e8f0"
-                                    stroke-width="9"
-                                    stroke-linecap="round"
-                                />
-                                <path
-                                    d="M 8 52 A 42 42 0 0 1 92 52"
-                                    fill="none"
-                                    :stroke="utilizationStroke"
-                                    stroke-width="9"
-                                    stroke-linecap="round"
-                                    :stroke-dasharray="radialCircumference"
-                                    :stroke-dashoffset="radialDashoffset"
-                                    class="gauge-fill-arc"
-                                />
-                            </svg>
-                            <div class="utilization-gauge__content">
-                                <span class="utilization-gauge__value">{{ utilizationRate.toFixed(0) }}%</span>
-                                <span class="utilization-gauge__label">Utilization</span>
+                    <div class="row g-2 align-items-center mt-2">
+                        <!-- Gauge column -->
+                        <div class="col-12 col-sm-5 d-flex justify-content-center">
+                            <div class="utilization-gauge">
+                                <svg viewBox="0 0 100 60" class="utilization-gauge__svg" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="utilGradHigh" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#10b981" stop-opacity="0.7" />
+                                            <stop offset="100%" stop-color="#10b981" stop-opacity="1" />
+                                        </linearGradient>
+                                        <linearGradient id="utilGradMid" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#0284c7" stop-opacity="0.7" />
+                                            <stop offset="100%" stop-color="#0284c7" stop-opacity="1" />
+                                        </linearGradient>
+                                        <linearGradient id="utilGradLow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.7" />
+                                            <stop offset="100%" stop-color="#f59e0b" stop-opacity="1" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path
+                                        d="M 8 52 A 42 42 0 0 1 92 52"
+                                        fill="none"
+                                        stroke="#e2e8f0"
+                                        stroke-width="9"
+                                        stroke-linecap="round"
+                                    />
+                                    <path
+                                        d="M 8 52 A 42 42 0 0 1 92 52"
+                                        fill="none"
+                                        :stroke="utilizationStroke"
+                                        stroke-width="9"
+                                        stroke-linecap="round"
+                                        :stroke-dasharray="radialCircumference"
+                                        :stroke-dashoffset="radialDashoffset"
+                                        class="gauge-fill-arc"
+                                    />
+                                </svg>
+                                <div class="utilization-gauge__content">
+                                    <span class="utilization-gauge__value">{{ utilizationRate.toFixed(0) }}%</span>
+                                    <span class="utilization-gauge__label">Utilization</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Underlying metrics numbers -->
+                        <div class="col-12 col-sm-7">
+                            <div class="utilization-numbers-table">
+                                <div class="utilization-row">
+                                    <span class="utilization-row__label">Total Fleet</span>
+                                    <span class="utilization-row__value fw-bold">{{ totalFleet }}</span>
+                                </div>
+                                <div class="utilization-row">
+                                    <span class="utilization-row__label">Available Days</span>
+                                    <span class="utilization-row__value fw-bold text-dark">{{ availableDays }}</span>
+                                </div>
+                                <div class="utilization-row">
+                                    <span class="utilization-row__label">
+                                        <span class="status-dot status-dot--running"></span>
+                                        Running Days
+                                    </span>
+                                    <span class="utilization-row__value fw-bold text-success">{{ runningDays }}</span>
+                                </div>
+                                <div class="utilization-row">
+                                    <span class="utilization-row__label">
+                                        <span class="status-dot status-dot--idle"></span>
+                                        Idle Days
+                                    </span>
+                                    <span class="utilization-row__value fw-bold text-warning">{{ idleDays }}</span>
+                                </div>
+                                <div class="utilization-row">
+                                    <span class="utilization-row__label">
+                                        <span class="status-dot status-dot--unavailable"></span>
+                                        Unavailable Days
+                                    </span>
+                                    <span class="utilization-row__value fw-bold text-muted">{{ unavailableDays }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Underlying metrics numbers -->
-                    <div class="utilization-metrics-col">
-                        <div class="utilization-numbers-table">
-                            <div class="utilization-row">
-                                <span class="utilization-row__label">Total Fleet</span>
-                                <span class="utilization-row__value fw-bold">{{ totalFleet }}</span>
-                            </div>
-                            <div class="utilization-row">
-                                <span class="utilization-row__label">Available Days</span>
-                                <span class="utilization-row__value fw-bold text-dark">{{ availableDays }}</span>
-                            </div>
-                            <div class="utilization-row">
-                                <span class="utilization-row__label">
-                                    <span class="status-dot status-dot--running"></span>
-                                    Running Days
-                                </span>
-                                <span class="utilization-row__value fw-bold text-success">{{ runningDays }}</span>
-                            </div>
-                            <div class="utilization-row">
-                                <span class="utilization-row__label">
-                                    <span class="status-dot status-dot--idle"></span>
-                                    Idle Days
-                                </span>
-                                <span class="utilization-row__value fw-bold text-warning">{{ idleDays }}</span>
-                            </div>
-                            <div class="utilization-row">
-                                <span class="utilization-row__label">
-                                    <span class="status-dot status-dot--unavailable"></span>
-                                    Unavailable Days
-                                </span>
-                                <span class="utilization-row__value fw-bold text-muted">{{ unavailableDays }}</span>
-                            </div>
+                    <!-- Distribution Stack Bar -->
+                    <div class="utilization-dist-bar mt-auto pt-2">
+                        <div class="utilization-dist-bar__track">
+                            <div
+                                class="utilization-dist-bar__segment bg-success"
+                                :style="{ width: `${runningPct}%` }"
+                                :title="`Running: ${runningDays} days (${runningPct.toFixed(1)}%)`"
+                            ></div>
+                            <div
+                                class="utilization-dist-bar__segment bg-warning"
+                                :style="{ width: `${idlePct}%` }"
+                                :title="`Idle: ${idleDays} days (${idlePct.toFixed(1)}%)`"
+                            ></div>
+                            <div
+                                class="utilization-dist-bar__segment bg-secondary"
+                                :style="{ width: `${unavailablePct}%` }"
+                                :title="`Unavailable: ${unavailableDays} days (${unavailablePct.toFixed(1)}%)`"
+                            ></div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Distribution Stack Bar -->
-                <div class="utilization-dist-bar mt-2">
-                    <div class="utilization-dist-bar__track">
-                        <div
-                            class="utilization-dist-bar__segment bg-success"
-                            :style="{ width: `${runningPct}%` }"
-                            :title="`Running: ${runningDays} days (${runningPct.toFixed(1)}%)`"
-                        ></div>
-                        <div
-                            class="utilization-dist-bar__segment bg-warning"
-                            :style="{ width: `${idlePct}%` }"
-                            :title="`Idle: ${idleDays} days (${idlePct.toFixed(1)}%)`"
-                        ></div>
-                        <div
-                            class="utilization-dist-bar__segment bg-secondary"
-                            :style="{ width: `${unavailablePct}%` }"
-                            :title="`Unavailable: ${unavailableDays} days (${unavailablePct.toFixed(1)}%)`"
-                        ></div>
-                    </div>
-                    <div class="utilization-dist-bar__legend mt-1.5">
-                        <span class="legend-item"><span class="status-dot status-dot--running"></span> Running {{ runningPct.toFixed(0) }}%</span>
-                        <span class="legend-item"><span class="status-dot status-dot--idle"></span> Idle {{ idlePct.toFixed(0) }}%</span>
-                        <span class="legend-item"><span class="status-dot status-dot--unavailable"></span> Inactive {{ unavailablePct.toFixed(0) }}%</span>
+                        <div class="utilization-dist-bar__legend mt-1.5">
+                            <span class="legend-item"><span class="status-dot status-dot--running"></span> Running {{ runningPct.toFixed(0) }}%</span>
+                            <span class="legend-item"><span class="status-dot status-dot--idle"></span> Idle {{ idlePct.toFixed(0) }}%</span>
+                            <span class="legend-item"><span class="status-dot status-dot--unavailable"></span> Inactive {{ unavailablePct.toFixed(0) }}%</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -209,7 +217,7 @@
 
                     <!-- Configure Thresholds Button -->
                     <button
-                        class="btn btn-sm btn-outline-secondary config-toggle-btn"
+                        class="btn btn-sm btn-outline-secondary py-1 px-2 py-md-1 px-md-3 rounded-pill config-toggle-btn"
                         @click="showThresholdConfig = !showThresholdConfig"
                         :class="{ 'btn-secondary text-white': showThresholdConfig }"
                         title="Configure idle day thresholds"
@@ -223,15 +231,15 @@
             <!-- Configurable Thresholds Inline Box -->
             <div v-if="showThresholdConfig" class="threshold-config-box mt-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="fw-bold small text-dark">
+                    <span class="threshold-config-box__title fw-bold text-dark small">
                         <i class="fas fa-sliders-h text-brand-primary me-1"></i>
                         Configure Idle Thresholds (Days)
                     </span>
-                    <button class="btn-close btn-sm" @click="showThresholdConfig = false" aria-label="Close"></button>
+                    <button class="btn-close btn-sm shadow-none" @click="showThresholdConfig = false" aria-label="Close"></button>
                 </div>
                 <div class="row g-2">
                     <div class="col-sm-3 col-6">
-                        <label class="form-label small text-muted mb-1">Normal Idle (max days)</label>
+                        <label class="form-label threshold-label text-muted mb-1 small">Normal Idle (max days)</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-success-subtle text-success-emphasis border-0">1–</span>
                             <input
@@ -239,12 +247,12 @@
                                 type="number"
                                 min="1"
                                 max="30"
-                                class="form-control"
+                                class="form-control form-control-sm threshold-input"
                             />
                         </div>
                     </div>
                     <div class="col-sm-3 col-6">
-                        <label class="form-label small text-muted mb-1">Attention (max days)</label>
+                        <label class="form-label threshold-label text-muted mb-1 small">Attention (max days)</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-warning-subtle text-warning-emphasis border-0">{{ tempThresholds.normalMax + 1 }}–</span>
                             <input
@@ -252,12 +260,12 @@
                                 type="number"
                                 :min="tempThresholds.normalMax + 1"
                                 max="60"
-                                class="form-control"
+                                class="form-control form-control-sm threshold-input"
                             />
                         </div>
                     </div>
                     <div class="col-sm-3 col-6">
-                        <label class="form-label small text-muted mb-1">Prolonged (max days)</label>
+                        <label class="form-label threshold-label text-muted mb-1 small">Prolonged (max days)</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-orange-subtle text-orange-emphasis border-0">{{ tempThresholds.attentionMax + 1 }}–</span>
                             <input
@@ -265,12 +273,12 @@
                                 type="number"
                                 :min="tempThresholds.attentionMax + 1"
                                 max="180"
-                                class="form-control"
+                                class="form-control form-control-sm threshold-input"
                             />
                         </div>
                     </div>
                     <div class="col-sm-3 col-6">
-                        <label class="form-label small text-muted mb-1">Default Filter (days)</label>
+                        <label class="form-label threshold-label text-muted mb-1 small">Default Filter (days)</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-light border-0">≥</span>
                             <input
@@ -278,16 +286,16 @@
                                 type="number"
                                 min="1"
                                 max="180"
-                                class="form-control"
+                                class="form-control form-control-sm threshold-input"
                             />
                         </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
-                    <button class="btn btn-sm btn-link text-decoration-none text-muted py-0" @click="resetThresholds">
+                <div class="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
+                    <button class="btn btn-sm btn-link text-decoration-none text-muted py-0 small threshold-btn-reset" @click="resetThresholds">
                         Reset to Defaults
                     </button>
-                    <button class="btn btn-sm btn-primary py-1 px-3" @click="saveThresholds">
+                    <button class="btn btn-sm btn-primary py-1 px-2 py-md-1 px-md-3 rounded-pill threshold-btn-apply" @click="saveThresholds">
                         Apply &amp; Save
                     </button>
                 </div>
@@ -314,15 +322,15 @@
 
             <!-- Table -->
             <div class="table-responsive idle-table-wrap">
-                <table class="table table-hover align-middle mb-0 idle-table">
+                <table class="table table-sm table-hover align-middle mb-0 text-nowrap idle-table">
                     <thead>
                         <tr>
-                            <th style="width: 25%;">Truck</th>
-                            <th style="width: 20%;">Last Trip</th>
-                            <th style="width: 15%;">Last Trip End</th>
-                            <th style="width: 15%;">Idle Since</th>
-                            <th style="width: 12%;">Idle Days</th>
-                            <th style="width: 13%;">Status</th>
+                            <th class="text-nowrap">Truck</th>
+                            <th class="text-nowrap">Last Trip</th>
+                            <th class="text-nowrap">Last Trip End</th>
+                            <th class="text-nowrap">Idle Since</th>
+                            <th class="text-nowrap">Idle Days</th>
+                            <th class="text-nowrap">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -995,12 +1003,14 @@ function idleDaysColorClass(days) {
     background: #f8fafc;
     padding: 0.65rem 0.85rem;
     border-bottom: 1px solid var(--brand-border, #e2e8f0);
+    white-space: nowrap !important;
 }
 
 .idle-table td {
     padding: 0.7rem 0.85rem;
     font-size: 0.8rem;
     border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap !important;
 }
 
 .idle-table tbody tr:last-child td {
@@ -1044,5 +1054,239 @@ function idleDaysColorClass(days) {
 
 .border-orange-subtle {
     border-color: #fed7aa !important;
+}
+
+/* Mobile Screen Typography and Layout scaling */
+@media (max-width: 767.98px) {
+    .fleet-tab {
+        gap: 0.75rem;
+        max-width: 100%;
+        overflow-x: clip;
+    }
+
+    .analytics-card__header-row {
+        gap: 0.45rem;
+    }
+
+    .analytics-card__title {
+        font-size: 0.85rem;
+    }
+
+    .analytics-card__hint {
+        font-size: 0.7rem;
+    }
+
+    .fleet-status-item {
+        padding: 0.45rem 0.55rem;
+        border-radius: 0.6rem;
+    }
+
+    .fleet-status-item__icon {
+        width: 1.55rem;
+        height: 1.55rem;
+        font-size: 0.7rem;
+        border-radius: 0.4rem;
+    }
+
+    .fleet-status-item__value {
+        font-size: 1.05rem;
+    }
+
+    .fleet-status-item__label-row {
+        min-height: 1.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .fleet-status-item__label {
+        font-size: 0.68rem;
+    }
+
+    .fleet-status-item__sublabel {
+        font-size: 0.58rem;
+    }
+
+    .analytics-card__footer-info {
+        font-size: 0.72rem;
+    }
+
+    .utilization-gauge {
+        width: 110px;
+        height: 65px;
+    }
+
+    .utilization-gauge__value {
+        font-size: 1.15rem;
+    }
+
+    .utilization-gauge__label {
+        font-size: 0.56rem;
+    }
+
+    .utilization-numbers-table {
+        border-radius: 0.6rem;
+    }
+
+    .utilization-row {
+        padding: 0.32rem 0.55rem;
+        font-size: 0.72rem;
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .utilization-dist-bar__legend {
+        gap: 0.45rem;
+        font-size: 0.64rem;
+    }
+
+    .idle-filter-pills {
+        padding: 0.15rem;
+        gap: 0.15rem;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .idle-filter-btn {
+        padding: 0.18rem 0.4rem;
+        font-size: 0.62rem;
+    }
+
+    .config-toggle-btn {
+        padding: 0.16rem 0.42rem;
+        font-size: 0.60rem;
+    }
+
+    .config-toggle-btn i {
+        font-size: 0.58rem;
+    }
+
+    /* Threshold Config Box mobile tuning */
+    .threshold-config-box {
+        padding: 0.45rem 0.55rem;
+        border-radius: 0.5rem;
+    }
+
+    .threshold-config-box__title {
+        font-size: 0.68rem;
+    }
+
+    .threshold-config-box__title i {
+        font-size: 0.65rem;
+    }
+
+    .threshold-config-box .btn-close {
+        transform: scale(0.62);
+        padding: 0.12rem;
+    }
+
+    .threshold-label {
+        font-size: 0.58rem;
+        margin-bottom: 0.12rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+    }
+
+    .threshold-config-box .input-group {
+        min-height: 24px;
+    }
+
+    .threshold-config-box .input-group-text {
+        font-size: 0.60rem;
+        padding: 0.1rem 0.3rem;
+        line-height: 1.2;
+    }
+
+    .threshold-input {
+        font-size: 0.64rem;
+        padding: 0.1rem 0.3rem;
+        min-height: 24px;
+        height: 24px;
+        line-height: 1.2;
+    }
+
+    .threshold-btn-reset {
+        font-size: 0.58rem;
+        padding: 0.12rem 0.3rem !important;
+        line-height: 1.2;
+    }
+
+    .threshold-btn-apply {
+        font-size: 0.60rem;
+        padding: 0.16rem 0.5rem !important;
+        border-radius: 999px;
+        line-height: 1.2;
+    }
+
+    .search-input-wrap {
+        width: 100%;
+    }
+
+    .search-input {
+        font-size: 0.72rem;
+        padding-left: 1.8rem;
+    }
+
+    .idle-table th {
+        font-size: 0.66rem;
+        padding: 0.42rem 0.6rem;
+        white-space: nowrap !important;
+    }
+
+    .idle-table td {
+        font-size: 0.74rem;
+        padding: 0.42rem 0.6rem;
+        white-space: nowrap !important;
+    }
+
+    .truck-reg-link {
+        font-size: 0.76rem;
+        white-space: nowrap !important;
+    }
+
+    .trip-num-link {
+        font-size: 0.74rem;
+        white-space: nowrap !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .config-toggle-btn {
+        padding: 0.22rem 0.5rem;
+        font-size: 0.68rem;
+    }
+
+    .threshold-config-box {
+        padding: 0.65rem 0.8rem;
+    }
+
+    .threshold-config-box__title {
+        font-size: 0.74rem;
+    }
+
+    .threshold-label {
+        font-size: 0.65rem;
+    }
+
+    .threshold-config-box .input-group-text,
+    .threshold-input {
+        font-size: 0.68rem;
+        min-height: 28px;
+        height: 28px;
+    }
+
+    .threshold-btn-reset {
+        font-size: 0.64rem;
+    }
+
+    .threshold-btn-apply {
+        font-size: 0.66rem;
+        padding: 0.22rem 0.7rem !important;
+    }
 }
 </style>

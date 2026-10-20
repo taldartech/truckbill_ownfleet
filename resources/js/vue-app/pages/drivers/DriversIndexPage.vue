@@ -1,10 +1,16 @@
 <template>
     <div class="container mt-4 app-index-page app-index-page--standard">
-        <AppIndexListCard :title="pageTitle" :loading="loading" loading-text="Loading drivers…">
+        <AppIndexListCard
+            :title="pageTitle"
+            header-class="trips-card-header--gradient"
+            :loading="loading"
+            loading-text="Loading drivers…"
+        >
             <template #toolbar>
                 <AppIndexHeaderButton
                     v-if="licenseAlertsMode"
                     icon="return"
+                    class="driver-header-btn driver-header-btn--return"
                     aria-label="View all drivers"
                     @click="clearLicenseAlertsMode"
                 >
@@ -13,56 +19,83 @@
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="upload"
+                    class="driver-header-btn driver-header-btn--upload"
                     aria-label="Bulk Upload Drivers"
                     @click="showBulkUpload = true"
                 >
-                    Bulk Upload
+                    <span><span class="d-none d-sm-inline">Bulk </span>Upload</span>
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
+                    class="driver-header-btn driver-header-btn--add"
                     aria-label="Create driver"
                     @click="openCreate"
                 >
-                    Create
+                    <span><span class="d-none d-sm-inline">Create </span>Driver</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <div v-if="licenseAlertsMode" class="alert alert-warning py-2 mb-3">
-                Showing drivers with license expired or expiring within {{ licenseAlertDays }} days.
-            </div>
-
-            <AppIndexCollapsibleFilters
-                panel-id="drivers-filters-panel"
-                :loading="loading"
-                @search="loadDrivers(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="driversIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="searchQuery"
-                        input-id="driversIndex_search"
-                        placeholder="Search name, mobile, license…"
-                        aria-label="Search drivers"
-                        max-width="100%"
-                        :disabled="loading"
-                        @keydown.enter="loadDrivers(1)"
-                    />
+            <template #filters>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-            </AppIndexCollapsibleFilters>
+
+                <div v-show="filtersOpen" class="drivers-filters-content">
+                    <div v-if="licenseAlertsMode" class="alert alert-warning py-2 mx-3 my-2 mb-0">
+                        Showing drivers with license expired or expiring within {{ licenseAlertDays }} days.
+                    </div>
+                    <AppIndexCollapsibleFilters
+                        panel-id="drivers-filters-panel"
+                        :loading="loading"
+                        @search="loadDrivers(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="driversIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="searchQuery"
+                                input-id="driversIndex_search"
+                                placeholder="Search name, mobile, license…"
+                                aria-label="Search drivers"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadDrivers(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
+                </div>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px">S.No.</th>
-                        <th>Name</th>
-                        <th>Mobile</th>
-                        <th>License Number</th>
-                        <th v-if="licenseAlertsMode">License Expiry</th>
-                        <th>Associated Truck</th>
-                        <th style="width: 100px;">Status</th>
-                        <th v-if="showRowActions" class="app-index-actions-cell text-end" style="width: 150px">Actions</th>
+                        <th style="width: 50px" class="text-center text-nowrap">#</th>
+                        <th class="text-nowrap" style="min-width: 8.5rem;">Name</th>
+                        <th class="text-nowrap" style="min-width: 7.5rem;">Mobile</th>
+                        <th class="text-nowrap" style="min-width: 8rem;">License Number</th>
+                        <th v-if="licenseAlertsMode" class="text-nowrap" style="min-width: 7rem;">License Expiry</th>
+                        <th class="text-nowrap" style="min-width: 8.5rem;">Associated Truck</th>
+                        <th style="width: 80px;" class="text-nowrap">Status</th>
+                        <th v-if="showRowActions" class="app-index-actions-cell text-center text-nowrap" style="width: 120px; min-width: 90px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -73,10 +106,10 @@
                     </tr>
                     <tr v-for="(driver, index) in drivers" :key="driver.id">
                         <td class="text-center">{{ rowNumber(index) }}</td>
-                        <td>
+                        <td class="text-nowrap">
                             <RouterLink
                                 :to="{ name: 'drivers.show', params: { id: driver.id } }"
-                                class="driver-name-link"
+                                class="driver-name-link text-nowrap"
                                 title="View driver details"
                             >
                                 {{ driver.name }}
@@ -346,7 +379,8 @@ const advanceDriver = ref(null);
 const advanceSaving = ref(false);
 const advanceModalRef = ref(null);
 const searchQuery = ref('');
-const filtersOpen = ref(false);
+const filtersOpen = ref(true);
+const filtersActive = computed(() => searchQuery.value.trim() !== '');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 function toggleFilters() {
@@ -721,10 +755,268 @@ watch(
     font-weight: 600;
     color: var(--bs-link-color, #0d6efd);
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .driver-name-link:hover {
     text-decoration: underline;
+}
+
+/* Custom filters layout on Desktop */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: contents;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+/* ── Tablet & Medium Screens (768px - 1199.98px) ─────────────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    :deep(.app-index-card-toolbar) {
+        gap: 6px !important;
+    }
+
+    .driver-header-btn {
+        font-size: 0.8rem !important;
+        padding: 0.35rem 0.5rem !important;
+        height: 32px !important;
+        white-space: nowrap !important;
+    }
+
+    .filter-search-col {
+        flex: 1 1 240px !important;
+        min-width: 200px !important;
+    }
+}
+
+/* ── Mobile Responsive Styles (< 768px) ───────────────────────────── */
+@media (max-width: 767.98px) {
+    /* Header toolbar - buttons in 1 row */
+    :deep(.app-index-card-toolbar) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    .driver-header-btn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 0.28rem 0.2rem !important;
+        height: 30px !important;
+        font-size: 0.72rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    .driver-header-btn i,
+    .driver-header-btn :deep(i) {
+        font-size: 0.75rem !important;
+        margin-right: 2px !important;
+    }
+
+    /* Filters on mobile */
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-filters-fields > div),
+    :deep(.filter-search-col),
+    .filter-search-col {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+    }
+
+    .driver-name-link {
+        font-size: 0.74rem !important;
+        white-space: nowrap !important;
+        display: inline-block !important;
+    }
+
+    .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.35rem !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .driver-header-btn {
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.15rem !important;
+        height: 28px !important;
+    }
+
+    .driver-header-btn i,
+    .driver-header-btn :deep(i) {
+        font-size: 0.68rem !important;
+        margin-right: 1px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        font-size: 0.7rem !important;
+        height: 26px !important;
+        min-height: 26px !important;
+    }
 }
 </style>
 
