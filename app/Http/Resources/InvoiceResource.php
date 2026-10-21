@@ -77,6 +77,15 @@ class InvoiceResource extends JsonResource
             'total_tds_deducted' => $this->totalTdsDeducted(),
             'total_claims_deducted' => $this->totalClaimsDeducted(),
             'is_cancelled' => $this->isCancelled(),
+            'cancelled_at' => $this->when($this->isCancelled(), fn () => ApiDateTime::toIso($this->cancelled_at)),
+            'cancellation_reason' => $this->when($this->isCancelled(), $this->cancellation_reason),
+            'cancelled_by' => $this->when(
+                $this->isCancelled() && $this->relationLoaded('cancelledBy'),
+                fn () => $this->cancelledBy ? [
+                    'id' => $this->cancelledBy->id,
+                    'name' => $this->cancelledBy->name,
+                ] : null,
+            ),
             'is_overdue' => $this->isOverdue(),
             'can_delete' => $this->canBeSoftDeleted(),
             'is_archived' => $this->trashed(),
@@ -98,11 +107,19 @@ class InvoiceResource extends JsonResource
                 'state_code' => $this->customer?->state?->code,
                 'state_name' => $this->customer?->state?->name,
             ]),
-            'trip' => $this->whenLoaded('trip', fn () => [
-                'id' => $this->trip?->id,
-                'trip_number' => $this->trip?->trip_number,
-                'status' => $this->trip?->status?->value ?? $this->trip?->status,
-            ]),
+            'trip' => $this->whenLoaded('trip', fn () => $this->trip ? [
+                'id' => $this->trip->id,
+                'trip_number' => $this->trip->trip_number,
+                'status' => $this->trip->status?->value ?? $this->trip->status,
+            ] : null),
+            'trips' => $this->when(
+                $this->relationLoaded('trips') || $this->relationLoaded('trip'),
+                fn () => $this->linkedTripsPayload(),
+            ),
+            'trips_label' => $this->when(
+                $this->relationLoaded('trips') || $this->relationLoaded('trip'),
+                fn () => $this->tripsLabel(),
+            ),
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($item) => [
                 'id' => $item->id,
                 'invoice_id' => $item->invoice_id,

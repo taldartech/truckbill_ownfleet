@@ -106,12 +106,14 @@ import StationFormModal from '../../components/stations/StationFormModal.vue';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany, canEditInCompany } = usePermissions();
 
 const {
@@ -201,22 +203,25 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete() {
+function handleDelete() {
     if (!station.value?.id) {
         return;
     }
 
-    if (!window.confirm(`Delete station "${station.value.name}"?`)) {
-        return;
-    }
-
-    try {
-        await deleteStation(station.value.id);
-        toast.success('Station deleted successfully.');
-        router.push({ name: 'stations.index' });
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete station.');
-    }
+    promptDelete({
+        title: 'Delete Station?',
+        itemName: station.value.name,
+        details: [
+            { label: 'Name', value: station.value.name },
+            { label: 'City', value: station.value.city },
+            { label: 'State', value: station.value.state },
+        ],
+        onConfirm: async (remark) => {
+            await deleteStation(station.value.id, { deleted_reason: remark, remark });
+            toast.success('Station deleted successfully.');
+            router.push({ name: 'stations.index' });
+        },
+    });
 }
 
 onMounted(async () => {

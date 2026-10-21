@@ -74,9 +74,19 @@ class ChallanController extends Controller
         return new ChallanResource($challan);
     }
 
-    public function destroy(Challan $challan): Response
+    public function destroy(Request $request, Challan $challan): Response
     {
         $this->authorize('delete', $challan);
+
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $challan->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $validated['deleted_reason'],
+        ]);
+
         $challan->delete();
 
         return response()->noContent();

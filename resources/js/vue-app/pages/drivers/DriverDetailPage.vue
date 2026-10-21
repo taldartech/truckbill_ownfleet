@@ -353,6 +353,7 @@ import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import MasterCrudSaveConfirmModal from '../../components/ui/MasterCrudSaveConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
@@ -362,6 +363,7 @@ import { buildDriverAdvanceFields } from '../../utils/masterCrudSaveConfirm';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany } = usePermissions();
 
 const driverId = computed(() => route.params.id);
@@ -486,16 +488,26 @@ async function handleUpdate(payload) {
     }
 }
 
-async function handleDelete() {
-    if (confirm('Are you sure you want to delete this driver?')) {
-        try {
-            await deleteDriver(driverId.value);
+function handleDelete() {
+    if (!driver.value?.id) {
+        return;
+    }
+
+    promptDelete({
+        title: 'Delete Driver?',
+        itemName: driver.value.name,
+        details: [
+            { label: 'Name', value: driver.value.name },
+            { label: 'Mobile', value: driver.value.phone },
+            { label: 'License Number', value: driver.value.license_number },
+            { label: 'Status', value: driver.value.is_active ? 'Active' : 'Inactive' },
+        ],
+        onConfirm: async (remark) => {
+            await deleteDriver(driver.value.id, { deleted_reason: remark, remark });
             toast.success('Driver deleted successfully.');
             router.push({ name: 'drivers.index' });
-        } catch (e) {
-            toast.error(e.response?.data?.message ?? 'Could not delete driver.');
-        }
-    }
+        },
+    });
 }
 
 function openAdvance() {

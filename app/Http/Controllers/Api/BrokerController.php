@@ -309,11 +309,21 @@ class BrokerController extends Controller
         return new BrokerResource($broker);
     }
 
-    public function destroy(Broker $broker): Response
+    public function destroy(Request $request, Broker $broker): Response
     {
         $this->authorize('delete', $broker);
+    
+        $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+    
+        $broker->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $request->input('deleted_reason'),
+        ]);
+    
         $this->brokerService->delete($broker);
-
+    
         return response()->noContent();
     }
 }

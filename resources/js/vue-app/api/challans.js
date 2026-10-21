@@ -34,6 +34,12 @@ export async function updateChallan(id, payload) {
     return unwrapResource(data);
 }
 
-export async function deleteChallan(id) {
-    await api.delete(`${challansBase}/${id}`);
+export async function deleteChallan(id, payload = {}) {
+    const data = typeof payload === 'string'
+        ? { deleted_reason: payload, remark: payload }
+        : { deleted_reason: payload?.deleted_reason ?? payload?.remark, remark: payload?.remark ?? payload?.deleted_reason };
+
+    await api.delete(`${challansBase}/${id}`, {
+        data,
+    });
 }

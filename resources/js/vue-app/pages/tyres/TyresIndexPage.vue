@@ -4,96 +4,119 @@
             Select a company and click <strong>Enter</strong> before managing tyres.
         </div>
 
-        <AppIndexListCard title="Tyre Management" :loading="loading" loading-text="Loading tyres…">
+        <AppIndexListCard
+            title="Tyre Management"
+            header-class="trips-card-header--gradient"
+            :loading="loading"
+            loading-text="Loading tyres…"
+        >
             <template #toolbar>
-                <AppIndexHeaderButton
-                    icon="filter"
-                    :aria-expanded="filtersOpen"
-                    aria-controls="tyres-filters-panel"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    Search filter
-                </AppIndexHeaderButton>
                 <RouterLink
                     v-if="vehicleFilter"
                     :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicleFilter } }"
-                    class="btn btn-brand-secondary btn-sm app-index-header-btn"
+                    class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold tyre-header-btn tyre-header-btn--positions"
                 >
-                    <span class="app-index-header-btn__icon app-index-header-btn__icon--grid" aria-hidden="true"></span>
-                    Positions
+                    <i class="bi bi-grid-3x3-gap me-1" aria-hidden="true"></i>
+                    <span>Positions</span>
                 </RouterLink>
                 <AppIndexHeaderButton
                     v-if="canManage"
                     icon="upload"
+                    class="tyre-header-btn tyre-header-btn--upload"
                     aria-label="Bulk Upload Tyres"
                     @click="showBulkUpload = true"
                 >
-                    Bulk Upload
+                    <span><span class="d-none d-sm-inline">Bulk </span>Upload</span>
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
+                    class="tyre-header-btn tyre-header-btn--add"
                     aria-label="Add tyre"
                     @click="openCreate"
                 >
-                    Add Tyre
+                    <span><span class="d-none d-sm-inline">Add </span>Tyre</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                v-show="filtersOpen"
-                panel-id="tyres-filters-panel"
-                :loading="loading"
-                @search="applyFilters"
-                @reset="clearFilters"
-            >
-                <div>
-                    <label class="form-label" for="tyresIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="search"
-                        input-id="tyresIndex_search"
-                        placeholder="Tyre number, brand, size…"
-                        max-width="100%"
-                        :disabled="loading"
-                        @keydown.enter.prevent="applyFilters"
-                    />
+            <template #filters>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="form-label" for="tyresIndex_vehicle">Truck</label>
-                    <VehicleSelect
-                        input-id="tyresIndex_vehicle"
-                        v-model="vehicleFilter"
-                        :vehicles="vehicles"
-                        placeholder="All trucks"
-                        :disabled="loading"
-                    />
+
+                <div v-show="filtersOpen" class="tyres-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="tyres-filters-panel"
+                        :loading="loading"
+                        @search="applyFilters"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="tyresIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="search"
+                                input-id="tyresIndex_search"
+                                placeholder="Tyre number, brand, size…"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter.prevent="applyFilters"
+                            />
+                        </div>
+                        <div class="filter-truck-col">
+                            <label class="form-label" for="tyresIndex_vehicle">Truck</label>
+                            <VehicleSelect
+                                input-id="tyresIndex_vehicle"
+                                v-model="vehicleFilter"
+                                :vehicles="vehicles"
+                                placeholder="All trucks"
+                                :disabled="loading"
+                            />
+                        </div>
+                        <div class="filter-status-col">
+                            <label class="form-label">Status</label>
+                            <AppSelect
+                                v-model="statusFilter"
+                                :options="tyreStatuses"
+                                placeholder="All statuses"
+                                search-placeholder="Search status…"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div>
-                    <label class="form-label">Status</label>
-                    <AppSelect
-                        v-model="statusFilter"
-                        :options="tyreStatuses"
-                        placeholder="All statuses"
-                        search-placeholder="Search status…"
-                        :disabled="loading"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th>Tyre #</th>
-                        <th>Brand</th>
-                        <th>Size</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Life used</th>
-                        <th>Warranty</th>
-                        <th>Truck / Position</th>
-                        <th>Purchase</th>
-                        <th v-if="canManage" class="app-index-actions-cell" style="width: 140px">Actions</th>
+                        <th class="text-nowrap" style="min-width: 6.5rem;">Tyre #</th>
+                        <th class="text-nowrap" style="min-width: 5.5rem;">Brand</th>
+                        <th class="text-nowrap" style="min-width: 5.5rem;">Size</th>
+                        <th class="text-nowrap" style="min-width: 5rem;">Type</th>
+                        <th class="text-nowrap" style="min-width: 5.5rem;">Status</th>
+                        <th class="text-nowrap" style="min-width: 6rem;">Life used</th>
+                        <th class="text-nowrap" style="min-width: 5rem;">Warranty</th>
+                        <th class="text-nowrap" style="min-width: 8rem;">Truck / Position</th>
+                        <th class="text-nowrap" style="min-width: 5.5rem;">Purchase</th>
+                        <th v-if="canManage" class="app-index-actions-cell text-center text-nowrap" style="width: 120px; min-width: 90px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -532,7 +555,7 @@ const tyreTypeOptions = TYRE_TYPES;
 const tyres = ref([]);
 const loading = ref(false);
 const filtersApplied = ref(false);
-const filtersOpen = ref(false);
+const filtersOpen = ref(true);
 const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('IN_STOCK');
@@ -1111,6 +1134,290 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Custom filters single row layout (Desktop / Large Screens) */
+:deep(.app-index-collapsible-filters__inner) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+:deep(.app-index-filters-fields) {
+    display: contents;
+}
+
+:deep(.app-index-collapsible-filters__actions) {
+    margin-top: 0;
+    align-self: flex-end;
+}
+
+.filter-search-col {
+    flex: 0 0 280px;
+    width: 280px;
+}
+
+.filter-truck-col {
+    flex: 0 0 200px;
+    width: 200px;
+}
+
+.filter-status-col {
+    flex: 0 0 180px;
+    width: 180px;
+}
+
+/* ── Tablet & Medium Screens (768px - 1199.98px) ─────────────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    :deep(.app-index-card-toolbar) {
+        gap: 6px !important;
+    }
+
+    .tyre-header-btn {
+        font-size: 0.8rem !important;
+        padding: 0.35rem 0.5rem !important;
+        height: 32px !important;
+        white-space: nowrap !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        gap: 10px !important;
+    }
+
+    .filter-search-col {
+        flex: 1 1 240px !important;
+        min-width: 200px !important;
+    }
+
+    .filter-truck-col {
+        flex: 1 1 180px !important;
+        min-width: 160px !important;
+    }
+
+    .filter-status-col {
+        flex: 1 1 160px !important;
+        min-width: 140px !important;
+    }
+}
+
+/* ── Mobile Responsive Styles (< 768px) ───────────────────────────── */
+@media (max-width: 767.98px) {
+    /* Header toolbar - all buttons in 1 row */
+    :deep(.app-index-card-toolbar) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    .tyre-header-btn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 0.28rem 0.2rem !important;
+        height: 30px !important;
+        font-size: 0.72rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    .tyre-header-btn i,
+    .tyre-header-btn :deep(i) {
+        font-size: 0.75rem !important;
+        margin-right: 2px !important;
+    }
+
+    /* Filters: 2 per line on mobile */
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-filters-fields > div),
+    :deep(.filter-search-col),
+    :deep(.filter-truck-col),
+    :deep(.filter-status-col),
+    .filter-search-col,
+    .filter-truck-col,
+    .filter-status-col {
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder),
+    :deep(.app-index-collapsible-filters .select-trigger-label) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.select-trigger-icon) {
+        font-size: 0.65rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+    }
+
+    .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.35rem !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .tyre-header-btn {
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.15rem !important;
+        height: 28px !important;
+    }
+
+    .tyre-header-btn i,
+    .tyre-header-btn :deep(i) {
+        font-size: 0.68rem !important;
+        margin-right: 1px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        font-size: 0.7rem !important;
+        height: 26px !important;
+        min-height: 26px !important;
+    }
+}
+
 :deep(.app-modal:has(.tyre-form-modal__content)) {
     max-width: 720px;
 }
@@ -1160,19 +1467,53 @@ onMounted(() => {
     font-size: 0.75rem;
 }
 
-@media (max-width: 575.98px) {
+@media (max-width: 767.98px) {
+    .tyre-form-body {
+        padding: 0.5rem 0.65rem !important;
+    }
+
     .tyre-form-grid {
-        grid-template-columns: minmax(0, 1fr);
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.45rem 0.5rem !important;
+    }
+
+    .tyre-form-body .form-label {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .tyre-form-body .form-control,
+    .tyre-form-body :deep(.form-control),
+    .tyre-form-body :deep(.select-trigger) {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.75rem !important;
+        padding: 0.2rem 0.45rem !important;
+    }
+
+    .tyre-form-body :deep(.select-trigger-label) {
+        font-size: 0.75rem !important;
     }
 
     .tyre-form-footer {
-        flex-wrap: wrap;
-        justify-content: stretch;
+        padding: 0.45rem 0.65rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
     }
 
     .tyre-form-footer :deep(.btn),
     .tyre-form-footer .btn {
-        flex: 1 1 auto;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        font-size: 0.72rem !important;
+        padding: 0.25rem 0.2rem !important;
+        height: 32px !important;
+        white-space: nowrap !important;
     }
 }
 </style>

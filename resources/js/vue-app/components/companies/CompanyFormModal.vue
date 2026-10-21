@@ -11,7 +11,7 @@
             {{ isEdit ? 'Edit Company' : 'Register Company' }}
         </template>
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="mb-3" :class="showPayDaysField ? 'col-md-6' : 'col-12'">
                 <label class="form-label" for="company_name">Company Name *</label>
                 <input
                     id="company_name"
@@ -25,7 +25,7 @@
                     {{ fieldErrors.name[0] }}
                 </div>
             </div>
-            <div class="col-md-6 mb-3">
+            <div v-if="showPayDaysField" class="col-md-6 mb-3">
                 <label class="form-label" for="payroll_pay_days_mode">Pay Days (Default)</label>
                 <AppSelect
                     input-id="payroll_pay_days_mode"
@@ -313,6 +313,8 @@ function onContactNumberInput(event) {
 }
 
 const isEdit = computed(() => props.mode === 'edit');
+
+const showPayDaysField = false;
 
 const payrollPayDaysOptions = [
     { value: 'calendar', label: 'Calendar days (default)' },

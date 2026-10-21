@@ -433,9 +433,16 @@
                             {{ isMultiPointLayout ? 'Pickups &amp; Drops' : 'Route &amp; Stops' }}
                         </h2>
                         <p class="trf-section__desc">
-                            {{ isMultiPointLayout
-                                ? 'Add pickups and drops — link each drop to one or more pickups'
-                                : 'Add stops, then return to source or end the trip' }}
+                            <span class="d-none d-sm-inline">
+                                {{ isMultiPointLayout
+                                    ? 'Add pickups and drops — link each drop to one or more pickups'
+                                    : 'Add stops, then return to source or end the trip' }}
+                            </span>
+                            <span class="d-inline d-sm-none">
+                                {{ isMultiPointLayout
+                                    ? 'Add pickups & drops to build route'
+                                    : 'Add stops, then return to source or end trip' }}
+                            </span>
                         </p>
                     </div>
                     <span
@@ -496,7 +503,8 @@
                             @click="handleReturnToSource"
                         >
                             <i class="bi bi-arrow-return-left"></i>
-                            <span>Return to source</span>
+                            <span class="d-none d-sm-inline">Return to source</span>
+                            <span class="d-inline d-sm-none">Return source</span>
                         </button>
                         <button
                             type="button"
@@ -525,7 +533,8 @@
             <div class="trf-section__body" :class="{ 'trf-section__body--locked': requiresTruckSelection }">
                 <div v-if="requiresTruckSelection" class="trf-banner trf-banner--info mb-3">
                     <i class="bi bi-truck-front-fill"></i>
-                    <span>Select a truck in Trip Details first, then build the route and stops.</span>
+                    <span class="d-none d-sm-inline">Select a truck in Trip Details first, then build the route and stops.</span>
+                    <span class="d-inline d-sm-none">Select truck in Trip Details first to build route.</span>
                 </div>
 
                 <template v-if="isMultiPointLayout">
@@ -619,6 +628,9 @@
                                 <div class="trf-route-board__station" :class="`trf-route-board__station--${item.kind}`">
                                     <template v-if="item.kind === 'home'">
                                         <div class="trf-route-board__label">
+                                            <span class="trf-route-board__label-icon trf-route-board__label-icon--home">
+                                                <i class="bi bi-house-door-fill"></i>
+                                            </span>
                                             Source<span class="trf-pf__req">*</span>
                                         </div>
                                         <SearchablePickerRedesigned
@@ -643,6 +655,9 @@
                                     <template v-else>
                                         <div class="trf-route-board__label-row">
                                             <span class="trf-route-board__label">
+                                                <span class="trf-route-board__label-icon trf-route-board__label-icon--stop">
+                                                    {{ item.legIndex + 1 }}
+                                                </span>
                                                 Stop {{ item.legIndex + 1 }}<span class="trf-pf__req">*</span>
                                             </span>
                                             <button
@@ -1088,7 +1103,8 @@
                                 </div>
                                 <p class="trf-route-empty-panel__text">
                                     <template v-if="requiresTruckSelection">
-                                        Select a truck first, then choose source and add stops.
+                                        <span class="d-none d-sm-inline">Select a truck first, then choose source and add stops.</span>
+                                        <span class="d-inline d-sm-none">Select truck first, then choose source &amp; add stops.</span>
                                     </template>
                                     <template v-else-if="!hasStartStation">
                                         Choose source, then click <strong>+ Add Stop</strong>.
@@ -1339,7 +1355,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import {
     calculateLegFreight, inferTripTypeFromRoute, legLoadCategoryMeta, stopHasExpenses,
     summarizeTripForm, tripStatusMeta,
@@ -1348,10 +1364,10 @@ import {
 } from '../../api/trips';
 import { useAppToast } from '../../composables/useAppToast';
 import { usePermissions } from '../../composables/usePermissions';
-import { discardUnscopedTripDrafts, TripDraftLayout, tripDraftScope, tripDraftStorageKey } from '../../utils/tripDraftStorage';
+import { DRAFT_KEY_PREFIX, TripDraftLayout, tripDraftScope, tripDraftStorageKey } from '../../utils/tripDraftStorage';
 import { calculatePlannedDiesel, calculateExpectedRunningKm } from '../../utils/tripFuelCalculator';
 import { formatCustomerAddress } from '../../utils/customerAddress';
-import { dateOnlyFromDatetimeLocal, formatDate } from '../../utils/datetime';
+import { dateOnlyFromDatetimeLocal, formatDate, toDateInputValue } from '../../utils/datetime';
 import { formatMeterKm } from '../../utils/formatMeter';
 
 import AppDateInput from '../ui/AppDateInput.vue';
@@ -2328,27 +2344,85 @@ function handleEnterKey(e) {
 }
 
 const { user: draftUser } = usePermissions();
-const draftScope = tripDraftScope(draftUser.value);
 
-function progressDraftKey() {
-    return tripDraftStorageKey(
-        isMultiPointLayout.value ? TripDraftLayout.MULTI_POINT : TripDraftLayout.SINGLE,
-        draftScope,
+function getDraftStorageKeys() {
+    const layout = isMultiPointLayout.value ? TripDraftLayout.MULTI_POINT : TripDraftLayout.SINGLE;
+    const baseKey = DRAFT_KEY_PREFIX[layout] || 'truckbill_trip_create_draft';
+    const scope = tripDraftScope(draftUser.value);
+    const scopedKey = tripDraftStorageKey(layout, scope);
+    return {
+        primaryKey: scopedKey || baseKey,
+        fallbackKey: baseKey,
+    };
+}
+
+let isDraftInitialized = false;
+let saveDraftDebounceTimer = null;
+
+function isPickupFilled(p) {
+    if (!p || typeof p !== 'object') return false;
+    return Boolean(
+        p.station_id
+        || p.consignor_id
+        || (p.goods_name && String(p.goods_name).trim())
+        || (p.weight_ton !== '' && p.weight_ton != null)
+        || (p.from_address && String(p.from_address).trim())
     );
 }
 
-function saveProgress() {
-    const key = progressDraftKey();
+function isDropFilled(d) {
+    if (!d || typeof d !== 'object') return false;
+    const hasAllocations = Array.isArray(d.allocations) && d.allocations.some((a) =>
+        (a.weight_ton !== '' && a.weight_ton != null)
+        || (a.freight_rate !== '' && a.freight_rate != null)
+        || (Number(a.freight_amount) > 0)
+        || (a.ewaybill_no && String(a.ewaybill_no).trim())
+        || a.ewaybill_expiry
+        || (a.goods_value !== '' && a.goods_value != null)
+        || (a.no_of_units !== '' && a.no_of_units != null)
+        || (a.distance_km !== '' && a.distance_km != null)
+        || (a.pickup_key && String(a.pickup_key).trim() !== '')
+    );
+    return Boolean(
+        d.to_station_id
+        || d.consignee_id
+        || (d.weight_ton !== '' && d.weight_ton != null)
+        || (d.lr_number && String(d.lr_number).trim())
+        || (d.remarks && String(d.remarks).trim())
+        || (Number(d.freight_amount) > 0)
+        || hasAllocations
+    );
+}
 
-    if (props.mode !== 'create' || !key) {
-        return;
-    }
+function isRouteLegFilled(leg) {
+    if (!leg || typeof leg !== 'object') return false;
+    return Boolean(
+        leg.to_station_id
+        || (!leg.use_same_customer && leg.customer_id)
+        || leg.consignor_id
+        || leg.consignee_id
+        || (leg.goods_name && String(leg.goods_name).trim())
+        || (leg.weight_ton !== '' && leg.weight_ton != null)
+        || (leg.freight_rate !== '' && leg.freight_rate != null)
+        || (Number(leg.freight_amount) > 0)
+        || (leg.lr_number && String(leg.lr_number).trim())
+        || (leg.remarks && String(leg.remarks).trim())
+        || (leg.ewaybill_no && String(leg.ewaybill_no).trim())
+        || leg.ewaybill_expiry
+        || (leg.goods_value !== '' && leg.goods_value != null)
+        || (leg.no_of_units !== '' && leg.no_of_units != null)
+        || (leg.distance_km !== '' && leg.distance_km != null)
+        || (leg.expected_mileage_km_per_liter !== '' && leg.expected_mileage_km_per_liter != null)
+    );
+}
 
-    try {
-        localStorage.setItem(key, JSON.stringify(props.form));
-    } catch {
-        // Ignore quota / private-mode failures.
-    }
+function isExpenseFilled(exp) {
+    if (!exp || typeof exp !== 'object') return false;
+    return Boolean(
+        (Number(exp.amount) > 0)
+        || exp.expense_category_id
+        || (exp.name && String(exp.name).trim())
+    );
 }
 
 function draftHasContent(draft) {
@@ -2356,115 +2430,410 @@ function draftHasContent(draft) {
         return false;
     }
 
+    const hasPickups = Array.isArray(draft.pickups) && draft.pickups.some(isPickupFilled);
+    const hasDrops = Array.isArray(draft.drops) && draft.drops.some(isDropFilled);
+    const hasRouteLegs = Array.isArray(draft.route_legs) && draft.route_legs.some(isRouteLegFilled);
+    const hasExpenses = Array.isArray(draft.expenses) && draft.expenses.some(isExpenseFilled);
+
+    // A trip draft is ONLY valid if at least one meaningful primary field is present:
+    // (Vehicle, Customer, Broker, Driver, Notes, Meter/Diesel, Stops, Pickups, Drops, Expenses)
+    // start_station_id alone (or default date) is NOT a draft! If a user cleared truck and customer,
+    // and there are no stops, the draft has NO meaningful content and MUST be discarded.
     return Boolean(
         draft.vehicle_id
-        || draft.driver_id
-        || draft.substitute_driver_id
         || draft.customer_id
         || draft.broker_id
-        || draft.start_station_id
-        || draft.end_at
-        || draft.notes?.trim?.()
+        || draft.driver_id
+        || draft.substitute_driver_id
+        || (draft.notes && String(draft.notes).trim().length > 0)
         || (draft.start_meter_reading_km !== '' && draft.start_meter_reading_km != null)
+        || (draft.end_meter_reading_km !== '' && draft.end_meter_reading_km != null)
         || (draft.planned_diesel_liters !== '' && draft.planned_diesel_liters != null)
-        || (draft.diesel_rate_per_liter !== '' && draft.diesel_rate_per_liter != null)
-        || (Array.isArray(draft.route_legs) && draft.route_legs.length > 0)
-        || (Array.isArray(draft.pickups) && draft.pickups.length > 0)
-        || (Array.isArray(draft.drops) && draft.drops.length > 0)
-        || (Array.isArray(draft.expenses) && draft.expenses.length > 0),
+        || hasRouteLegs
+        || hasPickups
+        || hasDrops
+        || hasExpenses
     );
 }
 
+function cleanRouteLeg(leg) {
+    const clean = {};
+    if (leg.to_station_id) clean.to_station_id = leg.to_station_id;
+    if (leg.use_same_customer !== undefined && leg.use_same_customer !== null) clean.use_same_customer = leg.use_same_customer;
+    if (leg.customer_id) clean.customer_id = leg.customer_id;
+    if (leg.consignor_id) clean.consignor_id = leg.consignor_id;
+    if (leg.consignee_id) clean.consignee_id = leg.consignee_id;
+    if (leg.pickup_date) clean.pickup_date = leg.pickup_date;
+    if (leg.goods_name && String(leg.goods_name).trim()) clean.goods_name = String(leg.goods_name).trim();
+    if (leg.goods_value !== '' && leg.goods_value != null) clean.goods_value = leg.goods_value;
+    if (leg.no_of_units !== '' && leg.no_of_units != null) clean.no_of_units = leg.no_of_units;
+    if (leg.weight_ton !== '' && leg.weight_ton != null) clean.weight_ton = leg.weight_ton;
+    if (leg.freight_rate !== '' && leg.freight_rate != null) clean.freight_rate = leg.freight_rate;
+    if (leg.freight_auto_calculate !== undefined && leg.freight_auto_calculate !== null) clean.freight_auto_calculate = leg.freight_auto_calculate;
+    if (Number(leg.freight_amount) > 0) clean.freight_amount = leg.freight_amount;
+    if (leg.ewaybill_no && String(leg.ewaybill_no).trim()) clean.ewaybill_no = String(leg.ewaybill_no).trim();
+    if (leg.ewaybill_expiry) clean.ewaybill_expiry = leg.ewaybill_expiry;
+    if (leg.expected_mileage_km_per_liter !== '' && leg.expected_mileage_km_per_liter != null) clean.expected_mileage_km_per_liter = leg.expected_mileage_km_per_liter;
+    if (leg.distance_km !== '' && leg.distance_km != null) clean.distance_km = leg.distance_km;
+    if (leg.lr_number && String(leg.lr_number).trim()) clean.lr_number = String(leg.lr_number).trim();
+    if (leg.remarks && String(leg.remarks).trim()) clean.remarks = String(leg.remarks).trim();
+    return clean;
+}
+
+function cleanPickup(p) {
+    const clean = {};
+    if (p.pickup_code) clean.pickup_code = p.pickup_code;
+    if (p.station_id) clean.station_id = p.station_id;
+    if (p.consignor_id) clean.consignor_id = p.consignor_id;
+    if (p.goods_name && String(p.goods_name).trim()) clean.goods_name = String(p.goods_name).trim();
+    if (p.weight_ton !== '' && p.weight_ton != null) clean.weight_ton = p.weight_ton;
+    if (p.pickup_date || p.date) clean.pickup_date = p.pickup_date || p.date;
+    if (p.from_address && String(p.from_address).trim()) clean.from_address = String(p.from_address).trim();
+    return clean;
+}
+
+function cleanDrop(d) {
+    const clean = {};
+    if (d.drop_code) clean.drop_code = d.drop_code;
+    if (d.to_station_id) clean.to_station_id = d.to_station_id;
+    if (d.consignee_id) clean.consignee_id = d.consignee_id;
+    if (d.weight_ton !== '' && d.weight_ton != null) clean.weight_ton = d.weight_ton;
+    if (d.lr_number && String(d.lr_number).trim()) clean.lr_number = String(d.lr_number).trim();
+    if (d.remarks && String(d.remarks).trim()) clean.remarks = String(d.remarks).trim();
+    if (Number(d.freight_amount) > 0) clean.freight_amount = d.freight_amount;
+    if (Array.isArray(d.allocations)) {
+        const cleanAllocations = d.allocations
+            .filter((a) => (
+                (a.weight_ton !== '' && a.weight_ton != null)
+                || (a.freight_rate !== '' && a.freight_rate != null)
+                || Number(a.freight_amount) > 0
+                || (a.ewaybill_no && String(a.ewaybill_no).trim())
+                || a.ewaybill_expiry
+                || (a.goods_value !== '' && a.goods_value != null)
+                || (a.no_of_units !== '' && a.no_of_units != null)
+                || (a.distance_km !== '' && a.distance_km != null)
+                || a.pickup_key
+            ))
+            .map((a) => {
+                const ca = {};
+                if (a.pickup_key) ca.pickup_key = a.pickup_key;
+                if (a.pickup_index !== undefined && a.pickup_index !== null) ca.pickup_index = a.pickup_index;
+                if (a.weight_ton !== '' && a.weight_ton != null) ca.weight_ton = a.weight_ton;
+                if (a.freight_rate !== '' && a.freight_rate != null) ca.freight_rate = a.freight_rate;
+                if (Number(a.freight_amount) > 0) ca.freight_amount = a.freight_amount;
+                if (a.distance_km !== '' && a.distance_km != null) ca.distance_km = a.distance_km;
+                if (a.no_of_units !== '' && a.no_of_units != null) ca.no_of_units = a.no_of_units;
+                if (a.ewaybill_no && String(a.ewaybill_no).trim()) ca.ewaybill_no = String(a.ewaybill_no).trim();
+                if (a.ewaybill_expiry) ca.ewaybill_expiry = a.ewaybill_expiry;
+                if (a.goods_value !== '' && a.goods_value != null) ca.goods_value = a.goods_value;
+                return ca;
+            });
+        if (cleanAllocations.length > 0) {
+            clean.allocations = cleanAllocations;
+        }
+    }
+    return clean;
+}
+
+function cleanExpense(exp) {
+    const clean = {};
+    if (Number(exp.amount) > 0) clean.amount = exp.amount;
+    if (exp.expense_category_id) clean.expense_category_id = exp.expense_category_id;
+    if (exp.name && String(exp.name).trim()) clean.name = String(exp.name).trim();
+    if (exp.notes && String(exp.notes).trim()) clean.notes = String(exp.notes).trim();
+    return clean;
+}
+
+function buildCleanDraftData(form) {
+    if (!form || typeof form !== 'object' || !draftHasContent(form)) {
+        return null;
+    }
+
+    const clean = {};
+
+    if (form.vehicle_id && String(form.vehicle_id).trim()) {
+        clean.vehicle_id = String(form.vehicle_id).trim();
+
+        if (form.start_meter_reading_km !== '' && form.start_meter_reading_km != null) {
+            clean.start_meter_reading_km = form.start_meter_reading_km;
+        }
+        if (form.end_meter_reading_km !== '' && form.end_meter_reading_km != null) {
+            clean.end_meter_reading_km = form.end_meter_reading_km;
+        }
+        if (form.planned_mileage_km_per_liter !== '' && form.planned_mileage_km_per_liter != null) {
+            clean.planned_mileage_km_per_liter = form.planned_mileage_km_per_liter;
+        }
+        if (form.planned_diesel_liters !== '' && form.planned_diesel_liters != null) {
+            clean.planned_diesel_liters = form.planned_diesel_liters;
+        }
+        if (form.diesel_rate_per_liter !== '' && form.diesel_rate_per_liter != null) {
+            clean.diesel_rate_per_liter = form.diesel_rate_per_liter;
+        }
+    }
+
+    if (form.driver_id && String(form.driver_id).trim()) {
+        clean.driver_id = String(form.driver_id).trim();
+    }
+    if (form.substitute_driver_id && String(form.substitute_driver_id).trim()) {
+        clean.substitute_driver_id = String(form.substitute_driver_id).trim();
+    }
+    if (form.start_station_id && String(form.start_station_id).trim()) {
+        clean.start_station_id = String(form.start_station_id).trim();
+    }
+    if (form.customer_id && String(form.customer_id).trim()) {
+        clean.customer_id = String(form.customer_id).trim();
+    }
+    if (form.broker_id && String(form.broker_id).trim()) {
+        clean.broker_id = String(form.broker_id).trim();
+    }
+
+    const todayDate = toDateInputValue();
+    if (form.start_at && String(form.start_at).trim() && String(form.start_at).trim() !== todayDate) {
+        clean.start_at = String(form.start_at).trim();
+    }
+    if (form.end_at && String(form.end_at).trim()) {
+        clean.end_at = String(form.end_at).trim();
+    }
+
+    if (form.notes && String(form.notes).trim()) {
+        clean.notes = String(form.notes).trim();
+    }
+
+    if (isMultiPointLayout.value) {
+        if (Array.isArray(form.pickups)) {
+            const filledPickups = form.pickups.filter(isPickupFilled);
+            if (filledPickups.length > 0) {
+                clean.pickups = filledPickups.map(cleanPickup);
+            }
+        }
+        if (Array.isArray(form.drops)) {
+            const filledDrops = form.drops.filter(isDropFilled);
+            if (filledDrops.length > 0) {
+                clean.drops = filledDrops.map(cleanDrop);
+            }
+        }
+    } else {
+        if (form.trip_type && form.trip_type === 'ROUND_TRIP') {
+            clean.trip_type = 'ROUND_TRIP';
+        }
+        if (Array.isArray(form.route_legs)) {
+            const filledLegs = form.route_legs.filter(isRouteLegFilled);
+            if (filledLegs.length > 0) {
+                clean.route_legs = filledLegs.map(cleanRouteLeg);
+            }
+        }
+    }
+
+    if (Array.isArray(form.expenses)) {
+        const filledExpenses = form.expenses.filter(isExpenseFilled);
+        if (filledExpenses.length > 0) {
+            clean.expenses = filledExpenses.map(cleanExpense);
+        }
+    }
+
+    return Object.keys(clean).length > 0 ? clean : null;
+}
+
+function saveProgress() {
+    if (!isDraftInitialized || props.mode !== 'create') {
+        return;
+    }
+
+    const { primaryKey } = getDraftStorageKeys();
+    if (!primaryKey) {
+        return;
+    }
+
+    if (!draftHasContent(props.form)) {
+        clearProgressDraft();
+        return;
+    }
+
+    const cleanData = buildCleanDraftData(props.form);
+    if (!cleanData || !draftHasContent(cleanData)) {
+        clearProgressDraft();
+        return;
+    }
+
+    try {
+        const payloadToSave = {
+            _v: 1,
+            saved_at: new Date().toISOString(),
+            data: cleanData,
+        };
+        localStorage.setItem(primaryKey, JSON.stringify(payloadToSave));
+    } catch {
+        // Ignore quota / private-mode failures.
+    }
+}
+
+function debouncedSaveProgress() {
+    if (!isDraftInitialized || props.mode !== 'create') {
+        return;
+    }
+    if (saveDraftDebounceTimer) {
+        clearTimeout(saveDraftDebounceTimer);
+    }
+    saveDraftDebounceTimer = setTimeout(() => {
+        saveProgress();
+    }, 250);
+}
+
+watch(
+    () => props.form,
+    () => {
+        debouncedSaveProgress();
+    },
+    { deep: true },
+);
+
+watch(
+    () => props.form.vehicle_id,
+    (newVal) => {
+        if (!newVal && props.mode === 'create') {
+            props.form.planned_mileage_km_per_liter = '';
+            props.form.start_meter_reading_km = '';
+            props.form.end_meter_reading_km = '';
+            props.form.planned_diesel_liters = '';
+            props.form.planned_diesel_manually_set = false;
+        }
+    },
+);
+
+watch(
+    () => props.form.customer_id,
+    (newCustId) => {
+        if (Array.isArray(props.form.route_legs)) {
+            props.form.route_legs.forEach((leg) => {
+                if (leg.use_same_customer) {
+                    leg.customer_id = newCustId || '';
+                }
+            });
+        }
+    },
+);
+
+onBeforeUnmount(() => {
+    if (saveDraftDebounceTimer) {
+        clearTimeout(saveDraftDebounceTimer);
+        saveProgress();
+    }
+});
+
 function applyProgressDraft(draft) {
-    if (!draft || typeof draft !== 'object') {
+    if (!draft || typeof draft !== 'object' || !draftHasContent(draft)) {
         return false;
     }
 
-    Object.keys(props.form).forEach((key) => {
-        if (!Object.prototype.hasOwnProperty.call(draft, key)) {
-            return;
-        }
+    const scalarKeys = [
+        'vehicle_id',
+        'driver_id',
+        'substitute_driver_id',
+        'customer_id',
+        'broker_id',
+        'start_station_id',
+        'trip_sequence',
+        'start_at',
+        'end_at',
+        'notes',
+        'start_meter_reading_km',
+        'end_meter_reading_km',
+        'planned_mileage_km_per_liter',
+        'planned_diesel_liters',
+        'diesel_rate_per_liter',
+    ];
 
-        props.form[key] = draft[key];
+    scalarKeys.forEach((key) => {
+        if (
+            Object.prototype.hasOwnProperty.call(draft, key)
+            && draft[key] !== undefined
+            && draft[key] !== null
+            && draft[key] !== ''
+        ) {
+            props.form[key] = draft[key];
+        }
     });
 
-    if (!Array.isArray(props.form.drops)) {
-        props.form.drops = [];
-    }
-
-    if (
-        String(props.form.trip_type ?? '').toUpperCase() === 'MULTI_POINT'
-        && props.form.drops.length === 0
-        && (props.form.pickups ?? []).some((pickup) => Array.isArray(pickup?.drops) && pickup.drops.length > 0)
-    ) {
-        props.form.drops = consolidateNestedDropsToTripDrops(props.form.pickups);
-        props.form.pickups = (props.form.pickups ?? []).map((pickup) => {
-            const { drops, ...rest } = pickup;
-
-            return rest;
-        });
+    if (draft.planned_diesel_liters !== '' && draft.planned_diesel_liters != null) {
+        props.form.planned_diesel_manually_set = true;
     }
 
     if (isMultiPointLayout.value) {
         props.form.trip_type = 'MULTI_POINT';
-        if (!Array.isArray(props.form.pickups)) {
-            props.form.pickups = [];
+        if (Array.isArray(draft.pickups) && draft.pickups.some(isPickupFilled)) {
+            props.form.pickups = draft.pickups.filter(isPickupFilled).map((p, idx) => ({
+                _key: p._key || `pickup-${Date.now()}-${idx + 1}`,
+                pickup_code: p.pickup_code || `P${String(idx + 1).padStart(3, '0')}`,
+                station_id: p.station_id || '',
+                consignor_id: p.consignor_id || '',
+                goods_name: p.goods_name || '',
+                weight_ton: p.weight_ton !== '' && p.weight_ton != null ? p.weight_ton : '',
+                pickup_date: p.pickup_date || p.date || '',
+                from_address: p.from_address || '',
+            }));
         }
-        if (!Array.isArray(props.form.drops)) {
-            props.form.drops = [];
+        if (Array.isArray(draft.drops) && draft.drops.some(isDropFilled)) {
+            props.form.drops = draft.drops.filter(isDropFilled).map((d, idx) => ({
+                _key: d._key || `drop-${Date.now()}-${idx + 1}`,
+                drop_code: d.drop_code || `D${String(idx + 1).padStart(3, '0')}`,
+                to_station_id: d.to_station_id || '',
+                consignee_id: d.consignee_id || '',
+                weight_ton: d.weight_ton !== '' && d.weight_ton != null ? d.weight_ton : '',
+                freight_amount: d.freight_amount !== '' && d.freight_amount != null ? d.freight_amount : '',
+                lr_number: d.lr_number || '',
+                remarks: d.remarks || '',
+                allocations: Array.isArray(d.allocations) ? d.allocations.map((a, aidx) => ({
+                    _key: a._key || `alloc-${Date.now()}-${idx + 1}-${aidx + 1}`,
+                    pickup_key: a.pickup_key || '',
+                    weight_ton: a.weight_ton !== '' && a.weight_ton != null ? a.weight_ton : '',
+                    freight_rate: a.freight_rate !== '' && a.freight_rate != null ? a.freight_rate : '',
+                    freight_amount: a.freight_amount !== '' && a.freight_amount != null ? a.freight_amount : '',
+                    distance_km: a.distance_km !== '' && a.distance_km != null ? a.distance_km : '',
+                    no_of_units: a.no_of_units !== '' && a.no_of_units != null ? a.no_of_units : '',
+                    ewaybill_no: a.ewaybill_no || '',
+                    ewaybill_expiry: a.ewaybill_expiry || '',
+                    goods_value: a.goods_value !== '' && a.goods_value != null ? a.goods_value : '',
+                })) : [],
+            }));
         }
+    } else {
+        if (draft.trip_type && ['ONE_WAY', 'ROUND_TRIP'].includes(String(draft.trip_type).toUpperCase())) {
+            props.form.trip_type = draft.trip_type;
+        }
+        if (Array.isArray(draft.route_legs) && draft.route_legs.some(isRouteLegFilled)) {
+            props.form.route_legs = draft.route_legs.filter(isRouteLegFilled).map((leg, idx) => ({
+                _key: leg._key || `leg-${Date.now()}-${idx + 1}`,
+                to_station_id: leg.to_station_id || '',
+                use_same_customer: leg.use_same_customer !== undefined ? leg.use_same_customer : true,
+                customer_id: leg.customer_id || '',
+                consignor_id: leg.consignor_id || '',
+                consignee_id: leg.consignee_id || '',
+                pickup_date: leg.pickup_date || '',
+                goods_name: leg.goods_name || '',
+                goods_value: leg.goods_value !== '' && leg.goods_value != null ? leg.goods_value : '',
+                no_of_units: leg.no_of_units !== '' && leg.no_of_units != null ? leg.no_of_units : '',
+                weight_ton: leg.weight_ton !== '' && leg.weight_ton != null ? leg.weight_ton : '',
+                freight_rate: leg.freight_rate !== '' && leg.freight_rate != null ? leg.freight_rate : '',
+                freight_auto_calculate: leg.freight_auto_calculate !== undefined ? leg.freight_auto_calculate : true,
+                freight_amount: leg.freight_amount !== '' && leg.freight_amount != null ? leg.freight_amount : '',
+                ewaybill_no: leg.ewaybill_no || '',
+                ewaybill_expiry: leg.ewaybill_expiry || '',
+                expected_mileage_km_per_liter: leg.expected_mileage_km_per_liter !== '' && leg.expected_mileage_km_per_liter != null ? leg.expected_mileage_km_per_liter : '',
+                distance_km: leg.distance_km !== '' && leg.distance_km != null ? leg.distance_km : '',
+                lr_number: leg.lr_number || '',
+                remarks: leg.remarks || '',
+            }));
+        }
+    }
 
-        props.form.drops = props.form.drops.map((drop) => {
-            const legacyRate = drop.freight_rate === '' || drop.freight_rate == null
-                ? ''
-                : Number(drop.freight_rate);
-            const legacyFreight = Number(drop.freight_amount ?? 0);
-
-            const allocations = Array.isArray(drop.allocations) && drop.allocations.length > 0
-                ? drop.allocations
-                : [{
-                    pickup_key: '',
-                    weight_ton: drop.weight_ton || '',
-                    freight_rate: legacyRate,
-                    freight_amount: legacyFreight,
-                    freight_auto_calculate: false,
-                    distance_km: drop.distance_km || '',
-                    ewaybill_no: drop.ewaybill_no || '',
-                    ewaybill_expiry: drop.ewaybill_expiry || '',
-                    no_of_units: drop.no_of_units || '',
-                    goods_value: drop.goods_value || '',
-                }];
-
-            return {
-                ...drop,
-                allocations: allocations.map((allocation, allocationIndex) => {
-                    const defaults = emptyAllocation();
-                    const merged = {
-                        ...defaults,
-                        ...allocation,
-                        _key: allocation._key || `alloc-${drop._key || Date.now()}-${allocationIndex}`,
-                        pickup_key: allocation.pickup_key ? String(allocation.pickup_key) : '',
-                    };
-
-                    const missingRate = allocation.freight_rate === undefined
-                        || allocation.freight_rate === null
-                        || allocation.freight_rate === '';
-                    const missingFreight = allocation.freight_amount === undefined
-                        || allocation.freight_amount === null;
-
-                    if (allocationIndex === 0 && missingRate && legacyRate !== '') {
-                        merged.freight_rate = legacyRate;
-                    }
-
-                    if (allocationIndex === 0 && missingFreight && legacyFreight > 0) {
-                        merged.freight_amount = legacyFreight;
-                        merged.freight_auto_calculate = false;
-                    }
-
-                    return merged;
-                }),
-            };
-        });
+    if (Array.isArray(draft.expenses) && draft.expenses.some(isExpenseFilled)) {
+        props.form.expenses = draft.expenses.filter(isExpenseFilled).map((exp, idx) => ({
+            _key: exp._key || `expense-${Date.now()}-${idx + 1}`,
+            amount: exp.amount !== '' && exp.amount != null ? exp.amount : '',
+            expense_category_id: exp.expense_category_id || '',
+            name: exp.name || '',
+            notes: exp.notes || '',
+        }));
     }
 
     if (props.form.substitute_driver_id) {
@@ -2483,69 +2852,262 @@ function applyProgressDraft(draft) {
             && String(lastStopId) !== String(props.form.start_station_id ?? '');
     }
 
-    return draftHasContent(draft);
+    return true;
 }
 
-function restoreProgressDraft() {
-    discardUnscopedTripDrafts();
-
-    const key = progressDraftKey();
-
-    if (props.mode !== 'create' || !key) {
+function restoreProgressDraft({ notify = true } = {}) {
+    if (props.mode !== 'create') {
+        isDraftInitialized = true;
         return false;
     }
 
+    const { primaryKey, fallbackKey } = getDraftStorageKeys();
     let raw = null;
 
     try {
-        raw = localStorage.getItem(key);
+        raw = localStorage.getItem(primaryKey);
+        if (!raw && fallbackKey && fallbackKey !== primaryKey) {
+            raw = localStorage.getItem(fallbackKey);
+        }
     } catch {
+        isDraftInitialized = true;
         return false;
     }
 
     if (!raw) {
+        isDraftInitialized = true;
         return false;
     }
 
     try {
-        const draft = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        const draft = parsed?.data && parsed?._v ? parsed.data : parsed;
+
+        if (!draft || typeof draft !== 'object' || !draftHasContent(draft)) {
+            clearProgressDraft();
+            isDraftInitialized = true;
+            return false;
+        }
 
         if (isMultiPointLayout.value) {
             const draftType = String(draft?.trip_type ?? '').toUpperCase();
             if (draftType && draftType !== 'MULTI_POINT') {
+                isDraftInitialized = true;
                 return false;
             }
         } else if (String(draft?.trip_type ?? '').toUpperCase() === 'MULTI_POINT') {
+            isDraftInitialized = true;
             return false;
         }
 
-        if (!applyProgressDraft(draft)) {
+        const applied = applyProgressDraft(draft);
+
+        if (!applied) {
+            clearProgressDraft();
+            isDraftInitialized = true;
             return false;
         }
 
-        toast.info('Restored unsaved draft.');
+        if (notify) {
+            toast.info('Restored unsaved draft.');
+            setTimeout(() => {
+                isDraftInitialized = true;
+            }, 500);
+        } else {
+            // Toast is deferred to reconcileRestoredLookups; keep safety fallback timer
+            setTimeout(() => {
+                isDraftInitialized = true;
+            }, 3000);
+        }
 
         return true;
     } catch {
+        clearProgressDraft();
+        isDraftInitialized = true;
         return false;
     }
 }
 
-function clearProgressDraft() {
-    const key = progressDraftKey();
-
-    if (!key) {
+function reconcileRestoredLookups({
+    customers = [],
+    stations = [],
+    brokers = [],
+    drivers = [],
+    lookupsLoaded = { customers: true, stations: true, brokers: true, drivers: true },
+} = {}) {
+    if (props.mode !== 'create') {
+        isDraftInitialized = true;
         return;
     }
 
+    let modified = false;
+
+    // 1. Customer
+    if (lookupsLoaded?.customers && props.form.customer_id) {
+        const customerExists = customers.some((c) => String(c.id) === String(props.form.customer_id));
+        if (!customerExists) {
+            props.form.customer_id = '';
+            modified = true;
+        }
+    }
+
+    // 2. Start Station
+    if (lookupsLoaded?.stations && props.form.start_station_id) {
+        const stationExists = stations.some((s) => String(s.id) === String(props.form.start_station_id));
+        if (!stationExists) {
+            props.form.start_station_id = '';
+            modified = true;
+        }
+    }
+
+    // 3. Broker
+    if (lookupsLoaded?.brokers && props.form.broker_id) {
+        const brokerExists = brokers.some((b) => String(b.id) === String(props.form.broker_id));
+        if (!brokerExists) {
+            props.form.broker_id = '';
+            modified = true;
+        }
+    }
+
+    // 4. Substitute Driver
+    if (lookupsLoaded?.drivers && props.form.substitute_driver_id) {
+        const driverExists = drivers.some((d) => String(d.id) === String(props.form.substitute_driver_id));
+        if (!driverExists) {
+            props.form.substitute_driver_id = '';
+            showSubstituteDriver.value = false;
+            modified = true;
+        }
+    }
+
+    // 5. Driver (when truck not selected)
+    if (lookupsLoaded?.drivers && props.form.driver_id && !props.form.vehicle_id) {
+        const driverExists = drivers.some((d) => String(d.id) === String(props.form.driver_id));
+        if (!driverExists) {
+            props.form.driver_id = '';
+            modified = true;
+        }
+    }
+
+    // 6. Sequential route legs
+    if (Array.isArray(props.form.route_legs)) {
+        props.form.route_legs.forEach((leg) => {
+            if (lookupsLoaded?.stations && leg.to_station_id) {
+                if (!stations.some((s) => String(s.id) === String(leg.to_station_id))) {
+                    leg.to_station_id = '';
+                    modified = true;
+                }
+            }
+            if (lookupsLoaded?.customers && leg.customer_id) {
+                if (!customers.some((c) => String(c.id) === String(leg.customer_id))) {
+                    leg.customer_id = '';
+                    modified = true;
+                }
+            }
+            if (lookupsLoaded?.customers && leg.consignor_id) {
+                if (!customers.some((c) => String(c.id) === String(leg.consignor_id))) {
+                    leg.consignor_id = '';
+                    modified = true;
+                }
+            }
+            if (lookupsLoaded?.customers && leg.consignee_id) {
+                if (!customers.some((c) => String(c.id) === String(leg.consignee_id))) {
+                    leg.consignee_id = '';
+                    modified = true;
+                }
+            }
+        });
+
+        const validLegs = props.form.route_legs.filter(isRouteLegFilled);
+        if (validLegs.length !== props.form.route_legs.length) {
+            props.form.route_legs = validLegs;
+            modified = true;
+        }
+    }
+
+    // 7. Multi-Point pickups & drops
+    if (isMultiPointLayout.value) {
+        if (Array.isArray(props.form.pickups)) {
+            props.form.pickups.forEach((p) => {
+                if (lookupsLoaded?.stations && p.station_id) {
+                    if (!stations.some((s) => String(s.id) === String(p.station_id))) {
+                        p.station_id = '';
+                        modified = true;
+                    }
+                }
+                if (lookupsLoaded?.customers && p.consignor_id) {
+                    if (!customers.some((c) => String(c.id) === String(p.consignor_id))) {
+                        p.consignor_id = '';
+                        modified = true;
+                    }
+                }
+            });
+        }
+        if (Array.isArray(props.form.drops)) {
+            props.form.drops.forEach((d) => {
+                if (lookupsLoaded?.stations && d.to_station_id) {
+                    if (!stations.some((s) => String(s.id) === String(d.to_station_id))) {
+                        d.to_station_id = '';
+                        modified = true;
+                    }
+                }
+                if (lookupsLoaded?.customers && d.consignee_id) {
+                    if (!customers.some((c) => String(c.id) === String(d.consignee_id))) {
+                        d.consignee_id = '';
+                        modified = true;
+                    }
+                }
+            });
+        }
+    }
+
+    // 8. Re-check if draft STILL has content
+    const hasRemaining = draftHasContent(props.form);
+
+    if (!hasRemaining) {
+        clearProgressDraft();
+        isDraftInitialized = true;
+    } else {
+        isDraftInitialized = true;
+        if (modified) {
+            saveProgress();
+        }
+        toast.info('Restored unsaved draft.');
+    }
+}
+
+function clearProgressDraft() {
+    const { primaryKey, fallbackKey } = getDraftStorageKeys();
+
     try {
-        localStorage.removeItem(key);
+        if (primaryKey) localStorage.removeItem(primaryKey);
+        if (fallbackKey) localStorage.removeItem(fallbackKey);
     } catch {
         // Ignore storage failures.
     }
 }
 
-defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
+function hasSavedDraft() {
+    const { primaryKey, fallbackKey } = getDraftStorageKeys();
+    try {
+        const raw = localStorage.getItem(primaryKey) || (fallbackKey !== primaryKey ? localStorage.getItem(fallbackKey) : null);
+        if (!raw) {
+            return false;
+        }
+        const parsed = JSON.parse(raw);
+        const draft = parsed?.data && parsed?._v ? parsed.data : parsed;
+        return draftHasContent(draft);
+    } catch {
+        return false;
+    }
+}
+
+defineExpose({
+    restoreProgressDraft,
+    clearProgressDraft,
+    saveProgress,
+    hasSavedDraft,
+    reconcileRestoredLookups,
+});
 </script>
 
 <style scoped>
@@ -2576,6 +3138,199 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-family: var(--app-font-family);
     color: var(--text);
     font-size: var(--fs-input);
+}
+
+@media (max-width: 767.98px) {
+    .trf {
+        --fs-title: 0.84rem;
+        --fs-desc: 0.68rem;
+        --fs-label: 0.72rem;
+        --fs-input: 0.76rem;
+        --fs-value: 0.76rem;
+        --fs-meta: 0.68rem;
+        --fs-hint: 0.66rem;
+        --fs-btn: 0.72rem;
+        --fs-metric: 0.82rem;
+        --input-min-h: 34px;
+        --details-control-h: 38px;
+        --details-label-h: auto;
+    }
+    .trf-section {
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+    .trf-section__head {
+        padding: 8px 12px;
+        min-height: 48px;
+        gap: 8px;
+    }
+    .trf-section__head-left {
+        gap: 8px;
+    }
+    .trf-section__body {
+        padding: 10px;
+    }
+    .trf-step-num {
+        width: 24px;
+        height: 24px;
+        font-size: 0.7rem;
+    }
+    .trf-picker-grid--details {
+        --details-control-h: 38px;
+    }
+    .trf-picker-grid--details .trf-synced-field {
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+    .trf-picker-grid--details .trf-pf :deep(.redesigned-picker-trigger) {
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+    .trf-synced-field__main {
+        font-size: 0.76rem;
+    }
+    .trf-synced-field__sub {
+        font-size: 0.64rem;
+    }
+    .trf-date-input :deep(.app-date-input__text) {
+        padding: 4px 28px 4px 8px;
+        font-size: 0.74rem;
+    }
+    .trf-vehicle-info,
+    .trf-vehicle-info--metrics,
+    .trf-vehicle-info--ops,
+    .trf-vehicle-info--money,
+    .trf-vehicle-info--summary,
+    .trf-summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px 6px !important;
+    }
+    /* Hide icons on mobile in 2-column metrics so labels and values adjust cleanly */
+    .trf-vehicle-info--metrics .trf-vehicle-info__icon,
+    .trf-vehicle-info--ops .trf-vehicle-info__icon,
+    .trf-vehicle-info--money .trf-vehicle-info__icon,
+    .trf-vehicle-info--summary .trf-vehicle-info__icon,
+    .trf-summary-metrics .trf-vehicle-info__icon {
+        display: none !important;
+    }
+    .trf-vehicle-info--metrics {
+        --metrics-label-h: auto;
+        --metrics-value-h: auto;
+        --metrics-meta-h: auto;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 3px !important;
+        padding: 6px 8px !important;
+        min-height: 0 !important;
+        border-radius: 8px !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__field {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 3px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__name {
+        font-size: 0.65rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        color: var(--muted) !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__value {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-input--metric {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 2px 6px !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-slot {
+        min-height: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta {
+        font-size: 0.58rem !important;
+        gap: 2px 4px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-label,
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-val {
+        font-size: 0.58rem !important;
+    }
+
+    /* Section 3 Trip Summary metrics */
+    .trf-summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+    }
+    .trf-summary-metrics__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding: 6px 8px !important;
+        min-width: 0 !important;
+        gap: 2px !important;
+        border-radius: 8px !important;
+    }
+    .trf-summary-metrics__text {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .trf-summary-metrics .trf-vehicle-info__name {
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        line-height: 1.2 !important;
+    }
+    .trf-summary-metrics .trf-vehicle-info__val {
+        font-size: 0.82rem !important;
+        font-weight: 800 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin-top: 1px !important;
+    }
+    .trf-summary-loadmix {
+        margin-top: 2px !important;
+        gap: 1px !important;
+    }
+    .trf-summary-loadmix__line {
+        gap: 4px !important;
+    }
+    .trf-summary-loadmix__key {
+        font-size: 0.58rem !important;
+    }
+    .trf-summary-loadmix__val {
+        font-size: 0.68rem !important;
+    }
+    .trf-route-board__station {
+        min-width: 0;
+    }
+    .trf-route-board__label {
+        font-size: 0.7rem;
+    }
+    .trf-leg__fields {
+        --leg-control-h: 32px;
+        --leg-head-h: 18px;
+        --leg-fs-label: 0.58rem;
+        --leg-fs-input: 0.72rem;
+    }
 }
 
 /* ── Section Cards ──────────────────── */
@@ -2735,21 +3490,19 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
         max-width: none;
     }
 }
-@media (max-width: 767px)  {
+@media (max-width: 767.98px)  {
     .trf-picker-grid,
     .trf-picker-grid--3,
     .trf-picker-grid--4,
     .trf-picker-grid--5,
     .trf-picker-grid--6,
-    .trf-picker-grid--details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 480px)  {
-    .trf-picker-grid,
-    .trf-picker-grid--3,
-    .trf-picker-grid--4,
-    .trf-picker-grid--5,
-    .trf-picker-grid--6,
-    .trf-picker-grid--details { grid-template-columns: 1fr; }
+    .trf-picker-grid--details {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px 8px;
+    }
+    .trf-picker-grid--details > .trf-pf--customer {
+        grid-column: 1 / -1;
+    }
 }
 
 /* ── Picker Field ───────────────────── */
@@ -3094,7 +3847,11 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 991.98px) {
     .trf-step4-fields {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 8px;
+    }
+    .trf-step4-fields > .trf-pf:last-child {
+        grid-column: 1 / -1;
     }
 }
 .trf-input--readonly {
@@ -3526,7 +4283,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 575.98px) {
     .trf-summary-metrics {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 .trf-summary-block + .trf-summary-block {
@@ -3567,7 +4324,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 @media (max-width: 575.98px) {
     .trf-vehicle-info--ops,
     .trf-vehicle-info--money,
-    .trf-vehicle-info--summary { grid-template-columns: 1fr; }
+    .trf-vehicle-info--summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .trf-vehicle-info__field {
     min-width: 0;
@@ -3597,7 +4354,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 575.98px) {
     .trf-vehicle-info,
-    .trf-vehicle-info--metrics { grid-template-columns: 1fr; }
+    .trf-vehicle-info--metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Banners ────────────────────────── */
@@ -3872,7 +4629,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 .trf-route-board__label {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 1px;
     min-height: 20px;
     margin-bottom: 6px;
@@ -3882,6 +4639,24 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-family: inherit;
     text-transform: none;
     letter-spacing: 0;
+}
+.trf-route-board__label-icon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: #d1fae5;
+    color: #059669;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+.trf-route-board__label-icon--stop {
+    background: #e0f2fe;
+    color: #0284c7;
+    font-weight: 700;
 }
 .trf-route-board__label-row {
     display: flex;
@@ -4347,9 +5122,18 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
         min-height: 0;
         height: auto;
     }
-    .trf-route-group--primary:not(.trf-route-group--no-card) .trf-route-station--home,
-    .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-station {
-        flex: 0 0 auto;
+    .trf-route-station {
+        display: block !important;
+        width: 100% !important;
+    }
+    .trf-route-board__rail {
+        display: none !important;
+    }
+    .trf-route-board__station {
+        width: 100% !important;
+    }
+    .trf-route-board__label-icon {
+        display: inline-flex !important;
     }
     .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-board__station {
         align-self: start;
@@ -4379,22 +5163,151 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 767.98px) {
     .trf-leg__fields {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        column-gap: 8px;
+        row-gap: 8px;
+    }
+    .trf-leg__fields .trf-lf--customer {
+        grid-column: 1 / -1;
+    }
+    .trf-leg__cargo-row {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+        overflow-x: visible !important;
+        padding-bottom: 0;
+    }
+    .trf-leg__cargo-row > div:first-child {
+        grid-column: 1 / -1;
+    }
+
+    /* Section 2 Header & Single Line Texts */
+    .trf-section__head {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+    }
+    .trf-section__head-left {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    .trf-section__head-left > div:nth-child(2) {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    .trf-section__desc {
+        font-size: 0.65rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin-top: 1px !important;
+    }
+    .trf-route-type-badge {
+        min-width: auto !important;
+        padding: 2px 7px !important;
+        font-size: 0.62rem !important;
+        gap: 3px !important;
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Step 2 action buttons strictly in 1 horizontal row */
+    .trf-section__head-right {
+        width: 100% !important;
+        margin-top: 2px !important;
+    }
+    .trf-route-actions {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 4px !important;
+        justify-content: space-between !important;
+    }
+    .trf-route-actions .trf-head-btn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        width: 0 !important;
+        padding: 5px 3px !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        border-radius: 6px !important;
+        min-height: 32px !important;
+    }
+    .trf-route-actions .trf-head-btn i {
+        font-size: 0.72rem !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-route-actions .trf-head-btn span {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-size: inherit !important;
+    }
+
+    /* Banners & Empty Panel Single-Line Texts */
+    .trf-banner {
+        padding: 6px 10px !important;
+        font-size: 0.72rem !important;
+        gap: 6px !important;
+        line-height: 1.3 !important;
+        align-items: center !important;
+    }
+    .trf-banner span {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-banner i {
+        font-size: 0.85rem !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-route-empty-panel {
+        padding: 10px 12px !important;
+        gap: 6px !important;
+    }
+    .trf-route-empty-panel__icon {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 0.85rem !important;
+    }
+    .trf-route-empty-panel__text {
+        max-width: 100% !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* Source Picker alignment & compact height */
+    .trf-route-board__station :deep(.redesigned-picker-trigger),
+    .trf-route-board__station :deep(.picker-trigger) {
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        border-radius: 8px !important;
+    }
+    .trf-route-board__label {
+        font-size: 0.76rem !important;
+        margin-bottom: 4px !important;
+    }
+    .trf-route-board__label-icon {
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 0.68rem !important;
+        margin-right: 4px !important;
     }
 }
 @media (max-width: 575.98px) {
-    .trf-route-station {
-        grid-template-columns: 28px minmax(0, 1fr);
-        column-gap: 10px;
-    }
-    .trf-route-board__dot {
-        width: 28px;
-        height: 28px;
-        font-size: .75rem;
-    }
     .trf-leg__fields {
-        grid-template-columns: 1fr;
-        padding: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        padding: 8px;
     }
 }
 

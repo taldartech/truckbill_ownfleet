@@ -783,6 +783,8 @@ defineExpose({ addPickup, addDrop, emptyPickup, emptyDrop, renumberCodes });
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 18px;
+    padding-right: 24px;
 }
 
 .trf-pf__req {
@@ -832,6 +834,40 @@ defineExpose({ addPickup, addDrop, emptyPickup, emptyDrop, renumberCodes });
     pointer-events: none;
 }
 
+.tmp-builder .trf-lf {
+    position: relative;
+}
+
+.tmp-builder .trf-lf__picker {
+    position: static;
+}
+
+.tmp-builder .trf-lf :deep(.searchable-picker-redesigned),
+.tmp-builder .trf-lf :deep(.picker-main) {
+    position: static;
+}
+
+.tmp-builder .trf-lf :deep(.picker-header-actions) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+    height: 18px;
+    z-index: 3;
+}
+
+.tmp-builder .trf-lf :deep(.picker-header-btn) {
+    width: 20px;
+    height: 20px;
+    font-size: 0.68rem;
+    border-radius: 5px;
+    padding: 0;
+    line-height: 1;
+}
+
 .trf-lf__picker :deep(.searchable-picker-redesigned),
 .trf-lf__picker :deep(.picker-main),
 .trf-lf__picker :deep(.picker-trigger-wrap) {
@@ -840,7 +876,28 @@ defineExpose({ addPickup, addDrop, emptyPickup, emptyDrop, renumberCodes });
 
 .trf-lf__picker :deep(.redesigned-picker-trigger) {
     min-height: 30px;
+    height: 34px;
     border-radius: 7px;
+    padding-left: 8px;
+    padding-right: 22px !important;
+    background-position: right 6px center !important;
+    background-size: 11px 9px !important;
+    font-size: 0.74rem !important;
+}
+
+.trf-lf__picker :deep(.picker-trigger-main-text) {
+    font-size: 0.74rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.25 !important;
+}
+
+.trf-lf__picker :deep(.picker-trigger-main-text.text-placeholder) {
+    font-size: 0.74rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 .trf-leg__card {
@@ -947,17 +1004,76 @@ defineExpose({ addPickup, addDrop, emptyPickup, emptyDrop, renumberCodes });
     }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 767.98px) {
     .tmp-fields--pickup,
     .tmp-fields--drop,
     .tmp-allocation__line--primary,
     .tmp-allocation__line--cargo {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px 6px !important;
+    }
+
+    .tmp-fields--pickup > div:first-child {
+        grid-column: 1 / -1 !important;
+    }
+
+    .tmp-allocation__line--primary > div:first-child {
+        grid-column: 1 / -1 !important;
     }
 
     .tmp-allocation__remove {
-        grid-column: 1;
+        grid-column: 2;
         justify-self: end;
+        margin-bottom: 0;
+    }
+
+    .tmp-allocation__line--cargo > div:nth-child(3) {
+        grid-column: 1 / -1 !important;
+    }
+
+    .trf-input {
+        min-height: 30px;
+        font-size: 0.74rem;
+        padding: 3px 6px;
+    }
+    .trf-lf__lbl {
+        font-size: 0.62rem;
+        line-height: 18px;
+    }
+    .tmp-allocations__title {
+        font-size: 0.68rem;
+    }
+    .tmp-pickup__code {
+        font-size: 0.75rem;
+    }
+    .tmp-pickup__header {
+        padding: 0.4rem 0.55rem;
+    }
+    .tmp-fields {
+        padding: 0.5rem 0.55rem;
+    }
+
+    .trf-lf__picker :deep(.redesigned-picker-trigger) {
+        min-height: 30px !important;
+        height: 32px !important;
+        padding-left: 6px !important;
+        padding-right: 18px !important;
+        background-position: right 4px center !important;
+        background-size: 10px 8px !important;
+        font-size: 0.70rem !important;
+    }
+    .trf-lf__picker :deep(.picker-trigger-main-text) {
+        font-size: 0.70rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        line-height: 1.2 !important;
+    }
+    .trf-lf__picker :deep(.picker-trigger-main-text.text-placeholder) {
+        font-size: 0.70rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 }
 </style>

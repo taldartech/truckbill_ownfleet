@@ -138,8 +138,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -260,18 +262,26 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(goodsType) {
-    if (!window.confirm(`Remove goods type "${goodsType.name}"?`)) {
-        return;
-    }
+function handleDelete(goodsType) {
+    promptDelete({
+        title: 'Delete Goods Type?',
+        itemName: goodsType.name,
+        details: [
+            { label: 'Name', value: goodsType.name },
+            { label: 'Description', value: goodsType.description },
+        ],
+        onConfirm: async (remark) => {
+            await deleteGoodsType(goodsType.id, { deleted_reason: remark, remark });
+            toast.success('Goods type deleted successfully.');
 
-    try {
-        await deleteGoodsType(goodsType.id);
-        toast.success('Goods type removed successfully.');
-        await loadGoodsTypes();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not remove goods type.');
-    }
+            const page =
+                goodsTypes.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadGoodsTypes(page);
+        },
+    });
 }
 
 onMounted(async () => {

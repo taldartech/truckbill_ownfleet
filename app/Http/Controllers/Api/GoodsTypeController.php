@@ -138,17 +138,25 @@ class GoodsTypeController extends Controller
         return new GoodsTypeResource($goodsType);
     }
 
-    public function destroy(GoodsType $goodsType): JsonResponse
-    {
+    public function destroy(
+        Request $request,
+        GoodsType $goodsType,
+    ): JsonResponse {
         $this->authorize('delete', $goodsType);
 
-        $goodsType->update([
-            'is_active' => false,
-            'updated_by' => request()->user()?->id,
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
         ]);
 
+        $goodsType->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $validated['deleted_reason'],
+        ]);
+
+        $goodsType->delete();
+
         return response()->json([
-            'message' => 'Goods type removed.',
+            'message' => 'Goods type deleted successfully.',
         ]);
     }
 }

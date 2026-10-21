@@ -5,10 +5,12 @@ namespace App;
 use App\Concerns\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class GoodsType extends Model
 {
     use TenantScoped;
+    use SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -17,6 +19,8 @@ class GoodsType extends Model
         'is_active',
         'created_by',
         'updated_by',
+        'deleted_by',
+        'deleted_reason'
     ];
 
     protected function casts(): array
@@ -34,5 +38,10 @@ class GoodsType extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

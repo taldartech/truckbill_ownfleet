@@ -1,10 +1,10 @@
 <template>
-    <footer class="app-footer d-flex align-items-center bg-white border-top border-light-subtle">
-        <div class="truckbill-footer-content d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center w-100 text-center text-md-start gap-2 gap-md-0">
+    <footer class="app-footer d-flex align-items-center bg-white border-top border-light-subtle py-1 py-md-2 px-2 px-md-3">
+        <div class="d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center w-100 text-center text-md-start gap-1 gap-md-2 gap-xl-3 small flex-md-wrap flex-xl-nowrap">
             <!-- 1. Left Brand -->
-            <div class="footer-col-brand d-inline-flex align-items-center justify-content-center justify-content-md-start text-nowrap flex-shrink-0">
-                <span class="fw-bold" style="color: #0f172a;">TruckBill</span>
-                <span class="footer-dash fw-semibold mx-2">—</span>
+            <div class="footer-brand d-inline-flex align-items-center justify-content-center justify-content-md-start text-nowrap flex-shrink-0">
+                <span class="fw-bold text-dark">TruckBill</span>
+                <span class="fw-semibold mx-1 mx-md-2 text-muted">—</span>
                 <span class="d-inline-flex align-items-center text-secondary">
                     A Product of&nbsp;
                     <a
@@ -19,47 +19,47 @@
             </div>
 
             <!-- 2. Footer Links: Help & Support, Privacy Policy, Terms & Conditions, Contact Us -->
-            <nav class="footer-col-nav d-inline-flex flex-wrap flex-md-nowrap align-items-center justify-content-center text-nowrap mx-md-auto gap-1 gap-md-0" aria-label="Footer Navigation">
+            <nav class="d-inline-flex flex-nowrap align-items-center justify-content-center text-nowrap mx-auto" aria-label="Footer Navigation">
                 <a
                     href="javascript:void(0)"
-                    class="footer-link fw-medium"
+                    class="text-decoration-none text-secondary px-1 fw-medium"
                     @click.prevent="isHelpModalOpen = true"
                 >
                     Help &amp; Support
                 </a>
-                <span class="footer-separator mx-2" aria-hidden="true">•</span>
+                <span class="text-muted mx-1" aria-hidden="true">•</span>
                 <a
                     href="https://www.truckbill.in/policies/privacy-policy.html"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="footer-link fw-medium"
+                    class="text-decoration-none text-secondary px-1 fw-medium"
                 >
                     Privacy Policy
                 </a>
-                <span class="footer-separator mx-2" aria-hidden="true">•</span>
+                <span class="text-muted mx-1" aria-hidden="true">•</span>
                 <a
                     href="https://www.truckbill.in/policies/terms-and-conditions.html"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="footer-link fw-medium"
+                    class="text-decoration-none text-secondary px-1 fw-medium"
                 >
                     Terms &amp; Conditions
                 </a>
-                <span class="footer-separator mx-2" aria-hidden="true">•</span>
+                <span class="text-muted mx-1" aria-hidden="true">•</span>
                 <a
                     href="https://www.truckbill.in/#contact"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="footer-link fw-medium"
+                    class="text-decoration-none text-secondary px-1 fw-medium"
                 >
                     Contact Us
                 </a>
             </nav>
 
             <!-- 3. Copyright & Dynamic Application Version -->
-            <div class="footer-col-meta d-inline-flex align-items-center justify-content-center justify-content-md-end text-nowrap gap-2 ms-md-auto flex-shrink-0">
+            <div class="footer-meta d-inline-flex align-items-center justify-content-center justify-content-md-end text-nowrap gap-1 gap-md-2 ms-md-auto flex-shrink-0">
                 <span class="text-secondary">© TruckBill. All rights reserved.</span>
-                <span class="badge rounded-pill text-white footer-version-pill">
+                <span class="badge rounded-pill text-white footer-version-pill" style="background-color: #2fb36f;">
                     {{ appVersion }}
                 </span>
             </div>
@@ -314,14 +314,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 .footer-separator {
     color: #cbd5e1 !important;
     user-select: none;
-}
-
-.company-link {
-    text-decoration: none !important;
+    margin: 0 0.5rem;
 }
 
 .company-link:hover {
-    text-decoration: none !important;
     opacity: 0.9;
 }
 
@@ -329,37 +325,96 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
     text-decoration: underline !important;
 }
 
-.footer-link {
-    color: #475569 !important;
-    text-decoration: none !important;
-    transition: color 0.15s ease-in-out;
-}
-
-.footer-link:hover {
-    color: #0f172a !important;
-}
-
-.footer-version-pill {
-    background-color: #2fb36f;
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.18rem 0.55rem;
-    line-height: 1.2;
-}
-
-/* Tablet Screens (768px to 1023.98px): Single line layout with scaled text */
-@media (min-width: 768px) and (max-width: 1023.98px) {
+/* Ensure mobile footer 3 lines are balanced, proportionate and clean */
+@media (max-width: 767.98px) {
     .app-footer {
-        padding: 5px 12px !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
     }
 
-    .truckbill-footer-content {
-        font-size: 0.65rem;
+    .app-footer > div {
+        gap: 0.35rem !important;
+    }
+
+    /* Line 1: Brand */
+    .footer-brand {
+        font-size: clamp(0.72rem, 2.9vw, 0.78rem);
+        line-height: 1.25;
+    }
+
+    /* Line 2: Links nav */
+    .app-footer nav a {
+        font-size: clamp(0.62rem, 2.4vw, 0.7rem);
+        padding: 0 0.12rem !important;
+    }
+
+    .app-footer nav span {
+        margin: 0 0.15rem !important;
+    }
+
+    /* Line 3: Copyright & Version */
+    .footer-meta {
+        font-size: clamp(0.68rem, 2.6vw, 0.74rem);
+        line-height: 1.25;
     }
 
     .footer-version-pill {
-        font-size: 0.62rem;
-        padding: 0.12rem 0.4rem;
+        font-size: 0.6rem !important;
+        padding: 0.1rem 0.38rem !important;
+    }
+}
+
+/* Tablet / Middle screen (768px to 1199.98px) - 1 line with clean spacing between the 3 sections */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .app-footer {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        max-width: 100% !important;
+        overflow-x: clip !important;
+    }
+
+    .app-footer > div {
+        gap: 0.25rem 0.5rem !important;
+    }
+
+    .footer-brand {
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    .footer-brand .company-link {
+        font-size: 0.68rem !important;
+    }
+
+    .app-footer nav {
+        flex-shrink: 1 !important;
+        margin: 0 auto !important;
+    }
+
+    .app-footer nav a {
+        font-size: 0.66rem !important;
+        padding: 0 0.12rem !important;
+        white-space: nowrap !important;
+    }
+
+    .app-footer nav span {
+        margin: 0 0.12rem !important;
+        font-size: 0.66rem !important;
+    }
+
+    .footer-meta {
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        gap: 0.25rem !important;
+    }
+
+    .footer-version-pill {
+        font-size: 0.58rem !important;
+        padding: 0.08rem 0.35rem !important;
     }
 }
 </style>

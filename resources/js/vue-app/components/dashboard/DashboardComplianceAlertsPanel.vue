@@ -21,15 +21,19 @@
 
         <div v-if="loading" class="dashboard-panel__empty text-muted">Loading alerts…</div>
         <template v-else>
-            <div class="compliance-summary-grid">
+            <div class="row row-cols-2 row-cols-sm-4 g-2 mb-3">
                 <div
                     v-for="item in summaryItems"
                     :key="item.key"
-                    class="compliance-summary-card"
-                    :class="`compliance-summary-card--${item.tone}`"
+                    class="col"
                 >
-                    <span class="compliance-summary-card__value">{{ item.value }}</span>
-                    <span class="compliance-summary-card__label">{{ item.label }}</span>
+                    <div
+                        class="compliance-summary-card h-100"
+                        :class="`compliance-summary-card--${item.tone}`"
+                    >
+                        <span class="compliance-summary-card__value">{{ item.value }}</span>
+                        <span class="compliance-summary-card__label">{{ item.label }}</span>
+                    </div>
                 </div>
             </div>
 
@@ -41,7 +45,7 @@
                 <div v-if="documents.length" class="compliance-section">
                     <div class="dashboard-panel__subtitle">Vehicle Documents</div>
                     <div class="table-responsive compliance-table">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
                             <thead>
                                 <tr>
                                     <th>Truck</th>
@@ -104,7 +108,7 @@
                         />
                     </div>
                     <div class="table-responsive compliance-table">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
                             <thead>
                                 <tr>
                                     <th>Driver</th>
@@ -175,7 +179,7 @@
                         />
                     </div>
                     <div class="table-responsive compliance-table">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
                             <thead>
                                 <tr>
                                     <th>Vehicle / Trip</th>
@@ -258,7 +262,7 @@
                         />
                     </div>
                     <div class="table-responsive compliance-table">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
                             <thead>
                                 <tr>
                                     <th>Truck</th>
@@ -323,7 +327,7 @@
                         />
                     </div>
                     <div class="table-responsive compliance-table">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
                             <thead>
                                 <tr>
                                     <th>Truck</th>
@@ -722,15 +726,39 @@ function handleExpirySaved(payload) {
 }
 
 @media (max-width: 767.98px) {
-    .compliance-summary-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.45rem;
+    .dashboard-panel {
+        padding: 0.85rem 0.95rem;
+        border-radius: 0.9rem;
     }
-}
 
-@media (max-width: 479.98px) {
-    .compliance-summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .dashboard-panel__title {
+        font-size: 0.88rem;
+    }
+
+    .dashboard-panel__date-hint {
+        font-size: 0.68rem;
+    }
+
+    .compliance-summary-card {
+        padding: 0.35rem 0.2rem;
+    }
+
+    .compliance-summary-card__value {
+        font-size: 0.95rem;
+    }
+
+    .compliance-summary-card__label {
+        font-size: 0.58rem;
+    }
+
+    .compliance-table {
+        font-size: 0.74rem;
+    }
+
+    .compliance-table th,
+    .compliance-table td {
+        white-space: nowrap !important;
+        padding: 0.45rem 0.55rem;
     }
 }
 

@@ -105,23 +105,32 @@ class TyreLayoutController extends Controller
         return new TyreLayoutResource($tyreLayout->fresh());
     }
 
-    public function destroy(TyreLayout $tyreLayout): Response
+    public function destroy(Request $request, TyreLayout $tyreLayout): Response
     {
         $this->authorize('delete', $tyreLayout);
-
+    
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+    
         $inUse = Vehicle::query()
             ->where('tenant_id', $tyreLayout->tenant_id)
             ->where('tyre_layout', $tyreLayout->code)
             ->exists();
-
+    
         if ($inUse) {
             throw ValidationException::withMessages([
                 'tyre_layout' => 'This layout is assigned to one or more trucks and cannot be deleted.',
             ]);
         }
-
+    
+        $tyreLayout->update([
+            'deleted_by' => $request->user()?->id,
+            'deleted_reason' => $validated['deleted_reason'],
+        ]);
+    
         $tyreLayout->delete();
-
+    
         return response()->noContent();
     }
 

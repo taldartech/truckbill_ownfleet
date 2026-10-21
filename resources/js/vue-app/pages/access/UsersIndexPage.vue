@@ -202,6 +202,8 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+
     </div>
 </template>
 
@@ -234,10 +236,12 @@ import { usePermissions } from '../../composables/usePermissions';
 import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { buildUserFields } from '../../utils/masterCrudSaveConfirm';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const { can, user } = usePermissions();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -492,18 +496,32 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(user) {
-    if (!window.confirm(`Delete user ${user.name}?`)) {
+function handleDelete(userItem) {
+    if (userItem.is_protected) {
         return;
     }
 
-    try {
-        await deleteManagedUser(user.id);
-        toast.success('User deleted.');
-        await loadUsers();
-    } catch {
-        toast.error('Unable to delete user.');
-    }
+    promptDelete({
+        title: `Delete ${managesSuperAdmins.value ? 'Super Admin' : 'User'}?`,
+        itemName: userItem.name,
+        details: [
+            { label: 'Name', value: userItem.name },
+            { label: 'Email', value: userItem.email },
+            { label: 'Role', value: userItem.role_label ?? userItem.role },
+            { label: 'Status', value: userItem.is_active ? 'Active' : 'Inactive' },
+        ],
+        onConfirm: async (remark) => {
+            await deleteManagedUser(userItem.id, { deleted_reason: remark, remark });
+            toast.success('User deleted.');
+
+            const page =
+                users.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadUsers(page);
+        },
+    });
 }
 
 onMounted(async () => {

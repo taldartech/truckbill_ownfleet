@@ -625,26 +625,242 @@ const truckRunningMeterDisplay = computed(() => {
     }
 }
 
+@media (max-width: 767.98px) {
+    .trf {
+        --input-min-h: 34px;
+        --fs-title: 0.84rem;
+        --fs-desc: 0.68rem;
+        --fs-label: 0.72rem;
+        --fs-input: 0.76rem;
+        --fs-meta: 0.65rem;
+        --fs-hint: 0.65rem;
+    }
+
+    .trf-section {
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+
+    .trf-section__head {
+        min-height: 44px;
+        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    .trf-section__head-left {
+        gap: 8px;
+    }
+
+    .trf-step-num {
+        width: 24px;
+        height: 24px;
+        font-size: 0.72rem;
+    }
+
+    .trf-section__title {
+        font-size: 0.82rem;
+    }
+
+    .trf-section__desc {
+        font-size: 0.65rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .trf-mode-badge,
+    .trf-optional-badge {
+        padding: 2px 7px;
+        font-size: 0.62rem;
+    }
+
+    .trf-section__body {
+        padding: 10px 10px 12px;
+    }
+
+    /* 2 input boxes per row on mobile as requested */
+    .trf-field-grid--primary,
+    .trf-field-grid--service {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 9px 8px !important;
+    }
+
+    .trf-pf {
+        gap: 4px;
+    }
+
+    .trf-pf__lbl {
+        min-height: 18px;
+        gap: 4px;
+        font-size: 0.7rem;
+        line-height: 1.15;
+    }
+
+    .trf-pf__lbl > span:not(.trf-pf__lbl-icon) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .trf-pf__lbl-icon {
+        width: 17px;
+        height: 17px;
+        border-radius: 4px;
+        font-size: 0.62rem;
+    }
+
+    .trf-pf__optional {
+        font-size: 0.6rem;
+        margin-left: 2px;
+    }
+
+    .trf-input {
+        min-height: 33px;
+        padding: 5px 8px;
+        font-size: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .trf-input-prefix__addon {
+        left: 7px;
+        font-size: 0.74rem;
+    }
+
+    .trf-input--prefixed {
+        padding-left: 19px !important;
+    }
+
+    .trf-input--textarea {
+        min-height: 58px;
+        padding: 6px 8px;
+    }
+
+    .trf-pf :deep(.select-trigger) {
+        min-height: 33px !important;
+        padding: 4px 24px 4px 7px !important;
+        font-size: 0.75rem !important;
+        border-radius: 6px !important;
+    }
+
+    .trf-pf :deep(.select-trigger-wrap:has(.select-trigger-icons) .select-trigger) {
+        padding-right: 36px !important;
+    }
+
+    .trf-pf :deep(.select-trigger-label) {
+        font-size: 0.75rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .trf-pf :deep(.select-trigger-chevron) {
+        right: 5px !important;
+        font-size: 0.7rem !important;
+    }
+
+    .trf-pf :deep(.select-trigger-wrap:has(.select-trigger-icons) .select-trigger-chevron) {
+        right: 17px !important;
+    }
+
+    .trf-pf :deep(.select-trigger-icons) {
+        right: 4px !important;
+    }
+
+    .trf-pf :deep(.select-clear-btn) {
+        padding: 0 !important;
+        font-size: 0.7rem !important;
+    }
+
+    .trf-pf :deep(.app-date-input__text) {
+        min-height: 33px !important;
+        padding: 4px 24px 4px 7px !important;
+        font-size: 0.75rem !important;
+        border-radius: 6px !important;
+    }
+
+    .trf-pf :deep(.app-date-input__picker-btn) {
+        right: 4px !important;
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 0.7rem !important;
+    }
+
+    .trf-pf__meta {
+        font-size: 0.64rem;
+        gap: 2px 4px;
+        margin-top: 1px;
+    }
+
+    .trf-pf__meta-label,
+    .trf-pf__meta-val {
+        font-size: 0.64rem;
+    }
+
+    .trf-pf__err {
+        font-size: 0.64rem;
+        line-height: 1.2;
+    }
+
+    .trf-notes-row {
+        margin-top: 10px;
+        padding-top: 10px;
+    }
+}
+
 @media (max-width: 575.98px) {
     .trf-section__head {
         align-items: flex-start;
         flex-wrap: wrap;
-        padding: 11px 14px;
+        padding: 9px 10px;
     }
 
     .trf-section__head-right {
         justify-content: flex-start;
         width: 100%;
-        padding-left: 46px;
+        padding-left: 32px;
     }
 
     .trf-section__body {
-        padding: 14px;
+        padding: 9px 8px 12px;
     }
+}
 
+@media (max-width: 380px) {
     .trf-field-grid--primary,
     .trf-field-grid--service {
-        grid-template-columns: 1fr;
+        gap: 8px 5px !important;
+    }
+
+    .trf-section__body {
+        padding: 8px 5px 10px;
+    }
+
+    .trf-pf__lbl {
+        font-size: 0.66rem;
+        gap: 3px;
+    }
+
+    .trf-pf__lbl-icon {
+        width: 15px;
+        height: 15px;
+        font-size: 0.58rem;
+    }
+
+    .trf-input,
+    .trf-pf :deep(.select-trigger),
+    .trf-pf :deep(.app-date-input__text) {
+        font-size: 0.71rem !important;
+        padding-left: 5px !important;
+    }
+
+    .trf-input--prefixed {
+        padding-left: 17px !important;
+    }
+
+    .trf-input-prefix__addon {
+        left: 5px;
+        font-size: 0.7rem;
     }
 }
 </style>

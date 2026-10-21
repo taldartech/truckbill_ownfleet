@@ -50,6 +50,29 @@ export async function generateForTrip(tripId, payload = {}) {
     return data.data ?? data ?? [];
 }
 
+export async function listEligibleTrips({ customerId, search = '' } = {}) {
+    const { data } = await api.get(`${invoicesBase}/eligible-trips`, {
+        params: {
+            customer_id: customerId,
+            ...(search ? { search } : {}),
+        },
+    });
+
+    return data.data ?? data ?? [];
+}
+
+export async function previewBulkInvoice(payload = {}) {
+    const { data } = await api.post(`${invoicesBase}/bulk/preview`, payload);
+
+    return unwrapResource(data);
+}
+
+export async function generateBulkInvoice(payload = {}) {
+    const { data } = await api.post(`${invoicesBase}/bulk`, payload);
+
+    return unwrapResource(data);
+}
+
 export function pdfUrl(id) {
     return `${invoicesBase}/${id}/pdf`;
 }
@@ -60,8 +83,10 @@ export async function recordPayment(invoiceId, payload) {
     return unwrapResource(data);
 }
 
-export async function cancelInvoice(id) {
-    await api.delete(`${invoicesBase}/${id}`);
+export async function cancelInvoice(id, payload = {}) {
+    await api.delete(`${invoicesBase}/${id}`, {
+        data: payload,
+    });
 }
 
 export async function deleteInvoice(id, { deletion_reason } = {}) {

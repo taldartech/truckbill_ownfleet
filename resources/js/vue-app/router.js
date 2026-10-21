@@ -154,6 +154,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'trips.view' },
                 },
                 {
+                    path: 'trips/expense-import',
+                    name: 'trips.expense-import',
+                    component: () => import('./pages/trips/TripExpenseImportPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.expenses' },
+                },
+                {
                     path: 'trips/create',
                     name: 'trips.create',
                     component: () => import('./pages/trips/TripCreateRedesignedPage.vue'),
@@ -224,6 +230,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'invoices.view' },
                 },
                 {
+                    path: 'invoices/create',
+                    name: 'invoices.create',
+                    component: () => import('./pages/invoices/InvoiceBulkCreatePage.vue'),
+                    meta: { requiresTenant: true, permission: 'invoices.create' },
+                },
+                {
                     path: 'invoices/archived',
                     name: 'invoices.archived',
                     component: () => import('./pages/invoices/InvoicesArchivedIndexPage.vue'),
@@ -290,6 +302,12 @@ const router = createRouter({
                     name: 'goods-types.show',
                     component: () => import('./pages/goods-types/GoodsTypeDetailPage.vue'),
                     meta: { requiresTenant: true, permission: 'goods_types.view' },
+                },
+                {
+                    path: 'trip-expense-types',
+                    name: 'trip-expense-types.index',
+                    component: () => import('./pages/trip-expense-types/TripExpenseTypesIndexPage.vue'),
+                    meta: { allowWithoutTenant: true, permission: 'trip_expense_types.view' },
                 },
                 {
                     path: 'locations',
@@ -456,6 +474,12 @@ const router = createRouter({
                     name: 'subscription.history',
                     component: () => import('./pages/subscription/SubscriptionHistoryPage.vue'),
                     meta: { allowWithoutTenant: true, requiresSuperAdmin: true },
+                },
+                {
+                    path: 'quick-search',
+                    name: 'quick-search',
+                    component: () => import('./pages/QuickSearchPage.vue'),
+                    meta: { requiresTenant: true, permission: 'trips.view' },
                 },
             ],
         },

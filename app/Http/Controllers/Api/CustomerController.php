@@ -20,7 +20,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomerController extends Controller
 {
-    public function __construct(private readonly CustomerService $customerService) {}
+    public function __construct(private readonly CustomerService $customerService)
+    {
+    }
 
     public function bulkUploadTemplate(BulkUploadService $bulkUploadService): StreamedResponse
     {
@@ -310,10 +312,19 @@ class CustomerController extends Controller
         return new CustomerResource($customer);
     }
 
-    public function destroy(Customer $customer): Response
+    public function destroy(Request $request, Customer $customer): Response
     {
         $this->authorize('delete', $customer);
-        $this->customerService->delete($customer);
+
+        $validated = $request->validate([
+            'deleted_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $this->customerService->delete(
+            $customer,
+            $request->user()?->id,
+            $validated['deleted_reason'],
+        );
 
         return response()->noContent();
     }

@@ -126,6 +126,8 @@
             :columns="bulkUploadColumns"
             @success="loadCustomers(1)"
         />
+
+
     </div>
 </template>
 
@@ -148,8 +150,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -276,20 +280,29 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(customer) {
-    if (!window.confirm(`Delete customer "${customer.name}"?`)) {
-        return;
-    }
+function handleDelete(customer) {
+    promptDelete({
+        title: 'Delete Customer?',
+        itemName: customer.name,
+        details: [
+            { label: 'Name', value: customer.name },
+            { label: 'Contact', value: customer.contact_number },
+            { label: 'GST Number', value: customer.gst_number },
+            { label: 'City', value: customer.city },
+        ],
+        onConfirm: async (remark) => {
+            await deleteCustomer(customer.id, { deleted_reason: remark, remark });
+            toast.success('Customer deleted successfully.');
 
-    try {
-        await deleteCustomer(customer.id);
-        toast.success('Customer deleted successfully.');
-        await loadCustomers();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete customer.');
-    }
+            const page =
+                customers.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadCustomers(page);
+        },
+    });
 }
-
 onMounted(async () => {
     await loadCustomers();
 });

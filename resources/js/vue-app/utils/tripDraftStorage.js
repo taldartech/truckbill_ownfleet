@@ -3,7 +3,7 @@ export const TripDraftLayout = Object.freeze({
     MULTI_POINT: 'multi_point',
 });
 
-const DRAFT_KEY_PREFIX = Object.freeze({
+export const DRAFT_KEY_PREFIX = Object.freeze({
     [TripDraftLayout.SINGLE]: 'truckbill_trip_create_draft',
     [TripDraftLayout.MULTI_POINT]: 'truckbill_trip_mp_create_draft',
 });
@@ -11,35 +11,35 @@ const DRAFT_KEY_PREFIX = Object.freeze({
 /**
  * Drafts are kept per user, company and branch so a draft started in one branch
  * (with that branch's trucks, drivers and parties) is never restored in another.
- * Returns null when there is no branch context, in which case drafts are disabled.
+ * Returns null when there is no branch context, in which case drafts fallback to user:tenant.
  */
 export function tripDraftScope(user) {
-    const userId = user?.id;
-    const tenantId = user?.effective_tenant_id ?? user?.tenant_id;
-    const branchId = user?.effective_branch_id ?? user?.branch_id;
+    const activeUser = user || (typeof window !== 'undefined' ? window.__AUTH_USER__ : null);
+    const userId = activeUser?.id;
+    const tenantId = activeUser?.effective_tenant_id ?? activeUser?.company_id ?? activeUser?.tenant_id;
+    const branchId = activeUser?.effective_branch_id ?? activeUser?.branch_id;
 
-    if (!userId || !tenantId || !branchId) {
+    if (!userId || !tenantId) {
         return null;
     }
 
-    return `${userId}:${tenantId}:${branchId}`;
+    const branchPart = branchId ? String(branchId) : 'default';
+
+    return `${userId}:${tenantId}:${branchPart}`;
 }
 
 export function tripDraftStorageKey(layout, scope) {
+    const baseKey = DRAFT_KEY_PREFIX[layout] || 'truckbill_trip_create_draft';
     if (!scope) {
-        return null;
+        return baseKey;
     }
 
-    return `${DRAFT_KEY_PREFIX[layout]}:${scope}`;
+    return `${baseKey}:${scope}`;
 }
 
 /**
- * Drafts saved before branch scoping cannot be attributed to a branch, so they are dropped.
+ * Kept for backwards compatibility without erasing user drafts.
  */
 export function discardUnscopedTripDrafts() {
-    try {
-        Object.values(DRAFT_KEY_PREFIX).forEach((key) => localStorage.removeItem(key));
-    } catch {
-        // Ignore storage failures.
-    }
+    // No-op to prevent accidental draft loss
 }

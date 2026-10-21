@@ -10,6 +10,7 @@ use App\Support\SelectedBranchSession;
 use App\Support\SelectedCompanySession;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Mail;
@@ -21,6 +22,7 @@ class User extends Authenticatable
     use HasPermissions;
     use Notifiable;
     use UsesUuid;
+    use SoftDeletes;
 
     private ?string $cachedEffectiveTenantId = null;
 
@@ -39,6 +41,8 @@ class User extends Authenticatable
         'policy_accepted_at',
         'created_by',
         'updated_by',
+        'deleted_by',
+        'deleted_reason',
     ];
 
     protected $hidden = [
@@ -91,6 +95,31 @@ class User extends Authenticatable
     public function ownedTenants(): HasMany
     {
         return $this->hasMany(Tenant::class, 'owner_user_id');
+    }
+
+    public function resolvedSuperAdminId(): ?string
+    {
+        if ($this->user_role_id === UserRole::SUPER_ADMIN) {
+            return (string) $this->id;
+        }
+
+        $tenant = $this->resolvedCompany();
+        if ($tenant?->owner_user_id) {
+            return (string) $tenant->owner_user_id;
+        }
+
+        if ($this->tenant_id) {
+            $ownerId = Tenant::query()->where('id', $this->tenant_id)->value('owner_user_id');
+            if ($ownerId) {
+                return (string) $ownerId;
+            }
+        }
+
+        if ($this->hasRole('super_admin')) {
+            return (string) $this->id;
+        }
+
+        return null;
     }
 
     public function userRole(): BelongsTo

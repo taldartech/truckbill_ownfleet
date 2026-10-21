@@ -11,6 +11,14 @@ export const adminNavigation = [
         permission: 'dashboard.view',
     },
     {
+        label: 'Quick Search',
+        icon: 'bi bi-search nav-icon',
+        to: '/quick-search',
+        activeNames: ['quick-search'],
+        permission: 'trips.view',
+        requiresTenant: true,
+    },
+    {
         label: 'Subscription',
         icon: 'bi bi-credit-card nav-icon',
         to: '/subscription',
@@ -50,6 +58,7 @@ export const adminNavigation = [
                 permission: 'trips.create',
                 requiresTenant: true,
             },
+
             {
                 label: 'Archived',
                 icon: 'bi bi-archive nav-icon',
@@ -235,12 +244,58 @@ export const adminNavigation = [
         ],
     },
     {
-        label: 'Alerts',
-        icon: 'bi bi-bell nav-icon',
-        to: '/alerts',
-        activeNames: ['alerts.index'],
-        permission: 'alerts.view',
-        requiresTenant: true,
+    label: 'Alerts',
+    icon: 'bi bi-bell nav-icon',
+    children: [
+        {
+            label: 'Vehicle Documents',
+            icon: 'bi bi-file-earmark-text nav-icon',
+            to: {
+                name: 'alerts.index',
+                query: { type: 'documents' },
+            },
+            activeNames: ['alerts.index'],
+            activeQuery: { type: 'documents' },
+            permission: 'alerts.view',
+            requiresTenant: true,
+        },
+        {
+                label: 'Driver Licenses',
+                icon: 'bi bi-person-vcard nav-icon',
+                to: {
+                    name: 'alerts.index',
+                    query: { type: 'licenses' },
+                },
+                activeNames: ['alerts.index'],
+                activeQuery: { type: 'licenses' },
+                permission: 'alerts.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'Due Services',
+                icon: 'bi bi-wrench-adjustable nav-icon',
+                to: {
+                    name: 'alerts.index',
+                    query: { type: 'due-services' },
+                },
+                activeNames: ['alerts.index'],
+                activeQuery: { type: 'due-services' },
+                permission: 'alerts.view',
+                requiresTenant: true,
+            },
+            {
+                label: 'E-Way Bills',
+                icon: 'bi bi-receipt nav-icon',
+                to: {
+                    name: 'alerts.index',
+                    query: { type: 'eway-bills' },
+                },
+                activeNames: ['alerts.index'],
+                activeQuery: { type: 'eway-bills' },
+                permission: 'alerts.view',
+                requiresTenant: true,
+            },
+        ],
     },
     {
         label: 'Settings',
@@ -271,6 +326,12 @@ export const adminNavigation = [
                 to: '/goods-types',
                 permission: 'goods_types.view',
                 requiresTenant: true,
+            },
+            {
+                label: 'Expense Types',
+                icon: 'bi bi-receipt nav-icon',
+                to: '/trip-expense-types',
+                permission: 'trip_expense_types.view',
             },
             {
                 label: 'References',

@@ -36,6 +36,12 @@ export async function fetchManagedUser(id) {
     return unwrapResource(data);
 }
 
-export async function deleteManagedUser(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteManagedUser(id, payload = {}) {
+    const dataPayload = typeof payload === 'string'
+        ? { deleted_reason: payload, remark: payload }
+        : { deleted_reason: payload?.deleted_reason ?? payload?.remark, remark: payload?.remark ?? payload?.deleted_reason };
+
+    await api.delete(`${base}/${id}`, {
+        data: dataPayload,
+    });
 }

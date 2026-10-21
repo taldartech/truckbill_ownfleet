@@ -296,7 +296,28 @@
         $company = $company ?? $invoice->tenant;
         $branch = $invoice->branch;
         $customer = $invoice->customer;
-        $trip = $invoice->trip;
+        $linkedTrips = $invoice->relationLoaded('trips') && $invoice->trips->isNotEmpty()
+            ? $invoice->trips
+            : collect($invoice->trip ? [$invoice->trip] : []);
+        $trip = $linkedTrips->count() === 1 ? $linkedTrips->first() : $invoice->trip;
+        $isMultiTrip = $linkedTrips->count() > 1;
+        $tripNumbersLabel = $linkedTrips
+            ->pluck('trip_number')
+            ->filter()
+            ->values()
+            ->implode(', ');
+        if ($tripNumbersLabel === '' && is_array($invoice->trip_snapshot ?? null)) {
+            $snapshotTrips = $invoice->trip_snapshot['trips'] ?? null;
+            if (is_array($snapshotTrips)) {
+                $tripNumbersLabel = collect($snapshotTrips)
+                    ->pluck('trip_number')
+                    ->filter()
+                    ->values()
+                    ->implode(', ');
+            } elseif (!empty($invoice->trip_snapshot['trip_number'])) {
+                $tripNumbersLabel = (string) $invoice->trip_snapshot['trip_number'];
+            }
+        }
         $items = ($invoice->items ?? collect())->values();
 
         $documentType =
@@ -511,8 +532,23 @@
             return $dates->slice(0, -1)->implode(', ') . ' and ' . $dates->last();
         };
 
-        $vehicleNo = optional($trip?->vehicle)->registration_number ?? '—';
-        $driverName = optional($trip?->driver)->name ?? '—';
+        if ($isMultiTrip) {
+            $vehicleNos = $linkedTrips
+                ->map(fn ($linkedTrip) => optional($linkedTrip->vehicle)->registration_number)
+                ->filter()
+                ->unique()
+                ->values();
+            $vehicleNo = $vehicleNos->isNotEmpty() ? $vehicleNos->implode(', ') : '—';
+            $driverNames = $linkedTrips
+                ->map(fn ($linkedTrip) => optional($linkedTrip->driver)->name)
+                ->filter()
+                ->unique()
+                ->values();
+            $driverName = $driverNames->isNotEmpty() ? $driverNames->implode(', ') : '—';
+        } else {
+            $vehicleNo = optional($trip?->vehicle)->registration_number ?? '—';
+            $driverName = optional($trip?->driver)->name ?? '—';
+        }
 
         $goodsNames = $items
             ->filter(fn ($item) => $item->trip_route_leg_id !== null)
@@ -705,6 +741,12 @@
                 <tr class="details-head">
                     <th colspan="4">Details</th>
                 </tr>
+                @if ($isMultiTrip && $tripNumbersLabel !== '')
+                <tr>
+                    <td class="details-label">Trips</td>
+                    <td class="details-value" colspan="3">{{ $tripNumbersLabel }}</td>
+                </tr>
+                @endif
                 <tr>
                     <td class="details-label">Vehicle No.</td>
                     <td class="details-value">{{ $vehicleNo }}</td>

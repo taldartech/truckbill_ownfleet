@@ -1,5 +1,6 @@
 <template>
     <div
+        v-if="showIcon"
         class="input-group app-index-search"
         :class="{ 'input-group-sm': size === 'sm' }"
         :style="wrapperStyle"
@@ -10,6 +11,25 @@
             :value="modelValue"
             type="search"
             class="form-control"
+            :placeholder="placeholder"
+            :aria-label="ariaLabel || placeholder"
+            :disabled="disabled"
+            @input="$emit('update:modelValue', $event.target.value)"
+            @keydown.enter="$emit('keydown.enter', $event)"
+            @search="$emit('update:modelValue', $event.target.value)"
+        />
+    </div>
+    <div
+        v-else
+        class="app-index-search"
+        :style="wrapperStyle"
+    >
+        <input
+            :id="inputId"
+            :value="modelValue"
+            type="search"
+            class="form-control"
+            :class="{ 'form-control-sm': size === 'sm' }"
             :placeholder="placeholder"
             :aria-label="ariaLabel || placeholder"
             :disabled="disabled"
@@ -52,6 +72,10 @@ const props = defineProps({
         type: String,
         default: 'sm',
         validator: (value) => ['sm', 'md'].includes(value),
+    },
+    showIcon: {
+        type: Boolean,
+        default: false,
     },
 });
 

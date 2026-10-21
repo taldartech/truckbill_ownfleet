@@ -4,26 +4,27 @@
     <div v-else-if="loadError" class="alert alert-danger">{{ loadError }}</div>
 
     <template v-else>
-        <GroupDashboard v-if="showGroupDashboard" :user="user" />
+        <GroupDashboard v-if="showGroupDashboard" :user="user" class="mt-3 mt-lg-0" />
 
         <RoleDashboardPlaceholder
             v-else-if="showRolePlaceholder"
             :role="currentRole"
             :user="user"
+            class="mt-3 mt-lg-0"
         />
 
         <template v-else>
-            <div class="dashboard-page">
-                <header class="dashboard-page__hero">
-                    <div class="dashboard-page__hero-content">
-                        <div class="dashboard-page__live-badge">
+            <div class="dashboard-page d-flex flex-column gap-3">
+                <header class="dashboard-page__hero mt-3 mt-lg-0 d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-between gap-2 gap-md-3 p-3 p-md-4 rounded-4 bg-white border">
+                    <div class="dashboard-page__hero-content flex-grow-1">
+                        <div class="dashboard-page__live-badge d-inline-flex align-items-center gap-1.5 px-2 py-0.5 rounded-pill bg-success-subtle border border-success-subtle text-success small mb-1">
                             <span class="live-badge-dot"></span>
-                            <span class="live-badge-text">System Live</span>
+                            <span class="live-badge-text fw-semibold text-uppercase" style="font-size: 0.65rem;">System Live</span>
                         </div>
-                        <h2 class="dashboard-page__title">
+                        <h2 class="dashboard-page__title fs-4 fs-md-3 fw-bold text-dark mb-1">
                             {{ greetingMessage }}
                         </h2>
-                        <p class="dashboard-page__subtitle mb-0">
+                        <p class="dashboard-page__subtitle text-secondary small mb-0">
                             <span v-if="user?.role === 'super_admin'">
                                 <i class="fas fa-building text-brand-primary me-1"></i>
                                 Company: <strong>{{ user?.tenant_name ?? user?.company?.name }}</strong>
@@ -31,16 +32,16 @@
                             <span v-else>Overview of trips, fleet, tyres, and compliance.</span>
                         </p>
                     </div>
-                    <div class="dashboard-page__hero-actions">
-                        <div v-if="quickActions.length" class="dashboard-page__quick-actions">
+                    <div class="dashboard-page__hero-actions d-flex flex-row flex-nowrap align-items-center justify-content-between justify-content-md-end gap-2 w-100 w-md-auto flex-shrink-0">
+                        <div v-if="quickActions.length" class="dashboard-page__quick-actions d-flex flex-nowrap align-items-center gap-1 gap-md-2 flex-shrink-0">
                             <RouterLink
                                 v-for="action in quickActions"
                                 :key="action.label"
                                 :to="action.to"
-                                class="btn btn-sm btn-primary dashboard-page__quick-action"
+                                class="btn btn-sm btn-primary rounded-pill px-2.5 px-md-3 py-1 text-nowrap fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
                             >
-                                <i :class="[action.icon, 'me-1']"></i>
-                                {{ action.label }}
+                                <i :class="action.icon"></i>
+                                <span>{{ action.label }}</span>
                             </RouterLink>
                         </div>
                         <DashboardDateRangePicker
@@ -50,10 +51,11 @@
                             label=""
                             :preset-keys="dashboardDatePresetKeys"
                             :max-months="MAX_LIST_DATE_RANGE_MONTHS"
+                            class="flex-grow-1 flex-md-grow-0"
                             @change="loadDashboard"
                         />
-                        <div v-if="!showPeriodFilter" class="dashboard-page__today">
-                            <i class="fas fa-calendar-day me-2"></i>
+                        <div v-if="!showPeriodFilter" class="dashboard-page__today d-inline-flex align-items-center px-2.5 py-1 bg-light border rounded-pill text-secondary small text-nowrap">
+                            <i class="fas fa-calendar-day me-1.5"></i>
                             {{ todayLabel }}
                         </div>
                     </div>
@@ -610,5 +612,28 @@ watch(
 
 .dashboard-page__compliance :deep(.dashboard-panel) {
     height: auto;
+}
+
+@media (max-width: 767.98px) {
+    .dashboard-page {
+        gap: 0.75rem;
+    }
+
+    .dashboard-page__title {
+        font-size: 1.15rem;
+        letter-spacing: -0.01em;
+    }
+
+    .dashboard-page__subtitle {
+        font-size: 0.75rem;
+        line-height: 1.35;
+    }
+
+    .dashboard-page__hero-actions :deep(.dashboard-date-range) {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: auto;
+        margin-left: 0;
+    }
 }
 </style>

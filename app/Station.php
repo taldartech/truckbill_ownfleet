@@ -18,6 +18,8 @@ class Station extends Model
         'state_id',
         'city_id',
         'name',
+        'deleted_by',
+        'deleted_reason'
     ];
 
     protected function casts(): array
@@ -42,5 +44,10 @@ class Station extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

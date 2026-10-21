@@ -81,6 +81,10 @@ final class PermissionDefinitions
             'goods_types.create' => self::entry('Create goods types', 'trips', 'Create goods type records.', 251),
             'goods_types.edit' => self::entry('Edit goods types', 'trips', 'Edit goods type records.', 252),
             'goods_types.manage' => self::entry('Manage goods types', 'trips', 'Legacy manage goods types permission.', 253),
+            'trip_expense_types.view' => self::entry('View trip expense types', 'trips', 'View trip expense type master data.', 254),
+            'trip_expense_types.create' => self::entry('Create trip expense types', 'trips', 'Create trip expense type records.', 255),
+            'trip_expense_types.edit' => self::entry('Edit trip expense types', 'trips', 'Edit trip expense type records.', 256),
+            'trip_expense_types.delete' => self::entry('Delete trip expense types', 'trips', 'Delete trip expense types.', 257),
 
             'invoices.view' => self::entry('View invoices', 'invoices', 'List and open invoices.', 250),
             'invoices.create' => self::entry('Create invoices', 'invoices', 'Generate invoices from completed trips.', 251),

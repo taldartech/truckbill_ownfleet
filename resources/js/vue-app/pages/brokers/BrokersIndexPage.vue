@@ -148,8 +148,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -276,18 +278,22 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(broker) {
-    if (!window.confirm(`Delete reference "${broker.name}"?`)) {
-        return;
-    }
-
-    try {
-        await deleteBroker(broker.id);
-        toast.success('Reference deleted successfully.');
-        await loadBrokers();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete reference.');
-    }
+function handleDelete(broker) {
+    promptDelete({
+        title: 'Delete Reference / Broker?',
+        itemName: broker.name,
+        details: [
+            { label: 'Name', value: broker.name },
+            { label: 'Phone', value: broker.phone },
+            { label: 'PAN Number', value: broker.pan_number },
+            { label: 'City', value: broker.city },
+        ],
+        onConfirm: async (remark) => {
+            await deleteBroker(broker.id, { deleted_reason: remark, remark });
+            toast.success('Reference deleted successfully.');
+            await loadBrokers();
+        },
+    });
 }
 
 onMounted(async () => {

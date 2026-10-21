@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeleteMonthlyExpenseRequest;
 use App\MonthlyExpense;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,9 +72,17 @@ class MonthlyExpenseController extends Controller
         return response()->json(['data' => $this->toArray($monthlyExpense->fresh())]);
     }
 
-    public function destroy(MonthlyExpense $monthlyExpense): Response
-    {
-        $this->authorize('monthly_expenses.edit');
+    public function destroy(
+        DeleteMonthlyExpenseRequest $request,
+        MonthlyExpense $monthlyExpense
+    ): Response {
+        $this->authorize('monthly_expenses.manage');
+
+        $monthlyExpense->update([
+            'deleted_reason' => $request->validated('deleted_reason'),
+            'deleted_by' => $request->user()?->id,
+        ]);
+
         $monthlyExpense->delete();
 
         return response()->noContent();

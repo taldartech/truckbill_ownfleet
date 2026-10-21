@@ -122,6 +122,7 @@
                     >
                         <div v-if="showSearchInput" class="picker-search-wrap">
                             <input
+                                ref="searchInputRef"
                                 v-model.trim="searchQuery"
                                 type="text"
                                 class="form-control form-control-sm picker-search-input"
@@ -244,6 +245,7 @@ const showPickerActions = computed(() => showViewAction.value || props.canQuickA
 const pickerRef = ref(null);
 const pickerMainRef = ref(null);
 const triggerRef = ref(null);
+const searchInputRef = ref(null);
 const dropdownRef = ref(null);
 const infoRef = ref(null);
 const isOpen = ref(false);
@@ -384,7 +386,10 @@ function openDropdown() {
     searchQuery.value = '';
     isOpen.value = true;
 
-    nextTick(() => updateDropdownPosition());
+    nextTick(() => {
+        updateDropdownPosition();
+        searchInputRef.value?.focus({ preventScroll: true });
+    });
 }
 
 function toggleDropdown() {

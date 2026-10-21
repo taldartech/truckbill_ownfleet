@@ -144,6 +144,8 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+
     </div>
 </template>
 
@@ -171,10 +173,12 @@ import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveCon
 import { useLocationLookups } from '../../composables/useLocationLookups';
 import { usePermissions } from '../../composables/usePermissions';
 import { buildBranchFields } from '../../utils/masterCrudSaveConfirm';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const route = useRoute();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -208,6 +212,7 @@ const companySelectOptions = computed(() =>
 const branches = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+
 const showForm = ref(false);
 const formMode = ref('create');
 const editingBranch = ref(null);
@@ -361,39 +366,59 @@ async function handleEnter(branch) {
 }
 
 async function handleDelete(branch) {
-    let impact;
-
+    let impact = null;
     try {
         impact = await fetchBranchDeletionImpact(branch.id);
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not load branch delete details.');
-
-        return;
+    } catch {
+        // proceed even if impact summary fails to load
     }
 
-    if (!window.confirm(buildBranchDeleteMessage(branch.branch_name, impact))) {
-        return;
-    }
+    const details = [
+        { label: 'Branch Name', value: branch.branch_name },
+        { label: 'Company', value: branch.company_name },
+        { label: 'Trucks', value: impact ? impact.trucks_count : null },
+        { label: 'Drivers', value: impact ? impact.drivers_count : null },
+        { label: 'Assigned Users', value: impact ? impact.users_count : null },
+    ];
 
-    try {
-        const data = await deleteBranch(branch.id);
+    const warningNotice = impact?.users_count > 0
+        ? `${impact.users_count} assigned user(s) will be unassigned and cannot log in until reassigned.`
+        : null;
 
-        if (data?.user) {
-            currentUser.value = data.user;
-            window.__AUTH_USER__ = data.user;
-        } else if (isActiveBranch(branch.id)) {
-            const user = await fetchCurrentUser();
-            currentUser.value = user;
-            window.__AUTH_USER__ = user;
-            await router.push({ name: 'branches.index' });
-        }
+    promptDelete({
+        title: 'Delete Branch?',
+        itemName: `${branch.branch_name} (${branch.company_name})`,
+        details,
+        warningNotice,
+        onConfirm: async (remark) => {
+            const data = await deleteBranch(branch.id, {
+                deleted_reason: remark,
+                remark,
+            });
 
-        toast.success('Branch deleted successfully.');
-        await loadBranches();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete branch.');
-    }
+            if (data?.user) {
+                currentUser.value = data.user;
+                window.__AUTH_USER__ = data.user;
+            } else if (isActiveBranch(branch.id)) {
+                const user = await fetchCurrentUser();
+                currentUser.value = user;
+                window.__AUTH_USER__ = user;
+                await router.push({ name: 'branches.index' });
+            }
+
+            toast.success('Branch deleted successfully.');
+
+            const page =
+                branches.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadBranches(page);
+        },
+    });
 }
+
+
 
 function buildBranchDeleteMessage(branchName, impact) {
     const lines = [`Delete branch "${branchName}"?`, ''];

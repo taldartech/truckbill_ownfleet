@@ -284,6 +284,8 @@
             @cancel="cancelSaveConfirm"
             @confirm="confirmSave"
         />
+
+
     </div>
 </template>
 
@@ -326,9 +328,11 @@ import {
     layoutTypeLabel,
     payloadFromAxleConfig,
 } from '../../utils/tyreLayoutForm';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -604,25 +608,29 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(layout) {
-    if (!window.confirm(`Delete layout "${layout.name}"?`)) {
-        return;
-    }
+function handleDelete(tyreLayout) {
+    promptDelete({
+        title: 'Delete Tyre Layout?',
+        itemName: tyreLayout.name,
+        details: [
+            { label: 'Name', value: tyreLayout.name },
+            { label: 'Axle Configuration', value: tyreLayout.axle_configuration },
+            { label: 'Total Tyres', value: tyreLayout.total_tyres },
+        ],
+        onConfirm: async (remark) => {
+            await deleteTyreLayout(tyreLayout.id, { deleted_reason: remark, remark });
+            toast.success('Tyre layout deleted successfully.');
 
-    try {
-        guardCompanyContext();
-        await deleteTyreLayout(layout.id);
-        toast.success('Layout deleted.');
-        await loadLayouts();
-    } catch (e) {
-        toast.error(
-            e?.response?.data?.errors?.tyre_layout?.[0]
-            ?? e?.response?.data?.message
-            ?? 'Could not delete layout.',
-        );
-    }
+            const page =
+                layouts.value.length === 1 &&
+                pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadLayouts(page);
+        },
+    });
 }
-
 onMounted(async () => {
     await loadLayouts();
 });

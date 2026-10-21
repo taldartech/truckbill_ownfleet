@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Collection;
 
 class StationService
 {
-    public function __construct(private readonly StationRepository $stationRepository) {}
+    public function __construct(private readonly StationRepository $stationRepository)
+    {
+    }
 
     public function paginate(int $perPage = 15, ?string $search = null): LengthAwarePaginator
     {
@@ -39,8 +41,16 @@ class StationService
         return $this->stationRepository->update($station, $data);
     }
 
-    public function delete(Station $station): void
-    {
+    public function delete(
+        Station $station,
+        ?string $deletedBy,
+        string $deletedReason,
+    ): void {
+        $station->update([
+            'deleted_by' => $deletedBy,
+            'deleted_reason' => $deletedReason,
+        ]);
+
         $this->stationRepository->delete($station);
     }
 
@@ -50,14 +60,14 @@ class StationService
      */
     private function normalizeLocationData(array $data): array
     {
-        if (! empty($data['city_id'])) {
+        if (!empty($data['city_id'])) {
             $city = City::query()->with('state')->find($data['city_id']);
 
             if ($city) {
                 $data['state_id'] = $city->state_id;
                 $data['country_id'] = $city->state?->country_id;
             }
-        } elseif (! empty($data['state_id'])) {
+        } elseif (!empty($data['state_id'])) {
             $state = State::query()->find($data['state_id']);
 
             if ($state) {

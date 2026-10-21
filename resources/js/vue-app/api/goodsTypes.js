@@ -50,6 +50,15 @@ export async function fetchGoodsType(id) {
     return unwrapResource(data);
 }
 
-export async function deleteGoodsType(id) {
-    await api.delete(`${base}/${id}`);
+export async function deleteGoodsType(id, payload = {}) {
+    const dataPayload = typeof payload === 'string'
+        ? { deleted_reason: payload, remark: payload }
+        : { deleted_reason: payload?.deleted_reason ?? payload?.remark, remark: payload?.remark ?? payload?.deleted_reason };
+
+    const { data } = await api.delete(`${base}/${id}`, {
+        data: dataPayload,
+    });
+
+    return data ?? null;
 }
+       

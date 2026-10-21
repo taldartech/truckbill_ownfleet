@@ -27,9 +27,12 @@
                 <p v-if="invoice" class="text-muted small mb-0">
                     {{ invoice.document_type_label || invoice.document_type || 'Invoice' }}
                     <span v-if="invoice.customer?.name"> · {{ invoice.customer.name }}</span>
-                    <span v-if="invoice.trip?.trip_number"> · Trip {{ invoice.trip.trip_number }}</span>
+                    <span v-if="tripsHeading"> · {{ tripsHeading }}</span>
                     <span v-if="invoice.is_archived && invoice.deletion_reason" class="d-block mt-1">
                         Reason: {{ invoice.deletion_reason }}
+                    </span>
+                    <span v-if="invoice.is_cancelled && invoice.cancellation_reason" class="d-block mt-1 text-danger">
+                        <strong>Cancellation Reason:</strong> {{ invoice.cancellation_reason }}
                     </span>
                 </p>
             </div>
@@ -346,6 +349,14 @@
                     <div class="card mt-3">
                         <div class="card-header"><strong>Details</strong></div>
                         <div class="card-body small">
+                            <div v-if="invoice.is_cancelled" class="alert alert-danger py-2 px-3 mb-3 small">
+                                <div class="fw-bold"><i class="bi bi-x-circle me-1"></i> Invoice Cancelled</div>
+                                <div v-if="invoice.cancelled_at" class="text-muted mt-1">Date: {{ formatDate(invoice.cancelled_at) }}</div>
+                                <div v-if="invoice.cancelled_by?.name" class="text-muted">By: {{ invoice.cancelled_by.name }}</div>
+                                <div v-if="invoice.cancellation_reason" class="mt-1 text-break">
+                                    <strong>Remark:</strong> {{ invoice.cancellation_reason }}
+                                </div>
+                            </div>
                             <div class="mb-2">
                                 <span class="text-muted">Invoice Date</span>
                                 <div>{{ formatDate(invoice.invoice_date) }}</div>
@@ -400,44 +411,34 @@
             :message="cancelConfirmMessage"
             confirm-label="Yes, Cancel Invoice"
             confirm-variant="danger"
+            confirm-icon="bi bi-x-circle"
+            icon="bi bi-x-circle"
+            icon-tone="danger"
             :loading="cancelling"
+            :confirm-disabled="!canConfirmCancel"
             @cancel="closeCancelConfirm"
             @confirm="confirmCancel"
-        />
-
-        <AppConfirmModal
-            :show="showDeleteConfirm"
-            title="Delete Invoice"
-            :message="deleteConfirmMessage"
-            confirm-label="Yes, Delete Invoice"
-            confirm-variant="danger"
-            confirm-icon="bi bi-trash"
-            icon="bi bi-trash"
-            icon-tone="danger"
-            :loading="deleting"
-            :confirm-disabled="!canConfirmDelete"
-            @cancel="closeDeleteConfirm"
-            @confirm="confirmDelete"
         >
-            <div class="text-start">
-                <label class="form-label mb-1">
-                    Reason For Delete <span class="text-danger">*</span>
+            <div class="text-start mt-3">
+                <label class="form-label fw-semibold small mb-1">
+                    Cancellation Remark <span class="text-danger">*</span>
                 </label>
                 <textarea
-                    v-model="deletionReason"
-                    class="form-control form-control-sm"
-                    rows="2"
-                    placeholder="Why is this invoice being deleted?"
-                    :class="{ 'is-invalid': Boolean(deletionReasonError) }"
-                    :disabled="deleting"
+                    v-model="cancellationReason"
+                    class="form-control"
+                    rows="3"
+                    placeholder="Enter reason for cancelling this invoice..."
+                    :class="{ 'is-invalid': Boolean(cancellationReasonError) }"
+                    :disabled="cancelling"
                 ></textarea>
-                <div v-if="deletionReasonError" class="invalid-feedback d-block">
-                    {{ deletionReasonError }}
+                <div v-if="cancellationReasonError" class="invalid-feedback d-block">
+                    {{ cancellationReasonError }}
                 </div>
-                <div v-else class="form-text">Minimum 10 characters.</div>
+                <div v-else class="form-text small">
+                    Please provide a clear remark explaining why this invoice is being cancelled.
+                </div>
             </div>
         </AppConfirmModal>
-
         <InvoiceEditChargesModal
             ref="editChargesModalRef"
             :show="showEditChargesModal"
@@ -467,6 +468,7 @@ import InvoiceRecordPaymentModal from '../../components/invoices/InvoiceRecordPa
 import AppButton from '../../components/ui/AppButton.vue';
 import AppConfirmModal from '../../components/ui/AppConfirmModal.vue';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { invoicePaymentMethodLabel } from '../../constants/invoicePaymentMethod';
@@ -475,6 +477,7 @@ import { formatDate } from '../../utils/datetime';
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany } = usePermissions();
 const { needsCompanySelection, guardCompanyContext } = useRequireCompanyContext();
 
@@ -484,14 +487,17 @@ const cancelling = ref(false);
 const deleting = ref(false);
 const showPaymentModal = ref(false);
 const showCancelConfirm = ref(false);
-const showDeleteConfirm = ref(false);
+const cancellationReason = ref('');
+const cancellationReasonError = ref('');
 const showEditChargesModal = ref(false);
 const savingCharges = ref(false);
 const editChargesFormError = ref('');
 const editChargesFieldErrors = ref({});
 const editChargesModalRef = ref(null);
-const deletionReason = ref('');
-const deletionReasonError = ref('');
+
+const canConfirmCancel = computed(() => {
+    return Boolean(cancellationReason.value?.trim()) && !cancelling.value;
+});
 
 const canEditCharges = computed(
     () => Boolean(invoice.value?.can_edit_charges) && canInCompany('invoices.edit'),
@@ -544,6 +550,26 @@ const pageTitle = computed(() => {
     }
 
     return invoice.value.invoice_number || 'Invoice Details';
+});
+
+const tripsHeading = computed(() => {
+    if (!invoice.value) {
+        return '';
+    }
+
+    const label = invoice.value.trips_label
+        || invoice.value.trip?.trip_number
+        || null;
+
+    if (!label || label === '—') {
+        return '';
+    }
+
+    if (Array.isArray(invoice.value.trips) && invoice.value.trips.length > 1) {
+        return `Trips ${label}`;
+    }
+
+    return `Trip ${label}`;
 });
 
 const cancelConfirmMessage = computed(() => {
@@ -731,11 +757,18 @@ async function handlePaymentSaved() {
 }
 
 function openCancelConfirm() {
+    cancellationReason.value = '';
+    cancellationReasonError.value = '';
     showCancelConfirm.value = true;
 }
 
 function closeCancelConfirm() {
+    if (cancelling.value) {
+        return;
+    }
     showCancelConfirm.value = false;
+    cancellationReason.value = '';
+    cancellationReasonError.value = '';
 }
 
 async function confirmCancel() {
@@ -743,63 +776,60 @@ async function confirmCancel() {
         return;
     }
 
+    const reason = cancellationReason.value?.trim() ?? '';
+    if (!reason) {
+        cancellationReasonError.value = 'Please provide a reason for cancelling this invoice.';
+        return;
+    }
+
     cancelling.value = true;
+    cancellationReasonError.value = '';
 
     try {
-        await cancelInvoice(invoice.value.id);
+        await cancelInvoice(invoice.value.id, {
+            cancellation_reason: reason,
+            remark: reason,
+        });
         toast.success('Invoice cancelled.');
-        closeCancelConfirm();
+        showCancelConfirm.value = false;
+        cancellationReason.value = '';
         await loadInvoice();
     } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not cancel invoice.');
+        const message = error.response?.data?.errors?.cancellation_reason?.[0]
+            ?? error.response?.data?.errors?.remark?.[0]
+            ?? error.response?.data?.message
+            ?? 'Could not cancel invoice.';
+        cancellationReasonError.value = message;
+        toast.error(message);
     } finally {
         cancelling.value = false;
     }
 }
 
 function openDeleteConfirm() {
-    deletionReason.value = '';
-    deletionReasonError.value = '';
-    showDeleteConfirm.value = true;
-}
-
-function closeDeleteConfirm() {
-    showDeleteConfirm.value = false;
-    deletionReason.value = '';
-    deletionReasonError.value = '';
-}
-
-async function confirmDelete() {
-    if (!invoice.value?.id || !canConfirmDelete.value) {
+    if (!invoice.value?.id) {
         return;
     }
 
-    deleting.value = true;
-    deletionReasonError.value = '';
-
-    try {
-        await deleteInvoice(invoice.value.id, {
-            deletion_reason: deletionReason.value.trim(),
-        });
-        toast.success('Invoice deleted.');
-        closeDeleteConfirm();
-        await router.push({ name: 'invoices.index' });
-    } catch (error) {
-        const reasonError = error.response?.data?.errors?.deletion_reason?.[0];
-
-        if (reasonError) {
-            deletionReasonError.value = reasonError;
-
-            return;
-        }
-
-        const message = error.response?.data?.errors?.invoice?.[0]
-            ?? error.response?.data?.message
-            ?? 'Could not delete invoice.';
-        toast.error(message);
-    } finally {
-        deleting.value = false;
-    }
+    promptDelete({
+        title: 'Delete Invoice?',
+        itemName: invoice.value.invoice_number,
+        details: [
+            { label: 'Invoice #', value: invoice.value.invoice_number },
+            { label: 'Customer', value: invoice.value.customer?.name },
+            { label: 'Invoice Date', value: formatDate(invoice.value.invoice_date) },
+            { label: 'Total Amount', value: formatMoney(invoice.value.total_amount) },
+        ],
+        onConfirm: async (remark) => {
+            await deleteInvoice(invoice.value.id, {
+                deletion_reason: remark,
+                deleted_reason: remark,
+                remark,
+            });
+            toast.success('Invoice deleted.');
+            await router.push({ name: 'invoices.index' });
+        },
+    });
 }
 
 async function loadInvoice() {

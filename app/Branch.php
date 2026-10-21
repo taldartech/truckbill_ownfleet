@@ -31,6 +31,8 @@ class Branch extends Model
         'gst_rate',
         'use_company_logo',
         'branch_logo',
+        'deleted_by',
+        'deleted_reason'
     ];
 
     /**
@@ -96,6 +98,11 @@ class Branch extends Model
             Storage::disk('public')->delete($this->branch_logo);
             $this->branch_logo = null;
         }
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public function logoPublicUrl(): ?string

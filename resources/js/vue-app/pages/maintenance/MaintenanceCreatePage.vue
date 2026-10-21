@@ -257,7 +257,12 @@ onMounted(async () => {
 
 @media (max-width: 575.98px) {
     .maintenance-create-redesigned-page {
-        padding: 10px 4px 16px !important;
+        padding: 6px 4px 16px !important;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions :deep(.btn) {
+        font-size: 0.74rem;
+        padding: 5px 8px;
     }
 }
 </style>

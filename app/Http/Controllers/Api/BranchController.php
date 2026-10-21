@@ -179,36 +179,43 @@ class BranchController extends Controller
         return new BranchResource($branch->load(['company', 'settings']));
     }
 
-    public function destroy(Request $request, Branch $branch): Response|JsonResponse
-    {
-        $this->authorize('delete', $branch);
+public function destroy(Request $request, Branch $branch): Response|JsonResponse
+{
+    $this->authorize('delete', $branch);
 
-        DB::transaction(function () use ($branch): void {
-            User::query()
-                ->where('branch_id', $branch->id)
-                ->update(['branch_id' => null]);
+    $validated = $request->validate([
+        'deleted_reason' => ['required', 'string', 'max:1000'],
+    ]);
 
-            if (SelectedBranchSession::id() === $branch->id) {
-                SelectedBranchSession::forget();
-            }
+    DB::transaction(function () use ($request, $branch, $validated): void {
+        User::query()
+            ->where('branch_id', $branch->id)
+            ->update(['branch_id' => null]);
 
-            $branch->delete();
-        });
-
-        $request->user()?->loadMissing(['userRole', 'tenant', 'branch']);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'message' => 'Branch deleted.',
-                'user' => $request->user() !== null
-                    ? new \App\Http\Resources\UserResource($request->user())
-                    : null,
-            ]);
+        if (SelectedBranchSession::id() === $branch->id) {
+            SelectedBranchSession::forget();
         }
 
-        return response()->noContent();
+        $branch->deleted_by = $request->user()?->id;
+        $branch->deleted_reason = $validated['deleted_reason'];
+        $branch->save();
+
+        $branch->delete();
+    });
+
+    $request->user()?->loadMissing(['userRole', 'tenant', 'branch']);
+
+    if ($request->wantsJson()) {
+        return response()->json([
+            'message' => 'Branch deleted.',
+            'user' => $request->user() !== null
+                ? new \App\Http\Resources\UserResource($request->user())
+                : null,
+        ]);
     }
 
+    return response()->noContent();
+}
     public function deletionImpact(Branch $branch): JsonResponse
     {
         $this->authorize('delete', $branch);

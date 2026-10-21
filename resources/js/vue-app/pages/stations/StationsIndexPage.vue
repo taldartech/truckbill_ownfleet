@@ -142,8 +142,10 @@ import { useAppToast } from '../../composables/useAppToast';
 import { useListPagination } from '../../composables/useListPagination';
 import { useMasterCrudSaveConfirm } from '../../composables/useMasterCrudSaveConfirm';
 import { usePermissions } from '../../composables/usePermissions';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const {
     showSaveConfirm,
     saveConfirmSummary,
@@ -158,7 +160,7 @@ const canEdit = computed(() => canEditInCompany('stations'));
 
 const stations = ref([]);
 const loading = ref(true);
-const saving = ref(false);
+const saving = ref(false);          
 const search = ref('');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
@@ -266,18 +268,27 @@ async function confirmSave() {
     }
 }
 
-async function handleDelete(station) {
-    if (!window.confirm(`Delete station "${station.name}"?`)) {
-        return;
-    }
+function handleDelete(station) {
+    promptDelete({
+        title: 'Delete Station?',
+        itemName: station.name,
+        details: [
+            { label: 'Name', value: station.name },
+            { label: 'City', value: station.city },
+            { label: 'State', value: station.state },
+        ],
+        onConfirm: async (remark) => {
+            await deleteStation(station.id, { deleted_reason: remark, remark });
+            toast.success('Station deleted successfully.');
 
-    try {
-        await deleteStation(station.id);
-        toast.success('Station deleted successfully.');
-        await loadStations();
-    } catch (error) {
-        toast.error(error.response?.data?.message ?? 'Could not delete station.');
-    }
+            const page =
+                stations.value.length === 1 && pagination.currentPage > 1
+                    ? pagination.currentPage - 1
+                    : pagination.currentPage;
+
+            await loadStations(page);
+        },
+    });
 }
 
 onMounted(async () => {

@@ -591,11 +591,13 @@ import { useApiFormErrors } from '../../composables/useApiFormErrors';
 import { usePermissions } from '../../composables/usePermissions';
 import { useRequireCompanyContext } from '../../composables/useRequireCompanyContext';
 import { useAppToast } from '../../composables/useAppToast';
+import { useDeleteConfirm } from '../../composables/useDeleteConfirm';
 import { formatDate, formatDateTime } from '../../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useAppToast();
+const { promptDelete } = useDeleteConfirm();
 const { canInCompany, canCreateInCompany, canEditInCompany, canDeleteRecords } = usePermissions();
 const { needsCompanySelection, guardCompanyContext, handleCompanyContextError } =
     useRequireCompanyContext();
@@ -675,22 +677,26 @@ async function onBatteryChanged(message) {
     await Promise.all([loadVehicleBatteries(), loadVehicle()]);
 }
 
-async function handleDelete() {
+function handleDelete() {
     if (!vehicle.value?.id) {
         return;
     }
 
-    if (!window.confirm(`Delete truck ${vehicle.value.registration_number}?`)) {
-        return;
-    }
-
-    try {
-        await deleteVehicle(vehicle.value.id);
-        toast.success('Truck deleted.');
-        router.push({ name: 'trucks.index' });
-    } catch {
-        toast.error('Unable to delete truck.');
-    }
+    promptDelete({
+        title: 'Delete Truck?',
+        itemName: vehicle.value.registration_number,
+        details: [
+            { label: 'Registration', value: vehicle.value.registration_number },
+            { label: 'Truck Type', value: vehicle.value.vehicle_type_label ?? vehicle.value.vehicle_type },
+            { label: 'Make', value: vehicle.value.make },
+            { label: 'Model', value: vehicle.value.model },
+        ],
+        onConfirm: async (remark) => {
+            await deleteVehicle(vehicle.value.id, { deleted_reason: remark, remark });
+            toast.success('Truck deleted.');
+            router.push({ name: 'trucks.index' });
+        },
+    });
 }
 
 const vehicle = ref(null);

@@ -194,6 +194,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
             ->middleware('permission:users.manage,super_admins.manage')
             ->name('managed-users.destroy');
 
+        Route::get('/trip-expense-types', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'index'])->name('trip-expense-types.index');
+        Route::post('/trip-expense-types', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'store'])->name('trip-expense-types.store');
+        Route::get('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'show'])->name('trip-expense-types.show');
+        Route::put('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'update'])->name('trip-expense-types.update');
+        Route::delete('/trip-expense-types/{trip_expense_type}', [\App\Http\Controllers\Api\TripExpenseTypeController::class, 'destroy'])->name('trip-expense-types.destroy');
+
         Route::middleware(['tenant.context', 'subscription.active'])->group(function () {
             Route::get('/drivers/license-expiring', [DriverController::class, 'licenseExpiring'])
                 ->name('drivers.license-expiring');
@@ -340,6 +346,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('trips.next-number');
             Route::get('/trips/check-window', [\App\Http\Controllers\Api\TripController::class, 'checkTripWindow'])
                 ->name('trips.check-window');
+            Route::post('/trips/expense-import/analyze', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'analyze'])
+                ->name('trips.expense-import.analyze');
+            Route::post('/trips/expense-import/preview', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'preview'])
+                ->name('trips.expense-import.preview');
+            Route::post('/trips/expense-import', [\App\Http\Controllers\Api\TripExpenseImportController::class, 'store'])
+                ->name('trips.expense-import.store');
             Route::get('/trips/{trip}/archive-impact', [\App\Http\Controllers\Api\TripController::class, 'archiveImpact'])
                 ->name('trips.archive-impact');
             Route::get('/trips/{trip}/deletion-impact', [\App\Http\Controllers\Api\TripController::class, 'deletionImpact'])
@@ -359,6 +371,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
 
+            Route::get('/invoices/eligible-trips', [\App\Http\Controllers\Api\InvoiceController::class, 'eligibleTrips'])
+                ->name('invoices.eligible-trips');
+            Route::post('/invoices/bulk/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewBulk'])
+                ->name('invoices.bulk.preview');
+            Route::post('/invoices/bulk', [\App\Http\Controllers\Api\InvoiceController::class, 'storeBulk'])
+                ->name('invoices.bulk.store');
             Route::get('/invoices/{invoice}/pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'pdf'])
                 ->name('invoices.pdf');
             Route::post('/invoices/{invoice}/payments', [\App\Http\Controllers\Api\InvoiceController::class, 'storePayment'])
@@ -464,6 +482,8 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('reports.trips.fuel-performance');
             Route::get('/reports/trips/export', [\App\Http\Controllers\Api\TripReportController::class, 'export'])
                 ->name('reports.trips.export');
+            Route::get('/quick-search', [\App\Http\Controllers\Api\QuickSearchController::class, 'index'])
+                ->name('quick-search.index');
             Route::get('/reports/fleet-monthly', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'show'])
                 ->name('reports.fleet-monthly');
             Route::get('/reports/fleet-monthly/export', [\App\Http\Controllers\Api\FleetMonthlyReportController::class, 'export'])
@@ -500,6 +520,9 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
     })->name('password.change.submit');
 
     (require __DIR__.'/legacy-stubs.php')();
+
+    Route::get('/master/expense-types', static fn () => redirect('/app/trip-expense-types'))->name('master.expense-types.index');
+    Route::get('/master/trip-expense-types', static fn () => redirect('/app/trip-expense-types'))->name('master.trip-expense-types.index');
 
     Route::get('/ui/company', [CompanyController::class, 'index'])->name('company.index');
     Route::get('/company', static fn () => redirect('/ui/company'));
@@ -681,7 +704,7 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
             return $view;
         }
 
-        return redirect('/ui/invoices/index');
+        return redirect('/ui/invoices/create');
     })->name('invoices.create');
 
     Route::get('/custom-invoices/create', function () {

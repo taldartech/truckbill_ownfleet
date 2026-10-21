@@ -12,8 +12,8 @@
             {{ isEdit ? 'Edit Challan' : 'Add Challan' }}
         </template>
 
-        <div class="row mb-3">
-            <div class="col-md-6">
+        <div class="row g-2 g-sm-3 mb-2 mb-sm-3">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_challan_number`" class="form-label">Challan Number *</label>
                 <input
                     :id="`${modalId}_challan_number`"
@@ -27,7 +27,7 @@
                     {{ fieldErrors.challan_number[0] }}
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_challan_date`" class="form-label">Date *</label>
                 <AppDateInput
                     :input-id="`${modalId}_challan_date`"
@@ -41,8 +41,8 @@
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-md-6">
+        <div class="row g-2 g-sm-3 mb-2 mb-sm-3">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_vehicle`" class="form-label">Truck *</label>
                 <VehicleSelect
                     :input-id="`${modalId}_vehicle`"
@@ -57,7 +57,7 @@
                     {{ fieldErrors.vehicle_id[0] }}
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_driver`" class="form-label">Driver *</label>
                 <AppSelect
                     :input-id="`${modalId}_driver`"
@@ -74,8 +74,8 @@
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-md-6">
+        <div class="row g-2 g-sm-3 mb-2 mb-sm-3">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_violation_type`" class="form-label">Violation Type *</label>
                 <input
                     :id="`${modalId}_violation_type`"
@@ -90,7 +90,7 @@
                     {{ fieldErrors.violation_type[0] }}
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_amount`" class="form-label">Amount (₹) *</label>
                 <input
                     :id="`${modalId}_amount`"
@@ -109,8 +109,8 @@
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-md-6">
+        <div class="row g-2 g-sm-3 mb-2 mb-sm-3">
+            <div class="col-6 col-md-6">
                 <label :for="`${modalId}_status`" class="form-label">Payment Status *</label>
                 <AppSelect
                     :input-id="`${modalId}_status`"
