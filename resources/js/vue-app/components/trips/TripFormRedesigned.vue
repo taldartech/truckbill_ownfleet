@@ -433,9 +433,16 @@
                             {{ isMultiPointLayout ? 'Pickups &amp; Drops' : 'Route &amp; Stops' }}
                         </h2>
                         <p class="trf-section__desc">
-                            {{ isMultiPointLayout
-                                ? 'Add pickups and drops — link each drop to one or more pickups'
-                                : 'Add stops, then return to source or end the trip' }}
+                            <span class="d-none d-sm-inline">
+                                {{ isMultiPointLayout
+                                    ? 'Add pickups and drops — link each drop to one or more pickups'
+                                    : 'Add stops, then return to source or end the trip' }}
+                            </span>
+                            <span class="d-inline d-sm-none">
+                                {{ isMultiPointLayout
+                                    ? 'Add pickups & drops to build route'
+                                    : 'Add stops, then return to source or end trip' }}
+                            </span>
                         </p>
                     </div>
                     <span
@@ -496,7 +503,8 @@
                             @click="handleReturnToSource"
                         >
                             <i class="bi bi-arrow-return-left"></i>
-                            <span>Return to source</span>
+                            <span class="d-none d-sm-inline">Return to source</span>
+                            <span class="d-inline d-sm-none">Return source</span>
                         </button>
                         <button
                             type="button"
@@ -525,7 +533,8 @@
             <div class="trf-section__body" :class="{ 'trf-section__body--locked': requiresTruckSelection }">
                 <div v-if="requiresTruckSelection" class="trf-banner trf-banner--info mb-3">
                     <i class="bi bi-truck-front-fill"></i>
-                    <span>Select a truck in Trip Details first, then build the route and stops.</span>
+                    <span class="d-none d-sm-inline">Select a truck in Trip Details first, then build the route and stops.</span>
+                    <span class="d-inline d-sm-none">Select truck in Trip Details first to build route.</span>
                 </div>
 
                 <template v-if="isMultiPointLayout">
@@ -619,6 +628,9 @@
                                 <div class="trf-route-board__station" :class="`trf-route-board__station--${item.kind}`">
                                     <template v-if="item.kind === 'home'">
                                         <div class="trf-route-board__label">
+                                            <span class="trf-route-board__label-icon trf-route-board__label-icon--home">
+                                                <i class="bi bi-house-door-fill"></i>
+                                            </span>
                                             Source<span class="trf-pf__req">*</span>
                                         </div>
                                         <SearchablePickerRedesigned
@@ -643,6 +655,9 @@
                                     <template v-else>
                                         <div class="trf-route-board__label-row">
                                             <span class="trf-route-board__label">
+                                                <span class="trf-route-board__label-icon trf-route-board__label-icon--stop">
+                                                    {{ item.legIndex + 1 }}
+                                                </span>
                                                 Stop {{ item.legIndex + 1 }}<span class="trf-pf__req">*</span>
                                             </span>
                                             <button
@@ -1088,7 +1103,8 @@
                                 </div>
                                 <p class="trf-route-empty-panel__text">
                                     <template v-if="requiresTruckSelection">
-                                        Select a truck first, then choose source and add stops.
+                                        <span class="d-none d-sm-inline">Select a truck first, then choose source and add stops.</span>
+                                        <span class="d-inline d-sm-none">Select truck first, then choose source &amp; add stops.</span>
                                     </template>
                                     <template v-else-if="!hasStartStation">
                                         Choose source, then click <strong>+ Add Stop</strong>.
@@ -2578,6 +2594,199 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-size: var(--fs-input);
 }
 
+@media (max-width: 767.98px) {
+    .trf {
+        --fs-title: 0.84rem;
+        --fs-desc: 0.68rem;
+        --fs-label: 0.72rem;
+        --fs-input: 0.76rem;
+        --fs-value: 0.76rem;
+        --fs-meta: 0.68rem;
+        --fs-hint: 0.66rem;
+        --fs-btn: 0.72rem;
+        --fs-metric: 0.82rem;
+        --input-min-h: 34px;
+        --details-control-h: 38px;
+        --details-label-h: auto;
+    }
+    .trf-section {
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+    .trf-section__head {
+        padding: 8px 12px;
+        min-height: 48px;
+        gap: 8px;
+    }
+    .trf-section__head-left {
+        gap: 8px;
+    }
+    .trf-section__body {
+        padding: 10px;
+    }
+    .trf-step-num {
+        width: 24px;
+        height: 24px;
+        font-size: 0.7rem;
+    }
+    .trf-picker-grid--details {
+        --details-control-h: 38px;
+    }
+    .trf-picker-grid--details .trf-synced-field {
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+    .trf-picker-grid--details .trf-pf :deep(.redesigned-picker-trigger) {
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+    .trf-synced-field__main {
+        font-size: 0.76rem;
+    }
+    .trf-synced-field__sub {
+        font-size: 0.64rem;
+    }
+    .trf-date-input :deep(.app-date-input__text) {
+        padding: 4px 28px 4px 8px;
+        font-size: 0.74rem;
+    }
+    .trf-vehicle-info,
+    .trf-vehicle-info--metrics,
+    .trf-vehicle-info--ops,
+    .trf-vehicle-info--money,
+    .trf-vehicle-info--summary,
+    .trf-summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px 6px !important;
+    }
+    /* Hide icons on mobile in 2-column metrics so labels and values adjust cleanly */
+    .trf-vehicle-info--metrics .trf-vehicle-info__icon,
+    .trf-vehicle-info--ops .trf-vehicle-info__icon,
+    .trf-vehicle-info--money .trf-vehicle-info__icon,
+    .trf-vehicle-info--summary .trf-vehicle-info__icon,
+    .trf-summary-metrics .trf-vehicle-info__icon {
+        display: none !important;
+    }
+    .trf-vehicle-info--metrics {
+        --metrics-label-h: auto;
+        --metrics-value-h: auto;
+        --metrics-meta-h: auto;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 3px !important;
+        padding: 6px 8px !important;
+        min-height: 0 !important;
+        border-radius: 8px !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__field {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 3px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__name {
+        font-size: 0.65rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        color: var(--muted) !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__value {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-input--metric {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 2px 6px !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-slot {
+        min-height: 0 !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta {
+        font-size: 0.58rem !important;
+        gap: 2px 4px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-label,
+    .trf-vehicle-info--metrics .trf-vehicle-info__meta-val {
+        font-size: 0.58rem !important;
+    }
+
+    /* Section 3 Trip Summary metrics */
+    .trf-summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+    }
+    .trf-summary-metrics__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding: 6px 8px !important;
+        min-width: 0 !important;
+        gap: 2px !important;
+        border-radius: 8px !important;
+    }
+    .trf-summary-metrics__text {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .trf-summary-metrics .trf-vehicle-info__name {
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        line-height: 1.2 !important;
+    }
+    .trf-summary-metrics .trf-vehicle-info__val {
+        font-size: 0.82rem !important;
+        font-weight: 800 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin-top: 1px !important;
+    }
+    .trf-summary-loadmix {
+        margin-top: 2px !important;
+        gap: 1px !important;
+    }
+    .trf-summary-loadmix__line {
+        gap: 4px !important;
+    }
+    .trf-summary-loadmix__key {
+        font-size: 0.58rem !important;
+    }
+    .trf-summary-loadmix__val {
+        font-size: 0.68rem !important;
+    }
+    .trf-route-board__station {
+        min-width: 0;
+    }
+    .trf-route-board__label {
+        font-size: 0.7rem;
+    }
+    .trf-leg__fields {
+        --leg-control-h: 32px;
+        --leg-head-h: 18px;
+        --leg-fs-label: 0.58rem;
+        --leg-fs-input: 0.72rem;
+    }
+}
+
 /* ── Section Cards ──────────────────── */
 .trf-section {
     background: #fff;
@@ -2735,21 +2944,19 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
         max-width: none;
     }
 }
-@media (max-width: 767px)  {
+@media (max-width: 767.98px)  {
     .trf-picker-grid,
     .trf-picker-grid--3,
     .trf-picker-grid--4,
     .trf-picker-grid--5,
     .trf-picker-grid--6,
-    .trf-picker-grid--details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 480px)  {
-    .trf-picker-grid,
-    .trf-picker-grid--3,
-    .trf-picker-grid--4,
-    .trf-picker-grid--5,
-    .trf-picker-grid--6,
-    .trf-picker-grid--details { grid-template-columns: 1fr; }
+    .trf-picker-grid--details {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px 8px;
+    }
+    .trf-picker-grid--details > .trf-pf--customer {
+        grid-column: 1 / -1;
+    }
 }
 
 /* ── Picker Field ───────────────────── */
@@ -3094,7 +3301,11 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 991.98px) {
     .trf-step4-fields {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 8px;
+    }
+    .trf-step4-fields > .trf-pf:last-child {
+        grid-column: 1 / -1;
     }
 }
 .trf-input--readonly {
@@ -3526,7 +3737,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 575.98px) {
     .trf-summary-metrics {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 .trf-summary-block + .trf-summary-block {
@@ -3567,7 +3778,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 @media (max-width: 575.98px) {
     .trf-vehicle-info--ops,
     .trf-vehicle-info--money,
-    .trf-vehicle-info--summary { grid-template-columns: 1fr; }
+    .trf-vehicle-info--summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .trf-vehicle-info__field {
     min-width: 0;
@@ -3597,7 +3808,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 575.98px) {
     .trf-vehicle-info,
-    .trf-vehicle-info--metrics { grid-template-columns: 1fr; }
+    .trf-vehicle-info--metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Banners ────────────────────────── */
@@ -3872,7 +4083,7 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 .trf-route-board__label {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 1px;
     min-height: 20px;
     margin-bottom: 6px;
@@ -3882,6 +4093,24 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
     font-family: inherit;
     text-transform: none;
     letter-spacing: 0;
+}
+.trf-route-board__label-icon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: #d1fae5;
+    color: #059669;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+.trf-route-board__label-icon--stop {
+    background: #e0f2fe;
+    color: #0284c7;
+    font-weight: 700;
 }
 .trf-route-board__label-row {
     display: flex;
@@ -4347,9 +4576,18 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
         min-height: 0;
         height: auto;
     }
-    .trf-route-group--primary:not(.trf-route-group--no-card) .trf-route-station--home,
-    .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-station {
-        flex: 0 0 auto;
+    .trf-route-station {
+        display: block !important;
+        width: 100% !important;
+    }
+    .trf-route-board__rail {
+        display: none !important;
+    }
+    .trf-route-board__station {
+        width: 100% !important;
+    }
+    .trf-route-board__label-icon {
+        display: inline-flex !important;
     }
     .trf-route-group--stop:not(.trf-route-group--no-card) .trf-route-board__station {
         align-self: start;
@@ -4379,22 +4617,151 @@ defineExpose({ restoreProgressDraft, clearProgressDraft, saveProgress });
 }
 @media (max-width: 767.98px) {
     .trf-leg__fields {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        column-gap: 8px;
+        row-gap: 8px;
+    }
+    .trf-leg__fields .trf-lf--customer {
+        grid-column: 1 / -1;
+    }
+    .trf-leg__cargo-row {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+        overflow-x: visible !important;
+        padding-bottom: 0;
+    }
+    .trf-leg__cargo-row > div:first-child {
+        grid-column: 1 / -1;
+    }
+
+    /* Section 2 Header & Single Line Texts */
+    .trf-section__head {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+    }
+    .trf-section__head-left {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    .trf-section__head-left > div:nth-child(2) {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    .trf-section__desc {
+        font-size: 0.65rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin-top: 1px !important;
+    }
+    .trf-route-type-badge {
+        min-width: auto !important;
+        padding: 2px 7px !important;
+        font-size: 0.62rem !important;
+        gap: 3px !important;
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Step 2 action buttons strictly in 1 horizontal row */
+    .trf-section__head-right {
+        width: 100% !important;
+        margin-top: 2px !important;
+    }
+    .trf-route-actions {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 4px !important;
+        justify-content: space-between !important;
+    }
+    .trf-route-actions .trf-head-btn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        width: 0 !important;
+        padding: 5px 3px !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        border-radius: 6px !important;
+        min-height: 32px !important;
+    }
+    .trf-route-actions .trf-head-btn i {
+        font-size: 0.72rem !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-route-actions .trf-head-btn span {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-size: inherit !important;
+    }
+
+    /* Banners & Empty Panel Single-Line Texts */
+    .trf-banner {
+        padding: 6px 10px !important;
+        font-size: 0.72rem !important;
+        gap: 6px !important;
+        line-height: 1.3 !important;
+        align-items: center !important;
+    }
+    .trf-banner span {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .trf-banner i {
+        font-size: 0.85rem !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-route-empty-panel {
+        padding: 10px 12px !important;
+        gap: 6px !important;
+    }
+    .trf-route-empty-panel__icon {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 0.85rem !important;
+    }
+    .trf-route-empty-panel__text {
+        max-width: 100% !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* Source Picker alignment & compact height */
+    .trf-route-board__station :deep(.redesigned-picker-trigger),
+    .trf-route-board__station :deep(.picker-trigger) {
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        border-radius: 8px !important;
+    }
+    .trf-route-board__label {
+        font-size: 0.76rem !important;
+        margin-bottom: 4px !important;
+    }
+    .trf-route-board__label-icon {
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 0.68rem !important;
+        margin-right: 4px !important;
     }
 }
 @media (max-width: 575.98px) {
-    .trf-route-station {
-        grid-template-columns: 28px minmax(0, 1fr);
-        column-gap: 10px;
-    }
-    .trf-route-board__dot {
-        width: 28px;
-        height: 28px;
-        font-size: .75rem;
-    }
     .trf-leg__fields {
-        grid-template-columns: 1fr;
-        padding: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        padding: 8px;
     }
 }
 

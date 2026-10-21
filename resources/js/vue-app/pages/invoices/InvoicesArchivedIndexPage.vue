@@ -1,60 +1,90 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-2 mt-md-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before viewing archived invoices.
         </div>
 
-        <AppIndexListCard title="Archived Invoices" :loading="loading" loading-text="Loading archived invoices…">
+        <AppIndexListCard
+            title="Archived Invoices"
+            header-class="trips-card-header--gradient"
+            :loading="loading"
+            loading-text="Loading archived invoices…"
+        >
             <template #toolbar>
-                <RouterLink :to="{ name: 'invoices.index' }" class="btn btn-back btn-sm">
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    Back to Invoice List
+                <RouterLink :to="{ name: 'invoices.index' }" class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold invoice-header-back-btn">
+                    <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
+                    <span>Back<span class="d-none d-sm-inline"> to Invoice List</span></span>
                 </RouterLink>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="invoices-archived-filters-panel"
-                :loading="loading"
-                @search="loadInvoices(1)"
-                @reset="clearFilters"
-            >
-                <div>
-                    <label class="form-label" for="invoices_archived_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="searchQuery"
-                        input-id="invoices_archived_search"
-                        placeholder="Search invoice, customer, trip…"
-                        max-width="100%"
-                        :disabled="loading"
-                        @keydown.enter="loadInvoices(1)"
-                    />
+            <template #filters>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="form-label">Payment Status</label>
-                    <AppSelect
-                        v-model="paymentStatusFilter"
-                        :options="paymentStatusOptions"
-                        placeholder="All statuses"
-                        search-placeholder="Search status…"
-                        :disabled="loading"
-                    />
+
+                <div v-show="filtersOpen" class="invoices-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="invoices-archived-filters-panel"
+                        :loading="loading"
+                        @search="loadInvoices(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="invoices_archived_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="searchQuery"
+                                input-id="invoices_archived_search"
+                                placeholder="Search invoice, customer, trip…"
+                                max-width="100%"
+                                :disabled="loading"
+                                @keydown.enter="loadInvoices(1)"
+                            />
+                        </div>
+                        <div class="filter-status-col">
+                            <label class="form-label">Payment Status</label>
+                            <AppSelect
+                                v-model="paymentStatusFilter"
+                                :options="paymentStatusOptions"
+                                placeholder="All statuses"
+                                search-placeholder="Search status…"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px">#</th>
-                        <th>Invoice No.</th>
-                        <th>Customer</th>
-                        <th>Trip</th>
-                        <th>Date</th>
-                        <th class="text-end">Total</th>
-                        <th>Deleted</th>
-                        <th>Reason</th>
-                        <th class="app-index-actions-cell text-end" style="width: 90px">Actions</th>
+                        <th style="width: 50px" class="text-center">#</th>
+                        <th class="text-nowrap" style="min-width: 8.5rem;">Invoice No.</th>
+                        <th style="min-width: 7.5rem;">Customer</th>
+                        <th class="text-nowrap" style="min-width: 7.5rem;">Trip</th>
+                        <th class="text-nowrap" style="min-width: 5.5rem;">Date</th>
+                        <th class="text-end text-nowrap" style="min-width: 5.5rem;">Total</th>
+                        <th class="text-nowrap" style="min-width: 7rem;">Deleted</th>
+                        <th style="min-width: 8rem;">Reason</th>
+                        <th class="app-index-actions-cell text-center text-nowrap" style="width: 70px; min-width: 70px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -65,38 +95,40 @@
                     </tr>
                     <tr v-for="(invoice, index) in invoices" :key="invoice.id">
                         <td class="text-center">{{ rowNumber(index) }}</td>
-                        <td>
+                        <td class="text-nowrap">
                             <RouterLink
                                 v-if="canOpenInvoice"
                                 :to="{ name: 'invoices.show', params: { id: invoice.id } }"
-                                class="text-decoration-none fw-semibold"
+                                class="text-decoration-none fw-semibold link-primary"
                             >
                                 {{ invoice.invoice_number || '—' }}
                             </RouterLink>
                             <strong v-else>{{ invoice.invoice_number || '—' }}</strong>
-                            <div v-if="invoice.document_type_label" class="small text-muted">
+                            <div v-if="invoice.document_type_label" class="small text-muted" style="font-size: 0.6875rem;">
                                 {{ invoice.document_type_label }}
                             </div>
                         </td>
-                        <td>{{ invoice.customer?.name ?? '—' }}</td>
                         <td>
+                            <span class="customer-name-cell">{{ invoice.customer?.name ?? '—' }}</span>
+                        </td>
+                        <td class="text-nowrap">
                             <RouterLink
                                 v-if="invoice.trip?.id || (invoice.trips?.length === 1 && invoice.trips[0]?.id)"
                                 :to="{
                                     name: 'trips.show',
                                     params: { id: invoice.trip?.id || invoice.trips[0].id },
                                 }"
-                                class="text-decoration-none"
+                                class="text-decoration-none fw-semibold"
                             >
                                 {{ invoice.trips_label || invoice.trip?.trip_number || invoice.trips?.[0]?.trip_number }}
                             </RouterLink>
-                            <span v-else>{{ invoice.trips_label || '—' }}</span>
+                            <span v-else class="text-muted">{{ invoice.trips_label || '—' }}</span>
                         </td>
-                        <td>{{ formatDate(invoice.invoice_date) }}</td>
-                        <td class="text-end">₹{{ formatMoney(invoice.total_amount) }}</td>
-                        <td class="small">
+                        <td class="text-nowrap">{{ formatDate(invoice.invoice_date) }}</td>
+                        <td class="text-end text-nowrap fw-semibold">₹{{ formatMoney(invoice.total_amount) }}</td>
+                        <td class="small text-nowrap">
                             <div>{{ formatDate(invoice.archived_at) }}</div>
-                            <div v-if="invoice.deleted_by?.name" class="text-muted">
+                            <div v-if="invoice.deleted_by?.name" class="text-muted" style="font-size: 0.6875rem;">
                                 by {{ invoice.deleted_by.name }}
                             </div>
                         </td>
@@ -105,7 +137,7 @@
                                 {{ truncateReason(invoice.deletion_reason) }}
                             </span>
                         </td>
-                        <td class="app-index-actions-cell text-end">
+                        <td class="app-index-actions-cell text-center text-nowrap">
                             <AppTableActions>
                                 <AppCrudActionButton
                                     v-if="canOpenInvoice"
@@ -164,10 +196,15 @@ const invoices = ref([]);
 const loading = ref(true);
 const searchQuery = ref('');
 const paymentStatusFilter = ref('');
+const filtersOpen = ref(true);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
 const canOpenInvoice = computed(
     () => canInCompany('invoices.view_archived') || canInCompany('invoices.view'),
+);
+
+const filtersActive = computed(
+    () => searchQuery.value.trim() !== '' || paymentStatusFilter.value !== '',
 );
 
 function rowNumber(index) {
@@ -234,8 +271,283 @@ onMounted(async () => {
 
     if (ok === true) {
         await loadInvoices();
+
+        if (filtersActive.value) {
+            filtersOpen.value = true;
+        }
     } else {
         loading.value = false;
     }
 });
 </script>
+
+<style scoped>
+/* ── Base / Desktop View ───────────────────────────────────────────── */
+.filter-search-col {
+    min-width: 240px;
+    flex: 1 1 240px;
+}
+
+.filter-status-col {
+    min-width: 180px;
+    flex: 0 0 180px;
+}
+
+.filter-search-col :deep(.app-index-search),
+.filter-status-col :deep(.app-select) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.app-index-list-card :deep(.app-table-actions) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.app-index-list-card :deep(.app-table-actions .btn-icon) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    padding: 0 !important;
+    flex-shrink: 0;
+}
+
+.app-index-list-card :deep(.app-table-actions .btn-icon i) {
+    font-size: 0.8125rem;
+    line-height: 1;
+}
+
+.app-index-list-card :deep(.table) {
+    font-size: 0.8125rem;
+}
+
+.app-index-list-card :deep(.table th),
+.app-index-list-card :deep(.table td) {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+/* ── Tablet / Middle Screens (768px - 1199.98px) ───────────────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .app-index-list-card :deep(.card-title) {
+        font-size: 1.1rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin-top: 0.25rem !important;
+        margin-left: 0 !important;
+    }
+
+    .app-index-list-card :deep(.table) {
+        font-size: 0.78rem !important;
+    }
+
+    .app-index-list-card :deep(.table th),
+    .app-index-list-card :deep(.table td) {
+        padding: 0.45rem 0.5rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon) {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon i) {
+        font-size: 0.75rem !important;
+    }
+}
+
+/* ── Mobile Devices (< 768px) ─────────────────────────────────────── */
+@media (max-width: 767.98px) {
+    .app-index-list-card :deep(.card-header),
+    :deep(.trips-card-header--gradient) {
+        padding: 0.5rem 0.75rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.4rem !important;
+    }
+
+    .app-index-list-card :deep(.card-title),
+    :deep(.trips-card-header--gradient .card-title) {
+        font-size: 0.92rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        margin-bottom: 0 !important;
+        line-height: 1.2 !important;
+        letter-spacing: -0.01em;
+    }
+
+    .app-index-list-card :deep(.app-index-card-toolbar),
+    :deep(.trips-card-header--gradient .app-index-card-toolbar) {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        margin-left: auto !important;
+        flex-wrap: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.35rem !important;
+    }
+
+    .invoice-header-back-btn {
+        padding: 0.28rem 0.55rem !important;
+        font-size: 0.72rem !important;
+        border-radius: 7px !important;
+    }
+
+    :deep(.app-index-collapsible-filters) {
+        padding: 0.65rem 0.75rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        gap: 8px !important;
+    }
+
+    :deep(.app-index-filters-fields > div),
+    .filter-search-col,
+    .filter-status-col {
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        max-width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+    }
+
+    /* Filter inputs compact & responsive text sizing on mobile */
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder),
+    :deep(.app-index-collapsible-filters .select-trigger-label) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.select-trigger-icon) {
+        font-size: 0.65rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.75rem !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        padding: 0.15rem 0.5rem !important;
+        line-height: 1 !important;
+        border-radius: 6px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn i) {
+        font-size: 0.7rem !important;
+        margin-right: 0.25rem !important;
+    }
+
+    /* Table micro adjustments on mobile */
+    .app-index-list-card :deep(.table) {
+        font-size: 0.72rem !important;
+    }
+
+    .app-index-list-card :deep(.table th) {
+        padding: 0.4rem 0.35rem !important;
+        font-size: 0.7rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+    }
+
+    .app-index-list-card :deep(.table td) {
+        padding: 0.4rem 0.35rem !important;
+        font-size: 0.72rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions) {
+        gap: 4px !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        border-radius: 0.25rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon i) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination responsive on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.4rem !important;
+        padding: 0.5rem 0.6rem !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.72rem !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.2rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .app-index-list-card :deep(.card-title),
+    :deep(.trips-card-header--gradient .card-title) {
+        font-size: 0.84rem !important;
+    }
+
+    .invoice-header-back-btn {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.68rem !important;
+    }
+}
+</style>

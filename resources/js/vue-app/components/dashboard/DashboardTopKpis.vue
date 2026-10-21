@@ -1,187 +1,201 @@
 <template>
     <div class="dashboard-kpis">
-        <div class="dashboard-kpis__grid" :class="{ 'dashboard-kpis__grid--6-items': canViewTrips }">
+        <div
+            class="row g-2 g-md-3"
+            :class="canViewTrips ? 'row-cols-2 row-cols-md-3 row-cols-xl-6' : 'row-cols-2 row-cols-md-3 row-cols-xl-5'"
+        >
             <!-- 1. Profit -->
-            <div
-                class="dashboard-kpi-card dashboard-kpi-card--clickable"
-                :class="profit >= 0 ? 'dashboard-kpi-card--profit' : 'dashboard-kpi-card--loss'"
-                role="button"
-                tabindex="0"
-                title="Click to view Financials chart"
-                @click="$emit('select-tab', 'financials')"
-                @keydown.enter="$emit('select-tab', 'financials')"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-sack-dollar"></i>
-                        </span>
-                        <span class="dashboard-kpi-card__label">Profit</span>
-                    </div>
-                    <span
-                        class="dashboard-kpi-card__tag"
-                        :class="profit >= 0 ? 'dashboard-kpi-card__tag--emerald' : 'dashboard-kpi-card__tag--rose'"
-                    >
-                        {{ profit >= 0 ? 'Net Profit' : 'Net Loss' }}
-                    </span>
-                </div>
+            <div class="col">
                 <div
-                    class="dashboard-kpi-card__value"
-                    :class="[{ 'text-danger': profit < 0 }, dynamicValueClass(formattedProfit)]"
-                    :title="formatMoney(profit)"
+                    class="dashboard-kpi-card dashboard-kpi-card--clickable h-100"
+                    :class="profit >= 0 ? 'dashboard-kpi-card--profit' : 'dashboard-kpi-card--loss'"
+                    role="button"
+                    tabindex="0"
+                    title="Click to view Financials chart"
+                    @click="$emit('select-tab', 'financials')"
+                    @keydown.enter="$emit('select-tab', 'financials')"
                 >
-                    {{ formattedProfit }}
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">Revenue − expenses</span>
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-sack-dollar"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Profit</span>
+                        </div>
+                        <span
+                            class="dashboard-kpi-card__tag"
+                            :class="profit >= 0 ? 'dashboard-kpi-card__tag--emerald' : 'dashboard-kpi-card__tag--rose'"
+                        >
+                            {{ profit >= 0 ? 'Net Profit' : 'Net Loss' }}
+                        </span>
+                    </div>
+                    <div
+                        class="dashboard-kpi-card__value"
+                        :class="[{ 'text-danger': profit < 0 }, dynamicValueClass(formattedProfit)]"
+                        :title="formatMoney(profit)"
+                    >
+                        {{ formattedProfit }}
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint">Revenue − expenses</span>
+                    </div>
                 </div>
             </div>
 
             <!-- 2. Outstanding -->
-            <component
-                :is="invoicesRoute ? 'RouterLink' : 'div'"
-                :to="invoicesRoute"
-                class="dashboard-kpi-card dashboard-kpi-card--outstanding"
-                :class="{ 'dashboard-kpi-card--clickable': Boolean(invoicesRoute) }"
-                title="View open invoices"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-file-invoice-dollar"></i>
-                        </span>
-                        <span class="dashboard-kpi-card__label">Outstanding</span>
-                    </div>
-                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--amber">Receivables</span>
-                </div>
-                <div
-                    class="dashboard-kpi-card__value"
-                    :class="dynamicValueClass(formattedOutstanding)"
-                    :title="formatMoney(outstanding)"
+            <div class="col">
+                <component
+                    :is="invoicesRoute ? 'RouterLink' : 'div'"
+                    :to="invoicesRoute"
+                    class="dashboard-kpi-card dashboard-kpi-card--outstanding h-100"
+                    :class="{ 'dashboard-kpi-card--clickable': Boolean(invoicesRoute) }"
+                    title="View open invoices"
                 >
-                    {{ formattedOutstanding }}
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">Unpaid invoice balance</span>
-                </div>
-            </component>
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Outstanding</span>
+                        </div>
+                        <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--amber">Receivables</span>
+                    </div>
+                    <div
+                        class="dashboard-kpi-card__value"
+                        :class="dynamicValueClass(formattedOutstanding)"
+                        :title="formatMoney(outstanding)"
+                    >
+                        {{ formattedOutstanding }}
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint">Unpaid invoice balance</span>
+                    </div>
+                </component>
+            </div>
 
             <!-- 3. Revenue -->
-            <div
-                class="dashboard-kpi-card dashboard-kpi-card--revenue dashboard-kpi-card--clickable"
-                role="button"
-                tabindex="0"
-                title="Click to view Financials chart"
-                @click="$emit('select-tab', 'financials')"
-                @keydown.enter="$emit('select-tab', 'financials')"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-indian-rupee-sign"></i>
-                        </span>
-                        <span class="dashboard-kpi-card__label">Revenue</span>
-                    </div>
-                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--green">Revenue</span>
-                </div>
+            <div class="col">
                 <div
-                    class="dashboard-kpi-card__value"
-                    :class="dynamicValueClass(formattedRevenue)"
-                    :title="formatMoney(revenue)"
+                    class="dashboard-kpi-card dashboard-kpi-card--revenue dashboard-kpi-card--clickable h-100"
+                    role="button"
+                    tabindex="0"
+                    title="Click to view Financials chart"
+                    @click="$emit('select-tab', 'financials')"
+                    @keydown.enter="$emit('select-tab', 'financials')"
                 >
-                    {{ formattedRevenue }}
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">Freight &amp; custom in period</span>
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-indian-rupee-sign"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Revenue</span>
+                        </div>
+                        <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--green">Revenue</span>
+                    </div>
+                    <div
+                        class="dashboard-kpi-card__value"
+                        :class="dynamicValueClass(formattedRevenue)"
+                        :title="formatMoney(revenue)"
+                    >
+                        {{ formattedRevenue }}
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint">Freight &amp; custom in period</span>
+                    </div>
                 </div>
             </div>
 
             <!-- 4. Fleet Utilization -->
-            <div
-                class="dashboard-kpi-card dashboard-kpi-card--clickable"
-                :class="utilizationAccentClass"
-                role="button"
-                tabindex="0"
-                title="Click to view Fleet Status chart"
-                @click="$emit('select-tab', 'fleet')"
-                @keydown.enter="$emit('select-tab', 'fleet')"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-gauge-high"></i>
+            <div class="col">
+                <div
+                    class="dashboard-kpi-card dashboard-kpi-card--clickable h-100"
+                    :class="utilizationAccentClass"
+                    role="button"
+                    tabindex="0"
+                    title="Click to view Fleet Status chart"
+                    @click="$emit('select-tab', 'fleet')"
+                    @keydown.enter="$emit('select-tab', 'fleet')"
+                >
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-gauge-high"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Fleet Utilization</span>
+                        </div>
+                        <span
+                            class="dashboard-kpi-card__tag"
+                            :class="utilizationTagClass"
+                        >
+                            {{ utilizationRate >= 70 ? 'Optimal' : (utilizationRate >= 40 ? 'Moderate' : 'Low') }}
                         </span>
-                        <span class="dashboard-kpi-card__label">Fleet Utilization</span>
                     </div>
-                    <span
-                        class="dashboard-kpi-card__tag"
-                        :class="utilizationTagClass"
-                    >
-                        {{ utilizationRate >= 70 ? 'Optimal' : (utilizationRate >= 40 ? 'Moderate' : 'Low') }}
-                    </span>
-                </div>
-                <div class="dashboard-kpi-card__value">
-                    {{ utilizationRate.toFixed(0) }}%
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">Running vs available days</span>
+                    <div class="dashboard-kpi-card__value">
+                        {{ utilizationRate.toFixed(0) }}%
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint">Running vs available days</span>
+                    </div>
                 </div>
             </div>
 
             <!-- 5. Idle -->
-            <div
-                class="dashboard-kpi-card dashboard-kpi-card--idle dashboard-kpi-card--clickable"
-                role="button"
-                tabindex="0"
-                title="Click to view Fleet Status chart"
-                @click="$emit('select-tab', 'fleet')"
-                @keydown.enter="$emit('select-tab', 'fleet')"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-clock"></i>
-                        </span>
-                        <span class="dashboard-kpi-card__label">Idle Trucks</span>
+            <div class="col">
+                <div
+                    class="dashboard-kpi-card dashboard-kpi-card--idle dashboard-kpi-card--clickable h-100"
+                    role="button"
+                    tabindex="0"
+                    title="Click to view Fleet Status chart"
+                    @click="$emit('select-tab', 'fleet')"
+                    @keydown.enter="$emit('select-tab', 'fleet')"
+                >
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-clock"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Idle Trucks</span>
+                        </div>
+                        <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--orange">7+ Days</span>
                     </div>
-                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--orange">7+ Days</span>
-                </div>
-                <div class="dashboard-kpi-card__value">
-                    {{ idle }}
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint">Not used for 7+ days</span>
+                    <div class="dashboard-kpi-card__value">
+                        {{ idle }}
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint">Not used for 7+ days</span>
+                    </div>
                 </div>
             </div>
 
             <!-- 6. Fuel & Mileage -->
-            <RouterLink
-                v-if="canViewTrips"
-                :to="{ name: 'reports.trips', query: { type: 'fuel-performance' } }"
-                class="dashboard-kpi-card dashboard-kpi-card--fuel dashboard-kpi-card--clickable text-decoration-none"
-                title="Click to view Fuel Performance Report"
-            >
-                <div class="dashboard-kpi-card__head">
-                    <div class="dashboard-kpi-card__lead">
-                        <span class="dashboard-kpi-card__icon">
-                            <i class="fas fa-gas-pump"></i>
+            <div v-if="canViewTrips" class="col">
+                <RouterLink
+                    :to="{ name: 'reports.trips', query: { type: 'fuel-performance' } }"
+                    class="dashboard-kpi-card dashboard-kpi-card--fuel dashboard-kpi-card--clickable text-decoration-none h-100"
+                    title="Click to view Fuel Performance Report"
+                >
+                    <div class="dashboard-kpi-card__head">
+                        <div class="dashboard-kpi-card__lead">
+                            <span class="dashboard-kpi-card__icon">
+                                <i class="fas fa-gas-pump"></i>
+                            </span>
+                            <span class="dashboard-kpi-card__label">Avg Mileage</span>
+                        </div>
+                        <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--sky">
+                            {{ fuelLiters > 0 ? formatLiters(fuelLiters) : 'Fuel' }}
                         </span>
-                        <span class="dashboard-kpi-card__label">Avg Mileage</span>
                     </div>
-                    <span class="dashboard-kpi-card__tag dashboard-kpi-card__tag--sky">
-                        {{ fuelLiters > 0 ? formatLiters(fuelLiters) : 'Fuel' }}
-                    </span>
-                </div>
-                <div class="dashboard-kpi-card__value">
-                    {{ avgMileage > 0 ? `${avgMileage.toFixed(2)} KM/L` : '—' }}
-                </div>
-                <div class="dashboard-kpi-card__foot">
-                    <span class="dashboard-kpi-card__hint" :title="fuelCost > 0 ? formatMoney(fuelCost) : ''">
-                        {{ fuelCost > 0 ? formatDynamicMoney(fuelCost) : 'Trip diesel logs' }}
-                        <template v-if="costPerKm > 0"> (₹{{ costPerKm.toFixed(2) }}/km)</template>
-                    </span>
-                </div>
-            </RouterLink>
+                    <div class="dashboard-kpi-card__value">
+                        {{ avgMileage > 0 ? `${avgMileage.toFixed(2)} KM/L` : '—' }}
+                    </div>
+                    <div class="dashboard-kpi-card__foot">
+                        <span class="dashboard-kpi-card__hint" :title="fuelCost > 0 ? formatMoney(fuelCost) : ''">
+                            {{ fuelCost > 0 ? formatDynamicMoney(fuelCost) : 'Trip diesel logs' }}
+                            <template v-if="costPerKm > 0"> (₹{{ costPerKm.toFixed(2) }}/km)</template>
+                        </span>
+                    </div>
+                </RouterLink>
+            </div>
         </div>
     </div>
 </template>
@@ -518,25 +532,88 @@ const utilizationTagClass = computed(() => {
     .dashboard-kpis__grid,
     .dashboard-kpis__grid--6-items {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+    }
+
+    .dashboard-kpi-card {
+        padding: 0.55rem 0.65rem;
+        gap: 0.35rem;
+        border-radius: 0.65rem;
+    }
+
+    .dashboard-kpi-card__head {
+        gap: 0.25rem;
+    }
+
+    .dashboard-kpi-card__lead {
+        gap: 0.3rem;
+    }
+
+    .dashboard-kpi-card__icon {
+        width: 1.35rem;
+        height: 1.35rem;
+        font-size: 0.62rem;
+        border-radius: 0.35rem;
+    }
+
+    .dashboard-kpi-card__label {
+        font-size: 0.68rem;
+    }
+
+    .dashboard-kpi-card__tag {
+        font-size: 0.58rem;
+        padding: 0.1rem 0.32rem;
     }
 
     .dashboard-kpi-card__value {
-        font-size: clamp(1.05rem, 3.8vw, 1.25rem);
+        font-size: clamp(0.88rem, 3.2vw, 1.05rem);
+        line-height: 1.15;
     }
 
     .dashboard-kpi-card__value--medium {
-        font-size: clamp(0.95rem, 3.4vw, 1.15rem);
+        font-size: clamp(0.8rem, 2.9vw, 0.95rem);
     }
 
     .dashboard-kpi-card__value--compact {
-        font-size: clamp(0.85rem, 3vw, 1.02rem);
+        font-size: clamp(0.74rem, 2.6vw, 0.88rem);
+    }
+
+    .dashboard-kpi-card__foot {
+        gap: 0.2rem;
+    }
+
+    .dashboard-kpi-card__hint {
+        font-size: 0.6rem;
     }
 }
 
-@media (max-width: 479.98px) {
-    .dashboard-kpis__grid,
-    .dashboard-kpis__grid--6-items {
-        grid-template-columns: 1fr;
+@media (max-width: 399.98px) {
+    .dashboard-kpi-card {
+        padding: 0.45rem 0.5rem;
+        gap: 0.25rem;
+    }
+
+    .dashboard-kpi-card__icon {
+        width: 1.2rem;
+        height: 1.2rem;
+        font-size: 0.58rem;
+    }
+
+    .dashboard-kpi-card__label {
+        font-size: 0.62rem;
+    }
+
+    .dashboard-kpi-card__tag {
+        font-size: 0.52rem;
+        padding: 0.08rem 0.25rem;
+    }
+
+    .dashboard-kpi-card__value {
+        font-size: 0.82rem;
+    }
+
+    .dashboard-kpi-card__hint {
+        font-size: 0.56rem;
     }
 }
 </style>

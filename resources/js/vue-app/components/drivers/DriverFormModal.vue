@@ -428,9 +428,27 @@ function submit() {
     line-height: 1.3;
 }
 
-@media (max-width: 575.98px) {
+@media (max-width: 767.98px) {
     .driver-form-grid {
-        grid-template-columns: minmax(0, 1fr);
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.45rem 0.5rem !important;
+    }
+
+    .driver-form-grid .form-label {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .driver-form-grid .form-control,
+    .driver-form-grid :deep(.form-control),
+    .driver-form-grid :deep(.select-trigger) {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.75rem !important;
+        padding: 0.2rem 0.45rem !important;
     }
 }
 </style>

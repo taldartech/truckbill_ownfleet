@@ -40,7 +40,7 @@
             />
 
             <div class="trip-form-actions trip-form-actions--inline">
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <div class="d-flex align-items-center justify-content-center gap-1 gap-sm-2 trip-form-actions__row">
                     <AppButton
                         variant="secondary"
                         outline
@@ -517,5 +517,34 @@ onMounted(async () => {
     max-width: 1180px;
     margin: 0 auto;
     padding: 24px 20px 40px;
+}
+
+@media (max-width: 767.98px) {
+    .trip-mp-create-page {
+        padding: 10px 8px 24px;
+    }
+    .trip-form-actions {
+        padding: 8px 0;
+    }
+    .trip-form-actions__row {
+        flex-wrap: nowrap !important;
+        width: 100%;
+        gap: 6px !important;
+    }
+    .trip-form-actions__row :deep(.app-btn),
+    .trip-form-actions__row :deep(.btn) {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 0.38rem 0.25rem !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+        justify-content: center !important;
+        height: 36px !important;
+    }
+    .trip-form-actions__row :deep(.app-btn i),
+    .trip-form-actions__row :deep(.btn i) {
+        font-size: 0.75rem !important;
+        margin-right: 3px !important;
+    }
 }
 </style>

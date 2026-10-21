@@ -1,102 +1,143 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-2 mt-md-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before managing trips.
         </div>
 
-        <AppIndexListCard title="Trip Management" :loading="loading" loading-text="Loading trips…">
+        <AppIndexListCard
+            title="Trip Management"
+            header-class="trips-card-header--gradient"
+            :loading="loading"
+            loading-text="Loading trips…"
+        >
             <template #toolbar>
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-1 gap-sm-2 flex-nowrap">
                     <AppIndexHeaderButton
                         v-if="canManageExpenses"
+                        class="flex-shrink-0"
                         icon="upload"
                         aria-label="Bulk upload trip expenses"
                         @click="goToExpenseImport"
                     >
                         <span class="d-none d-md-inline">Bulk upload</span>
                     </AppIndexHeaderButton>
-                    <AppIndexHeaderButton
+                    <button
                         v-if="canCreate"
-                        icon="plus"
+                        type="button"
+                        class="btn bg-white rounded-3 shadow-sm border-0 d-inline-flex align-items-center justify-content-center p-0 flex-shrink-0 trip-header-square-btn trip-header-square-btn--create"
+                        title="Create trip"
                         aria-label="Create trip"
                         @click="goToCreate"
                     >
-                        Create
-                    </AppIndexHeaderButton>
-                    <AppIndexHeaderButton
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="#10b981" class="bi bi-plus-circle" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4"/>
+                        </svg>
+                    </button>
+                    <button
                         v-if="canCreate"
-                        icon="plus"
+                        type="button"
+                        class="btn bg-white rounded-3 shadow-sm border-0 d-inline-flex align-items-center justify-content-center p-0 flex-shrink-0 trip-header-square-btn trip-header-square-btn--multi"
+                        title="Create multi-point trip"
                         aria-label="Create multi-point trip"
                         @click="goToMultiPointCreate"
                     >
-                        Multi-Point
-                    </AppIndexHeaderButton>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="#06b6d4" class="bi bi-link-45deg" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L7.34 10.992a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z"/>
+                            <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 4.009a2 2 0 0 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 0 0-4.243-4.243z"/>
+                        </svg>
+                    </button>
                 </div>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="trips-filters-panel"
-                :loading="loading"
-                @search="loadTrips(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="trips_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="filters.search"
-                        input-id="trips_search"
-                        placeholder="Trip #, truck, driver"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter="loadTrips(1)"
-                    />
+            <template #filters>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-                <div class="filter-period-col">
-                    <DashboardDateRangePicker
-                        v-model:from-date="filters.from_date"
-                        v-model:to-date="filters.to_date"
-                        label="Trip Date"
-                        panel-align="start"
-                        :preset-keys="tripDatePresetKeys"
-                        :block-future-dates="false"
-                    />
+
+                <div v-show="filtersOpen" class="trips-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="trips-filters-panel"
+                        :loading="loading"
+                        @search="loadTrips(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="col-6 col-md-6 col-xl-3 filter-search-col">
+                            <label class="form-label small fw-semibold" for="trips_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="filters.search"
+                                input-id="trips_search"
+                                placeholder="Trip #, truck, driver"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadTrips(1)"
+                            />
+                        </div>
+                        <div class="col-6 col-md-6 col-xl-3 filter-period-col">
+                            <DashboardDateRangePicker
+                                v-model:from-date="filters.from_date"
+                                v-model:to-date="filters.to_date"
+                                label="Trip Date"
+                                panel-align="start"
+                                :preset-keys="tripDatePresetKeys"
+                                :block-future-dates="false"
+                            />
+                        </div>
+                        <div class="col-6 col-md-6 col-xl-2 filter-select-col">
+                            <label class="form-label small fw-semibold">Status</label>
+                            <AppSelect
+                                v-model="filters.status"
+                                :options="tripStatuses"
+                                placeholder="All statuses"
+                                search-placeholder="Search status…"
+                                :disabled="loading"
+                            />
+                        </div>
+                        <div class="col-6 col-md-6 col-xl-4 filter-picker-col">
+                            <label class="form-label small fw-semibold">Customer</label>
+                            <SearchablePicker
+                                v-model="filters.customer_id"
+                                :items="customers"
+                                placeholder="All customers"
+                                search-placeholder="Search customer…"
+                                empty-message="No customer found."
+                                view-title="Customer details"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Status</label>
-                    <AppSelect
-                        v-model="filters.status"
-                        :options="tripStatuses"
-                        placeholder="All statuses"
-                        search-placeholder="Search status…"
-                        :disabled="loading"
-                    />
-                </div>
-                <div class="filter-picker-col">
-                    <label class="form-label">Customer</label>
-                    <SearchablePicker
-                        v-model="filters.customer_id"
-                        :items="customers"
-                        placeholder="All customers"
-                        search-placeholder="Search customer…"
-                        empty-message="No customer found."
-                        view-title="Customer details"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
                         <th>Trip #</th>
                         <th>Truck / Driver</th>
-                        <th class="trips-status-col">Status</th>
-                        <th class="trips-period-col">Trip Date</th>
-                        <th class="trips-route-col">Route</th>
-                        <th class="trips-financials-col">Freight / Expense / Profit</th>
-                        <th v-if="showActions" class="app-index-actions-cell text-end" style="width: 180px">Actions</th>
+                        <th class="text-nowrap" style="width: 1%;">Status</th>
+                        <th class="text-nowrap" style="min-width: 6.5rem;">Trip Date</th>
+                        <th style="min-width: 10rem;">Route</th>
+                        <th style="min-width: 8rem;">Freight / Expense / Profit</th>
+                        <th v-if="showActions" class="text-nowrap text-end pe-2 pe-md-3" style="width: 1%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -107,22 +148,23 @@
                     </tr>
                     <tr v-for="trip in trips" :key="trip.id">
                         <td>
-                            <div class="trips-trip-cell">
+                            <div class="d-flex flex-column align-items-start gap-1" style="min-width: 7.5rem;">
                                 <RouterLink
                                     v-if="canOpenTrip"
                                     :to="{ name: 'trips.show', params: { id: trip.id } }"
-                                    class="trip-number-link fw-semibold text-decoration-none"
+                                    class="link-primary fw-semibold text-decoration-none small"
                                 >
                                     {{ trip.trip_number || '—' }}
                                 </RouterLink>
-                                <strong v-else>{{ trip.trip_number || '—' }}</strong>
+                                <strong v-else class="small">{{ trip.trip_number || '—' }}</strong>
                                 <span
-                                    class="trip-type-badge"
+                                    class="badge rounded-pill d-inline-flex align-items-center gap-1 fw-semibold text-nowrap"
                                     :class="tripTypeInfo(trip.trip_type).badge"
                                     :title="tripTypeInfo(trip.trip_type).label"
+                                    style="font-size: 0.6875rem;"
                                 >
                                     <i class="bi" :class="tripTypeInfo(trip.trip_type).icon" aria-hidden="true"></i>
-                                    <span class="trip-type-badge__label">{{ tripTypeInfo(trip.trip_type).label }}</span>
+                                    <span class="d-none d-sm-inline">{{ tripTypeInfo(trip.trip_type).label }}</span>
                                 </span>
                             </div>
                         </td>
@@ -142,78 +184,78 @@
                                 Substitute: {{ trip.substitute_driver.name }}
                             </div>
                         </td>
-                        <td class="trips-status-col">
+                        <td class="text-nowrap">
                             <TripInlineStatusActions
                                 :trip="trip"
                                 :can-manage="canEdit"
                                 @updated="onTripStatusUpdated(trip, $event)"
                             />
                         </td>
-                        <td class="trips-period-col small">
+                        <td class="text-nowrap small">
                             <div>{{ formatDate(trip.start_at) }}</div>
                             <div class="text-muted">{{ formatDate(trip.end_at) }}</div>
                         </td>
-                        <td class="trips-route-col small">
+                        <td class="small" style="min-width: 10rem;">
                             <div
-                                class="trips-route"
-                                :class="{ 'trips-route--has-via': routeSummary(trip).middle.length > 0 }"
+                                class="d-flex flex-column gap-1 w-100"
                                 :title="routeHoverTitle(trip)"
                             >
-                                <div class="trips-route__main">
-                                    <span class="trips-route__point trips-route__point--from">
-                                        <i class="bi bi-circle-fill" aria-hidden="true"></i>
-                                        <span class="trips-route__name">{{ routeSummary(trip).source }}</span>
+                                <div class="d-inline-flex align-items-center gap-1 mw-100 flex-wrap">
+                                    <span class="d-inline-flex align-items-center gap-1 fw-semibold text-secondary text-truncate" style="max-width: 10rem;">
+                                        <i class="bi bi-circle-fill text-secondary" style="font-size: 0.6rem;" aria-hidden="true"></i>
+                                        <span class="text-truncate">{{ routeSummary(trip).source }}</span>
                                     </span>
-                                    <i class="bi bi-arrow-right trips-route__arrow" aria-hidden="true"></i>
-                                    <span class="trips-route__point trips-route__point--to">
-                                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                                        <span class="trips-route__name">{{ routeSummary(trip).destination }}</span>
+                                    <i class="bi bi-arrow-right text-muted flex-shrink-0" style="font-size: 0.7rem;" aria-hidden="true"></i>
+                                    <span class="d-inline-flex align-items-center gap-1 fw-semibold text-primary text-truncate" style="max-width: 10rem;">
+                                        <i class="bi bi-geo-alt-fill text-primary" style="font-size: 0.65rem;" aria-hidden="true"></i>
+                                        <span class="text-truncate">{{ routeSummary(trip).destination }}</span>
                                     </span>
                                     <span
                                         v-if="routeSummary(trip).middle.length > 0"
-                                        class="trips-route__via-badge"
+                                        class="badge rounded-pill bg-light text-secondary border flex-shrink-0"
+                                        style="font-size: 0.65rem;"
                                     >
                                         +{{ routeSummary(trip).middle.length }}
                                     </span>
                                 </div>
                                 <div
                                     v-if="routeSummary(trip).middle.length > 0"
-                                    class="trips-route__via"
+                                    class="d-flex align-items-center gap-1 small text-truncate"
+                                    style="font-size: 0.6875rem;"
                                 >
-                                    <span class="trips-route__via-label">Via</span>
-                                    <span class="trips-route__via-stops">{{ routeSummary(trip).middle.join(' · ') }}</span>
+                                    <span class="text-uppercase fw-bold text-muted" style="font-size: 0.6rem;">Via</span>
+                                    <span class="text-secondary fw-semibold text-truncate">{{ routeSummary(trip).middle.join(' · ') }}</span>
                                 </div>
                             </div>
                         </td>
-                        <td class="trips-financials-col">
-                            <div class="trips-financials" :title="financialSummaryTitle(trip)">
-                                <div class="trips-financials__row">
-                                    <span class="trips-financials__label">Freight</span>
-                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
+                        <td class="small" style="min-width: 7.5rem;">
+                            <div class="d-flex flex-column gap-1" :title="financialSummaryTitle(trip)">
+                                <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                    <span class="text-muted fw-semibold" style="font-size: 0.6875rem;">Freight:</span>
+                                    <span class="fw-semibold font-monospace" style="font-size: 0.75rem;">₹{{ formatCompactMoney(trip.total_freight_amount) }}</span>
                                 </div>
-                                <div class="trips-financials__row">
-                                    <span class="trips-financials__label">Expense</span>
-                                    <span class="trips-financials__val">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
+                                <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                    <span class="text-muted fw-semibold" style="font-size: 0.6875rem;">Expense:</span>
+                                    <span class="fw-semibold font-monospace" style="font-size: 0.75rem;">₹{{ formatCompactMoney(trip.total_expense_amount) }}</span>
                                 </div>
-                                <div class="trips-financials__row">
-                                    <span class="trips-financials__label">Profit</span>
+                                <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                    <span class="text-muted fw-semibold" style="font-size: 0.6875rem;">Profit:</span>
                                     <span
-                                        class="trips-financials__val"
+                                        class="fw-semibold font-monospace"
                                         :class="tripProfit(trip) >= 0 ? 'text-success' : 'text-danger'"
+                                        style="font-size: 0.75rem;"
                                     >
                                         ₹{{ formatCompactMoney(tripProfit(trip)) }}
                                     </span>
                                 </div>
                             </div>
                         </td>
-                       <td
+                        <td
                             v-if="showActions"
-                            class="app-index-actions-cell"
-                            style="text-align: left;"
+                            class="text-nowrap text-end pe-2 pe-md-3"
+                            style="width: 1%;"
                         >
-                            <AppTableActions
-                                style="display: flex; justify-content: flex-start; width: 100%;"
-                            >
+                            <AppTableActions class="justify-content-end">
                                
 
                                 <AppCrudActionButton
@@ -336,7 +378,7 @@ const canEdit = computed(() => canInCompany('trips.edit'));
 const canManageExpenses = computed(() => canInCompany('trips.expenses'));
 const canArchive = computed(() => canInCompany('trips.archive') || canInCompany('trips.delete'));
 const canCreateInvoices = computed(() => canInCompany('invoices.create'));
-const tableColspan = computed(() => (showActions.value ? 8 : 7));
+const tableColspan = computed(() => (showActions.value ? 7 : 6));
 const canView = computed(() => canInCompany('trips.view'));
 const canOpenTrip = computed(() => canView.value || canEdit.value || canManageExpenses.value);
 const showActions = computed(() => canOpenTrip.value || canCreateInvoices.value || canManageExpenses.value);
@@ -359,6 +401,7 @@ const filters = reactive(defaultTripListFilters());
 const { pagination, syncFromMeta } = useListPagination(10);
 
 const defaultFilters = defaultTripListFilters();
+const filtersOpen = ref(false);
 const listReady = ref(false);
 let skipNextRouteSync = false;
 
@@ -900,10 +943,96 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Keep filters + Search/Reset on one row */
+/* Gradient Header matching requested design */
+:deep(.trips-card-header--gradient) {
+    background: linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #0ea5e9 100%) !important;
+    border-bottom: none !important;
+    padding: 0.75rem 1.15rem !important;
+    border-top-left-radius: inherit !important;
+    border-top-right-radius: inherit !important;
+}
+
+:deep(.trips-card-header--gradient .card-title) {
+    color: #ffffff !important;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+}
+
+:deep(.trips-card-header--gradient .app-index-card-toolbar) {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+}
+
+/* White square header buttons dimensions */
+.trip-header-square-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 11px;
+    background-color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+.trip-header-square-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+}
+
+.trip-header-square-btn:active {
+    transform: translateY(0);
+}
+
+.trip-header-square-btn--create {
+    color: #10b981 !important;
+}
+
+.trip-header-square-btn--create svg,
+.trip-header-square-btn--create i,
+.trip-header-square-btn--create .bi {
+    color: #10b981 !important;
+    fill: #10b981 !important;
+}
+
+.trip-header-square-btn--multi {
+    color: #06b6d4 !important;
+}
+
+.trip-header-square-btn--multi svg,
+.trip-header-square-btn--multi i,
+.trip-header-square-btn--multi .bi {
+    color: #06b6d4 !important;
+    fill: #06b6d4 !important;
+}
+
+.trips-filters-content {
+    animation: fadeIn 0.18s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Filters container and picker integration */
 :deep(.app-index-collapsible-filters__inner) {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     align-items: flex-end !important;
     gap: 10px !important;
 }
@@ -919,34 +1048,6 @@ onBeforeUnmount(() => {
     flex: 0 0 auto !important;
     flex-wrap: nowrap !important;
     gap: 0.5rem;
-}
-
-.filter-search-col {
-    flex: 0 0 240px !important;
-    width: 240px !important;
-    max-width: 240px !important;
-    min-width: 0 !important;
-}
-
-.filter-period-col {
-    flex: 0 0 200px !important;
-    width: 200px !important;
-    max-width: 200px !important;
-    min-width: 0 !important;
-}
-
-.filter-select-col {
-    flex: 0 0 150px !important;
-    width: 150px !important;
-    max-width: 150px !important;
-    min-width: 0 !important;
-}
-
-.filter-picker-col {
-    flex: 0 0 270px !important;
-    width: 270px !important;
-    max-width: 270px !important;
-    min-width: 0 !important;
 }
 
 .filter-picker-col :deep(.picker-row) {
@@ -994,223 +1095,6 @@ onBeforeUnmount(() => {
     min-width: 0 !important;
 }
 
-.trip-number-link {
-    color: #0d6efd;
-}
-
-.trip-number-link:hover {
-    color: #0a58ca;
-    text-decoration: underline !important;
-}
-
-.trips-trip-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
-    min-width: 8.5rem;
-}
-
-.trip-type-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.12rem 0.45rem;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: 1.2;
-    white-space: nowrap;
-    border: 1px solid transparent;
-}
-
-.trip-type-badge--round {
-    color: #0b5ed7;
-    background: #e7f1ff;
-    border-color: #b6d4fe;
-}
-
-.trip-type-badge--one-way {
-    color: #146c43;
-    background: #e8f5ee;
-    border-color: #a3cfbb;
-}
-
-.trip-type-badge--multi-point {
-    color: #5b21b6;
-    background: #f5f3ff;
-    border-color: #ddd6fe;
-}
-
-.trip-type-badge__label {
-    display: inline;
-}
-
-.trips-status-col {
-    width: 1%;
-    white-space: nowrap;
-    vertical-align: middle;
-    padding-left: 0.35rem !important;
-    padding-right: 0.35rem !important;
-}
-
-.trips-financials-col {
-    width: 1%;
-    white-space: nowrap;
-    min-width: 8.75rem;
-}
-
-.trips-period-col {
-    width: 1%;
-    white-space: nowrap;
-    line-height: 1.3;
-}
-
-.trips-route-col {
-    max-width: 14rem;
-    min-width: 10rem;
-    overflow: hidden;
-    white-space: normal;
-    vertical-align: middle;
-}
-
-.trips-route {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    max-width: 100%;
-    min-width: 0;
-}
-
-.trips-route__main {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    max-width: 100%;
-    min-width: 0;
-}
-
-.trips-route__point {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.22rem;
-    min-width: 0;
-    max-width: 5.5rem;
-    font-weight: 600;
-    color: #334155;
-}
-
-.trips-route__point i {
-    flex-shrink: 0;
-    font-size: 0.62rem;
-    line-height: 1;
-}
-
-.trips-route__point--from i {
-    color: #64748b;
-}
-
-.trips-route__point--to i {
-    color: #0d6efd;
-}
-
-.trips-route__name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.trips-route__arrow {
-    flex-shrink: 0;
-    font-size: 0.7rem;
-    color: #94a3b8;
-}
-
-.trips-route__via-badge {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.35rem;
-    height: 1.1rem;
-    padding: 0 0.3rem;
-    border-radius: 999px;
-    background: #eef2ff;
-    color: #4338ca;
-    font-size: 0.625rem;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.trips-route__via {
-    display: none;
-    align-items: baseline;
-    gap: 0.35rem;
-    min-width: 0;
-    padding-left: 0.05rem;
-    color: #64748b;
-    font-size: 0.6875rem;
-    line-height: 1.25;
-}
-
-.trips-route--has-via:hover .trips-route__via,
-.trips-route--has-via:focus-within .trips-route__via {
-    display: flex;
-}
-
-.trips-route__via-label {
-    flex-shrink: 0;
-    font-weight: 700;
-    text-transform: none;
-    letter-spacing: normal;
-    font-size: 0.6rem;
-    color: #94a3b8;
-}
-
-.trips-route__via-stops {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: #475569;
-}
-
-.trips-financials {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-    font-size: 0.75rem;
-    line-height: 1.25;
-}
-
-.trips-financials__row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-}
-
-.trips-financials__label {
-    color: #6c757d;
-    font-size: 0.6875rem;
-    font-weight: 600;
-}
-
-.trips-financials__label::after {
-    content: ':';
-}
-
-.trips-financials__val {
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-}
-
-.trips-financials__val--pending {
-    color: #adb5bd;
-    font-weight: 500;
-}
-
 .app-index-list-card :deep(.app-table-actions) {
     display: inline-flex;
     align-items: center;
@@ -1241,9 +1125,279 @@ onBeforeUnmount(() => {
     padding-bottom: 0.55rem;
 }
 
+/* ── Tablet / Middle Screens (768px - 1199.98px) ───────────────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .app-index-list-card :deep(.card-title) {
+        font-size: 1.1rem !important;
+    }
+
+    .app-index-list-card :deep(.app-index-header-btn) {
+        font-size: 0.8125rem !important;
+        padding: 0.35rem 0.65rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin-top: 0.25rem !important;
+        margin-left: 0 !important;
+    }
+
+    .app-index-list-card :deep(.table) {
+        font-size: 0.78rem !important;
+    }
+
+    .app-index-list-card :deep(.table th),
+    .app-index-list-card :deep(.table td) {
+        padding: 0.45rem 0.5rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon) {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon i) {
+        font-size: 0.75rem !important;
+    }
+
+    .trip-header-square-btn {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        border-radius: 10px !important;
+    }
+
+    .trip-header-square-btn svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    .trip-header-square-btn i {
+        font-size: 1.2rem !important;
+    }
+}
+
+/* ── Mobile Devices (< 768px) ─────────────────────────────────────── */
 @media (max-width: 767.98px) {
-    .trip-type-badge__label {
-        display: none;
+    .app-index-list-card :deep(.card-header),
+    :deep(.trips-card-header--gradient) {
+        padding: 0.5rem 0.75rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.4rem !important;
+    }
+
+    .app-index-list-card :deep(.card-title),
+    :deep(.trips-card-header--gradient .card-title) {
+        font-size: 0.92rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        margin-bottom: 0 !important;
+        line-height: 1.2 !important;
+        letter-spacing: -0.01em;
+    }
+
+    .app-index-list-card :deep(.app-index-card-toolbar),
+    :deep(.trips-card-header--gradient .app-index-card-toolbar) {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        margin-left: auto !important;
+        flex-wrap: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.35rem !important;
+    }
+
+    .trip-header-square-btn {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        border-radius: 9px !important;
+    }
+
+    .trip-header-square-btn svg {
+        width: 19px !important;
+        height: 19px !important;
+    }
+
+    .trip-header-square-btn i {
+        font-size: 1.05rem !important;
+        line-height: 1 !important;
+    }
+
+    :deep(.app-index-collapsible-filters) {
+        padding: 0.65rem 0.75rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        gap: 8px !important;
+    }
+
+    :deep(.app-index-filters-fields > div),
+    .filter-search-col,
+    .filter-period-col,
+    .filter-select-col,
+    .filter-picker-col {
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        max-width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+    }
+
+    /* Filter inputs compact & responsive text sizing on mobile */
+    :deep(.app-index-collapsible-filters .form-label),
+    :deep(.dashboard-date-range__label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger),
+    :deep(.app-index-collapsible-filters .picker-trigger),
+    :deep(.app-index-collapsible-filters .dashboard-date-range__trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder),
+    :deep(.app-index-collapsible-filters .select-trigger-label),
+    :deep(.app-index-collapsible-filters .picker-trigger-label),
+    :deep(.app-index-collapsible-filters .dashboard-date-range__value) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.dashboard-date-range__icon) {
+        font-size: 0.7rem !important;
+        margin-right: 0.25rem !important;
+    }
+
+    :deep(.dashboard-date-range__chevron),
+    :deep(.select-trigger-icon) {
+        font-size: 0.65rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.75rem !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        padding: 0.15rem 0.5rem !important;
+        line-height: 1 !important;
+        border-radius: 6px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn i) {
+        font-size: 0.7rem !important;
+        margin-right: 0.25rem !important;
+    }
+
+    /* Table micro adjustments on mobile */
+    .app-index-list-card :deep(.table) {
+        font-size: 0.72rem !important;
+    }
+
+    .app-index-list-card :deep(.table th) {
+        padding: 0.4rem 0.35rem !important;
+        font-size: 0.7rem !important;
+        font-weight: 700 !important;
+    }
+
+    .app-index-list-card :deep(.table td) {
+        padding: 0.4rem 0.35rem !important;
+        font-size: 0.72rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions) {
+        gap: 4px !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        border-radius: 0.25rem !important;
+    }
+
+    .app-index-list-card :deep(.app-table-actions .btn-icon i) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination responsive on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.4rem !important;
+        padding: 0.5rem 0.6rem !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.72rem !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.2rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .app-index-list-card :deep(.card-title),
+    :deep(.trips-card-header--gradient .card-title) {
+        font-size: 0.84rem !important;
+    }
+
+    .trip-header-square-btn {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        border-radius: 7px !important;
+    }
+
+    .trip-header-square-btn svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    .trip-header-square-btn i {
+        font-size: 0.95rem !important;
     }
 }
 </style>

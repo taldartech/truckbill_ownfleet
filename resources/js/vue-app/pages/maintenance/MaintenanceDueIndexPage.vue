@@ -8,77 +8,98 @@
 
         <AppIndexListCard title="Due Services" :loading="loading" loading-text="Loading due services…">
             <template #toolbar>
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold maintenance-header-btn maintenance-header-btn--filter"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    <svg class="filter-slider-icon me-1" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                    <span class="filter-btn-text">Filters</span>
+                    <span v-if="filtersActive" class="badge bg-success text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                    <svg class="filter-chevron-icon ms-1" width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path v-if="filtersOpen" fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
+                        <path v-else fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
+                    class="maintenance-header-btn maintenance-header-btn--add"
                     aria-label="Add maintenance"
                     @click="goToCreate"
                 >
-                    Add Maintenance
+                    <span><span class="d-none d-sm-inline">Add </span>Maintenance</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="maintenance-due-filters-panel"
-                :loading="loading"
-                @search="applyFilters"
-                @reset="clearFilters"
-            >
-                <div class="filter-period-col">
-                    <DashboardDateRangePicker
-                        v-model:from-date="filters.from_date"
-                        v-model:to-date="filters.to_date"
-                        label="Next Due Date"
-                        panel-align="start"
-                        :preset-keys="datePresetKeys"
-                        :max-months="MAX_LIST_DATE_RANGE_MONTHS"
-                        :block-future-dates="false"
-                        @change="onDateRangeChange"
-                    />
+            <template #filters>
+                <div v-show="filtersOpen" class="maintenance-due-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="maintenance-due-filters-panel"
+                        :loading="loading"
+                        @search="applyFilters"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-period-col">
+                            <DashboardDateRangePicker
+                                v-model:from-date="filters.from_date"
+                                v-model:to-date="filters.to_date"
+                                label="Next Due Date"
+                                panel-align="start"
+                                :preset-keys="datePresetKeys"
+                                :max-months="MAX_LIST_DATE_RANGE_MONTHS"
+                                :block-future-dates="false"
+                                @change="onDateRangeChange"
+                            />
+                        </div>
+                        <div class="filter-search-col">
+                            <label class="form-label" :for="`${pageId}_search`">Search</label>
+                            <AppIndexSearchInput
+                                v-model="filters.search"
+                                :input-id="`${pageId}_search`"
+                                placeholder="Truck, service type, provider…"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter.prevent="applyFilters"
+                            />
+                        </div>
+                        <div class="filter-select-col filter-select-col--truck">
+                            <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
+                            <VehicleSelect
+                                :input-id="`${pageId}_vehicle`"
+                                v-model="filters.vehicle_id"
+                                :vehicles="vehicles"
+                                placeholder="All trucks"
+                                :disabled="loading"
+                            />
+                        </div>
+                        <div class="filter-select-col filter-select-col--service">
+                            <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
+                            <MaintenanceServiceTypeSelect
+                                :input-id="`${pageId}_service_type`"
+                                v-model="filters.maintenance_service_type_id"
+                                :service-types="serviceTypes"
+                                placeholder="All types"
+                                :disabled="loading"
+                            />
+                        </div>
+                        <div class="filter-select-col filter-select-col--overdue">
+                            <label class="form-label">Overdue Type</label>
+                            <AppSelect
+                                v-model="filters.overdue_reason"
+                                :options="overdueReasonOptions"
+                                placeholder="All overdue types"
+                                search-placeholder="Search type…"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div class="filter-search-col">
-                    <label class="form-label" :for="`${pageId}_search`">Search</label>
-                    <AppIndexSearchInput
-                        v-model="filters.search"
-                        :input-id="`${pageId}_search`"
-                        placeholder="Truck, service type, provider…"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter.prevent="applyFilters"
-                    />
-                </div>
-                <div class="filter-select-col filter-select-col--truck">
-                    <label class="form-label" :for="`${pageId}_vehicle`">Truck</label>
-                    <VehicleSelect
-                        :input-id="`${pageId}_vehicle`"
-                        v-model="filters.vehicle_id"
-                        :vehicles="vehicles"
-                        placeholder="All trucks"
-                        :disabled="loading"
-                    />
-                </div>
-                <div class="filter-select-col filter-select-col--service">
-                    <label class="form-label" :for="`${pageId}_service_type`">Service Type</label>
-                    <MaintenanceServiceTypeSelect
-                        :input-id="`${pageId}_service_type`"
-                        v-model="filters.maintenance_service_type_id"
-                        :service-types="serviceTypes"
-                        placeholder="All types"
-                        :disabled="loading"
-                    />
-                </div>
-                <div class="filter-select-col filter-select-col--overdue">
-                    <label class="form-label">Overdue Type</label>
-                    <AppSelect
-                        v-model="filters.overdue_reason"
-                        :options="overdueReasonOptions"
-                        placeholder="All overdue types"
-                        search-placeholder="Search type…"
-                        :disabled="loading"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -240,6 +261,22 @@ const overdueReasonOptions = MAINTENANCE_OVERDUE_REASON_FILTERS;
 const datePresetKeys = TRIP_LIST_DATE_PRESET_KEYS;
 
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
+
+const filtersOpen = ref(true);
+
+const filtersActive = computed(
+    () =>
+        filters.from_date !== defaultFilters.from_date ||
+        filters.to_date !== defaultFilters.to_date ||
+        filters.search !== '' ||
+        filters.vehicle_id !== '' ||
+        filters.maintenance_service_type_id !== '' ||
+        filters.overdue_reason !== '',
+);
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
 
 const records = computed(() => {
     const start = (pagination.currentPage - 1) * pagination.perPage;
@@ -505,60 +542,127 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Match the trip-list filter bar: all controls and actions share one row. */
-:deep(.app-index-collapsible-filters__inner) {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    align-items: flex-end !important;
-    gap: 7px !important;
-    padding: 0.75rem !important;
+/* ── Desktop & Base Filter Layout (>= 768px) ───────────────────────── */
+@media (min-width: 768px) {
+    .maintenance-due-filters-content {
+        display: block !important;
+    }
 }
 
-:deep(.app-index-filters-fields) {
-    display: contents !important;
-}
-
-:deep(.app-index-collapsible-filters__actions) {
-    margin-top: 0 !important;
-    margin-left: auto !important;
-    align-self: flex-end !important;
-    flex: 0 0 auto !important;
-    flex-wrap: nowrap !important;
+.maintenance-header-btn--filter,
+.maintenance-header-btn--filter:hover,
+.maintenance-header-btn--filter:focus,
+.maintenance-header-btn--filter:active {
+    border-radius: 8px !important;
+    border: 1px solid #ffffff !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+    color: var(--brand-primary, #2fb36f) !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    height: 32px !important;
+    padding: 0.25rem 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     gap: 0.35rem !important;
 }
 
-.filter-period-col {
-    flex: 0 0 150px !important;
-    width: 150px !important;
-    min-width: 0 !important;
+.maintenance-header-btn--filter .filter-btn-text,
+.maintenance-header-btn--filter .filter-slider-icon,
+.maintenance-header-btn--filter .filter-chevron-icon,
+.maintenance-header-btn--filter svg,
+.maintenance-header-btn--filter span {
+    color: var(--brand-primary, #2fb36f) !important;
+    fill: currentColor !important;
 }
 
-.filter-search-col {
-    flex: 1 1 180px !important;
-    width: 180px !important;
-    min-width: 150px !important;
-    max-width: 210px !important;
+/* Match the trip-list filter bar on desktop (>= 992px): all controls and actions share one row */
+@media (min-width: 992px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-end !important;
+        gap: 7px !important;
+        padding: 0.75rem !important;
+    }
+
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        margin-top: 0 !important;
+        margin-left: auto !important;
+        align-self: flex-end !important;
+        flex: 0 0 auto !important;
+        flex-wrap: nowrap !important;
+        gap: 0.35rem !important;
+    }
+
+    .filter-period-col {
+        flex: 0 0 150px !important;
+        width: 150px !important;
+        min-width: 0 !important;
+    }
+
+    .filter-search-col {
+        flex: 1 1 180px !important;
+        width: 180px !important;
+        min-width: 150px !important;
+        max-width: 210px !important;
+    }
+
+    .filter-select-col {
+        flex: 0 1 125px !important;
+        width: 125px !important;
+        min-width: 105px !important;
+    }
+
+    .filter-select-col--truck {
+        flex-basis: 110px !important;
+        width: 110px !important;
+    }
+
+    .filter-select-col--service {
+        flex-basis: 125px !important;
+        width: 125px !important;
+    }
+
+    .filter-select-col--overdue {
+        flex-basis: 135px !important;
+        width: 135px !important;
+    }
 }
 
-.filter-select-col {
-    flex: 0 1 125px !important;
-    width: 125px !important;
-    min-width: 105px !important;
-}
+/* Tablet view (768px - 991.98px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        padding: 0.75rem !important;
+    }
 
-.filter-select-col--truck {
-    flex-basis: 110px !important;
-    width: 110px !important;
-}
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
 
-.filter-select-col--service {
-    flex-basis: 125px !important;
-    width: 125px !important;
-}
+    .filter-period-col,
+    .filter-search-col,
+    .filter-select-col {
+        flex: 0 0 calc(50% - 5px) !important;
+        width: calc(50% - 5px) !important;
+        min-width: 0 !important;
+    }
 
-.filter-select-col--overdue {
-    flex-basis: 135px !important;
-    width: 135px !important;
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        justify-content: flex-end !important;
+        margin-top: 4px !important;
+    }
 }
 
 .filter-search-col :deep(.app-index-search),
@@ -618,35 +722,274 @@ onMounted(async () => {
     min-height: 34px !important;
 }
 
-@media (max-width: 991.98px) {
+/* ── Mobile Responsive Layout (< 768px) ───────────────────────────── */
+@media (max-width: 767.98px) {
+    :deep(.app-index-card-toolbar) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 0.35rem !important;
+    }
+
+    .maintenance-header-btn,
+    :deep(.maintenance-header-btn) {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        font-size: 0.72rem !important;
+        padding: 0.25rem 0.35rem !important;
+        height: 30px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .maintenance-header-btn i,
+    :deep(.maintenance-header-btn i) {
+        font-size: 0.75rem !important;
+    }
+
+    .maintenance-header-btn--add,
+    :deep(.maintenance-header-btn--add),
+    .maintenance-header-btn--add span,
+    :deep(.maintenance-header-btn--add span),
+    :deep(.maintenance-header-btn--add span),
+    .maintenance-header-btn--add i,
+    :deep(.maintenance-header-btn--add i) {
+        color: var(--brand-primary, #2fb36f) !important;
+        font-weight: 600 !important;
+    }
+
+    .maintenance-header-btn--filter,
+    :deep(.maintenance-header-btn--filter),
+    .maintenance-header-btn--filter:hover,
+    :deep(.maintenance-header-btn--filter:hover),
+    .maintenance-header-btn--filter:focus,
+    :deep(.maintenance-header-btn--filter:focus),
+    .maintenance-header-btn--filter:active,
+    :deep(.maintenance-header-btn--filter:active) {
+        border-radius: 8px !important;
+        border: 1px solid #ffffff !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        height: 30px !important;
+        padding: 0.25rem 0.35rem !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .maintenance-header-btn--filter .filter-btn-text,
+    :deep(.maintenance-header-btn--filter .filter-btn-text),
+    .maintenance-header-btn--filter .filter-slider-icon,
+    :deep(.maintenance-header-btn--filter .filter-slider-icon),
+    .maintenance-header-btn--filter .filter-chevron-icon,
+    :deep(.maintenance-header-btn--filter .filter-chevron-icon),
+    .maintenance-header-btn--filter svg,
+    :deep(.maintenance-header-btn--filter svg),
+    .maintenance-header-btn--filter span,
+    :deep(.maintenance-header-btn--filter span) {
+        color: var(--brand-primary, #2fb36f) !important;
+        fill: currentColor !important;
+    }
+
     :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-direction: row !important;
         flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 0.5rem 0.65rem !important;
     }
 
     :deep(.app-index-filters-fields) {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-        gap: 10px;
+        display: contents !important;
     }
 
+    /* 2 input boxes per line on mobile */
     .filter-period-col,
     .filter-search-col,
     .filter-select-col {
-        width: auto !important;
-        max-width: none !important;
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
         min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
     }
 
+    :deep(.app-index-collapsible-filters .form-label),
+    :deep(.dashboard-date-range__label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger),
+    :deep(.dashboard-date-range__trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.dashboard-date-range__value),
+    :deep(.dashboard-date-range__prefix),
+    :deep(.app-index-collapsible-filters .select-trigger-label) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.select-trigger-icon),
+    :deep(.dashboard-date-range__icon),
+    :deep(.dashboard-date-range__chevron) {
+        font-size: 0.65rem !important;
+    }
+
+    /* Search and Reset buttons in 1 single row on mobile */
     :deep(.app-index-collapsible-filters__actions) {
-        width: 100%;
-        justify-content: flex-end;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+    }
+
+    .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.35rem !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
     }
 }
 
-@media (max-width: 575.98px) {
-    :deep(.app-index-filters-fields) {
-        grid-template-columns: 1fr;
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .maintenance-header-btn {
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.15rem !important;
+        height: 28px !important;
+    }
+
+    .maintenance-header-btn svg,
+    .maintenance-header-btn i,
+    .maintenance-header-btn :deep(i) {
+        font-size: 0.68rem !important;
+        margin-right: 1px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        font-size: 0.7rem !important;
+        height: 26px !important;
+        min-height: 26px !important;
     }
 }
 </style>
