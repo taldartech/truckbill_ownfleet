@@ -5,6 +5,7 @@
         </div>
 
         <form v-else novalidate @submit.prevent="handleSubmit">
+
             <TripFormRedesigned
                 ref="tripFormRef"
                 mode="create"
@@ -162,6 +163,23 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
 });
 
 function onVehicleSelected(vehicle) {
+    if (!vehicle) {
+        form.vehicle_id = '';
+        setPrimaryDriverFromSelection(null);
+        selectedVehicleLabel.value = '';
+        vehicleOdometerKm.value = '';
+        vehicleDefaultMileage.value = '';
+        vehicleMaxLoad.value = '';
+        vehicleFuelTankCapacity.value = '';
+        form.planned_mileage_km_per_liter = '';
+        form.start_meter_reading_km = '';
+        form.end_meter_reading_km = '';
+        form.planned_diesel_liters = '';
+        form.max_load_ton = '';
+        form.planned_diesel_manually_set = false;
+        return;
+    }
+
     setPrimaryDriverFromSelection(vehicle);
     selectedVehicleLabel.value = vehicle?.registration_number ?? '—';
     vehicleOdometerKm.value =
@@ -220,7 +238,6 @@ function handleClearForm() {
 }
 
 function handleCancel() {
-    tripFormRef.value?.clearProgressDraft?.();
     router.push(tripListReturnTo.value);
 }
 
@@ -250,7 +267,20 @@ async function hydrateRestoredVehicle(vehicleId) {
                 ? vehicle.fuel_tank_capacity_ltr
                 : '';
     } catch {
-        // Keep draft form values even if vehicle details cannot be loaded.
+        // Vehicle does not exist (e.g. deleted from master)
+        form.vehicle_id = '';
+        form.driver_id = '';
+        form.planned_mileage_km_per_liter = '';
+        form.start_meter_reading_km = '';
+        form.end_meter_reading_km = '';
+        form.planned_diesel_liters = '';
+        form.max_load_ton = '';
+        form.planned_diesel_manually_set = false;
+        selectedVehicleLabel.value = '';
+        vehicleOdometerKm.value = '';
+        vehicleDefaultMileage.value = '';
+        vehicleMaxLoad.value = '';
+        vehicleFuelTankCapacity.value = '';
     }
 }
 
@@ -307,6 +337,14 @@ watch(
     },
 );
 
+const lookupsLoaded = ref({
+    stations: false,
+    brokers: false,
+    customers: false,
+    goodsTypes: false,
+    drivers: false,
+});
+
 async function loadLookups() {
     const [
         stationsRes,
@@ -324,18 +362,23 @@ async function loadLookups() {
 
     if (stationsRes.status === 'fulfilled') {
         stations.value = stationsRes.value ?? [];
+        lookupsLoaded.value.stations = true;
     }
     if (brokersRes.status === 'fulfilled') {
         brokers.value = brokersRes.value ?? [];
+        lookupsLoaded.value.brokers = true;
     }
     if (customersRes.status === 'fulfilled') {
         customers.value = customersRes.value ?? [];
+        lookupsLoaded.value.customers = true;
     }
     if (goodsTypesRes.status === 'fulfilled') {
         goodsTypes.value = goodsTypesRes.value ?? [];
+        lookupsLoaded.value.goodsTypes = true;
     }
     if (driversRes.status === 'fulfilled') {
         drivers.value = driversRes.value ?? [];
+        lookupsLoaded.value.drivers = true;
     }
 }
 
@@ -494,20 +537,50 @@ onMounted(async () => {
     form.start_at = toDateInputValue();
     switchToMultiPoint();
 
-    if (!needsCompanySelection.value) {
-        await loadLookups();
+    // 1. Restore draft immediately into form (silent; toast is shown after reconciling DB lookups)
+    const restored = tripFormRef.value?.restoreProgressDraft?.({ notify: false }) ?? false;
+
+    if (!restored) {
+        switchToMultiPoint();
     }
 
-    const restored = tripFormRef.value?.restoreProgressDraft?.() ?? false;
-    switchToMultiPoint();
+    // 2. Fetch lookups, vehicle specs, and trip preview in parallel in background
+    const backgroundTasks = [];
+
+    if (!needsCompanySelection.value) {
+        backgroundTasks.push(loadLookups());
+    }
 
     if (restored && form.vehicle_id) {
-        await hydrateRestoredVehicle(form.vehicle_id);
+        backgroundTasks.push(hydrateRestoredVehicle(form.vehicle_id));
     }
 
     if (!needsCompanySelection.value) {
         const hasSequence = form.trip_sequence !== '' && form.trip_sequence != null;
-        await refreshTripNumberPreview({ syncSequence: !hasSequence });
+        backgroundTasks.push(refreshTripNumberPreview({ syncSequence: !hasSequence }));
+    }
+
+    await Promise.allSettled(backgroundTasks);
+
+    // 3. Reconcile restored draft against fresh lookups from DB
+    if (restored) {
+        tripFormRef.value?.reconcileRestoredLookups?.({
+            customers: customers.value,
+            stations: stations.value,
+            brokers: brokers.value,
+            drivers: drivers.value,
+            lookupsLoaded: {
+                customers: lookupsLoaded.value.customers,
+                stations: lookupsLoaded.value.stations,
+                brokers: lookupsLoaded.value.brokers,
+                drivers: lookupsLoaded.value.drivers,
+            },
+        });
+
+        // Ensure multipoint structure is intact if pickups/drops were emptied
+        if (!Array.isArray(form.pickups) || form.pickups.length === 0) {
+            switchToMultiPoint();
+        }
     }
 });
 </script>
