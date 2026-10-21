@@ -599,17 +599,26 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 .picker-trigger-main-text {
     font-weight: 600;
     color: #1e293b;
     font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
 }
 .picker-trigger-main-text.text-placeholder {
     font-family: var(--app-font-family);
     font-size: var(--form-placeholder-size, var(--app-font-size-input));
     font-weight: var(--form-placeholder-weight, 400);
     color: var(--form-placeholder-color, #94a3b8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .picker-trigger-sub-text {
     font-size: 12px;

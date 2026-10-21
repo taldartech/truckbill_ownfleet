@@ -721,7 +721,6 @@ watch([searchQuery, filteredItems], () => {
 }
 
 .picker-search-input {
-    padding-left: 2rem;
     border-color: #dee2e6;
     background: #fff;
 }

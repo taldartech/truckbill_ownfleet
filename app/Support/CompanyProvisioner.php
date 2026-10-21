@@ -48,6 +48,7 @@ class CompanyProvisioner
             TruckTypeDefaults::seedForTenant($tenant->id);
             DocumentTypeDefaults::seedForTenant($tenant->id);
 
+
             app(SubscriptionPricingService::class)->createTrialSubscription($tenant);
 
             return $tenant;

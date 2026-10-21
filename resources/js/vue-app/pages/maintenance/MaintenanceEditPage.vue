@@ -229,3 +229,18 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.maintenance-edit-page {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+@media (max-width: 575.98px) {
+    .maintenance-edit-page {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+        margin-top: 10px !important;
+    }
+}
+</style>

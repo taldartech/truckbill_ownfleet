@@ -1,99 +1,129 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-2 mt-md-4 app-index-page app-index-page--standard">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company from
             <RouterLink :to="{ name: 'companies.index' }" class="alert-link">Company List</RouterLink>
             and click <strong>Enter</strong> before adding trucks.
         </div>
 
-        <AppIndexListCard title="Truck Management" :loading="loading" loading-text="Loading trucks…">
+        <AppIndexListCard
+            title="Truck Management"
+            header-class="trips-card-header--gradient"
+            :loading="loading"
+            loading-text="Loading trucks…"
+        >
             <template #toolbar>
                 <RouterLink
                     v-if="canInCompany('vehicles.view')"
                     :to="{ name: 'trucks.archived' }"
-                    class="btn btn-outline-secondary btn-sm"
-                    style="min-height: 33px;"
+                    class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold truck-header-btn truck-header-btn--archived"
                 >
-                    <i class="bi bi-archive" style="color: black !important;" aria-hidden="true"></i>
-                    Archived
+                    <i class="bi bi-archive me-1" aria-hidden="true"></i>
+                    <span>Archived</span>
                 </RouterLink>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="upload"
+                    class="truck-header-btn truck-header-btn--upload"
                     aria-label="Bulk Upload Trucks"
                     @click="showBulkUpload = true"
                 >
-                    Bulk Upload
+                    <span><span class="d-none d-sm-inline">Bulk </span>Upload</span>
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
+                    class="truck-header-btn truck-header-btn--add"
                     aria-label="Add Truck"
                     @click="openCreate"
                 >
-                    Add Truck
+                    <span><span class="d-none d-sm-inline">Add </span>Truck</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="trucks-filters-panel"
-                :loading="loading"
-                @search="loadVehicles(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="trucksIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="filters.search"
-                        input-id="trucksIndex_search"
-                        placeholder="Reg no, make, model"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter="loadVehicles(1)"
-                    />
+            <template #filters>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Truck Type</label>
-                    <AppSelect
-                        v-model="filters.vehicle_type"
-                        :options="vehicleTypes"
-                        placeholder="All types"
-                        search-placeholder="Search type…"
-                    />
+
+                <div v-show="filtersOpen" class="trucks-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="trucks-filters-panel"
+                        :loading="loading"
+                        @search="loadVehicles(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="trucksIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="filters.search"
+                                input-id="trucksIndex_search"
+                                placeholder="Reg no, make, model"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadVehicles(1)"
+                            />
+                        </div>
+                        <div class="filter-select-col">
+                            <label class="form-label">Truck Type</label>
+                            <AppSelect
+                                v-model="filters.vehicle_type"
+                                :options="vehicleTypes"
+                                placeholder="All types"
+                                search-placeholder="Search type…"
+                            />
+                        </div>
+                        <div class="filter-select-col">
+                            <label class="form-label">Status</label>
+                            <AppSelect
+                                v-model="filters.status"
+                                :options="truckStatusFilterOptions"
+                                placeholder="All statuses"
+                                search-placeholder="Search status…"
+                            />
+                        </div>
+                        <div class="filter-select-col">
+                            <label class="form-label">Driver Assignment</label>
+                            <AppSelect
+                                v-model="filters.primary_driver"
+                                :options="primaryDriverFilterOptions"
+                                placeholder="All trucks"
+                                search-placeholder="Search…"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Status</label>
-                    <AppSelect
-                        v-model="filters.status"
-                        :options="truckStatusFilterOptions"
-                        placeholder="All statuses"
-                        search-placeholder="Search status…"
-                    />
-                </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Driver Assignment</label>
-                    <AppSelect
-                        v-model="filters.primary_driver"
-                        :options="primaryDriverFilterOptions"
-                        placeholder="All trucks"
-                        search-placeholder="Search…"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px" class="text-center">S.No.</th>
-                        <th>Registration</th>
-                        <th>Type</th>
-                        <!-- <th>Tyre layout</th> -->
-                        <th>Make / Model</th>
-                        <th>Driver Assignment</th>
-                        <th>Meter Reading (KM)</th>
-                        <th>Status</th>
-                        <th class="app-index-actions-cell" style="width: 160px">Actions</th>
+                        <th style="width: 50px" class="text-center">#</th>
+                        <th class="text-nowrap" style="min-width: 8rem;">Registration</th>
+                        <th class="text-nowrap" style="min-width: 6.5rem;">Type</th>
+                        <th style="min-width: 7.5rem;">Make / Model</th>
+                        <th style="min-width: 8.5rem;">Driver Assignment</th>
+                        <th class="text-nowrap" style="min-width: 6.5rem;">Meter (KM)</th>
+                        <th class="text-center text-nowrap" style="min-width: 5.5rem;">Status</th>
+                        <th class="app-index-actions-cell text-center text-nowrap" style="width: 140px; min-width: 140px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -103,121 +133,113 @@
                         </td>
                     </tr>
                   
-                     <tr v-for="(vehicle, index) in vehicles" :key="vehicle.id">
-                            <td class="text-center">{{ rowNumber(index) }}</td>
-                            <td>
-                                <RouterLink
-                                    :to="{ name: 'trucks.show', params: { vehicleId: vehicle.id } }"
-                                    class="truck-registration-link"
-                                    title="View truck details"
+                    <tr v-for="(vehicle, index) in vehicles" :key="vehicle.id">
+                        <td class="text-center">{{ rowNumber(index) }}</td>
+                        <td class="text-nowrap">
+                            <RouterLink
+                                :to="{ name: 'trucks.show', params: { vehicleId: vehicle.id } }"
+                                class="truck-registration-link fw-semibold link-primary"
+                                title="View truck details"
+                            >
+                                {{ vehicle.registration_number }}
+                            </RouterLink>
+                        </td>
+                        <td class="text-nowrap">{{ vehicle.vehicle_type_label ?? vehicle.vehicle_type }}</td>
+                        <td>{{ formatMakeModel(vehicle) }}</td>
+                        <td class="primary-driver-cell">
+                            <div
+                                v-if="vehicle.current_primary_assignment?.driver?.name"
+                                class="primary-driver-assigned"
+                            >
+                                <span class="primary-driver-name">
+                                    {{ vehicle.current_primary_assignment.driver.name }}
+                                </span>
+                                <button
+                                    v-if="canManageAssignments"
+                                    type="button"
+                                    class="primary-driver-change"
+                                    title="Change primary driver"
+                                    @click="openAssignment(vehicle)"
                                 >
-                                    {{ vehicle.registration_number }}
-                                </RouterLink>
-                            </td>
-                            <td>{{ vehicle.vehicle_type_label ?? vehicle.vehicle_type }}</td>
-                            <!-- <td class="small">{{ vehicle.tyre_layout_label ?? vehicle.tyre_layout ?? '—' }}</td> -->
-                            <td>{{ formatMakeModel(vehicle) }}</td>
-                            <td class="primary-driver-cell">
-                                <div
-                                    v-if="vehicle.current_primary_assignment?.driver?.name"
-                                    class="primary-driver-assigned"
+                                    Change
+                                </button>
+                            </div>
+                            <div
+                                v-else-if="canManageAssignments"
+                                class="primary-driver-empty"
+                            >
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm primary-driver-assign-btn"
+                                    title="Assign primary driver"
+                                    @click="openAssignment(vehicle)"
                                 >
-                                    <span class="primary-driver-name">
-                                        {{ vehicle.current_primary_assignment.driver.name }}
-                                    </span>
-                                    <button
-                                        v-if="canManageAssignments"
-                                        type="button"
-                                        class="primary-driver-change"
-                                        title="Change primary driver"
-                                        @click="openAssignment(vehicle)"
-                                    >
-                                        Change
-                                    </button>
+                                    <i class="bi bi-person-plus" aria-hidden="true"></i>
+                                    Assign
+                                </button>
+                            </div>
+                        </td>
+                        <td class="text-nowrap">{{ vehicle.odometer_km ?? '0' }}</td>
+                        <td class="text-center text-nowrap">
+                            <div v-if="canToggleStatus" class="status-toggle-wrapper">
+                                <div class="form-check form-switch mb-0">
+                                    <input
+                                        :id="`truckStatus_${vehicle.id}`"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        :checked="vehicle.is_active"
+                                        :disabled="togglingId === vehicle.id"
+                                        @change="handleToggleStatus(vehicle, $event)"
+                                    />
                                 </div>
-                                <div
-                                    v-else-if="canManageAssignments"
-                                    class="primary-driver-empty"
-                                >
-                                    
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-secondary btn-sm primary-driver-assign-btn"
-                                        title="Assign primary driver"
-                                        @click="openAssignment(vehicle)"
-                                    >
-                                        <i class="bi bi-person-plus" aria-hidden="true"></i>
-                                        Assign
-                                    </button>
-                                </div>
-                                <!-- <span v-else class="text-muted">Unassigned</span> -->
-                            </td>
-                            <td>{{ vehicle.odometer_km ?? '0' }}</td>
-                            <td>
-                                <div v-if="canToggleStatus" class="status-toggle-wrapper">
-                                    <div class="form-check form-switch mb-0">
-                                        <input
-                                            :id="`truckStatus_${vehicle.id}`"
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            role="switch"
-                                            :checked="vehicle.is_active"
-                                            :disabled="togglingId === vehicle.id"
-                                            @change="handleToggleStatus(vehicle, $event)"
-                                        />
-                                    </div>
-                                    <label
-                                        :for="`truckStatus_${vehicle.id}`"
-                                        class="status-toggle-label small"
-                                    >
-                                        {{ vehicle.is_active ? 'Active' : 'Inactive' }}
-                                    </label>
-                                </div>
-                                <span
-                                    v-else
-                                    class="badge"
-                                    :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
+                                <label
+                                    :for="`truckStatus_${vehicle.id}`"
+                                    class="status-toggle-label small"
                                 >
                                     {{ vehicle.is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            <td class="app-index-actions-cell">
-                                <AppTableActions>
-                                    <!--<AppCrudActionButton
-                                        v-if="canViewAssignments"
-                                        action="driver"
-                                        @click="openAssignment(vehicle)"
-                                    />-->
-                                    <AppCrudActionButton
-                                        v-if="canViewDocuments"
-                                        action="documents"
-                                        @click="openDocuments(vehicle)"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canViewTyres"
-                                        action="tyres"
-                                        title="Tyre positions"
-                                        :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canCreateMaintenance"
-                                        action="service"
-                                        title="Add service record"
-                                        :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canEdit"
-                                        action="edit"
-                                        @click="openEdit(vehicle)"
-                                    />
-                                    <AppCrudActionButton
-                                        v-if="canDelete"
-                                        action="delete"
-                                        @click="handleDelete(vehicle)"
-                                    />
-                                </AppTableActions>
-                            </td>
-                        </tr>
+                                </label>
+                            </div>
+                            <span
+                                v-else
+                                class="badge"
+                                :class="vehicle.is_active ? 'bg-success' : 'bg-secondary'"
+                            >
+                                {{ vehicle.is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                        </td>
+                        <td class="app-index-actions-cell text-center text-nowrap">
+                            <AppTableActions>
+                                <AppCrudActionButton
+                                    v-if="canViewDocuments"
+                                    action="documents"
+                                    @click="openDocuments(vehicle)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canViewTyres"
+                                    action="tyres"
+                                    title="Tyre positions"
+                                    :to="{ name: 'vehicles.tyres', params: { vehicleId: vehicle.id } }"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canCreateMaintenance"
+                                    action="service"
+                                    title="Add service record"
+                                    :to="{ name: 'maintenance.create', query: { vehicle_id: vehicle.id } }"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canEdit"
+                                    action="edit"
+                                    @click="openEdit(vehicle)"
+                                />
+                                <AppCrudActionButton
+                                    v-if="canDelete"
+                                    action="delete"
+                                    @click="handleDelete(vehicle)"
+                                />
+                            </AppTableActions>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
 
@@ -403,6 +425,7 @@ const primaryDriverFilterOptions = [
 ];
 const filters = reactive(defaultVehicleListFilters());
 const defaultFilters = defaultVehicleListFilters();
+const filtersOpen = ref(true);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => {
@@ -787,7 +810,7 @@ watch(
     line-height: 1.2;
 }
 
-/* Custom filters single row layout */
+/* Custom filters single row layout (Desktop / Large Screens) */
 :deep(.app-index-collapsible-filters__inner) {
     display: flex;
     flex-wrap: wrap;
@@ -796,11 +819,7 @@ watch(
 }
 
 :deep(.app-index-filters-fields) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
-    flex: 1 1 auto;
+    display: contents;
 }
 
 :deep(.app-index-collapsible-filters__actions) {
@@ -816,5 +835,224 @@ watch(
 .filter-select-col {
     flex: 0 0 180px;
     width: 180px;
+}
+
+/* ── Mobile Responsive Styles (< 768px) ───────────────────────────── */
+@media (max-width: 767.98px) {
+    /* Header toolbar - all 3 buttons in 1 row */
+    :deep(.app-index-card-toolbar) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    .truck-header-btn {
+        flex: 1 1 0 !important;
+        width: calc(33.333% - 3px) !important;
+        min-width: 0 !important;
+        max-width: calc(33.333% - 3px) !important;
+        padding: 0.28rem 0.2rem !important;
+        height: 30px !important;
+        font-size: 0.72rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    .truck-header-btn i,
+    .truck-header-btn :deep(i) {
+        font-size: 0.75rem !important;
+        margin-right: 2px !important;
+    }
+
+    /* Filters: 2 per line on mobile */
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-filters-fields > div),
+    :deep(.filter-search-col),
+    :deep(.filter-select-col),
+    .filter-search-col,
+    .filter-select-col {
+        flex: 0 0 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder),
+    :deep(.app-index-collapsible-filters .select-trigger-label) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.select-trigger-icon) {
+        font-size: 0.65rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions) {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 0.35rem !important;
+        margin-left: 0 !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 4px) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+    }
+
+    .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.35rem !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+/* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
+@media (max-width: 380px) {
+    .truck-header-btn {
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.15rem !important;
+        height: 28px !important;
+    }
+
+    .truck-header-btn i,
+    .truck-header-btn :deep(i) {
+        font-size: 0.68rem !important;
+        margin-right: 1px !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        font-size: 0.7rem !important;
+        height: 26px !important;
+        min-height: 26px !important;
+    }
 }
 </style>

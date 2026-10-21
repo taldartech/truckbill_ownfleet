@@ -3,7 +3,7 @@
         <div
             v-if="title || $slots.toolbar"
             class="card-header"
-            :class="{ 'app-index-card-header--toolbar-only': !title && $slots.toolbar }"
+            :class="[{ 'app-index-card-header--toolbar-only': !title && $slots.toolbar }, headerClass]"
         >
             <h3 v-if="title" class="card-title mb-0">{{ title }}</h3>
             <div
@@ -14,6 +14,7 @@
             </div>
         </div>
         <div class="card-body">
+            <slot name="filters" />
             <div v-if="loading" class="text-center py-4 text-muted">{{ loadingText }}</div>
             <div v-else class="table-responsive">
                 <slot />
@@ -27,6 +28,10 @@
 defineProps({
     title: {
         type: String,
+        default: '',
+    },
+    headerClass: {
+        type: [String, Array, Object],
         default: '',
     },
     loading: {

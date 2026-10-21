@@ -528,6 +528,54 @@ watch(draftPreset, () => {
 .dashboard-date-range__chevron--open {
     transform: rotate(180deg);
 }
+
+@media (max-width: 767.98px) {
+    .dashboard-date-range {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-left: 0;
+    }
+
+    .dashboard-date-range__trigger {
+        padding: 0.35rem 0.55rem;
+        min-height: 32px;
+        gap: 0.35rem;
+        border-radius: 999px;
+    }
+
+    .dashboard-date-range__icon {
+        font-size: 0.78rem;
+    }
+
+    .dashboard-date-range__value {
+        font-size: 0.74rem;
+        line-height: 1.2;
+    }
+
+    .dashboard-date-range__prefix {
+        font-size: 0.72rem;
+        margin-right: 0.2rem;
+    }
+
+    .dashboard-date-range__chevron {
+        font-size: 0.65rem;
+    }
+}
+
+@media (max-width: 399.98px) {
+    .dashboard-date-range__trigger {
+        padding: 0.32rem 0.45rem;
+        gap: 0.25rem;
+    }
+
+    .dashboard-date-range__value {
+        font-size: 0.7rem;
+    }
+
+    .dashboard-date-range__prefix {
+        display: none;
+    }
+}
 </style>
 
 <style>
@@ -594,5 +642,17 @@ watch(draftPreset, () => {
     display: flex;
     gap: 0.5rem;
     margin-top: 0.85rem;
+}
+
+@media (max-width: 480px) {
+    .dashboard-date-range__panel {
+        max-width: calc(100vw - 16px) !important;
+        padding: 0.55rem;
+    }
+
+    .dashboard-date-range__preset {
+        padding: 0.42rem 0.6rem;
+        font-size: 0.78rem;
+    }
 }
 </style>

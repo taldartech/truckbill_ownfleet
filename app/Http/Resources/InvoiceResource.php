@@ -107,11 +107,19 @@ class InvoiceResource extends JsonResource
                 'state_code' => $this->customer?->state?->code,
                 'state_name' => $this->customer?->state?->name,
             ]),
-            'trip' => $this->whenLoaded('trip', fn () => [
-                'id' => $this->trip?->id,
-                'trip_number' => $this->trip?->trip_number,
-                'status' => $this->trip?->status?->value ?? $this->trip?->status,
-            ]),
+            'trip' => $this->whenLoaded('trip', fn () => $this->trip ? [
+                'id' => $this->trip->id,
+                'trip_number' => $this->trip->trip_number,
+                'status' => $this->trip->status?->value ?? $this->trip->status,
+            ] : null),
+            'trips' => $this->when(
+                $this->relationLoaded('trips') || $this->relationLoaded('trip'),
+                fn () => $this->linkedTripsPayload(),
+            ),
+            'trips_label' => $this->when(
+                $this->relationLoaded('trips') || $this->relationLoaded('trip'),
+                fn () => $this->tripsLabel(),
+            ),
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($item) => [
                 'id' => $item->id,
                 'invoice_id' => $item->invoice_id,

@@ -12,191 +12,188 @@
             {{ isEdit ? 'Edit Truck' : 'Add Truck' }}
         </template>
 
-        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_registration`" class="form-label">Registration Number *</label>
-                                <input
-                                    :id="`${modalId}_registration`"
-                                    v-model="form.registration_number"
-                                    type="text"
-                                    class="form-control text-uppercase"
-                                    :class="{ 'is-invalid': registrationError }"
-                                    :placeholder="VEHICLE_REGISTRATION_HINT"
-                                    maxlength="12"
-                                    autocomplete="off"
-                                    spellcheck="false"
-                                    required
-                                    @input="onRegistrationInput"
-                                />
-                                <div v-if="registrationError" class="invalid-feedback d-block">
-                                    {{ registrationError }}
-                                </div>
-                                <div v-else class="form-text">Letters and numbers only. Saved as uppercase (e.g. RJ27AV5055).</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_layout`" class="form-label">Tyre Layout *</label>
-                                <AppSelect
-                                    :input-id="`${modalId}_layout`"
-                                    v-model="form.tyre_layout"
-                                    :options="tyreLayoutSelectOptions"
-                                    placeholder="Select layout"
-                                    search-placeholder="Search layout…"
-                                    :invalid="Boolean(props.fieldErrors.tyre_layout)"
-                                    :error-message="props.fieldErrors.tyre_layout?.[0] ?? ''"
-                                />
-                                <div v-if="tyreLayoutOptions.length === 0" class="mt-1 d-flex align-items-center justify-content-between">
-                                    <span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>No layouts found.</span>
-                                    <button
-                                        type="button"
-                                        class="btn btn-link btn-sm p-0 text-decoration-none"
-                                        :disabled="seedingLayouts"
-                                        @click="loadStandardLayouts"
-                                    >
-                                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': seedingLayouts }"></i>
-                                        Load standard layouts
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+        <div class="row mb-3 g-2">
+            <div class="col-md-6 col-6">
+                <label :for="`${modalId}_registration`" class="form-label">Registration Number *</label>
+                <input
+                    :id="`${modalId}_registration`"
+                    v-model="form.registration_number"
+                    type="text"
+                    class="form-control text-uppercase"
+                    :class="{ 'is-invalid': registrationError }"
+                    :placeholder="VEHICLE_REGISTRATION_HINT"
+                    maxlength="12"
+                    autocomplete="off"
+                    spellcheck="false"
+                    required
+                    @input="onRegistrationInput"
+                />
+                <div v-if="registrationError" class="invalid-feedback d-block">
+                    {{ registrationError }}
+                </div>
+                <div v-else class="form-text">Letters and numbers only. Saved as uppercase (e.g. RJ27AV5055).</div>
+            </div>
+            <div class="col-md-6 col-6">
+                <label :for="`${modalId}_layout`" class="form-label">Tyre Layout *</label>
+                <AppSelect
+                    :input-id="`${modalId}_layout`"
+                    v-model="form.tyre_layout"
+                    :options="tyreLayoutSelectOptions"
+                    placeholder="Select layout"
+                    search-placeholder="Search layout…"
+                    :invalid="Boolean(props.fieldErrors.tyre_layout)"
+                    :error-message="props.fieldErrors.tyre_layout?.[0] ?? ''"
+                />
+                <div v-if="tyreLayoutOptions.length === 0" class="mt-1 d-flex align-items-center justify-content-between">
+                    <span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>No layouts found.</span>
+                    <button
+                        type="button"
+                        class="btn btn-link btn-sm p-0 text-decoration-none"
+                        :disabled="seedingLayouts"
+                        @click="loadStandardLayouts"
+                    >
+                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': seedingLayouts }"></i>
+                        Load standard layouts
+                    </button>
+                </div>
+            </div>
+        </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_type`" class="form-label">Truck Type *</label>
-                                <div class="truck-type-picker">
-                                    <SearchableSelect
-                                        :input-id="`${modalId}_type`"
-                                        v-model="form.vehicle_type"
-                                        :items="truckTypeOptions"
-                                        placeholder="Select type"
-                                        search-placeholder="Search truck type…"
-                                        :invalid="Boolean(props.fieldErrors.vehicle_type)"
-                                        :error-message="props.fieldErrors.vehicle_type?.[0] ?? ''"
-                                    />
-                                    <button
-                                        v-if="canManageTypes"
-                                        type="button"
-                                        class="btn btn-outline-success btn-sm truck-type-picker__add"
-                                        title="Quick add truck type"
-                                        @click="showTypeQuickAdd = true"
-                                    >
-                                        <i class="bi bi-plus-lg"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="`${modalId}_odometer`" class="form-label">Truck Running Meter Reading (KM)</label>
-                                <input
-                                    :id="`${modalId}_odometer`"
-                                    v-model="form.odometer_km"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.odometer_km }"
-                                />
-                                <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.odometer_km[0] }}
-                                </div>
-                            </div>
-                        </div>
+        <div class="row mb-3 g-2">
+            <div class="col-md-6 col-6">
+                <label :for="`${modalId}_type`" class="form-label">Truck Type *</label>
+                <div class="truck-type-picker">
+                    <SearchableSelect
+                        :input-id="`${modalId}_type`"
+                        v-model="form.vehicle_type"
+                        :items="truckTypeOptions"
+                        placeholder="Select type"
+                        search-placeholder="Search truck type…"
+                        :invalid="Boolean(props.fieldErrors.vehicle_type)"
+                        :error-message="props.fieldErrors.vehicle_type?.[0] ?? ''"
+                    />
+                    <button
+                        v-if="canManageTypes"
+                        type="button"
+                        class="btn btn-outline-success btn-sm truck-type-picker__add"
+                        title="Quick add truck type"
+                        @click="showTypeQuickAdd = true"
+                    >
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6 col-6">
+                <label :for="`${modalId}_odometer`" class="form-label">Truck Running Meter (KM)</label>
+                <input
+                    :id="`${modalId}_odometer`"
+                    v-model="form.odometer_km"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.odometer_km }"
+                />
+                <div v-if="props.fieldErrors.odometer_km" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.odometer_km[0] }}
+                </div>
+            </div>
+        </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/LTR)</label>
-                                <input
-                                    :id="`${modalId}_default_mileage`"
-                                    v-model="form.default_mileage_km_per_liter"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.default_mileage_km_per_liter }"
-                                />
-                                <div v-if="props.fieldErrors.default_mileage_km_per_liter" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.default_mileage_km_per_liter[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_max_load`" class="form-label">Max Load (Ton)</label>
-                                <input
-                                    :id="`${modalId}_max_load`"
-                                    v-model="form.max_load_ton"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.001"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.max_load_ton }"
-                                />
-                                <div v-if="props.fieldErrors.max_load_ton" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.max_load_ton[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_fuel_tank`" class="form-label">Fuel Tank Capacity (LTR)</label>
-                                <input
-                                    :id="`${modalId}_fuel_tank`"
-                                    v-model="form.fuel_tank_capacity_ltr"
-                                    v-no-scroll-change
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.fuel_tank_capacity_ltr }"
-                                />
-                                <div v-if="props.fieldErrors.fuel_tank_capacity_ltr" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.fuel_tank_capacity_ltr[0] }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_make`" class="form-label">Make</label>
-                                <input
-                                    :id="`${modalId}_make`"
-                                    v-model="form.make"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.make }"
-                                />
-                                <div v-if="props.fieldErrors.make" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.make[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_model`" class="form-label">Model</label>
-                                <input
-                                    :id="`${modalId}_model`"
-                                    v-model="form.model"
-                                    type="text"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': props.fieldErrors.model }"
-                                />
-                                <div v-if="props.fieldErrors.model" class="invalid-feedback d-block">
-                                    {{ props.fieldErrors.model[0] }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label :for="`${modalId}_year`" class="form-label">Year</label>
-                                <AppSelect
-                                    :input-id="`${modalId}_year`"
-                                    v-model="form.manufacture_year"
-                                    :options="manufactureYearSelectOptions"
-                                    placeholder="Type or select year"
-                                    search-placeholder="Search year…"
-                                    editable
-                                    input-mode="numeric"
-                                    :max-length="4"
-                                    :invalid="Boolean(manufactureYearError)"
-                                    :error-message="manufactureYearError"
-                                    :empty-message="manufactureYearEmptyMessage"
-                                    @blur="onManufactureYearBlur"
-                                />
-                            </div>
-                        </div>
+        <div class="row mb-3 g-2">
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_default_mileage`" class="form-label">Default Mileage (KM/LTR)</label>
+                <input
+                    :id="`${modalId}_default_mileage`"
+                    v-model="form.default_mileage_km_per_liter"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.default_mileage_km_per_liter }"
+                />
+                <div v-if="props.fieldErrors.default_mileage_km_per_liter" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.default_mileage_km_per_liter[0] }}
+                </div>
+            </div>
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_max_load`" class="form-label">Max Load (Ton)</label>
+                <input
+                    :id="`${modalId}_max_load`"
+                    v-model="form.max_load_ton"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.max_load_ton }"
+                />
+                <div v-if="props.fieldErrors.max_load_ton" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.max_load_ton[0] }}
+                </div>
+            </div>
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_fuel_tank`" class="form-label">Fuel Tank Capacity (LTR)</label>
+                <input
+                    :id="`${modalId}_fuel_tank`"
+                    v-model="form.fuel_tank_capacity_ltr"
+                    v-no-scroll-change
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.fuel_tank_capacity_ltr }"
+                />
+                <div v-if="props.fieldErrors.fuel_tank_capacity_ltr" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.fuel_tank_capacity_ltr[0] }}
+                </div>
+            </div>
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_make`" class="form-label">Make</label>
+                <input
+                    :id="`${modalId}_make`"
+                    v-model="form.make"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.make }"
+                />
+                <div v-if="props.fieldErrors.make" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.make[0] }}
+                </div>
+            </div>
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_model`" class="form-label">Model</label>
+                <input
+                    :id="`${modalId}_model`"
+                    v-model="form.model"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': props.fieldErrors.model }"
+                />
+                <div v-if="props.fieldErrors.model" class="invalid-feedback d-block">
+                    {{ props.fieldErrors.model[0] }}
+                </div>
+            </div>
+            <div class="col-md-4 col-6">
+                <label :for="`${modalId}_year`" class="form-label">Year</label>
+                <AppSelect
+                    :input-id="`${modalId}_year`"
+                    v-model="form.manufacture_year"
+                    :options="manufactureYearSelectOptions"
+                    placeholder="Type or select year"
+                    search-placeholder="Search year…"
+                    editable
+                    input-mode="numeric"
+                    :max-length="4"
+                    :invalid="Boolean(manufactureYearError)"
+                    :error-message="manufactureYearError"
+                    :empty-message="manufactureYearEmptyMessage"
+                    @blur="onManufactureYearBlur"
+                />
+            </div>
+        </div>
 
                         <div v-if="isEdit && auditInfo" class="vehicle-audit-card border rounded px-3 py-2 bg-light">
                             <div class="row g-2 small text-muted">
@@ -566,5 +563,42 @@ function submit() {
 
 .vehicle-audit-card {
     font-size: 0.85rem;
+}
+
+@media (max-width: 767.98px) {
+    :deep(.form-label),
+    .form-label {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.25 !important;
+    }
+
+    :deep(.form-control),
+    .form-control,
+    :deep(.select-trigger) {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.75rem !important;
+        padding: 0.2rem 0.45rem !important;
+    }
+
+    .truck-type-picker__add {
+        height: 32px !important;
+        width: 32px !important;
+    }
+
+    :deep(.modal-body) {
+        padding: 0.6rem 0.75rem !important;
+    }
+
+    :deep(.modal-footer) {
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    :deep(.modal-footer .btn) {
+        font-size: 0.75rem !important;
+        padding: 0.25rem 0.5rem !important;
+    }
 }
 </style>

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Customer;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkInvoicePreviewRequest;
+use App\Http\Requests\BulkInvoiceStoreRequest;
 use App\Http\Requests\CancelInvoiceRequest;
 use App\Http\Requests\DeleteInvoiceRequest;
 use App\Http\Requests\StoreInvoicePaymentRequest;
@@ -70,6 +73,67 @@ class InvoiceController extends Controller
         );
 
         return new InvoiceResource($invoice);
+    }
+
+    public function eligibleTrips(Request $request): JsonResponse
+    {
+        $this->authorize('create', Invoice::class);
+
+        $validated = $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $customer = Customer::query()->findOrFail($validated['customer_id']);
+        $this->authorize('view', $customer);
+
+        $trips = $this->invoiceService->eligibleTripsForCustomer(
+            (string) $validated['customer_id'],
+            [
+                'search' => $validated['search'] ?? null,
+            ],
+        );
+
+        return response()->json(['data' => $trips]);
+    }
+
+    public function previewBulk(BulkInvoicePreviewRequest $request): JsonResponse
+    {
+        $this->authorize('create', Invoice::class);
+
+        $validated = $request->validated();
+        $customer = Customer::query()->findOrFail($validated['customer_id']);
+        $this->authorize('view', $customer);
+
+        $preview = $this->invoiceService->previewForCustomerTrips(
+            (string) $validated['customer_id'],
+            $validated['trip_ids'],
+            $validated,
+        );
+
+        unset($preview['document_type_enum']);
+
+        return response()->json(['data' => $preview]);
+    }
+
+    public function storeBulk(BulkInvoiceStoreRequest $request): JsonResponse
+    {
+        $this->authorize('create', Invoice::class);
+
+        $validated = $request->validated();
+        $customer = Customer::query()->findOrFail($validated['customer_id']);
+        $this->authorize('view', $customer);
+
+        $invoice = $this->invoiceService->generateForCustomerTrips(
+            (string) $validated['customer_id'],
+            $validated['trip_ids'],
+            $validated,
+            $request->user(),
+        );
+
+        return (new InvoiceResource($invoice))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function previewForTrip(TripInvoicesRequest $request, Trip $trip): JsonResponse

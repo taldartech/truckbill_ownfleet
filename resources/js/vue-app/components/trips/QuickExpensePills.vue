@@ -1,5 +1,5 @@
 <template>
-    <div class="quick-pills-wrap">
+    <div v-if="pills.length > 0" class="quick-pills-wrap">
         <div class="quick-pills">
             <button
                 v-for="pill in pills"
@@ -18,7 +18,6 @@
 
 <script setup>
 import { computed } from 'vue';
-import { QUICK_EXPENSE_PILLS, WHOLE_TRIP_QUICK_EXPENSE_PILLS } from '../../api/trips';
 
 const props = defineProps({
     scope: {
@@ -26,11 +25,60 @@ const props = defineProps({
         default: 'stop',
         validator: (value) => ['stop', 'whole-trip'].includes(value),
     },
+    activeTypes: {
+        type: Array,
+        default: null,
+    },
 });
 
 defineEmits(['add']);
 
-const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EXPENSE_PILLS : QUICK_EXPENSE_PILLS));
+const KNOWN_PILL_STYLES = {
+    DIESEL: { icon: 'bi-fuel-pump', className: 'pill-diesel' },
+    TOLL: { icon: 'bi-sign-turn-right', className: 'pill-toll' },
+    LOADING_CHARGES: { icon: 'bi-box-arrow-in-down', className: 'pill-loading' },
+    UNLOADING_CHARGES: { icon: 'bi-box-arrow-up', className: 'pill-unloading' },
+    FOOD_EXPENSE: { icon: 'bi-cup-hot', className: 'pill-food' },
+    DRIVER_EXPENSE: { icon: 'bi-person', className: 'pill-driver' },
+    REPAIR: { icon: 'bi-wrench', className: 'pill-repair' },
+    PARKING: { icon: 'bi-p-circle', className: 'pill-parking' },
+    RTO_EXPENSE: { icon: 'bi-shield-check', className: 'pill-rto' },
+    PERMIT_BORDER_TAX: { icon: 'bi-passport', className: 'pill-permit' },
+    OTHER: { icon: 'bi-plus-lg', className: 'pill-other' },
+};
+
+const pills = computed(() => {
+    if (!props.activeTypes || props.activeTypes.length === 0) {
+        return [];
+    }
+
+    let types = props.activeTypes;
+    if (props.scope === 'whole-trip') {
+        types = types.filter((t) => !['LOADING_CHARGES', 'UNLOADING_CHARGES'].includes(t.value));
+    }
+
+    const items = types.map((t, index) => {
+        const style = KNOWN_PILL_STYLES[t.value] || {
+            icon: 'bi-tag',
+            className: 'pill-custom-' + ((index % 5) + 1),
+        };
+
+        return {
+            value: t.value,
+            label: t.label,
+            icon: style.icon,
+            className: style.className,
+        };
+    });
+
+    const otherIndex = items.findIndex((p) => p.value === 'OTHER');
+    if (otherIndex !== -1) {
+        const otherPill = items.splice(otherIndex, 1)[0];
+        items.push(otherPill);
+    }
+
+    return items;
+});
 </script>
 
 <style scoped>
@@ -67,7 +115,7 @@ const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EX
 .quick-pill {
     display: inline-flex;
     align-items: center;
-    flex: 1 1 0;
+    flex: 0 0 auto;
     justify-content: center;
     gap: 0.28rem;
     min-width: max-content;
@@ -84,21 +132,6 @@ const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EX
 .quick-pill__icon {
     font-size: 0.85rem;
 }
-
-@media (min-width: 1200px) {
-    .quick-pill {
-        flex: 1 1 0;
-        min-width: 0;
-        padding: 5px 8px;
-        font-size: 11.5px;
-    }
-
-    .quick-pill span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-}
-
 .pill-diesel {
     background: #eff6ff;
     color: #1d4ed8;
@@ -186,5 +219,45 @@ const pills = computed(() => (props.scope === 'whole-trip' ? WHOLE_TRIP_QUICK_EX
 .pill-other:hover {
     background: #f3f4f6;
     border-color: #d1d5db;
+}
+.pill-custom-1 {
+    background: #fdf4ff;
+    color: #86198f;
+}
+.pill-custom-1:hover {
+    background: #fae8ff;
+    border-color: #f0abfc;
+}
+.pill-custom-2 {
+    background: #f0fdfa;
+    color: #0f766e;
+}
+.pill-custom-2:hover {
+    background: #ccfbf1;
+    border-color: #5eead4;
+}
+.pill-custom-3 {
+    background: #fff1f2;
+    color: #be123c;
+}
+.pill-custom-3:hover {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+.pill-custom-4 {
+    background: #f5f3ff;
+    color: #6d28d9;
+}
+.pill-custom-4:hover {
+    background: #ede9fe;
+    border-color: #c4b5fd;
+}
+.pill-custom-5 {
+    background: #f0f9ff;
+    color: #0369a1;
+}
+.pill-custom-5:hover {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
 }
 </style>

@@ -44,7 +44,7 @@
             />
 
             <div class="trip-form-actions trip-form-actions--inline">
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <div class="d-flex align-items-center justify-content-center gap-1 gap-sm-2 trip-form-actions__row">
                     <AppButton
                         variant="secondary"
                         outline
@@ -172,6 +172,23 @@ const { applyWindowValidation } = useTripWindowValidation(form, {
 });
 
 function onVehicleSelected(vehicle) {
+    if (!vehicle) {
+        form.vehicle_id = '';
+        setPrimaryDriverFromSelection(null);
+        selectedVehicleLabel.value = '';
+        vehicleOdometerKm.value = '';
+        vehicleDefaultMileage.value = '';
+        vehicleMaxLoad.value = '';
+        vehicleFuelTankCapacity.value = '';
+        form.planned_mileage_km_per_liter = '';
+        form.start_meter_reading_km = '';
+        form.end_meter_reading_km = '';
+        form.planned_diesel_liters = '';
+        form.max_load_ton = '';
+        form.planned_diesel_manually_set = false;
+        return;
+    }
+
     setPrimaryDriverFromSelection(vehicle);
     selectedVehicleLabel.value = vehicle?.registration_number ?? '—';
     vehicleOdometerKm.value =
@@ -272,7 +289,6 @@ function handleClearForm() {
 }
 
 function handleCancel() {
-    tripFormRef.value?.clearProgressDraft?.();
     router.push(tripListReturnTo.value);
 }
 
@@ -302,7 +318,20 @@ async function hydrateRestoredVehicle(vehicleId) {
                 ? vehicle.fuel_tank_capacity_ltr
                 : '';
     } catch {
-        // Keep draft form values even if vehicle details cannot be loaded.
+        // Vehicle does not exist (e.g. deleted from master)
+        form.vehicle_id = '';
+        form.driver_id = '';
+        form.planned_mileage_km_per_liter = '';
+        form.start_meter_reading_km = '';
+        form.end_meter_reading_km = '';
+        form.planned_diesel_liters = '';
+        form.max_load_ton = '';
+        form.planned_diesel_manually_set = false;
+        selectedVehicleLabel.value = '';
+        vehicleOdometerKm.value = '';
+        vehicleDefaultMileage.value = '';
+        vehicleMaxLoad.value = '';
+        vehicleFuelTankCapacity.value = '';
     }
 }
 
@@ -370,6 +399,14 @@ function handleReturnToStart() {
     toast.info('Return to source added (empty load).');
 }
 
+const lookupsLoaded = ref({
+    stations: false,
+    brokers: false,
+    customers: false,
+    goodsTypes: false,
+    drivers: false,
+});
+
 async function loadLookups() {
     const [
         stationsRes,
@@ -387,18 +424,23 @@ async function loadLookups() {
 
     if (stationsRes.status === 'fulfilled') {
         stations.value = stationsRes.value ?? [];
+        lookupsLoaded.value.stations = true;
     }
     if (brokersRes.status === 'fulfilled') {
         brokers.value = brokersRes.value ?? [];
+        lookupsLoaded.value.brokers = true;
     }
     if (customersRes.status === 'fulfilled') {
         customers.value = customersRes.value ?? [];
+        lookupsLoaded.value.customers = true;
     }
     if (goodsTypesRes.status === 'fulfilled') {
         goodsTypes.value = goodsTypesRes.value ?? [];
+        lookupsLoaded.value.goodsTypes = true;
     }
     if (driversRes.status === 'fulfilled') {
         drivers.value = driversRes.value ?? [];
+        lookupsLoaded.value.drivers = true;
     }
 }
 
@@ -539,20 +581,41 @@ onMounted(async () => {
         form.trip_type = 'ROUND_TRIP';
     }
 
+    // 1. Restore draft immediately into form (silent; toast is shown after reconciling DB lookups)
+    const restored = tripFormRef.value?.restoreProgressDraft?.({ notify: false }) ?? false;
+
+    // 2. Fetch lookups, vehicle specs, and trip preview in parallel in background
+    const backgroundTasks = [];
+
     if (!needsCompanySelection.value) {
-        await loadLookups();
+        backgroundTasks.push(loadLookups());
     }
 
-    // Parent reset runs after the form mounts, so restore only after initialization.
-    const restored = tripFormRef.value?.restoreProgressDraft?.() ?? false;
-
     if (restored && form.vehicle_id) {
-        await hydrateRestoredVehicle(form.vehicle_id);
+        backgroundTasks.push(hydrateRestoredVehicle(form.vehicle_id));
     }
 
     if (!needsCompanySelection.value) {
         const hasSequence = form.trip_sequence !== '' && form.trip_sequence != null;
-        await refreshTripNumberPreview({ syncSequence: !hasSequence });
+        backgroundTasks.push(refreshTripNumberPreview({ syncSequence: !hasSequence }));
+    }
+
+    await Promise.allSettled(backgroundTasks);
+
+    // 3. Reconcile restored draft against fresh lookups from DB
+    if (restored) {
+        tripFormRef.value?.reconcileRestoredLookups?.({
+            customers: customers.value,
+            stations: stations.value,
+            brokers: brokers.value,
+            drivers: drivers.value,
+            lookupsLoaded: {
+                customers: lookupsLoaded.value.customers,
+                stations: lookupsLoaded.value.stations,
+                brokers: lookupsLoaded.value.brokers,
+                drivers: lookupsLoaded.value.drivers,
+            },
+        });
     }
 });
 </script>
@@ -562,5 +625,34 @@ onMounted(async () => {
     max-width: 1180px;
     margin: 0 auto;
     padding: 24px 20px 40px;
+}
+
+@media (max-width: 767.98px) {
+    .trip-create-redesigned-page {
+        padding: 10px 8px 24px;
+    }
+    .trip-form-actions {
+        padding: 8px 0;
+    }
+    .trip-form-actions__row {
+        flex-wrap: nowrap !important;
+        width: 100%;
+        gap: 6px !important;
+    }
+    .trip-form-actions__row :deep(.app-btn),
+    .trip-form-actions__row :deep(.btn) {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 0.38rem 0.25rem !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+        justify-content: center !important;
+        height: 36px !important;
+    }
+    .trip-form-actions__row :deep(.app-btn i),
+    .trip-form-actions__row :deep(.btn i) {
+        font-size: 0.75rem !important;
+        margin-right: 3px !important;
+    }
 }
 </style>

@@ -27,7 +27,7 @@
                 <p v-if="invoice" class="text-muted small mb-0">
                     {{ invoice.document_type_label || invoice.document_type || 'Invoice' }}
                     <span v-if="invoice.customer?.name"> · {{ invoice.customer.name }}</span>
-                    <span v-if="invoice.trip?.trip_number"> · Trip {{ invoice.trip.trip_number }}</span>
+                    <span v-if="tripsHeading"> · {{ tripsHeading }}</span>
                     <span v-if="invoice.is_archived && invoice.deletion_reason" class="d-block mt-1">
                         Reason: {{ invoice.deletion_reason }}
                     </span>
@@ -550,6 +550,26 @@ const pageTitle = computed(() => {
     }
 
     return invoice.value.invoice_number || 'Invoice Details';
+});
+
+const tripsHeading = computed(() => {
+    if (!invoice.value) {
+        return '';
+    }
+
+    const label = invoice.value.trips_label
+        || invoice.value.trip?.trip_number
+        || null;
+
+    if (!label || label === '—') {
+        return '';
+    }
+
+    if (Array.isArray(invoice.value.trips) && invoice.value.trips.length > 1) {
+        return `Trips ${label}`;
+    }
+
+    return `Trip ${label}`;
 });
 
 const cancelConfirmMessage = computed(() => {

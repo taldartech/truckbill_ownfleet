@@ -9,7 +9,7 @@
                 </li>
                 <li
                     v-if="needsBranchSelection || companyName || branchName"
-                    class="nav-item d-none d-md-flex align-items-center app-header-company-nav"
+                    class="nav-item d-none d-md-flex align-items-center app-header-company-nav ms-2"
                 >
                     <div class="app-header-company-context">
                         <div
@@ -108,7 +108,7 @@
             </ul>
 
             <div class="app-header-end">
-                <ul class="navbar-nav app-header-actions">
+                <ul class="navbar-nav app-header-actions gap-2 gap-md-3">
                     <li v-if="showPlanBadges" class="nav-item app-header-plan-badges d-flex align-items-center">
           
                     </li>
