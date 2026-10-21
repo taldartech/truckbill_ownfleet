@@ -81,13 +81,16 @@
                         <td>{{ invoice.customer?.name ?? '—' }}</td>
                         <td>
                             <RouterLink
-                                v-if="invoice.trip?.id"
-                                :to="{ name: 'trips.show', params: { id: invoice.trip.id } }"
+                                v-if="invoice.trip?.id || (invoice.trips?.length === 1 && invoice.trips[0]?.id)"
+                                :to="{
+                                    name: 'trips.show',
+                                    params: { id: invoice.trip?.id || invoice.trips[0].id },
+                                }"
                                 class="text-decoration-none"
                             >
-                                {{ invoice.trip.trip_number }}
+                                {{ invoice.trips_label || invoice.trip?.trip_number || invoice.trips?.[0]?.trip_number }}
                             </RouterLink>
-                            <span v-else>—</span>
+                            <span v-else>{{ invoice.trips_label || '—' }}</span>
                         </td>
                         <td>{{ formatDate(invoice.invoice_date) }}</td>
                         <td class="text-end">₹{{ formatMoney(invoice.total_amount) }}</td>

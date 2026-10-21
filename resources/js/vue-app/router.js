@@ -230,6 +230,12 @@ const router = createRouter({
                     meta: { requiresTenant: true, permission: 'invoices.view' },
                 },
                 {
+                    path: 'invoices/create',
+                    name: 'invoices.create',
+                    component: () => import('./pages/invoices/InvoiceBulkCreatePage.vue'),
+                    meta: { requiresTenant: true, permission: 'invoices.create' },
+                },
+                {
                     path: 'invoices/archived',
                     name: 'invoices.archived',
                     component: () => import('./pages/invoices/InvoicesArchivedIndexPage.vue'),

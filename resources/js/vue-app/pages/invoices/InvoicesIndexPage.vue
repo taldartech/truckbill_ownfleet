@@ -2,6 +2,14 @@
     <div class="container mt-4 app-index-page app-index-page--standard">
         <AppIndexListCard title="Invoice Management" :loading="loading" loading-text="Loading invoices…">
             <template #toolbar>
+                <AppIndexHeaderButton
+                    v-if="canCreate"
+                    icon="plus"
+                    aria-label="Create Invoice"
+                    @click="goToCreate"
+                >
+                    Create Invoice
+                </AppIndexHeaderButton>
                 <RouterLink
                     v-if="canViewArchived"
                     :to="{ name: 'invoices.archived' }"
@@ -97,13 +105,13 @@
                         <td>{{ invoice.customer?.name ?? '—' }}</td>
                         <td>
                             <RouterLink
-                                v-if="invoice.trip?.id"
-                                :to="{ name: 'trips.show', params: { id: invoice.trip.id } }"
+                                v-if="primaryTripId(invoice)"
+                                :to="{ name: 'trips.show', params: { id: primaryTripId(invoice) } }"
                                 class="text-decoration-none"
                             >
-                                {{ invoice.trip.trip_number }}
+                                {{ tripLabel(invoice) }}
                             </RouterLink>
-                            <span v-else>—</span>
+                            <span v-else>{{ tripLabel(invoice) }}</span>
                         </td>
                         <td>{{ formatDate(invoice.invoice_date) }}</td>
                         <td>
@@ -164,7 +172,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { listInvoices, pdfUrl } from '../../api/invoices';
 import InvoiceRecordPaymentModal from '../../components/invoices/InvoiceRecordPaymentModal.vue';
 import AppSelect from '../../components/ui/AppSelect.vue';
@@ -194,6 +202,7 @@ const dueFilterOptions = [
 ];
 
 const toast = useAppToast();
+const router = useRouter();
 const { canInCompany } = usePermissions();
 const { guardCompanyContext } = useRequireCompanyContext();
 
@@ -207,8 +216,34 @@ const showPaymentModal = ref(false);
 const selectedInvoice = ref(null);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
 
+const canCreate = computed(() => canInCompany('invoices.create'));
 const canViewArchived = computed(() => canInCompany('invoices.view_archived'));
 const canRecordPayment = computed(() => canInCompany('invoices.edit'));
+
+function goToCreate() {
+    router.push({ name: 'invoices.create' });
+}
+
+function tripLabel(invoice) {
+    return invoice.trips_label
+        || invoice.trip?.trip_number
+        || (Array.isArray(invoice.trips) && invoice.trips.length > 1
+            ? `${invoice.trips.length} trips`
+            : invoice.trips?.[0]?.trip_number)
+        || '—';
+}
+
+function primaryTripId(invoice) {
+    if (invoice.trip?.id) {
+        return invoice.trip.id;
+    }
+
+    if (Array.isArray(invoice.trips) && invoice.trips.length === 1) {
+        return invoice.trips[0]?.id ?? null;
+    }
+
+    return null;
+}
 
 const filtersActive = computed(
     () =>

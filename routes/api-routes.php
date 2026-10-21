@@ -104,6 +104,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'branch', 'tenant.context', 'subscr
     Route::get('vehicles/{vehicle}/primary-driver', [TripController::class, 'vehiclePrimaryDriver']);
     Route::apiResource('trips', TripController::class);
 
+    Route::get('invoices/eligible-trips', [InvoiceController::class, 'eligibleTrips']);
+    Route::post('invoices/bulk/preview', [InvoiceController::class, 'previewBulk']);
+    Route::post('invoices/bulk', [InvoiceController::class, 'storeBulk']);
     Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf']);
     Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'storePayment']);
     Route::delete('invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'destroyPayment']);

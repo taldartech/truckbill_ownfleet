@@ -756,9 +756,24 @@ a.btn-outline-secondary:hover {
 
 /* Global branded page headers */
 .card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
     background: var(--brand-gradient) !important;
     border-bottom: none !important;
     color: var(--brand-text-on-green) !important;
+}
+
+/*
+ * AdminLTE clearfix becomes a flex item and steals the trailing edge,
+ * so title/actions no longer sit at opposite ends of the header.
+ */
+.card > .card-header::after,
+.card > .card-footer::after {
+    display: none !important;
+    content: none !important;
 }
 
 .card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(h1, h2, h3, h4, h5, h6, .card-title, strong) {
@@ -768,6 +783,50 @@ a.btn-outline-secondary:hover {
 
 .card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(i, .bi, .fas, .far, .fab) {
     color: var(--brand-text-on-green) !important;
+}
+
+/* Keep secondary copy / links readable on the green→blue gradient */
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.text-muted, .form-text) {
+    color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) > .small,
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) > * > .small:not(.badge) {
+    color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.btn-link, a.btn-link, button.btn-link) {
+    color: #fff !important;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    opacity: 1;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.btn-link, a.btn-link, button.btn-link):hover {
+    color: #fff !important;
+    opacity: 0.9;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.btn-outline-light, .btn-light, .app-index-header-btn) {
+    background-color: #fff !important;
+    border-color: #fff !important;
+    color: var(--brand-primary, #2fb36f) !important;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.btn-outline-secondary, .btn-outline-primary) {
+    background-color: rgba(255, 255, 255, 0.16) !important;
+    border-color: rgba(255, 255, 255, 0.85) !important;
+    color: #fff !important;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) :is(.btn-outline-secondary, .btn-outline-primary):hover {
+    background-color: #fff !important;
+    border-color: #fff !important;
+    color: var(--brand-primary, #2fb36f) !important;
+}
+
+.card > .card-header:not(.bg-transparent):not(.bg-light):not(.bg-white):not(.bg-soft-danger):not(.bg-soft-warning):not(.bg-warning-subtle) > :last-child:not(:only-child) {
+    margin-left: auto;
 }
 
 /* Keep utility / nested headers neutral — branded list cards stay green (partload parity) */

@@ -13,6 +13,7 @@ use App\Enums\TaxLiability;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -90,9 +91,74 @@ class Invoice extends Model
         return $this->belongsTo(Trip::class);
     }
 
+    public function trips(): BelongsToMany
+    {
+        return $this->belongsToMany(Trip::class, 'invoice_trips')
+            ->withTimestamps()
+            ->orderBy('trip_number');
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * @return list<array{id: string, trip_number: string|null, status: string|null}>
+     */
+    public function linkedTripsPayload(): array
+    {
+        if ($this->relationLoaded('trips') && $this->trips->isNotEmpty()) {
+            return $this->trips->map(fn (Trip $trip): array => [
+                'id' => (string) $trip->id,
+                'trip_number' => $trip->trip_number,
+                'status' => $trip->status instanceof \BackedEnum
+                    ? $trip->status->value
+                    : ($trip->status !== null ? (string) $trip->status : null),
+            ])->values()->all();
+        }
+
+        if ($this->relationLoaded('trip') && $this->trip !== null) {
+            return [[
+                'id' => (string) $this->trip->id,
+                'trip_number' => $this->trip->trip_number,
+                'status' => $this->trip->status instanceof \BackedEnum
+                    ? $this->trip->status->value
+                    : ($this->trip->status !== null ? (string) $this->trip->status : null),
+            ]];
+        }
+
+        return [];
+    }
+
+    public function tripsLabel(): string
+    {
+        $trips = $this->linkedTripsPayload();
+
+        if ($trips === []) {
+            return '—';
+        }
+
+        if (count($trips) === 1) {
+            return (string) ($trips[0]['trip_number'] ?? '—');
+        }
+
+        $numbers = array_values(array_filter(array_map(
+            static fn (array $trip): ?string => $trip['trip_number'] !== null && $trip['trip_number'] !== ''
+                ? (string) $trip['trip_number']
+                : null,
+            $trips,
+        )));
+
+        if ($numbers === []) {
+            return count($trips).' trips';
+        }
+
+        if (count($numbers) <= 2) {
+            return implode(', ', $numbers);
+        }
+
+        return $numbers[0].' + '.(count($numbers) - 1).' more';
     }
 
     public function branch(): BelongsTo

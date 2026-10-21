@@ -11,6 +11,7 @@ use App\Enums\TripStatus;
 use App\Enums\TripType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -139,6 +140,11 @@ class Trip extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function linkedInvoices(): BelongsToMany
+    {
+        return $this->belongsToMany(Invoice::class, 'invoice_trips')->withTimestamps();
+    }
+
     public function expenses(): HasMany
     {
         return $this->hasMany(TripExpense::class);
@@ -173,12 +179,30 @@ class Trip extends Model
         }
 
         if ($this->relationLoaded('invoices')) {
-            return $this->invoices
+            $hasDirect = $this->invoices
+                ->contains(fn (Invoice $invoice): bool => ! $invoice->isCancelled());
+
+            if ($hasDirect) {
+                return true;
+            }
+        }
+
+        if ($this->relationLoaded('linkedInvoices')) {
+            return $this->linkedInvoices
                 ->contains(fn (Invoice $invoice): bool => ! $invoice->isCancelled());
         }
 
-        return $this->invoices()
+        $hasDirect = $this->invoices()
             ->where('payment_status', '!=', InvoicePaymentStatus::Cancelled->value)
+            ->exists();
+
+        if ($hasDirect) {
+            return true;
+        }
+
+        return $this->linkedInvoices()
+            ->where('invoices.payment_status', '!=', InvoicePaymentStatus::Cancelled->value)
+            ->whereNull('invoices.deleted_at')
             ->exists();
     }
 

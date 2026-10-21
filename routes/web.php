@@ -371,6 +371,12 @@ Route::middleware(['auth', 'tenant', 'branch'])->prefix('app')->name('app.')->gr
                 ->name('vehicles.primary-driver');
             Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
 
+            Route::get('/invoices/eligible-trips', [\App\Http\Controllers\Api\InvoiceController::class, 'eligibleTrips'])
+                ->name('invoices.eligible-trips');
+            Route::post('/invoices/bulk/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewBulk'])
+                ->name('invoices.bulk.preview');
+            Route::post('/invoices/bulk', [\App\Http\Controllers\Api\InvoiceController::class, 'storeBulk'])
+                ->name('invoices.bulk.store');
             Route::get('/invoices/{invoice}/pdf', [\App\Http\Controllers\Api\InvoiceController::class, 'pdf'])
                 ->name('invoices.pdf');
             Route::post('/invoices/{invoice}/payments', [\App\Http\Controllers\Api\InvoiceController::class, 'storePayment'])
@@ -698,7 +704,7 @@ Route::middleware('auth')->group(function () use ($previewData, $resolveView) {
             return $view;
         }
 
-        return redirect('/ui/invoices/index');
+        return redirect('/ui/invoices/create');
     })->name('invoices.create');
 
     Route::get('/custom-invoices/create', function () {
