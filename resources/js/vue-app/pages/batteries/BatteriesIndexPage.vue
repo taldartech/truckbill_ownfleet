@@ -359,8 +359,10 @@
             :show="showDeleteConfirm"
             title="Delete Battery"
             :loading="deleting"
-            danger
-            confirm-button-text="Delete"
+            icon-tone="danger"
+            confirm-variant="danger"
+            confirm-label="Delete"
+            @cancel="showDeleteConfirm = false"
             @close="showDeleteConfirm = false"
             @confirm="confirmDelete"
         >

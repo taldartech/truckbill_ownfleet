@@ -105,7 +105,7 @@ const props = defineProps({
     bodyClass: { type: [String, Object, Array], default: '' },
 });
 
-const emit = defineEmits(['cancel', 'confirm', 'secondary-confirm']);
+const emit = defineEmits(['cancel', 'close', 'confirm', 'secondary-confirm']);
 
 const iconClass = computed(() => {
     const tones = {
@@ -124,5 +124,6 @@ function onCancel() {
     }
 
     emit('cancel');
+    emit('close');
 }
 </script>
