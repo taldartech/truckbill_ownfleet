@@ -635,5 +635,19 @@ watch(
         width: auto;
         margin-left: 0;
     }
+
+    .alert {
+        font-size: 0.72rem !important;
+        line-height: 1.35 !important;
+        padding: 0.45rem 0.65rem !important;
+        margin-top: 0.45rem !important;
+        margin-bottom: 0.45rem !important;
+        border-radius: 6px !important;
+    }
+
+    .alert .alert-link {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+    }
 }
 </style>

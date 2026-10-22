@@ -245,7 +245,7 @@ button.trip-header-btn:disabled {
         justify-content: stretch !important;
     }
 
-    .vue-app-shell .trip-form-actions .btn {
+    .vue-app-shell .trip-form-actions:not(.trip-form-actions--inline) .btn {
         flex: 1 1 calc(50% - 0.25rem);
         min-width: 0;
     }

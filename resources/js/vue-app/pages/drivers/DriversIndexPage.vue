@@ -7,38 +7,52 @@
             loading-text="Loading drivers…"
         >
             <template #toolbar>
-                <AppIndexHeaderButton
+                <button
                     v-if="licenseAlertsMode"
-                    icon="return"
-                    class="driver-header-btn driver-header-btn--return"
+                    type="button"
+                    class="btn btn-sm btn-light border-0 bg-white text-dark shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="All Drivers"
                     aria-label="View all drivers"
                     @click="clearLicenseAlertsMode"
                 >
-                    All Drivers
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
+                    <i class="fas fa-undo" aria-hidden="true"></i>
+                    <span class="d-none d-md-inline ms-1">All Drivers</span>
+                </button>
+                <button
                     v-if="canCreate"
-                    icon="upload"
-                    class="driver-header-btn driver-header-btn--upload"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Bulk Upload Drivers"
                     aria-label="Bulk Upload Drivers"
                     @click="showBulkUpload = true"
                 >
-                    <span><span class="d-none d-sm-inline">Bulk </span>Upload</span>
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                        <path fill-rule="evenodd" d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Bulk </span>Upload</span>
+                </button>
+                <button
                     v-if="canCreate"
-                    icon="plus"
-                    class="driver-header-btn driver-header-btn--add"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Create Driver"
                     aria-label="Create driver"
                     @click="openCreate"
                 >
-                    <span><span class="d-none d-sm-inline">Create </span>Driver</span>
-                </AppIndexHeaderButton>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Create </span>Driver</span>
+                </button>
             </template>
 
             <template #filters>
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
                     <button
                         type="button"
                         class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
@@ -48,7 +62,6 @@
                     >
                         <i class="bi bi-sliders me-1" aria-hidden="true"></i>
                         <span>Filters</span>
-                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
                         <i
                             class="bi ms-1 text-muted"
                             :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
@@ -379,7 +392,7 @@ const advanceDriver = ref(null);
 const advanceSaving = ref(false);
 const advanceModalRef = ref(null);
 const searchQuery = ref('');
-const filtersOpen = ref(true);
+const filtersOpen = ref(false);
 const filtersActive = computed(() => searchQuery.value.trim() !== '');
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
@@ -762,12 +775,19 @@ watch(
     text-decoration: underline;
 }
 
-/* Custom filters layout on Desktop */
-:deep(.app-index-collapsible-filters__inner) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
+/* Custom filters layout */
+@media (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+    }
+
+    .filter-search-col {
+        flex: 0 0 260px;
+        width: 260px;
+    }
 }
 
 :deep(.app-index-filters-fields) {
@@ -777,11 +797,6 @@ watch(
 :deep(.app-index-collapsible-filters__actions) {
     margin-top: 0;
     align-self: flex-end;
-}
-
-.filter-search-col {
-    flex: 0 0 280px;
-    width: 280px;
 }
 
 /* ── Tablet & Medium Screens (768px - 1199.98px) ─────────────────── */
@@ -803,37 +818,14 @@ watch(
     }
 }
 
+@media (min-width: 768px) {
+    .drivers-filters-content {
+        display: block !important;
+    }
+}
+
 /* ── Mobile Responsive Styles (< 768px) ───────────────────────────── */
 @media (max-width: 767.98px) {
-    /* Header toolbar - buttons in 1 row */
-    :deep(.app-index-card-toolbar) {
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-    }
-
-    .driver-header-btn {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        padding: 0.28rem 0.2rem !important;
-        height: 30px !important;
-        font-size: 0.72rem !important;
-        white-space: nowrap !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        letter-spacing: -0.01em !important;
-    }
-
-    .driver-header-btn i,
-    .driver-header-btn :deep(i) {
-        font-size: 0.75rem !important;
-        margin-right: 2px !important;
-    }
 
     /* Filters on mobile */
     :deep(.app-index-filters-fields) {
@@ -999,17 +991,6 @@ watch(
 
 /* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
 @media (max-width: 380px) {
-    .driver-header-btn {
-        font-size: 0.65rem !important;
-        padding: 0.25rem 0.15rem !important;
-        height: 28px !important;
-    }
-
-    .driver-header-btn i,
-    .driver-header-btn :deep(i) {
-        font-size: 0.68rem !important;
-        margin-right: 1px !important;
-    }
 
     :deep(.app-index-collapsible-filters__actions .btn),
     :deep(.app-index-collapsible-filters__btn) {

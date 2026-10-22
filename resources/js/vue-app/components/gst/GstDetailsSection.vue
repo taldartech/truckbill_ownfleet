@@ -343,3 +343,47 @@ defineExpose({
     validateGstNumber,
 });
 </script>
+
+<style scoped>
+@media (max-width: 767.98px) {
+    .gst-details-section h6 {
+        font-size: 0.76rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .form-check {
+        margin-bottom: 0.25rem !important;
+    }
+
+    .form-check-label {
+        font-size: 0.72rem !important;
+        line-height: 1.3 !important;
+        color: #334155 !important;
+    }
+
+    .form-check-input {
+        width: 0.9em !important;
+        height: 0.9em !important;
+        margin-top: 0.15em !important;
+    }
+
+    .alert {
+        padding: 0.35rem 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .alert .small,
+    .alert .fw-bold {
+        font-size: 0.72rem !important;
+        margin-bottom: 0.1rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .alert .text-secondary {
+        font-size: 0.68rem !important;
+        line-height: 1.25 !important;
+    }
+}
+</style>
+

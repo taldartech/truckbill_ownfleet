@@ -18,7 +18,7 @@
             />
 
             <div class="trip-form-actions trip-form-actions--inline">
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <div class="d-flex align-items-center justify-content-center gap-1 gap-sm-2 trip-form-actions__row">
                     <AppButton variant="secondary" outline size="sm" icon="bi bi-x-lg" label="Cancel" :to="listReturnTo" />
                     <AppButton
                         type="button"
@@ -255,14 +255,57 @@ onMounted(async () => {
     margin-bottom: 0;
 }
 
-@media (max-width: 575.98px) {
+@media (max-width: 767.98px) {
     .maintenance-create-redesigned-page {
         padding: 6px 4px 16px !important;
     }
 
-    .maintenance-create-redesigned-page .trip-form-actions :deep(.btn) {
-        font-size: 0.74rem;
-        padding: 5px 8px;
+    .maintenance-create-redesigned-page .trip-form-actions {
+        padding: 8px 0;
+        margin-top: 10px;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions__row {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100%;
+        gap: 6px !important;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.app-btn),
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.btn) {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        padding: 0.38rem 0.25rem !important;
+        font-size: 0.74rem !important;
+        white-space: nowrap !important;
+        justify-content: center !important;
+        height: 36px !important;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.app-btn i),
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.btn i) {
+        font-size: 0.74rem !important;
+        margin-right: 3px !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .maintenance-create-redesigned-page .trip-form-actions__row {
+        gap: 4px !important;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.app-btn),
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.btn) {
+        padding: 0.35rem 0.15rem !important;
+        font-size: 0.70rem !important;
+    }
+
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.app-btn i),
+    .maintenance-create-redesigned-page .trip-form-actions__row :deep(.btn i) {
+        font-size: 0.70rem !important;
+        margin-right: 2px !important;
     }
 }
 </style>

@@ -273,6 +273,38 @@
     font-size: 0.7rem;
 }
 
+@media (max-width: 767.98px) {
+    .app-modal__header {
+        padding: 0.4rem 0.65rem;
+    }
+
+    .app-modal__header .modal-title {
+        font-size: 0.88rem;
+    }
+
+    .app-modal__body {
+        padding: 0.5rem 0.65rem;
+    }
+
+    .app-modal__footer {
+        padding: 0.35rem 0.65rem;
+        gap: 0.35rem;
+    }
+
+    .app-modal__footer .btn,
+    .app-modal__footer button {
+        font-size: 0.72rem !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        padding: 0.15rem 0.6rem !important;
+        font-weight: 600 !important;
+        border-radius: 5px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
 @media (max-width: 575.98px) {
     .app-modal {
         width: 100%;
@@ -281,11 +313,13 @@
     }
 
     .app-modal__footer {
-        flex-wrap: wrap;
-        justify-content: stretch;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        gap: 0.35rem;
     }
 
-    .app-modal__footer .btn {
-        flex: 1 1 auto;
+    .app-modal__footer .btn,
+    .app-modal__footer button {
+        flex: 1 1 0;
     }
 }

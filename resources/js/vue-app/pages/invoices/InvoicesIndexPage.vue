@@ -10,16 +10,20 @@
                 <RouterLink
                     v-if="canViewArchived"
                     :to="{ name: 'invoices.archived' }"
-                    class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold invoice-header-archived-btn"
+                    class="btn btn-sm btn-light border-0 bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold py-1 px-2 rounded-2"
+                    title="Archived Invoices"
+                    aria-label="Archived Invoices"
                 >
-                    <i class="bi bi-archive me-1" aria-hidden="true"></i>
-                    <span>Archived</span>
+                    <svg class="me-1 flex-shrink-0" width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M0 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1v7.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 1 12.5V5a1 1 0 0 1-1-1zm2 3v7.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V5zm13-3H1v2h14zM5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5"/>
+                    </svg>
+                    <span class="d-none d-sm-inline">Archived</span>
                 </RouterLink>
             </template>
 
             <template #filters>
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
                     <button
                         type="button"
                         class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
@@ -29,7 +33,6 @@
                     >
                         <i class="bi bi-sliders me-1" aria-hidden="true"></i>
                         <span>Filters</span>
-                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
                         <i
                             class="bi ms-1 text-muted"
                             :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
@@ -223,7 +226,7 @@ const loading = ref(true);
 const searchQuery = ref('');
 const paymentStatusFilter = ref('');
 const dueFilter = ref('');
-const filtersOpen = ref(true);
+const filtersOpen = ref(false);
 const showPaymentModal = ref(false);
 const selectedInvoice = ref(null);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(15);
@@ -387,6 +390,35 @@ onMounted(async () => {
 
 <style scoped>
 /* ── Base / Desktop View ───────────────────────────────────────────── */
+@media (min-width: 768px) {
+    .invoices-filters-content {
+        display: block !important;
+    }
+}
+
+.invoice-header-archived-btn {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+.invoice-header-archived-btn:hover {
+    background-color: #f8fafc !important;
+    color: #000000 !important;
+}
+
+.invoice-archive-icon {
+    width: 16px !important;
+    height: 16px !important;
+    color: #000000 !important;
+    fill: currentColor !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    flex-shrink: 0 !important;
+}
+
 .filter-search-col {
     min-width: 220px;
     flex: 1 1 220px;
@@ -476,44 +508,6 @@ onMounted(async () => {
 
 /* ── Mobile Devices (< 768px) ─────────────────────────────────────── */
 @media (max-width: 767.98px) {
-    .app-index-list-card :deep(.card-header),
-    :deep(.trips-card-header--gradient) {
-        padding: 0.5rem 0.75rem !important;
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 0.4rem !important;
-    }
-
-    .app-index-list-card :deep(.card-title),
-    :deep(.trips-card-header--gradient .card-title) {
-        font-size: 0.92rem !important;
-        font-weight: 700 !important;
-        white-space: nowrap !important;
-        margin-bottom: 0 !important;
-        line-height: 1.2 !important;
-        letter-spacing: -0.01em;
-    }
-
-    .app-index-list-card :deep(.app-index-card-toolbar),
-    :deep(.trips-card-header--gradient .app-index-card-toolbar) {
-        width: auto !important;
-        flex: 0 0 auto !important;
-        margin-left: auto !important;
-        flex-wrap: nowrap !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-    }
-
-    .invoice-header-archived-btn {
-        padding: 0.28rem 0.55rem !important;
-        font-size: 0.72rem !important;
-        border-radius: 7px !important;
-    }
-
     :deep(.app-index-collapsible-filters) {
         padding: 0.65rem 0.75rem !important;
     }
@@ -654,11 +648,6 @@ onMounted(async () => {
     .app-index-list-card :deep(.card-title),
     :deep(.trips-card-header--gradient .card-title) {
         font-size: 0.84rem !important;
-    }
-
-    .invoice-header-archived-btn {
-        padding: 0.22rem 0.45rem !important;
-        font-size: 0.68rem !important;
     }
 }
 </style>

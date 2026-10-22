@@ -13,7 +13,25 @@
             loading-text="Loading trips…"
         >
             <template #toolbar>
-                <div class="d-flex align-items-center gap-1 gap-sm-2 flex-nowrap">
+                <div class="d-none d-md-flex align-items-center gap-2">
+                    <AppIndexHeaderButton
+                        v-if="canCreate"
+                        icon="plus"
+                        aria-label="Create trip"
+                        @click="goToCreate"
+                    >
+                        Create
+                    </AppIndexHeaderButton>
+                    <AppIndexHeaderButton
+                        v-if="canCreate"
+                        icon="plus"
+                        aria-label="Create multi-point trip"
+                        @click="goToMultiPointCreate"
+                    >
+                        Multi-Point
+                    </AppIndexHeaderButton>
+                </div>
+                <div class="d-flex d-md-none align-items-center gap-1 gap-sm-2 flex-nowrap">
                     <button
                         v-if="canCreate"
                         type="button"
@@ -37,15 +55,15 @@
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="#06b6d4" class="bi bi-link-45deg" viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L7.34 10.992a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z"/>
-                            <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 4.009a2 2 0 0 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 0 0-4.243-4.243z"/>
+                            <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 4.009a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 0 0-4.243-4.243z"/>
                         </svg>
                     </button>
                 </div>
             </template>
 
             <template #filters>
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
                     <button
                         type="button"
                         class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
@@ -55,7 +73,6 @@
                     >
                         <i class="bi bi-sliders me-1" aria-hidden="true"></i>
                         <span>Filters</span>
-                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
                         <i
                             class="bi ms-1 text-muted"
                             :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
@@ -72,7 +89,7 @@
                         @search="loadTrips(1)"
                         @reset="clearFilters"
                     >
-                        <div class="col-6 col-md-6 col-xl-3 filter-search-col">
+                        <div class="filter-search-col">
                             <label class="form-label small fw-semibold" for="trips_search">Search</label>
                             <AppIndexSearchInput
                                 v-model="filters.search"
@@ -84,7 +101,7 @@
                                 @keydown.enter="loadTrips(1)"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-3 filter-period-col">
+                        <div class="filter-period-col">
                             <DashboardDateRangePicker
                                 v-model:from-date="filters.from_date"
                                 v-model:to-date="filters.to_date"
@@ -94,7 +111,7 @@
                                 :block-future-dates="false"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-2 filter-select-col">
+                        <div class="filter-select-col">
                             <label class="form-label small fw-semibold">Status</label>
                             <AppSelect
                                 v-model="filters.status"
@@ -104,7 +121,7 @@
                                 :disabled="loading"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-4 filter-picker-col">
+                        <div class="filter-picker-col">
                             <label class="form-label small fw-semibold">Customer</label>
                             <SearchablePicker
                                 v-model="filters.customer_id"
@@ -916,7 +933,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Gradient Header matching requested design */
+/* Gradient Header on mobile, standard clean header on desktop */
 :deep(.trips-card-header--gradient) {
     background: linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #0ea5e9 100%) !important;
     border-bottom: none !important;
@@ -938,6 +955,23 @@ onBeforeUnmount(() => {
     width: auto !important;
     flex: 0 0 auto !important;
     margin-left: auto !important;
+}
+
+@media (min-width: 768px) {
+    :deep(.trips-card-header--gradient) {
+        background: #ffffff !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125) !important;
+        padding: 0.75rem 1.25rem !important;
+    }
+
+    :deep(.trips-card-header--gradient .card-title) {
+        color: #212529 !important;
+        font-size: 1.25rem !important;
+    }
+
+    .trips-filters-content {
+        display: block !important;
+    }
 }
 
 /* White square header buttons dimensions */
@@ -1002,12 +1036,22 @@ onBeforeUnmount(() => {
     }
 }
 
-/* Filters container and picker integration */
-:deep(.app-index-collapsible-filters__inner) {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: flex-end !important;
-    gap: 10px !important;
+@media (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: flex-end !important;
+        gap: 10px !important;
+    }
+}
+
+@media (min-width: 992px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-end !important;
+        gap: 8px !important;
+    }
 }
 
 :deep(.app-index-filters-fields) {
@@ -1311,6 +1355,29 @@ onBeforeUnmount(() => {
         font-size: 0.72rem !important;
     }
 
+    /* Status badge micro-sizing on mobile */
+    .app-index-list-card :deep(.trip-inline-status__badge) {
+        height: 1.15rem !important;
+        min-height: 1.15rem !important;
+        padding: 0.1rem 0.32rem !important;
+        font-size: 0.625rem !important;
+        font-weight: 600 !important;
+        border-radius: 0.25rem !important;
+        line-height: 1 !important;
+    }
+
+    .app-index-list-card :deep(.trip-inline-status__badge-btn) {
+        gap: 0.1rem !important;
+    }
+
+    .app-index-list-card :deep(.trip-inline-status__badge-btn.dropdown-toggle::after) {
+        margin-left: 0.12em !important;
+        border-top-width: 0.22em !important;
+        border-right-width: 0.22em !important;
+        border-left-width: 0.22em !important;
+        vertical-align: 0.05em !important;
+    }
+
     .app-index-list-card :deep(.app-table-actions) {
         gap: 4px !important;
     }
@@ -1371,6 +1438,13 @@ onBeforeUnmount(() => {
 
     .trip-header-square-btn i {
         font-size: 0.95rem !important;
+    }
+
+    .app-index-list-card :deep(.trip-inline-status__badge) {
+        height: 1.05rem !important;
+        min-height: 1.05rem !important;
+        padding: 0.08rem 0.25rem !important;
+        font-size: 0.58rem !important;
     }
 }
 </style>

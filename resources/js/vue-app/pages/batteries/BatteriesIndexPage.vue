@@ -40,33 +40,42 @@
         >
             <template #toolbar>
                 <button
-                    type="button"
-                    class="btn btn-sm bg-white shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold battery-header-btn battery-header-btn--filter"
-                    aria-label="Toggle search filters"
-                    @click="toggleFilters"
-                >
-                    <svg class="filter-slider-icon me-1" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
-                    </svg>
-                    <span class="filter-btn-text">Filters</span>
-                    <span v-if="filtersActive" class="badge bg-success text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
-                    <svg class="filter-chevron-icon ms-1" width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                        <path v-if="filtersOpen" fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
-                        <path v-else fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-                    </svg>
-                </button>
-                <AppIndexHeaderButton
                     v-if="canCreate"
-                    icon="plus"
-                    class="battery-header-btn battery-header-btn--add"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Add Battery"
                     aria-label="Add Battery"
                     @click="openCreate"
                 >
-                    <span><span class="d-none d-sm-inline">Add </span>Battery</span>
-                </AppIndexHeaderButton>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Add </span>Battery</span>
+                </button>
             </template>
 
             <template #filters>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
+                </div>
+
                 <div v-show="filtersOpen" class="batteries-filters-content">
                     <AppIndexCollapsibleFilters
                         panel-id="batteries-filters-panel"
@@ -422,7 +431,7 @@ const canDelete = computed(() => canDeleteRecords.value && canAnyInCompany(['bat
 const loading = ref(false);
 const loadError = ref('');
 const countsLoading = ref(false);
-const filtersOpen = ref(true);
+const filtersOpen = ref(false);
 const batteries = ref([]);
 const vehicles = ref([]);
 const brands = ref([]);
@@ -722,138 +731,14 @@ watch(
     }
 }
 
-.battery-header-btn--add,
-:deep(.battery-header-btn--add),
-.battery-header-btn--add span,
-:deep(.battery-header-btn--add span),
-.battery-header-btn--add i,
-:deep(.battery-header-btn--add i) {
-    color: var(--brand-primary, #2fb36f) !important;
-    font-weight: 600 !important;
-}
-
-.battery-header-btn--filter {
-    border-radius: 8px !important;
-    border: 1px solid #ced4da !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    color: #111827 !important;
-    font-size: 0.8125rem !important;
-    font-weight: 600 !important;
-    height: 32px !important;
-    padding: 0.25rem 0.75rem !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 0.35rem !important;
-}
-
-.battery-header-btn--filter,
-.battery-header-btn--filter:hover,
-.battery-header-btn--filter:focus,
-.battery-header-btn--filter:active {
-    border-radius: 8px !important;
-    border: 1px solid #ffffff !important;
-    background-color: #ffffff !important;
-    background: #ffffff !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
-    color: var(--brand-primary, #2fb36f) !important;
-    font-size: 0.8125rem !important;
-    font-weight: 600 !important;
-    height: 32px !important;
-    padding: 0.25rem 0.75rem !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0.35rem !important;
-}
-
-.battery-header-btn--filter .filter-btn-text,
-.battery-header-btn--filter .filter-slider-icon,
-.battery-header-btn--filter .filter-chevron-icon,
-.battery-header-btn--filter svg,
-.battery-header-btn--filter span {
-    color: var(--brand-primary, #2fb36f) !important;
-    fill: currentColor !important;
+@media (min-width: 768px) {
+    .batteries-filters-content {
+        display: block !important;
+    }
 }
 
 /* ── Mobile Responsive Layout (< 768px) ───────────────────────────── */
 @media (max-width: 767.98px) {
-    :deep(.app-index-card-toolbar) {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 6px !important;
-        width: 100% !important;
-        margin-top: 0.35rem !important;
-    }
-
-    .battery-header-btn,
-    :deep(.battery-header-btn) {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        font-size: 0.72rem !important;
-        padding: 0.25rem 0.35rem !important;
-        height: 30px !important;
-        white-space: nowrap !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    .battery-header-btn i,
-    :deep(.battery-header-btn i) {
-        font-size: 0.75rem !important;
-    }
-
-    .battery-header-btn--add,
-    :deep(.battery-header-btn--add),
-    .battery-header-btn--add span,
-    :deep(.battery-header-btn--add span),
-    .battery-header-btn--add i,
-    :deep(.battery-header-btn--add i) {
-        color: var(--brand-primary, #2fb36f) !important;
-        font-weight: 600 !important;
-    }
-
-    .battery-header-btn--filter,
-    :deep(.battery-header-btn--filter),
-    .battery-header-btn--filter:hover,
-    :deep(.battery-header-btn--filter:hover),
-    .battery-header-btn--filter:focus,
-    :deep(.battery-header-btn--filter:focus),
-    .battery-header-btn--filter:active,
-    :deep(.battery-header-btn--filter:active) {
-        border-radius: 8px !important;
-        border: 1px solid #ffffff !important;
-        background-color: #ffffff !important;
-        background: #ffffff !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
-        font-size: 0.72rem !important;
-        font-weight: 600 !important;
-        color: var(--brand-primary, #2fb36f) !important;
-        height: 30px !important;
-        padding: 0.25rem 0.35rem !important;
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    .battery-header-btn--filter .filter-btn-text,
-    :deep(.battery-header-btn--filter .filter-btn-text),
-    .battery-header-btn--filter .filter-slider-icon,
-    :deep(.battery-header-btn--filter .filter-slider-icon),
-    .battery-header-btn--filter .filter-chevron-icon,
-    :deep(.battery-header-btn--filter .filter-chevron-icon),
-    .battery-header-btn--filter svg,
-    :deep(.battery-header-btn--filter svg),
-    .battery-header-btn--filter span,
-    :deep(.battery-header-btn--filter span) {
-        color: var(--brand-primary, #2fb36f) !important;
-        fill: currentColor !important;
-    }
 
     :deep(.app-index-collapsible-filters__inner) {
         display: flex !important;
@@ -1022,17 +907,6 @@ watch(
 
 /* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
 @media (max-width: 380px) {
-    .battery-header-btn {
-        font-size: 0.65rem !important;
-        padding: 0.25rem 0.15rem !important;
-        height: 28px !important;
-    }
-
-    .battery-header-btn i,
-    .battery-header-btn :deep(i) {
-        font-size: 0.68rem !important;
-        margin-right: 1px !important;
-    }
 
     :deep(.app-index-collapsible-filters__actions .btn),
     :deep(.app-index-collapsible-filters__btn) {

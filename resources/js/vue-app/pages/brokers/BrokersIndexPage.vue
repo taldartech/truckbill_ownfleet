@@ -1,44 +1,61 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard references-index-page">
+    <div class="container mt-4 app-index-page app-index-page--standard app-index-page--inline-filters references-index-page">
         <AppIndexListCard title="References" :loading="loading" loading-text="Loading references…">
             <template #toolbar>
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex d-md-none align-items-center justify-content-center p-0 app-index-header-btn app-index-header-btn--filter"
+                    title="Filters"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="upload"
+                    title="Bulk Upload References"
                     aria-label="Bulk Upload References"
                     @click="showBulkUpload = true"
                 >
-                    Bulk Upload
+                    <span class="d-none d-md-inline ms-1">Bulk Upload</span>
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
+                    title="Add Reference"
                     aria-label="Add Reference"
                     @click="openCreate"
                 >
-                    Add Reference
+                    <span class="d-none d-md-inline ms-1">Add Reference</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="references-filters-panel"
-                :loading="loading"
-                @search="loadBrokers(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="brokersIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="search"
-                        input-id="brokersIndex_search"
-                        placeholder="Search name, GST, PAN, contact"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter="loadBrokers(1)"
-                    />
+            <template #filters>
+                <div v-show="!isMobile || filtersOpen" class="w-100">
+                    <AppIndexCollapsibleFilters
+                        panel-id="references-filters-panel"
+                        :loading="loading"
+                        @search="loadBrokers(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label d-none d-md-block" for="brokersIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="search"
+                                input-id="brokersIndex_search"
+                                placeholder="Search name, GST, PAN, contact"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadBrokers(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -130,7 +147,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { createBroker, deleteBroker, listBrokers, updateBroker } from '../../api/brokers';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -166,10 +183,22 @@ const brokers = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const isMobile = ref(false);
+const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
 const showBulkUpload = ref(false);
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
+function handleResize() {
+    if (typeof window !== 'undefined') {
+        isMobile.value = window.innerWidth < 768;
+    }
+}
 
 const bulkUploadColumns = [
     { name: 'name', label: 'Reference / Broker Name', required: true, description: 'Broker or Reference name' },
@@ -291,7 +320,17 @@ async function handleDelete(broker) {
 }
 
 onMounted(async () => {
+    handleResize();
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+    }
     await loadBrokers();
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+    }
 });
 </script>
 

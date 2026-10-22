@@ -16,34 +16,50 @@
                 <RouterLink
                     v-if="canInCompany('vehicles.view')"
                     :to="{ name: 'trucks.archived' }"
-                    class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold truck-header-btn truck-header-btn--archived"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Archived Trucks"
+                    aria-label="Archived Trucks"
                 >
-                    <i class="bi bi-archive me-1" aria-hidden="true"></i>
-                    <span>Archived</span>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M0 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1v7.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 1 12.5V5a1 1 0 0 1-1-1zm2 3v7.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V5zm13-3H1v2h14zM5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1">Archived</span>
                 </RouterLink>
-                <AppIndexHeaderButton
+                <button
                     v-if="canCreate"
-                    icon="upload"
-                    class="truck-header-btn truck-header-btn--upload"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Bulk Upload Trucks"
                     aria-label="Bulk Upload Trucks"
                     @click="showBulkUpload = true"
                 >
-                    <span><span class="d-none d-sm-inline">Bulk </span>Upload</span>
-                </AppIndexHeaderButton>
-                <AppIndexHeaderButton
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                        <path fill-rule="evenodd" d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Bulk </span>Upload</span>
+                </button>
+                <button
                     v-if="canCreate"
-                    icon="plus"
-                    class="truck-header-btn truck-header-btn--add"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Add Truck"
                     aria-label="Add Truck"
                     @click="openCreate"
                 >
-                    <span><span class="d-none d-sm-inline">Add </span>Truck</span>
-                </AppIndexHeaderButton>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Add </span>Truck</span>
+                </button>
             </template>
 
             <template #filters>
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
                     <button
                         type="button"
                         class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
@@ -53,7 +69,6 @@
                     >
                         <i class="bi bi-sliders me-1" aria-hidden="true"></i>
                         <span>Filters</span>
-                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
                         <i
                             class="bi ms-1 text-muted"
                             :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
@@ -420,7 +435,7 @@ const primaryDriverFilterOptions = [
 ];
 const filters = reactive(defaultVehicleListFilters());
 const defaultFilters = defaultVehicleListFilters();
-const filtersOpen = ref(true);
+const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 
 const filtersActive = computed(() => {
@@ -799,12 +814,24 @@ watch(
     line-height: 1.2;
 }
 
-/* Custom filters single row layout (Desktop / Large Screens) */
-:deep(.app-index-collapsible-filters__inner) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
+/* Custom filters layout */
+@media (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+    }
+
+    .filter-search-col {
+        flex: 0 0 260px;
+        width: 260px;
+    }
+
+    .filter-select-col {
+        flex: 0 0 160px;
+        width: 160px;
+    }
 }
 
 :deep(.app-index-filters-fields) {
@@ -816,50 +843,14 @@ watch(
     align-self: flex-end;
 }
 
-.filter-search-col {
-    flex: 0 0 280px;
-    width: 280px;
-}
-
-.filter-select-col {
-    flex: 0 0 180px;
-    width: 180px;
+@media (min-width: 768px) {
+    .trucks-filters-content {
+        display: block !important;
+    }
 }
 
 /* ── Mobile Responsive Styles (< 768px) ───────────────────────────── */
 @media (max-width: 767.98px) {
-    /* Header toolbar - all 3 buttons in 1 row */
-    :deep(.app-index-card-toolbar) {
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-    }
-
-    .truck-header-btn {
-        flex: 1 1 0 !important;
-        width: calc(33.333% - 3px) !important;
-        min-width: 0 !important;
-        max-width: calc(33.333% - 3px) !important;
-        padding: 0.28rem 0.2rem !important;
-        height: 30px !important;
-        font-size: 0.72rem !important;
-        white-space: nowrap !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        letter-spacing: -0.01em !important;
-    }
-
-    .truck-header-btn i,
-    .truck-header-btn :deep(i) {
-        font-size: 0.75rem !important;
-        margin-right: 2px !important;
-    }
-
     /* Filters: 2 per line on mobile */
     :deep(.app-index-filters-fields) {
         display: contents !important;
@@ -1025,17 +1016,6 @@ watch(
 
 /* ── Extra-Small Mobile Devices (< 380px) ─────────────────────────── */
 @media (max-width: 380px) {
-    .truck-header-btn {
-        font-size: 0.65rem !important;
-        padding: 0.25rem 0.15rem !important;
-        height: 28px !important;
-    }
-
-    .truck-header-btn i,
-    .truck-header-btn :deep(i) {
-        font-size: 0.68rem !important;
-        margin-right: 1px !important;
-    }
 
     :deep(.app-index-collapsible-filters__actions .btn),
     :deep(.app-index-collapsible-filters__btn) {

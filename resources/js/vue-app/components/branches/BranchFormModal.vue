@@ -682,4 +682,119 @@ onBeforeUnmount(() => {
     background: #fff;
     padding: 0.25rem;
 }
+
+@media (max-width: 767.98px) {
+    .row.mb-3,
+    .mb-3 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .row {
+        --bs-gutter-x: 0.5rem !important;
+        --bs-gutter-y: 0.4rem !important;
+    }
+
+    .form-label,
+    :deep(.form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    .form-control,
+    :deep(.form-control),
+    :deep(.select-trigger) {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.75rem !important;
+        padding: 0.25rem 0.5rem !important;
+        line-height: 1.4 !important;
+    }
+
+    input[type="file"].form-control {
+        font-size: 0.72rem !important;
+        height: 32px !important;
+        line-height: 1.8 !important;
+        padding-top: 0.2rem !important;
+    }
+
+    textarea.form-control,
+    :deep(textarea.form-control) {
+        height: auto !important;
+        min-height: 48px !important;
+    }
+
+    :deep(.select-trigger-label),
+    :deep(.select-trigger-placeholder) {
+        font-size: 0.75rem !important;
+    }
+
+    .invalid-feedback,
+    :deep(.invalid-feedback),
+    .form-text,
+    :deep(.form-text) {
+        font-size: 0.68rem !important;
+        margin-top: 0.15rem !important;
+    }
+
+    .branch-company-logo-preview {
+        width: 54px !important;
+        height: 54px !important;
+    }
+
+    .border.rounded.p-3 {
+        padding: 0.45rem 0.6rem !important;
+        margin-bottom: 0.45rem !important;
+    }
+
+    .border.rounded h6,
+    h6 {
+        font-size: 0.76rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.35rem !important;
+    }
+
+    .form-check {
+        margin-bottom: 0.35rem !important;
+    }
+
+    .form-check-label,
+    :deep(.form-check-label) {
+        font-size: 0.72rem !important;
+        line-height: 1.3 !important;
+        color: #334155 !important;
+    }
+
+    .form-check-input,
+    :deep(.form-check-input) {
+        width: 0.9em !important;
+        height: 0.9em !important;
+        margin-top: 0.15em !important;
+    }
+
+    :deep(.alert) {
+        padding: 0.35rem 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+        font-size: 0.68rem !important;
+    }
+
+    :deep(.alert .fw-bold) {
+        font-size: 0.72rem !important;
+        margin-bottom: 0.15rem !important;
+    }
+
+    :deep(.alert .text-secondary) {
+        font-size: 0.68rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .btn,
+    :deep(.btn) {
+        font-size: 0.72rem !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        padding: 0.15rem 0.6rem !important;
+        border-radius: 5px !important;
+    }
+}
 </style>

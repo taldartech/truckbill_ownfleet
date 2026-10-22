@@ -1,44 +1,61 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard goods-types-index-page">
+    <div class="container mt-4 app-index-page app-index-page--standard app-index-page--inline-filters goods-types-index-page">
         <AppIndexListCard title="Goods Types" :loading="loading" loading-text="Loading goods types…">
             <template #toolbar>
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex d-md-none align-items-center justify-content-center p-0 app-index-header-btn app-index-header-btn--filter"
+                    title="Filters"
+                    aria-label="Toggle search filters"
+                    @click="toggleFilters"
+                >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="upload"
+                    title="Bulk Upload Goods Types"
                     aria-label="Bulk Upload Goods Types"
                     @click="showBulkUpload = true"
                 >
-                    Bulk Upload
+                    <span class="d-none d-md-inline ms-1">Bulk Upload</span>
                 </AppIndexHeaderButton>
                 <AppIndexHeaderButton
                     v-if="canCreate"
                     icon="plus"
+                    title="Add Goods Type"
                     aria-label="Add Goods Type"
                     @click="openCreate"
                 >
-                    Add Goods Type
+                    <span class="d-none d-md-inline ms-1">Add Goods Type</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="goods-types-filters-panel"
-                :loading="loading"
-                @search="loadGoodsTypes(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="goodsTypesIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="search"
-                        input-id="goodsTypesIndex_search"
-                        placeholder="Search goods type"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter="loadGoodsTypes(1)"
-                    />
+            <template #filters>
+                <div v-show="!isMobile || filtersOpen" class="w-100">
+                    <AppIndexCollapsibleFilters
+                        panel-id="goods-types-filters-panel"
+                        :loading="loading"
+                        @search="loadGoodsTypes(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label d-none d-md-block" for="goodsTypesIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="search"
+                                input-id="goodsTypesIndex_search"
+                                placeholder="Search goods type"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadGoodsTypes(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -120,7 +137,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { createGoodsType, deleteGoodsType, listGoodsTypes, updateGoodsType } from '../../api/goodsTypes';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
@@ -156,10 +173,22 @@ const goodsTypes = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const isMobile = ref(false);
+const filtersOpen = ref(false);
 const { pagination, syncFromMeta, reset: resetPagination } = useListPagination(10);
 const showModal = ref(false);
 const editing = ref(null);
 const showBulkUpload = ref(false);
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
+function handleResize() {
+    if (typeof window !== 'undefined') {
+        isMobile.value = window.innerWidth < 768;
+    }
+}
 
 const bulkUploadColumns = [
     { name: 'name', label: 'Goods Type Name', required: true, description: 'Unique goods type / commodity name' },
@@ -275,7 +304,17 @@ async function handleDelete(goodsType) {
 }
 
 onMounted(async () => {
+    handleResize();
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+    }
     await loadGoodsTypes();
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+    }
 });
 </script>
 

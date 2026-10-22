@@ -8,196 +8,228 @@
 
         <AppIndexListCard title="Trip Reports">
             <template v-if="canExport" #toolbar>
-                <button type="button" class="btn btn-brand-secondary btn-sm report-header-btn" @click="exportExcel">
-                    Export Excel
+                <button
+                    type="button"
+                    class="btn btn-brand-secondary btn-sm report-header-btn report-export-btn"
+                    title="Export Excel"
+                    aria-label="Export Excel"
+                    @click="exportExcel"
+                >
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" class="report-export-btn__icon me-1 flex-shrink-0" aria-hidden="true">
+                        <path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/>
+                        <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                    </svg>
+                    <span class="report-export-btn__text">Export Excel</span>
                 </button>
             </template>
 
-            <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
-                <div>
-                    <label class="form-label">Report Type</label>
-                    <AppSelect
-                        v-model="reportType"
-                        :options="reportTypes"
-                        placeholder="Select report"
-                        search-placeholder="Search report…"
-                    />
-                </div>
-                <div>
-                    <label class="form-label">From Date</label>
-                    <AppDateInput v-model="filters.from_date" />
-                </div>
-                <div>
-                    <label class="form-label">To Date</label>
-                    <AppDateInput v-model="filters.to_date" />
-                </div>
-                <div>
-                    <label class="form-label" for="tripReports_vehicle">Truck</label>
-                    <VehicleSelect
-                        input-id="tripReports_vehicle"
-                        v-model="filters.vehicle_id"
-                        :vehicles="vehicles"
-                        placeholder="All trucks"
-                    />
-                </div>
-                <div v-if="reportType === 'fuel-performance'">
-                    <label class="form-label">Breakdown By</label>
-                    <AppSelect
-                        v-model="filters.dimension"
-                        :options="fuelDimensionOptions"
-                        placeholder="Select breakdown"
-                    />
-                </div>
-                <div v-if="reportType === 'expense-summary' || (reportType === 'fuel-performance' && filters.dimension !== 'driver')">
-                    <label class="form-label">Driver</label>
-                    <AppSelect v-model="filters.driver_id" :options="driverOptions" placeholder="All drivers"
-                        search-placeholder="Search driver…" />
-                </div>
-                <div v-if="reportType === 'expense-summary'">
-                    <label class="form-label">Expense Type</label>
-                    <AppSelect v-model="filters.expense_type" :options="expenseTypeOptions"
-                        placeholder="All expense types" search-placeholder="Search expense type…" />
-                </div>
-            </AppReportFiltersPanel>
+            <template #filters>
+                <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
+                    <div>
+                        <label class="form-label">Report Type</label>
+                        <AppSelect
+                            v-model="reportType"
+                            :options="reportTypes"
+                            placeholder="Select report"
+                            search-placeholder="Search report…"
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label">From Date</label>
+                        <AppDateInput v-model="filters.from_date" />
+                    </div>
+                    <div>
+                        <label class="form-label">To Date</label>
+                        <AppDateInput v-model="filters.to_date" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="tripReports_vehicle">Truck</label>
+                        <VehicleSelect
+                            input-id="tripReports_vehicle"
+                            v-model="filters.vehicle_id"
+                            :vehicles="vehicles"
+                            placeholder="All trucks"
+                        />
+                    </div>
+                    <div v-if="reportType === 'fuel-performance'">
+                        <label class="form-label">Breakdown By</label>
+                        <AppSelect
+                            v-model="filters.dimension"
+                            :options="fuelDimensionOptions"
+                            placeholder="Select breakdown"
+                        />
+                    </div>
+                    <div v-if="reportType === 'expense-summary' || (reportType === 'fuel-performance' && filters.dimension !== 'driver')">
+                        <label class="form-label">Driver</label>
+                        <AppSelect v-model="filters.driver_id" :options="driverOptions" placeholder="All drivers"
+                            search-placeholder="Search driver…" />
+                    </div>
+                    <div v-if="reportType === 'expense-summary'">
+                        <label class="form-label">Expense Type</label>
+                        <AppSelect v-model="filters.expense_type" :options="expenseTypeOptions"
+                            placeholder="All expense types" search-placeholder="Search expense type…" />
+                    </div>
+                </AppReportFiltersPanel>
 
-            <div
-                v-if="!loading && tripCount !== null"
-                class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
-            >
-                <span class="report-results-meta__title">{{ currentReportLabel }}</span>
-                <div class="d-flex align-items-center gap-2">
-                    <span v-if="reportType === 'expense-summary'" class="fw-semibold me-2">
-                        Total: {{ formatMoney(totalExpenseAmount) }}
-                    </span>
-                    <span class="badge bg-secondary">
-                        {{ tripCount }} {{ tripCount === 1 ? 'trip' : 'trips' }}
-                    </span>
-                </div>
-            </div>
-
-            <div
-                v-if="!loading && reportType === 'profitability' && financialSummary"
-                class="px-3 py-3 border-bottom"
-            >
-                <div class="row g-3 small">
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Total Freight</div>
-                        <div class="fw-semibold">{{ formatMoney(financialSummary.total_freight_amount) }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Trip Expenses</div>
-                        <div class="fw-semibold">{{ formatMoney(financialSummary.total_expense_amount) }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Monthly Expenses</div>
-                        <div class="fw-semibold">{{ formatMoney(financialSummary.monthly_expenses) }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted">Profit</div>
-                        <div class="fw-semibold">{{ formatMoney(financialSummary.profit_amount) }}</div>
+                <div
+                    v-if="!loading && tripCount !== null"
+                    class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
+                >
+                    <span class="report-results-meta__title">{{ currentReportLabel }}</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span v-if="reportType === 'expense-summary'" class="fw-semibold me-2">
+                            Total: {{ formatMoney(totalExpenseAmount) }}
+                        </span>
+                        <span class="badge bg-secondary">
+                            {{ tripCount }} {{ tripCount === 1 ? 'trip' : 'trips' }}
+                        </span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Fuel Performance Summary -->
-            <div
-                v-if="!loading && reportType === 'fuel-performance' && reportSummary"
-                class="px-3 py-3 border-bottom bg-light-subtle"
-            >
-                <div class="row g-3 small text-center text-sm-start">
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Total Distance</div>
-                        <div class="fw-bold fs-6">{{ formatDistance(reportSummary.total_distance_km) }}</div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Fuel Consumed</div>
-                        <div class="fw-bold fs-6 text-primary">{{ formatLiters(reportSummary.total_fuel_liters) }}</div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Total Fuel Cost</div>
-                        <div class="fw-bold fs-6 text-dark">{{ formatMoney(reportSummary.total_fuel_cost) }}</div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Fleet Avg Mileage</div>
-                        <div class="fw-bold fs-6 text-success">{{ formatMileageVal(reportSummary.average_mileage) }}</div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Fuel Cost / KM</div>
-                        <div class="fw-bold fs-6 text-dark">₹{{ Number(reportSummary.cost_per_km || 0).toFixed(2) }}</div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-2">
-                        <div class="text-muted small">Fuel Variance</div>
-                        <div class="fw-bold fs-6" :class="Number(reportSummary.fuel_variance_liters || 0) > 0 ? 'text-danger' : 'text-success'">
-                            {{ Number(reportSummary.fuel_variance_liters || 0) > 0 ? '+' : '' }}{{ reportSummary.fuel_variance_liters }} L
-                            <span v-if="reportSummary.fuel_variance_pct !== undefined">({{ reportSummary.fuel_variance_pct }}%)</span>
+                <div
+                    v-if="!loading && reportType === 'profitability' && financialSummary"
+                    class="px-3 py-3 border-bottom trip-profitability-summary"
+                >
+                    <div class="row g-2 g-sm-3 small">
+                        <div class="col-6 col-sm-6 col-lg-3">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted trip-kpi-label">Total Freight</div>
+                                <div class="fw-semibold trip-kpi-val">{{ formatMoney(financialSummary.total_freight_amount) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-6 col-lg-3">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted trip-kpi-label">Trip Expenses</div>
+                                <div class="fw-semibold trip-kpi-val">{{ formatMoney(financialSummary.total_expense_amount) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-6 col-lg-3">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted trip-kpi-label">Monthly Expenses</div>
+                                <div class="fw-semibold trip-kpi-val">{{ formatMoney(financialSummary.monthly_expenses) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-6 col-lg-3">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted trip-kpi-label">Profit</div>
+                                <div class="fw-semibold trip-kpi-val" :class="Number(financialSummary.profit_amount) >= 0 ? 'text-success' : 'text-danger'">
+                                    {{ formatMoney(financialSummary.profit_amount) }}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Fuel Performance Summary -->
+                <div
+                    v-if="!loading && reportType === 'fuel-performance' && reportSummary"
+                    class="px-3 py-3 border-bottom bg-light-subtle trip-fuel-summary"
+                >
+                    <div class="row g-2 g-sm-3 small text-center text-sm-start">
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Total Distance</div>
+                                <div class="fw-bold fs-6 trip-kpi-val">{{ formatDistance(reportSummary.total_distance_km) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Fuel Consumed</div>
+                                <div class="fw-bold fs-6 text-primary trip-kpi-val">{{ formatLiters(reportSummary.total_fuel_liters) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Total Fuel Cost</div>
+                                <div class="fw-bold fs-6 text-dark trip-kpi-val">{{ formatMoney(reportSummary.total_fuel_cost) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Fleet Avg Mileage</div>
+                                <div class="fw-bold fs-6 text-success trip-kpi-val">{{ formatMileageVal(reportSummary.average_mileage) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Fuel Cost / KM</div>
+                                <div class="fw-bold fs-6 text-dark trip-kpi-val">₹{{ Number(reportSummary.cost_per_km || 0).toFixed(2) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="trip-kpi-card">
+                                <div class="text-muted small trip-kpi-label">Fuel Variance</div>
+                                <div class="fw-bold fs-6 trip-kpi-val" :class="Number(reportSummary.fuel_variance_liters || 0) > 0 ? 'text-danger' : 'text-success'">
+                                    {{ Number(reportSummary.fuel_variance_liters || 0) > 0 ? '+' : '' }}{{ reportSummary.fuel_variance_liters }} L
+                                    <span v-if="reportSummary.fuel_variance_pct !== undefined">({{ reportSummary.fuel_variance_pct }}%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
 
             <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
 
             <!-- Expense Summary Report (Itemized expense entries with trip details) -->
-            <div v-else-if="reportType === 'expense-summary' && rows.length" class="table-responsive">
-                <table class="table table-hover align-middle mb-0 report-table">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 50px;">Sr. No.</th>
-                            <th>Expense Date</th>
-                            <th>Trip Number</th>
-                            <th>Truck</th>
-                            <th>Driver</th>
-                            <th>Expense Type</th>
-                            <th class="text-end">Expense Amount</th>
-                            <th style="min-width: 250px;">Other</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="(row, index) in flattenedRows"
-                            :key="row.expense_id ? `${row.trip_id}-${row.expense_id}` : (row.s_no || index)"
-                        >
-                            <td>{{ startSerialNumber + index }}</td>
-                            <td>{{ row.expense_date ? formatDate(row.expense_date) : '—' }}</td>
-                            <td class="fw-semibold text-nowrap">
-                                <RouterLink
-                                    v-if="row.trip_id"
-                                    :to="{ name: 'trips.show', params: { id: row.trip_id } }"
-                                    class="text-decoration-none"
-                                >
-                                    {{ row.trip_number }}
-                                </RouterLink>
-                                <span v-else>{{ row.trip_number || '—' }}</span>
-                            </td>
-                            <td>{{ row.vehicle || '—' }}</td>
-                            <td class="text-nowrap">{{ row.driver || '—' }}</td>
+            <table v-else-if="reportType === 'expense-summary' && rows.length" class="table table-hover align-middle mb-0 report-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">Sr. No.</th>
+                        <th>Expense Date</th>
+                        <th>Trip Number</th>
+                        <th>Truck</th>
+                        <th>Driver</th>
+                        <th>Expense Type</th>
+                        <th class="text-end">Expense Amount</th>
+                        <th style="min-width: 250px;">Other</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr
+                        v-for="(row, index) in flattenedRows"
+                        :key="row.expense_id ? `${row.trip_id}-${row.expense_id}` : (row.s_no || index)"
+                    >
+                        <td>{{ startSerialNumber + index }}</td>
+                        <td>{{ row.expense_date ? formatDate(row.expense_date) : '—' }}</td>
+                        <td class="fw-semibold text-nowrap">
+                            <RouterLink
+                                v-if="row.trip_id"
+                                :to="{ name: 'trips.show', params: { id: row.trip_id } }"
+                                class="text-decoration-none"
+                            >
+                                {{ row.trip_number }}
+                            </RouterLink>
+                            <span v-else>{{ row.trip_number || '—' }}</span>
+                        </td>
+                        <td>{{ row.vehicle || '—' }}</td>
+                        <td class="text-nowrap">{{ row.driver || '—' }}</td>
 
-                            <!-- Expense entry columns -->
-                            <td>
-                                <span class="text-start">
-                                    {{ row.expense_type_label || row.expense_type }}
-                                </span>
-                                <span v-if="row.other_type" class="text-muted small ms-1">
-                                    ({{ row.other_type }})
-                                </span>
-                            </td>
-                            <td class="text-end fw-semibold">{{ formatMoney(row.amount) }}</td>
-                            <td class="small text-muted">
-                                <span v-if="row.fuel_liters">
-                                    {{ row.fuel_liters }} L
-                                    <template v-if="row.fuel_rate"> @ ₹{{ row.fuel_rate }}/L</template>
-                                    <template v-if="row.fuel_odometer_km"> (Odo: {{ row.fuel_odometer_km }} km)</template>
-                                </span>
-                                <span v-if="row.notes">
-                                    <template v-if="row.fuel_liters"> &bull; </template>
-                                    {{ row.notes }}
-                                </span>
-                                <span v-if="!row.fuel_liters && !row.notes">—</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                        <!-- Expense entry columns -->
+                        <td>
+                            <span class="text-start">
+                                {{ row.expense_type_label || row.expense_type }}
+                            </span>
+                            <span v-if="row.other_type" class="text-muted small ms-1">
+                                ({{ row.other_type }})
+                            </span>
+                        </td>
+                        <td class="text-end fw-semibold">{{ formatMoney(row.amount) }}</td>
+                        <td class="small text-muted">
+                            <span v-if="row.fuel_liters">
+                                {{ row.fuel_liters }} L
+                                <template v-if="row.fuel_rate"> @ ₹{{ row.fuel_rate }}/L</template>
+                                <template v-if="row.fuel_odometer_km"> (Odo: {{ row.fuel_odometer_km }} km)</template>
+                            </span>
+                            <span v-if="row.notes">
+                                <template v-if="row.fuel_liters"> &bull; </template>
+                                {{ row.notes }}
+                            </span>
+                            <span v-if="!row.fuel_liters && !row.notes">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
             <!-- Generic Table for Other Report Types -->
             <table v-else-if="columns.length" class="table table-striped table-hover align-middle mb-0 report-table">
@@ -326,6 +358,13 @@ const COLUMN_LABELS = {
     trip_number: 'Trip #',
     date: 'Date',
     driver: 'Driver',
+    customer_name: 'Customer',
+    start_at: 'Date',
+    total_freight_amount: 'Total Freight',
+    total_expense_amount: 'Trip Expenses',
+    profit_amount: 'Profit',
+    registration_number: 'Truck',
+    driver_name: 'Driver',
     distance_km: 'Distance (KM)',
     total_distance_km: 'Total Distance (KM)',
     actual_fuel_liters: 'Actual Fuel (L)',
@@ -372,7 +411,13 @@ function formatCell(columnKey, value) {
         return '—';
     }
 
-    if (columnKey === 'total_fuel_cost' || columnKey === 'fuel_cost') {
+    if (
+        columnKey === 'total_fuel_cost' ||
+        columnKey === 'fuel_cost' ||
+        columnKey === 'total_freight_amount' ||
+        columnKey === 'total_expense_amount' ||
+        columnKey === 'profit_amount'
+    ) {
         return formatMoney(value);
     }
 
@@ -556,3 +601,198 @@ useOperationalDataInvalidation('trip-reports', () => {
     }
 });
 </script>
+
+<style scoped>
+.report-export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.report-export-btn__icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+@media (min-width: 768px) {
+    .trip-kpi-card {
+        background: transparent;
+        border: none;
+        padding: 0;
+        box-shadow: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    :deep(.card-header) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0.45rem 0.65rem !important;
+        gap: 0.4rem !important;
+    }
+
+    :deep(.card-header .card-title) {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        line-height: 1.25 !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        color: #ffffff !important;
+    }
+
+    :deep(.card-header .app-index-card-toolbar) {
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .report-export-btn {
+        width: auto !important;
+        height: auto !important;
+        min-height: 26px !important;
+        padding: 0.2rem 0.55rem !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.25rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        line-height: 1.2 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #ffffff !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .report-export-btn__icon {
+        font-size: 0.78rem !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        line-height: 1 !important;
+        display: inline-block !important;
+        margin: 0 !important;
+    }
+
+    .report-export-btn__text {
+        display: inline !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+    }
+
+    .trip-profitability-summary,
+    .trip-fuel-summary {
+        padding: 0.5rem 0.75rem !important;
+        background-color: #f8fafc;
+    }
+
+    .trip-kpi-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.45rem 0.65rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .trip-kpi-label {
+        font-size: 0.72rem !important;
+        line-height: 1.2;
+        color: #64748b !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+    }
+
+    .trip-kpi-val {
+        font-size: 0.85rem !important;
+        line-height: 1.25;
+        font-weight: 700 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .report-table {
+        font-size: 0.72rem !important;
+        width: max-content !important;
+        min-width: 100% !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.5rem !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        line-height: 1.3 !important;
+    }
+
+    .report-results-meta {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.8rem !important;
+    }
+
+    .report-results-meta__title {
+        font-size: 0.85rem !important;
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 380px) {
+    :deep(.card-header) {
+        padding: 0.4rem 0.5rem !important;
+        gap: 0.3rem !important;
+    }
+
+    :deep(.card-header .card-title) {
+        font-size: 0.78rem !important;
+    }
+
+    .report-export-btn {
+        min-height: 24px !important;
+        padding: 0.15rem 0.45rem !important;
+        font-size: 0.65rem !important;
+        border-radius: 5px !important;
+        gap: 0.2rem !important;
+    }
+
+    .report-export-btn__icon {
+        font-size: 0.7rem !important;
+    }
+
+    .report-export-btn__text {
+        font-size: 0.65rem !important;
+    }
+
+    .trip-kpi-label {
+        font-size: 0.68rem !important;
+    }
+
+    .trip-kpi-val {
+        font-size: 0.78rem !important;
+    }
+
+    .report-table {
+        font-size: 0.68rem !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        font-size: 0.68rem !important;
+        padding: 0.3rem 0.4rem !important;
+    }
+}
+</style>

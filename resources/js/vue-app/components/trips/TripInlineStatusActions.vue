@@ -358,4 +358,28 @@ async function onStatusModalConfirm(data) {
     align-items: center;
     gap: 0.35rem;
 }
+
+@media (max-width: 767.98px) {
+    .trip-inline-status__badge {
+        height: 1.15rem;
+        min-height: 1.15rem;
+        padding: 0.1rem 0.3rem;
+        font-size: 0.625rem;
+        font-weight: 600;
+        border-radius: 0.25rem;
+        line-height: 1;
+    }
+
+    .trip-inline-status__badge-btn {
+        gap: 0.1rem;
+    }
+
+    .trip-inline-status__badge-btn.dropdown-toggle::after {
+        margin-left: 0.12em;
+        border-top-width: 0.22em;
+        border-right-width: 0.22em;
+        border-left-width: 0.22em;
+        vertical-align: 0.05em;
+    }
+}
 </style>

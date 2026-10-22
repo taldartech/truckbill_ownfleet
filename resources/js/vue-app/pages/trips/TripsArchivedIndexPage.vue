@@ -13,15 +13,22 @@
             loading-text="Loading archived trips…"
         >
             <template #toolbar>
-                <RouterLink :to="{ name: 'trips.index' }" class="btn btn-sm btn-light border bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold trip-header-back-btn">
-                    <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
-                    Back to Trip List
+                <RouterLink
+                    :to="{ name: 'trips.index' }"
+                    class="btn btn-sm btn-light border-0 bg-white shadow-sm text-dark d-inline-flex align-items-center fw-semibold py-1 px-2 rounded-2"
+                    title="Back to Trip List"
+                    aria-label="Back to Trip List"
+                >
+                    <svg class="me-1 flex-shrink-0" width="14" height="14" viewBox="0 0 16 16" fill="#000000" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+                    </svg>
+                    <span>Back<span class="d-none d-sm-inline"> to Trip List</span></span>
                 </RouterLink>
             </template>
 
             <template #filters>
-                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                    <span class="fw-bold text-uppercase text-dark small" style="letter-spacing: 0.05em; font-size: 0.8125rem;">SEARCH &amp; FILTERS</span>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
                     <button
                         type="button"
                         class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
@@ -31,7 +38,6 @@
                     >
                         <i class="bi bi-sliders me-1" aria-hidden="true"></i>
                         <span>Filters</span>
-                        <span v-if="filtersActive" class="badge bg-primary text-white rounded-pill ms-1" style="font-size: 0.65rem;">Active</span>
                         <i
                             class="bi ms-1 text-muted"
                             :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
@@ -48,7 +54,7 @@
                         @search="loadTrips(1)"
                         @reset="clearFilters"
                     >
-                        <div class="col-6 col-md-6 col-xl-3 filter-search-col">
+                        <div class="filter-search-col">
                             <label class="form-label small fw-semibold" for="trips_archived_search">Search</label>
                             <AppIndexSearchInput
                                 v-model="filters.search"
@@ -60,7 +66,7 @@
                                 @keydown.enter="loadTrips(1)"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-3 filter-period-col">
+                        <div class="filter-period-col">
                             <DashboardDateRangePicker
                                 v-model:from-date="filters.from_date"
                                 v-model:to-date="filters.to_date"
@@ -71,7 +77,7 @@
                                 @change="onDateRangeChange"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-2 filter-select-col">
+                        <div class="filter-select-col">
                             <label class="form-label small fw-semibold">Status</label>
                             <AppSelect
                                 v-model="filters.status"
@@ -81,7 +87,7 @@
                                 :disabled="loading"
                             />
                         </div>
-                        <div class="col-6 col-md-6 col-xl-4 filter-picker-col">
+                        <div class="filter-picker-col">
                             <label class="form-label small fw-semibold">Customer</label>
                             <SearchablePicker
                                 v-model="filters.customer_id"
@@ -708,31 +714,23 @@ onBeforeUnmount(() => {
     margin-left: auto !important;
 }
 
-/* Header Back button */
-.trip-header-back-btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.35rem 0.85rem;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #0f172a;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    text-decoration: none;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-    transition: all 0.15s ease;
+@media (min-width: 768px) {
+    :deep(.trips-card-header--gradient) {
+        background: #ffffff !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125) !important;
+        padding: 0.75rem 1.25rem !important;
+    }
+
+    :deep(.trips-card-header--gradient .card-title) {
+        color: #212529 !important;
+        font-size: 1.25rem !important;
+    }
+
+    .trips-filters-content {
+        display: block !important;
+    }
 }
 
-.trip-header-back-btn:hover {
-    background: #f8fafc;
-    color: #0f172a;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-}
-
-.trip-header-back-btn:active {
-    transform: translateY(0);
-}
 
 .trips-filters-content {
     animation: fadeIn 0.18s ease-in-out;
@@ -749,12 +747,22 @@ onBeforeUnmount(() => {
     }
 }
 
-/* Filters container and picker integration */
-:deep(.app-index-collapsible-filters__inner) {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: flex-end !important;
-    gap: 10px !important;
+@media (max-width: 991.98px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: flex-end !important;
+        gap: 10px !important;
+    }
+}
+
+@media (min-width: 992px) {
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-end !important;
+        gap: 8px !important;
+    }
 }
 
 :deep(.app-index-filters-fields) {
@@ -905,23 +913,6 @@ onBeforeUnmount(() => {
         margin-bottom: 0 !important;
         line-height: 1.2 !important;
         letter-spacing: -0.01em;
-    }
-
-    .app-index-list-card :deep(.app-index-card-toolbar),
-    :deep(.trips-card-header--gradient .app-index-card-toolbar) {
-        width: auto !important;
-        flex: 0 0 auto !important;
-        margin-left: auto !important;
-        flex-wrap: nowrap !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-    }
-
-    .trip-header-back-btn {
-        padding: 0.28rem 0.55rem !important;
-        font-size: 0.72rem !important;
-        border-radius: 7px !important;
     }
 
     :deep(.app-index-collapsible-filters) {
