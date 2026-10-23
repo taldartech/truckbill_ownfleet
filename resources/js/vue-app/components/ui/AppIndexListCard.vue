@@ -2,13 +2,13 @@
     <div class="card app-index-list-card">
         <div
             v-if="title || $slots.toolbar"
-            class="card-header"
+            class="card-header d-flex flex-row flex-nowrap align-items-center justify-content-between gap-2"
             :class="[{ 'app-index-card-header--toolbar-only': !title && $slots.toolbar }, headerClass]"
         >
-            <h3 v-if="title" class="card-title mb-0">{{ title }}</h3>
+            <h3 v-if="title" class="card-title mb-0 text-nowrap">{{ title }}</h3>
             <div
                 v-if="$slots.toolbar"
-                class="app-index-card-toolbar d-flex flex-wrap gap-2 align-items-center"
+                class="app-index-card-toolbar d-flex flex-row flex-nowrap align-items-center gap-1 gap-md-2 ms-auto flex-shrink-0"
             >
                 <slot name="toolbar" />
             </div>

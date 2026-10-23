@@ -1,5 +1,5 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard locations-index-page">
+    <div class="container mt-4 app-index-page app-index-page--standard app-index-page--inline-filters locations-index-page">
         <ul class="nav nav-tabs mb-3">
             <li class="nav-item">
                 <button
@@ -30,34 +30,51 @@
             loading-text="Loading states…"
         >
             <template #toolbar>
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex d-md-none align-items-center justify-content-center p-0 app-index-header-btn app-index-header-btn--filter"
+                    title="Filters"
+                    aria-label="Toggle search filters"
+                    @click="toggleStateFilters"
+                >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
+                    title="Add State"
                     aria-label="Create state"
                     @click="openStateCreate"
                 >
-                    Add State
+                    <span class="d-none d-md-inline ms-1">Add State</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="locations-states-filters-panel"
-                :loading="loadingStates"
-                @search="loadStates(1)"
-                @reset="clearStateFilters"
-            >
-                <div>
-                    <label class="form-label" for="locationsStates_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="stateSearch"
-                        input-id="locationsStates_search"
-                        placeholder="Search state or code"
-                        max-width="100%"
-                        :disabled="loadingStates"
-                        @keydown.enter="loadStates(1)"
-                    />
+            <template #filters>
+                <div v-show="!isMobile || stateFiltersOpen" class="w-100">
+                    <AppIndexCollapsibleFilters
+                        panel-id="locations-states-filters-panel"
+                        :loading="loadingStates"
+                        @search="loadStates(1)"
+                        @reset="clearStateFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label d-none d-md-block" for="locationsStates_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="stateSearch"
+                                input-id="locationsStates_search"
+                                placeholder="Search state or code"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loadingStates"
+                                @keydown.enter="loadStates(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -107,44 +124,61 @@
             loading-text="Loading cities…"
         >
             <template #toolbar>
+                <button
+                    type="button"
+                    class="btn btn-sm bg-white shadow-sm d-inline-flex d-md-none align-items-center justify-content-center p-0 app-index-header-btn app-index-header-btn--filter"
+                    title="Filters"
+                    aria-label="Toggle search filters"
+                    @click="toggleCityFilters"
+                >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                    </svg>
+                </button>
                 <AppIndexHeaderButton
                     v-if="canManage"
                     icon="plus"
+                    title="Add City"
                     aria-label="Create city"
                     @click="openCityCreate"
                 >
-                    Add City
+                    <span class="d-none d-md-inline ms-1">Add City</span>
                 </AppIndexHeaderButton>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="locations-cities-filters-panel"
-                :loading="loadingCities"
-                @search="loadCities(1)"
-                @reset="clearCityFilters"
-            >
-                <div>
-                    <label class="form-label">State</label>
-                    <AppSelect
-                        v-model="cityStateFilter"
-                        :options="stateOptions"
-                        placeholder="All states"
-                        search-placeholder="Search state…"
-                        :disabled="loadingCities"
-                    />
+            <template #filters>
+                <div v-show="!isMobile || cityFiltersOpen" class="w-100">
+                    <AppIndexCollapsibleFilters
+                        panel-id="locations-cities-filters-panel"
+                        :loading="loadingCities"
+                        @search="loadCities(1)"
+                        @reset="clearCityFilters"
+                    >
+                        <div>
+                            <label class="form-label d-none d-md-block">State</label>
+                            <AppSelect
+                                v-model="cityStateFilter"
+                                :options="stateOptions"
+                                placeholder="All states"
+                                search-placeholder="Search state…"
+                                :disabled="loadingCities"
+                            />
+                        </div>
+                        <div class="filter-search-col">
+                            <label class="form-label d-none d-md-block" for="locationsCities_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="citySearch"
+                                input-id="locationsCities_search"
+                                placeholder="Search city"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loadingCities"
+                                @keydown.enter="loadCities(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-                <div>
-                    <label class="form-label" for="locationsCities_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="citySearch"
-                        input-id="locationsCities_search"
-                        placeholder="Search city"
-                        max-width="100%"
-                        :disabled="loadingCities"
-                        @keydown.enter="loadCities(1)"
-                    />
-                </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -220,7 +254,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import { createCity, listCities } from '../../api/cities';
 import { listStates as listLookupStates } from '../../api/locations';
@@ -283,6 +317,23 @@ const citySaving = ref(false);
 const stateSearch = ref('');
 const citySearch = ref('');
 const cityStateFilter = ref('');
+const isMobile = ref(false);
+const stateFiltersOpen = ref(false);
+const cityFiltersOpen = ref(false);
+
+function toggleStateFilters() {
+    stateFiltersOpen.value = !stateFiltersOpen.value;
+}
+
+function toggleCityFilters() {
+    cityFiltersOpen.value = !cityFiltersOpen.value;
+}
+
+function handleResize() {
+    if (typeof window !== 'undefined') {
+        isMobile.value = window.innerWidth < 768;
+    }
+}
 const showStateCreate = ref(false);
 const showCityCreate = ref(false);
 const cityCreateStateId = ref('');
@@ -502,8 +553,18 @@ async function confirmSave() {
 }
 
 onMounted(async () => {
+    handleResize();
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+    }
     await loadStateOptions();
     await Promise.all([loadStates(1), loadCities(1)]);
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+    }
 });
 </script>
 

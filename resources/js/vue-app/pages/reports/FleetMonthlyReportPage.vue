@@ -8,24 +8,36 @@
 
         <AppIndexListCard :title="pageTitle">
             <template v-if="canExport" #toolbar>
-                <button type="button" class="btn btn-brand-secondary btn-sm report-header-btn" @click="exportExcel">
-                    Export Excel
+                <button
+                    type="button"
+                    class="btn btn-brand-secondary btn-sm report-header-btn report-export-btn"
+                    title="Export Excel"
+                    aria-label="Export Excel"
+                    @click="exportExcel"
+                >
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" class="report-export-btn__icon me-1 flex-shrink-0" aria-hidden="true">
+                        <path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/>
+                        <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                    </svg>
+                    <span class="report-export-btn__text">Export Excel</span>
                 </button>
             </template>
 
-            <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
-                <div>
-                    <label class="form-label">Month</label>
-                    <input v-model="filters.month" type="month" class="form-control" />
-                </div>
-            </AppReportFiltersPanel>
+            <template #filters>
+                <AppReportFiltersPanel :loading="loading" @search="loadReport(1)" @reset="clearFilters">
+                    <div>
+                        <label class="form-label">Month</label>
+                        <input v-model="filters.month" type="month" class="form-control" />
+                    </div>
+                </AppReportFiltersPanel>
 
-            <div
-                class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
-            >
-                <span class="report-results-meta__title">Truck-wise Summary</span>
-                <span v-if="companyName" class="text-muted small">{{ companyName }}</span>
-            </div>
+                <div
+                    class="report-results-meta d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 border-bottom"
+                >
+                    <span class="report-results-meta__title">Truck-wise Summary</span>
+                    <span v-if="companyName" class="text-muted small">{{ companyName }}</span>
+                </div>
+            </template>
 
             <div v-if="loading" class="text-center py-4 text-muted">Loading report…</div>
             <table v-else class="table table-striped table-hover align-middle mb-0 report-table">
@@ -85,7 +97,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 fleet-month-summary-table">
                         <tbody>
                             <tr>
                                 <th scope="row" class="w-25">Total Bill</th>
@@ -225,3 +237,161 @@ onMounted(() => {
     loadReport(1);
 });
 </script>
+
+<style scoped>
+.report-export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.report-export-btn__icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+@media (max-width: 767.98px) {
+    :deep(.card-header) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0.45rem 0.65rem !important;
+        gap: 0.4rem !important;
+    }
+
+    :deep(.card-header .card-title) {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        line-height: 1.25 !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        color: #ffffff !important;
+    }
+
+    :deep(.card-header .app-index-card-toolbar) {
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .report-export-btn {
+        width: auto !important;
+        height: auto !important;
+        min-height: 26px !important;
+        padding: 0.2rem 0.55rem !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.25rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        line-height: 1.2 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #ffffff !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .report-export-btn__icon {
+        font-size: 0.78rem !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        line-height: 1 !important;
+        display: inline-block !important;
+        margin: 0 !important;
+    }
+
+    .report-export-btn__text {
+        display: inline !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        color: var(--brand-primary, #2fb36f) !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+    }
+
+    .report-table {
+        font-size: 0.72rem !important;
+        width: max-content !important;
+        min-width: 100% !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.5rem !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        line-height: 1.3 !important;
+    }
+
+    .report-results-meta {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.8rem !important;
+    }
+
+    .report-results-meta__title {
+        font-size: 0.85rem !important;
+        font-weight: 600;
+    }
+
+    .fleet-month-summary-table {
+        font-size: 0.72rem !important;
+        width: max-content !important;
+        min-width: 100% !important;
+    }
+
+    .fleet-month-summary-table th,
+    .fleet-month-summary-table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.5rem !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        line-height: 1.3 !important;
+    }
+}
+
+@media (max-width: 380px) {
+    :deep(.card-header) {
+        padding: 0.4rem 0.5rem !important;
+        gap: 0.3rem !important;
+    }
+
+    :deep(.card-header .card-title) {
+        font-size: 0.78rem !important;
+    }
+
+    .report-export-btn {
+        min-height: 24px !important;
+        padding: 0.15rem 0.45rem !important;
+        font-size: 0.65rem !important;
+        border-radius: 5px !important;
+        gap: 0.2rem !important;
+    }
+
+    .report-export-btn__icon {
+        font-size: 0.7rem !important;
+    }
+
+    .report-export-btn__text {
+        font-size: 0.65rem !important;
+    }
+
+    .report-table th,
+    .report-table td,
+    .fleet-month-summary-table th,
+    .fleet-month-summary-table td {
+        font-size: 0.68rem !important;
+        padding: 0.3rem 0.4rem !important;
+    }
+}
+</style>

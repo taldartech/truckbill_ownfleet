@@ -1,5 +1,5 @@
 <template>
-    <div class="container mt-4 app-index-page app-index-page--standard">
+    <div class="container mt-4 app-index-page app-index-page--standard app-index-page--inline-filters tyre-layouts-index-page">
         <div v-if="needsCompanySelection" class="alert alert-warning">
             Select a company and click <strong>Enter</strong> before managing tyre layouts.
         </div>
@@ -8,45 +8,62 @@
             <template #toolbar>
                 <div class="d-flex align-items-center gap-2">
                     <button
+                        type="button"
+                        class="btn btn-sm bg-white shadow-sm d-inline-flex d-md-none align-items-center justify-content-center p-0 app-index-header-btn app-index-header-btn--filter"
+                        title="Filters"
+                        aria-label="Toggle search filters"
+                        @click="toggleFilters"
+                    >
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1H6.95a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h1.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H15a.5.5 0 0 1 0 1h-1.05a2.5 2.5 0 0 1-4.9 0H1a.5.5 0 0 1 0-1h8.05z"/>
+                        </svg>
+                    </button>
+                    <button
                         v-if="canCreate && layouts.length === 0 && !needsCompanySelection"
                         type="button"
-                        class="btn btn-outline-secondary btn-sm"
+                        class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center"
                         :disabled="loadingDefaults || loading"
                         title="Load standard truck tyre layout presets"
                         @click="handleSeedDefaults"
                     >
-                        <i class="bi bi-arrow-repeat me-1" :class="{ 'fa-spin': loadingDefaults }"></i>
-                        Load Presets
+                        <i class="bi bi-arrow-repeat" :class="{ 'fa-spin': loadingDefaults }"></i>
+                        <span class="d-none d-md-inline ms-1">Load Presets</span>
                     </button>
                     <AppIndexHeaderButton
                         v-if="canCreate"
                         icon="plus"
+                        title="Add Tyre Layout"
                         aria-label="Add Tyre Layout"
                         @click="openCreate"
                     >
-                        Add Tyre Layout
+                        <span class="d-none d-md-inline ms-1">Add Tyre Layout</span>
                     </AppIndexHeaderButton>
                 </div>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="tyre-layouts-filters-panel"
-                :loading="loading"
-                @search="loadLayouts(1)"
-                @reset="clearFilters"
-            >
-                <div>
-                    <label class="form-label" for="tyreLayoutsIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="search"
-                        input-id="tyreLayoutsIndex_search"
-                        placeholder="Search by Layout Name"
-                        max-width="100%"
-                        :disabled="loading"
-                        @keydown.enter="loadLayouts(1)"
-                    />
+            <template #filters>
+                <div v-show="!isMobile || filtersOpen" class="w-100">
+                    <AppIndexCollapsibleFilters
+                        panel-id="tyre-layouts-filters-panel"
+                        :loading="loading"
+                        @search="loadLayouts(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label d-none d-md-block" for="tyreLayoutsIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="search"
+                                input-id="tyreLayoutsIndex_search"
+                                placeholder="Search by Layout Name"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadLayouts(1)"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
@@ -290,7 +307,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import {
     computePositionCount,
@@ -350,6 +367,18 @@ const layouts = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const search = ref('');
+const isMobile = ref(false);
+const filtersOpen = ref(false);
+
+function toggleFilters() {
+    filtersOpen.value = !filtersOpen.value;
+}
+
+function handleResize() {
+    if (typeof window !== 'undefined') {
+        isMobile.value = window.innerWidth < 768;
+    }
+}
 const showModal = ref(false);
 const showAdvanced = ref(false);
 const editing = ref(null);
@@ -632,7 +661,17 @@ function handleDelete(tyreLayout) {
     });
 }
 onMounted(async () => {
+    handleResize();
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+    }
     await loadLayouts();
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+    }
 });
 </script>
 

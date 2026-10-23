@@ -37,7 +37,7 @@
              SECTION 1 — TRIP DETAILS
         ───────────────────────────────────────────────────────────────── -->
         <div class="trf-section">
-            <div class="trf-section__head">
+            <div class="trf-section__head trf-section__head--trip-details">
                 <div class="trf-section__head-left">
                     <div class="trf-step-num">1</div>
                     <div>
@@ -3654,7 +3654,119 @@ defineExpose({
     line-height: 1.3;
     text-align: right;
 }
-@media (max-width: 767px) {
+@media (min-width: 768px) {
+    .trf-section__head--trip-details {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+    .trf-section__head--trip-details .trf-section__head-left {
+        flex: 0 1 auto !important;
+        width: auto !important;
+    }
+    .trf-section__head--trip-details .trf-section__head-right {
+        flex: 1 1 auto !important;
+        width: auto !important;
+        justify-content: flex-end !important;
+        margin-top: 0 !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id--head {
+        max-width: min(100%, 420px) !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 6px 10px !important;
+        width: auto !important;
+        margin: 0 !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__meta {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__label {
+        font-size: var(--fs-label) !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__value {
+        display: flex !important;
+        align-items: stretch !important;
+        min-width: 0 !important;
+        width: 220px !important;
+        max-width: 100% !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__preview {
+        min-height: 34px !important;
+        font-size: .78rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__seq {
+        width: 3.75rem !important;
+        flex: 0 0 3.75rem !important;
+        min-height: 34px !important;
+        font-size: .78rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__hint {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        text-align: right !important;
+        margin: 0 !important;
+        font-size: var(--fs-hint) !important;
+        color: #64748b !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id--head .trf-pf__err {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        text-align: right !important;
+    }
+}
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .trf-section__head--trip-details {
+        padding: 10px 16px !important;
+        gap: 10px !important;
+        min-height: 56px !important;
+    }
+    .trf-section__head--trip-details .trf-section__head-left {
+        gap: 10px !important;
+    }
+    .trf-section__head--trip-details .trf-section__title {
+        font-size: 0.95rem !important;
+    }
+    .trf-section__head--trip-details .trf-section__desc {
+        font-size: 0.72rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id--head {
+        max-width: 380px !important;
+        gap: 4px 8px !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__label {
+        font-size: 0.75rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__value {
+        width: 205px !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__preview {
+        min-height: 32px !important;
+        padding: 5px 8px !important;
+        font-size: 0.74rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__seq {
+        width: 3.25rem !important;
+        flex: 0 0 3.25rem !important;
+        min-height: 32px !important;
+        padding: 5px 3px !important;
+        font-size: 0.74rem !important;
+    }
+    .trf-section__head--trip-details .trf-trip-id__hint {
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+    }
+}
+@media (max-width: 767.98px) {
     .trf-section__head {
         flex-wrap: wrap;
         align-items: flex-start;
@@ -3663,9 +3775,14 @@ defineExpose({
         flex: 1 1 100%;
         justify-content: flex-start;
     }
+    .trf-section__head--trip-details .trf-section__head-right {
+        margin-top: 6px;
+    }
     .trf-trip-id--head {
         max-width: none;
-        flex: 1;
+        flex: 1 1 100%;
+        width: 100%;
+        justify-content: flex-start;
     }
     .trf-trip-id__value {
         width: 100%;
@@ -4419,7 +4536,84 @@ defineExpose({
     cursor: not-allowed;
     box-shadow: none;
 }
-@media (max-width: 991px) {
+@media (min-width: 576px) and (max-width: 1199.98px) {
+    .trf-section__head--green {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 10px 14px !important;
+        gap: 8px 12px !important;
+        min-height: 56px !important;
+    }
+    .trf-section__head--green .trf-section__head-left {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    .trf-section__head--green .trf-section__title {
+        font-size: 0.95rem !important;
+        white-space: nowrap !important;
+    }
+    .trf-section__head--green .trf-section__desc {
+        font-size: 0.72rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 220px !important;
+    }
+    .trf-section__head--green .trf-route-type-badge {
+        font-size: 0.68rem !important;
+        padding: 2px 7px !important;
+        min-width: auto !important;
+        gap: 4px !important;
+        margin-left: 0 !important;
+        flex-shrink: 0 !important;
+    }
+    .trf-section__head--green .trf-section__head-right {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        margin-top: 0 !important;
+        margin-left: auto !important;
+        justify-content: flex-end !important;
+    }
+    .trf-route-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        width: auto !important;
+        justify-content: flex-end !important;
+    }
+    .trf-route-actions .trf-head-btn {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        min-width: auto !important;
+        font-size: 0.74rem !important;
+        padding: 5px 9px !important;
+        min-height: 30px !important;
+        gap: 4px !important;
+        white-space: nowrap !important;
+        border-radius: 6px !important;
+    }
+    .trf-route-actions .trf-head-btn i {
+        font-size: 0.78rem !important;
+    }
+    .trf-route-actions .trf-head-btn span {
+        white-space: nowrap !important;
+        overflow: visible !important;
+        font-size: inherit !important;
+    }
+    .trf-route-actions .trf-head-btn--solid {
+        min-width: auto !important;
+        padding: 5px 12px !important;
+    }
+}
+@media (max-width: 575.98px) {
     .trf-section__head {
         flex-wrap: wrap;
         align-items: flex-start;
@@ -5182,71 +5376,73 @@ defineExpose({
         grid-column: 1 / -1;
     }
 
-    /* Section 2 Header & Single Line Texts */
-    .trf-section__head {
-        padding: 8px 10px !important;
-        gap: 8px !important;
-    }
-    .trf-section__head-left {
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-    }
-    .trf-section__head-left > div:nth-child(2) {
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-    }
-    .trf-section__desc {
-        font-size: 0.65rem !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        margin-top: 1px !important;
-    }
-    .trf-route-type-badge {
-        min-width: auto !important;
-        padding: 2px 7px !important;
-        font-size: 0.62rem !important;
-        gap: 3px !important;
-        margin-left: auto !important;
-        flex-shrink: 0 !important;
-    }
+    /* Section 2 Header & Single Line Texts for small mobile phones (< 576px) */
+    @media (max-width: 575.98px) {
+        .trf-section__head {
+            padding: 8px 10px !important;
+            gap: 8px !important;
+        }
+        .trf-section__head-left {
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+        .trf-section__head-left > div:nth-child(2) {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        .trf-section__desc {
+            font-size: 0.65rem !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            margin-top: 1px !important;
+        }
+        .trf-route-type-badge {
+            min-width: auto !important;
+            padding: 2px 7px !important;
+            font-size: 0.62rem !important;
+            gap: 3px !important;
+            margin-left: 0 !important;
+            flex-shrink: 0 !important;
+        }
 
-    /* Step 2 action buttons strictly in 1 horizontal row */
-    .trf-section__head-right {
-        width: 100% !important;
-        margin-top: 2px !important;
-    }
-    .trf-route-actions {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        width: 100% !important;
-        gap: 4px !important;
-        justify-content: space-between !important;
-    }
-    .trf-route-actions .trf-head-btn {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        width: 0 !important;
-        padding: 5px 3px !important;
-        font-size: 0.68rem !important;
-        white-space: nowrap !important;
-        text-align: center !important;
-        justify-content: center !important;
-        gap: 3px !important;
-        border-radius: 6px !important;
-        min-height: 32px !important;
-    }
-    .trf-route-actions .trf-head-btn i {
-        font-size: 0.72rem !important;
-        flex-shrink: 0 !important;
-    }
-    .trf-route-actions .trf-head-btn span {
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        font-size: inherit !important;
+        /* Step 2 action buttons strictly in 1 horizontal row */
+        .trf-section__head-right {
+            width: 100% !important;
+            margin-top: 2px !important;
+        }
+        .trf-route-actions {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            gap: 4px !important;
+            justify-content: space-between !important;
+        }
+        .trf-route-actions .trf-head-btn {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            width: 0 !important;
+            padding: 5px 3px !important;
+            font-size: 0.68rem !important;
+            white-space: nowrap !important;
+            text-align: center !important;
+            justify-content: center !important;
+            gap: 3px !important;
+            border-radius: 6px !important;
+            min-height: 32px !important;
+        }
+        .trf-route-actions .trf-head-btn i {
+            font-size: 0.72rem !important;
+            flex-shrink: 0 !important;
+        }
+        .trf-route-actions .trf-head-btn span {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-size: inherit !important;
+        }
     }
 
     /* Banners & Empty Panel Single-Line Texts */

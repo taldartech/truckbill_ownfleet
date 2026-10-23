@@ -187,4 +187,75 @@ watch(() => route.params.id, () => {
 </script>
 
 <style scoped>
+@media (max-width: 767.98px) {
+    .company-detail-page {
+        margin-top: 0.5rem !important;
+    }
+
+    .card-header {
+        font-size: 0.82rem !important;
+        padding: 0.5rem 0.75rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.35rem !important;
+    }
+
+    .card-header strong {
+        font-size: 0.82rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+
+    .card-body {
+        font-size: 0.75rem !important;
+        padding: 0.65rem 0.75rem !important;
+    }
+
+    .card-body.row {
+        --bs-gutter-x: 0.5rem !important;
+        --bs-gutter-y: 0.5rem !important;
+    }
+
+    .card-body .col-md-4 {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+
+    .card-body .col-md-12 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    .card-body .text-muted {
+        font-size: 0.68rem !important;
+        display: block !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    .card-body .fw-semibold,
+    .card-body div {
+        font-size: 0.74rem !important;
+        word-break: break-word !important;
+    }
+
+    .app-index-action-btn,
+    :deep(.app-crud-action-button) {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.75rem !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+    }
+}
 </style>

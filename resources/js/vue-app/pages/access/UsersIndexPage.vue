@@ -2,58 +2,88 @@
     <div class="container mt-4 app-index-page app-index-page--standard users-index-page">
         <AppIndexListCard :title="pageTitle" :loading="loading" loading-text="Loading users…">
             <template #toolbar>
-                <AppIndexHeaderButton
+                <button
                     v-if="canCreateUsers"
-                    icon="plus"
+                    type="button"
+                    class="btn btn-sm bg-white text-success shadow-sm d-inline-flex align-items-center justify-content-center fw-semibold rounded-2 p-0 px-md-3 py-md-1"
+                    style="min-width: 32px; height: 32px;"
+                    title="Create User"
                     aria-label="Create user"
                     @click="openCreate"
                 >
-                    Create
-                </AppIndexHeaderButton>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+                    </svg>
+                    <span class="d-none d-md-inline ms-1"><span class="d-none d-lg-inline">Create </span>User</span>
+                </button>
             </template>
 
-            <AppIndexCollapsibleFilters
-                panel-id="users-filters-panel"
-                :loading="loading"
-                @search="loadUsers(1)"
-                @reset="clearFilters"
-            >
-                <div class="filter-search-col">
-                    <label class="form-label" for="usersIndex_search">Search</label>
-                    <AppIndexSearchInput
-                        v-model="filters.search"
-                        input-id="usersIndex_search"
-                        placeholder="Search name, email…"
-                        max-width="100%"
-                        size="md"
-                        :disabled="loading"
-                        @keydown.enter="loadUsers(1)"
-                    />
+            <template #filters>
+                <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                    <span class="fw-bold text-uppercase text-dark small text-nowrap" style="letter-spacing: 0.05em; font-size: 0.8125rem; white-space: nowrap;">SEARCH &amp; FILTERS</span>
+                    <button
+                        type="button"
+                        class="btn btn-sm rounded-pill border bg-white text-dark shadow-sm d-inline-flex align-items-center gap-1 px-3 py-1 fw-semibold"
+                        style="font-size: 0.8125rem;"
+                        :class="{ 'bg-light border-secondary': filtersOpen }"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                        <span>Filters</span>
+                        <i
+                            class="bi ms-1 text-muted"
+                            :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            style="font-size: 0.75rem;"
+                            aria-hidden="true"
+                        ></i>
+                    </button>
                 </div>
-                <div class="filter-select-col">
-                    <label class="form-label">Role</label>
-                    <AppSelect
-                        v-model="filters.user_role_id"
-                        :options="roleFilterOptions"
-                        placeholder="All roles"
-                        search-placeholder="Search role…"
-                        :disabled="loading"
-                    />
+
+                <div v-show="filtersOpen" class="users-filters-content">
+                    <AppIndexCollapsibleFilters
+                        panel-id="users-filters-panel"
+                        :loading="loading"
+                        @search="loadUsers(1)"
+                        @reset="clearFilters"
+                    >
+                        <div class="filter-search-col">
+                            <label class="form-label" for="usersIndex_search">Search</label>
+                            <AppIndexSearchInput
+                                v-model="filters.search"
+                                input-id="usersIndex_search"
+                                placeholder="Search name, email…"
+                                max-width="100%"
+                                size="md"
+                                :disabled="loading"
+                                @keydown.enter="loadUsers(1)"
+                            />
+                        </div>
+                        <div class="filter-select-col">
+                            <label class="form-label">Role</label>
+                            <AppSelect
+                                v-model="filters.user_role_id"
+                                :options="roleFilterOptions"
+                                placeholder="All roles"
+                                search-placeholder="Search role…"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </AppIndexCollapsibleFilters>
                 </div>
-            </AppIndexCollapsibleFilters>
+            </template>
 
             <table class="table table-striped table-hover align-middle mb-0 app-index-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 70px" class="text-center">S.No.</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th v-if="showCompanyColumn">Company</th>
-                        <th v-if="showBranchColumn">Branch</th>
-                        <th>Status</th>
-                        <th v-if="showDocumentAlertsColumn">Document Alerts</th>
-                        <th v-if="canManage" class="app-index-actions-cell" style="width: 120px">Actions</th>
+                        <th style="width: 70px" class="text-center text-nowrap">S.No.</th>
+                        <th class="text-nowrap">Name</th>
+                        <th class="text-nowrap">Email</th>
+                        <th class="text-nowrap">Role</th>
+                        <th v-if="showCompanyColumn" class="text-nowrap">Company</th>
+                        <th v-if="showBranchColumn" class="text-nowrap">Branch</th>
+                        <th class="text-nowrap">Status</th>
+                        <th v-if="showDocumentAlertsColumn" class="text-nowrap">Document Alerts</th>
+                        <th v-if="canManage" class="app-index-actions-cell text-nowrap" style="width: 120px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,8 +91,8 @@
                         <td :colspan="tableColspan" class="text-center text-muted py-4">No users found.</td>
                     </tr>
                     <tr v-for="(userItem, index) in users" :key="userItem.id">
-                        <td class="text-center">{{ rowNumber(index) }}</td>
-                        <td>
+                        <td class="text-center text-nowrap">{{ rowNumber(index) }}</td>
+                        <td class="text-nowrap">
                             <RouterLink
                                 :to="{ name: 'users.show', params: { id: userItem.id } }"
                                 class="user-name-link"
@@ -72,14 +102,14 @@
                             </RouterLink>
                             <span v-if="userItem.is_protected" class="badge bg-secondary ms-1">Protected</span>
                         </td>
-                        <td>{{ userItem.email }}</td>
-                        <td>{{ userItem.role_label }}</td>
-                        <td v-if="showCompanyColumn">{{ userItem.tenant_name ?? '—' }}</td>
-                        <td v-if="showBranchColumn">{{ userItem.branch_name ?? '—' }}</td>
-                        <td>
+                        <td class="text-nowrap">{{ userItem.email }}</td>
+                        <td class="text-nowrap">{{ userItem.role_label }}</td>
+                        <td v-if="showCompanyColumn" class="text-nowrap">{{ userItem.tenant_name ?? '—' }}</td>
+                        <td v-if="showBranchColumn" class="text-nowrap">{{ userItem.branch_name ?? '—' }}</td>
+                        <td class="text-nowrap">
                             <span class="badge bg-success">Active</span>
                         </td>
-                        <td v-if="showDocumentAlertsColumn">
+                        <td v-if="showDocumentAlertsColumn" class="text-nowrap">
                             <span v-if="userItem.document_alerts_live" class="badge bg-success-subtle text-success-emphasis me-1">
                                 Live
                             </span>
@@ -93,7 +123,7 @@
                                 Off
                             </span>
                         </td>
-                        <td v-if="canManage" class="app-index-actions-cell">
+                        <td v-if="canManage" class="app-index-actions-cell text-nowrap">
                             <AppTableActions v-if="!userItem.is_protected">
                                 <!-- <AppCrudActionButton
                                     action="view"
@@ -225,7 +255,6 @@ import AppSelect from '../../components/ui/AppSelect.vue';
 import AppIndexCollapsibleFilters from '../../components/ui/AppIndexCollapsibleFilters.vue';
 import AppIndexSearchInput from '../../components/ui/AppIndexSearchInput.vue';
 import AppCrudActionButton from '../../components/ui/AppCrudActionButton.vue';
-import AppIndexHeaderButton from '../../components/ui/AppIndexHeaderButton.vue';
 import AppIndexListCard from '../../components/ui/AppIndexListCard.vue';
 import AppIndexPartloadPagination from '../../components/ui/AppIndexPartloadPagination.vue';
 import AppTableActions from '../../components/ui/AppTableActions.vue';
@@ -317,6 +346,7 @@ const filters = reactive({
     search: '',
     user_role_id: '',
 });
+const filtersOpen = ref(false);
 
 const roleFilterOptions = computed(() =>
     assignableRoles.value.map((role) => ({
@@ -569,5 +599,309 @@ onMounted(async () => {
 .filter-select-col {
     flex: 0 0 180px;
     width: 180px;
+}
+
+@media (max-width: 767.98px) {
+    :deep(.card-header) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0.65rem 0.85rem !important;
+    }
+
+    :deep(.card-title) {
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+
+    :deep(.app-index-card-toolbar) {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        margin-left: auto !important;
+        display: inline-flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 0.35rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__inner) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: flex-end !important;
+        gap: 6px !important;
+        width: 100% !important;
+        padding: 0.5rem 0.65rem !important;
+    }
+
+    :deep(.app-index-filters-fields) {
+        display: contents !important;
+    }
+
+    /* Row 1: Search input box (left 50%) and Role dropdown (right 50%) in one line */
+    .filter-search-col,
+    :deep(.filter-search-col) {
+        order: 1 !important;
+        flex: 0 0 calc(50% - 3px) !important;
+        width: calc(50% - 3px) !important;
+        max-width: calc(50% - 3px) !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    .filter-select-col,
+    :deep(.filter-select-col) {
+        order: 2 !important;
+        flex: 0 0 calc(50% - 3px) !important;
+        width: calc(50% - 3px) !important;
+        max-width: calc(50% - 3px) !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Row 2: Search and Reset buttons in next line (full width, 50% each) */
+    :deep(.app-index-collapsible-filters__actions) {
+        order: 3 !important;
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        margin-top: 0.25rem !important;
+        margin-left: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    :deep(.app-index-search) {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-label) {
+        font-size: 0.73rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 0.2rem !important;
+        white-space: nowrap !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control),
+    :deep(.app-index-collapsible-filters .select-trigger) {
+        height: 33px !important;
+        min-height: 33px !important;
+        font-size: 0.75rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        line-height: 1.4 !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-collapsible-filters .form-control::placeholder),
+    :deep(.app-index-collapsible-filters .select-trigger-label) {
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        flex: 1 1 0 !important;
+        width: calc(50% - 3px) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 3px) !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 0.2rem 0.5rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        white-space: nowrap !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn .app-index-filter-btn-text),
+    :deep(.app-index-collapsible-filters__btn .app-index-filter-btn-text) {
+        display: inline !important;
+        font-size: 0.75rem !important;
+    }
+
+    :deep(.app-index-collapsible-filters__actions .btn i),
+    :deep(.app-index-collapsible-filters__btn i) {
+        font-size: 0.75rem !important;
+        margin: 0 !important;
+    }
+
+    /* Table micro typography and padding on mobile */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        font-size: 0.72rem !important;
+    }
+
+    .table th {
+        font-size: 0.72rem !important;
+        padding: 0.4rem 0.35rem !important;
+        white-space: nowrap !important;
+    }
+
+    .table td {
+        font-size: 0.72rem !important;
+        padding: 0.35rem 0.35rem !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+    }
+
+    .user-name-link {
+        font-size: 0.72rem !important;
+    }
+
+    .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.35rem !important;
+    }
+
+    :deep(.app-table-actions) {
+        gap: 3px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-wrap: nowrap !important;
+    }
+
+    :deep(.app-table-actions .btn),
+    :deep(.app-table-actions button) {
+        height: 24px !important;
+        min-height: 24px !important;
+        font-size: 0.68rem !important;
+        padding: 0.1rem 0.45rem !important;
+        line-height: 1 !important;
+        border-radius: 4px !important;
+        font-weight: 600 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-crud-action-button),
+    :deep(.app-index-action-btn) {
+        width: 24px !important;
+        height: 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+        font-size: 0.65rem !important;
+        padding: 0 !important;
+        border-radius: 4px !important;
+    }
+
+    :deep(.app-crud-action-button i),
+    :deep(.app-index-action-btn i),
+    :deep(.app-index-action-btn .fas) {
+        font-size: 0.625rem !important;
+    }
+
+    /* Pagination centered in middle on mobile */
+    :deep(.app-index-partload-pagination) {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.45rem !important;
+        padding: 0.6rem 0.6rem !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__summary) {
+        font-size: 0.75rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination__nav) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    :deep(.app-index-partload-pagination__list) {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        justify-content: center !important;
+    }
+
+    :deep(.app-index-partload-pagination .page-link) {
+        padding: 0.22rem 0.45rem !important;
+        font-size: 0.72rem !important;
+    }
+
+    .alert,
+    :deep(.alert) {
+        font-size: 0.72rem !important;
+        line-height: 1.35 !important;
+        padding: 0.45rem 0.65rem !important;
+        margin-top: 0.45rem !important;
+        margin-bottom: 0.45rem !important;
+        border-radius: 6px !important;
+    }
+
+    .alert .alert-link,
+    :deep(.alert .alert-link) {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+    }
+
+    .card.app-index-list-card .card-body {
+        padding: 0.5rem 0.65rem !important;
+    }
+
+    .card.app-index-list-card h6 {
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    .card.app-index-list-card p {
+        font-size: 0.68rem !important;
+        line-height: 1.3 !important;
+        margin-bottom: 0.35rem !important;
+    }
+
+    .card.app-index-list-card .btn {
+        height: 26px !important;
+        font-size: 0.72rem !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: 4px !important;
+    }
+
+    .card.app-index-list-card .form-check-label {
+        font-size: 0.72rem !important;
+    }
+}
+
+@media (max-width: 380px) {
+    :deep(.app-index-collapsible-filters__actions .btn),
+    :deep(.app-index-collapsible-filters__btn) {
+        font-size: 0.7rem !important;
+        height: 26px !important;
+        min-height: 26px !important;
+    }
 }
 </style>
