@@ -39,7 +39,9 @@ class VehicleManagementTest extends TestCase
             ->assertJsonPath('data.is_active', false);
 
         $this->actingAs($admin)
-            ->deleteJson("/app/api/vehicles/{$vehicle->id}")
+            ->deleteJson("/app/api/vehicles/{$vehicle->id}", [
+                'deleted_reason' => 'Decommissioned vehicle',
+            ])
             ->assertNoContent();
 
         $this->assertSoftDeleted('vehicles', [
@@ -91,7 +93,9 @@ class VehicleManagementTest extends TestCase
         $vehicle = $this->createVehicle($tenant);
 
         $this->actingAs($superAdmin)
-            ->deleteJson("/app/api/vehicles/{$vehicle->id}")
+            ->deleteJson("/app/api/vehicles/{$vehicle->id}", [
+                'deleted_reason' => 'Decommissioned vehicle',
+            ])
             ->assertNoContent();
 
         $this->assertSoftDeleted('vehicles', [
@@ -185,7 +189,9 @@ class VehicleManagementTest extends TestCase
         $vehicle = $this->createVehicle($tenant, 'RJ27AV5001');
 
         $this->actingAs($admin)
-            ->deleteJson("/app/api/vehicles/{$vehicle->id}")
+            ->deleteJson("/app/api/vehicles/{$vehicle->id}", [
+                'deleted_reason' => 'Decommissioned vehicle',
+            ])
             ->assertNoContent();
 
         $this->assertSoftDeleted('vehicles', [

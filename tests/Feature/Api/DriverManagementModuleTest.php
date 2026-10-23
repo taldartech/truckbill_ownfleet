@@ -690,7 +690,9 @@ class DriverManagementModuleTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->deleteJson("/api/drivers/{$driver->id}")
+            ->deleteJson("/api/drivers/{$driver->id}", [
+                'deleted_reason' => 'Driver resigned',
+            ])
             ->assertNoContent();
 
         $this->assertNull(Driver::query()->find($driver->id));

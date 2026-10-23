@@ -76,7 +76,7 @@ class MonthlyExpenseController extends Controller
         DeleteMonthlyExpenseRequest $request,
         MonthlyExpense $monthlyExpense
     ): Response {
-        $this->authorize('monthly_expenses.manage');
+        $this->authorize('monthly_expenses.edit');
 
         $monthlyExpense->update([
             'deleted_reason' => $request->validated('deleted_reason'),

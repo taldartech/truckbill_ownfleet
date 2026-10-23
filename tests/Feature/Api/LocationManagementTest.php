@@ -163,6 +163,8 @@ class LocationManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
             'name' => fake()->name(),
