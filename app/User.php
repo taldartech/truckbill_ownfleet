@@ -24,6 +24,11 @@ class User extends Authenticatable
     use UsesUuid;
     use SoftDeletes;
 
+    public static function bootSoftDeletes(): void
+    {
+        static::addGlobalScope(new \App\Scopes\SafeSoftDeletingScope);
+    }
+
     private ?string $cachedEffectiveTenantId = null;
 
     private bool $effectiveTenantIdResolved = false;
@@ -71,6 +76,11 @@ class User extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'deleted_by');
     }
 
     /**
