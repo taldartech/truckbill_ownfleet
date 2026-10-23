@@ -2086,7 +2086,7 @@ class TripManagementTest extends TestCase
             ->getJson('/api/reports/trips/expense-summary');
 
         $response->assertOk();
-        $response->assertJsonStructure(['data' => [['trip_count', 'entry_count', 'total_amount']]]);
+        $response->assertJsonPath('summary.trip_count', 1);
     }
 
     public function test_route_profitability_report_uses_stored_leg_distances(): void

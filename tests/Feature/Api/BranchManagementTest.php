@@ -55,7 +55,9 @@ class BranchManagementTest extends TestCase
             ->assertJsonPath('data.branch_name', 'HQ Updated');
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branchId)
+            ->deleteJson('/app/api/branches/'.$branchId, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk()
             ->assertJsonPath('message', 'Branch deleted.');
 
@@ -123,7 +125,9 @@ class BranchManagementTest extends TestCase
         ]);
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branch->id)
+            ->deleteJson('/app/api/branches/'.$branch->id, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk();
 
         $this->assertSoftDeleted('branches', ['id' => $branch->id]);
@@ -249,7 +253,9 @@ class BranchManagementTest extends TestCase
         $branchId = Branch::query()->value('id');
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branchId)
+            ->deleteJson('/app/api/branches/'.$branchId, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk();
 
         $this->actingAs($superAdmin)

@@ -114,7 +114,7 @@ class RolePermissionManagementTest extends TestCase
 
         $response = $this->actingAs($master)->deleteJson("/app/api/managed-users/{$target->id}");
 
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
     public function test_moderator_cannot_access_role_api(): void

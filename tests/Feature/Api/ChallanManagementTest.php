@@ -124,7 +124,9 @@ class ChallanManagementTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id);
 
         $this->actingAs($user)
-            ->deleteJson("/app/api/challans/{$challan->id}")
+            ->deleteJson("/app/api/challans/{$challan->id}", [
+                'deleted_reason' => 'Challan cancelled',
+            ])
             ->assertNoContent();
 
         $this->assertNull(Challan::query()->find($challan->id));
@@ -154,7 +156,9 @@ class ChallanManagementTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id);
 
         $this->actingAs($user)
-            ->deleteJson("/app/api/challans/{$challan->id}")
+            ->deleteJson("/app/api/challans/{$challan->id}", [
+                'deleted_reason' => 'Challan cancelled',
+            ])
             ->assertNoContent();
 
         $this->actingAs($user)
