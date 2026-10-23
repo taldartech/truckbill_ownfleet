@@ -115,7 +115,7 @@ class ManagedUserBranchTest extends TestCase
 
     private function createOwnedTenant(User $owner, string $name, ?string $shortName = null): Tenant
     {
-        return Tenant::query()->create([
+        $tenant = Tenant::query()->create([
             'owner_user_id' => $owner->id,
             'name' => $name,
             'slug' => str($name)->slug()->toString(),
@@ -123,6 +123,10 @@ class ManagedUserBranchTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        $this->provisionActiveSubscription($tenant);
+
+        return $tenant;
     }
 
     private function createBranch(Tenant $tenant, string $name): Branch

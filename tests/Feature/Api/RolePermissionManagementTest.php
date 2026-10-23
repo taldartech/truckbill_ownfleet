@@ -151,6 +151,8 @@ class RolePermissionManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($ownedTenant);
+
         $ownedBranch = \App\Branch::query()->create([
             'company_id' => $ownedTenant->id,
             'branch_name' => 'Owned Co',

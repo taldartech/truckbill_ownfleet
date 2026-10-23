@@ -99,7 +99,7 @@ class VehicleDocumentStorageTest extends TestCase
         $response->assertJsonPath('data.original_filename', 'insurance.pdf');
 
         $documentId = $response->json('data.id');
-        $path = \App\VehicleDocument::query()->findOrFail($documentId)->file_path;
+        $path = \App\VehicleDocument::withoutGlobalScopes()->findOrFail($documentId)->file_path;
 
         $this->assertStringStartsWith("{$tenant->id}/vehicles/{$vehicle->id}/insurance/", $path);
         Storage::disk('fleet_documents')->assertExists($path);
@@ -121,7 +121,7 @@ class VehicleDocumentStorageTest extends TestCase
         $file = UploadedFile::fake()->create('rc.pdf', 50, 'application/pdf');
 
         $create = $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->post('/api/vehicle-documents', [
+            ->postJson('/api/vehicle-documents', [
                 'vehicle_id' => $vehicle->id,
                 'document_type' => VehicleDocumentType::Rc->value,
                 'issue_date' => now()->toDateString(),
@@ -130,7 +130,7 @@ class VehicleDocumentStorageTest extends TestCase
             ]);
 
         $id = $create->json('data.id');
-        $path = \App\VehicleDocument::query()->findOrFail($id)->file_path;
+        $path = \App\VehicleDocument::withoutGlobalScopes()->findOrFail($id)->file_path;
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->delete("/api/vehicle-documents/{$id}")
@@ -259,8 +259,13 @@ class VehicleDocumentStorageTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->provisionActiveSubscription($tenant);
+
+        $operational = $this->operationalAttributesForTenant($tenant);
+
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $operational['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -272,8 +277,11 @@ class VehicleDocumentStorageTest extends TestCase
 
     private function createVehicle(Tenant $tenant, array $attributes = []): Vehicle
     {
+        $operational = $this->operationalAttributesForTenant($tenant);
+
         return Vehicle::query()->create(array_merge([
             'tenant_id' => $tenant->id,
+            'branch_id' => $operational['branch_id'],
             'registration_number' => 'MH12AB1234',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 0,
