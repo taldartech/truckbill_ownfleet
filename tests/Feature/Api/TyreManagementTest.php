@@ -8,6 +8,9 @@ use App\Enums\TyreStatus;
 use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\Tyre;
+use App\TyreAuditLog;
+use App\TyreDamage;
+use App\TyreRotation;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
@@ -58,6 +61,16 @@ class TyreManagementTest extends TestCase
             'id' => $tyreId,
             'status' => TyreStatus::Installed->value,
         ]);
+
+        $installLog = TyreAuditLog::query()
+            ->where('tyre_id', $tyreId)
+            ->where('event_type', 'tyre.installed')
+            ->firstOrFail();
+        $this->assertSame($vehicle->id, $installLog->vehicle_id);
+        $this->assertSame(TyrePosition::FrontLeft->value, $installLog->payload['position_code']);
+        $this->assertTrue($installLog->tyre->is(Tyre::query()->find($tyreId)));
+        $this->assertTrue($installLog->vehicle->is($vehicle));
+        $this->assertTrue(Tyre::query()->find($tyreId)->auditLogs->contains($installLog));
     }
 
     public function test_tyre_install_date_cannot_be_before_purchase_date(): void
@@ -313,6 +326,14 @@ class TyreManagementTest extends TestCase
             'installed_at' => '2026-03-01',
             'stint_status' => 'IN_STOCK',
         ]);
+
+        $scrapLog = TyreAuditLog::query()
+            ->where('tyre_id', $tyreId)
+            ->where('event_type', 'tyre.scrapped')
+            ->firstOrFail();
+        $this->assertSame('2026-03-02', $scrapLog->payload['scrapped_at']);
+        $this->assertTrue($scrapLog->tyre->is(Tyre::query()->find($tyreId)));
+        $this->assertTrue(Tyre::query()->find($tyreId)->auditLogs->contains($scrapLog));
     }
 
     public function test_remove_rejects_unrealistic_same_day_stint(): void
@@ -619,6 +640,186 @@ class TyreManagementTest extends TestCase
             'previous_position' => TyrePosition::FrontRight->value,
             'new_position' => TyrePosition::FrontLeft->value,
         ]);
+
+        $leftRotation = TyreRotation::query()->where('tyre_id', $leftTyreId)->firstOrFail();
+        $this->assertEquals($leftTyreId, $leftRotation->tyre->id);
+        $this->assertEquals('TYRE-LEFT', $leftRotation->tyre->serial_number);
+        $this->assertEquals($vehicle->id, $leftRotation->vehicle->id);
+
+        $rightRotation = TyreRotation::query()->where('tyre_id', $rightTyreId)->firstOrFail();
+        $this->assertEquals($rightTyreId, $rightRotation->tyre->id);
+        $this->assertEquals('TYRE-RIGHT', $rightRotation->tyre->serial_number);
+        $this->assertEquals($vehicle->id, $rightRotation->vehicle->id);
+    }
+
+    public function test_rotate_moves_tyre_to_unoccupied_position_without_swap(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-SOLO', TyrePosition::FrontLeft->value);
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/rotate", [
+                'rotation_date' => '2026-06-05',
+                'previous_position' => TyrePosition::FrontLeft->value,
+                'new_position' => TyrePosition::FrontRight->value,
+                'cost' => 300,
+                'stint_km' => 5000,
+                'reason' => 'Routine rotation to empty slot',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.new_position', TyrePosition::FrontRight->value);
+
+        $this->assertDatabaseHas('tyre_installations', [
+            'tyre_id' => $tyreId,
+            'vehicle_id' => $vehicle->id,
+            'position_code' => TyrePosition::FrontRight->value,
+            'removed_at' => null,
+        ]);
+
+        $this->assertDatabaseCount('tyre_rotations', 1);
+
+        $rotation = TyreRotation::query()->where('tyre_id', $tyreId)->firstOrFail();
+        $this->assertEquals($tyreId, $rotation->tyre->id);
+        $this->assertEquals($vehicle->id, $rotation->vehicle->id);
+
+        $rotateLog = TyreAuditLog::query()
+            ->where('tyre_id', $tyreId)
+            ->where('event_type', 'tyre.rotated')
+            ->firstOrFail();
+        $this->assertSame($vehicle->id, $rotateLog->vehicle_id);
+        $this->assertSame(TyrePosition::FrontLeft->value, $rotateLog->payload['previous_position']);
+        $this->assertSame(TyrePosition::FrontRight->value, $rotateLog->payload['new_position']);
+        $this->assertTrue($rotateLog->tyre->is(Tyre::query()->find($tyreId)));
+        $this->assertTrue($rotateLog->vehicle->is($vehicle));
+        $this->assertTrue(Tyre::query()->find($tyreId)->auditLogs->contains($rotateLog));
+    }
+
+    public function test_cannot_rotate_uninstalled_tyre(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-STOCK',
+            ]));
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/rotate", [
+                'rotation_date' => '2026-06-05',
+                'previous_position' => TyrePosition::FrontLeft->value,
+                'new_position' => TyrePosition::FrontRight->value,
+                'cost' => 500,
+                'stint_km' => 1000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['new_position']);
+    }
+
+    public function test_cannot_rotate_scrapped_tyre(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-SCRAPPED',
+            ]));
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/scrap", [
+                'scrapped_at' => '2026-06-01',
+                'scrap_notes' => 'Damaged beyond repair',
+            ])
+            ->assertOk();
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/rotate", [
+                'rotation_date' => '2026-06-05',
+                'previous_position' => TyrePosition::FrontLeft->value,
+                'new_position' => TyrePosition::FrontRight->value,
+                'cost' => 500,
+                'stint_km' => 1000,
+            ])
+            ->assertUnprocessable();
+    }
+
+    public function test_cannot_rotate_when_previous_position_does_not_match_current_position(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-MISMATCH', TyrePosition::FrontLeft->value);
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/rotate", [
+                'rotation_date' => '2026-06-05',
+                'previous_position' => TyrePosition::FrontRight->value,
+                'new_position' => TyrePosition::RearLeftInner->value,
+                'cost' => 500,
+                'stint_km' => 2000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['previous_position'])
+            ->assertJsonPath('errors.previous_position.0', 'Does not match current tyre position.');
+    }
+
+    public function test_cannot_install_already_installed_tyre_on_another_vehicle(): void
+    {
+        [$tenant, $user, $vehicleA] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $operational = $this->operationalAttributesForTenant($tenant);
+        $vehicleB = Vehicle::query()->create(array_merge($operational, [
+            'registration_number' => 'MH12TY0002',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 8000,
+        ]));
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicleA, 'TYRE-MOUNTED', TyrePosition::FrontLeft->value);
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicleB->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-06-05',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tyre'])
+            ->assertJsonPath('errors.tyre.0', 'Only in-stock tyres can be installed.');
+    }
+
+    public function test_cannot_install_scrapped_tyre(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-SCRAP-NO-INSTALL',
+            ]));
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/scrap", [
+                'scrapped_at' => '2026-06-01',
+                'scrap_notes' => 'Total tyre failure',
+            ])
+            ->assertOk();
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/install", [
+                'vehicle_id' => $vehicle->id,
+                'position_code' => TyrePosition::FrontLeft->value,
+                'installed_at' => '2026-06-05',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tyre'])
+            ->assertJsonPath('errors.tyre.0', 'Scrapped tyres cannot be installed.');
     }
 
     public function test_early_removal_shows_recommendation_when_life_remaining(): void
@@ -906,6 +1107,10 @@ class TyreManagementTest extends TestCase
             'expected_life_km' => 55000,
         ]);
 
+        $damage = TyreDamage::query()->where('tyre_id', $tyreId)->firstOrFail();
+        $this->assertEquals($tyreId, $damage->tyre->id);
+        $this->assertEquals('TYRE-RECAP', $damage->tyre->serial_number);
+
         $show = $this->tyreApi($tenant)
             ->withHeader('X-Branch-Id', (string) $operational['branch_id'])
             ->getJson("/api/tyres/{$tyreId}");
@@ -938,6 +1143,68 @@ class TyreManagementTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['expected_life_km']);
+    }
+
+    public function test_record_damage_on_installed_tyre_links_vehicle_and_records_expense(): void
+    {
+        [$tenant, $user, $vehicle] = $this->createFixtures('admin');
+        Sanctum::actingAs($user);
+
+        $tyreId = $this->createAndInstallTyre($tenant, $vehicle, 'TYRE-PUNCTURE', TyrePosition::FrontLeft->value);
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/damage", [
+                'damage_type' => TyreDamageType::Puncture->value,
+                'occurred_at' => now()->toDateString(),
+                'odometer_km' => 6000,
+                'repair_cost' => 450,
+                'description' => 'Highway puncture patched',
+                'is_repaired' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.position', TyrePosition::FrontLeft->value)
+            ->assertJsonPath('data.repair_cost', 450)
+            ->assertJsonPath('data.vehicle_registration', $vehicle->registration_number);
+
+        $damage = TyreDamage::query()->where('tyre_id', $tyreId)->firstOrFail();
+        $this->assertEquals($tyreId, $damage->tyre->id);
+        $this->assertEquals($vehicle->id, $damage->vehicle?->id);
+        $this->assertEquals(TyrePosition::FrontLeft->value, $damage->position_code);
+
+        $this->assertDatabaseHas('tyre_expenses', [
+            'tyre_id' => $tyreId,
+            'expense_type' => 'REPAIR',
+            'amount' => 450,
+        ]);
+    }
+
+    public function test_cannot_record_damage_on_scrapped_tyre(): void
+    {
+        [$tenant, $user] = array_slice($this->createFixtures('admin'), 0, 2);
+        Sanctum::actingAs($user);
+
+        $create = $this->tyreApi($tenant)
+            ->postJson('/api/tyres', $this->validTyrePayload([
+                'serial_number' => 'TYRE-SCRAP-DMG',
+            ]));
+        $tyreId = $create->json('data.id');
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/scrap", [
+                'scrapped_at' => now()->subDay()->toDateString(),
+                'scrap_notes' => 'Decommissioned',
+            ])
+            ->assertOk();
+
+        $this->tyreApi($tenant)
+            ->postJson("/api/tyres/{$tyreId}/damage", [
+                'damage_type' => TyreDamageType::Puncture->value,
+                'occurred_at' => now()->toDateString(),
+                'odometer_km' => 1000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tyre'])
+            ->assertJsonPath('errors.tyre.0', 'Cannot record repair on a scrapped tyre.');
     }
 
     public function test_moderator_can_view_tyres_but_not_manage(): void
@@ -1040,6 +1307,15 @@ class TyreManagementTest extends TestCase
             'position_code' => 'FRONT_LEFT',
             'removed_at' => null,
         ]);
+
+        $removeLog = TyreAuditLog::query()
+            ->where('tyre_id', $oldTyreId)
+            ->where('event_type', 'tyre.removed')
+            ->firstOrFail();
+        $this->assertTrue($removeLog->payload['replaced']);
+        $this->assertTrue($removeLog->tyre->is(Tyre::query()->find($oldTyreId)));
+        $this->assertTrue($removeLog->vehicle->is($vehicle));
+        $this->assertTrue(Tyre::query()->find($oldTyreId)->auditLogs->contains($removeLog));
     }
 
     public function test_cost_per_km_report_uses_lifetime_km_without_double_counting(): void
@@ -1128,6 +1404,16 @@ class TyreManagementTest extends TestCase
             'id' => $tyreId,
             'last_tread_depth_mm' => 8.5,
         ]);
+
+        $inspLog = TyreAuditLog::query()
+            ->where('tyre_id', $tyreId)
+            ->where('event_type', 'tyre.inspected')
+            ->firstOrFail();
+        $this->assertSame('PASS', $inspLog->payload['result']);
+        $this->assertEquals(8.5, $inspLog->payload['tread_depth_mm']);
+        $this->assertSame('2026-10-05', $inspLog->payload['next_due_at']);
+        $this->assertTrue($inspLog->tyre->is(Tyre::query()->find($tyreId)));
+        $this->assertTrue(Tyre::query()->find($tyreId)->auditLogs->contains($inspLog));
     }
 
     private function activeInstallationId(string $tyreId): string

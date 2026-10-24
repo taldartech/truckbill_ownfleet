@@ -91,7 +91,10 @@ class MonthlyExpenseTest extends TestCase
         $this->assertDatabaseHas('monthly_expenses', [
             'tenant_id' => $tenant->id,
             'id' => $expenseId,
+            'deleted_by' => $user->id,
         ]);
+        $trashed = \App\MonthlyExpense::withTrashed()->findOrFail($expenseId);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
     }
 
     public function test_monthly_expenses_are_isolated_by_branch(): void

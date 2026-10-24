@@ -89,7 +89,10 @@ class GoodsTypeManagementTest extends TestCase
         $this->assertDatabaseHas('goods_types', [
             'id' => $type->id,
             'is_active' => false,
+            'deleted_by' => $admin->id,
         ]);
+        $trashed = \App\GoodsType::withTrashed()->findOrFail($type->id);
+        $this->assertEquals($admin->id, $trashed->deletedBy?->id);
 
         $this->actingAs($admin)
             ->getJson('/app/api/goods-types')

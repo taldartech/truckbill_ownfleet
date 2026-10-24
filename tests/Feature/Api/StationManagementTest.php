@@ -92,6 +92,39 @@ class StationManagementTest extends TestCase
             ->assertJsonPath('data.name', 'Pune Hub');
     }
 
+    public function test_admin_can_delete_station_and_records_deleted_by(): void
+    {
+        [$tenant, $user, $firstBranchId] = $this->createCompanyWithTwoBranches('admin');
+
+        $city = City::query()
+            ->whereHas('state', fn ($query) => $query->where('code', 'MH'))
+            ->where('name', 'Mumbai')
+            ->firstOrFail();
+
+        $station = Station::query()->create([
+            'tenant_id' => $tenant->id,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Station To Delete',
+        ]);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($firstBranchId));
+
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $firstBranchId)
+            ->deleteJson("/api/stations/{$station->id}", [
+                'deleted_reason' => 'Closing station',
+            ])
+            ->assertNoContent();
+
+        $this->assertSoftDeleted('stations', ['id' => $station->id]);
+        $trashed = Station::withTrashed()->findOrFail($station->id);
+        $this->assertSame($user->id, $trashed->deleted_by);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: int, 3: Branch}
      */

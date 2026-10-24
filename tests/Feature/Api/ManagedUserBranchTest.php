@@ -100,6 +100,16 @@ class ManagedUserBranchTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.branch_id', $branch->id);
+
+        $this->actingAs($superAdmin)
+            ->deleteJson('/app/api/managed-users/'.$userId, [
+                'deleted_reason' => 'User left company',
+            ])
+            ->assertNoContent();
+
+        $trashed = User::withTrashed()->findOrFail($userId);
+        $this->assertSame($superAdmin->id, $trashed->deleted_by);
+        $this->assertEquals($superAdmin->id, $trashed->deletedBy?->id);
     }
 
     private function createSuperAdmin(): User

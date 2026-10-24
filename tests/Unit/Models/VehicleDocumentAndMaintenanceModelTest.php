@@ -2,19 +2,125 @@
 
 namespace Tests\Unit\Models;
 
+use App\Battery;
+use App\BatteryInstallation;
+use App\DriverAssignment;
+use App\Enums\BatteryStatus;
 use App\MaintenanceServiceType;
+use App\Support\BranchContext;
 use App\Support\MaintenanceDueStatus;
+use App\Support\TenantContext;
 use App\Tenant;
+use App\Trip;
 use App\User;
+use App\UserRole;
 use App\Vehicle;
 use App\VehicleDocument;
 use App\VehicleMaintenance;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class VehicleDocumentAndMaintenanceModelTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_vehicle_model_relations(): void
+    {
+        $vehicle = new Vehicle();
+
+        $this->assertInstanceOf(BelongsTo::class, $vehicle->tenant());
+        $this->assertInstanceOf(BelongsTo::class, $vehicle->createdBy());
+        $this->assertInstanceOf(BelongsTo::class, $vehicle->updatedBy());
+        $this->assertInstanceOf(BelongsTo::class, $vehicle->deletedBy());
+        $this->assertInstanceOf(HasMany::class, $vehicle->assignments());
+        $this->assertInstanceOf(HasOne::class, $vehicle->currentPrimaryAssignment());
+        $this->assertInstanceOf(HasMany::class, $vehicle->documents());
+        $this->assertInstanceOf(HasMany::class, $vehicle->trips());
+        $this->assertInstanceOf(HasMany::class, $vehicle->maintenances());
+        $this->assertInstanceOf(HasMany::class, $vehicle->batteryInstallations());
+        $this->assertInstanceOf(HasMany::class, $vehicle->activeBatteries());
+    }
+
+    public function test_vehicle_active_batteries_filters_removed_and_eager_loads_battery(): void
+    {
+        $this->seedRolesAndPermissions();
+
+        $tenant = Tenant::query()->create([
+            'name' => 'Battery Tenant',
+            'slug' => 'battery-tenant',
+            'status' => 'active',
+        ]);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        BranchContext::setBranchId((int) $operational['branch_id']);
+        TenantContext::setTenantId($tenant->id);
+
+        $user = User::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Deleter User',
+            'email' => 'deleter@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::idFor('admin') ?? UserRole::ADMIN,
+        ]);
+        $vehicle = Vehicle::query()->create([
+            ...$operational,
+            'registration_number' => 'MH12CD1234',
+            'vehicle_type' => 'TRUCK',
+            'status' => 'ACTIVE',
+        ]);
+
+        $this->assertTrue($vehicle->tenant->is($tenant));
+
+        $batteryA = Battery::query()->create([
+            ...$operational,
+            'serial_number' => 'BAT-UNIT-01',
+            'brand' => 'Exide',
+            'voltage' => '12V',
+            'capacity_ah' => 150,
+            'status' => BatteryStatus::Installed->value,
+            'purchase_date' => now()->toDateString(),
+        ]);
+        $batteryB = Battery::query()->create([
+            ...$operational,
+            'serial_number' => 'BAT-UNIT-02',
+            'brand' => 'Amaron',
+            'voltage' => '12V',
+            'capacity_ah' => 150,
+            'status' => BatteryStatus::InStock->value,
+            'purchase_date' => now()->toDateString(),
+        ]);
+
+        $active = BatteryInstallation::query()->create([
+            ...$operational,
+            'vehicle_id' => $vehicle->id,
+            'battery_id' => $batteryA->id,
+            'slot_name' => 'Slot 1',
+            'installed_at' => now()->toDateString(),
+            'removed_at' => null,
+        ]);
+
+        BatteryInstallation::query()->create([
+            ...$operational,
+            'vehicle_id' => $vehicle->id,
+            'battery_id' => $batteryB->id,
+            'slot_name' => 'Slot 2',
+            'installed_at' => now()->subMonth()->toDateString(),
+            'removed_at' => now()->toDateString(),
+        ]);
+
+        $this->assertCount(2, $vehicle->batteryInstallations);
+        $this->assertCount(1, $vehicle->activeBatteries);
+        $this->assertTrue($vehicle->activeBatteries->first()->is($active));
+        $this->assertTrue($vehicle->activeBatteries->first()->relationLoaded('battery'));
+        $this->assertSame('BAT-UNIT-01', $vehicle->activeBatteries->first()->battery->serial_number);
+
+        $vehicle->update(['deleted_by' => $user->id]);
+        $vehicle->delete();
+        $trashed = Vehicle::onlyTrashed()->find($vehicle->id);
+        $this->assertTrue($trashed->deletedBy->is($user));
+    }
 
     public function test_vehicle_document_model_methods_and_relations(): void
     {

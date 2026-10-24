@@ -75,6 +75,38 @@ class CustomerAndBrokerTenantSharingTest extends TestCase
             ->assertJsonFragment(['name' => 'Shared Reference']);
     }
 
+    public function test_customer_can_be_deleted_and_records_deleted_by(): void
+    {
+        [$tenant, $user, $branchA] = $this->createTenantWithTwoBranches();
+        Sanctum::actingAs($user);
+
+        $state = State::query()->where('code', 'AR')->firstOrFail();
+        $city = City::query()->where('state_id', $state->id)->where('name', 'Anjaw')->firstOrFail();
+
+        $create = $this->withHeaders([
+            'X-Tenant-Id' => $tenant->id,
+            'X-Branch-Id' => (string) $branchA->id,
+        ])->postJson('/api/customers', [
+            'name' => 'To Delete Customer',
+            'state_id' => $state->id,
+            'city_id' => $city->id,
+            'contact_number' => '9876543210',
+        ])->assertCreated();
+
+        $customerId = $create->json('data.id');
+
+        $this->withHeaders([
+            'X-Tenant-Id' => $tenant->id,
+            'X-Branch-Id' => (string) $branchA->id,
+        ])->deleteJson("/api/customers/{$customerId}", [
+            'deleted_reason' => 'Duplicate account',
+        ])->assertNoContent();
+
+        $trashed = \App\Customer::withTrashed()->findOrFail($customerId);
+        $this->assertSame($user->id, $trashed->deleted_by);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: Branch, 3: Branch}
      */

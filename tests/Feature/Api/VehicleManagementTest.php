@@ -2,16 +2,25 @@
 
 namespace Tests\Feature\Api;
 
+use App\Battery;
+use App\BatteryInstallation;
 use App\Driver;
 use App\DriverAssignment;
+use App\Enums\BatteryStatus;
+use App\Enums\BatteryType;
+use App\Enums\VehicleDocumentType;
+use App\MaintenanceServiceType;
 use App\Models\TenantSubscription;
 use App\Support\BranchProvisioner;
+use App\Support\MaintenanceServiceTypeDefaults;
 use App\Support\TruckTypeDefaults;
 use App\Support\TyreLayoutDefaults;
 use App\Tenant;
 use App\User;
 use App\UserRole;
 use App\Vehicle;
+use App\VehicleDocument;
+use App\VehicleMaintenance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,6 +47,8 @@ class VehicleManagementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.is_active', false);
 
+        $this->assertNull($vehicle->deletedBy);
+
         $this->actingAs($admin)
             ->deleteJson("/app/api/vehicles/{$vehicle->id}", [
                 'deleted_reason' => 'Decommissioned vehicle',
@@ -47,6 +58,10 @@ class VehicleManagementTest extends TestCase
         $this->assertSoftDeleted('vehicles', [
             'id' => $vehicle->id,
         ]);
+
+        $trashed = Vehicle::onlyTrashed()->find($vehicle->id);
+        $this->assertEquals($admin->id, $trashed->deletedBy?->id);
+        $this->assertEquals('Decommissioned vehicle', $trashed->deleted_reason);
     }
 
     public function test_moderator_cannot_toggle_vehicle_status(): void
@@ -637,4 +652,135 @@ class VehicleManagementTest extends TestCase
 
         $response->assertJsonPath('data.0.can_restore', true);
     }
+
+    public function test_vehicle_belongs_to_tenant(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->actingAs($admin);
+        $vehicle = $this->createVehicle($tenant);
+
+        $this->assertTrue($vehicle->tenant->is($tenant));
+    }
+
+    public function test_vehicle_has_many_documents(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->actingAs($admin);
+        $vehicle = $this->createVehicle($tenant);
+
+        $doc = VehicleDocument::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'vehicle_id' => $vehicle->id,
+            'document_type' => VehicleDocumentType::Insurance->value,
+            'issue_date' => now()->toDateString(),
+            'expiry_date' => now()->addYear()->toDateString(),
+        ]);
+
+        $this->assertCount(1, $vehicle->documents);
+        $this->assertTrue($vehicle->documents->first()->is($doc));
+    }
+
+    public function test_vehicle_has_many_maintenances(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->actingAs($admin);
+        MaintenanceServiceTypeDefaults::seedForTenant($tenant->id);
+        $serviceType = MaintenanceServiceType::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->first();
+        $vehicle = $this->createVehicle($tenant);
+
+        $maintenance = VehicleMaintenance::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'vehicle_id' => $vehicle->id,
+            'service_date' => now()->toDateString(),
+            'odometer_km' => 12000,
+            'maintenance_service_type_id' => $serviceType->id,
+            'service_provider' => 'Fleet Service Center',
+            'cost_amount' => 5000,
+        ]);
+
+        $this->assertCount(1, $vehicle->maintenances);
+        $this->assertTrue($vehicle->maintenances->first()->is($maintenance));
+    }
+
+    public function test_vehicle_has_many_trips(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->actingAs($admin);
+        $vehicle = $this->createVehicle($tenant);
+
+        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $vehicle->trips());
+        $this->assertSame('vehicle_id', $vehicle->trips()->getForeignKeyName());
+    }
+
+    public function test_vehicle_tracks_active_batteries_and_complete_installation_history(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $this->actingAs($admin);
+        $vehicle = $this->createVehicle($tenant);
+
+        $activeBattery = Battery::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'serial_number' => 'BAT-ACTIVE-01',
+            'brand' => 'Exide',
+            'model' => 'XP100',
+            'battery_type' => BatteryType::LeadAcid->value,
+            'voltage' => '12V',
+            'capacity_ah' => 150,
+            'purchase_date' => now()->subMonths(2)->toDateString(),
+            'purchase_cost' => 12000,
+            'status' => BatteryStatus::Installed->value,
+        ]);
+
+        $removedBattery = Battery::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'serial_number' => 'BAT-REMOVED-02',
+            'brand' => 'Amaron',
+            'model' => 'AM150',
+            'battery_type' => BatteryType::LeadAcid->value,
+            'voltage' => '12V',
+            'capacity_ah' => 150,
+            'purchase_date' => now()->subYear()->toDateString(),
+            'purchase_cost' => 11000,
+            'status' => BatteryStatus::InStock->value,
+        ]);
+
+        // Historical uninstalled battery
+        BatteryInstallation::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'vehicle_id' => $vehicle->id,
+            'battery_id' => $removedBattery->id,
+            'slot_name' => 'Slot 1',
+            'installed_at' => now()->subMonths(6)->toDateString(),
+            'removed_at' => now()->subMonths(2)->toDateString(),
+            'km_at_installation' => 10000,
+            'km_at_removal' => 15000,
+        ]);
+
+        // Current active battery
+        $activeInstallation = BatteryInstallation::query()->create([
+            ...$this->operationalAttributesForTenant($tenant),
+            'vehicle_id' => $vehicle->id,
+            'battery_id' => $activeBattery->id,
+            'slot_name' => 'Slot 1',
+            'installed_at' => now()->subMonths(2)->toDateString(),
+            'removed_at' => null,
+            'km_at_installation' => 15000,
+        ]);
+
+        // Complete historical audit log includes both
+        $this->assertCount(2, $vehicle->batteryInstallations);
+
+        // activeBatteries returns ONLY currently mounted battery (removed_at IS NULL)
+        $activeBatteries = $vehicle->activeBatteries;
+        $this->assertCount(1, $activeBatteries);
+        $this->assertTrue($activeBatteries->first()->is($activeInstallation));
+
+        // Verifies battery details are eager-loaded to prevent N+1 queries
+        $this->assertTrue($activeBatteries->first()->relationLoaded('battery'));
+        $this->assertEquals('BAT-ACTIVE-01', $activeBatteries->first()->battery->serial_number);
+    }
 }
+

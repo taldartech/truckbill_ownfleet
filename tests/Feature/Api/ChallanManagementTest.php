@@ -130,8 +130,10 @@ class ChallanManagementTest extends TestCase
             ->assertNoContent();
 
         $this->assertNull(Challan::query()->find($challan->id));
-        $this->assertNotNull(Challan::query()->withTrashed()->find($challan->id));
         $this->assertSoftDeleted('challans', ['id' => $challan->id]);
+        $trashed = Challan::query()->withTrashed()->findOrFail($challan->id);
+        $this->assertSame($user->id, $trashed->deleted_by);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
     }
 
     public function test_super_admin_can_recreate_challan_number_after_soft_delete(): void

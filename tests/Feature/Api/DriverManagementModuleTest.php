@@ -702,6 +702,7 @@ class DriverManagementModuleTest extends TestCase
         $this->assertNotNull($deletedDriver);
         $this->assertFalse($deletedDriver->is_active);
         $this->assertSame($user->id, $deletedDriver->deleted_by);
+        $this->assertEquals($user->id, $deletedDriver->deletedBy?->id);
 
         $this->assertNotNull(Trip::query()->find($trip->id));
         $this->assertSame($driver->id, Trip::query()->find($trip->id)?->driver_id);

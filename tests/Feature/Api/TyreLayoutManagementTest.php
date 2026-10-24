@@ -247,6 +247,37 @@ class TyreLayoutManagementTest extends TestCase
         $truckCreate->assertJsonPath('data.tyre_layout', 'TYRES_10');
     }
 
+    public function test_admin_can_delete_tyre_layout_and_records_deleted_by(): void
+    {
+        [$tenant, $user] = $this->createFixtures();
+        $this->provisionActiveSubscription($tenant);
+        $user = $this->assignBranchIfRequired($user, $tenant);
+
+        $create = $this->actingAs($user)
+            ->postJson('/app/api/tyre-layouts', [
+                'name' => 'Layout To Delete',
+                'layout_type' => 'standard',
+                'steer_axles' => 1,
+                'dual_axles' => [1],
+                'single_axles' => [],
+                'spare_count' => 0,
+            ])
+            ->assertCreated();
+
+        $layoutId = $create->json('data.id');
+
+        $this->actingAs($user)
+            ->deleteJson("/app/api/tyre-layouts/{$layoutId}", [
+                'deleted_reason' => 'No longer needed',
+            ])
+            ->assertNoContent();
+
+        $this->assertSoftDeleted('tyre_layouts', ['id' => $layoutId]);
+        $trashed = \App\TyreLayout::withTrashed()->findOrFail($layoutId);
+        $this->assertSame($user->id, $trashed->deleted_by);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */

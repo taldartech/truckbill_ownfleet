@@ -62,6 +62,9 @@ class BranchManagementTest extends TestCase
             ->assertJsonPath('message', 'Branch deleted.');
 
         $this->assertSoftDeleted('branches', ['id' => $branchId]);
+        $deletedBranch = \App\Branch::withTrashed()->findOrFail($branchId);
+        $this->assertSame($superAdmin->id, $deletedBranch->deleted_by);
+        $this->assertEquals($superAdmin->id, $deletedBranch->deletedBy?->id);
     }
 
     public function test_branch_deletion_impact_returns_truck_and_driver_counts(): void
