@@ -1269,6 +1269,10 @@ class InvoiceManagementTest extends TestCase
 
     public function test_due_reminder_command_creates_app_notifications(): void
     {
+        $exitEmpty = Artisan::call('invoices:send-due-reminders');
+        $this->assertSame(0, $exitEmpty);
+        $this->assertStringContainsString('No due invoices found.', Artisan::output());
+
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
         $this->actingAs($user);
 
@@ -1298,6 +1302,32 @@ class InvoiceManagementTest extends TestCase
                 ->where('data->invoice_id', $invoiceId)
                 ->exists()
         );
+
+        $notifCountBefore = \App\AppNotification::query()->withoutGlobalScopes()->count();
+        Artisan::call('invoices:send-due-reminders');
+        $this->assertSame($notifCountBefore, \App\AppNotification::query()->withoutGlobalScopes()->count());
+
+        $owner = User::query()->create([
+            'tenant_id' => null,
+            'name' => 'Tenant Owner',
+            'email' => 'owner-remind@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+        $tenant->update(['owner_user_id' => $owner->id]);
+        User::query()->where('tenant_id', $tenant->id)->update(['user_role_id' => UserRole::MODERATOR]);
+        \App\AppNotification::query()->withoutGlobalScopes()->where('data->invoice_id', $invoiceId)->delete();
+
+        Artisan::call('invoices:send-due-reminders');
+        $this->assertDatabaseHas('app_notifications', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $owner->id,
+            'type' => 'invoice_due_reminder',
+        ]);
+
+        $tenant->update(['owner_user_id' => null]);
+        \App\AppNotification::query()->withoutGlobalScopes()->where('data->invoice_id', $invoiceId)->delete();
+        Artisan::call('invoices:send-due-reminders');
     }
 
     public function test_broker_customer_invoice_skips_gst_for_regular_company(): void

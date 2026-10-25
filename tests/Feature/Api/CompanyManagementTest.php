@@ -667,6 +667,83 @@ class CompanyManagementTest extends TestCase
         $this->assertNotNull($response->json('data.plan_end_date'));
     }
 
+    public function test_copy_tenant_fleet_command_requires_two_companies(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        Tenant::query()->delete();
+        $this->createOwnedTenant($superAdmin, 'Only One Co');
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('fleet:copy-tenant');
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('At least two companies are required', \Illuminate\Support\Facades\Artisan::output());
+    }
+
+    public function test_copy_tenant_fleet_command_copies_fleet(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        Tenant::query()->delete();
+        $sourceTenant = $this->createOwnedTenant($superAdmin, 'A Source Co');
+        $sourceBranch = BranchProvisioner::ensureDefaultBranch($sourceTenant);
+        $targetTenant = $this->createOwnedTenant($superAdmin, 'B Target Co');
+        $targetBranch = BranchProvisioner::ensureDefaultBranch($targetTenant);
+
+        $vehicle = \App\Vehicle::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'registration_number' => 'MH12CP0001',
+            'vehicle_type' => 'TRUCK',
+        ]);
+
+        $driver = Driver::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'name' => 'Copy Driver',
+            'phone' => '9876543210',
+            'daily_wage' => 700,
+            'is_active' => true,
+        ]);
+
+        \App\DriverAssignment::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $this->artisan('fleet:copy-tenant')
+            ->expectsChoice('Source company', $sourceTenant->id, [
+                $sourceTenant->id => sprintf('%s (%s)', $sourceTenant->name, $sourceTenant->slug),
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice('Target company', $targetTenant->id, [
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice(
+                sprintf('Map source branch "%s" to target branch', sprintf('#%d %s [HO]', $sourceBranch->id, $sourceBranch->branch_name)),
+                (string) $targetBranch->id,
+                [
+                    (string) $targetBranch->id => sprintf('#%d %s [HO]', $targetBranch->id, $targetBranch->branch_name),
+                ]
+            )
+            ->expectsConfirmation('Also copy current primary driver–truck assignments?', 'yes')
+            ->expectsConfirmation('Run as dry run (preview only, no writes)?', 'yes')
+            ->expectsConfirmation('Proceed with fleet copy?', 'yes')
+            ->expectsOutputToContain('Mode: dry run')
+            ->expectsOutputToContain('Dry run complete.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseMissing('vehicles', [
+            'tenant_id' => $targetTenant->id,
+            'registration_number' => 'MH12CP0001',
+        ]);
+        $this->assertDatabaseMissing('drivers', [
+            'tenant_id' => $targetTenant->id,
+            'name' => 'Copy Driver',
+        ]);
+    }
+
     private function createSuperAdmin(): User
     {
         return User::query()->create([

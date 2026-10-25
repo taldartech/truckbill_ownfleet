@@ -78,7 +78,7 @@ class BackupDatabase extends Command
             $backupPath = config('filesystems.backup.path', config('backup.path', 'database-backups'));
             $destinationPath = $backupPath.'/'.basename($localPath);
 
-            $stream = fopen($localPath, 'r');
+            $stream = @fopen($localPath, 'r');
             if ($stream === false) {
                 throw new \RuntimeException('Unable to open local backup file.');
             }

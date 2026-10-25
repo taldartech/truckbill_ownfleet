@@ -309,4 +309,69 @@ class ComplianceAndEmiTest extends TestCase
             \App\Support\TenantContext::setTenantId(null);
         }
     }
+
+    public function test_check_challan_pending_command_queues_reminders(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+
+        Challan::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'challan_number' => 'CH-TEST-PENDING-001',
+            'challan_date' => now()->toDateString(),
+            'amount' => 1500,
+            'status' => ChallanPaymentStatus::Unpaid->value,
+        ]);
+
+        Challan::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'challan_number' => 'CH-TEST-PAID-001',
+            'challan_date' => now()->toDateString(),
+            'amount' => 500,
+            'status' => ChallanPaymentStatus::Paid->value,
+        ]);
+
+        Queue::fake();
+
+        \App\Support\TenantContext::setTenantId($tenant->id);
+
+        try {
+            $exitCode = Artisan::call('compliance:check-challan-pending');
+            $this->assertSame(0, $exitCode);
+            $this->assertStringContainsString('Queued 1 challan reminders.', Artisan::output());
+            Queue::assertPushed(SendComplianceReminderJob::class, 1);
+        } finally {
+            \App\Support\TenantContext::setTenantId(null);
+        }
+    }
+
+    public function test_check_document_expiry_command_processes_documents(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $vehicle = $this->createVehicle($tenant);
+
+        \App\VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'fitness_certificate',
+            'document_number' => 'FC-EXP-001',
+            'expiry_date' => now()->addDays(5)->toDateString(),
+            'reminder_days_before' => 30,
+        ]);
+
+        \App\VehicleDocument::query()->create([
+            'tenant_id' => $tenant->id,
+            'vehicle_id' => $vehicle->id,
+            'document_type' => 'insurance',
+            'document_number' => 'INS-EXP-FAR',
+            'expiry_date' => now()->addDays(90)->toDateString(),
+            'reminder_days_before' => 30,
+        ]);
+
+        $exitCode = Artisan::call('compliance:check-document-expiry');
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Processed 1 documents.', Artisan::output());
+    }
 }

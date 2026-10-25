@@ -601,6 +601,32 @@ class BranchManagementTest extends TestCase
         Storage::disk('public')->assertMissing($storedLogo);
     }
 
+    public function test_backfill_branch_data_command(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Backfill Tenant');
+
+        $vehicle = \App\Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => null,
+            'registration_number' => 'MH12BF0001',
+            'vehicle_type' => 'TRUCK',
+        ]);
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('branches:backfill-data', ['--dry-run' => true]);
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Dry run complete.', \Illuminate\Support\Facades\Artisan::output());
+        $this->assertNull($vehicle->fresh()->branch_id);
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('branches:backfill-data');
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Branch backfill complete.', \Illuminate\Support\Facades\Artisan::output());
+
+        $defaultBranch = Branch::query()->where('company_id', $tenant->id)->first();
+        $this->assertNotNull($defaultBranch);
+        $this->assertSame($defaultBranch->id, $vehicle->fresh()->branch_id);
+    }
+
     private function createSuperAdmin(): User
     {
         return User::query()->create([

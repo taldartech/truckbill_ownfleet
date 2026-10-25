@@ -476,7 +476,7 @@ class TyreManagementTest extends TestCase
 
         $installationEvents = array_values(array_filter(
             $timeline,
-            fn (array $event) => in_array($event['type'], ['installed', 'removed'], true),
+            fn(array $event) => in_array($event['type'], ['installed', 'removed'], true),
         ));
 
         $this->assertCount(2, $installationEvents);
@@ -579,7 +579,7 @@ class TyreManagementTest extends TestCase
 
         $installEvents = array_values(array_filter(
             $timeline,
-            fn (array $event) => $event['type'] === 'installed',
+            fn(array $event) => $event['type'] === 'installed',
         ));
 
         $this->assertCount(1, $installEvents);
@@ -1468,7 +1468,7 @@ class TyreManagementTest extends TestCase
     private function validTyrePayload(array $overrides = []): array
     {
         return array_merge([
-            'serial_number' => 'TYRE-'.fake()->unique()->numerify('####'),
+            'serial_number' => 'TYRE-' . fake()->unique()->numerify('####'),
             'brand' => 'MRF',
             'size' => '10.00-20',
             'tyre_type' => 'RADIAL',
