@@ -74,6 +74,74 @@ class BrokerNameUniquenessTest extends TestCase
             ->assertCreated();
     }
 
+    public function test_admin_can_update_broker_details(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+
+        $state = State::query()->where('code', 'AR')->firstOrFail();
+        $city = City::query()->where('state_id', $state->id)->where('name', 'Anjaw')->firstOrFail();
+
+        $createResponse = $this->actingAs($user)
+            ->postJson('/app/api/brokers', [
+                'name' => 'Original Broker Name',
+                'state_id' => $state->id,
+                'city_id' => $city->id,
+                'contact_number' => '9876543210',
+            ])
+            ->assertCreated();
+
+        $brokerId = $createResponse->json('data.id');
+
+        $updateResponse = $this->actingAs($user)
+            ->putJson("/app/api/brokers/{$brokerId}", [
+                'name' => 'Updated Broker Name',
+                'state_id' => $state->id,
+                'city_id' => $city->id,
+                'contact_number' => '9876543210', // keeping same contact number
+                'address' => 'Updated Depot Road',
+            ]);
+
+        $updateResponse->assertOk()
+            ->assertJsonPath('data.name', 'Updated Broker Name')
+            ->assertJsonPath('data.address', 'Updated Depot Road');
+
+        $this->assertDatabaseHas('brokers', [
+            'id' => $brokerId,
+            'name' => 'Updated Broker Name',
+            'address' => 'Updated Depot Road',
+        ]);
+    }
+
+    public function test_broker_update_validates_city_belongs_to_state(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+
+        $state = State::query()->where('code', 'AR')->firstOrFail();
+        $otherState = State::query()->where('code', '!=', 'AR')->firstOrFail();
+        $city = City::query()->where('state_id', $state->id)->firstOrFail();
+
+        $createResponse = $this->actingAs($user)
+            ->postJson('/app/api/brokers', [
+                'name' => 'State Validation Broker',
+                'state_id' => $state->id,
+                'city_id' => $city->id,
+                'contact_number' => '9876543299',
+            ])
+            ->assertCreated();
+
+        $brokerId = $createResponse->json('data.id');
+
+        $this->actingAs($user)
+            ->putJson("/app/api/brokers/{$brokerId}", [
+                'name' => 'State Validation Broker',
+                'state_id' => $otherState->id,
+                'city_id' => $city->id,
+                'contact_number' => '9876543299',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['city_id']);
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */

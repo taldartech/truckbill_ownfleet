@@ -980,4 +980,55 @@ class DriverManagementModuleTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['assigned_to']);
     }
+
+    public function test_driver_license_expiring_endpoint(): void
+    {
+        [$tenant, $user] = $this->createTenantUser('admin');
+        Sanctum::actingAs($user);
+        $branchId = $user->branch_id;
+
+        // Driver with license expiring in 10 days
+        $expiringSoon = Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'name' => 'Expiring Soon Driver',
+            'phone' => '9888811111',
+            'license_number' => 'DLEXP0000000001',
+            'license_expiry_date' => now()->addDays(10)->toDateString(),
+            'daily_wage' => 700,
+            'is_active' => true,
+        ]);
+
+        // Driver with license expiring in 60 days
+        $expiringLater = Driver::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => $branchId,
+            'name' => 'Expiring Later Driver',
+            'phone' => '9888811112',
+            'license_number' => 'DLEXP0000000002',
+            'license_expiry_date' => now()->addDays(60)->toDateString(),
+            'daily_wage' => 700,
+            'is_active' => true,
+        ]);
+
+        // Default query (30 days) should include only expiringSoon
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->getJson('/app/api/drivers/license-expiring');
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($expiringSoon->id, $ids);
+        $this->assertNotContains($expiringLater->id, $ids);
+
+        // Query with ?days=90 should include both
+        $response90 = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $branchId)
+            ->getJson('/app/api/drivers/license-expiring?days=90');
+
+        $response90->assertOk();
+        $ids90 = collect($response90->json('data'))->pluck('id')->all();
+        $this->assertContains($expiringSoon->id, $ids90);
+        $this->assertContains($expiringLater->id, $ids90);
+    }
 }

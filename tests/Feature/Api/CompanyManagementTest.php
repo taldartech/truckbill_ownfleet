@@ -735,13 +735,191 @@ class CompanyManagementTest extends TestCase
             ->assertExitCode(0);
 
         $this->assertDatabaseMissing('vehicles', [
-            'tenant_id' => $targetTenant->id,
+            'tenant_id' => $targetTenantId = $targetTenant->id,
             'registration_number' => 'MH12CP0001',
         ]);
         $this->assertDatabaseMissing('drivers', [
-            'tenant_id' => $targetTenant->id,
+            'tenant_id' => $targetTenantId,
             'name' => 'Copy Driver',
         ]);
+    }
+
+    public function test_copy_tenant_fleet_command_writes_records_in_write_mode(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        Tenant::query()->delete();
+        $sourceTenant = $this->createOwnedTenant($superAdmin, 'Write Source Co');
+        $sourceBranch = BranchProvisioner::ensureDefaultBranch($sourceTenant);
+        $targetTenant = $this->createOwnedTenant($superAdmin, 'Write Target Co');
+        $targetBranch = BranchProvisioner::ensureDefaultBranch($targetTenant);
+
+        $vehicle = \App\Vehicle::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'registration_number' => 'MH12WR0001',
+            'vehicle_type' => 'TRUCK',
+        ]);
+
+        $driverWithLicense = Driver::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'name' => 'Licensed Driver',
+            'license_number' => 'DL1234567890123',
+            'phone' => '9876543211',
+            'daily_wage' => 750,
+            'is_active' => true,
+        ]);
+
+        $driverWithoutLicense = Driver::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'name' => 'Unlicensed Driver',
+            'license_number' => null,
+            'phone' => '9876543212',
+            'daily_wage' => 600,
+            'is_active' => true,
+        ]);
+
+        \App\DriverAssignment::query()->create([
+            'tenant_id' => $sourceTenant->id,
+            'branch_id' => $sourceBranch->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverWithLicense->id,
+            'assigned_from' => '2026-01-01',
+            'is_primary' => true,
+        ]);
+
+        $this->artisan('fleet:copy-tenant')
+            ->expectsChoice('Source company', $sourceTenant->id, [
+                $sourceTenant->id => sprintf('%s (%s)', $sourceTenant->name, $sourceTenant->slug),
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice('Target company', $targetTenant->id, [
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice(
+                sprintf('Map source branch "%s" to target branch', sprintf('#%d %s [HO]', $sourceBranch->id, $sourceBranch->branch_name)),
+                (string) $targetBranch->id,
+                [
+                    (string) $targetBranch->id => sprintf('#%d %s [HO]', $targetBranch->id, $targetBranch->branch_name),
+                ]
+            )
+            ->expectsConfirmation('Also copy current primary driver–truck assignments?', 'yes')
+            ->expectsConfirmation('Run as dry run (preview only, no writes)?', 'no')
+            ->expectsConfirmation('Proceed with fleet copy?', 'yes')
+            ->expectsOutputToContain('Mode: write')
+            ->expectsOutputToContain('Fleet copy complete.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('vehicles', [
+            'tenant_id' => $targetTenant->id,
+            'registration_number' => 'MH12WR0001',
+            'branch_id' => $targetBranch->id,
+        ]);
+
+        $this->assertDatabaseHas('drivers', [
+            'tenant_id' => $targetTenant->id,
+            'license_number' => 'DL1234567890123',
+            'branch_id' => $targetBranch->id,
+        ]);
+
+        $this->assertDatabaseHas('drivers', [
+            'tenant_id' => $targetTenant->id,
+            'name' => 'Unlicensed Driver',
+            'phone' => '9876543212',
+            'branch_id' => $targetBranch->id,
+        ]);
+
+        $targetVehicle = \App\Vehicle::withoutGlobalScopes()
+            ->where('tenant_id', $targetTenant->id)
+            ->where('registration_number', 'MH12WR0001')
+            ->firstOrFail();
+
+        $targetDriver = Driver::withoutGlobalScopes()
+            ->where('tenant_id', $targetTenant->id)
+            ->where('license_number', 'DL1234567890123')
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('driver_assignments', [
+            'tenant_id' => $targetTenant->id,
+            'branch_id' => $targetBranch->id,
+            'vehicle_id' => $targetVehicle->id,
+            'driver_id' => $targetDriver->id,
+            'is_primary' => true,
+        ]);
+
+        // Running it a second time should detect existing records and skip them
+        $this->artisan('fleet:copy-tenant')
+            ->expectsChoice('Source company', $sourceTenant->id, [
+                $sourceTenant->id => sprintf('%s (%s)', $sourceTenant->name, $sourceTenant->slug),
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice('Target company', $targetTenant->id, [
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice(
+                sprintf('Map source branch "%s" to target branch', sprintf('#%d %s [HO]', $sourceBranch->id, $sourceBranch->branch_name)),
+                (string) $targetBranch->id,
+                [
+                    (string) $targetBranch->id => sprintf('#%d %s [HO]', $targetBranch->id, $targetBranch->branch_name),
+                ]
+            )
+            ->expectsConfirmation('Also copy current primary driver–truck assignments?', 'yes')
+            ->expectsConfirmation('Run as dry run (preview only, no writes)?', 'no')
+            ->expectsConfirmation('Proceed with fleet copy?', 'yes')
+            ->expectsOutputToContain('Fleet copy complete.')
+            ->assertExitCode(0);
+    }
+
+    public function test_copy_tenant_fleet_command_can_be_cancelled(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        Tenant::query()->delete();
+        $sourceTenant = $this->createOwnedTenant($superAdmin, 'Cancel Source Co');
+        $sourceBranch = BranchProvisioner::ensureDefaultBranch($sourceTenant);
+        $targetTenant = $this->createOwnedTenant($superAdmin, 'Cancel Target Co');
+        $targetBranch = BranchProvisioner::ensureDefaultBranch($targetTenant);
+
+        $this->artisan('fleet:copy-tenant')
+            ->expectsChoice('Source company', $sourceTenant->id, [
+                $sourceTenant->id => sprintf('%s (%s)', $sourceTenant->name, $sourceTenant->slug),
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice('Target company', $targetTenant->id, [
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice(
+                sprintf('Map source branch "%s" to target branch', sprintf('#%d %s [HO]', $sourceBranch->id, $sourceBranch->branch_name)),
+                (string) $targetBranch->id,
+                [
+                    (string) $targetBranch->id => sprintf('#%d %s [HO]', $targetBranch->id, $targetBranch->branch_name),
+                ]
+            )
+            ->expectsConfirmation('Also copy current primary driver–truck assignments?', 'no')
+            ->expectsConfirmation('Run as dry run (preview only, no writes)?', 'yes')
+            ->expectsConfirmation('Proceed with fleet copy?', 'no')
+            ->expectsOutputToContain('Cancelled.')
+            ->assertExitCode(0);
+    }
+
+    public function test_copy_tenant_fleet_command_fails_if_company_has_no_branches(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        Tenant::query()->delete();
+        $sourceTenant = $this->createOwnedTenant($superAdmin, 'NoBranch Source Co');
+        $targetTenant = $this->createOwnedTenant($superAdmin, 'NoBranch Target Co');
+        // Do not provision branches for sourceTenant
+
+        $this->artisan('fleet:copy-tenant')
+            ->expectsChoice('Source company', $sourceTenant->id, [
+                $sourceTenant->id => sprintf('%s (%s)', $sourceTenant->name, $sourceTenant->slug),
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsChoice('Target company', $targetTenant->id, [
+                $targetTenant->id => sprintf('%s (%s)', $targetTenant->name, $targetTenant->slug),
+            ])
+            ->expectsOutputToContain('has no branches')
+            ->assertExitCode(1);
     }
 
     private function createSuperAdmin(): User

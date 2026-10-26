@@ -677,6 +677,82 @@ class AttendanceExceptionFlowTest extends TestCase
         );
     }
 
+    public function test_update_settlement_line_and_vehicle_settlement_line(): void
+    {
+        [$tenant, $user, $vehicle, $driver] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        // Closing month creates MonthlyDriverWage
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        $wage = \App\MonthlyDriverWage::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('driver_id', $driver->id)
+            ->firstOrFail();
+
+        // Update driver settlement line with bonus and extra deductions
+        $updateResp = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson("/api/monthly-driver-wages/{$wage->id}/settlement", [
+                'bonus' => 1500,
+                'extra_deductions' => 500,
+                'remarks' => 'Good performance bonus minus uniform fee',
+            ]);
+
+        $updateResp->assertOk();
+        $wage->refresh();
+        $this->assertSame(1500.0, (float) $wage->bonus);
+        $this->assertSame(500.0, (float) $wage->other_deduction);
+        $this->assertSame('Good performance bonus minus uniform fee', $wage->remarks);
+
+        // Update vehicle settlement line
+        $vehicleResp = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson('/api/attendances/vehicle-settlement-line', [
+                'month' => '2026-06',
+                'vehicle_id' => $vehicle->id,
+                'salary' => 31000,
+                'total' => 31000,
+                'remarks' => 'Truck line confirmed',
+            ]);
+
+        $vehicleResp->assertOk()
+            ->assertJsonPath('data.remarks', 'Truck line confirmed')
+            ->assertJsonPath('data.salary', 31000);
+
+        // Trying to update vehicle settlement for an unclosed month fails with 422
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->patchJson('/api/attendances/vehicle-settlement-line', [
+                'month' => '2026-05',
+                'vehicle_id' => $vehicle->id,
+                'salary' => 20000,
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_refresh_month_calculations_and_reopen_month_flow(): void
+    {
+        [$tenant, $user, $vehicle, $driver] = $this->seedAssignedDriver(30000.00);
+
+        Sanctum::actingAs($user);
+
+        $settlementService = app(\App\Modules\DriverManagement\Services\MonthlySettlementService::class);
+
+        // When month is open, refreshing month calculations returns count of updated records
+        $updatedCount = $settlementService->refreshMonthCalculations('2026-06');
+        $this->assertSame(0, $updatedCount); // No wages exist yet
+
+        // Close month
+        $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->postJson('/api/attendances/close-month', ['month' => '2026-06'])
+            ->assertOk();
+
+        // When month is closed, refreshMonthCalculations throws ValidationException
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $settlementService->refreshMonthCalculations('2026-06');
+    }
+
     /**
      * @return array{0: Tenant, 1: User, 2: Vehicle, 3: \App\Driver}
      */

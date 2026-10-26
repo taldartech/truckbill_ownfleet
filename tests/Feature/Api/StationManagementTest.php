@@ -92,6 +92,72 @@ class StationManagementTest extends TestCase
             ->assertJsonPath('data.name', 'Pune Hub');
     }
 
+    public function test_admin_can_update_station(): void
+    {
+        [$tenant, $user, $firstBranchId] = $this->createCompanyWithTwoBranches('admin');
+
+        $city = City::query()
+            ->whereHas('state', fn ($query) => $query->where('code', 'MH'))
+            ->where('name', 'Mumbai')
+            ->firstOrFail();
+
+        $station = Station::query()->create([
+            'tenant_id' => $tenant->id,
+            'country_id' => $city->state->country_id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Original Depot Name',
+        ]);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($firstBranchId));
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $firstBranchId)
+            ->putJson("/api/stations/{$station->id}", [
+                'name' => 'Updated Depot Name',
+                'state_id' => $city->state_id,
+                'city_id' => $city->id,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.name', 'Updated Depot Name');
+
+        $this->assertDatabaseHas('stations', [
+            'id' => $station->id,
+            'name' => 'Updated Depot Name',
+        ]);
+    }
+
+    public function test_station_update_validates_city_belongs_to_state(): void
+    {
+        [$tenant, $user, $firstBranchId] = $this->createCompanyWithTwoBranches('admin');
+
+        $city = City::query()->where('name', 'Mumbai')->firstOrFail();
+        $otherState = \App\State::query()->where('code', '!=', 'MH')->firstOrFail();
+
+        $station = Station::query()->create([
+            'tenant_id' => $tenant->id,
+            'state_id' => $city->state_id,
+            'city_id' => $city->id,
+            'name' => 'Validation Station',
+        ]);
+
+        $this->actingAs($user);
+        $this->enterBranchForSuperAdmin($user, Branch::query()->findOrFail($firstBranchId));
+
+        $response = $this->withHeader('X-Tenant-Id', $tenant->id)
+            ->withHeader('X-Branch-Id', (string) $firstBranchId)
+            ->putJson("/api/stations/{$station->id}", [
+                'name' => 'Validation Station',
+                'state_id' => $otherState->id,
+                'city_id' => $city->id, // mismatch with other state
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['city_id']);
+    }
+
     public function test_admin_can_delete_station_and_records_deleted_by(): void
     {
         [$tenant, $user, $firstBranchId] = $this->createCompanyWithTwoBranches('admin');
