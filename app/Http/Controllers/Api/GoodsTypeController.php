@@ -149,6 +149,7 @@ class GoodsTypeController extends Controller
         ]);
 
         $goodsType->update([
+            'is_active' => false,
             'deleted_by' => $request->user()?->id,
             'deleted_reason' => $validated['deleted_reason'],
         ]);

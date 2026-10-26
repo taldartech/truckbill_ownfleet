@@ -100,6 +100,16 @@ class ManagedUserBranchTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.branch_id', $branch->id);
+
+        $this->actingAs($superAdmin)
+            ->deleteJson('/app/api/managed-users/'.$userId, [
+                'deleted_reason' => 'User left company',
+            ])
+            ->assertNoContent();
+
+        $trashed = User::withTrashed()->findOrFail($userId);
+        $this->assertSame($superAdmin->id, $trashed->deleted_by);
+        $this->assertEquals($superAdmin->id, $trashed->deletedBy?->id);
     }
 
     private function createSuperAdmin(): User
@@ -115,7 +125,7 @@ class ManagedUserBranchTest extends TestCase
 
     private function createOwnedTenant(User $owner, string $name, ?string $shortName = null): Tenant
     {
-        return Tenant::query()->create([
+        $tenant = Tenant::query()->create([
             'owner_user_id' => $owner->id,
             'name' => $name,
             'slug' => str($name)->slug()->toString(),
@@ -123,6 +133,10 @@ class ManagedUserBranchTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        $this->provisionActiveSubscription($tenant);
+
+        return $tenant;
     }
 
     private function createBranch(Tenant $tenant, string $name): Branch

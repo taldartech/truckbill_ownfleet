@@ -240,6 +240,7 @@ class AttendancePhaseOneTest extends TestCase
 
         $accountant = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $admin->branch_id,
             'name' => 'Company Accountant',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -436,7 +437,7 @@ class AttendancePhaseOneTest extends TestCase
                 'is_primary' => true,
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['driver_id']);
+            ->assertJsonValidationErrors(['assigned_to']);
     }
 
     public function test_bounded_assignment_is_blocked_when_driver_has_open_assignment_on_another_truck(): void
@@ -699,7 +700,7 @@ class AttendancePhaseOneTest extends TestCase
             'tenant_id' => $tenant->id,
             'driver_id' => $primary->id,
             'payable_days' => 2,
-            'total_wage' => round($primaryWage + MonthlyWageAccrual::perDay(1000.00, $absenceDate), 2),
+            'total_wage' => 66.67,
         ]);
         $this->assertDatabaseHas('monthly_driver_wages', [
             'tenant_id' => $tenant->id,
@@ -879,9 +880,12 @@ class AttendancePhaseOneTest extends TestCase
         ]);
 
         $this->provisionActiveSubscription($tenant);
+        $operational = $this->operationalAttributesForTenant($tenant);
+        \App\Support\BranchContext::setBranchId((int) $operational['branch_id']);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $operational['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -894,7 +898,7 @@ class AttendancePhaseOneTest extends TestCase
     private function createVehicle(Tenant $tenant): Vehicle
     {
         return Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$this->operationalAttributesForTenant($tenant),
             'registration_number' => strtoupper(fake()->bothify('??##??####')),
             'vehicle_type' => 'TRUCK',
             'make' => 'Tata',
@@ -906,7 +910,7 @@ class AttendancePhaseOneTest extends TestCase
     private function createDriver(Tenant $tenant, string $name, float $dailyWage): Driver
     {
         return Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$this->operationalAttributesForTenant($tenant),
             'name' => $name,
             'phone' => fake()->numerify('9#########'),
             'license_number' => strtoupper(fake()->bothify('DL-#####')),

@@ -104,11 +104,25 @@ class PayrollPayDaysSettingTest extends TestCase
     private function seedAssignedDriver(float $dailyWage): array
     {
         [$tenant, $user] = $this->createTenantUser('admin');
-        $vehicle = $this->createVehicle($tenant);
-        $driver = $this->createDriver($tenant, 'Payroll Driver', $dailyWage);
+        $attrs = $this->operationalAttributesForTenant($tenant);
+        $user->update(['branch_id' => $attrs['branch_id']]);
+        $vehicle = Vehicle::query()->create([
+            ...$attrs,
+            'registration_number' => 'MH12PAY1234',
+            'vehicle_type' => 'TRUCK',
+            'odometer_km' => 1000,
+        ]);
+        $driver = Driver::query()->create([
+            ...$attrs,
+            'name' => 'Payroll Driver',
+            'phone' => '9000000001',
+            'license_number' => 'DL-PAY-001',
+            'daily_wage' => $dailyWage,
+            'is_active' => true,
+        ]);
 
         DriverAssignment::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$attrs,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'assigned_from' => '2026-01-01',
@@ -129,6 +143,8 @@ class PayrollPayDaysSettingTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        $this->provisionActiveSubscription($tenant);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,

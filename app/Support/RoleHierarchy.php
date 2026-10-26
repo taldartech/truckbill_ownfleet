@@ -27,7 +27,7 @@ class RoleHierarchy
     public static function assignableRoleIds(User $actor): array
     {
         return match ($actor->user_role_id) {
-            UserRole::MASTER_ADMIN => [],
+            UserRole::MASTER_ADMIN => [UserRole::SUPER_ADMIN],
             UserRole::SUPER_ADMIN => [
                 UserRole::ADMIN,
                 UserRole::MODERATOR,

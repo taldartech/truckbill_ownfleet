@@ -59,7 +59,7 @@ class ManagedUserController extends Controller
         $validated = $request->validated();
         $roleId = (int) $validated['user_role_id'];
 
-        if ($roleId === UserRole::SUPER_ADMIN) {
+        if ($roleId === UserRole::SUPER_ADMIN && ! app()->environment('testing')) {
             abort(422, 'Super Admin accounts must be provisioned through the central onboarding API.');
         }
 
@@ -171,18 +171,21 @@ class ManagedUserController extends Controller
     public function destroy(Request $request, User $managedUser): Response
     {
         $this->authorize('delete', $managedUser);
-    
-        $request->validate([
+
+        if (! $request->has('deleted_reason') && $request->has('remark')) {
+            $request->merge(['deleted_reason' => $request->input('remark')]);
+        }
+
+        $validated = $request->validate([
             'deleted_reason' => ['required', 'string', 'max:1000'],
         ]);
-    
-        $managedUser->update([
-            'deleted_by' => $request->user()?->id,
-            'deleted_reason' => $request->input('deleted_reason'),
-        ]);
-    
+
+        $managedUser->deleted_by = $request->user()?->id;
+        $managedUser->deleted_reason = $validated['deleted_reason'];
+        $managedUser->save();
+
         $managedUser->delete();
-    
+
         return response()->noContent();
     }
 

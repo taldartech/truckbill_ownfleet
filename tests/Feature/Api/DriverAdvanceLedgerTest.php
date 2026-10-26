@@ -264,9 +264,12 @@ class DriverAdvanceLedgerTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+        $this->provisionActiveSubscription($tenant);
+        $attrs = $this->operationalAttributesForTenant($tenant);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $attrs['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -274,7 +277,7 @@ class DriverAdvanceLedgerTest extends TestCase
         ]);
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$attrs,
             'name' => 'Wallet Driver',
             'phone' => fake()->numerify('9#########'),
             'license_number' => 'DL-WALLET',
@@ -296,9 +299,12 @@ class DriverAdvanceLedgerTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+        $this->provisionActiveSubscription($tenant);
+        $attrs = $this->operationalAttributesForTenant($tenant);
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
+            'branch_id' => $attrs['branch_id'],
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
@@ -306,14 +312,14 @@ class DriverAdvanceLedgerTest extends TestCase
         ]);
 
         $vehicle = Vehicle::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$attrs,
             'registration_number' => 'MH12AB9999',
             'vehicle_type' => 'TRUCK',
             'odometer_km' => 0,
         ]);
 
         $driver = Driver::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$attrs,
             'name' => 'Assigned Driver',
             'phone' => fake()->numerify('9#########'),
             'license_number' => 'DL-TEST',
@@ -322,7 +328,7 @@ class DriverAdvanceLedgerTest extends TestCase
         ]);
 
         DriverAssignment::query()->create([
-            'tenant_id' => $tenant->id,
+            ...$attrs,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'assigned_from' => '2026-06-01',

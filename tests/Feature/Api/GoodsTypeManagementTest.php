@@ -81,13 +81,18 @@ class GoodsTypeManagementTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->deleteJson("/app/api/goods-types/{$type->id}")
+            ->deleteJson("/app/api/goods-types/{$type->id}", [
+                'deleted_reason' => 'Decommissioned goods type',
+            ])
             ->assertOk();
 
         $this->assertDatabaseHas('goods_types', [
             'id' => $type->id,
             'is_active' => false,
+            'deleted_by' => $admin->id,
         ]);
+        $trashed = \App\GoodsType::withTrashed()->findOrFail($type->id);
+        $this->assertEquals($admin->id, $trashed->deletedBy?->id);
 
         $this->actingAs($admin)
             ->getJson('/app/api/goods-types')

@@ -22,4 +22,9 @@ class MonthlyWageAccrualTest extends TestCase
     {
         $this->assertSame(0.0, MonthlyWageAccrual::perDay(0, '2026-06-15'));
     }
+
+    public function test_per_day_returns_zero_when_divisor_is_zero(): void
+    {
+        $this->assertSame(0.0, MonthlyWageAccrual::perDay(1000, '2026-06-15', 0));
+    }
 }

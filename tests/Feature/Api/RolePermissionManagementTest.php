@@ -114,7 +114,7 @@ class RolePermissionManagementTest extends TestCase
 
         $response = $this->actingAs($master)->deleteJson("/app/api/managed-users/{$target->id}");
 
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
     public function test_moderator_cannot_access_role_api(): void
@@ -150,6 +150,8 @@ class RolePermissionManagementTest extends TestCase
             'timezone' => 'Asia/Kolkata',
             'is_active' => true,
         ]);
+
+        $this->provisionActiveSubscription($ownedTenant);
 
         $ownedBranch = \App\Branch::query()->create([
             'company_id' => $ownedTenant->id,

@@ -57,3 +57,5 @@ ad.js
 
 public/storage
 .phpunit.result.cache
+
+/coverage

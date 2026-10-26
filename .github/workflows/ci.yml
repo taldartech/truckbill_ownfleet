@@ -1,0 +1,110 @@
+name: TruckBill Comprehensive QA & Test Automation CI
+
+on:
+  push:
+    branches: [ "main", "master", "minor_fix", "release/*" ]
+  pull_request:
+    branches: [ "main", "master", "minor_fix" ]
+
+jobs:
+  php-qa-matrix:
+    name: PHP ${{ matrix.php }} Test Suite & Coverage Gate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP Runtime with Extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, sqlite3, pdo_sqlite, bcmath, pcov
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Setup Test Environment Configuration
+        run: |
+          cp .env.example .env.testing || touch .env.testing
+          php artisan key:generate --env=testing
+
+      - name: Execute Critical Core Logic 100% Coverage Gate
+        run: |
+          php -d memory_limit=512M -d pcov.enabled=1 -d pcov.directory=app ./vendor/bin/phpunit -c phpunit.critical.xml --coverage-text
+
+      - name: Execute Full PHPUnit Test Suite
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: |
+          php -d memory_limit=512M ./vendor/bin/phpunit --colors=always
+
+  playwright-e2e:
+    name: Playwright End-to-End Browser Automation
+    runs-on: ubuntu-latest
+    needs: [php-qa-matrix]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP for Web Server
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, pdo, pdo_sqlite, bcmath
+          tools: composer:v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          composer install --prefer-dist --no-interaction --optimize-autoloader
+          npm ci || npm install
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Frontend Assets
+        run: npm run build
+
+      - name: Start Laravel Application Server
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: |
+          php artisan key:generate --env=testing
+          php artisan serve --port=8000 &
+          sleep 3
+
+      - name: Run Playwright E2E Tests
+        env:
+          APP_URL: http://127.0.0.1:8000
+        run: npx playwright test tests/e2e/auth.spec.ts --project=chromium
+
+      - name: Upload Playwright Report Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

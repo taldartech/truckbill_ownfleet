@@ -12,6 +12,7 @@ use App\Enums\TripStatus;
 use App\Modules\TripManagement\Services\TripService;
 use App\Permission;
 use App\Station;
+use App\Support\BranchContext;
 use App\Support\TenantContext;
 use App\Tenant;
 use App\User;
@@ -107,7 +108,7 @@ class ProductionReadinessTest extends TestCase
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson('/api/trips', $this->tripPayload($vehicle, $driver, $stations))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['driver_id']);
+            ->assertJsonValidationErrors(['vehicle_id']);
     }
 
     public function test_completed_trip_cannot_be_edited_by_admin_except_expenses(): void
@@ -235,6 +236,7 @@ class ProductionReadinessTest extends TestCase
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
         Sanctum::actingAs($user);
         TenantContext::setTenantId($tenant->id);
+        BranchContext::setBranchId((int) $vehicle->branch_id);
 
         app(TripService::class)->create($this->tripPayload($vehicle, $driver, $stations, asArray: true));
 
@@ -249,6 +251,7 @@ class ProductionReadinessTest extends TestCase
         [$tenant, $user, $vehicle, $driver, $stations] = $this->createTripFixtures('admin');
         Sanctum::actingAs($user);
         TenantContext::setTenantId($tenant->id);
+        BranchContext::setBranchId((int) $vehicle->branch_id);
 
         app(TripService::class)->create($this->tripPayload($vehicle, $driver, $stations, asArray: true));
 

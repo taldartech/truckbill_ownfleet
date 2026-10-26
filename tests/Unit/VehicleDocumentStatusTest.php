@@ -99,4 +99,30 @@ class VehicleDocumentStatusTest extends TestCase
 
         $this->assertSame(['c', 'b', 'd', 'a'], array_column($sorted, 'id'));
     }
+
+    #[Test]
+    public function it_handles_null_expiry_date(): void
+    {
+        $status = VehicleDocumentStatus::compute(null);
+
+        $this->assertSame('valid', $status['status_tier']);
+        $this->assertSame('Valid', $status['status_label']);
+        $this->assertNull($status['days_remaining']);
+        $this->assertSame('success', $status['badge_color']);
+        $this->assertSame('success', $status['row_color']);
+    }
+
+    #[Test]
+    public function it_labels_multi_year_differences(): void
+    {
+        $today = Carbon::parse('2026-07-08');
+        $status = VehicleDocumentStatus::compute(
+            Carbon::parse('2024-05-01'),
+            30,
+            $today,
+        );
+
+        $this->assertSame('expired', $status['status_tier']);
+        $this->assertStringContainsString('Y', $status['status_label']);
+    }
 }

@@ -816,6 +816,15 @@ class InvoiceManagementTest extends TestCase
         $this->assertCount(1, $invoice->items);
         $this->assertSame(0.0, (float) $trip->fresh()->total_custom_amount);
         $this->assertSame(1, InvoiceAuditLog::query()->where('invoice_id', $invoiceId)->count());
+        $log = InvoiceAuditLog::query()->where('invoice_id', $invoiceId)->firstOrFail();
+        $this->assertSame('charges_updated', $log->event_type);
+        $this->assertSame($user->id, $log->performed_by);
+        $this->assertTrue($log->invoice->is($invoice));
+        $this->assertTrue($log->performer->is($user));
+        $this->assertTrue($invoice->auditLogs->contains($log));
+        $this->assertIsArray($log->payload);
+        $this->assertArrayHasKey('previous', $log->payload);
+        $this->assertArrayHasKey('current', $log->payload);
     }
 
     public function test_invoiced_trip_cannot_be_fully_edited_even_by_super_admin(): void
@@ -1002,7 +1011,9 @@ class InvoiceManagementTest extends TestCase
         $invoiceId = $generate->json('data.0.id');
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
-            ->deleteJson("/app/api/invoices/{$invoiceId}")
+            ->deleteJson("/app/api/invoices/{$invoiceId}", [
+                'cancellation_reason' => 'Customer requested cancellation',
+            ])
             ->assertNoContent();
 
         $invoice = Invoice::query()->findOrFail($invoiceId);
@@ -1018,7 +1029,19 @@ class InvoiceManagementTest extends TestCase
             ->getJson("/app/api/invoices/{$invoiceId}")
             ->assertOk()
             ->assertJsonPath('data.payment_status', 'cancelled')
-            ->assertJsonPath('data.is_cancelled', true);
+            ->assertJsonPath('data.is_cancelled', true)
+            ->assertJsonPath('data.audit_logs.0.event_type', 'cancelled')
+            ->assertJsonPath('data.audit_logs.0.performed_by.id', $user->id);
+
+        $cancelLog = InvoiceAuditLog::query()
+            ->where('invoice_id', $invoiceId)
+            ->where('event_type', 'cancelled')
+            ->firstOrFail();
+        $this->assertSame($user->id, $cancelLog->performed_by);
+        $this->assertSame('Customer requested cancellation', $cancelLog->payload['cancellation_reason']);
+        $this->assertTrue($cancelLog->invoice->is($invoice));
+        $this->assertTrue($cancelLog->performer->is($user));
+        $this->assertTrue($invoice->auditLogs->contains($cancelLog));
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->postJson("/app/api/invoices/{$invoiceId}/payments", [
@@ -1091,6 +1114,7 @@ class InvoiceManagementTest extends TestCase
         $this->assertStringStartsWith($invoiceNumber.'__deleted_', $deleted->invoice_number);
         $this->assertSame('Created by mistake during testing.', $deleted->deletion_reason);
         $this->assertSame($user->id, $deleted->deleted_by);
+        $this->assertEquals($user->id, $deleted->deletedBy?->id);
         $this->assertSame(
             FreightBillingStatus::Unbilled,
             $trip->fresh()->routeLegs->first()->billing_status
@@ -1245,6 +1269,10 @@ class InvoiceManagementTest extends TestCase
 
     public function test_due_reminder_command_creates_app_notifications(): void
     {
+        $exitEmpty = Artisan::call('invoices:send-due-reminders');
+        $this->assertSame(0, $exitEmpty);
+        $this->assertStringContainsString('No due invoices found.', Artisan::output());
+
         [$tenant, $user, $vehicle, $driver, $stations, $customers] = $this->createInvoiceFixtures();
         $this->actingAs($user);
 
@@ -1274,6 +1302,32 @@ class InvoiceManagementTest extends TestCase
                 ->where('data->invoice_id', $invoiceId)
                 ->exists()
         );
+
+        $notifCountBefore = \App\AppNotification::query()->withoutGlobalScopes()->count();
+        Artisan::call('invoices:send-due-reminders');
+        $this->assertSame($notifCountBefore, \App\AppNotification::query()->withoutGlobalScopes()->count());
+
+        $owner = User::query()->create([
+            'tenant_id' => null,
+            'name' => 'Tenant Owner',
+            'email' => 'owner-remind@example.com',
+            'password' => 'password',
+            'user_role_id' => UserRole::SUPER_ADMIN,
+        ]);
+        $tenant->update(['owner_user_id' => $owner->id]);
+        User::query()->where('tenant_id', $tenant->id)->update(['user_role_id' => UserRole::MODERATOR]);
+        \App\AppNotification::query()->withoutGlobalScopes()->where('data->invoice_id', $invoiceId)->delete();
+
+        Artisan::call('invoices:send-due-reminders');
+        $this->assertDatabaseHas('app_notifications', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $owner->id,
+            'type' => 'invoice_due_reminder',
+        ]);
+
+        $tenant->update(['owner_user_id' => null]);
+        \App\AppNotification::query()->withoutGlobalScopes()->where('data->invoice_id', $invoiceId)->delete();
+        Artisan::call('invoices:send-due-reminders');
     }
 
     public function test_broker_customer_invoice_skips_gst_for_regular_company(): void

@@ -55,11 +55,16 @@ class BranchManagementTest extends TestCase
             ->assertJsonPath('data.branch_name', 'HQ Updated');
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branchId)
+            ->deleteJson('/app/api/branches/'.$branchId, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk()
             ->assertJsonPath('message', 'Branch deleted.');
 
         $this->assertSoftDeleted('branches', ['id' => $branchId]);
+        $deletedBranch = \App\Branch::withTrashed()->findOrFail($branchId);
+        $this->assertSame($superAdmin->id, $deletedBranch->deleted_by);
+        $this->assertEquals($superAdmin->id, $deletedBranch->deletedBy?->id);
     }
 
     public function test_branch_deletion_impact_returns_truck_and_driver_counts(): void
@@ -123,7 +128,9 @@ class BranchManagementTest extends TestCase
         ]);
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branch->id)
+            ->deleteJson('/app/api/branches/'.$branch->id, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk();
 
         $this->assertSoftDeleted('branches', ['id' => $branch->id]);
@@ -249,7 +256,9 @@ class BranchManagementTest extends TestCase
         $branchId = Branch::query()->value('id');
 
         $this->actingAs($superAdmin)
-            ->deleteJson('/app/api/branches/'.$branchId)
+            ->deleteJson('/app/api/branches/'.$branchId, [
+                'deleted_reason' => 'Branch closed',
+            ])
             ->assertOk();
 
         $this->actingAs($superAdmin)
@@ -590,6 +599,32 @@ class BranchManagementTest extends TestCase
             ->assertJsonPath('data.branch_logo', null);
 
         Storage::disk('public')->assertMissing($storedLogo);
+    }
+
+    public function test_backfill_branch_data_command(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $tenant = $this->createOwnedTenant($superAdmin, 'Backfill Tenant');
+
+        $vehicle = \App\Vehicle::query()->create([
+            'tenant_id' => $tenant->id,
+            'branch_id' => null,
+            'registration_number' => 'MH12BF0001',
+            'vehicle_type' => 'TRUCK',
+        ]);
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('branches:backfill-data', ['--dry-run' => true]);
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Dry run complete.', \Illuminate\Support\Facades\Artisan::output());
+        $this->assertNull($vehicle->fresh()->branch_id);
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('branches:backfill-data');
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Branch backfill complete.', \Illuminate\Support\Facades\Artisan::output());
+
+        $defaultBranch = Branch::query()->where('company_id', $tenant->id)->first();
+        $this->assertNotNull($defaultBranch);
+        $this->assertSame($defaultBranch->id, $vehicle->fresh()->branch_id);
     }
 
     private function createSuperAdmin(): User

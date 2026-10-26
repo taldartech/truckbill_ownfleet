@@ -2086,7 +2086,7 @@ class TripManagementTest extends TestCase
             ->getJson('/api/reports/trips/expense-summary');
 
         $response->assertOk();
-        $response->assertJsonStructure(['data' => [['trip_count', 'entry_count', 'total_amount']]]);
+        $response->assertJsonPath('summary.trip_count', 1);
     }
 
     public function test_route_profitability_report_uses_stored_leg_distances(): void
@@ -3349,6 +3349,9 @@ class TripManagementTest extends TestCase
         $this->assertNotNull($auditLog);
         $this->assertSame('Created by mistake during testing.', $auditLog->payload['archive_reason'] ?? null);
         $this->assertSame($trip->trip_number, $auditLog->payload['trip_number'] ?? null);
+        $this->assertTrue($auditLog->trip->is($archivedTrip));
+        $this->assertTrue($auditLog->performer->is($user));
+        $this->assertTrue($archivedTrip->auditLogs->contains($auditLog));
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips')
@@ -3576,6 +3579,18 @@ class TripManagementTest extends TestCase
             'event_type' => 'trip.restored',
             'performed_by' => $user->id,
         ]);
+
+        $restoreLog = TripAuditLog::query()
+            ->where('trip_id', $trip->id)
+            ->where('event_type', 'trip.restored')
+            ->firstOrFail();
+        $this->assertSame($user->id, $restoreLog->performed_by);
+        $this->assertSame('Archived so it can be restored in this test.', $restoreLog->payload['previous_archive_reason']);
+        $this->assertSame($trip->trip_number, $restoreLog->payload['trip_number']);
+        $this->assertSame($user->id, $restoreLog->payload['restored_by']['id']);
+        $this->assertTrue($restoreLog->trip->is($restoredTrip));
+        $this->assertTrue($restoreLog->performer->is($user));
+        $this->assertCount(2, $restoredTrip->auditLogs);
 
         $this->withHeader('X-Tenant-Id', $tenant->id)
             ->getJson('/api/trips/'.$trip->id)

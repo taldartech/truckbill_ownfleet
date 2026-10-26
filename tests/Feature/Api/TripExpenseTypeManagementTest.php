@@ -576,6 +576,17 @@ class TripExpenseTypeManagementTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
+    public function test_clear_permission_cache_command(): void
+    {
+        [$tenant, $admin] = $this->createTenantUser('admin');
+        $initialGen = \App\Support\PermissionCache::generation();
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('permissions:clear-cache');
+        $this->assertSame(0, $exitCode);
+        $this->assertGreaterThan($initialGen, \App\Support\PermissionCache::generation());
+        $this->assertStringContainsString('Permission cache cleared.', \Illuminate\Support\Facades\Artisan::output());
+    }
+
     /**
      * @return array{0: Tenant, 1: User}
      */

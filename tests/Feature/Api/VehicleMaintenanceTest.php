@@ -180,7 +180,7 @@ class VehicleMaintenanceTest extends TestCase
             ->getJson('/app/api/reports/maintenance/cost-summary?from=2026-01-01&to=2026-03-31')
             ->assertOk()
             ->assertJsonPath('data.0.service_type', 'OIL_CHANGE')
-            ->assertJsonPath('data.1.service_type_label', 'Grand Total');
+            ->assertJsonPath('grand_total.service_type_label', 'Grand Total');
     }
 
     public function test_maintenance_report_export_returns_excel_for_selected_filters(): void

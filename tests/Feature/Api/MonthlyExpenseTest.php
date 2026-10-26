@@ -82,14 +82,19 @@ class MonthlyExpenseTest extends TestCase
             ->assertJsonPath('data.particulars', 'Office rent revised')
             ->assertJsonPath('data.amount', 3000);
 
-        $this->deleteJson("/app/api/monthly-expenses/{$expenseId}")
+        $this->deleteJson("/app/api/monthly-expenses/{$expenseId}", [
+            'deleted_reason' => 'Expense cancelled',
+        ])
             ->assertNoContent();
 
         $this->assertSoftDeleted('monthly_expenses', ['id' => $expenseId]);
         $this->assertDatabaseHas('monthly_expenses', [
             'tenant_id' => $tenant->id,
             'id' => $expenseId,
+            'deleted_by' => $user->id,
         ]);
+        $trashed = \App\MonthlyExpense::withTrashed()->findOrFail($expenseId);
+        $this->assertEquals($user->id, $trashed->deletedBy?->id);
     }
 
     public function test_monthly_expenses_are_isolated_by_branch(): void
@@ -228,7 +233,9 @@ class MonthlyExpenseTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($user)
-            ->deleteJson("/app/api/monthly-expenses/{$expenseId}")
+            ->deleteJson("/app/api/monthly-expenses/{$expenseId}", [
+                'deleted_reason' => 'Unauthorized deletion attempt',
+            ])
             ->assertForbidden();
 
         $this->assertDatabaseHas('monthly_expenses', [

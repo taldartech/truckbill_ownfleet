@@ -98,4 +98,63 @@ class GstSettingsResolverTest extends TestCase
         $this->assertSame((int) $gj, $settings['state_id']);
         $this->assertSame('branch', $settings['source']);
     }
+
+    public function test_from_company_null_returns_default_structure(): void
+    {
+        $settings = (new GstSettingsResolver)->fromCompany(null, inherit: true);
+
+        $this->assertTrue($settings['inherit_company_gst']);
+        $this->assertNull($settings['registration_type']);
+        $this->assertNull($settings['tax_liability']);
+        $this->assertNull($settings['gst_number']);
+        $this->assertNull($settings['gst_rate']);
+        $this->assertNull($settings['state_id']);
+        $this->assertNull($settings['state_code']);
+        $this->assertSame('company', $settings['source']);
+    }
+
+    public function test_branch_lazy_loads_relations_and_handles_string_values(): void
+    {
+        $mh = \App\State::query()->where('code', 'MH')->value('id');
+
+        $company = Tenant::query()->create([
+            'name' => 'Lazy Co',
+            'slug' => 'lazy-co',
+            'timezone' => 'Asia/Kolkata',
+            'is_active' => true,
+            'registration_type' => 'regular',
+            'tax_liability' => null,
+            'gst_number' => '27AAAAA0000A1Z5',
+            'state_id' => $mh,
+            'gst_rate' => null,
+        ]);
+
+        $branch = Branch::query()->create([
+            'company_id' => $company->id,
+            'branch_name' => 'Lazy Branch',
+            'branch_contact_number' => '9876543212',
+            'head_office' => false,
+            'inherit_company_gst' => false,
+            'registration_type' => 'regular',
+            'tax_liability' => 'forward_charge',
+            'gst_number' => '27CCCCCC0000C1Z5',
+            'state_id' => $mh,
+            'gst_rate' => 18.0,
+        ]);
+
+        // Branch without loaded relations triggers lazy-loading queries
+        $freshBranch = Branch::query()->find($branch->id);
+        $settings = (new GstSettingsResolver)->forBranch($freshBranch);
+
+        $this->assertFalse($settings['inherit_company_gst']);
+        $this->assertSame(GstRegistrationType::Regular, $settings['registration_type']);
+        $this->assertSame(TaxLiability::ForwardCharge, $settings['tax_liability']);
+        $this->assertSame(18.0, $settings['gst_rate']);
+        $this->assertSame('MH', $settings['state_code']);
+
+        // Test company with empty gst rate and null tax liability defaulting to ForwardCharge
+        $companySettings = (new GstSettingsResolver)->fromCompany(Tenant::query()->find($company->id));
+        $this->assertSame(TaxLiability::ForwardCharge, $companySettings['tax_liability']);
+        $this->assertNull($companySettings['gst_rate']);
+    }
 }
